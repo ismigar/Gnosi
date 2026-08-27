@@ -1,8 +1,16 @@
 .git
 .venv
 __pycache__
-frontend/node_modules
+node_modules
+**/node_modules
 frontend/dist
+desktop/dist
+desktop/dist-python
+desktop/python-build
 backend/__pycache__
 .env
+.env.*
+local_data
+playwright-report
+test-results
 .DS_Store

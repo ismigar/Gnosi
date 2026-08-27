@@ -35,7 +35,7 @@ HTTP_METHODS = {
     "websocket",
 }
 SOURCE_SUFFIXES = {".js", ".jsx", ".ts", ".tsx"}
-PUBLIC_SOURCE_BASE = "https://github.com/ismigar/Gnosi/blob/main/apps/gnosi"
+PUBLIC_SOURCE_BASE = "https://github.com/ismigar/Gnosi/blob/main"
 TEST_NAME_RE = re.compile(r"(?:^test_.*\.py$|.*\.(?:test|spec)\.(?:js|jsx|ts|tsx)$)")
 SECRET_NAME_RE = re.compile(
     r"(?:API_?KEY|BEARER|CREDENTIAL|PASSWORD|PRIVATE|SECRET|TOKEN)", re.IGNORECASE
@@ -121,21 +121,13 @@ def find_app_root(start: Path) -> Path:
 
 
 def find_project_root(start: Path) -> Path:
-    """Return the repository root that owns ``docs/dev_memory/directives``.
+    """Return the repository root that may own private development directives.
 
-    The directive files live at the repository root, which may sit one or more
-    levels above the application root (e.g. ``monorepo/apps/gnosi`` in the
-    private repo vs. ``apps/gnosi`` in the public mirror). Walk upward from
-    ``start`` and return the first ancestor that contains the directives tree
-    instead of assuming a fixed nesting depth.
+    Canonical generation must not change merely because the checkout happens
+    to live below a private workspace repository. External memory can still be
+    supplied explicitly with ``--project-root`` for local audits.
     """
-    marker = Path("docs") / "dev_memory" / "directives"
-    for candidate in (start.resolve(), *start.resolve().parents):
-        if (candidate / marker).is_dir():
-            return candidate
-    raise RuntimeError(
-        f"Could not locate the project root containing {marker} from {start}"
-    )
+    return find_app_root(start)
 
 
 def relative_posix(path: Path, root: Path) -> str:
@@ -943,7 +935,7 @@ def format_environment_default(name: str, node: ast.AST | None) -> str:
 def collect_environment_references(app_root: Path) -> list[EnvironmentReference]:
     """Collect environment names from owned Python and JavaScript source."""
     references: list[EnvironmentReference] = []
-    python_roots = [app_root / "backend", app_root / "pipeline", app_root / "sh"]
+    python_roots = [app_root / "backend", app_root / "pipeline", app_root / "scripts"]
     seen_python: set[Path] = set()
     for root in python_roots:
         if not root.exists():
@@ -961,7 +953,7 @@ def collect_environment_references(app_root: Path) -> list[EnvironmentReference]
             visitor.visit(tree)
             references.extend(visitor.references)
 
-    javascript_roots = [app_root / "frontend" / "src", app_root / "electron"]
+    javascript_roots = [app_root / "frontend" / "src", app_root / "desktop"]
     for root in javascript_roots:
         if not root.exists():
             continue
@@ -1047,7 +1039,7 @@ def build_test_catalog(app_root: Path) -> str:
     ]
     frontend_tests = [
         path
-        for root in [app_root / "frontend", app_root / "e2e"]
+        for root in [app_root / "frontend", app_root / "tests" / "e2e"]
         for path in frontend_files(root)
         if TEST_NAME_RE.match(path.name)
     ]
@@ -1194,7 +1186,8 @@ def build_coverage_catalog(app_root: Path, project_root: Path, domains_path: Pat
             for value in item["directives"]
         ]
         directives = [path for path in directive_paths if path.is_file()]
-        if item["directives"] and not directives:
+        directive_root = project_root / "docs" / "dev_memory" / "directives"
+        if directive_root.is_dir() and item["directives"] and not directives:
             log.warning(
                 "Domain %s declares %d directive(s) but none were found under "
                 "%s/docs/dev_memory/directives — check --project-root.",
@@ -1246,11 +1239,10 @@ def build_repository_inventory(app_root: Path, project_root: Path) -> str:
         "backend",
         "frontend/src",
         "pipeline",
-        "electron",
-        "integrations",
-        "web-clipper",
-        "e2e",
-        "sh",
+        "desktop",
+        "extensions",
+        "tests/e2e",
+        "scripts",
     ]
     lines = generated_header(
         "Repository inventory",
@@ -1281,11 +1273,10 @@ def build_repository_inventory(app_root: Path, project_root: Path) -> str:
         "backend": "FastAPI, services, models, agents, scheduling, and storage adapters",
         "frontend/src": "React application, UI behavior, state, and browser integrations",
         "pipeline": "Reusable application skills and deterministic processing tools",
-        "electron": "Desktop lifecycle, backend packaging, IPC, and updates",
-        "integrations": "Office and external-system adapters",
-        "web-clipper": "Browser extension capture surface",
-        "e2e": "Host-level Playwright acceptance tests",
-        "sh": "Native and self-host operational scripts",
+        "desktop": "Desktop lifecycle, backend packaging, IPC, and updates",
+        "extensions": "Office, browser, plugin, marketplace, and external-system adapters",
+        "tests/e2e": "Host-level Playwright acceptance tests",
+        "scripts": "Native, self-host, release, and maintenance scripts",
     }
     for source_root in owned_roots:
         root = app_root / source_root

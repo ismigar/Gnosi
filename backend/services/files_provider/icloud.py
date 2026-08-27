@@ -5,7 +5,7 @@ iCloud Drive uses the same pattern as OneDrive on macOS:
 - Materialization triggered by `open()/read()` (the File Provider
   framework handles the download transparently).
 
-The `sh/onedrive_warmup_daemon.py` daemon is provider-agnostic:
+The `scripts/runtime/onedrive_warmup_daemon.py` daemon is provider-agnostic:
 it only receives an absolute path and does `open()/read()`. So the same daemon
 serves both OneDrive and iCloud — the only thing that changes is the provider
 label (visible in the log) and, optionally, dedicated env vars.

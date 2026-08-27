@@ -7,13 +7,13 @@
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/skills/auto_improver/scripts/proactive_agent.py</string>
+        <string>/Users/ismaelgarciafernandez/Projectes/Gnosi/pipeline/skills/auto_improver/scripts/proactive_agent.py</string>
     </array>
     <key>RunAtLoad</key>
     <false/>
     <key>StandardOutPath</key>
-    <string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/.tmp/proactive_agent.log</string>
+    <string>/Users/ismaelgarciafernandez/Projectes/Gnosi/pipeline/.tmp/proactive_agent.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/.tmp/proactive_agent.log</string>
+    <string>/Users/ismaelgarciafernandez/Projectes/Gnosi/pipeline/.tmp/proactive_agent.log</string>
 </dict>
 </plist>

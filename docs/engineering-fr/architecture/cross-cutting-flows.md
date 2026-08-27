@@ -12,7 +12,7 @@ source_paths:
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_workspace_bootstrap_race.py
-  - e2e/tests/accessibility/accessibility.spec.ts
+  - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Flux transversaux

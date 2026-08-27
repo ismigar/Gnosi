@@ -17,7 +17,7 @@ What we cover:
     - `_resolve_storage_dir` validation of dest_folder for 'free'
 
 Run:
-    cd monorepo/apps/gnosi
+    cd Gnosi
     GNOSI_LOCAL_DATA=local_data .venv/bin/python -m pytest \
         backend/tests/test_property_upload_storage_gate.py -v
 """

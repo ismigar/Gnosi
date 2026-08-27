@@ -61,7 +61,7 @@ Sólo se mantienen los hashes PAT y un prefijo reconocible. Los tokens de accion
 
 ## Aislamiento de datos locales
 
-`GNOSI_LOCAL_DATA` apunta a la raíz por instance. El solucionador de rutas crea caché, sistema, punto de control, registro, audio, salida, respaldo y directorios secretos. Docker asigna esto a `/app/data`; el tiempo de ejecución nativo utiliza `monorepo/apps/gnosi/local_data`.
+`GNOSI_LOCAL_DATA` apunta a la raíz por instance. El solucionador de rutas crea caché, sistema, punto de control, registro, audio, salida, respaldo y directorios secretos. Docker asigna esto a `/app/data`; el tiempo de ejecución nativo utiliza `Gnosi/local_data`.
 
 Los archivos SQLite no deben colocarse en OneDrive, iCloud Drive, Dropbox u otra capa de sincronización de archivos. La sincronización de archivos no proporciona semántica de bloqueo SQLite y puede dañar o bifurcar la base de datos.
 

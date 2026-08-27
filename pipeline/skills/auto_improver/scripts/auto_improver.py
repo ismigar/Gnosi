@@ -18,10 +18,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 APP_ROOT = Path(__file__).resolve().parents[4]
-REPO_ROOT = APP_ROOT.parents[2]
+REPO_ROOT = APP_ROOT
 STATE_ROOT = APP_ROOT / "local_data" / "auto_improver"
 SECRETS_ENV = APP_ROOT / "local_data" / "secrets" / "auto_improver.env"
-E2E_ROOT = APP_ROOT / "e2e"
+E2E_ROOT = APP_ROOT / "tests/e2e"
 API_URL = os.environ.get("GNOSI_API_URL", "http://localhost:5002")
 
 
@@ -82,7 +82,7 @@ def main() -> int:
         vault_id = resolve_proves_vault()
         env = os.environ.copy()
         env["GNOSI_TEST_VAULT_ID"] = vault_id
-        scout = run(["npm", "exec", "playwright", "test", "tests/e2e/automation-scout.spec.ts", "--project=chromium-auth"], env=env, cwd=E2E_ROOT)
+        scout = run(["pnpm", "exec", "playwright", "test", "tests/e2e/automation-scout.spec.ts", "--project=chromium-auth"], env=env, cwd=E2E_ROOT)
         finding = {"kind": "browser_scout", "severity": "critical" if scout["exit_code"] else "none",
                    "vault_id": vault_id, "scout": scout}
         finding["fingerprint"] = fingerprint({"kind": finding["kind"], "exit_code": scout["exit_code"], "stderr": scout["stderr"]})

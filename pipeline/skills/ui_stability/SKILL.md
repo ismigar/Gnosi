@@ -28,6 +28,6 @@ Inside the `visibleFields.map` filter block, the `<h5>` label accessed
 
 ## QA
 
-1. Run `npm run build` in `frontend`.
+1. Run `pnpm build:frontend` from the repository root.
 2. Open the graph page and verify field filters render without errors,
    especially for system fields.

@@ -72,7 +72,7 @@ the system keychain.
 
 ```bash
 brew install mkcert nss   # once
-sh/setup-https-dev.sh     # CA + certificate in frontend/certs/ (gitignored)
+scripts/runtime/setup-https-dev.sh     # CA + certificate in frontend/certs/ (gitignored)
 
 # Restart Vite so it reloads the configuration and switches to HTTPS:
 launchctl kickstart -k gui/$UID/com.gnosi.frontend-native   # native (default)
@@ -95,7 +95,7 @@ publishing it to Microsoft Store.
 Quit Word completely (`Cmd+Q`), then run:
 
 ```bash
-cd ../../../integrations/word-cite-pin && ./install.sh
+cd ../../../extensions/office/word-cite && ./install.sh
 ```
 
 The installer copies the manifest into `wef/` and patches `Normal.dotm` so
@@ -164,7 +164,7 @@ Office.js writes `visibility="0"`, which only works when the add-in is
 installed. That creates a circular dependency on macOS because a sideloaded
 add-in is never installed persistently. `visibility="1"` works, but can only
 be written through Open XML. The tools in
-[`integrations/word-cite-pin/`](../../../integrations/word-cite-pin/) implement
+[`extensions/office/word-cite/`](../../../extensions/office/word-cite/) implement
 that approach:
 
 - **`install.sh`** patches `Normal.dotm`, the template Word clones for each new
@@ -185,7 +185,7 @@ Known limitations:
   discards the `word/webextensions/` parts; this was verified with a
   `soffice --convert-to docx` round trip. Run the script again afterward.
   LibreOffice itself uses the persistent `.oxt` extension in
-  [`integrations/libreoffice-cite/`](../../../integrations/libreoffice-cite/);
+  [`extensions/office/libreoffice-cite/`](../../../extensions/office/libreoffice-cite/);
   the session limitation is specific to Word on macOS.
 
 ### Windows

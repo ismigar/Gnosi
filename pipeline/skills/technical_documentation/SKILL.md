@@ -20,24 +20,23 @@ reading local secrets.
 - Validator: `scripts/validate.py`.
 - Functional change gate: `scripts/check_change_impact.py`.
 - Portal configuration: `mkdocs.yml` at the application root.
-- Development rules and incident memory:
-  `docs/dev_memory/directives/technical_documentation_system.md` at the private
-  monorepo root.
+- Development rules and incident memory live in the private `WorkspaceTools`
+  repository and are intentionally absent from public checkouts.
 
 Generated pages are committed so documentation changes can be reviewed as
 ordinary diffs. They must never be edited manually.
 
 ## Commands
 
-Run from `monorepo/apps/gnosi/`:
+Run from the `Gnosi/` repository root:
 
 ```bash
-python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
-python pipeline/skills/technical_documentation/scripts/generate.py
-python pipeline/skills/technical_documentation/scripts/generate.py --check
-python pipeline/skills/technical_documentation/scripts/validate.py
-python pipeline/skills/technical_documentation/scripts/check_change_impact.py --base-ref <base-commit>
-mkdocs build --strict
+uv run --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
+uv run --group docs python pipeline/skills/technical_documentation/scripts/generate.py
+uv run --group docs python pipeline/skills/technical_documentation/scripts/generate.py --check
+uv run --group docs python pipeline/skills/technical_documentation/scripts/validate.py
+uv run --group docs python pipeline/skills/technical_documentation/scripts/check_change_impact.py --base-ref <base-commit>
+uv run --group docs mkdocs build --strict
 ```
 
 The generator accepts `--app-root` and `--domains` only for isolated tests and
@@ -103,8 +102,8 @@ requires documentation evidence.
   catalog does not make a variable a supported public configuration contract.
 - The generator must not read `.env`, `.env_shared`, Keychain, SQLite, vault,
   or log contents.
-- Public source links target the exported `ismigar/Gnosi` tree at
-  `apps/gnosi/`; local source paths remain in page metadata for validation.
+- Public source links target the canonical `ismigar/Gnosi` repository root;
+  local source paths remain in page metadata for validation.
 
 ## Verification
 

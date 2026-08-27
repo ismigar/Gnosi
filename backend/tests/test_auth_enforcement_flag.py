@@ -294,7 +294,10 @@ def test_on_config_is_gated_and_the_watchdog_does_not_use_it(client, enforcement
     assert client.get("/api/config").status_code == 401
 
     watchdog = (
-        Path(__file__).resolve().parents[2] / "sh" / "native_watchdog.sh"
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "runtime"
+        / "native_watchdog.sh"
     ).read_text()
     assert "/api/health" in watchdog
     assert "5002/api/config" not in watchdog

@@ -25,10 +25,10 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `backend/` | 409 | RALLE, serveis, models, agents, planificació i adaptadors d' emmagatzematge |
 | `frontend/src/` | 343 | Una aplicació react, comportament de la IU, estat i integració del navegador |
 | `pipeline/` | 102 | habilitat de l' aplicació i eines de processament determinants |
-| `electron/` | 18 | Un cicle vital de l'escriptori, empaquetament de paquets de paquets, IPC i actualitzacions |
+| `desktop/` | 18 | Un cicle vital de l'escriptori, empaquetament de paquets de paquets, IPC i actualitzacions |
 | `integrations/` | 12 | Adaptadors de l' oficina i de sistemes externs |
 | `web-clipper/` | 11 | Superfície de captura de l' extensió del navegador |
-| `e2e/` | 26 | Comprovacions d' acceptació de la memòria intermèdia a nivell remot |
+| `tests/e2e/` | 26 | Comprovacions d' acceptació de la memòria intermèdia a nivell remot |
 | `sh/` | 22 | Scripts natius i operatius d' auto-ordinador |
 
 ## Límit d' lusions

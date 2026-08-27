@@ -12,7 +12,7 @@ SOURCE_DIR = f"{HOME}/Projectes/"
 # BACKUP_DEST_DIR so it works with another cloud provider (Dropbox/iCloud/Drive) or
 # without a cloud provider (a local folder). No hardcoded provider assumption.
 DEST_DIR = os.environ.get("BACKUP_DEST_DIR") or f"{HOME}/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
-LOG_FILE = os.path.join(SOURCE_DIR, "monorepo/apps/gnosi/pipeline/sandbox/backup.log")
+LOG_FILE = os.path.join(SOURCE_DIR, "Gnosi/pipeline/sandbox/backup.log")
 
 # Exclusions
 EXCLUDES = [

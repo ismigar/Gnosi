@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 # The test lives in backend/tests/, the repo root is four levels up:
-# monorepo/apps/gnosi/backend/tests/test_zotero_schema.py
+# Gnosi/backend/tests/test_zotero_schema.py
 GNOSI_ROOT = Path(__file__).resolve().parents[2]
 SKILL_DIR = GNOSI_ROOT / "pipeline/skills/zotero_schema"
 BUILD_SCRIPT = SKILL_DIR / "scripts/build_constants.py"

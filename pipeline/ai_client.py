@@ -265,8 +265,11 @@ def check_provider_availability(provider_name: str) -> bool:
         return False
     
     headers = {"Content-Type": "application/json"}
-    if provider_name == "groq" and AI_API_KEY:
-        headers["Authorization"] = f"Bearer {AI_API_KEY}"
+    resolved_api_key = resolve_provider_api_key(provider_name, config)
+    if provider_name == "groq" and not resolved_api_key:
+        resolved_api_key = get_env("HF_API_KEY", required=False)
+    if resolved_api_key:
+        headers["Authorization"] = f"Bearer {resolved_api_key}"
     
     body = {
         "model": config.get("model_name"),

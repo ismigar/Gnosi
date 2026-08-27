@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "@gnosi/frontend",
   "private": true,
   "version": "2.0.6",
   "type": "module",
@@ -10,17 +10,18 @@
   },
   "scripts": {
     "predev": "if command -v docker >/dev/null 2>&1 && docker ps | grep -q gnosi_frontend; then echo 'ERROR: Docker frontend is already running on port 5173. Stop it first or use Docker.'; exit 1; fi",
-    "prebuild": "npm run check:i18n && npm run check:releases",
+    "prebuild": "pnpm run check:i18n && pnpm run check:releases",
     "dev": "vite",
     "build": "vite build",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:releases": "node scripts/release-notes.mjs --check",
     "changelog:write": "node scripts/release-notes.mjs --write-changelog",
     "lint": "eslint .",
+    "typecheck": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "predeploy": "npm run build",
+    "predeploy": "pnpm run build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
@@ -43,6 +44,7 @@
     "@mantine/utils": "^6.0.22",
     "@tailwindcss/postcss": "^4.1.18",
     "@tanstack/react-virtual": "^3.13.24",
+    "@tldraw/tlschema": "5.3.2",
     "@tiptap/core": "^3.30.2",
     "@tiptap/extension-character-count": "^3.30.2",
     "@tiptap/pm": "^3.30.2",
@@ -66,6 +68,7 @@
     "katex": "^0.18.4",
     "lucide-react": "^1.33.0",
     "mermaid": "^11.15.0",
+    "prosemirror-state": "1.4.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hot-toast": "^2.6.0",
@@ -91,7 +94,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.62.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.1.0",

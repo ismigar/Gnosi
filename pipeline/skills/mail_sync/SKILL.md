@@ -3,7 +3,7 @@
 This skill is responsible for synchronizing emails (via IMAP or API) to the Gnosi Vault, converting them into Markdown notes with structured metadata.
 
 > ID: MAIL-SYNC-20260408
-> Associated Script: `monorepo/apps/gnosi/pipeline/skills/mail_sync/scripts/sync_mail.py`
+> Associated Script: `pipeline/skills/mail_sync/scripts/sync_mail.py`
 > Status: ACTIVE
 
 ---

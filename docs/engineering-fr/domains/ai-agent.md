@@ -32,7 +32,7 @@ tests:
   - backend/tests/test_agent_recovery.py
   - backend/tests/test_e2e_tables_assets.py
   - backend/tests/test_vault_trash.py
-  - e2e/tests/e2e/ai-chat.spec.ts
+  - tests/e2e/tests/e2e/ai-chat.spec.ts
 ---
 
 # Agents, modèles, outils et compétences de l'IA

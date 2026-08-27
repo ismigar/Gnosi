@@ -748,9 +748,9 @@ class SchedulerManager:
 
     def _task_fetch_contacts(self) -> Dict[str, Any]:
         """Fetch Contacts from all configured accounts."""
+        from backend.data.management_db import get_mgmt_session
         from backend.services.integration_manager import integration_manager
         from backend.services.contacts_sync_engine import ContactsSyncEngine
-        from backend.data.management_db import db_manager
         
         results = {"success": True, "details": []}
         integrations = integration_manager.get_all_safe()
@@ -761,7 +761,7 @@ class SchedulerManager:
 
         for account in contact_accounts:
             try:
-                with db_manager.mgmt_session() as db:
+                with get_mgmt_session() as db:
                     engine = ContactsSyncEngine(db, account, workspace_id="personal") # Defaulting to personal for background sync
                     sync_res = engine.sync_full_bidirectional()
                     results["details"].append({
@@ -849,10 +849,10 @@ class SchedulerManager:
         cfg = load_params(strict_env=False)
 
         # Gnosi app root derived from this file (backend/scheduler/manager.py):
-        # parents[2] = .../monorepo/apps/gnosi on the host and /app inside the container.
+        # parents[2] = .../Gnosi on the host and /app inside the container.
         # It used to use cfg.paths["PROJECT_DIR"] /
-        # "monorepo/apps/gnosi/pipeline", but inside Docker PROJECT_DIR is /app and this
-        # resolved to /app/monorepo/apps/gnosi/pipeline (nonexistent; the real pipeline is
+        # "Gnosi/pipeline", but inside Docker PROJECT_DIR is /app and this
+        # resolved to /app/Gnosi/pipeline (nonexistent; the real pipeline is
         # /app/pipeline) → the logs, sandbox, and .tmp cleanups were silent no-ops.
         gnosi_root = Path(__file__).resolve().parents[2]
         pipeline_base = gnosi_root / "pipeline"
@@ -879,7 +879,7 @@ class SchedulerManager:
 
         # 2. Clear Agent Mailbox Archive
         # The team mailbox archive lives at `{arrel_repo}/.antigravity/team/mailbox/archive`
-        # (see pipeline/brain/orchestrator.py and monorepo/AGENTS.md). The docker-compose
+        # (see pipeline/brain/orchestrator.py and the private WorkspaceTools agent instructions). The docker-compose
         # mounts at the SAME absolute host↔container path via `${REPO_ROOT:-$HOME/Projectes}`,
         # so we derive the base from REPO_ROOT (fallback: HOME_HOST_PATH/Projectes) to match
         # the mount. We do NOT use PROJECT_DIR: inside the container it's `/app`, where the mount doesn't exist.

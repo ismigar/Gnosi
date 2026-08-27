@@ -35,12 +35,12 @@ import sys
 import time
 from pathlib import Path
 
-GNOSI_ROOT = Path(__file__).resolve().parents[4]     # .../monorepo/apps/gnosi
+GNOSI_ROOT = Path(__file__).resolve().parents[4]     # .../Gnosi
 sys.path.insert(0, str(GNOSI_ROOT))
 # Secrets from the LIVE backend (Notion REST + MCP tokens) — the native setup runs with
-# GNOSI_LOCAL_DATA=<repo principal>/local_data (cf. sh/run_native_dev.sh).
+# GNOSI_LOCAL_DATA=<repo principal>/local_data (cf. scripts/runtime/run_native_dev.sh).
 os.environ.setdefault(
-    "GNOSI_LOCAL_DATA", str(Path.home() / "Projectes/monorepo/apps/gnosi/local_data"))
+    "GNOSI_LOCAL_DATA", str(Path.home() / "Projectes/Gnosi/local_data"))
 
 import httpx  # noqa: E402
 import yaml  # noqa: E402

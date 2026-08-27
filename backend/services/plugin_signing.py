@@ -39,7 +39,7 @@ _trust_lock = threading.Lock()
 # Trusted PUBLIC keys that ship with Gnosi ("official" publishers). The
 # `gnosi-official` key verifies plugins signed by the Gnosi team; the
 # its PRIVATE lives outside the repo (at `~/.gnosi-local/plugin_signing_key.json`,
-# 600 permissions) and is used with `plugins-examples/sign_plugin.py`. The user can
+# 600 permissions) and is used with `extensions/examples/sign_plugin.py`. The user can
 # add more trusted publishers to their store (`.gnosi/plugins_trust.json`).
 BUNDLED_TRUSTED_KEYS: Dict[str, str] = {
     "gnosi-official": "E2CjszyBQSLgm0D1FejG/1j835WBmGRoghnyiXAOrk0=",

@@ -3,7 +3,7 @@
 This skill allows the AI agent (Antigravity/Alejabot) to act as a co-pilot for the Gnosi Vault, performing contextual analysis and operations on Notion pages and databases.
 
 > ID: VAULT-AI-20260401
-> Associated Scripts: `monorepo/apps/gnosi/pipeline/skills/vault_ai_assistant/scripts/`
+> Associated Scripts: `pipeline/skills/vault_ai_assistant/scripts/`
 > Status: ACTIVE
 
 ---

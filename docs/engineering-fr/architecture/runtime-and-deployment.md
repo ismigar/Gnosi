@@ -2,17 +2,17 @@
 status: implemented
 last_verified: 2026-08-15
 source_paths:
-  - sh/run_native_dev.sh
-  - sh/run_native_frontend.sh
-  - sh/native_watchdog.sh
+  - scripts/runtime/run_native_dev.sh
+  - scripts/runtime/run_native_frontend.sh
+  - scripts/runtime/native_watchdog.sh
   - docker-compose.yml
   - Dockerfile.backend
   - Dockerfile.frontend
-  - electron/main.js
+  - desktop/main.js
 tests:
-  - electron/application-menu.test.js
+  - desktop/application-menu.test.js
   - backend/tests/test_host_helper_url.py
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # Durée et déploiement
@@ -23,8 +23,8 @@ L'opération native est l'architecture de développement par défaut. LaunchAgen
 
 | Processus | Bornière de commande | Adresse | Recharger le comportement |
 | --- | --- | --- | --- |
-| Infrastructure | `.venv/bin/uvicorn backend.server:app` | `127.0.0.1:5002` | Montres `backend/`; les changements de dépendances nécessitent un redémarrage. |
-| Frontière | `npm run dev` | HTTPS `:5173` | Vite recharge la source chaude. |
+| Infrastructure | `uv run uvicorn backend.server:app` | `127.0.0.1:5002` | Montres `backend/`; les changements de dépendances nécessitent un redémarrage. |
+| Frontière | `pnpm dev:frontend` | HTTPS `:5173` | Vite recharge la source chaude. |
 
 `run_native_dev.sh` charge l'entrée d'environnement partagé sans l'approvisionner en code shell, établit des chemins de voûte natif et de données locales, sélectionne les défauts host-safe et démarre uvicorne. `run_native_frontend.sh` sélectionne la cible proxy et les surfaces lorsque la caisse servie est un ancêtre déjà fusionné de `origin/main`.
 

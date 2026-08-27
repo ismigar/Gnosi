@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from datetime import datetime, timedelta, timezone
 
 
@@ -40,7 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", required=True)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    parser.add_argument("--github-repo", default="ismigar/Projectes")
+    parser.add_argument("--github-repo", default="ismigar/Gnosi")
     return parser.parse_args()
 
 
@@ -53,25 +54,17 @@ def main() -> int:
     if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):
         errors.append(f"Invalid version: {args.version}")
 
-    app_root = root / "monorepo/apps/gnosi"
+    app_root = root
     manifests = [
+        app_root / "package.json",
         app_root / "frontend/package.json",
-        app_root / "electron/package.json",
-    ]
-    locks = [
-        app_root / "frontend/package-lock.json",
-        app_root / "electron/package-lock.json",
+        app_root / "desktop/package.json",
     ]
     versions: dict[str, str | None] = {}
     for path in manifests:
         versions[str(path.relative_to(root))] = read_json(path).get("version")
-    for path in locks:
-        payload = read_json(path)
-        versions[str(path.relative_to(root))] = payload.get("packages", {}).get("", {}).get("version")
-    monorepo_lock = read_json(root / "monorepo/package-lock.json")
-    versions["monorepo/package-lock.json#apps/gnosi/frontend"] = (
-        monorepo_lock.get("packages", {}).get("apps/gnosi/frontend", {}).get("version")
-    )
+    with (root / "pyproject.toml").open("rb") as handle:
+        versions["pyproject.toml"] = tomllib.load(handle).get("project", {}).get("version")
     for path, version in versions.items():
         if version != args.version:
             errors.append(f"Version mismatch in {path}: {version!r} != {args.version!r}")
@@ -86,10 +79,10 @@ def main() -> int:
     if "max-parallel: 1" not in workflow:
         errors.append("macOS matrix must run one architecture at a time")
     windows_job = workflow.split("  build-windows:", 1)[-1].split("\n  release:", 1)[0]
-    if "needs: build-macos" not in windows_job:
+    if not any("build-macos" in line for line in windows_job.splitlines()[0:5]):
         errors.append("Windows build must wait for all macOS builds")
-    if re.search(r"^\s+npm install\s*$", workflow, flags=re.MULTILINE):
-        errors.append("Release workflow must use npm ci, not npm install")
+    if "pnpm install --frozen-lockfile" not in workflow:
+        errors.append("Release workflow must use the frozen pnpm lock")
 
     runners_payload = run_json(["gh", "api", f"repos/{args.github_repo}/actions/runners", "--paginate"])
     runners = runners_payload.get("runners", []) if isinstance(runners_payload, dict) else []

@@ -12,7 +12,7 @@ tests:
   - backend/tests/test_contacts_sync_merge.py
   - backend/tests/test_carddav_vcard_unfold.py
   - backend/tests/test_vcard_escaping.py
-  - e2e/tests/e2e/contacts.spec.ts
+  - tests/e2e/tests/e2e/contacts.spec.ts
 ---
 
 # Contactes

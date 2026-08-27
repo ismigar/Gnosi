@@ -10,7 +10,7 @@ source_paths:
 tests:
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # Fondation de la plateforme et durée d'exécution
@@ -50,7 +50,7 @@ Une ancienne accréditation d'environnement peut créer un fournisseur une fois,
 ## Invariants
 
 - Port `5002` est le contrat de service; `5173` C'est le contrat de front-end.
-- Le code d'application utilise le code faisant autorité `monorepo/apps/gnosi/` arbre.
+- Le code d'application utilise le code faisant autorité `Gnosi/` arbre.
 - Les chaînes visibles Frontend utilisent tous les catalogues locaux.
 - Les importations en cours ne doivent pas être utilisées par génération de documentation.
 - Une voûte non disponible est représentée explicitement; une trajectoire de sécurité temporaire peut être

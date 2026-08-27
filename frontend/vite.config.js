@@ -25,7 +25,7 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 //                    (undefined) → auto: HTTPS if certs exist, otherwise HTTP
 // IMPORTANT: set VITE_DEV_HTTPS only in a LOCAL .env, never in docker-compose
 // (it's synced via git and would break the other Mac, which doesn't have certs —
-// frontend/certs/ is in .gitignore). Generate the certs with sh/setup-https-dev.sh
+// frontend/certs/ is in .gitignore). Generate the certs with scripts/runtime/setup-https-dev.sh
 // (mkcert). Remember: after generating or deleting certs, restart the
 // container (docker restart gnosi_frontend) so the memory refreshes.
 function resolveDevHttps(env) {
@@ -60,7 +60,7 @@ function resolveDevHttps(env) {
         throw new Error(
           `[vite] VITE_DEV_HTTPS=true but certificates could not be read from ` +
             `${path.join(rootDir, "certs")} (${err.code || err.message}). ` +
-            `Generate them with sh/setup-https-dev.sh or set VITE_DEV_HTTPS=false.`,
+            `Generate them with scripts/runtime/setup-https-dev.sh or set VITE_DEV_HTTPS=false.`,
           { cause: err },
         );
       }

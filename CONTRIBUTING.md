@@ -14,15 +14,17 @@ Gnosi is **free software under the AGPL-3.0-or-later**. By contributing, you agr
 
 ## Repository layout
 
-The app lives at **`apps/gnosi/`** — backend, frontend, and pipeline. That's what the release workflow packages and what the desktop build bundles. Most changes happen there.
+Gnosi is the repository root. The release workflow and desktop build consume this tree directly.
 
 ```
-apps/gnosi/
+Gnosi/
 ├── backend/      # FastAPI app: api/ (routes), services/ (logic), models/, agent/, scheduler/
 ├── frontend/     # React + Vite SPA (BlockNote editor, Sigma.js graph)
 ├── pipeline/     # Python "skills" — analysis, integrations, idempotent scripts
-├── electron/     # Electron desktop wrapper (packaged installers)
-└── e2e/          # Playwright end-to-end tests (host-level project)
+├── desktop/      # Electron desktop wrapper and distribution assets
+├── extensions/   # Connectors, office add-ins, web clipper and examples
+├── scripts/      # Operational scripts
+└── tests/e2e/    # Consolidated Playwright end-to-end tests
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together and where to add new things.
@@ -32,18 +34,18 @@ domains to source, API operations, relational models, configuration, and tests.
 When a change alters one of those contracts, update the reviewed guide and run:
 
 ```bash
-python pipeline/skills/technical_documentation/scripts/generate.py
-python pipeline/skills/technical_documentation/scripts/generate.py --check
-python pipeline/skills/technical_documentation/scripts/validate.py
-mkdocs build --strict
+uv run python pipeline/skills/technical_documentation/scripts/generate.py
+uv run python pipeline/skills/technical_documentation/scripts/generate.py --check
+uv run python pipeline/skills/technical_documentation/scripts/validate.py
+pnpm docs:build
 ```
 
 ## Development setup
 
 ### Prerequisites
 
-- **Python 3.10+**
-- **Node.js** & **npm**
+- **Python 3.11** and **uv**
+- **Node.js 22.22.2** and **pnpm 11.19.0**
 - **(Optional) Docker** — an all-in-one alternative that bundles backend, frontend, and the Zotero translation-server.
 
 ### First-time setup (fresh clone)
@@ -52,7 +54,7 @@ Build the bundled PDF/EPUB reader once (the build artifacts are not committed):
 
 ```bash
 git submodule update --init --recursive
-sh apps/gnosi/sh/build-zotero-reader.sh
+scripts/runtime/build-zotero-reader.sh
 ```
 
 Without this step, documents in the vault return 404 in the reader. Re-run it whenever you update the submodule.
@@ -62,18 +64,15 @@ Without this step, documents in the vault return 404 in the reader. Re-run it wh
 **Backend** (FastAPI / uvicorn):
 
 ```bash
-cd apps/gnosi
-python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload
+uv sync --frozen
+pnpm install --frozen-lockfile
+pnpm dev:backend
 ```
 
 **Frontend** (Vite dev server — proxies `/api` to the backend):
 
 ```bash
-cd apps/gnosi/frontend
-npm install
-npm run dev
+pnpm dev:frontend
 ```
 
 Then open `http://localhost:5173`.
@@ -81,15 +80,14 @@ Then open `http://localhost:5173`.
 ### Run with Docker (optional)
 
 ```bash
-cd apps/gnosi
-docker-compose up -d --build
+pnpm docker:up
 ```
 
 - Frontend → `http://localhost:5173`
 - Backend API → `http://localhost:5002` (health check at `/api/health`)
 - translation-server → internal only
 
-Stop everything with `docker-compose down`.
+Stop everything with `pnpm docker:down`.
 
 ## Coding conventions
 
@@ -116,7 +114,7 @@ See `docs/dev_memory/directives/i18n_and_english_standardization.md`.
 ### TypeScript / React (frontend)
 
 - `camelCase` for variables, `PascalCase` for components, `UPPER_SNAKE_CASE` for constants.
-- ESLint flat config (`frontend/eslint.config.js`). Run `npm run lint` and fix warnings.
+- ESLint flat config (`frontend/eslint.config.js`). Run `pnpm lint:frontend` and fix warnings.
 - Prefer strict, explicit types — avoid `any`.
 - Top-level views go in `frontend/src/pages/`; reusable pieces in `frontend/src/components/`.
 
@@ -128,33 +126,30 @@ Mature, reusable tooling lives under `pipeline/skills/[name]/` with a `SKILL.md`
 
 A change is not done until it builds and the relevant tests pass. "Couldn't test it" is not a passing state.
 
-**Frontend** — from `frontend/`:
+**Frontend** — from the repository root:
 
 ```bash
-npm run build   # must complete with zero errors
-npm run lint    # fix lint issues before opening a PR
+pnpm build:frontend
+pnpm lint:frontend
 ```
 
 **Backend** — run the test suite with pytest (with your venv active):
 
 ```bash
-cd apps/gnosi
-pytest            # or: pytest --cov
+uv run pytest
 ```
 
-**End-to-end** — Playwright tests live in `e2e/` as a separate host-level project (the frontend container is Alpine/musl, which Playwright browsers don't support). First time:
+**End-to-end** — Playwright tests live in `tests/e2e/`. First time:
 
 ```bash
-cd apps/gnosi/e2e
-npm install
-npx playwright install chromium
+pnpm test:e2e:install
 ```
 
 Then run them against the running app:
 
 ```bash
-npm test            # full suite
-npm run test:smoke  # quick anonymous smoke test
+pnpm test:e2e
+pnpm test:e2e:smoke
 ```
 
 For UI changes, verify in a browser before marking the work done — confirm the golden path and obvious edge cases, and watch for regressions elsewhere.

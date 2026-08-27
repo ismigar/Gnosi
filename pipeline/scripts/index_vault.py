@@ -3,11 +3,11 @@ import sys
 from pathlib import Path
 
 # Add the backend root to the path
-# Pipeline is at monorepo/apps/gnosi/pipeline
-# Backend is at monorepo/apps/gnosi/backend
+# Pipeline is at Gnosi/pipeline
+# Backend is at Gnosi/backend
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(BACKEND_ROOT))
-sys.path.append(str(BACKEND_ROOT.parent)) # monorepo/apps/gnosi
+sys.path.append(str(BACKEND_ROOT.parent)) # Gnosi
 
 import backend.config.paths_config as paths_config
 from backend.agent.memory import vault_store

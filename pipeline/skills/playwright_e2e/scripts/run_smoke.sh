@@ -2,7 +2,7 @@
 #
 # run_smoke.sh — Idempotent wrapper for the smoke E2E suite.
 #
-# Verifies prerequisites (Docker frontend UP) before running Playwright.
+# Verifies the native or Docker frontend before running Playwright.
 # Returns non-zero if smoke fails or frontend is unreachable.
 #
 # Usage:
@@ -17,7 +17,7 @@ set -euo pipefail
 BASE_URL="${GNOSI_BASE_URL:-http://localhost:5173}"
 STRICT="${STRICT:-0}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-E2E_DIR="$(cd "$SCRIPT_DIR/../../../../e2e" && pwd)"
+E2E_DIR="$(cd "$SCRIPT_DIR/../../../../tests/e2e" && pwd)"
 
 echo "→ Checking frontend at $BASE_URL"
 if ! curl -s -o /dev/null -w "%{http_code}" --max-time 3 "$BASE_URL/" | grep -qE "^[23]"; then
@@ -31,4 +31,4 @@ fi
 
 echo "→ Running smoke (chromium-anon project)"
 cd "$E2E_DIR"
-GNOSI_BASE_URL="$BASE_URL" npx playwright test --project=chromium-anon
+GNOSI_BASE_URL="$BASE_URL" pnpm exec playwright test --project=chromium-anon

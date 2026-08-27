@@ -6,7 +6,7 @@
     "source_globs": [
       "backend/server.py",
       "backend/config/**/*.py",
-      "sh/run_native_*.sh",
+      "scripts/runtime/run_native_*.sh",
       "docker-compose.yml",
       "Dockerfile.*"
     ],
@@ -24,7 +24,7 @@
       "frontend/src/pages/Vault*.jsx",
       "frontend/src/components/Vault/**/*"
     ],
-    "test_globs": ["backend/tests/test_vault*.py", "e2e/tests/e2e/vault*.spec.ts"],
+    "test_globs": ["backend/tests/test_vault*.py", "tests/e2e/tests/e2e/vault*.spec.ts"],
     "directives": [
       "vault_database_architecture.md",
       "files_provider_abstraction.md",
@@ -44,7 +44,7 @@
       "frontend/src/components/Vault/*View*",
       "frontend/src/pages/ProjectPlanningPage.jsx"
     ],
-    "test_globs": ["backend/tests/test_*view*.py", "backend/tests/test_planning*.py", "e2e/tests/e2e/dashboards.spec.ts"],
+    "test_globs": ["backend/tests/test_*view*.py", "backend/tests/test_planning*.py", "tests/e2e/tests/e2e/dashboards.spec.ts"],
     "directives": [
       "automations_and_formulas.md",
       "project_planning_authoritative_engine.md",
@@ -83,7 +83,7 @@
       "frontend/src/components/ResourcesPluginConfig.jsx",
       "frontend/src/components/Vault/ZoteroReaderTab.jsx"
     ],
-    "test_globs": ["backend/tests/test_*citation*.py", "backend/tests/test_*reader*.py", "backend/tests/test_*literature*.py", "backend/tests/test_academic_connectors.py", "frontend/src/**/*Literature*.test.*", "frontend/src/**/*ResourcesPluginConfig*.test.*", "e2e/tests/e2e/*citation*.spec.ts"],
+    "test_globs": ["backend/tests/test_*citation*.py", "backend/tests/test_*reader*.py", "backend/tests/test_*literature*.py", "backend/tests/test_academic_connectors.py", "frontend/src/**/*Literature*.test.*", "frontend/src/**/*ResourcesPluginConfig*.test.*", "tests/e2e/tests/e2e/*citation*.spec.ts"],
     "directives": ["academic_literature_search_and_review.md", "gnosi_native_reference_manager.md", "pdf_quote_capture.md", "zotero_reader_translation_contribution.md"]
   },
   {
@@ -113,7 +113,7 @@
       "frontend/src/pages/MailPage.jsx",
       "frontend/src/components/Mail/**/*"
     ],
-    "test_globs": ["backend/tests/test_mail*.py", "e2e/tests/e2e/mail*.spec.ts"],
+    "test_globs": ["backend/tests/test_mail*.py", "tests/e2e/tests/e2e/mail*.spec.ts"],
     "directives": ["mail_smart_extraction.md", "mail_tags.md", "mail_inline_images_cid.md", "mail_imap_xoauth2_migration.md"]
   },
   {
@@ -129,7 +129,7 @@
       "frontend/src/pages/CalendarPage.jsx",
       "frontend/src/components/Meeting*"
     ],
-    "test_globs": ["backend/tests/test_*calendar*.py", "backend/tests/test_*meeting*.py", "e2e/tests/e2e/calendar.spec.ts"],
+    "test_globs": ["backend/tests/test_*calendar*.py", "backend/tests/test_*meeting*.py", "tests/e2e/tests/e2e/calendar.spec.ts"],
     "directives": ["ai_meeting_notetaker.md", "calendar_hover_popup.md", "hide_calendar_events.md"]
   },
   {
@@ -143,7 +143,7 @@
       "frontend/src/pages/ContactsPage.jsx",
       "frontend/src/components/Contacts/**/*"
     ],
-    "test_globs": ["backend/tests/test_contact*.py", "e2e/tests/e2e/contacts.spec.ts"],
+    "test_globs": ["backend/tests/test_contact*.py", "tests/e2e/tests/e2e/contacts.spec.ts"],
     "directives": ["contacts-sync.md", "contacts_design_unification.md"]
   },
   {
@@ -168,11 +168,11 @@
       "backend/services/integration*.py",
       "backend/services/plugin*.py",
       "backend/services/academic_connectors.py",
-      "integrations/**/*",
-      "plugins-examples/**/*",
-      "mcp-servers/**/*"
+      "extensions/**/*",
+      "extensions/examples/**/*",
+      "extensions/mcp/**/*"
     ],
-    "test_globs": ["backend/tests/test_integration*.py", "backend/tests/test_plugin*.py", "integrations/**/tests/**/*"],
+    "test_globs": ["backend/tests/test_integration*.py", "backend/tests/test_plugin*.py", "extensions/**/tests/**/*"],
     "directives": ["academic_literature_search_and_review.md", "plugin_system.md", "integrations_persistence.md", "skill_vs_tool_architecture.md"]
   },
   {
@@ -207,7 +207,7 @@
       "frontend/src/pages/SchedulerPage.jsx",
       "pipeline/skills/scheduler/**/*"
     ],
-    "test_globs": ["backend/tests/test_schedul*.py", "backend/tests/test_literature_service.py", "e2e/tests/e2e/automation*.spec.ts"],
+    "test_globs": ["backend/tests/test_schedul*.py", "backend/tests/test_literature_service.py", "tests/e2e/tests/e2e/automation*.spec.ts"],
     "directives": ["academic_literature_search_and_review.md", "scheduler_config_resilience.md", "autonomous_quality_loop.md", "automations_and_formulas.md"]
   },
   {
@@ -215,12 +215,12 @@
     "name": "Desktop and companion clients",
     "guide": "docs/engineering/domains/desktop-clients.md",
     "source_globs": [
-      "electron/**/*",
-      "web-clipper/**/*",
-      "integrations/libreoffice-cite/**/*",
-      "integrations/word-cite-pin/**/*"
+      "desktop/**/*",
+      "extensions/web-clipper/**/*",
+      "extensions/office/libreoffice-cite/**/*",
+      "extensions/office/word-cite/**/*"
     ],
-    "test_globs": ["electron/**/*test*", "integrations/**/tests/**/*"],
+    "test_globs": ["desktop/**/*test*", "extensions/**/tests/**/*"],
     "directives": ["release_candidate_process.md", "libreoffice_cite_extension.md", "word_addin_persistence.md"]
   }
 ]

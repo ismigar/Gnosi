@@ -1,0 +1,19 @@
+packages:
+  - frontend
+  - desktop
+  - tests/e2e
+
+sharedWorkspaceLockfile: true
+
+nodeVersion: 22.22.2
+engineStrict: true
+strictPeerDependencies: false
+autoInstallPeers: true
+strictDepBuilds: true
+
+patchedDependencies:
+  emscripten-wasm-loader@3.0.3: patches/emscripten-wasm-loader@3.0.3.patch
+
+allowBuilds:
+  electron: true
+  esbuild: true

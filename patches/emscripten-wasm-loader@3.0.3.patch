@@ -1,0 +1,10 @@
+diff --git a/dist/esm/path/mountBuffer.js b/dist/esm/path/mountBuffer.js
+index 1d5b20a..cd5e46a 100644
+--- a/dist/esm/path/mountBuffer.js
++++ b/dist/esm/path/mountBuffer.js
+@@ -1,4 +1,4 @@
+-import * as nanoid from 'nanoid';
++import nanoid from 'nanoid';
+ import { log } from '../util/logger';
+ import { isMounted } from './isMounted';
+ /**

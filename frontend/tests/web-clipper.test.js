@@ -13,7 +13,7 @@ import vm from 'node:vm';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-const POPUP_JS = path.resolve(here, '../../web-clipper/popup.js');
+const POPUP_JS = path.resolve(here, '../../extensions/web-clipper/popup.js');
 const source = fs.readFileSync(POPUP_JS, 'utf-8');
 
 /** Minimal popup DOM: the ids popup.js reaches for by getElementById. */

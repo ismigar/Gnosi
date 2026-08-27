@@ -8,6 +8,7 @@ from backend.api import vault_routes
 from backend.scheduler.manager import SchedulerManager
 from backend.services import llm_wiki_actions, llm_wiki_suggestions
 from backend.services.graph_service import GraphService
+from backend.services.integration_manager import integration_manager
 
 
 def _manager() -> SchedulerManager:
@@ -22,6 +23,14 @@ def test_structured_task_error_is_not_reported_as_success():
             "success": False,
             "message": "Model failed",
         })
+
+
+def test_contact_sync_scheduler_uses_current_management_session_api(monkeypatch):
+    monkeypatch.setattr(integration_manager, "get_all_safe", lambda: {"contacts": []})
+
+    result = _manager()._task_fetch_contacts()
+
+    assert result == {"success": True, "message": "No contact accounts configured"}
 
 
 def test_suggest_connections_uses_llm_wiki_queue(monkeypatch):

@@ -113,14 +113,14 @@ def test_data_model_catalog_redacts_sensitive_defaults() -> None:
 
 def test_coverage_globs_exclude_cache_artifacts(tmp_path: Path) -> None:
     """Broad domain patterns must ignore local bytecode and cache files."""
-    source = tmp_path / "integrations" / "adapter.py"
-    cache = tmp_path / "integrations" / "__pycache__" / "adapter.pyc"
+    source = tmp_path / "extensions" / "adapter.py"
+    cache = tmp_path / "extensions" / "__pycache__" / "adapter.pyc"
     source.parent.mkdir(parents=True)
     cache.parent.mkdir(parents=True)
     source.write_text("VALUE = 1\n", encoding="utf-8")
     cache.write_bytes(b"local-only bytecode")
 
-    assert matches_for_globs(tmp_path, ["integrations/**/*"]) == [source]
+    assert matches_for_globs(tmp_path, ["extensions/**/*"]) == [source]
 
 
 def test_owned_source_discovery_excludes_suffixed_runtime_artifacts(

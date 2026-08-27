@@ -6,7 +6,7 @@
 #   Trigger the GitHub Actions workflow `e2e-update-baselines.yml` manually:
 #     1. GitHub UI → Actions → "E2E — Update Linux Visual Baselines (manual)" → Run.
 #     2. Download the artifact "visual-baselines-linux".
-#     3. Extract into apps/gnosi/e2e/tests/visual/regression.spec.ts-snapshots/.
+#     3. Extract into tests/e2e/tests/visual/regression.spec.ts-snapshots/.
 #     4. Commit + push.
 #   Why: matches the exact CI environment (Ubuntu, glibc, font-config) byte-for-byte.
 #
@@ -24,7 +24,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-E2E_DIR="$(cd "$SCRIPT_DIR/../../../../e2e" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+E2E_DIR="$REPO_DIR/tests/e2e"
 PLAYWRIGHT_VERSION="$(cd "$E2E_DIR" && node -p "require('./node_modules/@playwright/test/package.json').version")"
 IMAGE="mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy"
 
@@ -51,17 +52,17 @@ docker pull "$IMAGE" >/dev/null
 echo "→ Running visual project inside Linux container..."
 docker run --rm \
   --add-host=host.docker.internal:host-gateway \
-  -v "$E2E_DIR":/work \
+  -v "$REPO_DIR":/work \
   -w /work \
   -e GNOSI_BASE_URL=http://host.docker.internal:5173 \
   -e CI=1 \
   "$IMAGE" \
-  sh -c "npm ci --no-audit --no-fund && npx playwright test --project=visual --update-snapshots"
+  sh -c "corepack enable && corepack prepare pnpm@11.19.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @gnosi/e2e exec playwright test --project=visual --update-snapshots"
 
 echo ""
 echo "✓ Linux baselines generated at:"
 echo "    $E2E_DIR/tests/visual/regression.spec.ts-snapshots/*-linux.png"
 echo ""
 echo "Next steps:"
-echo "  git add monorepo/apps/gnosi/e2e/tests/visual/regression.spec.ts-snapshots/"
+echo "  git add tests/e2e/tests/visual/regression.spec.ts-snapshots/"
 echo "  git commit -m 'chore(e2e): refresh Linux visual baselines'"

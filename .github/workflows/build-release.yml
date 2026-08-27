@@ -6,83 +6,95 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      local_only:
-        description: 'Run every build on the configured self-hosted runners (recommended)'
-        required: false
-        default: true
-        type: boolean
       tag:
-        description: 'Tag to build (e.g., v1.0.0)'
-        required: false
+        description: 'Tag to publish (for example v3.0.0-rc.1)'
+        required: true
         type: string
 
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build-macos:
-    name: build-macos-${{ matrix.arch }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            hosted_runner: macos-15
-            local_runner: [self-hosted, macOS, ARM64]
-          - arch: x64
-            hosted_runner: macos-15
-            local_runner: [self-hosted, macOS, X64]
-    runs-on: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_only) && matrix.local_runner || matrix.hosted_runner }}
+  preflight:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
+          ref: ${{ github.sha }}
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: electron/package-lock.json
-
-      - name: Install npm dependencies
-        run: |
-          cd electron
-          npm install
-
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v7
-        env:
-          RUNNER_TOOL_CACHE: ${{ runner.temp }}/_tool
-          AGENT_TOOLSDIRECTORY: ${{ runner.temp }}/_tool
-        with:
-          python-version: '3.11'
-
+          node-version: '22.22.2'
+          cache: pnpm
+      - name: Install frozen Node dependencies
+        run: pnpm install --frozen-lockfile
       - name: Build frontend
         env:
-          # El bundle ha crescut (plugins, handwriting, spellcheck, KaTeX…) i el
-          # build de Vite/rollup supera el heap per defecte de Node al runner
-          # (~2 GB) → "JavaScript heap out of memory". Ampliem el heap.
           NODE_OPTIONS: --max-old-space-size=4096
-        run: |
-          cd frontend
-          npm install
-          npm run build
+        run: pnpm build:frontend
+      - name: Test desktop runtime
+        run: pnpm test:desktop
 
-      - name: Build Electron app (macOS ${{ matrix.arch }})
+  build-macos:
+    name: build-macos-${{ matrix.arch }}
+    needs: preflight
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - arch: arm64
+            local_runner: [self-hosted, macOS, ARM64]
+          - arch: x64
+            local_runner: [self-hosted, macOS, X64]
+    runs-on: ${{ matrix.local_runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.22.2'
+          cache: pnpm
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: '0.9.15'
+      - name: Install frozen Node dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build frontend
         env:
-          # The afterPack hook seals the complete bundle deterministically.
-          # Do not auto-select unrelated local or development identities.
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm build:frontend
+      - name: Build Electron app
+        env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          # build-python.sh must use the interpreter provisioned above instead
-          # of discovering a newer runner-level Python with different dylibs.
           GNOSI_PYTHON_CMD: python
+        run: pnpm --filter @gnosi/desktop build:mac -- --${{ matrix.arch }}
+      - name: Verify application signatures
         run: |
-          cd electron
-          npm run build:mac -- --${{ matrix.arch }}
-
-      - name: Verify macOS application signatures
-        run: |
-          cd electron
-          for dmg in dist/*.dmg; do
+          for dmg in desktop/dist/*.dmg; do
             mount_dir="$(mktemp -d)"
             hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg"
             codesign --verify --deep --strict --verbose=2 "$mount_dir/Gnosi.app"
@@ -91,229 +103,183 @@ jobs:
             hdiutil detach "$mount_dir"
             rmdir "$mount_dir"
           done
-
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v7
         with:
           name: macos-${{ matrix.arch }}
           path: |
-            electron/dist/*.dmg
-            electron/dist/*.zip
-            electron/dist/*.blockmap
-            electron/dist/latest-mac.yml
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/*.blockmap
+            desktop/dist/latest-mac.yml
           retention-days: 5
 
   build-linux:
-    runs-on: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_only) && fromJson('["self-hosted", "Linux", "ARM64"]') || 'ubuntu-latest' }}
+    needs: preflight
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
+          ref: ${{ github.sha }}
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: electron/package-lock.json
-
-      - name: Setup Python
+          node-version: '22.22.2'
+          cache: pnpm
+      - name: Setup Python 3.11
         uses: actions/setup-python@v7
-        env:
-          RUNNER_TOOL_CACHE: ${{ runner.temp }}/_tool
-          AGENT_TOOLSDIRECTORY: ${{ runner.temp }}/_tool
         with:
           python-version: '3.11'
-
-      - name: Install npm dependencies
-        run: |
-          cd electron
-          npm install
-
-      - name: Build frontend
-        env:
-          # El bundle ha crescut (plugins, handwriting, spellcheck, KaTeX…) i el
-          # build de Vite/rollup supera el heap per defecte de Node al runner
-          # (~2 GB) → "JavaScript heap out of memory". Ampliem el heap.
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: |
-          cd frontend
-          npm install
-          npm run build
-
-      - name: Build Python bundle
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: '0.9.15'
+      - name: Install and build
         env:
           GNOSI_PYTHON_CMD: python
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
-          cd electron
-          ./build-python.sh
-
-      - name: Build Electron app (Linux)
-        run: |
-          cd electron
-          npm run build:linux
-
+          pnpm install --frozen-lockfile
+          pnpm build:frontend
+          desktop/build-python.sh
+          pnpm --filter @gnosi/desktop exec electron-builder --linux --arm64 --publish never
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: linux-x64
+          name: linux-arm64
           path: |
-            electron/dist/*.AppImage
-            electron/dist/*.deb
-            electron/dist/*.blockmap
-            electron/dist/latest-linux.yml
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/*.blockmap
+            desktop/dist/latest-linux.yml
           retention-days: 5
 
   build-windows:
-    runs-on: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_only) && fromJson('["self-hosted", "Windows", "X64"]') || 'windows-latest' }}
+    needs: [preflight, build-macos]
+    runs-on: [self-hosted, Windows, X64]
+    defaults:
+      run:
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
     steps:
+      - name: Ensure Git is available
+        run: |
+          $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+          if (-not $gitCmd) {
+            $gitPath = 'C:\Program Files\Git\cmd'
+            if (-not (Test-Path "$gitPath\git.exe")) { throw 'Git is required' }
+            $env:Path = "$gitPath;$env:Path"
+            "${gitPath}" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
+          ref: ${{ github.sha }}
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: electron/package-lock.json
-
-      - name: Setup Python
+          node-version: '22.22.2'
+          cache: pnpm
+      - name: Setup Python 3.11
         uses: actions/setup-python@v7
-        env:
-          RUNNER_TOOL_CACHE: ${{ runner.temp }}/_tool
-          AGENT_TOOLSDIRECTORY: ${{ runner.temp }}/_tool
         with:
           python-version: '3.11'
-
-      - name: Install npm dependencies
-        run: |
-          cd electron
-          npm install
-
-      - name: Build frontend
-        env:
-          # El bundle ha crescut (plugins, handwriting, spellcheck, KaTeX…) i el
-          # build de Vite/rollup supera el heap per defecte de Node al runner
-          # (~2 GB) → "JavaScript heap out of memory". Ampliem el heap.
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: |
-          cd frontend
-          npm install
-          npm run build
-
-      - name: Build Python bundle
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: '0.9.15'
+      - name: Install and build
         env:
           GNOSI_PYTHON_CMD: python
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
-          cd electron
-          ./build-python.sh
-
-      - name: Build Electron app (Windows)
-        run: |
-          cd electron
-          npm run build:win
-
+          pnpm install --frozen-lockfile
+          pnpm build:frontend
+          pnpm --filter @gnosi/desktop build:win
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v7
         with:
           name: windows-x64
           path: |
-            electron/dist/*Setup*.exe
-            electron/dist/*.blockmap
-            electron/dist/latest.yml
+            desktop/dist/*Setup*.exe
+            desktop/dist/*.blockmap
+            desktop/dist/latest.yml
           retention-days: 5
 
   release:
     needs: [build-macos, build-linux, build-windows]
-    runs-on: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_only) && fromJson('["self-hosted", "Linux", "ARM64"]') || 'ubuntu-latest' }}
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'v'))
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
+          ref: ${{ github.sha }}
+          submodules: recursive
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.22.2'
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: '0.9.15'
       - name: Define release tag
         id: release_tag
+        shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
-
       - name: Download all artifacts
         uses: actions/download-artifact@v8
         with:
           path: artifacts
           pattern: '*'
           merge-multiple: true
-
-      - name: List artifacts
-        run: ls -laR artifacts/
-
-      # Build and sign the official remote indexes. The private key arrives only
-      # through GNOSI_PLUGIN_SIGNING_KEY and never belongs in the repository.
-      # Missing signatures fail the release because official catalogs fail closed.
-      - name: Setup Python (per a l'índex de plugins)
-        uses: actions/setup-python@v7
-        env:
-          RUNNER_TOOL_CACHE: ${{ runner.temp }}/_tool
-          AGENT_TOOLSDIRECTORY: ${{ runner.temp }}/_tool
-        with:
-          python-version: '3.11'
-
-      - name: Construeix l'índex de plugins signat
+      - name: Build signed public indexes
         env:
           GNOSI_PLUGIN_SIGNING_KEY: ${{ secrets.GNOSI_PLUGIN_SIGNING_KEY }}
         run: |
-          python -m pip install --quiet cryptography
-          python plugins-examples/build_index.py \
+          uv run --frozen --no-default-groups python extensions/examples/build_index.py \
             --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
             --out artifacts/plugins
-          if [ -n "$GNOSI_PLUGIN_SIGNING_KEY" ]; then test -s artifacts/plugins/plugins-index.sig; fi
-          ls -la artifacts/plugins/
-
-      - name: Construeix les plantilles de Vault signades
-        env:
-          GNOSI_PLUGIN_SIGNING_KEY: ${{ secrets.GNOSI_PLUGIN_SIGNING_KEY }}
-        run: |
           if [ -n "$GNOSI_PLUGIN_SIGNING_KEY" ]; then
-            python marketplace/build_vault_templates.py \
+            test -s artifacts/plugins/plugins-index.sig
+            uv run --frozen --no-default-groups python extensions/marketplace/build_vault_templates.py \
               --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
               --out artifacts/vault-templates
-            ls -la artifacts/vault-templates/
-          else
-            echo "Skipping vault templates signing (GNOSI_PLUGIN_SIGNING_KEY not set)"
-            mkdir -p artifacts/vault-templates
           fi
-
       - name: Render public release notes
         run: |
           node frontend/scripts/release-notes.mjs \
             --version "${{ steps.release_tag.outputs.tag }}" \
             --output artifacts/release-notes.md
-
-      # Publiquem al repo PÚBLIC Gnosi (Projectes és privat) amb el SYNC_PAT,
-      # o amb GITHUB_TOKEN si s'executa directament a Gnosi.
-      - name: Publica el release a Gnosi (públic, en draft)
+      - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
-          repository: ismigar/Gnosi
-          token: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.release_tag.outputs.tag }}
           name: Gnosi ${{ steps.release_tag.outputs.tag }}
-          # Publica directament la release a Gnosi perquè la web i els usuaris la puguin descarregar immediatament
           draft: false
-          # prerelease=true només si el tag porta sufix (v1.0.0-beta.1, -rc.2…).
           prerelease: ${{ contains(steps.release_tag.outputs.tag, '-') }}
-          # Les notes automàtiques no funcionen a Gnosi (història reescrita pel
-          # sync orphan+force); posem instruccions d'instal·lació, més útils.
           body_path: artifacts/release-notes.md
           files: |
             artifacts/*.dmg

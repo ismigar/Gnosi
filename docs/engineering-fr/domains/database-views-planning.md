@@ -27,7 +27,7 @@ tests:
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
   - frontend/src/utils/projectPlanning.test.js
-  - e2e/tests/e2e/dashboards.spec.ts
+  - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
 
 # Vues de la base de données et planification des projets

@@ -10,7 +10,7 @@ source_paths:
 tests:
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # Platform foundation and runtime
@@ -66,7 +66,7 @@ content. `/s/:token` renders outside the authenticated shell by design.
 ## Invariants
 
 - Port `5002` is the backend contract; `5173` is the frontend contract.
-- Application code uses the authoritative `monorepo/apps/gnosi/` tree.
+- Application code uses the authoritative `Gnosi/` tree.
 - Frontend-visible strings use all locale catalogs.
 - Runtime imports must not be used by documentation generation.
 - An unavailable vault is represented explicitly; a temporary safe path may

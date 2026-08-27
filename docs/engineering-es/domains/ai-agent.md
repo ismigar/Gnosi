@@ -14,7 +14,7 @@ tests:
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_agent_action_confirmations.py
-  - e2e/tests/e2e/ai-chat.spec.ts
+  - tests/e2e/tests/e2e/ai-chat.spec.ts
 ---
 
 # Agentes de IA, modelos, herramientas y habilidades

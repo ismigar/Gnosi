@@ -2,6 +2,12 @@
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 venv/
 .venv/
 .env*
@@ -19,6 +25,8 @@ local_data/
 # Node
 node_modules/
 dist/
+.vite/
+.pnpm-store/
 
 # Certificats HTTPS de dev (mkcert) per provar Office Add-ins — mai al repo
 frontend/certs/
@@ -26,6 +34,8 @@ frontend/certs/
 # Outputs
 out/markdown_backup/
 site/
+playwright-report/
+test-results/
 .env.example
 
 # Security & storage

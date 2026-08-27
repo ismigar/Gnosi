@@ -61,7 +61,7 @@ Seuls les hachés PAT et un préfixe reconnaissable sont maintenus. Les jetons d
 
 ## Isolation des données locales
 
-`GNOSI_LOCAL_DATA` pointe vers la racine par instance. Le résolveur de chemin crée le cache, le système, le point de contrôle, le journal, l'audio, la sortie, la sauvegarde et les répertoires secrets. `/app/data`; les utilisations de la durée d'exécution native `monorepo/apps/gnosi/local_data`.
+`GNOSI_LOCAL_DATA` pointe vers la racine par instance. Le résolveur de chemin crée le cache, le système, le point de contrôle, le journal, l'audio, la sortie, la sauvegarde et les répertoires secrets. `/app/data`; les utilisations de la durée d'exécution native `Gnosi/local_data`.
 
 Les fichiers SQLite ne doivent pas être placés sur OneDrive, iCloud Drive, Dropbox ou sur un autre calque de synchronisation de fichiers. La synchronisation de fichiers ne fournit pas de sémantique de verrouillage SQLite et peut corrompre ou forquer la base de données.
 

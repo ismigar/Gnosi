@@ -2,7 +2,7 @@
 
 Run without Docker or the full backend:
 
-    cd monorepo/apps/gnosi
+    cd Gnosi
     python3.11 -m pytest backend/tests/test_translation_helpers.py -q
 
 (python3.11, not 3.9 — see `feedback_local_backend_test_verification`.)

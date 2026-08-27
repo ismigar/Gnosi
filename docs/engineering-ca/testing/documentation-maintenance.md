@@ -25,7 +25,7 @@ No poseu reclamacions arquitectòniques només en el generador basant- vos en no
 
 ## Desbordament estàndard de treball
 
-Des de `monorepo/apps/gnosi/`:
+Des de `Gnosi/`:
 
 ```bash
 python pipeline/skills/technical_documentation/scripts/generate.py
@@ -44,7 +44,7 @@ Llavors serveix o obre `site/engineering`, navegar per les pàgines canviades, i
 
 El portal canònica es publica a `https://gnosi.temenosismael.org/engineering/`. Les exportacions privades monorepo `monorepo/` fins a l'arrel del públic `ismigar/Gnosi` repositori. `monorepo/.github/workflows/documentation-pages.yml` la font del públic `.github/workflows/documentation-pages.yml` Desembarca el flux de treball.
 
-Per a cada pressió rellevant al públic `main` branca, el flux de treball verifica els catàlegs generats i els miralls localitzats, validant la traçabilitat, construeix l'anglès, català, castellà i francès Mkocls en mode estricte i publica el següent `apps/gnosi/site/` Arbre a través de les pàgines de GitHub. Publicant el pare `site/` El directori conserva el `/engineering/` segment d' URL.
+Per a cada pressió rellevant al públic `main` branca, el flux de treball verifica els catàlegs generats i els miralls localitzats, validant la traçabilitat, construeix l'anglès, català, castellà i francès Mkocls en mode estricte i publica el següent `site/` Arbre a través de les pàgines de GitHub. Publicant el pare `site/` El directori conserva el `/engineering/` segment d' URL.
 
 Els enllaços de la barra lateral global de Gnosi a la mateixa adreça canònica. L' etiqueta es troba en català, anglès, espanyol i francès i el portal obre fora de l' arbre de rutes de l' aplicació.
 

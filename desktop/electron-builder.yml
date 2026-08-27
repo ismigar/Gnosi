@@ -1,0 +1,99 @@
+appId: com.gnosi.cervell-digital
+productName: Gnosi
+copyright: Copyright © 2026 Ismael Garcia Fernandez
+
+directories:
+  output: dist
+  buildResources: assets
+
+afterPack: scripts/after-pack.cjs
+
+# Branded DMG installer: clean light background with the centered Gnosi logo,
+# so the mounted volume matches the app identity instead of the generic
+# electron-builder artwork. The retina PNG is downscaled to @1x automatically.
+dmg:
+  background: assets/dmg-background.png
+  title: ${productName}
+  iconSize: 128
+  window:
+    width: 540
+    height: 380
+
+files:
+  - main.js
+  - preload.js
+  - application-menu.js
+  - backend-launch.js
+  - update-policy.js
+  # Runtime dependencies used by main.js (electron-log drives the auto-updater
+  # logger; electron-updater is the updater itself). electron-builder follows
+  # package.json dependencies, so only production deps land in the asar.
+  - node_modules/**/*
+
+extraResources:
+  - from: ../frontend/dist/
+    to: frontend/dist/
+    filter:
+      - "**/*"
+      - "!**/*.map"
+  - from: assets/
+    to: assets/
+    filter:
+      - "**/*"
+      # Icon and DMG-background assets are build-time inputs consumed by
+      # electron-builder itself; they are not needed inside the packaged app.
+      - "!icon.icns"
+      - "!icon.ico"
+      - "!icon.png"
+      - "!dmg-background.png"
+  - from: dist-python/
+    to: python
+    filter:
+      - "**/*"
+
+mac:
+  icon: assets/icon.icns
+  category: public.app-category.productivity
+  # The PyInstaller Python.framework has an ambiguous bundle type that breaks
+  # electron-builder's internal --deep signing. We exclude it here and seal it
+  # ad-hoc in after-pack.cjs (signing Versions/Current, the unambiguous form).
+  signIgnore:
+    - Contents/Resources/python/_internal/Python.framework
+  target:
+    # The release matrix passes --arm64 or --x64. Do not list both
+    # architectures here: each frozen Python backend is host-native and must
+    # be packaged only into its matching Electron application.
+    - target: dmg
+    - target: zip
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+linux:
+  icon: assets/icon.png
+  target:
+    - target: AppImage
+    - target: deb
+  category: Office
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+win:
+  icon: assets/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-Setup.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+publish:
+  provider: github
+  owner: ismigar
+  repo: Gnosi
+  releaseType: release
+
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/

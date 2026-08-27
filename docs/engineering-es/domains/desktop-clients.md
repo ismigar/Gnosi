@@ -4,30 +4,30 @@ last_verified: 2026-08-24
 source_paths:
   - backend/config/env_config.py
   - backend/server.py
-  - electron/application-menu.js
-  - electron/backend-launch.js
-  - electron/main.js
-  - electron/preload.js
-  - electron/update-policy.js
-  - electron/electron-builder.yml
-  - electron/package.json
-  - electron/release.sh
-  - electron/scripts/after-pack.cjs
-  - electron/scripts/packaging-contract.cjs
-  - electron/scripts/smoke-packaged-backend.py
-  - requirements-e2e.txt
+  - desktop/application-menu.js
+  - desktop/backend-launch.js
+  - desktop/main.js
+  - desktop/preload.js
+  - desktop/update-policy.js
+  - desktop/electron-builder.yml
+  - desktop/package.json
+  - desktop/release.sh
+  - desktop/scripts/after-pack.cjs
+  - desktop/scripts/packaging-contract.cjs
+  - desktop/scripts/smoke-packaged-backend.py
+  - pnpm-workspace.yaml
   - frontend/package.json
   - frontend/src/content/releases.json
-  - web-clipper
-  - integrations/libreoffice-cite
-  - integrations/word-cite-pin
+  - extensions/web-clipper
+  - extensions/office/libreoffice-cite
+  - extensions/office/word-cite
 tests:
   - backend/tests/test_env_config_runtime.py
-  - electron/application-menu.test.js
-  - electron/backend-launch.test.js
-  - electron/packaging-contract.test.js
-  - electron/update-policy.test.js
-  - integrations/libreoffice-cite/tests
+  - desktop/application-menu.test.js
+  - desktop/backend-launch.test.js
+  - desktop/packaging-contract.test.js
+  - desktop/update-policy.test.js
+  - extensions/office/libreoffice-cite/tests
 ---
 
 # Cliente de escritorio y acompañantes

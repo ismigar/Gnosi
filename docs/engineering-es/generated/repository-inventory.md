@@ -25,10 +25,10 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | `backend/` | 402 | FastAPI, servicios, modelos, agentes, agenda y adaptadores de almacenamiento |
 | `frontend/src/` | 309 | Reaccionar la aplicación, el comportamiento de la interfaz de usuario, el estado y las integraciones del navegador |
 | `pipeline/` | 98 | Capacidades de aplicación reutilizables y herramientas de procesamiento deterministas |
-| `electron/` | 9 | Ciclo de vida del escritorio, embalaje de backend, IPC y actualizaciones |
+| `desktop/` | 9 | Ciclo de vida del escritorio, embalaje de backend, IPC y actualizaciones |
 | `integrations/` | 12 | Adaptadores de oficina y de sistema externo |
 | `web-clipper/` | 11 | Superficie de captura de extensión del navegador |
-| `e2e/` | 26 | Pruebas de aceptación de derechos de reproducción a nivel de host |
+| `tests/e2e/` | 26 | Pruebas de aceptación de derechos de reproducción a nivel de host |
 | `sh/` | 22 | Scripts operativos nativos y auto-anfitriones |
 
 ## Límite de exclusión

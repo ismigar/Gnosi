@@ -6,7 +6,7 @@ framework just like OneDrive and iCloud:
 - Materialization triggered by `open()/read()`.
 - Typical path: `~/Library/CloudStorage/GoogleDrive-<account>/...`.
 
-Therefore, the `sh/onedrive_warmup_daemon.py` daemon is reusable
+Therefore, the `scripts/runtime/onedrive_warmup_daemon.py` daemon is reusable
 without changes. This class exists only to provide the log entry
 (`FilesProvider actiu: gdrive`) and to allow dedicated env vars.
 

@@ -12,7 +12,7 @@ source_paths:
 tests:
   - backend/tests/test_calendar_path_containment.py
   - backend/tests/test_meeting_reminders_race.py
-  - e2e/tests/e2e/calendar.spec.ts
+  - tests/e2e/tests/e2e/calendar.spec.ts
 ---
 
 # Calendario y reuniones

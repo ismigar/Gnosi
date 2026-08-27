@@ -2,16 +2,16 @@
 status: implemented
 last_verified: 2026-08-02
 source_paths:
-  - sh/run_native_dev.sh
-  - sh/run_native_frontend.sh
-  - sh/native_watchdog.sh
+  - scripts/runtime/run_native_dev.sh
+  - scripts/runtime/run_native_frontend.sh
+  - scripts/runtime/native_watchdog.sh
   - docker-compose.yml
   - Dockerfile.backend
   - Dockerfile.frontend
-  - electron/main.js
+  - desktop/main.js
 tests:
   - backend/tests/test_host_helper_url.py
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # Duración de la ejecución y despliegue
@@ -22,8 +22,8 @@ La operación nativa es la arquitectura de desarrollo predeterminada. LaunchAgen
 
 | Proceso | Límite de órdenes | Dirección | Recargar el comportamiento |
 | --- | --- | --- | --- |
-| Motor | `.venv/bin/uvicorn backend.server:app` | `127.0.0.1:5002` | Relojes `backend/`; los cambios de dependencia necesitan reiniciarse. |
-| Interfaz | `npm run dev` | HTTPS `:5173` | Fuente de recargas calientes. |
+| Motor | `uv run uvicorn backend.server:app` | `127.0.0.1:5002` | Relojes `backend/`; los cambios de dependencia necesitan reiniciarse. |
+| Interfaz | `pnpm dev:frontend` | HTTPS `:5173` | Fuente de recargas calientes. |
 
 `run_native_dev.sh` carga la entrada de entorno compartido sin buscarlo como código de shell, establece rutas nativas de bóveda y datos locales, selecciona por defecto host-safe e inicia vivicorn. `run_native_frontend.sh` selecciona el objetivo proxy del motor y las superficies cuando la compra servida es un antepasado ya fusionado de `origin/main`.
 

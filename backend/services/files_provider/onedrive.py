@@ -1,7 +1,7 @@
 """OneDriveProvider: vault over OneDrive with Files On-Demand.
 
 Encapsulates detection of online-only files and the call to the daemon that
-lives on the host (`sh/onedrive_warmup_daemon.py`) to trigger the download
+lives on the host (`scripts/runtime/onedrive_warmup_daemon.py`) to trigger the download
 from the macOS File Provider.
 
 See `docs/dev_memory/directives/files_provider_abstraction.md`.
@@ -341,7 +341,7 @@ class OneDriveProvider(FilesProvider):
         """Materializes an online-only file. In "open" mode (native) it
         delegates to LaunchServices; in "direct" it reads it in-process (doesn't work
         under launchd); in "daemon" (Docker) it calls the host daemon
-        (`sh/onedrive_warmup_daemon.py`). Returns True if it was materialized."""
+        (`scripts/runtime/onedrive_warmup_daemon.py`). Returns True if it was materialized."""
         if self.warmup_mode == "open":
             return await self._materialize_via_open(container_path)
         if self.warmup_mode == "direct":

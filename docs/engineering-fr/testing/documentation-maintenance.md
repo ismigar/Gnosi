@@ -25,7 +25,7 @@ Ne pas placer les revendications architecturales dans le générateur uniquement
 
 ## Flux de travail standard
 
-De `monorepo/apps/gnosi/`:
+De `Gnosi/`:
 
 ```bash
 python pipeline/skills/technical_documentation/scripts/generate.py
@@ -44,7 +44,7 @@ Puis servir ou ouvrir `site/engineering`, naviguer sur les pages modifiées, ins
 
 Le portail canonique est publié à l'adresse suivante: `https://gnosi.temenosismael.org/engineering/`. Les exportations privées monoréponses `monorepo/` à la racine du public `ismigar/Gnosi` Le dépôt. Cela fait `monorepo/.github/workflows/documentation-pages.yml` la source du public `.github/workflows/documentation-pages.yml` le processus de déploiement.
 
-Sur chaque pression pertinente auprès du public `main` branch, le workflow vérifie les catalogues générés et les miroirs localisés, valide la traçabilité, construit les portails anglais, catalan, espagnol et français MkDocs en mode strict, et publie le `apps/gnosi/site/` arbre à travers les pages GitHub. Publier le parent `site/` répertoire conserve le `/engineering/` Le segment URL.
+Sur chaque pression pertinente auprès du public `main` branch, le workflow vérifie les catalogues générés et les miroirs localisés, valide la traçabilité, construit les portails anglais, catalan, espagnol et français MkDocs en mode strict, et publie le `site/` arbre à travers les pages GitHub. Publier le parent `site/` répertoire conserve le `/engineering/` Le segment URL.
 
 La barre latérale globale de Gnosi est reliée à la même adresse canonique. L'étiquette est localisée en catalan, anglais, espagnol et français et le portail s'ouvre en dehors de l'arbre d'itinéraire de l'application.
 

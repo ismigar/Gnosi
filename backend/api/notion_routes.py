@@ -292,7 +292,7 @@ _CLONE_PROGRESS: dict = {"running": False, "phase": "idle", "done": 0, "total": 
 _CLONE_CANCEL: dict = {"flag": False}
 
 
-# Clone heartbeat for the native watchdog (sh/native_watchdog.sh): the clone runs in a
+# Clone heartbeat for the native watchdog (scripts/runtime/native_watchdog.sh): the clone runs in a
 # thread and can leave the event loop so busy that the watchdog's HTTP polling fails
 # (incident 2026-07-04: kickstart -k killed TWO healthy clones). The thread touches this
 # file on every processed item; the watchdog, if it sees it fresh, doesn't restart the service.

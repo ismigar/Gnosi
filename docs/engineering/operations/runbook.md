@@ -2,15 +2,15 @@
 status: implemented
 last_verified: 2026-08-27
 source_paths:
-  - sh/run_native_dev.sh
-  - sh/run_native_frontend.sh
-  - sh/native_watchdog.sh
+  - scripts/runtime/run_native_dev.sh
+  - scripts/runtime/run_native_frontend.sh
+  - scripts/runtime/native_watchdog.sh
   - docker-compose.yml
   - backend/config/paths_config.py
-  - electron/build-python.sh
+  - desktop/build-python.sh
 tests:
-  - e2e/tests/anon/smoke.spec.ts
-  - electron/packaging-contract.test.js
+  - tests/e2e/tests/anon/smoke.spec.ts
+  - desktop/packaging-contract.test.js
 ---
 
 # Operations runbook

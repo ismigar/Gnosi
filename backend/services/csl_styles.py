@@ -1,6 +1,6 @@
 """Management of CSL files on disk — listing and upload.
 
-CSL styles live at `monorepo/apps/gnosi/frontend/public/csl/styles/`
+CSL styles live at `Gnosi/frontend/public/csl/styles/`
 so the frontend can serve them directly via static Vite/HTTP.
 This module exposes pure functions to:
 
@@ -17,8 +17,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
 
-# This file lives at monorepo/apps/gnosi/backend/services/; parents[2]
-# reaches monorepo/apps/gnosi (gnosi root). The styles live in frontend/.
+# This file lives at Gnosi/backend/services/; parents[2]
+# reaches Gnosi (gnosi root). The styles live in frontend/.
 _GNOSI_ROOT = Path(__file__).resolve().parents[2]
 STYLES_DIR = _GNOSI_ROOT / "frontend" / "public" / "csl" / "styles"
 

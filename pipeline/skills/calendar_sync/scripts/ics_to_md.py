@@ -1,4 +1,3 @@
-import os
 import requests
 import re
 import yaml
@@ -6,9 +5,6 @@ from pathlib import Path
 from datetime import datetime
 from icalendar import Calendar
 
-from dotenv import load_dotenv
-
-# Load environment and paths
 import sys
 # Add project root to sys.path to allow importing from backend.config
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -17,9 +13,18 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Now we can import the unified config
 from backend.config.paths_config import get_paths
+from backend.config.env_config import get_env
 
 paths = get_paths()
 VAULT_PATH = paths["VAULT"]
+base_dir = PROJECT_ROOT
+
+_external_calendars = get_env("EXTERNAL_CALENDARS", "", required=False) or ""
+EXTERNAL_CALENDARS = [
+    url.strip()
+    for url in re.split(r"[\n,]+", _external_calendars)
+    if url.strip()
+]
 
 CALENDAR_PATH = VAULT_PATH / "Calendar" / "External"
 

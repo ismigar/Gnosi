@@ -99,6 +99,6 @@ stored under `WIKI/`.
 ## Quick test
 
 ```bash
-cd monorepo/apps/gnosi
+cd Gnosi
 python3 -m pytest pipeline/skills/translate_page/scripts/test_markdown_segmenter.py -v
 ```

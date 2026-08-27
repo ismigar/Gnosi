@@ -74,7 +74,7 @@ python rss_to_audio.py
 
 ## 8. Pre-Execution Checklist
 - [x] Environment variables configured in `.env`/`.env_shared` (`GROQ_API_KEY`).
-- [x] Dependencies installed (`pip install -r requirements.txt`).
+- [x] Dependencies installed (`uv sync --frozen`).
 - [x] Input `feeds.opml` file available.
 
 ---

@@ -2,13 +2,13 @@
 status: implemented
 last_verified: 2026-08-02
 source_paths:
-  - sh/run_native_dev.sh
-  - sh/run_native_frontend.sh
-  - sh/native_watchdog.sh
+  - scripts/runtime/run_native_dev.sh
+  - scripts/runtime/run_native_frontend.sh
+  - scripts/runtime/native_watchdog.sh
   - docker-compose.yml
   - backend/config/paths_config.py
 tests:
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # Operacions a executar un llibre

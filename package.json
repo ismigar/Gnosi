@@ -1,0 +1,46 @@
+{
+  "name": "gnosi",
+  "version": "2.0.6",
+  "private": true,
+  "description": "Gnosi — local-first, open-source knowledge workspace",
+  "license": "AGPL-3.0-or-later",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": "22.22.2",
+    "pnpm": "11.19.0"
+  },
+  "scripts": {
+    "preinstall": "node scripts/verify-toolchain.mjs",
+    "verify:toolchain": "node scripts/verify-toolchain.mjs",
+    "dev": "concurrently --kill-others-on-fail --names backend,frontend --prefix-colors blue,magenta \"pnpm dev:backend\" \"pnpm dev:frontend\"",
+    "dev:backend": "uv run uvicorn backend.server:app --reload --host 127.0.0.1 --port 5002",
+    "dev:frontend": "pnpm --filter @gnosi/frontend dev",
+    "build": "pnpm build:frontend",
+    "build:frontend": "pnpm --filter @gnosi/frontend build",
+    "build:desktop": "pnpm --filter @gnosi/desktop build",
+    "lint": "pnpm lint:frontend && pnpm lint:python",
+    "lint:frontend": "pnpm --filter @gnosi/frontend lint",
+    "lint:python": "uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy",
+    "typecheck": "pnpm --filter @gnosi/frontend typecheck && uv run python -m compileall -q backend pipeline scripts extensions",
+    "test": "pnpm test:frontend && pnpm test:desktop && pnpm test:python",
+    "test:frontend": "pnpm --filter @gnosi/frontend test",
+    "test:desktop": "pnpm --filter @gnosi/desktop test",
+    "test:python": "uv run pytest",
+    "test:e2e": "pnpm --filter @gnosi/e2e test",
+    "test:e2e:smoke": "pnpm --filter @gnosi/e2e test:smoke",
+    "test:e2e:a11y": "pnpm --filter @gnosi/e2e test:a11y",
+    "test:e2e:ui": "pnpm --filter @gnosi/e2e test:ui",
+    "test:e2e:install": "pnpm --filter @gnosi/e2e install:browsers",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:config": "docker compose config --quiet",
+    "desktop": "pnpm --filter @gnosi/desktop start",
+    "desktop:dev": "pnpm --filter @gnosi/desktop dev",
+    "package:desktop": "pnpm --filter @gnosi/desktop build",
+    "docs:build": "uv run --group docs mkdocs build --strict"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

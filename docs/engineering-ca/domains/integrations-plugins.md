@@ -9,16 +9,16 @@ source_paths:
   - backend/services/academic_connectors.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
-  - plugins-examples
-  - mcp-servers
-  - integrations
+  - extensions/examples
+  - extensions/mcp
+  - extensions/office
 tests:
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
   - backend/tests/test_academic_connectors.py
-  - integrations/libreoffice-cite/tests
+  - extensions/office/libreoffice-cite/tests
 ---
 
 # Integració i connectors

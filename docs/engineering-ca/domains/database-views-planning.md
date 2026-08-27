@@ -12,7 +12,7 @@ tests:
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
-  - e2e/tests/e2e/dashboards.spec.ts
+  - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
 
 # Vistes de base de dades i planificació del projecte

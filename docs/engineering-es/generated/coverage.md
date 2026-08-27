@@ -34,14 +34,14 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 
 - Guía: [`Válido y archivos`](../domains/vault-files.md)
 - Patrones de origen: `backend/api/vault*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/pages/Vault*.jsx`, `frontend/src/components/Vault/**/*`
-- Patrones de ensayo: `backend/tests/test_vault*.py`, `e2e/tests/e2e/vault*.spec.ts`
+- Patrones de ensayo: `backend/tests/test_vault*.py`, `tests/e2e/tests/e2e/vault*.spec.ts`
 - Directivas: `docs/dev_memory/directives/vault_database_architecture.md`, `docs/dev_memory/directives/files_provider_abstraction.md`, `docs/dev_memory/directives/attachment_link_portability.md`, `docs/dev_memory/directives/markdown_roundtrip_escaping.md`
 
 ## Opiniones de base de datos y planificación de proyectos
 
 - Guía: [`Vistas de base de datos y planificación de proyectos '](../domains/database-views-planning.md)
 - Patrones de origen: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `frontend/src/components/Vault/*Table*`, `frontend/src/components/Vault/*View*`, `frontend/src/pages/ProjectPlanningPage.jsx`
-- Patrones de ensayo: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `e2e/tests/e2e/dashboards.spec.ts`
+- Patrones de ensayo: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `tests/e2e/tests/e2e/dashboards.spec.ts`
 - Directivas: `docs/dev_memory/directives/automations_and_formulas.md`, `docs/dev_memory/directives/project_planning_authoritative_engine.md`, `docs/dev_memory/directives/vault_views_management.md`
 
 ## Gráfico de conocimientos
@@ -55,7 +55,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 
 - Guía: [`Lector, referencias y citas`](../domains/reader-references.md)
 - Patrones de origen: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `frontend/src/pages/ReaderDashboard.jsx`, `frontend/src/components/Vault/ZoteroReaderTab.jsx`
-- Patrones de ensayo: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `e2e/tests/e2e/*citation*.spec.ts`
+- Patrones de ensayo: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `tests/e2e/tests/e2e/*citation*.spec.ts`
 - Directivas: `docs/dev_memory/directives/gnosi_native_reference_manager.md`, `docs/dev_memory/directives/pdf_quote_capture.md`, `docs/dev_memory/directives/zotero_reader_translation_contribution.md`
 
 ## Agentes de IA, modelos, herramientas y habilidades
@@ -69,21 +69,21 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 
 - Guía: [`Mail`](../domains/mail.md)
 - Patrones de origen: `backend/api/mail_routes.py`, `backend/models/mail.py`, `backend/services/mail*.py`, `frontend/src/pages/MailPage.jsx`, `frontend/src/components/Mail/**/*`
-- Patrones de ensayo: `backend/tests/test_mail*.py`, `e2e/tests/e2e/mail*.spec.ts`
+- Patrones de ensayo: `backend/tests/test_mail*.py`, `tests/e2e/tests/e2e/mail*.spec.ts`
 - Directivas: `docs/dev_memory/directives/mail_smart_extraction.md`, `docs/dev_memory/directives/mail_tags.md`, `docs/dev_memory/directives/mail_inline_images_cid.md`, `docs/dev_memory/directives/mail_imap_xoauth2_migration.md`
 
 ## Calendario y reuniones
 
 - Guía: [`Calendario y reuniones`](../domains/calendar-meetings.md)
 - Patrones de origen: `backend/api/calendar_routes.py`, `backend/api/meeting_routes.py`, `backend/models/calendar.py`, `backend/services/**/*calendar*.py`, `backend/services/**/*meeting*.py`, `frontend/src/pages/CalendarPage.jsx`, `frontend/src/components/Meeting*`
-- Patrones de ensayo: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `e2e/tests/e2e/calendar.spec.ts`
+- Patrones de ensayo: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `tests/e2e/tests/e2e/calendar.spec.ts`
 - Directivas: `docs/dev_memory/directives/ai_meeting_notetaker.md`, `docs/dev_memory/directives/calendar_hover_popup.md`, `docs/dev_memory/directives/hide_calendar_events.md`
 
 ## Contactos
 
 - Guía: [`Contactos`](../domains/contacts.md)
 - Patrones de origen: `backend/api/contacts_routes.py`, `backend/models/contact.py`, `backend/services/**/*contact*.py`, `frontend/src/pages/ContactsPage.jsx`, `frontend/src/components/Contacts/**/*`
-- Patrones de ensayo: `backend/tests/test_contact*.py`, `e2e/tests/e2e/contacts.spec.ts`
+- Patrones de ensayo: `backend/tests/test_contact*.py`, `tests/e2e/tests/e2e/contacts.spec.ts`
 - Directivas: `docs/dev_memory/directives/contacts-sync.md`, `docs/dev_memory/directives/contacts_design_unification.md`
 
 ## Publicaciones y medios de comunicación sociales
@@ -96,7 +96,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 ## Integraciones y complementos
 
 - Guía: [`Integraciones y complementos`](../domains/integrations-plugins.md)
-- Patrones de origen: `backend/api/integrations_routes.py`, `backend/services/integration*.py`, `backend/services/plugin*.py`, `integrations/**/*`, `plugins-examples/**/*`, `mcp-servers/**/*`
+- Patrones de origen: `backend/api/integrations_routes.py`, `backend/services/integration*.py`, `backend/services/plugin*.py`, `integrations/**/*`, `extensions/examples/**/*`, `mcp-servers/**/*`
 - Patrones de ensayo: `backend/tests/test_integration*.py`, `backend/tests/test_plugin*.py`, `integrations/**/tests/**/*`
 - Directivas: `docs/dev_memory/directives/plugin_system.md`, `docs/dev_memory/directives/integrations_persistence.md`, `docs/dev_memory/directives/skill_vs_tool_architecture.md`
 
@@ -111,12 +111,12 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 
 - Guía: [`Automatización y programación '](../domains/automation-scheduling.md)
 - Patrones de origen: `backend/api/scheduler_routes.py`, `backend/scheduler/**/*.py`, `backend/models/scheduler.py`, `frontend/src/pages/SchedulerPage.jsx`, `pipeline/skills/scheduler/**/*`
-- Patrones de ensayo: `backend/tests/test_schedul*.py`, `e2e/tests/e2e/automation*.spec.ts`
+- Patrones de ensayo: `backend/tests/test_schedul*.py`, `tests/e2e/tests/e2e/automation*.spec.ts`
 - Directivas: `docs/dev_memory/directives/scheduler_config_resilience.md`, `docs/dev_memory/directives/autonomous_quality_loop.md`, `docs/dev_memory/directives/automations_and_formulas.md`
 
 ## Cliente de escritorio y acompañantes
 
 - Guía: [`Desktop y clientes acompañantes '](../domains/desktop-clients.md)
-- Patrones de origen: `electron/**/*`, `web-clipper/**/*`, `integrations/libreoffice-cite/**/*`, `integrations/word-cite-pin/**/*`
-- Patrones de ensayo: `electron/**/*test*`, `integrations/**/tests/**/*`
+- Patrones de origen: `desktop/**/*`, `web-clipper/**/*`, `extensions/office/libreoffice-cite/**/*`, `extensions/office/word-cite/**/*`
+- Patrones de ensayo: `desktop/**/*test*`, `integrations/**/tests/**/*`
 - Directivas: `docs/dev_memory/directives/release_candidate_process.md`, `docs/dev_memory/directives/libreoffice_cite_extension.md`, `docs/dev_memory/directives/word_addin_persistence.md`

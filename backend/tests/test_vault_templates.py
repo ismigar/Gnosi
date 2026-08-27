@@ -150,7 +150,7 @@ def test_catalog_rejects_untrusted_signature(tmp_path, monkeypatch):
 
 
 def test_release_builder_emits_signed_valid_starter(tmp_path, monkeypatch):
-    from marketplace import build_vault_templates
+    from extensions.marketplace import build_vault_templates
 
     keypair = plugin_signing.generate_keypair()
     monkeypatch.setenv("GNOSI_PLUGIN_SIGNING_KEY", keypair["private"])

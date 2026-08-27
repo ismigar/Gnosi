@@ -13,7 +13,7 @@ tests:
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_literature_service.py
-  - e2e/tests/e2e/automation-scout.spec.ts
+  - tests/e2e/tests/e2e/automation-scout.spec.ts
 ---
 
 # Automation and scheduling

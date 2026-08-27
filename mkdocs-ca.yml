@@ -3,7 +3,7 @@ site_description: Arquitectura, implementació, operacions i referència del cod
 site_url: https://gnosi.temenosismael.org/engineering/ca/
 repo_url: https://github.com/ismigar/Gnosi
 repo_name: ismigar/Gnosi
-edit_uri: edit/main/apps/gnosi/docs/engineering/
+edit_uri: edit/main/docs/engineering/
 docs_dir: docs/engineering-ca
 site_dir: site/engineering/ca
 strict: true

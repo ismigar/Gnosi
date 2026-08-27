@@ -10,10 +10,10 @@ source_paths:
   - backend/services/plugin_sandbox.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
-  - plugins-examples
+  - extensions/examples
   - frontend/src/plugins
-  - mcp-servers
-  - integrations
+  - extensions/mcp
+  - extensions/office
 tests:
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
@@ -22,7 +22,7 @@ tests:
   - backend/tests/test_mcp_tool_contributions.py
   - frontend/src/plugins/host.test.js
   - frontend/src/plugins/registry.test.js
-  - integrations/libreoffice-cite/tests
+  - extensions/office/libreoffice-cite/tests
 ---
 
 # Integrations and plugins

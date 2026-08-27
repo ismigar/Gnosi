@@ -10,10 +10,10 @@ End-to-end testing skill for the Gnosi frontend. Replaces the historical manual 
 
 | Layer | Location | Notes |
 |-------|----------|-------|
-| **App under test** | `monorepo/apps/gnosi/frontend` | Served natively on `localhost:5173`; Docker remains a supported deployment mode |
-| **Test project** | `monorepo/apps/gnosi/e2e` | Separate npm project — runs on the **host** (macOS), NOT inside the Alpine frontend container |
+| **App under test** | `frontend/` | Served natively on `localhost:5173`; Docker remains a supported deployment mode |
+| **Test project** | `tests/e2e/` | pnpm workspace package — runs on the **host** (macOS), NOT inside the Alpine frontend container |
 | **Skill (this folder)** | `pipeline/skills/playwright_e2e` | SOPs, helper scripts, baseline-generation tooling |
-| **CI** | `.github/workflows/e2e.yml` | Sharded 2-way Ubuntu runners |
+| **CI** | `.github/workflows/ci.yml` | Canonical Node/Python validation and Playwright smoke |
 
 ### Why tests run on the host, not in Docker
 
@@ -23,7 +23,7 @@ The frontend container uses **Alpine Linux** (musl libc). Playwright browser bin
 
 ## 2. Test projects (Playwright `projects`)
 
-Defined in [`e2e/playwright.config.ts`](../../e2e/playwright.config.ts):
+Defined in [`tests/e2e/playwright.config.ts`](../../../tests/e2e/playwright.config.ts):
 
 | Project | Test dir | Auth | Purpose |
 |---------|----------|------|---------|
@@ -37,26 +37,24 @@ Defined in [`e2e/playwright.config.ts`](../../e2e/playwright.config.ts):
 
 ## 3. Commands (canonical)
 
-From the **monorepo root** (`monorepo/`) or **git root** (`Projectes/`):
+From the `Gnosi/` repository root:
 
 ```bash
-npm run test:e2e:smoke          # smoke only (~10s) — pre-push hook uses this
-npm run test:e2e:a11y           # axe + keyboard accessibility gate
-npm run test:e2e                # full suite (~3min)
-npm run test:e2e:ui             # interactive UI mode (best DX for debugging)
-npm run test:e2e:update         # regenerate visual baselines (current platform)
-npm run test:e2e:linux-baselines # generate Linux baselines via Docker (CI parity)
+pnpm test:e2e:smoke          # smoke only (~10s)
+pnpm test:e2e:a11y           # axe + keyboard accessibility gate
+pnpm test:e2e                # full suite (~3min)
+pnpm test:e2e:ui             # interactive UI mode
 ```
 
-From `apps/gnosi/e2e/` directly (low-level):
+From `tests/e2e/` directly (low-level):
 
 ```bash
-npx playwright test --project=chromium-anon   # smoke
-npx playwright test --project=chromium-auth   # features only
-npx playwright test --project=accessibility   # accessibility gate only
-npx playwright test --headed                  # see browser
-npx playwright test --debug                   # step-through inspector
-npx playwright show-report                    # last HTML report
+pnpm exec playwright test --project=chromium-anon   # smoke
+pnpm exec playwright test --project=chromium-auth   # features only
+pnpm exec playwright test --project=accessibility   # accessibility gate only
+pnpm exec playwright test --headed                  # see browser
+pnpm exec playwright test --debug                   # step-through inspector
+pnpm exec playwright show-report                    # last HTML report
 ```
 
 ---
@@ -131,24 +129,14 @@ Only when the visual change is **intentional** (UI redesign, branding update). F
 
 CI runs on Ubuntu, dev usually on macOS. Same UI → different fonts/anti-aliasing → false positive visual diffs. Solution: store **both** platform baselines (`*-darwin.png` AND `*-linux.png`).
 
-### Recommended: GitHub Actions manual workflow
-
-Triggers a clean Ubuntu runner that exactly matches the CI environment:
-
-1. GitHub UI → **Actions** tab → **"E2E — Update Linux Visual Baselines (manual)"** → **Run workflow**.
-2. Wait ~3 min. Download the artifact **`visual-baselines-linux`**.
-3. Extract the PNGs into `apps/gnosi/e2e/tests/visual/regression.spec.ts-snapshots/`.
-4. Commit + push. CI will now pass on Linux.
-
-Workflow source: [`.github/workflows/e2e-update-baselines.yml`](../../../../monorepo/.github/workflows/e2e-update-baselines.yml).
-
-### Best-effort: local Docker
+### Local Docker
 
 ```bash
-npm run test:e2e:linux-baselines
+pipeline/skills/playwright_e2e/scripts/generate_linux_baselines.sh
 ```
 
-Wraps `scripts/generate_linux_baselines.sh` which runs `mcr.microsoft.com/playwright:v<resolved>-jammy` against `host.docker.internal:5173`.
+The script runs `mcr.microsoft.com/playwright:v<resolved>-jammy` against
+`host.docker.internal:5173` and installs the root frozen pnpm workspace.
 
 ⚠️ **Known limitation**: Vite dev server's HMR websocket + relative `base` path can prevent React from bootstrapping when accessed via `host.docker.internal`. If it fails, use the GitHub Actions workflow instead — don't fight Vite dev. (`vite.config.js` has `server.allowedHosts: ["localhost", "host.docker.internal"]` to mitigate the most common failure.)
 
@@ -161,17 +149,17 @@ Wraps `scripts/generate_linux_baselines.sh` which runs `mcr.microsoft.com/playwr
 | `pre-commit` | `lint-staged` (ESLint --fix on staged JS/TS files) | `SKIP_LINT_STAGED=1 git commit` |
 | `pre-push` | `npm run test:e2e:smoke` (skipped if `:5173` down) | `SKIP_E2E_SMOKE=1 git push` |
 
-Hooks live at `Projectes/.husky/` (git root, not the monorepo).
+Repository checks are enforced by the canonical GitHub Actions workflow.
 
 ---
 
 ## 9. CI
 
-GitHub Actions workflow: [`.github/workflows/e2e.yml`](../../../../monorepo/.github/workflows/e2e.yml).
+GitHub Actions workflow: [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml).
 
-- **Triggers**: push/PR with changes under `apps/gnosi/frontend/`, `apps/gnosi/e2e/`, or the workflow itself.
+- **Triggers**: push/PR with changes under `frontend/`, `tests/e2e/`, or the workflow itself.
 - **Sharded 2-way**: `matrix.shard: [1/2, 2/2]`.
-- **Caches** `~/.cache/ms-playwright` keyed on `e2e/package-lock.json` to skip Chromium download.
+- **Caches** `~/.cache/ms-playwright` keyed on the root `pnpm-lock.yaml` to skip Chromium download.
 - Builds frontend with `vite preview` (production-like, no HMR) instead of Docker.
 - Uploads `playwright-report/` always; uploads `test-results/` only on failure.
 

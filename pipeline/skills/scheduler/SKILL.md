@@ -3,7 +3,7 @@
 This skill defines the technical protocol for managing the Gnosi background task orchestrator (`SchedulerManager`).
 
 > ID: SCHEDULER-CORE-20260408
-> Core Logic: `monorepo/apps/gnosi/backend/scheduler/manager.py`
+> Core Logic: `backend/scheduler/manager.py`
 > Status: ACTIVE
 
 ---
