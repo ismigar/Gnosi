@@ -26,6 +26,7 @@ Resolution order (first hit wins, same for the three functions):
   3. Label translated in any locale (`"Article de revista acadèmica"` → ca-AD → journalArticle)
   4. Fallback (`'document'` for CSL, `None` for the Zotero key)
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -44,26 +45,27 @@ from backend.services.zotero_schema import (
 # no-op to 'document'), so these types were being exported as
 # generic 'document' while the frontend cited them correctly.
 LEGACY_TYPE_ALIASES: dict[str, str] = {
-    'Article científic': 'article-journal',
-    'Article de revista': 'article-journal',
-    'Article divulgatiu': 'article-magazine',
-    'Tesis': 'thesis',
-    'Manual': 'book',
+    "Article científic": "article-journal",
+    "Article de revista": "article-journal",
+    "Article divulgatiu": "article-magazine",
+    "Tesis": "thesis",
+    "Manual": "book",
     # Legacy spelling of the canonical "Capítol d'un llibre" label. Without it a
     # book chapter resolved to 'document' and APA dropped the whole
     # "In <Editor> (Ed.), <Book title> (pp. x–y)" container.
-    'Secció de Llibre': 'chapter',
-    'Ponència': 'paper-conference',
-    'Curs': 'document',
-    'Relat': 'document',
-    'Document': 'document',
-    'Vídeo': 'motion_picture',
-    'Entrevista/testimoni': 'interview',
+    "Secció de Llibre": "chapter",
+    "Ponència": "paper-conference",
+    "Curs": "document",
+    "Relat": "document",
+    "Document": "document",
+    "Vídeo": "motion_picture",
+    "Entrevista/testimoni": "interview",
 }
 
 
 # Same legacy synonyms, resolved to the canonical ZOTERO key instead of the CSL
-# type: SAME keys as `LEGACY_TYPE_ALIASES`, and every entry must satisfy
+# The canonical-type table uses the SAME keys as `LEGACY_TYPE_ALIASES`, and
+# every entry must satisfy
 # `ZOTERO_TO_CSL_TYPE[LEGACY_TYPE_TO_ZOTERO[k]] == LEGACY_TYPE_ALIASES[k]`
 # (invariant enforced by test_item_type_normalization.py) — if the two tables
 # drift, a legacy value would be cited with one type and exported/normalized
@@ -71,24 +73,24 @@ LEGACY_TYPE_ALIASES: dict[str, str] = {
 # differs from the canonical ca-AD label (magazineArticle); legacy wins here
 # exactly like it wins in `resolve_csl_type`.
 LEGACY_TYPE_TO_ZOTERO: dict[str, str] = {
-    'Article científic': 'journalArticle',
-    'Article de revista': 'journalArticle',
-    'Article divulgatiu': 'magazineArticle',
-    'Tesis': 'thesis',
-    'Manual': 'book',
-    'Secció de Llibre': 'bookSection',
-    'Ponència': 'conferencePaper',
-    'Curs': 'document',
-    'Relat': 'document',
-    'Document': 'document',
-    'Vídeo': 'videoRecording',
-    'Entrevista/testimoni': 'interview',
+    "Article científic": "journalArticle",
+    "Article de revista": "journalArticle",
+    "Article divulgatiu": "magazineArticle",
+    "Tesis": "thesis",
+    "Manual": "book",
+    "Secció de Llibre": "bookSection",
+    "Ponència": "conferencePaper",
+    "Curs": "document",
+    "Relat": "document",
+    "Document": "document",
+    "Vídeo": "videoRecording",
+    "Entrevista/testimoni": "interview",
 }
 
 
 def resolve_csl_type(raw: str) -> str:
     if not raw or not isinstance(raw, str):
-        return 'document'
+        return "document"
     if raw in LEGACY_TYPE_ALIASES:
         return LEGACY_TYPE_ALIASES[raw]
     if raw in ZOTERO_TO_CSL_TYPE:
@@ -97,7 +99,7 @@ def resolve_csl_type(raw: str) -> str:
         zot = loc_labels.get(raw)
         if zot and zot in ZOTERO_TO_CSL_TYPE:
             return ZOTERO_TO_CSL_TYPE[zot]
-    return 'document'
+    return "document"
 
 
 def resolve_zotero_item_type(raw: str) -> str:
@@ -109,10 +111,10 @@ def resolve_zotero_item_type(raw: str) -> str:
     acadèmica'); resolving nothing meant every native record exported as
     `@misc` / `TY - GEN`. Thin wrapper over `resolve_zotero_type` for callers
     that need a total function (custom types degrade to 'document')."""
-    return resolve_zotero_type(raw) or 'document'
+    return resolve_zotero_type(raw) or "document"
 
 
-def resolve_zotero_type(raw) -> Optional[str]:
+def resolve_zotero_type(raw: object) -> Optional[str]:
     """Canonical Zotero item-type key for a raw "Item Type" value, or None.
 
     Accepts the two spaces the field has historically mixed — canonical keys
@@ -146,7 +148,7 @@ def _infer_catalog_locale(catalog: list[str]) -> Optional[str]:
 
     """
     best, best_votes = None, 0
-    for locale in sorted(LABEL_TO_ZOTERO_TYPE, key=lambda loc: (loc != 'en-US', loc)):
+    for locale in sorted(LABEL_TO_ZOTERO_TYPE, key=lambda loc: (loc != "en-US", loc)):
         votes = sum(1 for name in catalog if name in LABEL_TO_ZOTERO_TYPE[locale])
         if votes > best_votes:
             best, best_votes = locale, votes
@@ -185,16 +187,18 @@ def normalize_item_type(value: str, catalog: Optional[list[str]] = None) -> str:
     locale = _infer_catalog_locale(catalog)
     matches = [name for name in catalog if resolve_zotero_type(name) == key]
     if matches:
+
         def rank(name: str) -> int:
             if locale and LABEL_TO_ZOTERO_TYPE[locale].get(name) == key:
                 return 0
             if any(labels.get(name) == key for labels in LABEL_TO_ZOTERO_TYPE.values()):
                 return 1
             return 2
+
         return min(matches, key=rank)  # min() is stable: catalog order breaks ties
     if value != key:
         return value
-    for loc in ([locale] if locale else []) + ['en-US']:
+    for loc in ([locale] if locale else []) + ["en-US"]:
         label = ZOTERO_TYPE_LABELS.get(loc, {}).get(key)
         if label:
             return label
