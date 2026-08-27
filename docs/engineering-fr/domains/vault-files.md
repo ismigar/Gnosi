@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -13,6 +13,8 @@ source_paths:
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
 tests:
+  - backend/tests/test_purge_cleanup.py
+  - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
@@ -93,7 +95,7 @@ Les écritures choisissent une cible autorisée sous le coffre-fort actif, norma
 
 ## Déchets et opérations de destruction
 
-Suppression ordinaire est récupérable : les pages et les actifs connexes passent par le modèle de corbeille de Vault. Purge est distinct et supprime le contenu ainsi que les métadonnées dérivées et les relations inverses. Suppression du registre de Vault supprime la ligne de registre logique par défaut ; suppression physique du dossier nécessite un signal explicite séparé et des contrôles de confinement plus forts.
+Suppression ordinaire est récupérable : les pages et les actifs connexes passent par le modèle de corbeille de Vault. Purge est distinct et supprime le contenu ainsi que les métadonnées dérivées et les relations inverses. `trash/purge.py` gère le passage irréversible sur les fichiers et le nettoyage de l'historique, des métadonnées latérales et des commentaires via des ports injectés. Suppression du registre de Vault supprime la ligne de registre logique par défaut ; suppression physique du dossier nécessite un signal explicite séparé et des contrôles de confinement plus forts.
 
 ## Modèles de value
 

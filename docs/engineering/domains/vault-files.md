@@ -1,12 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault/assets
   - backend/domains/vault/files
   - backend/domains/vault/pages
+  - backend/domains/vault/trash
   - backend/platform/files
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
@@ -15,6 +16,8 @@ source_paths:
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
 tests:
+  - backend/tests/test_purge_cleanup.py
+  - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
@@ -145,7 +148,9 @@ document.
 
 Ordinary deletion is recoverable: pages and related assets move through the
 Vault trash model. Purge is distinct and removes content plus derived metadata
-and inverse relations. Vault registry deletion removes the logical registry row
+and inverse relations. `trash/purge.py` owns the irreversible filesystem pass,
+history, metadata-sidecar and comment cleanup behind late-bound facade ports.
+Vault registry deletion removes the logical registry row
 by default; physical folder deletion requires a separate explicit signal and
 stronger containment checks.
 

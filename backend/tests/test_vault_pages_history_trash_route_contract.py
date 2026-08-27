@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes
+from backend.domains.vault.trash import purge as trash_purge
 
 
 RouteFingerprint = tuple[str, str, str]
@@ -60,9 +62,7 @@ def _pages_history_trash_fingerprint() -> tuple[RouteFingerprint, ...]:
         handler_name = route.endpoint.__name__
         if handler_name not in TARGET_HANDLER_NAMES:
             continue
-        fingerprint.extend(
-            (method, route.path, handler_name) for method in sorted(route.methods)
-        )
+        fingerprint.extend((method, route.path, handler_name) for method in sorted(route.methods))
     return tuple(fingerprint)
 
 
@@ -75,3 +75,9 @@ def test_pages_history_trash_route_fingerprint_is_unchanged() -> None:
         EXPECTED_ROUTE_FINGERPRINT,
         separators=(",", ":"),
     )
+
+
+def test_trash_purge_domain_does_not_import_http_facade() -> None:
+    source_path = Path(trash_purge.__file__ or "")
+    assert source_path.is_file()
+    assert "backend.api.vault_routes" not in source_path.read_text(encoding="utf-8")

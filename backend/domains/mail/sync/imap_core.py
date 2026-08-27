@@ -355,7 +355,7 @@ class ImapMailSyncCore:
     def _sync_flags(
         self: Any, imap: Any, email_account: str, folder_name: str, uids: list[Any]
     ) -> Any:
-        """Update \Seen and \Flagged flags in vault for recently active messages."""
+        r"""Update \Seen and \Flagged flags in vault for recently active messages."""
         if not uids:
             return
         uid_str = b",".join(uids)

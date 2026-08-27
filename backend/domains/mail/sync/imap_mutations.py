@@ -59,7 +59,7 @@ def _latest_mailbox_uid(imap: Any, drafts_folder: str) -> str | None:
 
 class ImapMailMutationService(ImapMailSyncCore):
     def _move_on_server(self: Any, imap: Any, uid: str, from_folder: str, to_folder: str) -> bool:
-        """COPY + STORE \Deleted + EXPUNGE (compatible with all IMAP servers)."""
+        r"""COPY + STORE \Deleted + EXPUNGE (compatible with all IMAP servers)."""
         try:
             imap.select(_imap_name(from_folder))
             uid_b = uid.encode() if isinstance(uid, str) else uid

@@ -175,6 +175,7 @@ from backend.domains.vault.pages.cache import (
 from backend.domains.vault.history.repository import HistoryRepository
 from backend.domains.vault.api import history as history_api
 from backend.domains.vault.api import trash as trash_api
+from backend.domains.vault.trash import purge as trash_purge
 from backend.domains.vault.api import pages_queries as page_queries_api
 from backend.domains.vault.pages import create_service as page_create_service
 from backend.domains.vault.api import pages_duplicate as page_duplicate_api
@@ -7620,86 +7621,29 @@ async def _materialize_all_trash_sidecars() -> None:
         await _materialize_if_online_only(sidecar, f"trash/{sidecar.parent.name}")
 
 
+_TRASH_PURGE_DEPENDENCIES = trash_purge.PurgeDependencies(
+    entry_directory=lambda page_id: _trash_entry_dir(page_id),
+    parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+    remove_tree=lambda path: shutil.rmtree(path),
+    propagate_relation_inverse=lambda page_id, table_id, old, new: (
+        _propagate_relation_inverse(page_id, table_id, old, new)
+    ),
+    vault_root=lambda: get_p("VAULT"),
+    delete_metadata_sidecar=lambda vault_root, page_id: delete_sidecar_for_page(
+        vault_root,
+        page_id,
+    ),
+    validate_page_id=lambda page_id: _validate_safe_page_id(page_id),
+    load_comments=lambda: _load_comments(),
+    save_comments=lambda data: _save_comments(data),
+    inline_comments_path=lambda page_id: _inline_comments_path(page_id),
+    logger=log,
+)
+
+
 def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
     """Permanently deletes an entry from the trash."""
-    entry_dir = _trash_entry_dir(page_id)
-    if not entry_dir.exists():
-        raise FileNotFoundError(f"No trash entry for {page_id}")
-    # Size before purging (telemetry).
-    freed_bytes = 0
-    for f in entry_dir.rglob("*"):
-        try:
-            if f.is_file():
-                freed_bytes += f.stat().st_size
-        except Exception:
-            pass
-
-    # Reads the page's relations BEFORE destroying it: when purging, we need to
-    # remove its id from the pages that pointed to it (the inverse). Without this,
-    # deleting a source page left relations dangling toward an id that no longer
-    # exists anywhere — permanently, because the page cannot be restored
-    # (audited on the real vault: 4 pages with `Font →` a purged id). In a
-    # soft-delete it is intentionally NOT cleaned up (it preserves the relation in case of restore);
-    # the purge is the final point where it's appropriate.
-    _purged_meta: Optional[dict] = None
-    _purged_table_id: Optional[str] = None
-    try:
-        _page_md = entry_dir / "page.md"
-        if _page_md.exists():
-            _raw = _page_md.read_text(encoding="utf-8")
-            _purged_meta, _ = parse_frontmatter(_raw, _page_md)
-            _purged_table_id = (
-                _purged_meta.get("table_id")
-                or _purged_meta.get("database_table_id")
-            )
-    except Exception as exc:
-        log.debug(f"purge: could not read relationships for {page_id}: {exc}")
-
-    shutil.rmtree(entry_dir)
-
-    # Removes this page's id from the inverse relations of the others
-    # (best-effort; `_propagate_relation_inverse` is defensive and non-blocking).
-    # empty new_meta → all of the page's relations count as "remove".
-    if _purged_meta and _purged_table_id:
-        try:
-            _propagate_relation_inverse(page_id, _purged_table_id, _purged_meta, {})
-        except Exception as exc:
-            log.debug(f"purge: inverse relationship cleanup failed for {page_id}: {exc}")
-
-    # Clean up the internal metadata sidecar: if it were left orphaned, it wouldn't hurt, but it's
-    # better to purge it for consistency. The page is no longer recoverable.
-    try:
-        vault_root = get_p("VAULT")
-        if vault_root:
-            delete_sidecar_for_page(vault_root, page_id)
-    except Exception as exc:
-        log.debug(f"Could not purge the page_meta sidecar for {page_id}: {exc}")
-    # Purge = PERMANENT deletion: also remove the traces that used to remain
-    # orphaned forever (audited on the real vault: 158 history directories from
-    # already-purged pages, with the FULL CONTENT inside — the user believes that
-    # the page is gone but .history still has it). All best-effort: the
-    # purge never fails due to the cleanup.
-    try:
-        safe_id = _validate_safe_page_id(page_id)
-        history_dir = get_p("VAULT") / ".history" / safe_id
-        if history_dir.exists():
-            shutil.rmtree(history_dir)
-    except Exception as exc:
-        log.debug(f"Could not purge history for {page_id}: {exc}")
-    try:
-        data = _load_comments()
-        if page_id in data:
-            data.pop(page_id, None)
-            _save_comments(data)
-    except Exception as exc:
-        log.debug(f"Could not purge comments for {page_id}: {exc}")
-    try:
-        inline_path = _inline_comments_path(page_id)
-        if inline_path.exists():
-            inline_path.unlink()
-    except Exception as exc:
-        log.debug(f"Could not purge inline comments for {page_id}: {exc}")
-    return {"id": page_id, "freed_bytes": freed_bytes}
+    return trash_purge.purge_trash_entry(page_id, _TRASH_PURGE_DEPENDENCIES)
 
 
 def _force_index_rescan() -> None:
