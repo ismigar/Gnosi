@@ -481,6 +481,41 @@ from backend.domains.vault.files import thumbnails as file_thumbnails
 from backend.domains.vault.files.thumbnails import ThumbnailDependencies
 
 
+from backend.domains.vault.comments import api as comments_api
+from backend.domains.vault.comments import repository as comments_repository
+from backend.domains.vault.comments.schemas import (
+    CommentCreateRequest,
+    CommentUpdateRequest,
+    InlineCommentPatch,
+    InlineCommentRequest,
+)
+from backend.domains.vault.comments.state import (
+    inline_comments_mutation_lock as _inline_comments_mutation_lock,
+    page_comments_io_lock as _comments_lock,
+    page_comments_mutation_lock as _comments_mutation_lock,
+)
+from backend.domains.vault.links.api import mentions as link_mentions_api
+from backend.domains.vault.links.api import navigation as link_navigation_api
+from backend.domains.vault.links.api import overview as link_overview_api
+from backend.domains.vault.links.api import preview as link_preview_api
+from backend.domains.vault.links.api.dependencies import LinkApiDependencies
+from backend.domains.vault.links import index_service as link_index_service
+from backend.domains.vault.links import parsing as link_parsing
+from backend.domains.vault.links.schemas import LinkMentionsRequest
+from backend.domains.vault.links.state import LinkIndexView, link_index_state
+from backend.domains.vault.citations import authors as citation_authors
+from backend.domains.vault.citations import formatting as citation_formatting
+from backend.domains.vault.citations import io_api as citation_io_api
+from backend.domains.vault.citations import keys as citation_keys
+from backend.domains.vault.citations import keys_api as citation_keys_api
+from backend.domains.vault.citations import references_api as citation_references_api
+from backend.domains.vault.citations import search as citation_search
+from backend.domains.vault.citations.references_api import (
+    REFERENCE_SCHEMA as _REFERENCE_SCHEMA,
+)
+from backend.domains.vault.citations.state import citation_index_state
+
+
 def _table_by_id(table_id: str) -> Optional[dict]:
     """Return one table through the canonical registry domain."""
     return registry_api.table_by_id(table_id, registry_api_dependencies)
@@ -560,7 +595,50 @@ def __getattr__(name: str):
         return page_state.last_vault_sync_time
     if name == "_page_write_locks_guard":
         return page_state.write_locks_guard
+    link_state_names = {
+        "_outlinks_by_source": "outlinks_by_source",
+        "_outlink_kinds_by_source": "outlink_kinds_by_source",
+        "_backlinks_by_target": "backlinks_by_target",
+        "_backlinks_by_target_title": "backlinks_by_target_title",
+        "_tokens_by_source": "tokens_by_source",
+        "_page_meta_by_id": "page_meta_by_id",
+        "_link_index_lock": "lock",
+        "_link_index_built": "built",
+        "_link_index_build_ts": "build_ts",
+        "_link_index_source_count": "source_count",
+        "_link_index_persist_pending": "persist_pending",
+        "_link_index_persist_lock": "persist_lock",
+        "_link_index_rebuild_in_progress": "rebuild_in_progress",
+        "_link_index_rebuild_state_lock": "rebuild_state_lock",
+    }
+    if name in link_state_names:
+        return getattr(link_index_state, link_state_names[name])
+    citation_state_names = {
+        "_cite_key_index": "indexes",
+        "_cite_key_index_size_at_build": "sizes_at_build",
+        "_cite_key_index_lock": "lock",
+    }
+    if name in citation_state_names:
+        return getattr(citation_index_state, citation_state_names[name])
     raise AttributeError(f"module {__name__} has no attribute {name}")
+
+
+def _link_index_view() -> LinkIndexView:
+    module = sys.modules[__name__]
+    return LinkIndexView(
+        outlinks_by_source=getattr(module, "_outlinks_by_source"),
+        outlink_kinds_by_source=getattr(module, "_outlink_kinds_by_source"),
+        backlinks_by_target=getattr(module, "_backlinks_by_target"),
+        backlinks_by_target_title=getattr(module, "_backlinks_by_target_title"),
+        tokens_by_source=getattr(module, "_tokens_by_source"),
+        page_meta_by_id=getattr(module, "_page_meta_by_id"),
+        lock=getattr(module, "_link_index_lock"),
+        built=getattr(module, "_link_index_built"),
+        build_ts=getattr(module, "_link_index_build_ts"),
+        source_count=getattr(module, "_link_index_source_count"),
+        rebuild_in_progress=getattr(module, "_link_index_rebuild_in_progress"),
+        rebuild_state_lock=getattr(module, "_link_index_rebuild_state_lock"),
+    )
 
 
 def _clear_page_index_cache():
@@ -654,27 +732,10 @@ class DailyNoteRequest(BaseModel):
     date: str
 
 
-class CommentCreateRequest(BaseModel):
-    body: str
-    # Display name shown next to the comment. The server also stamps the
-    # authenticated user id (author_id) independently.
-    author: Optional[str] = None
-
-
-class CommentUpdateRequest(BaseModel):
-    body: Optional[str] = None
-    resolved: Optional[bool] = None
-
-
 class OpenResourceRequest(BaseModel):
     zotero_uri: Optional[str] = None
     file_path: Optional[str] = None
     attachments: Optional[object] = None
-
-
-class LinkMentionsRequest(BaseModel):
-    target_id: str
-    source_id: Optional[str] = None
 
 
 # RuleEngine becomes a dictionary to store an instance for each vault_path (cache)
@@ -1217,40 +1278,11 @@ def generate_frontmatter(metadata: dict) -> str:
 
 
 def _link_index_title_for(page_id: str) -> Optional[str]:
-    """CURRENT title of a page according to the link index, if it's warm.
-
-    Never builds the index (a save must not be blocked by a vault scan):
-    with a cold index it returns None and relation decoration degrades
-    to a bare id. See relation_wikilinks_frontmatter.md.
-    
-    """
-    pid = str(page_id or "").strip()
-    if not pid or not _link_index_built:
-        return None
-    with _link_index_lock:
-        meta = _page_meta_by_id.get(pid) or {}
-    title = str(meta.get("title") or "").strip()
-    return title or None
+    return link_index_service.link_index_title_for(page_id, _link_index_view())
 
 
 def _link_index_unique_id_for_title(title: str) -> Optional[str]:
-    """Resolves a title to the page id ONLY if the match is unique.
-
-    Used to canonicalize a `[[Title]]` left by a manual edit (e.g.
-    Obsidian) in a relation field. O(n) over the in-memory index, but
-    only invoked for items without an alias — the normal path doesn't go through it.
-    
-    """
-    wanted = str(title or "").strip().lower()
-    if not wanted or not _link_index_built:
-        return None
-    with _link_index_lock:
-        matches = [
-            pid
-            for pid, meta in _page_meta_by_id.items()
-            if str((meta or {}).get("title") or "").strip().lower() == wanted
-        ]
-    return matches[0] if len(matches) == 1 else None
+    return link_index_service.link_index_unique_id_for_title(title, _link_index_view())
 
 
 def _load_table_rows(table_id: str) -> List[dict]:
@@ -4139,128 +4171,49 @@ async def list_vault_tags():
 # write frequency → a process lock + atomic write is plenty (same pattern as
 # custom icons).
 # ---------------------------------------------------------------------------
-_comments_lock = threading.Lock()
-
-# The threading.Lock above makes EACH load and EACH save atomic separately, but
-# the handlers' load→modify→save cycle was not: two simultaneous POSTs
-# loaded the same snapshot, both added their comment to it and the second
-# save would overwrite the first one (reproduced against the real backend: of the two
-# concurrent comments only one would survive). This asyncio lock
-# serializes the entire cycle across the three mutations (add/update/delete) — a single
-# uvicorn process, so the loop's lock is enough.
-_comments_mutation_lock = asyncio.Lock()
-
-
 def _get_comments_path() -> Path:
-    return get_p("GNOSI_CONFIG") / "page_comments.json"
+    return comments_repository.comments_path(get_p)
 
 
 def _load_comments() -> dict:
-    with _comments_lock:
-        try:
-            path = _get_comments_path()
-            if not path.exists():
-                return {}
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return data if isinstance(data, dict) else {}
-        except Exception:
-            return {}
+    return comments_repository.load_page_comments(_get_comments_path)
 
 
 def _save_comments(data: dict) -> None:
-    with _comments_lock:
-        path = _get_comments_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        safe_write_json(path, data, indent=2, ensure_ascii=False)
+    comments_repository.save_page_comments(_get_comments_path, safe_write_json, data)
 
 
-@router.get(
-    "/pages/{page_id}/comments",
-    dependencies=[Depends(require_plugins("page-comments"))],
+_COMMENTS_DEPENDENCIES = comments_api.CommentDependencies(
+    resolve_page_loader=lambda: globals()["_load_comments"],
+    resolve_page_saver=lambda: globals()["_save_comments"],
+    resolve_inline_loader=lambda: globals()["_load_inline_comments"],
+    resolve_inline_path=lambda: globals()["_inline_comments_path"],
+    resolve_json_writer=lambda: globals()["safe_write_json"],
 )
-async def list_page_comments(page_id: str):
-    """Returns the comment thread for a page (oldest first)."""
-    data = await asyncio.to_thread(_load_comments)
-    return {"comments": data.get(page_id, [])}
 
-
-@router.post(
-    "/pages/{page_id}/comments",
-    dependencies=[Depends(require_role("editor")), Depends(require_plugins("page-comments"))],
+(
+    list_page_comments,
+    add_page_comment,
+    update_page_comment,
+    delete_page_comment,
+) = comments_api.register_page_comment_routes(
+    router,
+    get_dependencies=[Depends(require_plugins("page-comments"))],
+    post_dependencies=[
+        Depends(require_role("editor")),
+        Depends(require_plugins("page-comments")),
+    ],
+    patch_dependencies=[
+        Depends(require_role("editor")),
+        Depends(require_plugins("page-comments")),
+    ],
+    delete_dependencies=[
+        Depends(require_role("editor")),
+        Depends(require_plugins("page-comments")),
+    ],
+    workspace_context_dependency=get_workspace_context,
+    dependencies=_COMMENTS_DEPENDENCIES,
 )
-async def add_page_comment(
-    page_id: str,
-    request: CommentCreateRequest,
-    context: WorkspaceContext = Depends(get_workspace_context),
-):
-    """Appends a comment to a page's thread."""
-    body = (request.body or "").strip()
-    if not body:
-        raise HTTPException(status_code=422, detail="Comment body cannot be empty")
-
-    comment = {
-        "id": str(uuid.uuid4()),
-        "body": body,
-        "author": (request.author or "").strip() or "Anònim",
-        "author_id": getattr(context, "user_id", None),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": None,
-        "resolved": False,
-    }
-
-    async with _comments_mutation_lock:
-        data = await asyncio.to_thread(_load_comments)
-        data.setdefault(page_id, []).append(comment)
-        await asyncio.to_thread(_save_comments, data)
-    return comment
-
-
-@router.patch(
-    "/pages/{page_id}/comments/{comment_id}",
-    dependencies=[Depends(require_role("editor")), Depends(require_plugins("page-comments"))],
-)
-async def update_page_comment(
-    page_id: str, comment_id: str, request: CommentUpdateRequest
-):
-    """Edits a comment's body and/or toggles its resolved flag."""
-    async with _comments_mutation_lock:
-        data = await asyncio.to_thread(_load_comments)
-        thread = data.get(page_id) or []
-        target = next((c for c in thread if c.get("id") == comment_id), None)
-        if not target:
-            raise HTTPException(status_code=404, detail="Comment not found")
-
-        if request.body is not None:
-            new_body = request.body.strip()
-            if not new_body:
-                raise HTTPException(status_code=422, detail="Comment body cannot be empty")
-            target["body"] = new_body
-        if request.resolved is not None:
-            target["resolved"] = bool(request.resolved)
-        target["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        await asyncio.to_thread(_save_comments, data)
-    return target
-
-
-@router.delete(
-    "/pages/{page_id}/comments/{comment_id}",
-    dependencies=[Depends(require_role("editor")), Depends(require_plugins("page-comments"))],
-)
-async def delete_page_comment(page_id: str, comment_id: str):
-    """Removes a comment from a page's thread."""
-    async with _comments_mutation_lock:
-        data = await asyncio.to_thread(_load_comments)
-        thread = data.get(page_id) or []
-        new_thread = [c for c in thread if c.get("id") != comment_id]
-        if len(new_thread) == len(thread):
-            raise HTTPException(status_code=404, detail="Comment not found")
-        if new_thread:
-            data[page_id] = new_thread
-        else:
-            data.pop(page_id, None)
-        await asyncio.to_thread(_save_comments, data)
-    return {"status": "deleted", "id": comment_id}
 
 
 # ---------------------------------------------------------------------------
@@ -5420,546 +5373,182 @@ import subprocess as _ext_subprocess
 from backend.services.csl_type_resolver import resolve_csl_type as _resolve_csl_type
 
 
-def _parse_authors_to_csl(authors_str: str) -> list:
-    """Same heuristic as cslEngine.js — parse Authors string into a CSL author array."""
-    if not authors_str or not isinstance(authors_str, str):
-        return []
-    parts = (
-        [s.strip() for s in authors_str.split(';') if s.strip()]
-        if ';' in authors_str else [authors_str.strip()]
-    )
-    out = []
-    for p in parts:
-        if ', ' in p and len(p.split(',')) == 2:
-            family, given = [s.strip() for s in p.split(',', 1)]
-            if family:
-                out.append({'family': family, 'given': given})
-        elif ',' in p:
-            for sub in [s.strip() for s in p.split(',') if s.strip()]:
-                tokens = sub.split()
-                if len(tokens) == 1:
-                    out.append({'family': tokens[0]})
-                else:
-                    out.append({'family': tokens[-1], 'given': ' '.join(tokens[:-1])})
-        else:
-            tokens = p.split()
-            if len(tokens) == 1:
-                out.append({'family': tokens[0]})
-            else:
-                out.append({'family': tokens[-1], 'given': ' '.join(tokens[:-1])})
-    return out
-
-
-def _normalize_authors_field(v):
-    """Normalizes the Authors field when it comes STRUCTURED into a string that
-    `_parse_authors_to_csl` understands ('Surname, Name; ...').
-
-    The metadata cached in page_index can store Authors as a string,
-    as a dict {nom, cognom1, cognom2}, or as a list of these. Strings
-    are left as-is (already processed by `_parse_authors_to_csl`);
-    we only convert dicts/lists."""
-    if isinstance(v, str):
-        return v
-
-    def one(a):
-        if isinstance(a, dict):
-            family = " ".join(
-                s for s in (
-                    str(a.get("cognom1") or "").strip(),
-                    str(a.get("cognom2") or "").strip(),
-                ) if s
-            ).strip()
-            given = str(a.get("nom") or "").strip()
-            if family and given:
-                return f"{family}, {given}"
-            return family or given
-        return str(a or "").strip()
-
-    if isinstance(v, list):
-        return "; ".join(n for n in (one(x) for x in v) if n)
-    if isinstance(v, dict):
-        return one(v)
-    return str(v or "")
-
-
-def _find_structured_authors(metadata: dict) -> list:
-    """Finds the structured `autoria` value in a page's metadata.
-
-    Mirror of `findStructuredAuthors` in cslEngine.js: we look it up by SHAPE, not
-    by key name, because the field is stored under the key = field name and the
-    user can rename it (`Authors` → `Autoría` → …) without the frontmatter
-    migrating. Any list of dicts with `nom`/`cognom1`/`cognom2` qualifies."""
-    if not isinstance(metadata, dict):
-        return []
-    for v in metadata.values():
-        if isinstance(v, list) and any(
-            isinstance(a, dict) and ('cognom1' in a or 'cognom2' in a or 'nom' in a)
-            for a in v
-        ):
-            return v
-    return []
-
-
-def _structured_authors_to_csl(authors: list) -> list:
-    """Maps structured authors to the CSL-JSON `author` array.
-
-    CSL has no notion of a second surname: cognom1+cognom2 collapse into
-    `family`. An author with only `nom` (organizations, mononyms) becomes a
-    `literal` name. Mirror of `structuredAuthorsToCsl` in cslEngine.js."""
-    out = []
-    for a in authors or []:
-        if not isinstance(a, dict):
-            continue
-        family = " ".join(
-            s for s in (
-                str(a.get('cognom1') or '').strip(),
-                str(a.get('cognom2') or '').strip(),
-            ) if s
-        )
-        given = str(a.get('nom') or '').strip()
-        if not family and not given:
-            continue
-        if not family:
-            out.append({'literal': given})
-            continue
-        entry = {'family': family}
-        if given:
-            entry['given'] = given
-        out.append(entry)
-    return out
-
-
-def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
-    """Builds CSL-JSON for a Recursos page. Backend equivalent of the frontend's
-    `recursosPageToCsl` (same mapping)."""
-    ck = m.get('Citation Key')
-    if not ck:
-        return None
-    item = {
-        'id': ck,
-        'type': _resolve_csl_type(m.get('Item Type', '')),
-        'title': title or m.get('Title') or '',
-    }
-    # Priority to the structured `autoria` field (curated, deterministic); only
-    # if there is none do we fall back to the legacy free-form `Authors` string.
-    # Mirrors `recursosPageToCsl` in cslEngine.js: without this the records whose
-    # author only lives in `Autoría` were cited by title ("(Zombie University 2018)"
-    # instead of "(Murphy, 2018)").
-    authors = _structured_authors_to_csl(_find_structured_authors(m))
-    if not authors:
-        authors = _parse_authors_to_csl(m.get('Authors') or '')
-    if authors:
-        item['author'] = authors
-    # Year. A number → `date-parts` (keeps chronological ordering). Text without
-    # digits ("en premsa") → CSL `literal`, so citeproc shows it verbatim instead
-    # of "n.d.". Empty → no `issued` at all → "n.d.".
-    year_raw = str(m.get('Any') or '').strip()
-    year_match = re.search(r'-?\d{1,4}', year_raw)
-    if year_match:
-        item['issued'] = {'date-parts': [[int(year_match.group(0))]]}
-    elif year_raw:
-        item['issued'] = {'literal': year_raw}
-    if m.get('Llibre/Revista'): item['container-title'] = m['Llibre/Revista']
-    if m.get('Editorial'): item['publisher'] = m['Editorial']
-    if m.get('Lloc'): item['publisher-place'] = m['Lloc']
-    if m.get('Volum'): item['volume'] = str(m['Volum'])
-    if m.get('Número'): item['issue'] = str(m['Número'])
-    if m.get('Pàgines'): item['page'] = str(m['Pàgines'])
-    if m.get('Edició'): item['edition'] = str(m['Edició'])
-    if m.get('DOI'): item['DOI'] = m['DOI']
-    if m.get('ISBN'): item['ISBN'] = m['ISBN']
-    if m.get('ISSN'): item['ISSN'] = m['ISSN']
-    if m.get('URL'): item['URL'] = m['URL']
-    if m.get('Idioma'): item['language'] = m['Idioma']
-    return item
-
-
-def _resolve_csl_path(style: str) -> Optional[Path]:
-    """Locates the `.csl` file for a given style. Shared by
-    `/export/`, `/format-citation` and `/format-bibliography`."""
-    style_map = {
-        'apa': 'apa.csl',
-        'chicago-author-date': 'chicago-author-date.csl',
-        'mla': 'modern-language-association.csl',
-        'modern-language-association': 'modern-language-association.csl',
-        'ieee': 'ieee.csl',
-    }
-    # Catalog directories, in resolution order. Must resolve in BOTH deployment
-    # modes: the `/app/...` entries only exist inside the Docker image; in NATIVE
-    # mode none of them did, `--csl` was never passed and pandoc fell back to its
-    # OWN default style — every citation came out as "(Bauman 2007)" instead of
-    # APA's "(Bauman, 2007)", whatever style the add-in asked for. The
-    # repo-relative path is derived from this very file
-    # (backend/api/vault_routes.py → repository root) so it holds wherever it is checked out.
-    style_dirs = [
-        Path('/app/frontend/public/csl/styles'),
-        Path(__file__).resolve().parents[2] / 'frontend' / 'public' / 'csl' / 'styles',
-    ]
-    # Unknown ids are user-uploaded styles: `save_uploaded_style` drops them in
-    # the SAME catalog directory as the canonical four, so they resolve as
-    # `<id>.csl`. This map used to send every unknown id straight to `apa.csl`,
-    # so the picker showed the uploaded style as active while every citation
-    # kept rendering as APA, with no error anywhere. `Path(...).name` strips any
-    # path component from the query param (no traversal); an id whose file
-    # doesn't exist still falls back to APA below.
-    for style_file in (style_map.get(style, Path(f"{style}.csl").name), 'apa.csl'):
-        for d in style_dirs:
-            c = d / style_file
-            if c.exists():
-                return c
-    return None
-
-
-def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
-    """Builds the list of CSL-JSON items for the given citation keys.
-    Ignores the ones that don't resolve in the Vault. Reusable by
-    `/format-citation`, `/format-bibliography` and `/export/`."""
-    if not keys:
-        return []
-    from backend.services.context_vars import get_active_vault_path
-    v_path = get_active_vault_path()
-    if not v_path:
-        return []
-    v_str = str(v_path)
-    idx = _ensure_cite_key_index(v_str)
-    # Snapshot of the cached metadata by id. Building the CSL from here
-    # avoids reopening the .md — essential when the vault lives on
-    # cloud storage with online-only files (opening them causes
-    # EDEADLK and the citation would be left unresolved). See environment_integrity.
+def _citation_page_metadata_snapshot(vault_key: str):
     with _page_index_lock:
-        meta_by_id = {
-            e.get("id"): (e.get("metadata") or {})
-            for e in _page_index_entries.get(v_str, {}).values()
-            if e.get("id")
+        return {
+            entry.get("id"): (entry.get("metadata") or {})
+            for entry in _page_index_entries.get(vault_key, {}).values()
+            if entry.get("id")
         }
-    out = []
-    for k in keys:
-        entry = idx.get(k)
-        if not entry:
-            continue
-        title = entry.get('title') or ''
-        csl_item = None
-        # 1) Cached metadata (no cloud I/O).
-        meta = meta_by_id.get(entry.get('id'))
-        if meta:
-            md_copy = dict(meta)
-            if md_copy.get('Authors') is not None:
-                md_copy['Authors'] = _normalize_authors_field(md_copy.get('Authors'))
-            md_copy.setdefault('Citation Key', k)
-            try:
-                csl_item = _recursos_metadata_to_csl(title, md_copy)
-            except Exception:
-                csl_item = None
-        # 2) Fallback: read the file's frontmatter (legacy case or cache
-        #    incomplete). Can fail with online-only files; it's caught.
-        if not csl_item:
-            try:
-                page_path = find_page_path(entry['id'])
-                if page_path:
-                    raw_page = page_path.read_text(encoding='utf-8')
-                    meta2, _ = parse_frontmatter(raw_page, page_path)
-                    csl_item = _recursos_metadata_to_csl(title, meta2)
-            except OSError:
-                csl_item = None
-        if csl_item:
-            out.append(csl_item)
-    return out
 
 
-# Shared error message when pandoc is not found. In NATIVE mode (without Docker)
-# the binary is a host dependency — the container image used to bundle it,
-# but after the migration the old error ("not available in the container")
-# was confusing: the fix is to install it on the Mac.
-_PANDOC_MISSING_MSG = (
-    "pandoc no disponible al host — instal·la'l (brew install pandoc) "
-    "o defineix PANDOC_PATH amb la ruta del binari"
+def _citation_page_entry_count(vault_key: str) -> int:
+    with _page_index_lock:
+        return len(_page_index_entries.get(vault_key, {}))
+
+
+def _citation_page_entries(vault_key: str):
+    with _page_index_lock:
+        return list(_page_index_entries.get(vault_key, {}).values())
+
+
+def _references_detect_format(raw: str) -> str:
+    from backend.services import references_io
+
+    return references_io.detect_format(raw)
+
+
+def _references_parse(raw: str, fmt: str):
+    from backend.services import references_io
+
+    return references_io.parse_references(raw, fmt)
+
+
+def _references_serialize(metadata: list[dict], fmt: str) -> str:
+    from backend.services import references_io
+
+    return references_io.serialize_references(metadata, fmt)
+
+
+def _references_find_existing(entry: dict, indexes: dict, keys: set):
+    from backend.services.import_dedup import find_existing_match
+
+    return find_existing_match(entry, indexes, keys)
+
+
+def _references_add_indexes(entry: dict, key: str, indexes: dict) -> None:
+    from backend.services.import_dedup import add_to_indexes
+
+    add_to_indexes(entry, key, indexes)
+
+
+def _references_normalize_title(value: object) -> str:
+    from backend.services.import_dedup import normalize_title_for_dedup
+
+    return normalize_title_for_dedup(value)
+
+
+def _references_normalize_item_type(value: str, catalog: list[str]) -> str:
+    from backend.services.csl_type_resolver import normalize_item_type
+
+    return normalize_item_type(value, catalog)
+
+
+def _references_list_styles():
+    from backend.services.csl_styles import list_styles
+
+    return list_styles()
+
+
+def _references_save_style(raw: bytes, filename: str):
+    from backend.services.csl_styles import save_uploaded_style
+
+    return save_uploaded_style(raw, filename)
+
+
+_CITATION_FORMATTING_DEPENDENCIES = citation_formatting.FormattingDependencies(
+    active_vault_path=get_active_vault_path,
+    resolve_ensure_index=lambda: globals()["_ensure_cite_key_index"],
+    page_metadata_snapshot=_citation_page_metadata_snapshot,
+    find_page=lambda page_id: find_page_path(page_id),
+    parse_frontmatter=parse_frontmatter,
+    resolve_csl_type=_resolve_csl_type,
+)
+
+_CITATION_SEARCH_DEPENDENCIES = citation_search.CitationSearchDependencies(
+    page_entry_count=_citation_page_entry_count,
+    page_entries=_citation_page_entries,
+    resolve_reference_table_id=lambda: globals()["get_reference_table_id"](),
+    canonicalize_id=lambda page_id: _canonicalize_id(page_id),
+    active_vault_path=get_active_vault_path,
+    resolve_ensure_index=lambda: globals()["_ensure_cite_key_index"],
+)
+
+_REFERENCE_API_DEPENDENCIES = citation_references_api.ReferenceApiDependencies(
+    resolve_get_table_id=lambda: globals()["get_reference_table_id"],
+    resolve_primary_table=lambda: globals()["_reference_table_by_id_primary"],
+    resolve_table=lambda: globals()["_table_by_id"],
+    resolve_ensure_schema=lambda: globals()["ensure_reference_table_schema"],
+    resolve_set_table_id=lambda: globals()["_set_reference_table_id"],
+    resolve_invalidate_index=lambda: globals()["_invalidate_cite_key_index"],
+    resolve_create_table=lambda: globals()["create_table"],
+)
+
+_REFERENCES_IO_DEPENDENCIES = citation_io_api.ReferencesIoDependencies(
+    active_vault_path=get_active_vault_path,
+    load_registry=lambda: load_registry(),
+    item_type_catalog_names=lambda table, registry: _item_type_catalog_names(
+        table,
+        registry,
+    ),
+    resolve_existing_keys=lambda: globals()["_existing_citation_keys"],
+    normalize_item_type=_references_normalize_item_type,
+    resolve_ensure_index=lambda: globals()["_ensure_cite_key_index"],
+    find_page=lambda page_id: find_page_path(page_id),
+    parse_frontmatter=parse_frontmatter,
+    normalize_doi=lambda value: _normalize_doi(value),
+    normalize_isbn=lambda value: _normalize_isbn(value),
+    normalize_title=_references_normalize_title,
+    detect_format=_references_detect_format,
+    parse_references=_references_parse,
+    serialize_references=_references_serialize,
+    find_existing_match=_references_find_existing,
+    add_to_indexes=_references_add_indexes,
+    resolve_create_page=lambda: globals()["create_page"],
+    resolve_invalidate_index=lambda: globals()["_invalidate_cite_key_index"],
+    page_snapshot=lambda: _get_pages_snapshot(),
+    list_styles=_references_list_styles,
+    save_uploaded_style=_references_save_style,
 )
 
 
+def _parse_authors_to_csl(authors_str: str) -> list:
+    return citation_authors.parse_authors_to_csl(authors_str)
+
+
+def _normalize_authors_field(v):
+    return citation_authors.normalize_authors_field(v)
+
+
+def _find_structured_authors(metadata: dict) -> list:
+    return citation_authors.find_structured_authors(metadata)
+
+
+def _structured_authors_to_csl(authors: list) -> list:
+    return citation_authors.structured_authors_to_csl(authors)
+
+
+def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
+    return citation_authors.recursos_metadata_to_csl(title, m, _resolve_csl_type)
+
+
+def _resolve_csl_path(style: str) -> Optional[Path]:
+    return citation_formatting.resolve_csl_path(style)
+
+
+def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
+    return citation_formatting.build_csl_items_for_keys(
+        keys,
+        _CITATION_FORMATTING_DEPENDENCIES,
+    )
+
+
+_PANDOC_MISSING_MSG = citation_formatting.PANDOC_MISSING_MSG
+
+
 def _pandoc_bin() -> str:
-    """Path to the pandoc binary, robust to the NATIVE environment.
-
-    LaunchAgents can start the backend with a minimal PATH (without
-    /opt/homebrew/bin or /usr/local/bin), and then `subprocess.run(['pandoc',…])`
-    crashes with FileNotFoundError even though pandoc is installed. Resolution
-    order: PANDOC_PATH (explicit override) → shutil.which (process PATH)
-    → common Homebrew locations (ARM and Intel). 'pandoc' is returned as a
-    last resort so that callers' FileNotFoundError keeps producing
-    the 500 with _PANDOC_MISSING_MSG.
-    
-    """
-    env_path = os.environ.get("PANDOC_PATH", "").strip()
-    if env_path and Path(env_path).exists():
-        return env_path
-    found = shutil.which("pandoc")
-    if found:
-        return found
-    for cand in ("/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"):
-        if Path(cand).exists():
-            return cand
-    return "pandoc"
+    return citation_formatting.pandoc_binary()
 
 
-@router.get("/format-citation")
-async def format_citation(
-    key: str,
-    style: str = Query('apa'),
-    locale: str = Query('en-US'),
-):
-    """Renders an inline citation (a single citation key) as plain text.
-
-    Designed for the Office Add-in (Gnosi Cite): the add-in wants to insert
-    formatted text into the Word document. The backend invokes pandoc-citeproc
-    with the minimal subset (a single element) and returns the inline text.
-
-    Response: `{ formatted: "(Smith, 2020)", key: "smith2020" }`. If it can't
-    be resolved, returns the citation key in parentheses as a fallback
-    so the user can see the problem in the document.
-    
-    """
-    key_norm = str(key or '').strip()
-    if not key_norm:
-        raise HTTPException(status_code=400, detail="key is required")
-
-    csl_items = await asyncio.to_thread(_build_csl_items_for_keys, [key_norm])
-    if not csl_items:
-        return {"key": key_norm, "formatted": f"(@{key_norm})", "resolved": False}
-
-    csl_path = _resolve_csl_path(style)
-    # A single inline citation. Pandoc-citeproc emits the body (the citation) and,
-    # after a blank line, the bibliography; we keep the
-    # first paragraph. NOTE: we don't use text markers because pandoc
-    # in `plain` mode interprets `<...>` as HTML and corrupts them (it would come out
-    # `<<>>` stuck to the citation). `--wrap=none` avoids line breaks.
-    md = f"[@{key_norm}]\n"
-
-    with _ext_tempfile.TemporaryDirectory(prefix='gnosi_fmt_') as tmpdir:
-        tmp = Path(tmpdir)
-        (tmp / 'input.md').write_text(md, encoding='utf-8')
-        (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
-        cmd = [
-            _pandoc_bin(), 'input.md', '-t', 'plain', '--wrap=none',
-            '--citeproc', '--bibliography', 'refs.json',
-            '--metadata', f'lang={locale}',
-        ]
-        if csl_path:
-            cmd += ['--csl', str(csl_path)]
-        try:
-            r = _ext_subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=20)
-        except FileNotFoundError:
-            raise HTTPException(status_code=500, detail=_PANDOC_MISSING_MSG)
-        except _ext_subprocess.TimeoutExpired:
-            raise HTTPException(status_code=504, detail="pandoc timeout")
-        if r.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
-        out = r.stdout
-
-    # The body (inline citation) comes before the first blank line; the
-    # bibliography comes after and we discard it.
-    formatted = out.split('\n\n', 1)[0].strip()
-    return {"key": key_norm, "formatted": formatted, "resolved": True}
-
-
-@router.post("/format-citations")
-async def format_citations(payload: dict = Body(...)):
-    """Renders a set of inline citations TOGETHER — necessary to
-    comply with APA and other context-sensitive styles.
-
-    Why this batch variant is needed (not the singular `format-citation`):
-      - APA disambiguates homonymous authors within a document (Smith, J. vs
-        Smith, A.) by adding initials on first appearance
-      - Same author + same year → automatic `2020a`, `2020b` suffixes
-      - First appearance of a group with many authors → full names;
-        subsequent ones → `et al.`
-      - Citeproc can only make these decisions if it receives the ENTIRE subset
-        that appears in the document in a single call
-
-    Body: `{ keys: ["smith2020", "lee2021", "smith2020"], style, locale }`
-    (duplicates are allowed — citeproc-js and pandoc-citeproc count
-    occurrences to decide the appropriate format).
-
-    Response: `{ items: [{key, formatted, ordinal}, ...], style, locale }`
-    `ordinal` is the order of appearance (1, 2, 3…) — useful for knowing which
-    Content Control in the document each formatted text corresponds to.
-    
-    """
-    raw_keys = payload.get('keys') or []
-    if not isinstance(raw_keys, list):
-        raise HTTPException(status_code=400, detail="keys must be a list")
-    keys: List[str] = [str(k).strip().lstrip('@') for k in raw_keys if str(k).strip()]
-    if not keys:
-        return {"items": [], "style": str(payload.get('style') or 'apa'), "locale": str(payload.get('locale') or 'en-US')}
-    style = str(payload.get('style') or 'apa').strip()
-    locale = str(payload.get('locale') or 'en-US').strip()
-
-    # CSL items: deduplicated by key (citeproc receives each item once, but
-    # citations can repeat in the text — see below).
-    unique_keys = list(dict.fromkeys(keys))  # preserves order, removes duplicates
-    csl_items = await asyncio.to_thread(_build_csl_items_for_keys, unique_keys)
-    resolved_keys = {it.get('id') for it in csl_items}
-
-    csl_path = _resolve_csl_path(style)
-    # Markdown: one line per citation in the original order (with duplicates!),
-    # each one wrapped with unique markers that identify the ordinal.
-    # This way the parser knows which text corresponds to which occurrence.
-    # Markers are alphanumeric ONLY (no `<>` or `_`): pandoc in
-    # `plain` mode would interpret `<...>` as HTML and `_x_` as emphasis, and they
-    # would corrupt it (it would come out as `<<>>`). The spaces around `[@k]`
-    # ensure citeproc recognizes the citation; we trim them afterward.
-    lines = []
-    for idx, k in enumerate(keys, start=1):
-        if k in resolved_keys:
-            lines.append(f"GCREF{idx}BEG [@{k}] GCREF{idx}FIN")
-        else:
-            # Unresolved key: placeholder with the raw text so the client
-            # detects it and can show an error. The `@` MUST be escaped —
-            # pandoc parses a naked `@key` as a citation too, so without the
-            # backslash the "literal" placeholder came back as `((key?))`
-            # plus a citeproc warning instead of `(@key)`.
-            lines.append(f"GCREF{idx}BEG (\\@{k}) GCREF{idx}FIN")
-    md = "\n\n".join(lines) + "\n"
-
-    with _ext_tempfile.TemporaryDirectory(prefix='gnosi_fmts_') as tmpdir:
-        tmp = Path(tmpdir)
-        (tmp / 'input.md').write_text(md, encoding='utf-8')
-        if csl_items:
-            (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
-        cmd = [_pandoc_bin(), 'input.md', '-t', 'plain', '--wrap=none', '--metadata', f'lang={locale}']
-        if csl_items:
-            cmd += ['--citeproc', '--bibliography', 'refs.json']
-        if csl_path:
-            cmd += ['--csl', str(csl_path)]
-        try:
-            r = _ext_subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=30)
-        except FileNotFoundError:
-            raise HTTPException(status_code=500, detail=_PANDOC_MISSING_MSG)
-        except _ext_subprocess.TimeoutExpired:
-            raise HTTPException(status_code=504, detail="pandoc timeout")
-        if r.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
-        out = r.stdout
-
-    items: List[dict] = []
-    for idx, k in enumerate(keys, start=1):
-        pattern = re.compile(re.escape(f"GCREF{idx}BEG") + r'\s*(.*?)\s*' + re.escape(f"GCREF{idx}FIN"), re.DOTALL)
-        m = pattern.search(out)
-        formatted = m.group(1).strip() if m else f"(@{k})"
-        items.append({
-            "key": k,
-            "ordinal": idx,
-            "formatted": formatted,
-            "resolved": k in resolved_keys,
-        })
-    return {"items": items, "style": style, "locale": locale}
+(
+    format_citation,
+    format_citations,
+    format_bibliography,
+) = citation_formatting.register_routes(router, _CITATION_FORMATTING_DEPENDENCIES)
 
 
 def _extract_csl_entries(html_out: str) -> List[str]:
-    """Inner HTML of each `<div class="csl-entry">` in pandoc's output.
-
-    Depth-aware on purpose. Styles with `second-field-align` (IEEE is the one
-    shipped in the repo) nest two more divs inside every entry:
-
-        <div class="csl-entry"><div class="csl-left-margin">[1] </div>
-        <div class="csl-right-inline">S. Turkle, <em>Alone Together</em>…</div></div>
-
-    A non-greedy `(.*?)</div>` stops at the FIRST close tag, so every IEEE
-    entry was truncated to its label — the bibliography inserted into Word and
-    LibreOffice read `[1]`, `[2]`, `[3]` and nothing else. The `<p>` fallback
-    could not rescue it either, because the truncated list is non-empty.
-    """
-    entries: List[str] = []
-    for m in re.finditer(r'<div[^>]*class="[^"]*csl-entry[^"]*"[^>]*>', html_out):
-        depth = 1
-        pos = m.end()
-        for tag in re.finditer(r'<(/?)div\b[^>]*>', html_out[pos:]):
-            depth += -1 if tag.group(1) else 1
-            if depth == 0:
-                entries.append(html_out[pos:pos + tag.start()].strip())
-                break
-        else:
-            # Unbalanced markup: keep the remainder rather than dropping the entry.
-            entries.append(html_out[pos:].strip())
-    return entries
-
-
-@router.post("/format-bibliography")
-async def format_bibliography(payload: dict = Body(...)):
-    """Renders the bibliography (list of entries) for the given citation
-    keys. Designed for the Office Add-in.
-
-    Body: `{ keys: ["smith2020", "lee2021"], style: "apa", locale: "en-US" }`
-    Response: `{ entries: ["Smith, J. (2020). ...", "Lee, A. (2021). ..."], style, locale }`
-
-    Pandoc is invoked with `--nocite` so it generates the bibliography without
-    needing to cite in the body. Each entry in the list is separated by
-    a blank line (`plain` output), which we parse.
-    
-    """
-    keys = payload.get('keys') or []
-    if not isinstance(keys, list):
-        raise HTTPException(status_code=400, detail="keys must be a list")
-    keys = [str(k).strip().lstrip('@') for k in keys if str(k).strip()]
-    style = str(payload.get('style') or 'apa').strip()
-    locale = str(payload.get('locale') or 'en-US').strip()
-
-    csl_items = await asyncio.to_thread(_build_csl_items_for_keys, keys)
-    if not csl_items:
-        return {"entries": [], "style": style, "locale": locale, "resolved": 0, "missing": keys}
-    resolved_keys = {it.get('id') for it in csl_items}
-    missing = [k for k in keys if k not in resolved_keys]
-
-    csl_path = _resolve_csl_path(style)
-    nocite = ' '.join(f'@{it["id"]}' for it in csl_items)
-    md = f"---\nnocite: |\n  {nocite}\n---\n\n::: {{#refs}}\n:::\n"
-
-    with _ext_tempfile.TemporaryDirectory(prefix='gnosi_bib_') as tmpdir:
-        tmp = Path(tmpdir)
-        (tmp / 'input.md').write_text(md, encoding='utf-8')
-        (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
-        # `-t html` so citeproc emits APA's rich format: titles in
-        # italics (<em>/<i> depending on the CSL) and URL/DOI as links
-        # (link-bibliography). The Office Add-in inserts it with insertHtml.
-        cmd = [
-            _pandoc_bin(), 'input.md', '-t', 'html',
-            '--citeproc', '--bibliography', 'refs.json',
-            '--metadata', f'lang={locale}',
-            '--metadata', 'link-bibliography=true',
-            '--wrap=none',
-        ]
-        if csl_path:
-            cmd += ['--csl', str(csl_path)]
-        try:
-            r = _ext_subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=30)
-        except FileNotFoundError:
-            raise HTTPException(status_code=500, detail=_PANDOC_MISSING_MSG)
-        except _ext_subprocess.TimeoutExpired:
-            raise HTTPException(status_code=504, detail="pandoc timeout")
-        if r.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
-        out = r.stdout
-
-    # Pandoc emits each entry as <div class="csl-entry">…</div> inside a
-    # <div id="refs">. Extracts the HTML of each entry (with italics on the titles
-    # and linked URL/DOI) and derives a plain-text version as a fallback
-    # for hosts that don't accept rich HTML.
-    entries_html = _extract_csl_entries(out)
-    if not entries_html:
-        # Some CSL styles don't wrap in csl-entry: falls back to <p> paragraphs.
-        entries_html = [m.strip() for m in re.findall(r'<p>(.*?)</p>', out, re.DOTALL)]
-
-    def _strip_tags(s: str) -> str:
-        import html as _h
-        return _h.unescape(re.sub(r'<[^>]+>', '', s)).strip()
-
-    entries = [_strip_tags(e) for e in entries_html]
-    return {
-        "entries": entries,
-        "entries_html": entries_html,
-        "style": style,
-        "locale": locale,
-        "resolved": len(csl_items),
-        "missing": missing,
-    }
+    return citation_formatting.extract_csl_entries(html_out)
 
 
 @router.get("/export/{page_id}")
@@ -6265,141 +5854,40 @@ def _http_get_public(url: str, timeout: float = 8.0, max_redirects: int = 5) -> 
 # ---------------------------------------------------------------------------
 
 def _ck_norm(s: str) -> str:
-    """Lowercase, without diacritics, ASCII letters/digits only."""
-    if not s:
-        return ""
-    s = unicodedata.normalize("NFD", str(s))
-    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
-    return re.sub(r"[^a-z0-9]", "", s.lower())
+    return citation_keys.normalize_key_part(s)
 
 
 def _first_author_family(authors: Any) -> str:
-    """Surname of the first author. Accepts a structured list
-    (`[{nom,cognom1,cognom2}]`) or a free-form string (`"Cognom, Nom; ..."`)."""
-    if isinstance(authors, list):
-        for a in authors:
-            if isinstance(a, dict):
-                # BOTH surnames, like the free-form branch below: for
-                # "García Fernández, Ismael" `_parse_authors_to_csl` yields the
-                # whole family name, so taking only `cognom1` here would key the
-                # same author as `garcia…` or `garciafernandez…` depending on
-                # which field happened to hold them.
-                fam = " ".join(
-                    s for s in (
-                        str(a.get("cognom1") or "").strip(),
-                        str(a.get("cognom2") or "").strip(),
-                    ) if s
-                ) or str(a.get("family") or "").strip()
-                if fam:
-                    return fam
-                nom = (a.get("nom") or a.get("literal") or "").strip()
-                if nom:
-                    return nom.split()[-1]
-        return ""
-    if isinstance(authors, str) and authors.strip():
-        parsed = _parse_authors_to_csl(authors)
-        if parsed:
-            return (parsed[0].get("family") or parsed[0].get("given") or "").strip()
-    return ""
-
-
-_ORG_KEY_STOPWORDS = {
-    "de", "del", "dels", "la", "las", "les", "los", "el", "l", "d", "i", "y",
-    "of", "the", "and", "en", "a", "per", "para", "sobre",
-}
-_ORG_KEY_MIN_WORDS = 3
+    return citation_keys.first_author_family(authors)
 
 
 def _org_acronym(family: str) -> str:
-    """Acronym for an institutional author, or '' when it looks like a person.
-
-    Corporate authors land in `cognom1` as the whole entity name, which would
-    key as `parlamentodelasreligionesdelmundo1993`; these bodies are cited by
-    acronym anyway ("Real Academia Española" → `rae`). The discriminator is
-    WORD COUNT: a person's family name has at most two significant words.
-    Length alone would mangle real people — "Cormenzana Victoria" is 18 chars
-    and would collapse to `cv`.
-    """
-    words = [w for w in re.split(r"[\s'’.\-]+", family or "")
-             if _ck_norm(w) and _ck_norm(w) not in _ORG_KEY_STOPWORDS]
-    if len(words) < _ORG_KEY_MIN_WORDS:
-        return ""
-    acronym = "".join(_ck_norm(w)[0] for w in words)
-    return acronym if len(acronym) >= 2 else ""
+    return citation_keys.organization_acronym(family)
 
 
 def _title_token(title: str) -> str:
-    """First significant word of the title (for refs without an author)."""
-    stop = {"the", "a", "an", "el", "la", "els", "les", "un", "una", "uns",
-            "unes", "le", "de", "del", "of", "on", "in", "to", "and", "i", "y"}
-    for tok in re.findall(r"[a-zA-ZÀ-ÿ0-9]+", title or ""):
-        if _ck_norm(tok) and _ck_norm(tok) not in stop:
-            return tok
-    return ""
+    return citation_keys.title_token(title)
 
 
 def _alpha_suffix(i: int) -> str:
-    """0→a, 1→b, …, 25→z, 26→aa, … (Excel column style)."""
-    s = ""
-    i += 1
-    while i > 0:
-        i, rem = divmod(i - 1, 26)
-        s = chr(ord('a') + rem) + s
-    return s
+    return citation_keys.alpha_suffix(i)
 
 
-def generate_citation_key(authors: Any, year: Any, title: str = "",
-                          existing: Optional[set] = None) -> str:
-    """Generates a unique Citation Key in Better BibTeX style.
-
-    base = <surname | first-word-of-title | 'ref'> + <year | 'nd'>.
-    Collision against `existing` → incremental alphabetic suffix.
-    
-    """
-    raw_family = _first_author_family(authors)
-    fam = _org_acronym(raw_family) or _ck_norm(raw_family)
-    if not fam:
-        fam = _ck_norm(_title_token(title)) or "ref"
-    yr = ""
-    try:
-        yr = str(int(float(str(year)))) if year not in (None, "", "null") else ""
-    except (TypeError, ValueError, OverflowError):
-        yr = _ck_norm(str(year)) if year else ""
-    base = f"{fam}{yr or 'nd'}"
-    existing = existing or set()
-    if base not in existing:
-        return base
-    i = 0
-    while True:
-        cand = f"{base}{_alpha_suffix(i)}"
-        if cand not in existing:
-            return cand
-        i += 1
+def generate_citation_key(
+    authors: Any, year: Any, title: str = "", existing: Optional[set] = None
+) -> str:
+    return citation_keys.generate_citation_key(authors, year, title, existing)
 
 
 def _existing_citation_keys() -> set:
-    """Keys already used in the active vault (for uniqueness). Best-effort."""
-    try:
-        from backend.services.context_vars import get_active_vault_path
-        v_path = get_active_vault_path()
-        if not v_path:
-            return set()
-        return set(_ensure_cite_key_index(str(v_path)).keys())
-    except Exception:
-        return set()
+    return citation_keys.existing_citation_keys(
+        get_active_vault_path,
+        globals()["_ensure_cite_key_index"],
+    )
 
 
 def _inject_citation_key(suggested: dict) -> dict:
-    """Adds `Citation Key` to the suggested dict if missing, guaranteeing uniqueness."""
-    if not suggested or suggested.get('Citation Key'):
-        return suggested
-    ck = generate_citation_key(
-        suggested.get('Authors'), suggested.get('Any'),
-        suggested.get('Title') or '', _existing_citation_keys(),
-    )
-    if ck:
-        suggested['Citation Key'] = ck
-    return suggested
+    return citation_keys.inject_citation_key(suggested, _existing_citation_keys())
 
 
 def _item_type_catalog_names(table: Optional[dict], registry: Optional[dict] = None) -> List[str]:
@@ -6525,21 +6013,6 @@ def get_reference_table_id() -> Optional[str]:
     return None
 
 
-# Columns that make a table CITABLE — the ones read by
-# `_recursos_metadata_to_csl` (backend) i `recursosPageToCsl` (frontend).
-# 'Citation Key' is essential; the rest enrich the citation. (name, type).
-_REFERENCE_SCHEMA: list = [
-    ("Citation Key", "text"), ("Title", "text"), ("Authors", "text"),
-    ("Any", "text"), ("Item Type", "select"), ("Llibre/Revista", "text"),
-    ("Editorial", "text"), ("Lloc", "text"), ("Volum", "text"),
-    ("Número", "text"), ("Pàgines", "text"), ("Edició", "text"),
-    ("DOI", "text"), ("ISBN", "text"), ("ISSN", "text"),
-    ("PMID", "text"), ("PMCID", "text"), ("arXiv", "text"),
-    ("URL", "url"), ("Idioma", "text"), ("Open Access", "checkbox"),
-    ("Literature Sources", "text"), ("Literature Work Key", "text"),
-]
-
-
 def ensure_reference_table_schema(table_id: str) -> int:
     """Adds to the table whichever citable columns it's missing (idempotent).
 
@@ -6600,59 +6073,18 @@ def _reference_table_by_id_primary(table_id: str) -> Optional[dict]:
         active_vault_path.reset(token)
 
 
-@router.get("/reference-table")
-async def get_reference_table():
-    """Status of the designated references table (for Settings and the frontend's
-    gating). GLOBAL designation + table in the Principal → we resolve the name in
-    the Principal's registry so that Settings is consistent from any vault."""
-    tid = get_reference_table_id()
-    t = _reference_table_by_id_primary(tid) if tid else None
-    return {"table_id": tid, "configured": bool(tid),
-            "name": t.get("name") if t else None}
-
-
-@router.post("/reference-table", dependencies=[Depends(require_role("editor"))])
-async def set_reference_table(payload: dict = Body(...)):
-    """Designates an existing table as the references table and guarantees
-    its citable schema. The user doesn't need to know anything about 'Citation Key'."""
-    table_id = str((payload or {}).get("table_id") or "").strip()
-    if not table_id:
-        raise HTTPException(status_code=400, detail="table_id is required")
-    if not _table_by_id(table_id):
-        raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
-    added = ensure_reference_table_schema(table_id)
-    _set_reference_table_id(table_id)
-    _invalidate_cite_key_index()
-    t = _table_by_id(table_id)
-    return {"table_id": table_id, "configured": True,
-            "name": t.get("name") if t else None, "columns_added": added}
-
-
-@router.post("/reference-table/create", dependencies=[Depends(require_role("editor"))])
-async def create_reference_table(payload: dict = Body(default=None)):
-    """Creates a new, already-citable table and designates it as the references table."""
-    name = str((payload or {}).get("name") or "").strip() or "Referències"
-    table = {
-        "name": name,
-        "database_id": "gnosi_vault_db",
-        "properties": [
-            {"id": str(uuid.uuid4()), "name": n, "type": tp}
-            for n, tp in _REFERENCE_SCHEMA
-        ],
-    }
-    created = await create_table(table)
-    _set_reference_table_id(created["id"])
-    _invalidate_cite_key_index()
-    return {"table_id": created["id"], "configured": True,
-            "name": created.get("name"), "created": True}
-
-
-@router.delete("/reference-table", dependencies=[Depends(require_role("editor"))])
-async def clear_reference_table():
-    """Disable references without deleting any table."""
-    _set_reference_table_id("")
-    _invalidate_cite_key_index()
-    return {"table_id": None, "configured": False}
+(
+    get_reference_table,
+    set_reference_table,
+    create_reference_table,
+    clear_reference_table,
+) = citation_references_api.register_routes(
+    router,
+    post_dependencies=[Depends(require_role("editor"))],
+    create_dependencies=[Depends(require_role("editor"))],
+    delete_dependencies=[Depends(require_role("editor"))],
+    dependencies=_REFERENCE_API_DEPENDENCIES,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -8463,19 +7895,10 @@ async def lookup_metadata(payload: dict = Body(...)):
     return {'source': None, 'identifier': None, 'suggested': {}, 'error': 'No valid identifier (DOI/arXiv/PMID/ISBN/URL)'}
 
 
-@router.post("/generate-citation-key")
-async def generate_citation_key_endpoint(payload: dict = Body(...)):
-    """Generates a unique Citation Key for a manual entry in Recursos.
-
-    Body: { authors?: str | list, year?: int | str, title?: str }
-    Response: { "citation_key": str }
-    
-    """
-    ck = generate_citation_key(
-        payload.get('authors'), payload.get('year'),
-        payload.get('title') or '', _existing_citation_keys(),
-    )
-    return {"citation_key": ck}
+generate_citation_key_endpoint = citation_keys_api.register_route(
+    router,
+    lambda: globals()["_existing_citation_keys"],
+)
 
 
 # ---------------------------------------------------------------------------
@@ -8758,188 +8181,22 @@ async def translate_url(payload: dict = Body(...)):
 # ---------------------------------------------------------------------------
 
 def _build_dedup_indexes(v_str: str) -> dict:
-    """Auxiliary indexes for deduplication at import time.
-
-    Returns `{'doi': {normalized_doi: citation_key}, 'isbn': {...}, 'title': {...}}`.
-    Walks the existing cite_key_index and, for each page with a Citation
-    Key, reads its metadata and extracts DOI/ISBN/Title. Best-effort:
-    an unreadable page doesn't abort the build (it just ends up outside the
-    aux indexes).
-
-    Not cached: it's built for each `/import-references` call because
-    this endpoint is infrequent and the cost is O(n) over the vault.
-    
-    """
-    from backend.services.import_dedup import normalize_title_for_dedup
-    idx = _ensure_cite_key_index(v_str)
-    doi_idx: dict = {}
-    isbn_idx: dict = {}
-    title_idx: dict = {}
-    for ck, entry in idx.items():
-        try:
-            page_path = find_page_path(entry.get('id') or '')
-            if not page_path:
-                continue
-            meta, _ = parse_frontmatter(page_path.read_text(encoding='utf-8'), page_path)
-            doi = (meta.get('DOI') or '').strip()
-            if doi:
-                norm = _normalize_doi(doi)
-                if norm:
-                    doi_idx.setdefault(norm.lower(), ck)
-            isbn = (meta.get('ISBN') or '').strip()
-            if isbn:
-                norm = _normalize_isbn(isbn)
-                if norm:
-                    isbn_idx.setdefault(norm, ck)
-            title = meta.get('Title') or entry.get('title') or ''
-            tnorm = normalize_title_for_dedup(title)
-            if tnorm:
-                title_idx.setdefault(tnorm, ck)
-        except (OSError, AttributeError):
-            continue
-    return {'doi': doi_idx, 'isbn': isbn_idx, 'title': title_idx}
+    return citation_io_api.build_dedup_indexes(v_str, _REFERENCES_IO_DEPENDENCIES)
 
 
-@router.post("/import-references", dependencies=[Depends(require_role("editor"))])
-async def import_references(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    table_id: str = Query(...),
-    fmt: str = Query('auto'),
-):
-    """Imports a .bib/.ris file, creating pages in the `table_id` table.
-
-    Generates `Citation Key` when missing. Skips duplicate entries by comparing
-    against the vault using four criteria (in priority order):
-      1. Identical Citation Key
-      2. Normalized DOI
-      3. Normalized ISBN
-      4. Normalized title (lowercase, no accents/punctuation)
-
-    Response:
-        {
-          "created": N, "skipped": M,
-          "items": [{id, citation_key, title}, ...],
-          "skipped_details": [
-              {"key": "smith2020", "reason": "doi", "existing_key": "smith2020a"},
-              {"key": "...", "reason": "title", "existing_key": "..."},
-              ...
-          ],
-          "skipped_keys": [...],          # compat: keys only (deprecated)
-          "skip_summary": {"citation_key": N1, "doi": N2, "isbn": N3, "title": N4},
-          "errors": [...],
-          "format": "bibtex" | "ris"
-        }
-
-    Never touches existing pages under any circumstance.
-    
-    """
-    from backend.services import references_io
-    from backend.services.context_vars import get_active_vault_path
-    from backend.services.import_dedup import find_existing_match, add_to_indexes
-
-    raw = (await file.read()).decode('utf-8', errors='replace')
-    detected = references_io.detect_format(raw) if fmt == 'auto' else fmt
-    entries = references_io.parse_references(raw, fmt)
-    if not entries:
-        return {"created": 0, "skipped": 0, "items": [], "skipped_details": [],
-                "skipped_keys": [], "skip_summary": {},
-                "errors": [], "format": detected,
-                "message": "No references were found in the file"}
-
-    registry = load_registry()
-    table = next((t for t in registry.get('tables', []) if t.get('id') == table_id), None)
-    if not table:
-        raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
-
-    # Write-space normalization: parsed entries carry canonical Zotero keys
-    # ('book'); the vault stores the TARGET table's catalog labels ('Llibre').
-    from backend.services.csl_type_resolver import normalize_item_type
-    item_type_catalog = _item_type_catalog_names(table, registry)
-
-    vault_keys = _existing_citation_keys()
-    v_path = get_active_vault_path()
-    dedup = _build_dedup_indexes(str(v_path)) if v_path else {'doi': {}, 'isbn': {}, 'title': {}}
-
-    used = set(vault_keys)
-    created, skipped_details, errors = [], [], []
-    skip_summary: dict = {'citation_key': 0, 'doi': 0, 'isbn': 0, 'title': 0}
-
-    for e in entries:
-        try:
-            match = find_existing_match(e, dedup, vault_keys)
-            if match is not None:
-                reason, existing_key = match
-                ck_in_file = (e.get('Citation Key') or '').strip()
-                skipped_details.append({
-                    "key": ck_in_file or existing_key,
-                    "reason": reason,
-                    "existing_key": existing_key,
-                    "title": e.get('Title'),
-                })
-                skip_summary[reason] = skip_summary.get(reason, 0) + 1
-                continue
-            ck = (e.get('Citation Key') or '').strip()
-            if not ck or ck in used:
-                ck = generate_citation_key(e.get('Authors'), e.get('Any'), e.get('Title') or '', used)
-            e['Citation Key'] = ck
-            used.add(ck)
-            if e.get('Item Type'):
-                e['Item Type'] = normalize_item_type(str(e['Item Type']), item_type_catalog)
-            title = e.get('Title') or ck
-            meta = dict(e)
-            meta['database_table_id'] = table_id
-            meta['table_id'] = table_id
-            req = PageSaveRequest(title=title, content='', metadata=meta)
-            res = await create_page(req, background_tasks)
-            created.append({"id": res.get('id'), "citation_key": ck, "title": title})
-            # Update in-memory indexes so the same import doesn't
-            # create internal duplicates (two entries in the file with the same DOI).
-            add_to_indexes(e, ck, dedup)
-            vault_keys.add(ck)
-        except Exception as ex:
-            log.warning(f"import-references: failed entry ({e.get('Title')}): {ex}")
-            errors.append({"title": e.get('Title'), "error": str(ex)})
-
-    _invalidate_cite_key_index()
-    return {
-        "created": len(created),
-        "skipped": len(skipped_details),
-        "items": created,
-        "skipped_details": skipped_details,
-        # Compat with old clients (the property exists but only has
-        # the keys, for no reason):
-        "skipped_keys": [d["key"] for d in skipped_details],
-        "skip_summary": skip_summary,
-        "errors": errors,
-        "format": detected,
-    }
+import_references = citation_io_api.register_import_route(
+    router,
+    editor_dependencies=[Depends(require_role("editor"))],
+    dependencies=_REFERENCES_IO_DEPENDENCIES,
+)
 
 
 def _collect_table_reference_metas(table_id: str, wanted: Optional[set]) -> List[dict]:
-    """Metadata (frontmatter) of the pages in a table that have a `Citation
-    Key`. Sync (snapshot + file reading) — call via `asyncio.to_thread`."""
-    pages = _get_pages_snapshot()
-    out: List[dict] = []
-    for p in pages:
-        if getattr(p, 'resolved_table_id', None) != table_id:
-            continue
-        m = getattr(p, 'metadata', {}) or {}
-        if not m.get('Citation Key'):
-            pp = find_page_path(getattr(p, 'id', '') or '')
-            if not pp:
-                continue
-            try:
-                m, _ = parse_frontmatter(pp.read_text(encoding='utf-8'), pp)
-            except OSError:
-                continue
-        ck = m.get('Citation Key')
-        if not ck:
-            continue
-        if wanted is not None and ck not in wanted:
-            continue
-        out.append(m)
-    return out
+    return citation_io_api.collect_table_reference_metas(
+        table_id,
+        wanted,
+        _REFERENCES_IO_DEPENDENCIES,
+    )
 
 
 @router.post("/promote-zotero-extra", dependencies=[Depends(require_role("editor"))])
@@ -9305,408 +8562,57 @@ async def bulk_apply_template(payload: dict = Body(...)):
     }
 
 
-@router.get("/csl/styles")
-async def list_csl_styles():
-    """List of the CSL styles available in the catalog (frontend/public/csl/styles).
+(
+    list_csl_styles,
+    upload_csl_style,
+    export_references,
+) = citation_io_api.register_catalog_export_routes(
+    router,
+    upload_dependencies=[Depends(require_role("editor"))],
+    export_dependencies=[Depends(require_role("editor"))],
+    dependencies=_REFERENCES_IO_DEPENDENCIES,
+)
 
-    Each entry: `{id, file, title}`. `title` is the `<title>` extracted from the XML
-    (the official CSL denomination, e.g. "American Psychological Association 7th edition").
-
-    The frontend uses this endpoint to populate the `CslStylePicker`; falls back to the
-    hardcoded list in `cslEngine.AVAILABLE_STYLES` if the call fails.
-    
-    """
-    from backend.services.csl_styles import list_styles
-    return {"styles": list_styles()}
-
-
-@router.post("/csl/styles", dependencies=[Depends(require_role("editor"))])
-async def upload_csl_style(file: UploadFile = File(...)):
-    """Uploads a CSL (`.csl`) file to the catalog.
-
-    Validates that it's well-formed CSL XML (root `<style>`, reasonable size),
-    saves it with the (sanitized) name, and returns the extracted metadata. The
-    user can use the style immediately after the frontend's next
-    load (styles are served via Vite's static HTTP).
-    
-    """
-    from backend.services.csl_styles import save_uploaded_style
-    raw = await file.read()
-    try:
-        meta = save_uploaded_style(raw, file.filename or 'unnamed.csl')
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return meta
-
-
-@router.get("/export-references", dependencies=[Depends(require_role("editor"))])
-async def export_references(
-    table_id: str = Query(...),
-    fmt: str = Query('bibtex'),
-    keys: str = Query(''),
-):
-    """Exports a table's references to BibTeX or RIS (download).
-
-    `keys` optional: CSV of citation keys to export only a subset.
-    
-    """
-    from backend.services import references_io
-    from backend.services.context_vars import get_active_vault_path
-    if fmt not in ('bibtex', 'ris'):
-        raise HTTPException(status_code=400, detail="format ha de ser 'bibtex' o 'ris'")
-    if not get_active_vault_path():
-        raise HTTPException(status_code=400, detail="Cap vault actiu")
-    wanted = {k.strip() for k in keys.split(',') if k.strip()} or None
-    metas = await asyncio.to_thread(_collect_table_reference_metas, table_id, wanted)
-    text = references_io.serialize_references(metas, fmt)
-    ext = 'bib' if fmt == 'bibtex' else 'ris'
-    from fastapi.responses import Response
-    return Response(
-        content=text,
-        media_type='application/x-bibtex' if fmt == 'bibtex' else 'application/x-research-info-systems',
-        headers={'Content-Disposition': f'attachment; filename="recursos.{ext}"'},
-    )
+search_citations, resolve_by_citation_key = citation_search.register_routes(
+    router,
+    _CITATION_SEARCH_DEPENDENCIES,
+)
 
 
 def _fold_accents(s) -> str:
-    """Lowercase WITHOUT accents (NFKD + stripping combining marks), so that
-    citation search is accent-insensitive: "liquida" finds "líquida",
-    "academicos" finds "Académicos". Same criterion as drupal_sync/import_dedup."""
-    norm = unicodedata.normalize("NFKD", str(s or ""))
-    return "".join(c for c in norm if not unicodedata.combining(c)).lower()
-
-
-@router.get("/search-citations")
-async def search_citations(q: str = "", limit: int = 30):
-    """Searches Recursos pages for the CitePicker (Cmd+Shift+I).
-
-    Free-text filter that searches ALL fields cached in page_index:
-    `Citation Key`, `Títol`, `Autor`, `Any`, journal, publisher, DOI, etc.
-    Returns `limit` (30 by default) results sorted by best
-    match (key > title > author > other fields). Doesn't reopen any
-    vault file (works with a cloud / online-only vault).
-
-    Response: `[{ id, title, citation_key, author, year, folder }, ...]`
-    Designed for an autocomplete picker — it's not a full catalog
-    indexing endpoint.
-    
-    """
-    from backend.services.context_vars import get_active_vault_path
-    v_path = get_active_vault_path()
-    if not v_path:
-        raise HTTPException(status_code=503, detail="No active vault")
-    v_str = str(v_path)
-    idx = _ensure_cite_key_index(v_str)
-
-    query = _fold_accents(str(q or "").strip())
-    if not query:
-        # Without a filter, we return the first `limit` by popularity (for
-        # now, alphabetical order by citation_key).
-        items = sorted(idx.values(), key=lambda x: str(x.get("citation_key") or "").lower())[:limit]
-        # We enrich with author/year read from the frontmatter (falls back to I/O but it's
-        # only `limit` files — acceptable).
-        return [_enrich_cite_entry(item) for item in items]
-
-    # Search across ALL cached fields: citation_key (prefix > infix),
-    # title, author, and the rest of the bibliographic fields (journal, publisher,
-    # year, DOI…) via the `search` blob. All from the metadata cached in the
-    # page_index — we don't reopen any .md, so it works with the vault in the cloud
-    # (online-only files). Ranking: key > title > author > other fields.
-    candidates = []
-    for entry in idx.values():
-        ck = _fold_accents(entry.get("citation_key"))
-        title = _fold_accents(entry.get("title"))
-        author = _fold_accents(entry.get("author"))
-        blob = _fold_accents(entry.get("search"))
-        score = -1
-        if ck.startswith(query):
-            score = 100 - len(ck)  # Prefer shorter keys.
-        elif title.startswith(query):
-            score = 70 - len(title) // 10
-        elif query in ck:
-            score = 55 - len(ck)
-        elif query in title:
-            score = 45 - len(title) // 10
-        elif query in author:
-            score = 35
-        elif query in blob:
-            score = 15  # match in any other field
-        if score >= 0:
-            candidates.append((score, entry))
-
-    candidates.sort(key=lambda x: -x[0])
-    top = [entry for _, entry in candidates[:limit]]
-    return [_enrich_cite_entry(item) for item in top]
+    return citation_search.fold_accents(s)
 
 
 def _format_one_author(a) -> str:
-    """Formats an author that can come as a string or as a structured dict
-    ({nom, cognom1, cognom2})."""
-    if isinstance(a, dict):
-        parts = [str(a.get(k) or "").strip() for k in ("nom", "cognom1", "cognom2")]
-        return " ".join(p for p in parts if p).strip()
-    return str(a or "").strip()
+    return citation_search.format_one_author(a)
 
 
 def _cite_author_from_metadata(md: dict):
-    """Extracts the author from the metadata cached in page_index, trying the
-    usual keys (ca/en). Accepts strings, lists, and structured dicts
-    ({nom, cognom1, cognom2}); joins multiple authors with commas."""
-    # The structured `autoria` field first, found by SHAPE so a renamed field
-    # still resolves. Without this, a resource whose author only lives there
-    # showed up in the picker and in the Word/LibreOffice search dialog with NO
-    # author, and its author name was missing from the search blob — so you
-    # could not find the record by typing the author's name.
-    structured = _find_structured_authors(md)
-    if structured:
-        names = [_format_one_author(a) for a in structured]
-        joined = ", ".join(n for n in names if n)
-        if joined:
-            return joined
-    for k in ("Authors", "Autor", "Autors", "Author"):
-        v = md.get(k)
-        if not v:
-            continue
-        if isinstance(v, list):
-            names = [_format_one_author(x) for x in v]
-            v = ", ".join(n for n in names if n)
-        else:
-            v = _format_one_author(v)
-        v = str(v).strip()
-        if v:
-            return v
-    return None
+    return citation_search.cite_author_from_metadata(md)
 
 
 def _cite_year_from_metadata(md: dict):
-    """Extracts the year (4 digits) from the metadata cached in page_index."""
-    for k in ("Any", "Year", "Data", "Date"):
-        v = md.get(k)
-        if v in (None, ""):
-            continue
-        m = re.search(r"(\d{4})", str(v))
-        if m:
-            return m.group(1)
-    return None
+    return citation_search.cite_year_from_metadata(md)
 
 
 def _cite_search_blob(title, ck, author, year, md) -> str:
-    """Searchable string (lowercase) with all the relevant fields of a
-    citation, so `search-citations` can filter by "all fields"
-    without reopening the .md (resilient to a cloud vault). Includes the
-    usual bibliographic fields and tags; excludes noisy internal fields."""
-    parts = [str(title or ""), str(ck or ""), str(author or ""), str(year or "")]
-    if md:
-        for k in ("Llibre/Revista", "Editorial", "Lloc", "DOI", "ISBN",
-                  "ISSN", "Idioma", "Item Type", "Volum", "Número", "URL"):
-            v = md.get(k)
-            if v:
-                parts.append(str(v))
-        tags = md.get("Tags")
-        if isinstance(tags, list):
-            parts.extend(str(t) for t in tags if t)
-        elif tags:
-            parts.append(str(tags))
-    return " ".join(parts).lower()
+    return citation_search.cite_search_blob(title, ck, author, year, md)
 
 
 def _enrich_cite_entry(entry: dict) -> dict:
-    """Completes the author and year of a cite_key_index entry.
-
-    We prefer the values already resolved in the entry itself (coming from
-    the metadata cached in page_index). Only if they're missing do we fall back to
-    reading the .md's frontmatter — which can fail if the vault lives in
-    cloud storage with online-only files (see the
-    environment_integrity directive); in that case it's caught and left empty."""
-    out = {
-        "id": entry.get("id"),
-        "title": entry.get("title"),
-        "citation_key": entry.get("citation_key"),
-        "folder": entry.get("folder"),
-        "author": entry.get("author"),
-        "year": entry.get("year"),
-    }
-    if out["author"] or out["year"]:
-        return out
-    # Fallback: read the file's frontmatter (legacy case without metadata).
-    path = entry.get("path")
-    if not path or not Path(path).exists():
-        return out
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            head = f.read(4096)
-        if not head.startswith("---"):
-            return out
-        # `Autors?` also matches the legacy `Authors` key Recursos actually uses
-        # (`Autor:` alone never matched anything in this vault, so the fallback
-        # returned no author). `Autoría` is excluded on purpose: it's a YAML
-        # list, useless to a single-line regex.
-        m_author = re.search(r"^(?:Autors?|Authors?):\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
-        if m_author:
-            out["author"] = m_author.group(1).strip()
-        m_year = re.search(r"^(?:Any|Year|Data):\s*['\"]?(\d{4})", head, re.MULTILINE)
-        if m_year:
-            out["year"] = m_year.group(1).strip()
-    except OSError:
-        pass
-    return out
-
-
-@router.get("/resolve-by-citation-key")
-async def resolve_by_citation_key(key: str):
-    """Resolves a citation key (like `smith2020`) to UUID + title by querying
-    the pages of the Recursos table.
-
-    Designed for the `[@key]` citation system in the BlockEditor: the frontend
-    looks up a single key and receives the dest so the clickable chip can open the
-    reference page. Implementation: iterates over `_page_index_entries`
-    and, for the pages of the table configured as "Recursos" (or
-    any with a `Citation Key` field), reads the frontmatter to
-    make an exact match (case-sensitive — citation keys are ASCII lowercase).
-
-    Optimization: if the user has thousands of pages, scanning is slow.
-    We keep a `_cite_key_index` cache in the module with (citation_key →
-    {page_id, title}) that's renewed when files change. See
-    `_invalidate_cite_key_index` for the invalidation.
-    
-    """
-    key_norm = str(key or "").strip()
-    if not key_norm:
-        raise HTTPException(status_code=400, detail="key is required")
-    from backend.services.context_vars import get_active_vault_path
-    v_path = get_active_vault_path()
-    if not v_path:
-        raise HTTPException(status_code=503, detail="No active vault")
-    v_str = str(v_path)
-    idx = _ensure_cite_key_index(v_str)
-    entry = idx.get(key_norm)
-    if entry:
-        return entry
-    return {"id": None, "title": None, "folder": None, "citation_key": key_norm}
-
-
-# Cache citation_key → {id, title, folder, citation_key}. Rebuild it
-# (or invalidates) when the page_index changes or when some PATCH touches the field
-# `Citation Key`. For simplicity, we now do a lazy rebuild on first use
-# and when `_page_index_entries` has changed size (heuristic — not
-# perfect but sufficient for the common case).
-_cite_key_index: dict[str, dict] = {}  # v_str → { citation_key: entry }
-_cite_key_index_size_at_build: dict[str, int] = {}  # v_str → size of the page_index
-_cite_key_index_lock = threading.Lock()
+    return citation_search.enrich_cite_entry(entry)
 
 
 def _ensure_cite_key_index(v_str: str) -> dict:
-    """Build (or reuse) the citation key index for the given vault.
-
-    Lazy strategy: if the page_index has changed size since the last
-    build, we rebuild. Otherwise, we return the cache. This heuristic does not detect
-    edits with the same number of entries (a Citation Key that changes
-    without adding/removing pages), but the cost of having it stale during
-    a user session is low — it just means a citation key change
-    takes 5 minutes to propagate to the inline chips. For
-    critical changes, see `_invalidate_cite_key_index`.
-    
-    """
-    with _cite_key_index_lock:
-        with _page_index_lock:
-            current_size = len(_page_index_entries.get(v_str, {}))
-        prev_size = _cite_key_index_size_at_build.get(v_str)
-        if v_str in _cite_key_index and prev_size == current_size:
-            return _cite_key_index[v_str]
-        # Rebuild
-        log.info(f"🔎 Rebuilding cite_key_index for {v_str}")
-        idx: dict[str, dict] = {}
-        # We scope the index to the designated REFERENCES TABLE (exclusive): only
-        # its pages are citations. If there is no designation (References not
-        # enabled), we index any page with 'Citation Key' (compat.).
-        ref_id = get_reference_table_id()
-        ref_canon = _canonicalize_id(ref_id) if ref_id else None
-        with _page_index_lock:
-            entries = list(_page_index_entries.get(v_str, {}).values())
-        for entry in entries:
-            md = entry.get("metadata") or {}
-            # Fast, resilient path: the Citation Key and table_id are usually already
-            # be in the page_index's cached metadata. Using it avoids
-            # reopening the .md — essential when the vault lives in storage
-            # in the cloud (OneDrive/iCloud) with "online-only" files: opening them
-            # causes expensive hydration or EDEADLK (Errno 35) and the index
-            # would be left empty. See the environment_integrity directive.
-            ck = str(md.get("Citation Key") or "").strip()
-            if ck:
-                # Scope: only pages from the designated references table.
-                if ref_canon:
-                    tid_raw = md.get("table_id") or md.get("database_table_id")
-                    page_tid = _canonicalize_id(str(tid_raw).strip()) if tid_raw else ""
-                    if page_tid != ref_canon:
-                        continue
-                if ck not in idx:
-                    author = _cite_author_from_metadata(md)
-                    year = _cite_year_from_metadata(md)
-                    idx[ck] = {
-                        "id": entry.get("id"),
-                        "title": entry.get("title"),
-                        "folder": entry.get("folder"),
-                        "citation_key": ck,
-                        "author": author,
-                        "year": year,
-                        "path": entry.get("path"),
-                        "search": _cite_search_blob(entry.get("title"), ck, author, year, md),
-                    }
-                continue
-            # Fallback (metadata without Citation Key): we read the header of the
-            # .md as before. Can fail with online-only files; it's caught.
-            path = entry.get("path")
-            if not path or not Path(path).exists():
-                continue
-            try:
-                # We read only the file header to minimize I/O:
-                # Markdown frontmatters are usually <2KB.
-                with open(path, "r", encoding="utf-8") as f:
-                    head = f.read(4096)
-                if not head.startswith("---"):
-                    continue
-                # Search for "Citation Key:" in the frontmatter
-                m = re.search(r"^Citation Key:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
-                if not m:
-                    continue
-                # Scope: only pages from the designated references table.
-                if ref_canon:
-                    tm = re.search(
-                        r"^(?:database_table_id|table_id):\s*['\"]?([^'\"\n\r]+)",
-                        head, re.MULTILINE,
-                    )
-                    page_tid = _canonicalize_id(tm.group(1).strip()) if tm else ""
-                    if page_tid != ref_canon:
-                        continue
-                ck = m.group(1).strip()
-                if ck and ck not in idx:
-                    idx[ck] = {
-                        "id": entry.get("id"),
-                        "title": entry.get("title"),
-                        "folder": entry.get("folder"),
-                        "citation_key": ck,
-                        "author": None,
-                        "year": None,
-                        "path": path,
-                        "search": _cite_search_blob(entry.get("title"), ck, None, None, None),
-                    }
-            except OSError:
-                continue
-        _cite_key_index[v_str] = idx
-        _cite_key_index_size_at_build[v_str] = current_size
-        log.info(f"🔎 Built cite_key_index: {len(idx)} keys")
-        return idx
+    return citation_search.ensure_citation_index(
+        v_str,
+        citation_index_state,
+        _CITATION_SEARCH_DEPENDENCIES,
+    )
 
 
 def _invalidate_cite_key_index(v_str: str = None) -> None:
-    """Clears the cite_key_index cache (all or per vault)."""
-    with _cite_key_index_lock:
-        if v_str is None:
-            _cite_key_index.clear()
-            _cite_key_index_size_at_build.clear()
-        else:
-            _cite_key_index.pop(v_str, None)
-            _cite_key_index_size_at_build.pop(v_str, None)
+    citation_search.invalidate_citation_index(citation_index_state, v_str)
 
 
 def normalize_aliases(val) -> list[str]:
@@ -11880,6 +10786,60 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
         return docs
 
 
+def _read_parsed_doc_cache_snapshot():
+    with _parsed_doc_lock:
+        return dict(_parsed_doc_cache)
+
+
+def _build_alias_index():
+    v_path = get_active_vault_path()
+    if not v_path:
+        return {}
+    v_str = str(v_path)
+    out: dict[str, list[str]] = {}
+    with _page_index_lock:
+        for entry in list(_page_index_entries.get(v_str, {}).values()):
+            meta = entry.get("metadata") or {}
+            aliases = normalize_aliases(meta.get("aliases"))
+            if aliases:
+                pid = entry.get("id")
+                if pid:
+                    out[str(pid)] = aliases
+    return out
+
+
+_LINK_INDEX_DEPENDENCIES = link_index_service.LinkIndexDependencies(
+    get_cache_path=lambda: _get_link_index_cache_path(),
+    write_json=safe_write_json,
+    iter_documents=_iter_linkable_page_documents,
+    current_vault_key=_current_vault_key,
+    get_body=_get_body_for_path,
+    is_dashboard=_is_dashboard_file_path,
+    read_dashboard=_read_dashboard_file,
+    parse_frontmatter=parse_frontmatter,
+    write_text=safe_write_text,
+)
+
+_LINK_API_DEPENDENCIES = LinkApiDependencies(
+    read_state=_link_index_view,
+    build_id_title_index=build_id_title_index,
+    build_alias_index=_build_alias_index,
+    get_cache_path=lambda: _get_link_index_cache_path(),
+    resolve_kickoff_rebuild=lambda: globals()["kickoff_link_index_rebuild"],
+    iter_documents=_iter_linkable_page_documents,
+    find_page=lambda page_id: find_page_path(page_id),
+    is_dashboard=_is_dashboard_file_path,
+    read_dashboard=_read_dashboard_file,
+    parse_frontmatter=parse_frontmatter,
+    resolve_create_page_version=lambda: globals()["_create_page_version"],
+    write_dashboard=_write_dashboard_file,
+    save_page=save_page_md,
+    resolve_update_index=lambda: globals()["update_link_index_for_page"],
+    is_safe_external_url=_is_safe_external_url,
+    build_browser_path=canonical_vault_browser_path,
+)
+
+
 # ── Inverted wikilinks/backlinks index (in-memory) ─────────────────────────
 # Veure: docs/dev_memory/directives/wiki_inverse_link_index.md
 #
@@ -11887,141 +10847,38 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
 # call. Even with the body cache, the regex per source × N files made
 # a page load take 30-60s the first time. With this index,
 # /backlinks is O(lookup) and /unlinked-mentions filters down to ~10-100 candidates.
-_outlinks_by_source: Dict[str, set] = {}
 # Per source: {ref -> "link" | "relation"}. Classifies each outgoing ref by ORIGIN:
 # body wikilinks/md-links → "link"; metadata (relation-ish) fields → "relation".
 # "relation" wins over "link" when a ref appears in both (mirrors the graph, which
 # adds metadata-relation edges before body-link edges). Lets the panel and the graph
 # agree on what is a wiki-link vs a schema relation. See
 # feedback_links_panel_vs_graph_divergence.
-_outlink_kinds_by_source: Dict[str, Dict[str, str]] = {}
-_backlinks_by_target: Dict[str, List[Dict[str, str]]] = {}
-_backlinks_by_target_title: Dict[str, List[Dict[str, str]]] = {}
-_tokens_by_source: Dict[str, frozenset] = {}
-_page_meta_by_id: Dict[str, Dict[str, Any]] = {}
-_link_index_lock = threading.RLock()
-_link_index_built = False
-_link_index_build_ts = 0.0
-_link_index_source_count = 0
-# v2: added per-ref kind classification (link vs relation) + stem-based resolution.
-_LINK_INDEX_SCHEMA_VERSION = 2
-
-
-_WIKILINK_RE = re.compile(r"!?\[\[([^\]|]+(?:#[^\]|]+)?)(?:\|.*?)?\]\]")
-_MDLINK_RE = re.compile(r"\[.*?\]\((.*?)\)")
-_TOKEN_SPLIT_RE = re.compile(r"[^\wÀ-ÿ]+", re.UNICODE)
-
-
 def _get_link_index_cache_path() -> Optional[Path]:
-    p = get_p("LINK_INDEX_CACHE")
-    if p:
-        return p
-    return resolve_data_dir() / "cache" / "vault_link_index.json"
+    return link_index_service.resolve_link_index_cache_path(
+        get_p("LINK_INDEX_CACHE"),
+        resolve_data_dir(),
+    )
 
 
 def _save_link_index_to_disk() -> None:
-    """Persists the inverted index to local disk. Called under lock for a consistent
-    snapshot. Format: JSON with schema_version for future migrations.
-    
-    """
-    try:
-        cache_path = _get_link_index_cache_path()
-        if not cache_path:
-            return
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        with _link_index_lock:
-            payload = {
-                "schema_version": _LINK_INDEX_SCHEMA_VERSION,
-                "built_ts": _link_index_build_ts,
-                "outlinks": {pid: sorted(refs) for pid, refs in _outlinks_by_source.items()},
-                "outlink_kinds": {pid: dict(kinds) for pid, kinds in _outlink_kinds_by_source.items()},
-                "tokens": {pid: sorted(toks) for pid, toks in _tokens_by_source.items()},
-                "meta": dict(_page_meta_by_id),
-            }
-        safe_write_json(cache_path, payload, indent=None, ensure_ascii=False)
-        log.info(f"💾 Link-index cache saved ({len(payload['meta'])} pages)")
-    except Exception as e:
-        log.error(f"❌ Error saving link-index cache: {e}")
+    link_index_service.save_link_index(link_index_state, _LINK_INDEX_DEPENDENCIES)
 
 
 def _load_link_index_from_disk() -> bool:
-    """Loads the inverted index saved on disk. Returns True if it succeeded.
-    If the schema_version does not match, the cache is ignored.
-    
-    """
-    global _link_index_built, _link_index_build_ts, _link_index_source_count
-    try:
-        cache_path = _get_link_index_cache_path()
-        if not cache_path or not cache_path.exists():
-            return False
-        data = json.loads(cache_path.read_text(encoding="utf-8"))
-        if data.get("schema_version") != _LINK_INDEX_SCHEMA_VERSION:
-            log.info("Link-index cache schema mismatch; ignoring it")
-            return False
-        outlinks_raw = data.get("outlinks") or {}
-        outlink_kinds_raw = data.get("outlink_kinds") or {}
-        tokens_raw = data.get("tokens") or {}
-        meta_raw = data.get("meta") or {}
-
-        with _link_index_lock:
-            _outlinks_by_source.clear()
-            for pid, refs in outlinks_raw.items():
-                _outlinks_by_source[pid] = set(refs)
-            _outlink_kinds_by_source.clear()
-            for pid, kinds in outlink_kinds_raw.items():
-                _outlink_kinds_by_source[pid] = dict(kinds)
-            _tokens_by_source.clear()
-            for pid, toks in tokens_raw.items():
-                _tokens_by_source[pid] = frozenset(toks)
-            _page_meta_by_id.clear()
-            _page_meta_by_id.update(meta_raw)
-            _rebuild_backlinks_invertion_locked()
-            _link_index_built = True
-            _link_index_build_ts = float(data.get("built_ts") or time.time())
-            _link_index_source_count = len(_page_meta_by_id)
-
-        log.info(f"📂 Link index loaded from disk ({_link_index_source_count} pages)")
-        return True
-    except Exception as e:
-        log.error(f"❌ Error loading link-index cache: {e}")
-        return False
+    return link_index_service.load_link_index(
+        link_index_state,
+        _LINK_INDEX_DEPENDENCIES,
+    )
 
 
 def get_link_index_terms(
     page_ids: Iterable[str],
 ) -> tuple[Dict[str, tuple[frozenset, frozenset]], float]:
-    """Return cached searchable terms for exact page ids without Vault reads.
-
-    The snapshot combines normalized body tokens and outgoing-reference text.
-    It is maintained by the same create/update/delete hooks as backlinks and is
-    persisted locally, so exhaustive agent inventories do not reopen every
-    OneDrive document. If no persisted index exists, callers receive an empty
-    mapping and may fall back to direct reads.
-    """
-    if not _link_index_built:
-        _load_link_index_from_disk()
-    requested = {str(page_id or "").strip() for page_id in page_ids if page_id}
-    with _link_index_lock:
-        snapshot = {}
-        for page_id in requested:
-            if page_id not in _tokens_by_source and page_id not in _outlinks_by_source:
-                continue
-            references = set(_outlinks_by_source.get(page_id, set()))
-            # Relation fields are canonicalized to ids before the page reaches
-            # most API consumers. Expand those ids back to their indexed titles
-            # so topic inventories can match the meaning of a relation without
-            # reopening either page from OneDrive.
-            for reference in tuple(references):
-                target = _page_meta_by_id.get(reference) or {}
-                target_title = str(target.get("title") or "").strip()
-                if target_title:
-                    references.add(target_title)
-            snapshot[page_id] = (
-                _tokens_by_source.get(page_id, frozenset()),
-                frozenset(references),
-            )
-        built_at = float(_link_index_build_ts or 0.0)
-    return snapshot, built_at
+    return link_index_service.get_link_index_terms(
+        page_ids,
+        _link_index_view,
+        _load_link_index_from_disk,
+    )
 
 
 def get_agent_index_freshness(
@@ -12031,460 +10888,81 @@ def get_agent_index_freshness(
     direct_reads: int,
     stale_after_seconds: int = 1_800,
 ) -> Dict[str, Any]:
-    """Return bounded freshness metadata and schedule stale revalidation.
-
-    Page writes update the index surgically, while the timestamp represents the
-    last full reconciliation with edits made outside Gnosi. Coverage and age are
-    therefore reported independently. Revalidation is always non-blocking.
-    """
-    if not _link_index_built:
-        _load_link_index_from_disk()
-    with _link_index_lock:
-        built_at = float(_link_index_build_ts or 0.0)
-    with _link_index_rebuild_state_lock:
-        rebuilding = bool(_link_index_rebuild_in_progress)
-    now = time.time()
-    age_seconds = max(0, int(now - built_at)) if built_at else None
-    stale_after = max(60, min(int(stale_after_seconds), 86_400))
-    status = (
-        "missing"
-        if not built_at
-        else "fresh"
-        if age_seconds is not None and age_seconds < stale_after
-        else "stale_while_revalidate"
+    return link_index_service.get_agent_index_freshness(
+        requested_count=requested_count,
+        covered_count=covered_count,
+        direct_reads=direct_reads,
+        stale_after_seconds=stale_after_seconds,
+        read_view=_link_index_view,
+        load_index=_load_link_index_from_disk,
+        current_vault_key=_current_vault_key,
+        kickoff_rebuild=kickoff_link_index_rebuild,
     )
-    refresh_scheduled = False
-    if status != "fresh" and _current_vault_key():
-        kickoff_link_index_rebuild()
-        refresh_scheduled = True
-        with _link_index_rebuild_state_lock:
-            rebuilding = bool(_link_index_rebuild_in_progress)
-    bounded_requested = max(0, int(requested_count))
-    bounded_covered = max(0, min(int(covered_count), bounded_requested))
-    coverage_ratio = (
-        round(bounded_covered / bounded_requested, 4)
-        if bounded_requested
-        else 1.0
-    )
-    return {
-        "status": status,
-        "checked_at": int(now),
-        "index_built_at": int(built_at) if built_at else None,
-        "age_seconds": age_seconds,
-        "stale_after_seconds": stale_after,
-        "requested_records": bounded_requested,
-        "cached_records": bounded_covered,
-        "coverage_ratio": coverage_ratio,
-        "direct_reads": max(0, int(direct_reads)),
-        "refresh_scheduled": refresh_scheduled,
-        "refresh_running": rebuilding,
-    }
 
 
 def get_cached_document_texts(paths: Iterable[str]) -> Dict[str, str]:
-    """Return persisted canonical Markdown bodies without cloud file reads.
-
-    The parsed-document cache is refreshed by normal page writes and periodic
-    link-index rebuilds. Reading its in-memory snapshot is safe for exhaustive
-    discovery; callers fall back to direct reads only for paths absent from the
-    cache. This deliberately avoids per-file ``stat`` calls because those are
-    the dominant latency on macOS File Provider mounts.
-    """
-    if not _parsed_doc_cache:
-        _load_parsed_doc_cache_from_disk()
-    requested = {str(path or "").strip() for path in paths if path}
-    with _parsed_doc_lock:
-        return {
-            path: _parsed_doc_cache[path][2]
-            for path in requested
-            if path in _parsed_doc_cache
-        }
+    return link_index_service.get_cached_document_texts(
+        paths,
+        ensure_loaded=_load_parsed_doc_cache_from_disk,
+        read_cache=_read_parsed_doc_cache_snapshot,
+    )
 
 
 def _normalize_ref_for_index(raw_ref: str) -> str:
-    text = str(raw_ref or "").strip()
-    if not text:
-        return ""
-    try:
-        text = urllib.parse.unquote(text)
-    except Exception:
-        pass
-    base = text.split("#", 1)[0].strip()
-    vault_page_match = re.search(
-        r"(?:https?://[^/]+)?/(?:api/)?vault/(?:page|pages)/([^/?#]+)",
-        base,
-        re.IGNORECASE,
-    )
-    if vault_page_match and vault_page_match.group(1):
-        try:
-            base = urllib.parse.unquote(vault_page_match.group(1).strip())
-        except Exception:
-            base = vault_page_match.group(1).strip()
-    return base
+    return link_parsing.normalize_ref(raw_ref)
 
 
 def _extract_outlinks_with_kinds(metadata: Dict[str, Any], body: str) -> tuple:
-    """Returns ``(refs, kinds)`` for a document.
-
-    ``refs`` is a set of normalized refs (page_id or lowercased title) this
-    document points to (wikilinks ``[[X]]``, MD links ``[..](X)`` and metadata
-    fields that look like ID references). ``kinds`` maps each ref to ``"link"``
-    (came from the body) or ``"relation"`` (came from a metadata field). When a
-    ref appears in both, ``"relation"`` wins — mirroring the graph, which adds
-    metadata-relation edges before body-link edges.
-    """
-    refs: set = set()
-    kinds: Dict[str, str] = {}
-
-    def _mark(ref: str, kind: str):
-        if not ref:
-            return
-        refs.add(ref)
-        if kinds.get(ref) == "relation":
-            return  # relation wins over link
-        kinds[ref] = kind
-
-    def _add(value: Any, kind: str):
-        if value is None:
-            return
-        if isinstance(value, list):
-            for item in value:
-                _add(item, kind)
-            return
-        text = str(value).strip()
-        if not text:
-            return
-        # Decorated relation values ('[[Title|id]]'): index both id and title,
-        # not the literal string (a safeguard for callers that don't strip it).
-        m = RELATION_WIKILINK_RE.match(text)
-        if m:
-            _add(m.group("rid"), kind)
-            if m.group("title"):
-                _add(m.group("title"), kind)
-            return
-        m = TITLE_ONLY_WIKILINK_RE.match(text)
-        if m:
-            _add(m.group("title"), kind)
-            return
-        norm = _normalize_ref_for_index(text)
-        if norm:
-            _mark(norm, kind)
-            _mark(norm.lower(), kind)
-
-    # Metadata refs are schema relations (or relation-shaped values) → "relation".
-    for val in metadata.values():
-        if isinstance(val, (str, list)):
-            _add(val, "relation")
-
-    # Body refs are real wikilinks / md-links → "link".
-    if body:
-        for raw in _WIKILINK_RE.findall(body):
-            base = str(raw or "").split("#", 1)[0].strip()
-            if base:
-                _mark(base, "link")
-                _mark(base.lower(), "link")
-        for raw in _MDLINK_RE.findall(body):
-            norm = _normalize_ref_for_index(raw)
-            if norm:
-                _mark(norm, "link")
-                _mark(norm.lower(), "link")
-
-    return refs, kinds
+    return link_parsing.extract_outlinks_with_kinds(metadata, body)
 
 
 def _extract_outlinks_from_doc(metadata: Dict[str, Any], body: str) -> set:
-    """Back-compat wrapper: returns only the set of refs (see
-    :func:`_extract_outlinks_with_kinds`)."""
-    refs, _ = _extract_outlinks_with_kinds(metadata, body)
-    return refs
+    return link_parsing.extract_outlinks(metadata, body)
 
 
 def _tokenize_body_for_mentions(body: str) -> frozenset:
-    """Normalized tokens of the sanitized body (without existing links).
-    Used as a pre-filter for /unlinked-mentions.
-    
-    """
-    if not body:
-        return frozenset()
-    sanitized = _strip_existing_links_for_mentions_scan(body)
-    tokens = _TOKEN_SPLIT_RE.split(sanitized.lower())
-    return frozenset(t for t in tokens if len(t) >= 2)
+    return link_parsing.tokenize_body(body)
 
 
 def _resolve_page_id_from_metadata(metadata: Dict[str, Any], file_path: Path) -> str:
-    return str(
-        metadata.get("id")
-        or metadata.get("migration_id")
-        or file_path.stem
-    ).strip()
+    return link_parsing.resolve_page_id(metadata, file_path)
 
 
 def _rebuild_backlinks_invertion_locked():
-    """Rebuilds `_backlinks_by_target` and `_backlinks_by_target_title` from
-    `_outlinks_by_source` and `_page_meta_by_id`. Requires the lock to be held.
-    
-    """
-    by_target: Dict[str, List[Dict[str, str]]] = {}
-    by_title: Dict[str, List[Dict[str, str]]] = {}
-    title_to_ids: Dict[str, set] = {}
-    stem_to_ids: Dict[str, set] = {}
-    for pid, meta in _page_meta_by_id.items():
-        title = str(meta.get("title") or "").strip().lower()
-        if title:
-            title_to_ids.setdefault(title, set()).add(pid)
-        # Resolution parity with the graph (GraphService.resolve_link also matches
-        # by path stem / filename), so a wikilink written as [[filename]] resolves
-        # here too instead of silently falling into the unresolved title bucket.
-        node_path = str(meta.get("path") or "")
-        if node_path:
-            stem = Path(node_path).stem.strip().lower()
-            if stem:
-                stem_to_ids.setdefault(stem, set()).add(pid)
-
-    for source_id, refs in _outlinks_by_source.items():
-        source_meta = _page_meta_by_id.get(source_id) or {}
-        source_title = source_meta.get("title") or source_id
-        kinds = _outlink_kinds_by_source.get(source_id, {})
-        # Per source, resolve each ref then collapse to one entry per target with a
-        # single kind ("relation" wins over "link", mirroring the graph).
-        target_kind: Dict[str, str] = {}
-        unresolved_kind: Dict[str, str] = {}
-        for raw in refs:
-            ref_lower = raw.lower()
-            kind = kinds.get(raw) or kinds.get(ref_lower) or "link"
-            target_ids = set()
-            if raw in _page_meta_by_id:
-                target_ids.add(raw)
-            for tid in title_to_ids.get(ref_lower, ()):  # match per title
-                target_ids.add(tid)
-            for tid in stem_to_ids.get(ref_lower, ()):  # match per filename stem
-                target_ids.add(tid)
-
-            if target_ids:
-                for tid in target_ids:
-                    if tid == source_id:
-                        continue
-                    prev = target_kind.get(tid)
-                    if prev == "relation":
-                        continue
-                    target_kind[tid] = "relation" if kind == "relation" else (prev or kind)
-            else:
-                prev = unresolved_kind.get(ref_lower)
-                if prev != "relation":
-                    unresolved_kind[ref_lower] = "relation" if kind == "relation" else (prev or kind)
-
-        for tid, kind in target_kind.items():
-            by_target.setdefault(tid, []).append(
-                {"id": source_id, "title": str(source_title), "kind": kind}
-            )
-        for ref_lower, kind in unresolved_kind.items():
-            by_title.setdefault(ref_lower, []).append(
-                {"id": source_id, "title": str(source_title), "kind": kind}
-            )
-
-    _backlinks_by_target.clear()
-    _backlinks_by_target.update(by_target)
-    _backlinks_by_target_title.clear()
-    _backlinks_by_target_title.update(by_title)
+    link_index_service.rebuild_backlinks_locked(link_index_state)
 
 
 def _rebuild_link_index(persist: bool = True) -> None:
-    """Rebuilds the inverted index from scratch. O(N) operation over the vault.
-
-    Idempotent: can be called multiple times. Takes the global lock to avoid
-    races with concurrent partial invalidations. If `persist=True`, saves the
-    result to disk to speed up future startups.
-    
-    """
-    global _link_index_built, _link_index_build_ts, _link_index_source_count
-    started = time.time()
-    docs = _iter_linkable_page_documents()
-
-    new_outlinks: Dict[str, set] = {}
-    new_outlink_kinds: Dict[str, Dict[str, str]] = {}
-    new_tokens: Dict[str, frozenset] = {}
-    new_meta: Dict[str, Dict[str, Any]] = {}
-
-    for file_path, metadata, body, _is_dashboard in docs:
-        try:
-            pid = _resolve_page_id_from_metadata(metadata, file_path)
-            if not pid:
-                continue
-            refs, kinds = _extract_outlinks_with_kinds(metadata, body)
-            new_outlinks[pid] = refs
-            new_outlink_kinds[pid] = kinds
-            new_tokens[pid] = _tokenize_body_for_mentions(body)
-            new_meta[pid] = {
-                "title": str(metadata.get("title") or file_path.stem),
-                "path": str(file_path),
-            }
-        except Exception as e:
-            log.warning(f"link-index: error indexing {file_path.name}: {e}")
-
-    with _link_index_lock:
-        _outlinks_by_source.clear()
-        _outlinks_by_source.update(new_outlinks)
-        _outlink_kinds_by_source.clear()
-        _outlink_kinds_by_source.update(new_outlink_kinds)
-        _tokens_by_source.clear()
-        _tokens_by_source.update(new_tokens)
-        _page_meta_by_id.clear()
-        _page_meta_by_id.update(new_meta)
-        _rebuild_backlinks_invertion_locked()
-        _link_index_built = True
-        _link_index_build_ts = time.time()
-        _link_index_source_count = len(new_meta)
-
-    log.info(
-        f"🔗 link-index built in {time.time() - started:.2f}s "
-        f"({len(new_meta)} pages)"
+    link_index_service.rebuild_link_index(
+        link_index_state,
+        _LINK_INDEX_DEPENDENCIES,
+        persist=persist,
     )
-
-    if persist:
-        try:
-            _save_link_index_to_disk()
-        except Exception as e:
-            log.warning(f"link-index persist after rebuild failed: {e}")
 
 
 # Debounced persist: occasional invalidations (writes) trigger a save to disk,
 # but doing it synchronously on every PUT would be expensive. We accumulate and save at
 # most every N seconds from a separate thread.
-_link_index_persist_pending = False
-_link_index_persist_lock = threading.Lock()
-_LINK_INDEX_PERSIST_DEBOUNCE = 5.0  # seconds
-
-
 def _schedule_link_index_persist() -> None:
-    global _link_index_persist_pending
-    with _link_index_persist_lock:
-        if _link_index_persist_pending:
-            return
-        _link_index_persist_pending = True
-
-    def _run():
-        global _link_index_persist_pending
-        time.sleep(_LINK_INDEX_PERSIST_DEBOUNCE)
-        try:
-            _save_link_index_to_disk()
-        except Exception as e:
-            log.debug(f"link-index debounced persist failed: {e}")
-        finally:
-            with _link_index_persist_lock:
-                _link_index_persist_pending = False
-
-    t = threading.Thread(target=_run, daemon=True, name="link-index-persist")
-    t.start()
-
-
-_link_index_rebuild_in_progress = False
-_link_index_rebuild_state_lock = threading.Lock()
+    link_index_service.schedule_link_index_persist(
+        link_index_state,
+        _LINK_INDEX_DEPENDENCIES,
+    )
 
 
 def kickoff_link_index_rebuild() -> None:
-    """Launches the rebuild in the background. Safe to call multiple times: if
-    one is already running, it does not launch another. Without this guard, two
-    simultaneous calls (e.g. indexer warmup + an endpoint that needs
-    backlinks) would produce two concurrent `_rebuild_link_index` runs, each iterating
-    3500+ OneDrive files in parallel, saturating the File
-    Provider and blocking other backend operations (PATCH included)
-    for minutes.
-
-    If there is a valid cache on disk, it is loaded right away (synchronous, milliseconds)
-    to serve fast results from the very first instant; it then triggers a
-    background rebuild to reflect external changes (OneDrive sync, etc.)
-    
-    """
-    if not _link_index_built:
-        try:
-            _load_link_index_from_disk()
-        except Exception as e:
-            log.warning(f"link-index disk load failed: {e}")
-
-    # Skip rebuild if the disk cache is recent (<30 min). Without this
-    # check, every backend reload would trigger an O(N OneDrive reads) rebuild
-    # that takes 80-140 s and saturates the File Provider, even though the cache that
-    # we just loaded from disk is correct. Individual changes
-    # of pages are propagated via `update_link_index_for_page` (a background
-    # task of the PATCH/PUT); the full rebuild is only needed to catch up on changes
-    # external (OneDrive sync from another device, edits outside the
-    # the backend). Once every 30 min is more than enough for this case.
-    if _link_index_build_ts and (time.time() - _link_index_build_ts) < 1800:
-        log.info(
-            f"🔗 link-index rebuild skipped: cache de fa "
-            f"{int(time.time() - _link_index_build_ts)}s (<1800s)"
-        )
-        return
-
-    global _link_index_rebuild_in_progress
-    with _link_index_rebuild_state_lock:
-        if _link_index_rebuild_in_progress:
-            return
-        _link_index_rebuild_in_progress = True
-
-    def _run():
-        global _link_index_rebuild_in_progress
-        try:
-            _rebuild_link_index(persist=True)
-        except Exception as e:
-            log.error(f"link-index rebuild failed: {e}")
-        finally:
-            with _link_index_rebuild_state_lock:
-                _link_index_rebuild_in_progress = False
-
-    t = threading.Thread(target=_run, daemon=True, name="link-index-rebuild")
-    t.start()
+    link_index_service.kickoff_link_index_rebuild(
+        link_index_state,
+        _LINK_INDEX_DEPENDENCIES,
+    )
 
 
 def update_link_index_for_page(file_path: Path) -> None:
-    """Updates the index for a specific page (after a write).
-
-    Non-blocking: if the index has not been built yet, the call is ignored (the
-    initial rebuild will pick up the page).
-    
-    """
-    if not _link_index_built:
-        return
-    if not file_path or not file_path.exists():
-        return
-    try:
-        if _is_dashboard_file_path(file_path):
-            metadata, body = _read_dashboard_file(file_path)
-        else:
-            raw = _get_body_for_path(file_path)
-            if not raw:
-                return
-            metadata, body = parse_frontmatter(raw, file_path)
-    except Exception as e:
-        log.debug(f"link-index update skip {file_path.name}: {e}")
-        return
-
-    pid = _resolve_page_id_from_metadata(metadata, file_path)
-    if not pid:
-        return
-    new_refs, new_kinds = _extract_outlinks_with_kinds(metadata, body)
-    new_tokens = _tokenize_body_for_mentions(body)
-    new_title = str(metadata.get("title") or file_path.stem)
-
-    with _link_index_lock:
-        old_meta = _page_meta_by_id.get(pid) or {}
-        old_title = str(old_meta.get("title") or "").strip().lower()
-        _outlinks_by_source[pid] = new_refs
-        _outlink_kinds_by_source[pid] = new_kinds
-        _tokens_by_source[pid] = new_tokens
-        _page_meta_by_id[pid] = {"title": new_title, "path": str(file_path)}
-        # If the source's title has changed, the text shown in the backlinks
-        # changes → a full re-inversion is needed. Otherwise, we do it anyway because it's
-        # simpler and correct; the cost is O(N_refs).
-        _ = old_title  # reserved for future optimizations
-        _rebuild_backlinks_invertion_locked()
-
-    # Automatic re-link: if this page has a title that matches refs
-    # that are unresolved from other pages, the backlinks have already been updated by
-    # the inversion (which looks at `_page_meta_by_id`). No extra action is needed because
-    # rebuild_backlinks walks all the outlinks and resolves by id and by title.
-
-    _schedule_link_index_persist()
+    link_index_service.update_link_index_for_page(
+        file_path,
+        link_index_state,
+        _LINK_INDEX_DEPENDENCIES,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -12589,255 +11067,34 @@ def _propagate_relation_inverse(
 
 
 def remove_from_link_index(page_id: str) -> None:
-    """Removes a page from the index (after a DELETE)."""
-    if not _link_index_built or not page_id:
-        return
-    pid = str(page_id).strip()
-    with _link_index_lock:
-        _outlinks_by_source.pop(pid, None)
-        _outlink_kinds_by_source.pop(pid, None)
-        _tokens_by_source.pop(pid, None)
-        _page_meta_by_id.pop(pid, None)
-        _rebuild_backlinks_invertion_locked()
-    _schedule_link_index_persist()
+    link_index_service.remove_from_link_index(
+        page_id,
+        link_index_state,
+        _LINK_INDEX_DEPENDENCIES,
+    )
 
 
 def rewrite_wikilinks_on_title_change(
     target_id: str, old_title: str, new_title: str
 ) -> int:
-    """Rewrites wikilinks by literal title when the target's title changes.
-
-    Patterns modified (case-insensitive match on the title, preserving alias and section):
-      - `[[Old Title]]`               → `[[New Title]]`
-      - `[[Old Title|alias]]`         → `[[New Title|alias]]`
-      - `[[Old Title#Section]]`       → `[[New Title#Section]]`
-      - `[[Old Title#Section|alias]]` → `[[New Title#Section|alias]]`
-
-    Does not touch UUID wikilinks (`[[uuid|...]]`) or transclusions (`![[...]]`)
-    because they keep working unchanged. Only rewrites files that
-    reference the target via _backlinks_by_target / _backlinks_by_target_title.
-
-    Returns the number of files actually modified. Safe to call
-    from a BackgroundTask: if the index has not been built or there are no
-    backlinks, returns 0 without doing anything.
-    
-    """
-    old_clean = str(old_title or "").strip()
-    new_clean = str(new_title or "").strip()
-    if not old_clean or not new_clean or old_clean == new_clean:
-        return 0
-    if not _link_index_built:
-        return 0
-    tid = str(target_id or "").strip()
-    if not tid:
-        return 0
-
-    # Gather candidates: pages that reference by resolved id or by
-    # literal old title. Deduplicate per source id.
-    with _link_index_lock:
-        by_id = list(_backlinks_by_target.get(tid, []))
-        by_title = list(_backlinks_by_target_title.get(old_clean.lower(), []))
-        page_meta_snapshot = dict(_page_meta_by_id)
-
-    seen: set = set()
-    candidates: List[Dict[str, str]] = []
-    for src in by_id + by_title:
-        sid = (src.get("id") or "").strip()
-        if not sid or sid == tid or sid in seen:
-            continue
-        seen.add(sid)
-        candidates.append(src)
-
-    if not candidates:
-        return 0
-
-    # Pattern: [[ TitolAntic (#section)? (|alias)? ]]
-    # Important: the body match excludes `|` and `[` and `]` so as not to cross
-    # wikilink boundaries; and excludes `#` to separate the section (captured
-    # as an independent group).
-    escaped = re.escape(old_clean)
-    pattern = re.compile(
-        r"(?P<open>!?\[\[)\s*"
-        + escaped
-        + r"\s*(?P<section>#[^\]\|]+)?(?P<alias>\|[^\]]+)?(?P<close>\]\])",
-        re.IGNORECASE,
+    return link_index_service.rewrite_wikilinks_on_title_change(
+        target_id,
+        old_title,
+        new_title,
+        link_index_state,
+        _LINK_INDEX_DEPENDENCIES,
+        update_link_index_for_page,
     )
 
-    def _replace(m: re.Match) -> str:
-        section = m.group("section") or ""
-        alias = m.group("alias") or ""
-        return f"{m.group('open')}{new_clean}{section}{alias}{m.group('close')}"
 
-    modified_count = 0
-    for source in candidates:
-        sid = source.get("id")
-        if not sid:
-            continue
-        meta = page_meta_snapshot.get(sid) or {}
-        path_str = meta.get("path") or source.get("path")
-        if not path_str:
-            continue
-        path = Path(path_str)
-        if not path.exists():
-            continue
-        try:
-            raw = path.read_text(encoding="utf-8")
-        except Exception as e:
-            log.warning(f"🔁 rewrite skip {path.name}: {e}")
-            continue
-        new_raw, n_subs = pattern.subn(_replace, raw)
-        if n_subs == 0 or new_raw == raw:
-            continue
-        try:
-            safe_write_text(path, new_raw)
-            modified_count += 1
-            # Updates the index for this source so that the outlinks/tokens
-            # reflect the new text. update_link_index_for_page is safe
-            # to call within the same RLock lock (it is re-entrant).
-            update_link_index_for_page(path)
-            log.debug(
-                f"🔁 rewrote {n_subs} wikilink(s) in {path.name}: "
-                f"'{old_clean}' → '{new_clean}'"
-            )
-        except Exception as e:
-            log.warning(f"🔁 rewrite write fail {path.name}: {e}")
-            continue
-
-    if modified_count > 0:
-        log.info(
-            f"🔁 Rewrote wikilinks: '{old_clean}' → '{new_clean}' "
-            f"on {modified_count}/{len(candidates)} source pages"
-        )
-
-    return modified_count
-
-
-@router.get("/global-index")
-def get_global_index():
-    """Returns a global mapping id -> title for the entire Vault.
-
-    Declared as `def` (not `async def`) so FastAPI runs it in a threadpool —
-    `build_id_title_index` rglobs the whole vault on OneDrive and reads many
-    files; running on the asyncio loop would block all concurrent requests.
-    Same rationale as /backlinks and /unlinked-mentions below.
-    """
-    return build_id_title_index()
-
-
-@router.get("/alias-index")
-def get_alias_index():
-    """Map of id → [aliases] for notes that declare `aliases:` in the frontmatter.
-
-    Consumed by the frontend to (a) suggest aliases in the wikilink
-    `[[…]]` autocomplete and (b) resolve `[[Alias]]` locally without a round-trip to
-    /resolve-by-title. Obsidian-style: a note can have multiple aliases.
-    
-    """
-    from backend.services.context_vars import get_active_vault_path
-    v_path = get_active_vault_path()
-    if not v_path:
-        return {}
-    v_str = str(v_path)
-    out: dict[str, list[str]] = {}
-    with _page_index_lock:
-        for entry in list(_page_index_entries.get(v_str, {}).values()):
-            meta = entry.get("metadata") or {}
-            aliases = normalize_aliases(meta.get("aliases"))
-            if aliases:
-                pid = entry.get("id")
-                if pid:
-                    out[str(pid)] = aliases
-    return out
-
-
-@router.get("/link-preview")
-async def get_link_preview(url: str):
-    """Extracts Open Graph metadata from a URL for a preview card.
-
-    Returns `{url, title, description, image, site_name, favicon}`. Intended for
-    links pasted into the body of a note (Notion bookmark style). Basic
-    security: only http/https, short timeout, limited download size, and it does not
-    follow internal schemes. Not a complete SSRF proxy — for local personal use.
-    
-    """
-    import html as _html
-    import httpx
-    from urllib.parse import urlparse, urljoin
-
-    raw = str(url or "").strip()
-    parsed = urlparse(raw)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise HTTPException(status_code=400, detail="Invalid http/https URL")
-    host = (parsed.hostname or "").lower()
-
-    try:
-        # SSRF defense: resolve and reject private/loopback/link-local hosts
-        # BEFORE every request, and follow redirects manually so a 3xx to an
-        # internal address cannot slip past the check (a literal-string
-        # blocklist misses 169.254.x, RFC1918, decimal/IPv6-mapped IPs, and
-        # public hosts that redirect inward).
-        async with httpx.AsyncClient(follow_redirects=False, timeout=8.0) as client:
-            current = raw
-            for _hop in range(6):
-                ok, reason = await asyncio.to_thread(_is_safe_external_url, current)
-                if not ok:
-                    raise HTTPException(status_code=400, detail=f"URL not allowed: {reason}")
-                resp = await client.get(
-                    current,
-                    headers={"User-Agent": "Mozilla/5.0 (compatible; GnosiBot/1.0)"},
-                )
-                location = resp.headers.get("location")
-                if resp.is_redirect and location:
-                    current = str(resp.url.join(location))
-                    continue
-                break
-            else:
-                raise HTTPException(status_code=400, detail="Too many redirects")
-
-            ctype = resp.headers.get("content-type", "")
-            if "html" not in ctype and "xml" not in ctype:
-                # Not HTML (e.g. PDF/image): returns the minimal useful info.
-                return {"url": raw, "title": parsed.path.rsplit("/", 1)[-1] or host,
-                        "description": "", "image": "", "site_name": host, "favicon": ""}
-            text = resp.text[:600_000]  # limits parsing to ~600 KB
-            final_url = current
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not fetch the URL: {e}")
-
-    def _meta(*names: str) -> str:
-        for name in names:
-            # <meta property="og:title" content="...">  (attribute order free)
-            m = re.search(
-                r'<meta[^>]+(?:property|name)\s*=\s*["\']' + re.escape(name) +
-                r'["\'][^>]*?content\s*=\s*["\']([^"\']*)["\']', text, re.IGNORECASE)
-            if not m:
-                m = re.search(
-                    r'<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]*?(?:property|name)\s*=\s*["\']' +
-                    re.escape(name) + r'["\']', text, re.IGNORECASE)
-            if m:
-                return _html.unescape(m.group(1)).strip()
-        return ""
-
-    title = _meta("og:title", "twitter:title")
-    if not title:
-        tm = re.search(r"<title[^>]*>(.*?)</title>", text, re.IGNORECASE | re.DOTALL)
-        title = _html.unescape(tm.group(1)).strip() if tm else host
-    description = _meta("og:description", "twitter:description", "description")
-    image = _meta("og:image", "twitter:image", "og:image:url")
-    site_name = _meta("og:site_name") or host
-    if image:
-        image = urljoin(final_url, image)
-    favicon = urljoin(final_url, "/favicon.ico")
-    return {
-        "url": raw,
-        "title": title[:300],
-        "description": description[:500],
-        "image": image,
-        "site_name": site_name[:120],
-        "favicon": favicon,
-    }
+get_global_index, get_alias_index = link_overview_api.register_routes(
+    router,
+    _LINK_API_DEPENDENCIES,
+)
+get_link_preview = link_preview_api.register_route(
+    router,
+    _LINK_API_DEPENDENCIES,
+)
 
 
 def register_page_in_index(file_path: Path) -> None:
@@ -12921,109 +11178,26 @@ async def import_markdown(body: ImportRequest):
 # (separate from the .md body because they are derived metadata, not editable content).
 
 def _inline_comments_path(page_id: str) -> Path:
-    vault = get_active_vault_path()
-    if not vault:
-        raise HTTPException(status_code=503, detail="No hi ha cap vault actiu")
-    safe_id = re.sub(r"[^\w\-]", "", str(page_id))[:80]
-    d = Path(vault) / ".gnosi" / "inline_comments"
-    d.mkdir(parents=True, exist_ok=True)
-    return d / f"{safe_id}.json"
+    return comments_repository.inline_comments_path(page_id, get_active_vault_path)
 
 
 def _load_inline_comments(page_id: str) -> list:
-    p = _inline_comments_path(page_id)
-    if not p.exists():
-        return []
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    return comments_repository.load_inline_comments(_inline_comments_path, page_id)
 
 
-class InlineCommentRequest(BaseModel):
-    quote: str = ""
-    comment: str
-    block_id: Optional[str] = None
-
-
-class InlineCommentPatch(BaseModel):
-    comment: Optional[str] = None
-    resolved: Optional[bool] = None
-
-
-# Serializes the load→modify→save cycle of inline-comments: without a lock, two
-# Simultaneous POSTs on the same page loaded the same snapshot and the
-# second save overwrote the first (same race as the page comments,
-# reproduced against the real backend). Global lock: one file per page but
-# mutation is infrequent and the serialization cost is negligible.
-_inline_comments_mutation_lock = asyncio.Lock()
-
-
-@router.get("/pages/{page_id}/inline-comments")
-async def list_inline_comments(page_id: str):
-    return _load_inline_comments(page_id)
-
-
-@router.post(
-    "/pages/{page_id}/inline-comments",
-    dependencies=[Depends(require_role("editor"))],
+(
+    list_inline_comments,
+    create_inline_comment,
+    update_inline_comment,
+    delete_inline_comment,
+) = comments_api.register_inline_comment_routes(
+    router,
+    post_dependencies=[Depends(require_role("editor"))],
+    patch_dependencies=[Depends(require_role("editor"))],
+    delete_dependencies=[Depends(require_role("editor"))],
+    workspace_context_dependency=get_workspace_context,
+    dependencies=_COMMENTS_DEPENDENCIES,
 )
-async def create_inline_comment(
-    page_id: str,
-    body: InlineCommentRequest,
-    context: WorkspaceContext = Depends(get_workspace_context),
-):
-    item = {
-        "id": str(uuid.uuid4()),
-        "quote": (body.quote or "")[:500],
-        "comment": body.comment,
-        "block_id": body.block_id or "",
-        "author_id": getattr(context, "user_id", None),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "resolved": False,
-    }
-    async with _inline_comments_mutation_lock:
-        comments = _load_inline_comments(page_id)
-        comments.append(item)
-        safe_write_json(_inline_comments_path(page_id), comments)
-    return item
-
-
-@router.patch(
-    "/pages/{page_id}/inline-comments/{comment_id}",
-    dependencies=[Depends(require_role("editor"))],
-)
-async def update_inline_comment(page_id: str, comment_id: str, body: InlineCommentPatch):
-    async with _inline_comments_mutation_lock:
-        comments = _load_inline_comments(page_id)
-        found = None
-        for c in comments:
-            if c.get("id") == comment_id:
-                if body.comment is not None:
-                    c["comment"] = body.comment
-                if body.resolved is not None:
-                    c["resolved"] = bool(body.resolved)
-                found = c
-                break
-        if not found:
-            raise HTTPException(status_code=404, detail="Comentari no trobat")
-        safe_write_json(_inline_comments_path(page_id), comments)
-    return found
-
-
-@router.delete(
-    "/pages/{page_id}/inline-comments/{comment_id}",
-    dependencies=[Depends(require_role("editor"))],
-)
-async def delete_inline_comment(page_id: str, comment_id: str):
-    async with _inline_comments_mutation_lock:
-        comments = _load_inline_comments(page_id)
-        new = [c for c in comments if c.get("id") != comment_id]
-        if len(new) == len(comments):
-            raise HTTPException(status_code=404, detail="Comentari no trobat")
-        safe_write_json(_inline_comments_path(page_id), new)
-    return {"status": "deleted", "id": comment_id}
 
 
 # In-memory pub/sub for REAL-TIME synchronization of synced blocks
@@ -13114,581 +11288,52 @@ async def save_synced_block(sync_id: str, body: SyncedBlockSave):
     return {"sync_id": sync_id, "content": body.content or "", "saved": True}
 
 
-@router.get("/link-index/stats")
-def get_link_index_stats():
-    """Status of the wikilinks reverse index (debug/observability).
-
-    See: docs/dev_memory/directives/wiki_inverse_link_index.md
-    
-    """
-    with _link_index_lock:
-        targets_with_backlinks = len(_backlinks_by_target)
-        unresolved_titles = len(_backlinks_by_target_title)
-        total_outlinks = sum(len(refs) for refs in _outlinks_by_source.values())
-        total_tokens = sum(len(toks) for toks in _tokens_by_source.values())
-        built_ts = _link_index_build_ts
-        sources = _link_index_source_count
-
-    cache_path = _get_link_index_cache_path()
-    cache_exists = bool(cache_path and cache_path.exists())
-    cache_size = cache_path.stat().st_size if cache_exists else 0
-
-    return {
-        "built": _link_index_built,
-        "built_ts": built_ts,
-        "built_age_seconds": (time.time() - built_ts) if built_ts else None,
-        "schema_version": _LINK_INDEX_SCHEMA_VERSION,
-        "sources_indexed": sources,
-        "targets_with_backlinks": targets_with_backlinks,
-        "unresolved_title_buckets": unresolved_titles,
-        "total_outlinks": total_outlinks,
-        "total_tokens": total_tokens,
-        "disk_cache": {
-            "path": str(cache_path) if cache_path else None,
-            "exists": cache_exists,
-            "size_bytes": cache_size,
-        },
-    }
-
-
-@router.post("/link-index/rebuild", dependencies=[Depends(require_role("admin"))])
-def post_link_index_rebuild():
-    """Forces a full rebuild of the reverse index in the background.
-
-    Useful after massive external edits (OneDrive sync, import
-    scripts) that did not go through the backend's write endpoints.
-    
-    """
-    kickoff_link_index_rebuild()
-    return {"status": "rebuild_scheduled"}
-
-
-@router.get("/backlinks")
-def get_backlinks(id: str):
-    """Finds all notes linking to a specific ID (both in metadata and body).
-
-    Fast path: direct lookup in the in-memory reverse index (`_backlinks_by_target`).
-    Fallback: if the index hasn't been built yet (startup), scans the whole
-    vault as before. See: docs/dev_memory/directives/wiki_inverse_link_index.md
-    
-    """
-    target_id = str(id or "").strip()
-    if not target_id:
-        return []
-
-    # Fast path: in-memory reverse index
-    if _link_index_built:
-        with _link_index_lock:
-            target_title = str(
-                (_page_meta_by_id.get(target_id) or {}).get("title") or ""
-            ).strip().lower()
-            results = list(_backlinks_by_target.get(target_id, []))
-            if target_title:
-                # Also include unresolved refs that pointed to the title
-                seen_ids = {item["id"] for item in results}
-                for item in _backlinks_by_target_title.get(target_title, []):
-                    if item["id"] not in seen_ids and item["id"] != target_id:
-                        seen_ids.add(item["id"])
-                        results.append(item)
-        return sorted(results, key=lambda x: str(x.get("title") or ""))
-
-    # Fallback (index not built): original code
-    backlinks = []
-    seen_backlink_ids: set[str] = set()
-    id_title_index = build_id_title_index()
-    target_title = str(id_title_index.get(target_id) or "").strip().lower()
-    title_to_ids = {}
-    for page_id, title in id_title_index.items():
-        key = str(title or "").strip().lower()
-        if not key:
-            continue
-        title_to_ids.setdefault(key, set()).add(str(page_id))
-
-    def _candidate_targets_from_ref(raw_ref: str) -> set[str]:
-        candidates: set[str] = set()
-        text = str(raw_ref or "").strip()
-        if not text:
-            return candidates
-
-        try:
-            text = urllib.parse.unquote(text)
-        except Exception:
-            pass
-
-        base = text.split("#", 1)[0].strip()
-        if not base:
-            return candidates
-
-        candidates.add(base)
-
-        vault_page_match = re.search(
-            r"(?:https?://[^/]+)?/(?:vault/page|@[^/]+/knowledge/(?:page|dashboard))/([^/?#]+)",
-            base,
-            re.IGNORECASE,
-        )
-        if vault_page_match and vault_page_match.group(1):
-            try:
-                candidates.add(urllib.parse.unquote(vault_page_match.group(1).strip()))
-            except Exception:
-                candidates.add(vault_page_match.group(1).strip())
-
-        api_page_match = re.search(
-            r"(?:https?://[^/]+)?/(?:api/vault|api/v1/vaults/[^/]+/knowledge)/pages/([^/?#]+)",
-            base,
-            re.IGNORECASE,
-        )
-        if api_page_match and api_page_match.group(1):
-            try:
-                candidates.add(urllib.parse.unquote(api_page_match.group(1).strip()))
-            except Exception:
-                candidates.add(api_page_match.group(1).strip())
-
-        lowered = base.lower()
-        for matched_id in title_to_ids.get(lowered, set()):
-            candidates.add(matched_id)
-
-        return {c.strip() for c in candidates if str(c).strip()}
-
-    def _matches_target(raw_ref: str) -> bool:
-        for candidate in _candidate_targets_from_ref(raw_ref):
-            if candidate == target_id:
-                return True
-            if target_title and candidate.lower() == target_title:
-                return True
-            for resolved_id in title_to_ids.get(candidate.lower(), set()):
-                if resolved_id == target_id:
-                    return True
-        return False
-
-    documents = _iter_linkable_page_documents()
-    if not documents:
-        return backlinks
-
-    # Search the whole Vault/Dashboard for notes referencing this ID
-    for file_path, metadata, body, _is_dashboard_doc in documents:
-        try:
-            # Do not count ourselves as backlink
-            current_id = str(metadata.get("id", file_path.stem) or file_path.stem).strip()
-            if not current_id:
-                continue
-            if current_id == target_id:
-                continue
-            if current_id in seen_backlink_ids:
-                continue
-
-            found = False
-            found_kind = "link"
-            # 1. Check Metadata → classified as "relation"
-            for val in metadata.values():
-                if val == target_id:
-                    found = True
-                    break
-                if isinstance(val, list):
-                    for item in val:
-                        item_str = str(item).strip()
-                        if item_str == target_id:
-                            found = True
-                            break
-                        if isinstance(item, str) and _matches_target(item):
-                            found = True
-                            break
-                    if found:
-                        break
-                if isinstance(val, str) and _matches_target(val):
-                    found = True
-                    break
-            if found:
-                found_kind = "relation"
-
-            # 2. Check Body (WikiLinks and MD Links) → classified as "link"
-            if not found:
-                # Obsidian style [[ID]] / [[Title]] / [[Title#Section|Alias]] (and ![[...]]).
-                wiki_links = re.findall(r"!?\[\[([^\]|]+(?:#[^\]|]+)?)(?:\|.*?)?\]\]", body)
-                for raw_link in wiki_links:
-                    base_target = str(raw_link or "").split("#", 1)[0].strip()
-                    if _matches_target(base_target):
-                        found = True
-                        break
-
-                # Standard MD links [text](ID)
-                if not found:
-                    md_links = re.findall(r"\[.*?\]\((.*?)\)", body)
-                    for raw_link in md_links:
-                        if _matches_target(raw_link):
-                            found = True
-                            break
-
-            if found:
-                seen_backlink_ids.add(current_id)
-                backlinks.append(
-                    {"id": current_id, "title": metadata.get("title") or file_path.stem,
-                     "kind": found_kind}
-                )
-        except Exception as e:
-            log.warning(f"Error processing backlinks for {file_path.name}: {e}")
-            continue
-
-    return backlinks
-
-
-@router.get("/outlinks")
-def get_outlinks(id: str):
-    """Outgoing references of a page, resolved and split by kind.
-
-    Single source of truth for the editor's "Enllaços i mencions" panel so its
-    outgoing counts line up with /backlinks and /api/graph (same resolution:
-    id → title → filename stem; same link-vs-relation classification). Returns
-    ``{links, relations, unresolved}`` where ``links``/``relations`` are resolved
-    page refs and ``unresolved`` are wikilinks that point to no existing page.
-    See feedback_links_panel_vs_graph_divergence.
-    """
-    pid = str(id or "").strip()
-    empty = {"links": [], "relations": [], "unresolved": []}
-    if not pid or not _link_index_built:
-        return empty
-
-    with _link_index_lock:
-        if pid not in _outlinks_by_source:
-            return empty
-        refs = set(_outlinks_by_source.get(pid, set()))
-        kinds = dict(_outlink_kinds_by_source.get(pid, {}))
-        title_to_ids: Dict[str, set] = {}
-        stem_to_ids: Dict[str, set] = {}
-        for opid, meta in _page_meta_by_id.items():
-            t = str(meta.get("title") or "").strip().lower()
-            if t:
-                title_to_ids.setdefault(t, set()).add(opid)
-            p = str(meta.get("path") or "")
-            if p:
-                stem = Path(p).stem.strip().lower()
-                if stem:
-                    stem_to_ids.setdefault(stem, set()).add(opid)
-
-        # Group raw refs by their lowercased form (the index stores both the
-        # original-cased and lowercased variant of each ref).
-        by_lower: Dict[str, set] = {}
-        for raw in refs:
-            by_lower.setdefault(raw.lower(), set()).add(raw)
-
-        target_kind: Dict[str, str] = {}
-        unresolved: Dict[str, str] = {}  # lower → display title (links only)
-        for low, variants in by_lower.items():
-            kind = "relation" if any(
-                kinds.get(v) == "relation" for v in (variants | {low})
-            ) else "link"
-            target_ids: set = set()
-            for v in (variants | {low}):
-                if v in _page_meta_by_id:
-                    target_ids.add(v)
-            target_ids |= title_to_ids.get(low, set())
-            target_ids |= stem_to_ids.get(low, set())
-            target_ids.discard(pid)
-            if target_ids:
-                for tid in target_ids:
-                    prev = target_kind.get(tid)
-                    if prev == "relation":
-                        continue
-                    target_kind[tid] = "relation" if kind == "relation" else (prev or kind)
-            elif kind == "link":
-                # Unresolved wikilink to a non-existent page: keep the best-cased text.
-                display = max(variants, key=lambda s: (any(c.isupper() for c in s), len(s)))
-                unresolved[low] = display
-
-        links: List[Dict[str, str]] = []
-        relations: List[Dict[str, str]] = []
-        for tid, kind in target_kind.items():
-            meta = _page_meta_by_id.get(tid) or {}
-            entry = {"id": tid, "title": str(meta.get("title") or tid)}
-            (relations if kind == "relation" else links).append(entry)
-
-    links.sort(key=lambda x: str(x["title"]).lower())
-    relations.sort(key=lambda x: str(x["title"]).lower())
-    unresolved_list = sorted(
-        ({"title": v} for v in unresolved.values()),
-        key=lambda x: str(x["title"]).lower(),
-    )
-    return {"links": links, "relations": relations, "unresolved": unresolved_list}
+(
+    get_link_index_stats,
+    post_link_index_rebuild,
+    get_backlinks,
+    get_outlinks,
+) = link_navigation_api.register_routes(
+    router,
+    admin_dependencies=[Depends(require_role("admin"))],
+    dependencies=_LINK_API_DEPENDENCIES,
+)
 
 
 def _build_unlinked_mention_regex(target_title: str) -> Optional[re.Pattern]:
-    safe_title = str(target_title or "").strip()
-    if len(safe_title) < 2:
-        return None
-
-    escaped = re.escape(safe_title)
-    return re.compile(rf"(?<!\w){escaped}(?!\w)", re.IGNORECASE)
+    return link_parsing.build_unlinked_mention_regex(target_title)
 
 
 def _strip_existing_links_for_mentions_scan(text: str) -> str:
-    source = str(text or "")
-    source = re.sub(r"```[\s\S]*?```", " ", source)
-    source = re.sub(r"!?\[\[[^\]]+\]\]", " ", source)
-    source = re.sub(r"\[[^\]]*\]\([^)]+\)", " ", source)
-    return source
+    return link_parsing.strip_existing_links(text)
 
 
 def _count_unlinked_mentions(text: str, target_title: str) -> int:
-    pattern = _build_unlinked_mention_regex(target_title)
-    if not pattern:
-        return 0
-    sanitized = _strip_existing_links_for_mentions_scan(text)
-    return len(list(pattern.finditer(sanitized)))
+    return link_parsing.count_unlinked_mentions(text, target_title)
 
 
-def _first_unlinked_mention_snippet(text: str, target_title: str, radius: int = 48) -> str:
-    pattern = _build_unlinked_mention_regex(target_title)
-    if not pattern:
-        return ""
-
-    sanitized = _strip_existing_links_for_mentions_scan(text)
-    match = pattern.search(sanitized)
-    if not match:
-        return ""
-
-    start = max(0, match.start() - radius)
-    end = min(len(sanitized), match.end() + radius)
-    snippet = sanitized[start:end].replace("\n", " ").strip()
-    return re.sub(r"\s+", " ", snippet)
+def _first_unlinked_mention_snippet(
+    text: str, target_title: str, radius: int = 48
+) -> str:
+    return link_parsing.first_unlinked_mention_snippet(text, target_title, radius)
 
 
-def _link_mentions_in_plain_segments(body: str, target_title: str, target_id: str) -> tuple[str, int]:
-    pattern = _build_unlinked_mention_regex(target_title)
-    if not pattern:
-        return str(body or ""), 0
-
-    source = str(body or "")
-    link_token = canonical_vault_browser_path(
-        "knowledge",
-        f"page/{urllib.parse.quote(str(target_id or '').strip())}",
-    )
-    existing_link_pattern = re.compile(r"!?\[\[[^\]]+\]\]|\[[^\]]*\]\([^)]+\)")
-
-    parts = []
-    last_index = 0
-    replacements = 0
-
-    for match in existing_link_pattern.finditer(source):
-        plain_segment = source[last_index:match.start()]
-
-        def _replace_title(m: re.Match) -> str:
-            nonlocal replacements
-            replacements += 1
-            return f"[{m.group(0)}]({link_token})"
-
-        linked_segment = pattern.sub(_replace_title, plain_segment)
-        parts.append(linked_segment)
-        parts.append(match.group(0))
-        last_index = match.end()
-
-    tail = source[last_index:]
-
-    def _replace_title_tail(m: re.Match) -> str:
-        nonlocal replacements
-        replacements += 1
-        return f"[{m.group(0)}]({link_token})"
-
-    parts.append(pattern.sub(_replace_title_tail, tail))
-
-    return "".join(parts), replacements
-
-
-@router.get("/unlinked-mentions")
-def get_unlinked_mentions(id: str):
-    """Finds notes mentioning target title in plain text without an actual link.
-
-    Fast path: pre-filters candidates with `_tokens_by_source` (set lookup) and
-    only runs regex on documents where ALL title tokens
-    appear. Typically reduces from 4000 → ~10-100 candidates.
-    See: docs/dev_memory/directives/wiki_inverse_link_index.md
-    
-    """
-    target_id = str(id or "").strip()
-    if not target_id:
-        return []
-
-    target_title = ""
-    if _link_index_built:
-        with _link_index_lock:
-            target_title = str(
-                (_page_meta_by_id.get(target_id) or {}).get("title") or ""
-            ).strip()
-
-    if not target_title:
-        id_title_index = build_id_title_index()
-        target_title = str(id_title_index.get(target_id) or "").strip()
-        if not target_title:
-            target_path = find_page_path(target_id)
-            if target_path and target_path.exists():
-                if _is_dashboard_file_path(target_path):
-                    target_metadata, _ = _read_dashboard_file(target_path)
-                else:
-                    raw_target = target_path.read_text(encoding="utf-8")
-                    target_metadata, _ = parse_frontmatter(raw_target, target_path)
-                target_title = str(target_metadata.get("title") or "").strip()
-
-    if len(target_title) < 2:
-        return []
-
-    title_tokens = frozenset(
-        t for t in _TOKEN_SPLIT_RE.split(target_title.lower()) if len(t) >= 2
+def _link_mentions_in_plain_segments(
+    body: str, target_title: str, target_id: str
+) -> tuple[str, int]:
+    return link_parsing.link_mentions_in_plain_segments(
+        body,
+        target_title,
+        target_id,
+        canonical_vault_browser_path,
     )
 
-    # Fast path with pre-filter
-    candidate_ids: Optional[set] = None
-    if _link_index_built and title_tokens:
-        with _link_index_lock:
-            candidate_ids = {
-                pid
-                for pid, tokens in _tokens_by_source.items()
-                if pid != target_id and title_tokens.issubset(tokens)
-            }
 
-    results = []
-    documents = _iter_linkable_page_documents()
-    if not documents:
-        return results
-
-    for file_path, metadata, body, _is_dashboard_doc in documents:
-        try:
-            current_id = str(metadata.get("id") or file_path.stem)
-            if current_id == target_id:
-                continue
-
-            # Pre-filter: if we have candidates and this one isn't among them, skip regex
-            if candidate_ids is not None and current_id not in candidate_ids:
-                continue
-
-            count = _count_unlinked_mentions(body, target_title)
-            if count <= 0:
-                continue
-
-            results.append(
-                {
-                    "id": current_id,
-                    "title": metadata.get("title") or file_path.stem,
-                    "count": count,
-                    "snippet": _first_unlinked_mention_snippet(body, target_title),
-                }
-            )
-        except Exception as e:
-            log.warning(f"Error processing unlinked mentions for {file_path.name}: {e}")
-
-    results.sort(key=lambda item: (-int(item.get("count") or 0), str(item.get("title") or "")))
-    return results
-
-
-@router.post("/link-unlinked-mentions", dependencies=[Depends(require_role("editor"))])
-async def link_unlinked_mentions(request: LinkMentionsRequest):
-    """Converts plain mentions of target title into internal links in one source note or all notes."""
-    target_id = str(request.target_id or "").strip()
-    source_id = str(request.source_id or "").strip()
-    if not target_id:
-        raise HTTPException(status_code=400, detail="target_id is required")
-
-    id_title_index = build_id_title_index()
-    target_title = str(id_title_index.get(target_id) or "").strip()
-    if len(target_title) < 2:
-        raise HTTPException(status_code=400, detail="Target page title not found or too short")
-
-    changed_notes = []
-    total_replacements = 0
-
-    if source_id:
-        source_path = find_page_path(source_id)
-        if not source_path or not source_path.exists():
-            raise HTTPException(status_code=404, detail=f"Source page not found (ID: {source_id})")
-        candidates = [source_path]
-    else:
-        candidates = [doc[0] for doc in _iter_linkable_page_documents()]
-
-    for file_path in candidates:
-        try:
-            # Snapshot mtime so we can detect a concurrent edit before writing.
-            try:
-                mtime_before = file_path.stat().st_mtime_ns
-            except OSError:
-                mtime_before = None
-            is_dashboard_doc = _is_dashboard_file_path(file_path)
-            if is_dashboard_doc:
-                metadata, body = _read_dashboard_file(file_path)
-            else:
-                raw_content = file_path.read_text(encoding="utf-8")
-                metadata, body = parse_frontmatter(raw_content, file_path)
-            current_id = str(metadata.get("id") or file_path.stem)
-            if current_id == target_id:
-                continue
-            if source_id and current_id != source_id:
-                continue
-
-            updated_body, replacements = _link_mentions_in_plain_segments(
-                body, target_title, target_id
-            )
-            if replacements <= 0:
-                continue
-
-            # Concurrency guard: if the file changed since we read it (e.g. an
-            # autosave from another tab), skip it rather than clobbering the
-            # newer content with our stale copy (last-writer-wins hazard).
-            try:
-                if mtime_before is not None and file_path.stat().st_mtime_ns != mtime_before:
-                    log.warning(
-                        f"Skipping mention-linking for {file_path.name}: modified concurrently"
-                    )
-                    continue
-            except OSError:
-                pass
-
-            _create_page_version(current_id, file_path)
-            if is_dashboard_doc:
-                _write_dashboard_file(
-                    file_path=file_path,
-                    page_id=current_id,
-                    title=str(metadata.get("title") or file_path.stem),
-                    metadata=metadata,
-                    content=updated_body,
-                    parent_id=metadata.get("parent_id"),
-                    is_database=bool(metadata.get("is_database")),
-                )
-            else:
-                save_page_md(file_path, metadata, updated_body)
-
-            changed_notes.append(
-                {
-                    "id": current_id,
-                    "title": metadata.get("title") or file_path.stem,
-                    "replacements": replacements,
-                    "_path": file_path,
-                }
-            )
-            total_replacements += replacements
-        except Exception as e:
-            log.warning(f"Error linking unlinked mentions for {file_path.name}: {e}")
-
-    # Invalidate the index for each modified source. If there are many (>20),
-    # a full rebuild is cheaper than N sequential updates.
-    if changed_notes:
-        if len(changed_notes) > 20:
-            kickoff_link_index_rebuild()
-        else:
-            for note in changed_notes:
-                try:
-                    update_link_index_for_page(note["_path"])
-                except Exception as e:
-                    log.debug(f"link-index update skip: {e}")
-
-    # Remove the internal field before returning
-    for note in changed_notes:
-        note.pop("_path", None)
-
-    changed_notes.sort(key=lambda item: str(item.get("title") or ""))
-    return {
-        "status": "success",
-        "target_id": target_id,
-        "target_title": target_title,
-        "notes_changed": len(changed_notes),
-        "total_replacements": total_replacements,
-        "changed_notes": changed_notes,
-    }
+get_unlinked_mentions, link_unlinked_mentions = link_mentions_api.register_routes(
+    router,
+    editor_dependencies=[Depends(require_role("editor"))],
+    dependencies=_LINK_API_DEPENDENCIES,
+)
 
 
 # PER-VAULT registry keys (key = registry path, which depends on the active vault via get_p).
