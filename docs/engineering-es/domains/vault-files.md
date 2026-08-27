@@ -63,8 +63,10 @@ Iniciar primero carga instantáneas de disco válidas, luego comienza el trabajo
 frontmatter, los reintentos ante bloqueos del proveedor y la normalización de
 entradas de caché. `pages/index_service.py` gestiona el descubrimiento, la
 actualización, el mapa inverso de identificadores y los snapshots deduplicados.
-La fachada inyecta los puertos de bóveda activa, registro, calendario y caché;
-estos servicios no importan las rutas HTTP.
+`pages/resolver.py` resuelve identificadores estables, UUID canónicos, títulos
+indexados y análisis en frío acotados. La fachada inyecta los puertos de bóveda
+activa, registro, calendario y caché; estos servicios no importan las rutas
+HTTP.
 
 ## Proveedores de archivos
 

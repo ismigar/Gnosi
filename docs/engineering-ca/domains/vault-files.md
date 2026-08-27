@@ -62,9 +62,10 @@ Primer s' inicia un carrega les instantànies de disc vàlides, després començ
 `pages/index_entries.py` és responsable de la lectura limitada del frontmatter,
 dels reintents davant bloquejos del proveïdor i de normalitzar les entrades de
 cau. `pages/index_service.py` gestiona el descobriment, l'actualització, el mapa
-invers d'identificadors i els snapshots deduplicats. La façana injecta els ports
-de vault actiu, registre, calendari i cau; aquests serveis no importen les rutes
-HTTP.
+invers d'identificadors i els snapshots deduplicats. `pages/resolver.py` resol
+identificadors estables, UUID canònics, títols indexats i escanejos en fred
+acotats. La façana injecta els ports de vault actiu, registre, calendari i cau;
+aquests serveis no importen les rutes HTTP.
 
 ## Proveïdors de fitxers
 

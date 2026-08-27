@@ -137,6 +137,7 @@ from backend.domains.vault.schemas.pages import (
 from backend.domains.vault.pages.state import page_state
 from backend.domains.vault.pages import index_entries as page_index_entries
 from backend.domains.vault.pages import index_service as page_index_service
+from backend.domains.vault.pages import resolver as page_resolver
 from backend.domains.vault.pages.index_entries import (
     build_cache_entry_from_memory as _build_cache_entry_from_memory,
     build_page_cache_entry as _build_page_cache_entry,
@@ -4321,149 +4322,8 @@ def _canonicalize_id(page_id: Any) -> str:
 
 
 def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Path]:
-    """Seeks the path of an .md file by ID recursively using an optimized in-memory index.
-
-    Compares ids canonically (dashes-or-not, case-insensitive) so a frontmatter
-    `id: df3614865ff34a1490055d9b7b456492` matches a request for
-    `df361486-5ff3-4a14-9005-5d9b7b456492` and vice-versa.
-
-    `allow_full_scan=False` skips the last-resort `rglob` over the entire vault.
-    Callers that already know "if not in cache then it doesn't exist" (e.g. PUT
-    on a brand-new page id) should pass `allow_full_scan=False` to avoid a
-    multi-second OneDrive scan.
-    """
-    from backend.services.context_vars import get_active_vault_path
-    v_path = get_active_vault_path()
-    if not v_path: return None
-    v_str = str(v_path)
-
-    canonical_target = _canonicalize_id(page_id)
-    stale_detected = False
-
-    # 1. High Performance Cache Lookup (O(1) when ids match exactly).
-    # Try the raw id first (covers the 99% case), then a canonical scan.
-    # OPTIM: if the entries cache has the path and the global stale-check has
-    # been done recently (TTL `_STALE_CHECK_TTL`), we skip the `p.exists()` here
-    # — it does a 5-50 ms stat() on OneDrive that repeats on every
-    # `find_page_path`, and the global cache already takes care of pruning entries
-    # deleted externally at the next periodic stale-check.
-    with _page_index_lock:
-        id_map = _page_id_to_path.get(v_str, {})
-        path_str = id_map.get(page_id)
-        if not path_str and canonical_target:
-            # Linear scan of the id map only when the exact key missed.
-            for k, v in id_map.items():
-                if _canonicalize_id(k) == canonical_target:
-                    path_str = v
-                    break
-        if path_str:
-            p = Path(path_str)
-            # Trust the cache if the global stale-check is recent enough.
-            try:
-                stale_age = time.monotonic() - _last_stale_check["ts"]
-            except Exception:
-                stale_age = float("inf")
-            if stale_age < _STALE_CHECK_TTL:
-                return p
-            if p.exists():
-                return p
-            # File deleted externally: prune stale entries
-            id_map.pop(page_id, None)
-            _page_index_entries.get(v_str, {}).pop(path_str, None)
-            _bump_page_index_version(v_str)
-            stale_detected = True
-
-    # 2. Fallback: Search using the full entries cache (canonical compare)
-    with _page_index_lock:
-        entries = _page_index_entries.get(v_str, {})
-        for p_str, entry in list(entries.items()):
-            if _canonicalize_id(entry.get("id")) == canonical_target:
-                p = Path(p_str)
-                if p.exists():
-                    _page_id_to_path.setdefault(v_str, {})[page_id] = p_str
-                    return p
-                # File deleted externally: prune stale entry
-                entries.pop(p_str, None)
-                _page_id_to_path.get(v_str, {}).pop(page_id, None)
-                _bump_page_index_version(v_str)
-                stale_detected = True
-                break
-
-    if stale_detected:
-        # Force immediate rescan on next list_pages call
-        page_state.last_vault_sync_time = 0.0
-        log.info(f"🗑️ Stale cache entry detected for page {page_id}. Rescan scheduled.")
-
-    # 3. Last Resort Fallback: Direct file lookups (Avoid if possible)
-    vault_root = get_p("VAULT")
-    direct_path = vault_root / f"{page_id}.md"
-    if direct_path.exists():
-        return direct_path
-
-    dashboard_direct_path = get_p("DASHBOARDS") / f"{page_id}.json" if get_p("DASHBOARDS") else None
-    if dashboard_direct_path and dashboard_direct_path.exists():
-        return dashboard_direct_path
-
-    # 4. Title-based lookup (resilient fallback). If the `page_id` is not a
-    # UUID but matches the title of an indexed page, we return
-    # that one. Covers the case of wikilinks with a literal title (`[[Foo]]`) that
-    # arrive here without being resolved by the frontend (idToTitle stale or pending
-    # a refresh after a move). Without this pass, wikilinks
-    # by title fail silently with 404. Cost: linear scan over dict
-    # in-memory (~3000 entries) → barat.
-    title_lower = str(page_id or "").strip().lower()
-    is_uuid_like = bool(
-        title_lower and re.fullmatch(
-            r"[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}",
-            title_lower,
-        )
-    )
-    if title_lower and not is_uuid_like:
-        with _page_index_lock:
-            entries = _page_index_entries.get(v_str, {})
-            for p_str, entry in list(entries.items()):
-                entry_title = str(entry.get("title") or "").strip().lower()
-                if entry_title and entry_title == title_lower:
-                    p = Path(p_str)
-                    if p.exists():
-                        entry_id = entry.get("id")
-                        if entry_id:
-                            _page_id_to_path.setdefault(v_str, {})[entry_id] = p_str
-                        return p
-
-    # 5. Full scan (cold or empty cache — expensive but correct). Canonical
-    # compare so dash/no-dash and case differences don't cause false negatives.
-    # Skipped when the caller knows the page can't exist yet (PUT to a fresh
-    # id) — saves a multi-second OneDrive rglob.
-    if not allow_full_scan:
-        return None
-    # If the cache is already initialized **and has entries** and we haven't found the
-    # page, it's a "ghost": it's cached in the frontend but the file has been
-    # deleted externally. Doing a full rglob of 3981 files on OneDrive
-    # takes 30s+ and blocks DELETE/GET indefinitely. We rely on the cache.
-    # But if the cache was just cleared (empty entries), we do need to do
-    # an rglob — otherwise a recently created page that triggered a clear
-    # would stay invisible until someone forced a full refresh.
-    with _page_index_lock:
-        cache_has_entries = bool(_page_index_entries.get(v_str))
-    if _page_index_initialized.get(v_str) and cache_has_entries:
-        log.info(
-            f"🔍 Page {page_id} not in cache (initialized) — skipping rglob fallback "
-            f"(probably a deleted/renamed file).")
-        return None
-    if vault_root and vault_root.exists():
-        for md_file in vault_root.rglob("*.md"):
-            try:
-                raw = md_file.read_text(encoding="utf-8")
-                fm, _ = parse_frontmatter(raw, md_file)
-                if _canonicalize_id(fm.get("id", "")) == canonical_target:
-                    with _page_index_lock:
-                        _page_id_to_path.setdefault(v_str, {})[page_id] = str(md_file)
-                    return md_file
-            except Exception:
-                continue
-
-    return None
+    """Resolve one page through the canonical page-domain resolver."""
+    return page_resolver.find_page_path(page_id, allow_full_scan=allow_full_scan)
 
 
 def _find_page_path_for_write(page_id: str) -> Optional[Path]:
@@ -10763,6 +10623,26 @@ page_index_service.configure(
         vault_sync_cooldown_seconds=_VAULT_SYNC_COOLDOWN_SECONDS,
         calendar_sync_cooldown_seconds=_GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS,
         stale_check_ttl=_STALE_CHECK_TTL,
+        logger=log,
+    )
+)
+
+page_resolver.configure(
+    page_resolver.PageResolverDependencies(
+        active_vault_path=lambda: get_active_vault_path(),
+        get_path=lambda name: get_p(name),
+        path_factory=lambda value: Path(value),
+        parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+        canonicalize_id=lambda value: _canonicalize_id(value),
+        bump_index_version=lambda vault_key: _bump_page_index_version(vault_key),
+        set_last_vault_sync=_set_last_vault_sync_time,
+        monotonic=lambda: time.monotonic(),
+        stale_check_ttl=_STALE_CHECK_TTL,
+        last_stale_check=_last_stale_check,
+        index_lock=_page_index_lock,
+        index_entries=_page_index_entries,
+        index_initialized=_page_index_initialized,
+        id_to_path=_page_id_to_path,
         logger=log,
     )
 )

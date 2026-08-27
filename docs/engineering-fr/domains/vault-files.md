@@ -63,8 +63,10 @@ Démarrer charge d'abord des instantanés de disque valides, puis démarre le tr
 des nouvelles tentatives lors des verrous du fournisseur et de la normalisation
 des entrées de cache. `pages/index_service.py` gère la découverte, le
 rafraîchissement, la table inverse des identifiants et les instantanés
-dédoublonnés. La façade injecte les ports du coffre actif, du registre, du
-calendrier et du cache; ces services n'importent pas les routes HTTP.
+dédoublonnés. `pages/resolver.py` résout les identifiants stables, les UUID
+canoniques, les titres indexés et les analyses à froid bornées. La façade
+injecte les ports du coffre actif, du registre, du calendrier et du cache; ces
+services n'importent pas les routes HTTP.
 
 ## Fournisseurs de fichiers
 
