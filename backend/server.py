@@ -2,12 +2,7 @@ import sys
 from pathlib import Path
 import asyncio
 import logging
-import os
-import re
 import uvicorn
-import hashlib
-import json
-from datetime import datetime
 from contextlib import asynccontextmanager, suppress
 
 # Configure paths
@@ -19,45 +14,17 @@ if str(BASE_DIR) not in sys.path:
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from fastapi import Depends, FastAPI, Request, BackgroundTasks
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 
+from backend.app.factory import create_app
 from backend.config.app_config import load_params
 from backend.config.env_config import is_frozen_runtime
-from backend.config.logger_config import setup_logging
 from backend.config.mcp_config import MCP_SERVERS
 from backend.mcp.client import MultiServerMCPClient
 from backend.agent.factory import create_agent_workflow
 
-# Import routes
-from backend.api import (
-    agent_routes, system_routes, tools_routes,
-    analytics_routes,
-    scheduler_routes, social_routes,
-    vault_routes, vault_graph_routes, vault_views_routes, calendar_routes, mail_routes,
-    reader, meeting_routes, google_auth_routes, integrations_routes,
-    auth_routes,
-    config_routes, env_routes, credentials_routes, ai_routes, agent_skills_routes,
-    workspace_routes, contacts_routes, identity_routes,
-    microsoft_auth_routes,
-    collab_routes,
-    public_routes,
-    share_routes,
-    notion_routes,
-    notion_oauth_routes,
-    vaults_routes,
-    vault_templates_routes,
-    handwriting_routes,
-    planning_routes,
-    literature_routes,
-    notebook_routes,
-)
+from backend.api import vault_routes
 from backend.scheduler.manager import scheduler_manager
-from backend.services.plugin_access import require_plugins
-from backend.models import * # Register all models for SQLAlchemy
 
 log = logging.getLogger(__name__)
 
@@ -354,175 +321,8 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             log.warning(f"⚠️ MCP Client stop timed out/failed: {e}")
 
-# Instance creation
-# `dependencies=` applies to EVERY route, so the default is "authentication
-# required" and exceptions have to be written down in auth_public_surface.
-# While GNOSI_REQUIRE_AUTH is off this is a no-op.
-from backend.services.auth_public_surface import enforce_authentication  # noqa: E402
-from backend.services.auth_service import require_auth_enabled  # noqa: E402
-
-app = FastAPI(
-    title="Gnosi Agent",
-    version="0.2.0",
-    lifespan=lifespan,
-    dependencies=[Depends(enforce_authentication)],
-)
-
-# CORS — the default is every loopback origin, and nothing else.
-#
-# It used to be `allow_origins=["*"]`, which combined with an API that served
-# unauthenticated requests meant ANY page the user had open could read the whole
-# vault: `fetch('http://localhost:5002/api/vault/pages')` from an arbitrary site
-# got a 200, and the wildcard then authorised that site's JavaScript to read the
-# body. Binding to loopback does not help — the browser is already inside.
-#
-# A regex rather than a fixed list because the local origin legitimately varies:
-# the Vite dev server picks a port, `vite preview` picks another, and the Word
-# add-in webview arrives from its own. All of them are this machine; a remote
-# page is not, and that is the whole distinction being drawn.
-#
-# Credentials stay OFF unless origins are listed explicitly, which is the rule
-# that was already here. Nothing legitimate needs them cross-origin: the
-# frontend reaches `/api` through the Vite proxy (same-origin), and the
-# non-browser clients authenticate with a PAT in an `Authorization` header,
-# which is not an ambient credential and rides no cookie. Allowing them would
-# let another page served from this machine — a different local dev server —
-# make requests carrying the session cookie AND read the answers, since
-# `SameSite=Lax` does not separate two ports of the same host.
-_cors_origins_env = os.environ.get("CORS_ORIGINS", "").strip()
-_cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
-_LOOPBACK_ORIGIN_RE = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_origin_regex=None if _cors_origins else _LOOPBACK_ORIGIN_RE,
-    allow_credentials=bool(_cors_origins_env),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# GZip for large responses (`/pages`, `/by-table`, `/global-index`).
-# `minimum_size=1024` avoids compressing small calls where the overhead of
-# compression isn't worth it. For 300 serialized PageInfo (~100-300KB), the
-# typical compression is 8-12x, reducing transfer time to
-# the frontend significantly faster on slow networks.
-app.add_middleware(GZipMiddleware, minimum_size=1024)
-
-# Multi-vault: sets the ACTIVE vault from X-Vault-Id in a context that propagates to the endpoints
-# (a synchronous dependency couldn't achieve this). See services/active_vault_middleware.py.
-from backend.services.active_vault_middleware import ActiveVaultMiddleware
-app.add_middleware(ActiveVaultMiddleware)
-
-# ──────────────── Global Error Handler ────────────────
-try:
-    from pipeline.skills.notification_service.scripts.notification_service import notify as _notify_fn
-except ImportError:
-    _notify_fn = None
-
-from fastapi import Request as _Request
-from fastapi.responses import JSONResponse as _JSONResponse
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: _Request, exc: Exception):
-    """Captures all uncontrolled 500 errors and logs them to the logging system."""
-    import traceback
-    route = f"{request.method} {request.url.path}"
-    error_detail = str(exc)
-    tb = traceback.format_exc()
-
-    log.error(f"❌ Unhandled exception on {route}: {error_detail}\n{tb}")
-
-    if _notify_fn:
-        try:
-            short_tb = tb.split('\n')[-3] if tb else error_detail
-            _notify_fn(
-                f"Application error: {route}",
-                f"{error_detail}\n\n{short_tb}",
-                level="ERROR"
-            )
-        except Exception:
-            pass  # We don't let the logging handler cause another error
-
-    # We do not return `error_detail` to the client: it may contain absolute paths, fragments
-    # of SQL queries, tokens. Everything is already in the log for debugging. The client only
-    # receives a generic message + an identifier so it can be searched in the log if needed.
-    error_id = hex(abs(hash((route, error_detail))) & 0xFFFFFFFF)[2:]
-    log.error(f"   error_id={error_id}")
-    return _JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "error_id": error_id},
-    )
-
-# --- Register Routers (Order matters!) ---
-
-# Workspace Management (Must be first for middleware/context)
-app.include_router(workspace_routes.router, tags=["Workspaces"])
-
-# Core Features
-app.include_router(agent_routes.router, prefix="/api", dependencies=[Depends(require_plugins("ai-platform"))])
-app.include_router(notebook_routes.router, dependencies=[Depends(require_plugins("grounded-notebooks", "ai-platform"))])
-app.include_router(system_routes.router, prefix="/api/system")
-app.include_router(social_routes.router, prefix="/api/social", tags=["Social"], dependencies=[Depends(require_plugins("social-publishing"))])
-
-# Vault and Graph
-app.include_router(vault_routes.router, prefix="/api/vault", tags=["Vault"])
-app.include_router(planning_routes.router, prefix="/api", tags=["Project Planning"], dependencies=[Depends(require_plugins("project-planning"))])
-app.include_router(literature_routes.router, dependencies=[Depends(require_plugins("resources"))])
-app.include_router(handwriting_routes.router, tags=["Handwriting"])
-app.include_router(vault_graph_routes.router, prefix="/api", tags=["Vault Graph"])
-app.include_router(vault_views_routes.router, prefix="/api", tags=["Vault Views"])
-
-# Real-time collaboration (WebSocket: presence + per-page relay)
-app.include_router(collab_routes.router, prefix="/api/vault", tags=["Collaboration"])
-# Share links: authenticated endpoints under /api/vault/*, public read at /api/share/{token}
-app.include_router(share_routes.router, prefix="/api", tags=["Share"])
-
-# Components
-app.include_router(calendar_routes.router, tags=["Calendar"], dependencies=[Depends(require_plugins("calendar"))])
-app.include_router(mail_routes.router, tags=["Mail"], dependencies=[Depends(require_plugins("mail"))])
-app.include_router(reader.router, tags=["Reader"], dependencies=[Depends(require_plugins("feeds-reader"))])
-app.include_router(meeting_routes.router, tags=["Meetings"], dependencies=[Depends(require_plugins("calendar", "ai-platform"))])
-app.include_router(tools_routes.router, tags=["Tools"], dependencies=[Depends(require_plugins("ai-platform"))])
-app.include_router(analytics_routes.router, tags=["Analytics"])
-# app.include_router(sync_routes.router, tags=["Sync"])
-app.include_router(scheduler_routes.router, tags=["Scheduler"], dependencies=[Depends(require_plugins("automations"))])
-app.include_router(contacts_routes.router, prefix="/api", tags=["Contacts"], dependencies=[Depends(require_plugins("contacts"))])
-app.include_router(public_routes.router, prefix="/api", tags=["Public API / PAT"])
-
-# Integrations and Config
-app.include_router(google_auth_routes.router, tags=["Auth"])
-app.include_router(microsoft_auth_routes.router, tags=["Auth"])
-app.include_router(integrations_routes.router, tags=["Integrations"])
-app.include_router(auth_routes.router, tags=["Auth"])
-app.include_router(config_routes.router, prefix="/api", tags=["Config"])
-app.include_router(env_routes.router, prefix="/api", tags=["Env"])
-app.include_router(credentials_routes.router, prefix="/api", tags=["Credentials"])
-app.include_router(ai_routes.router, prefix="/api", tags=["AI Settings"], dependencies=[Depends(require_plugins("ai-platform"))])
-app.include_router(agent_skills_routes.router, prefix="/api", tags=["AI Skills"], dependencies=[Depends(require_plugins("ai-platform"))])
-app.include_router(notion_routes.router, prefix="/api", tags=["Notion Import"], dependencies=[Depends(require_plugins("notion-import"))])
-app.include_router(notion_oauth_routes.router, prefix="/api", tags=["Notion MCP OAuth"], dependencies=[Depends(require_plugins("notion-import"))])
-app.include_router(vaults_routes.router, prefix="/api", tags=["Vaults"])
-app.include_router(vault_templates_routes.router, prefix="/api", tags=["Vault templates"])
-app.include_router(identity_routes.router, tags=["Identity"])
-
-@app.get("/api/health")
-async def health_check():
-    cfg = load_params(strict_env=False)
-    return {
-        "status": "ok",
-        "mode": "FastAPI",
-        "gnosi_mode": cfg.gnosi_mode,
-        # The frontend gates the login screen on this (App.jsx). It reports the
-        # EFFECTIVE policy, not the env var: on a local single-user install the
-        # answer is False and the app opens without a login screen, and it flips
-        # to True on its own once the install stops being one — a second
-        # account, org mode, or a Docker deployment.
-        "require_auth": require_auth_enabled(),
-        "vault_configured": cfg.paths.get("VAULT") is not None,
-    }
-
-# Setup logging
-setup_logging()
+# Stable Uvicorn/Electron entrypoint. Composition lives in backend.app.
+app = create_app(lifespan)
 
 if __name__ == "__main__":
     cfg = load_params(strict_env=False)

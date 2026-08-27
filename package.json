@@ -22,6 +22,8 @@
     "lint:frontend": "pnpm --filter @gnosi/frontend lint",
     "lint:python": "uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy",
     "typecheck": "pnpm --filter @gnosi/frontend typecheck && uv run python -m compileall -q backend pipeline scripts extensions",
+    "audit:backend": "uv run python scripts/audit-backend-architecture.py",
+    "guardrails:backend": "uv run python scripts/check-source-guardrails.py",
     "test": "pnpm test:frontend && pnpm test:desktop && pnpm test:python",
     "test:frontend": "pnpm --filter @gnosi/frontend test",
     "test:desktop": "pnpm --filter @gnosi/desktop test",
