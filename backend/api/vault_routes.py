@@ -3460,838 +3460,155 @@ _COMMENTS_DEPENDENCIES = comments_api.CommentDependencies(
 
 
 # ---------------------------------------------------------------------------
-# Plugin registry — per-vault on/off state for optional features.
-#
-# v1 is an INTERNAL registry: the app declares built-in feature "plugins"
-# (daily notes, tags page, comments, share, canvas cards…) and this endpoint
-# persists which are disabled. Stored vault-first at `.gnosi/plugins.json`.
-# Third-party/sandboxed plugins are an explicit non-goal of v1 (security).
+# Plugin configuration domain composition.
 # ---------------------------------------------------------------------------
-_plugins_lock = threading.Lock()
-
-# Serializes the WHOLE load→modify→save cycle of plugins.json (same pattern as
-# _daily_note_lock and _comments_mutation_lock): `_plugins_lock` makes each
-# load and each save atomic separately, but two concurrent mutations (e.g. granting
-# permissions on a plugin while another tab saves settings) read the same
-# snapshot and the last write would clobber the other. The handlers take this
-# lock before their asyncio.to_thread; the slow parts (downloading or
-# extracting a .zip) stay OUTSIDE the lock, only the state mutation goes inside.
-_plugins_mutation_lock = asyncio.Lock()
-
-
-class PluginsUpdateRequest(BaseModel):
-    # List of plugin ids the user has turned OFF. Everything else is on.
-    disabled: list = []
-    # Per-plugin configuration, keyed by plugin id. Free-form so each plugin
-    # owns its own schema (e.g. daily-notes → {"source_table_id", "date_property"}).
-    settings: dict = {}
-
-
-class PluginLifecycleRequest(BaseModel):
-    """Explicit lifecycle request for a built-in or installed plugin."""
-
-    enabled: bool
-    confirm_dependencies: bool = False
-    confirm_disable: bool = False
-
-
-class LlmWikiLifecycleRequest(PluginLifecycleRequest):
-    """Backward-compatible lifecycle request for LLM Wiki."""
+from backend.domains.configuration import plugin_state
+from backend.domains.configuration.api import plugin_lifecycle
+from backend.domains.configuration.api import plugin_models
+from backend.domains.configuration.api import plugins as plugins_api
 
 
 def _get_plugins_path() -> Path:
     return get_p("GNOSI_CONFIG") / "plugins.json"
 
 
-def _load_plugins_state() -> dict:
-    with _plugins_lock:
-        try:
-            path = _get_plugins_path()
-            raw = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-            data, changed = builtin_plugins.normalize_state(raw)
-            if changed:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                safe_write_json(path, data, indent=2, ensure_ascii=False)
-            return data
-        except Exception as exc:
-            log.warning("Could not load plugin state; using core-only defaults: %s", exc)
-            data, _ = builtin_plugins.normalize_state({})
-            return data
-
-
-@router.get("/plugins")
-async def get_plugins_state():
-    """Return versioned plugin state and the built-in capability registry."""
-    state = await asyncio.to_thread(_load_plugins_state)
-    return {**state, "builtins": builtin_plugins.public_registry()}
-
-
-def _save_plugins_state(state: dict) -> dict:
-    """Persist normalized plugin state without dropping compatibility fields."""
-    payload, _ = builtin_plugins.normalize_state(state)
-    with _plugins_lock:
-        path = _get_plugins_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        safe_write_json(path, payload, indent=2, ensure_ascii=False)
-    return payload
-
-
-def _llm_wiki_enabled(state: dict) -> bool:
-    """Returns whether the built-in LLM Wiki feature is enabled in a state."""
-    return builtin_plugins.is_enabled(state, "llm-wiki")
-
-
-def _reconcile_plugin_ai_contributions() -> dict:
-    """Refresh governed third-party skills, tools, and managed agents."""
-
-    from backend.services.plugin_ai_contributions import (
-        reconcile_plugin_ai_contributions,
+plugin_state.configure(
+    plugin_state.PluginStateDependencies(
+        path=lambda: _get_plugins_path(),
+        normalize_state=builtin_plugins.normalize_state,
+        write_json=safe_write_json,
+        logger=log,
     )
+)
+_plugins_lock = plugin_state.store().lock
+_plugins_mutation_lock = plugin_state.store().mutation_lock
 
-    return reconcile_plugin_ai_contributions()
+
+def _load_plugins_state() -> dict[str, Any]:
+    return plugin_state.store().load()
 
 
-@router.put("/plugins", dependencies=[Depends(require_role("admin"))])
-async def set_plugins_state(request: PluginsUpdateRequest):
-    """Persists which plugins are disabled and their per-plugin settings.
+def _save_plugins_state(state: dict[str, Any]) -> dict[str, Any]:
+    return plugin_state.store().save(state)
 
-    Preserves `granted` (permissions granted to third-party plugins), which is
-    managed by its own endpoint and doesn't travel in this payload.
-    
-    """
-    def _write():
-        current = _load_plugins_state()
-        requested_disabled = {str(item) for item in (request.disabled or [])}
-        requested_state = {
-            **current,
-            "enabled_builtin": sorted(
-                builtin_plugins.BUILTIN_PLUGIN_IDS - requested_disabled
-            ),
-            "disabled": sorted(requested_disabled),
-        }
-        if _llm_wiki_enabled(current) != _llm_wiki_enabled(requested_state):
-            raise HTTPException(
-                status_code=409,
-                detail="The LLM Wiki plugin must be changed through its confirmed lifecycle.",
-            )
-        current["disabled"] = sorted(requested_disabled)
-        current["enabled_builtin"] = requested_state["enabled_builtin"]
-        current["settings"] = request.settings if isinstance(request.settings, dict) else {}
-        saved = _save_plugins_state(current)
-        _reconcile_plugin_ai_contributions()
-        return saved
-    async with _plugins_mutation_lock:
-        return await asyncio.to_thread(_write)
+
+def _llm_wiki_enabled(state: dict[str, Any]) -> bool:
+    return plugins_api.llm_wiki_enabled(state)
+
+
+def _reconcile_plugin_ai_contributions() -> dict[str, Any]:
+    return plugins_api.reconcile_plugin_ai_contributions()
+
+
+async def _refresh_plugin_runtime(
+    request: Request,
+    state: dict[str, Any],
+) -> None:
+    await plugin_lifecycle.refresh_plugin_runtime(request, state, log)
+
+
+def _plugin_lifecycle_dependencies() -> (
+    plugin_lifecycle.PluginLifecycleDependencies
+):
+    return plugin_lifecycle.PluginLifecycleDependencies(
+        load_state=lambda: _load_plugins_state(),
+        save_state=lambda state: _save_plugins_state(state),
+        mutation_lock=lambda: _plugins_mutation_lock,
+        config_dir=lambda: get_p("GNOSI_CONFIG"),
+        reconcile=lambda: _reconcile_plugin_ai_contributions(),
+        refresh_runtime=lambda request, state: _refresh_plugin_runtime(
+            request,
+            state,
+        ),
+        logger=log,
+    )
 
 
 async def _change_plugin_lifecycle(
     plugin_id: str,
-    payload: PluginLifecycleRequest,
+    payload: plugin_models.PluginLifecycleRequest,
     request: Request,
-) -> dict:
-    """Apply one dependency-aware plugin lifecycle mutation."""
-    from backend.services.llm_wiki_agent import LlmWikiAgentError, transition_agent
-
-    def _write() -> dict:
-        state = _load_plugins_state()
-        is_builtin = plugin_id in builtin_plugins.BUILTIN_PLUGIN_IDS
-        if not is_builtin:
-            from backend.services import plugin_system as ps
-
-            ps.read_manifest(get_p("GNOSI_CONFIG"), plugin_id)
-
-        enabled_builtin = set(state.get("enabled_builtin") or [])
-        affected: list[str] = []
-        if payload.enabled:
-            missing = [
-                requirement
-                for requirement in builtin_plugins.required_plugins(plugin_id)
-                if requirement not in enabled_builtin
-            ]
-            if missing and not payload.confirm_dependencies:
-                raise HTTPException(
-                    status_code=409,
-                    detail={
-                        "code": "plugin_dependency_confirmation_required",
-                        "plugin_id": plugin_id,
-                        "enable": missing,
-                        "disable": [],
-                    },
-                )
-            for requirement in missing:
-                state = builtin_plugins.set_enabled(state, requirement, True)
-                affected.append(requirement)
-            state = builtin_plugins.set_enabled(state, plugin_id, True)
-        else:
-            dependents = list(
-                builtin_plugins.dependent_plugins(plugin_id, enabled_builtin)
-            )
-            needs_confirmation = dependents or (plugin_id == "llm-wiki")
-            if needs_confirmation and not (
-                payload.confirm_dependencies or payload.confirm_disable
-            ):
-                raise HTTPException(
-                    status_code=409,
-                    detail={
-                        "code": "plugin_dependency_confirmation_required",
-                        "plugin_id": plugin_id,
-                        "enable": [],
-                        "disable": dependents,
-                    },
-                )
-            for dependent in reversed(dependents):
-                state = builtin_plugins.set_enabled(state, dependent, False)
-                affected.append(dependent)
-            state = builtin_plugins.set_enabled(state, plugin_id, False)
-
-        affected.append(plugin_id)
-        agent_result: dict[str, Any] = {}
-        if "llm-wiki" in affected:
-            try:
-                agent_result = transition_agent(
-                    builtin_plugins.is_enabled(state, "llm-wiki")
-                )
-            except LlmWikiAgentError:
-                raise
-
-        saved = _save_plugins_state(state)
-        if "llm-wiki" in affected:
-            from backend.scheduler.manager import scheduler_manager
-
-            try:
-                task = scheduler_manager.get_task("llm_wiki_maintenance")
-                interval = float((task or {}).get("interval_minutes") or 1440)
-                scheduler_manager.update_task(
-                    "llm_wiki_maintenance",
-                    interval_minutes=interval,
-                    enabled=builtin_plugins.is_enabled(saved, "llm-wiki"),
-                )
-            except Exception as exc:  # noqa: BLE001
-                log.warning("Could not update the LLM Wiki maintenance task: %s", exc)
-        _reconcile_plugin_ai_contributions()
-        return {
-            **saved,
-            **agent_result,
-            "plugin_id": plugin_id,
-            "enabled": builtin_plugins.is_enabled(saved, plugin_id),
-            "affected": affected,
-            "builtins": builtin_plugins.public_registry(),
-        }
-
-    try:
-        async with _plugins_mutation_lock:
-            result = await asyncio.to_thread(_write)
-    except LlmWikiAgentError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-    await _refresh_plugin_runtime(request, result)
-    cache = getattr(request.app.state, "agent_cache", None)
-    if cache:
-        cache.clear()
-    return result
-
-
-async def _refresh_plugin_runtime(request: Request, state: dict) -> None:
-    """Apply safe runtime transitions after the state has been committed."""
-    affected = set(state.get("affected") or [])
-    if "mail" in affected:
-        try:
-            from backend.services.imap_idle_service import idle_manager
-
-            if builtin_plugins.is_enabled(state, "mail"):
-                await asyncio.to_thread(idle_manager.start_all)
-            else:
-                await asyncio.to_thread(idle_manager.stop_all)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Could not refresh Mail background workers: %s", exc)
-
-    if "ai-platform" not in affected:
-        return
-    if not builtin_plugins.is_enabled(state, "ai-platform"):
-        # Existing requests retain their current workflow and can finish safely.
-        # Route guards prevent new work; process shutdown closes the MCP client.
-        return
-    if getattr(request.app.state, "mcp_client", None):
-        return
-    try:
-        from backend.agent.factory import create_agent_workflow
-        from backend.config.mcp_config import MCP_SERVERS
-        from backend.mcp.client import MultiServerMCPClient
-
-        mcp_client = MultiServerMCPClient(MCP_SERVERS)
-        await mcp_client.start()
-        tools_list = await mcp_client.get_all_tools()
-        request.app.state.mcp_client = mcp_client
-        request.app.state.tools_list = tools_list
-        workflow, _ = await create_agent_workflow(
-            tools_list,
-            mcp_client,
-            agent_id="gnosy",
-        )
-        if workflow:
-            request.app.state.agent_workflow = workflow
-            request.app.state.agent_app = workflow.compile()
-    except Exception as exc:  # noqa: BLE001
-        log.warning("Could not start the AI plugin runtime: %s", exc)
-
-
-@router.post(
-    "/plugins/{plugin_id}/lifecycle",
-    dependencies=[Depends(require_role("admin"))],
-)
-async def set_plugin_lifecycle(
-    plugin_id: str,
-    payload: PluginLifecycleRequest,
-    request: Request,
-):
-    """Enable or disable a plugin and its confirmed dependency changes."""
-    return await _change_plugin_lifecycle(plugin_id, payload, request)
-
-
-@router.post(
-    "/plugins/llm-wiki/lifecycle",
-    dependencies=[Depends(require_role("admin"))],
-)
-async def set_llm_wiki_lifecycle(
-    payload: LlmWikiLifecycleRequest,
-    request: Request,
-):
-    """Backward-compatible alias for the general lifecycle endpoint."""
-    return await _change_plugin_lifecycle("llm-wiki", payload, request)
-
-
-# ---------------------------------------------------------------------------
-# THIRD-PARTY plugins (v2): manifest, permissions, and assets. See directive
-# `plugin_system.md` and services `plugin_system` / `plugin_sandbox`.
-# ---------------------------------------------------------------------------
-class PluginPermissionsRequest(BaseModel):
-    # List of permissions the user GRANTS to the plugin (subset of the
-    # catalog). Empty = revoke all of them.
-    permissions: list = []
-
-
-@router.get("/plugins/catalog")
-async def get_plugins_catalog():
-    """Catalog of available permissions (id → description) + host API version."""
-    from backend.services import plugin_system as ps
-    return {"permissions": ps.PERMISSIONS, "apiVersion": ps.PLUGIN_API_VERSION}
-
-
-@router.get("/plugins/installed")
-async def get_installed_plugins():
-    """Lists the installed third-party plugins with manifest + status + permissions."""
-    from backend.services import plugin_system as ps
-
-    def _work():
-        config_dir = get_p("GNOSI_CONFIG")
-        state = _load_plugins_state()
-        out = []
-        for entry in ps.discover_plugins(config_dir):
-            manifest = entry.get("manifest")
-            if not manifest:
-                out.append({"id": entry.get("id"), "error": entry.get("error")})
-                continue
-            pid = manifest["id"]
-            out.append({
-                "manifest": manifest,
-                "enabled": builtin_plugins.is_enabled(state, pid),
-                "granted": ps.granted_permissions(state, pid),
-                "provenance": entry.get("provenance") or None,
-            })
-        return {"plugins": out}
-
-    return await asyncio.to_thread(_work)
-
-
-@router.post("/plugins/{plugin_id}/permissions", dependencies=[Depends(require_role("admin"))])
-async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsRequest):
-    """Grants (or revokes) permissions to a third-party plugin."""
-    from backend.services import plugin_system as ps
-
-    def _work():
-        config_dir = get_p("GNOSI_CONFIG")
-        # Validates that the plugin exists and that we only grant permissions it declares.
-        manifest = ps.read_manifest(config_dir, plugin_id)
-        requested = [p for p in (request.permissions or []) if p in ps.PERMISSIONS]
-        declared = set(manifest.get("permissions") or [])
-        clean = [p for p in requested if p in declared]
-        state = _load_plugins_state()
-        new_state = ps.set_granted(state, plugin_id, clean)
-        _save_plugins_state(new_state)
-        _reconcile_plugin_ai_contributions()
-        return {"id": plugin_id, "granted": clean}
-
-    try:
-        async with _plugins_mutation_lock:
-            return await asyncio.to_thread(_work)
-    except ps.PluginError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-
-
-class PluginSettingsRequest(BaseModel):
-    # Patch to merge with the plugin's own configuration (key `settings`).
-    settings: dict = {}
-
-
-class PluginNetworkFetchRequest(BaseModel):
-    """Permission-gated network request from a UI plugin frame."""
-
-    url: str
-    opts: dict = Field(default_factory=dict)
-
-
-class VaultSummaryRequest(BaseModel):
-    """Payload accepted by the built-in vault summary plugin."""
-
-    content: str
-    language: str = "en"
+) -> dict[str, Any]:
+    return await plugin_lifecycle.change_plugin_lifecycle(
+        plugin_id,
+        payload,
+        request,
+        _plugin_lifecycle_dependencies(),
+    )
 
 
 def _configured_summary_model() -> tuple[str, str]:
-    """Return the enabled model selected for the vault-summary plugin."""
-    state = _load_plugins_state()
-    settings = (state.get("settings") or {}).get("vault-summary") or {}
-    model_ref = str(settings.get("model") or "").strip()
-    provider, separator, model_id = model_ref.partition(":")
-    if not separator or not provider or not model_id:
-        raise HTTPException(
-            status_code=409,
-            detail="Configure an active model for the vault-summary plugin first.",
-        )
-
-    from backend.agent.model_router import load_registry
-
-    active_models = {
-        f"{row.get('provider')}:{row.get('model_id')}"
-        for row in load_registry()
-        if row.get("enabled", True)
-    }
-    if model_ref not in active_models:
-        raise HTTPException(
-            status_code=409,
-            detail="The configured vault-summary model is no longer active.",
-        )
-    return provider, model_id
+    return plugins_api.configured_summary_model()
 
 
-@router.get("/plugins/{plugin_id}/settings")
-async def get_plugin_settings(plugin_id: str):
-    """Returns a plugin's own configuration (`settings[plugin_id]`)."""
-    def _work():
-        state = _load_plugins_state()
-        return {"settings": (state.get("settings") or {}).get(plugin_id) or {}}
-    return await asyncio.to_thread(_work)
+def _plugin_ai_configuration() -> dict[str, Any]:
+    return dict(load_params(strict_env=False).get("ai", {}) or {})
 
 
-@router.put("/plugins/{plugin_id}/settings", dependencies=[Depends(require_role("editor"))])
-async def set_plugin_settings(plugin_id: str, request: PluginSettingsRequest):
-    """Merges a patch into a plugin's own configuration."""
-    def _work():
-        state = _load_plugins_state()
-        settings = dict(state.get("settings") or {})
-        patch = request.settings if isinstance(request.settings, dict) else {}
-        settings[plugin_id] = {**(settings.get(plugin_id) or {}), **patch}
-        state["settings"] = settings
-        _save_plugins_state(state)
-        return {"settings": settings[plugin_id]}
-    async with _plugins_mutation_lock:
-        return await asyncio.to_thread(_work)
-
-
-@router.post(
-    "/plugins/{plugin_id}/network/fetch",
-    dependencies=[Depends(require_role("editor"))],
+plugins_api.configure(
+    plugins_api.PluginApiDependencies(
+        config_dir=lambda: get_p("GNOSI_CONFIG"),
+        load_state=lambda: _load_plugins_state(),
+        save_state=lambda state: _save_plugins_state(state),
+        mutation_lock=lambda: _plugins_mutation_lock,
+        llm_wiki_enabled=lambda state: _llm_wiki_enabled(state),
+        reconcile=lambda: _reconcile_plugin_ai_contributions(),
+        change_lifecycle=lambda: _change_plugin_lifecycle,
+        configured_summary_model=lambda: _configured_summary_model(),
+        ai_configuration=_plugin_ai_configuration,
+        logger=log,
+    )
 )
-async def fetch_for_ui_plugin(plugin_id: str, request: PluginNetworkFetchRequest):
-    """Proxy UI plugin networking through the backend SSRF and size guard."""
 
-    from backend.services import plugin_dispatcher
-    from backend.services import plugin_system as ps
+PluginsUpdateRequest = plugin_models.PluginsUpdateRequest
+PluginLifecycleRequest = plugin_models.PluginLifecycleRequest
+LlmWikiLifecycleRequest = plugin_models.LlmWikiLifecycleRequest
+PluginPermissionsRequest = plugin_models.PluginPermissionsRequest
+PluginSettingsRequest = plugin_models.PluginSettingsRequest
+PluginNetworkFetchRequest = plugin_models.PluginNetworkFetchRequest
+VaultSummaryRequest = plugin_models.VaultSummaryRequest
+CatalogInstallRequest = plugin_models.CatalogInstallRequest
+TrustedKeyRequest = plugin_models.TrustedKeyRequest
+RegistryUrlRequest = plugin_models.RegistryUrlRequest
 
-    def _work():
-        config_dir = get_p("GNOSI_CONFIG")
-        manifest = ps.read_manifest(config_dir, plugin_id)
-        state = _load_plugins_state()
-        if "network" not in (manifest.get("permissions") or []):
-            raise HTTPException(status_code=403, detail="Plugin does not declare network access")
-        if not ps.has_permission(state, plugin_id, "network"):
-            raise HTTPException(status_code=403, detail="Plugin network permission is not granted")
-        return plugin_dispatcher.network_fetch(
-            {"url": request.url, "opts": request.opts or {}},
-            plugin_id,
-        )
+get_plugins_state = plugins_api.get_plugins_state
+set_plugins_state = plugins_api.set_plugins_state
+set_plugin_lifecycle = plugins_api.set_plugin_lifecycle
+set_llm_wiki_lifecycle = plugins_api.set_llm_wiki_lifecycle
+get_plugins_catalog = plugins_api.get_plugins_catalog
+get_installed_plugins = plugins_api.get_installed_plugins
+set_plugin_permissions = plugins_api.set_plugin_permissions
+get_plugin_settings = plugins_api.get_plugin_settings
+set_plugin_settings = plugins_api.set_plugin_settings
+fetch_for_ui_plugin = plugins_api.fetch_for_ui_plugin
+summarize_with_vault_plugin = plugins_api.summarize_with_vault_plugin
+get_plugin_asset = plugins_api.get_plugin_asset
+install_plugin = plugins_api.install_plugin
+uninstall_plugin = plugins_api.uninstall_plugin
+export_plugin_package = plugins_api.export_plugin_package
+submit_plugin_package = plugins_api.submit_plugin_package
+list_plugin_catalog = plugins_api.list_plugin_catalog
+install_from_catalog = plugins_api.install_from_catalog
+list_trusted_keys = plugins_api.list_trusted_keys
+add_trusted_key = plugins_api.add_trusted_key
+remove_trusted_key = plugins_api.remove_trusted_key
+get_registry_url = plugins_api.get_registry_url
+set_registry_url = plugins_api.set_registry_url
 
-    try:
-        return await asyncio.to_thread(_work)
-    except ps.PluginError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+def _quarantine_installed_plugin(plugin_id: str) -> None:
+    plugins_api._quarantine_installed_plugin(plugin_id)
 
 
-@router.post(
-    "/plugins/vault-summary/summarize",
-    dependencies=[
+plugins_api.register_routes(
+    router,
+    admin_dependencies=[Depends(require_role("admin"))],
+    editor_dependencies=[Depends(require_role("editor"))],
+    summary_dependencies=[
         Depends(require_role("editor")),
         Depends(require_plugins("vault-summary", "ai-platform")),
     ],
 )
-async def summarize_with_vault_plugin(request: VaultSummaryRequest):
-    """Create a concise summary using the explicitly configured active model."""
-    content = request.content.strip()
-    if not content:
-        raise HTTPException(status_code=422, detail="Content is required.")
-    if len(content) > 60_000:
-        raise HTTPException(status_code=422, detail="Content exceeds the 60,000 character limit.")
-
-    provider, model_id = await asyncio.to_thread(_configured_summary_model)
-
-    def _summarize() -> dict:
-        from backend.agent.factory import get_llm
-        from backend.agent.model_router import record_llm_usage, usage_from_message
-        from backend.security.ai_credentials import resolve_provider_api_key
-
-        ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
-        provider_cfg = (ai_cfg.get("providers") or {}).get(provider, {}) or {}
-        llm = get_llm(
-            provider=provider,
-            model=model_id,
-            api_key=resolve_provider_api_key(provider, provider_cfg),
-            base_url=provider_cfg.get("base_url"),
-            timeout=60,
-        )
-        if not llm:
-            raise HTTPException(status_code=503, detail="The configured summary model is unavailable.")
-        prompt = (
-            "Summarize the following vault record in the requested language. "
-            "Return a concise, factual Markdown summary with a short heading and 3–5 bullets. "
-            "Do not invent facts.\n\n"
-            f"Language: {request.language}\n\nRecord:\n{content}"
-        )
-        from langchain_core.messages import HumanMessage
-
-        response = llm.invoke([HumanMessage(content=prompt)])
-        summary = getattr(response, "content", "") or ""
-        if not isinstance(summary, str):
-            summary = str(summary)
-        usage = usage_from_message(response)
-        if usage:
-            record_llm_usage(provider, model_id, usage[0], usage[1])
-        return {"summary": summary.strip(), "model": f"{provider}:{model_id}"}
-
-    return await asyncio.to_thread(_summarize)
-
-
-@router.get("/plugins/{plugin_id}/asset/{asset_path:path}")
-async def get_plugin_asset(plugin_id: str, asset_path: str):
-    """Serves a static file from the plugin's directory (UI entry, etc.).
-
-    Hardened against path-traversal: the id is validated and the resolved file must
-    stay INSIDE the plugin's directory.
-    
-    """
-    from backend.services import plugin_system as ps
-
-    def _resolve() -> Path:
-        config_dir = get_p("GNOSI_CONFIG")
-        pdir = ps.plugin_dir(config_dir, plugin_id).resolve()
-        target = (pdir / asset_path).resolve()
-        if pdir not in target.parents:
-            raise HTTPException(status_code=400, detail="Invalid asset path")
-        if not target.exists() or not target.is_file():
-            raise HTTPException(status_code=404, detail="Asset not found")
-        return target
-
-    try:
-        target = await asyncio.to_thread(_resolve)
-    except ps.PluginError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return FileResponse(str(target))
-
-
-def _quarantine_installed_plugin(plugin_id: str) -> None:
-    """Newly installed → starts disabled (added to `disabled`), clean permissions.
-
-    Load→modify→save cycle: ALWAYS call it while holding `_plugins_mutation_lock`.
-    
-    """
-    from backend.services import plugin_system as ps
-    state = _load_plugins_state()
-    state = builtin_plugins.set_enabled(state, plugin_id, False)
-    state = ps.set_granted(state, plugin_id, [])
-    _save_plugins_state(state)
-
-
-@router.post("/plugins/install", dependencies=[Depends(require_role("admin"))])
-async def install_plugin(file: UploadFile = File(...)):
-    """Installs a third-party plugin from an uploaded .zip (with its manifest.json).
-
-    Manifest validation + anti zip-slip extraction. Once installed it stays
-    DISABLED and without permissions until the user grants them.
-    
-    """
-    from backend.services import plugin_system as ps
-    data = await file.read()
-
-    def _install():
-        config_dir = get_p("GNOSI_CONFIG")
-        return ps.install_from_zip(config_dir, data, overwrite=True)
-
-    try:
-        # The .zip extraction stays outside the lock; only the state mutation goes inside.
-        manifest = await asyncio.to_thread(_install)
-    except ps.PluginError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    async with _plugins_mutation_lock:
-        await asyncio.to_thread(_quarantine_installed_plugin, manifest["id"])
-        await asyncio.to_thread(_reconcile_plugin_ai_contributions)
-    return {"installed": manifest}
-
-
-@router.delete("/plugins/{plugin_id}", dependencies=[Depends(require_role("admin"))])
-async def uninstall_plugin(plugin_id: str):
-    """Uninstall a third-party plugin: delete its folder and clean up its state."""
-    from backend.services import plugin_system as ps
-
-    def _work():
-        config_dir = get_p("GNOSI_CONFIG")
-        ps.uninstall(config_dir, plugin_id)
-        # Cleans up the associated state (disabled + granted) so it doesn't stay orphaned.
-        state = _load_plugins_state()
-        state["disabled"] = [d for d in (state.get("disabled") or []) if d != plugin_id]
-        state["enabled_third_party"] = [
-            value
-            for value in (state.get("enabled_third_party") or [])
-            if value != plugin_id
-        ]
-        state = ps.set_granted(state, plugin_id, [])
-        _save_plugins_state(state)
-        _reconcile_plugin_ai_contributions()
-        return True
-
-    try:
-        async with _plugins_mutation_lock:
-            await asyncio.to_thread(_work)
-    except ps.PluginError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return {"uninstalled": plugin_id}
-
-
-@router.post(
-    "/plugins/{plugin_id}/export",
-    dependencies=[Depends(require_role("editor"))],
-)
-async def export_plugin_package(plugin_id: str):
-    """Download a deterministic package for an installed third-party plugin."""
-
-    from backend.services import plugin_system as ps
-
-    try:
-        data = await asyncio.to_thread(ps.package_plugin, get_p("GNOSI_CONFIG"), plugin_id)
-    except ps.PluginError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return Response(
-        content=data,
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f'attachment; filename="{plugin_id}.gnosi-plugin.zip"',
-            "X-Content-SHA256": hashlib.sha256(data).hexdigest(),
-        },
-    )
-
-
-@router.post(
-    "/plugins/{plugin_id}/submissions",
-    dependencies=[Depends(require_role("admin"))],
-)
-async def submit_plugin_package(plugin_id: str):
-    """Upload an installed plugin to the configured moderation broker."""
-
-    from backend.services import marketplace_submission
-    from backend.services import plugin_system as ps
-
-    def _work():
-        config_dir = get_p("GNOSI_CONFIG")
-        manifest = ps.read_manifest(config_dir, plugin_id)
-        data = ps.package_plugin(config_dir, plugin_id)
-        return marketplace_submission.submit_package(
-            kind="plugin",
-            filename=f"{plugin_id}-{manifest['version']}.gnosi-plugin.zip",
-            package=data,
-            metadata=manifest,
-        )
-
-    try:
-        return await asyncio.to_thread(_work)
-    except (ps.PluginError, marketplace_submission.MarketplaceSubmissionError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-class CatalogInstallRequest(BaseModel):
-    # Installs a `bundled` plugin from the catalog by its id, OR from a remote .zip.
-    id: Optional[str] = None
-    url: Optional[str] = None
-    # Optional SHA-256 checksum to verify the integrity of a remote .zip.
-    sha256: Optional[str] = None
-    # Optional Ed25519 (base64) signature; if given, it must verify against a
-    # key from the trust store or the installation is rejected.
-    signature: Optional[str] = None
-
-
-@router.get("/plugins/catalog/list")
-async def list_plugin_catalog():
-    """Lists the plugin catalog entries (gallery), marking their status.
-
-    Adds `installed: bool` to each entry so the UI shows "Install" or
-    "Installed".
-    
-    """
-    from backend.services import plugin_catalog as pc
-    from backend.services import plugin_system as ps
-
-    def _work():
-        config_dir = get_p("GNOSI_CONFIG")
-        state = _load_plugins_state()
-        installed_ids = {
-            e["manifest"]["id"] for e in ps.discover_plugins(config_dir) if e.get("manifest")
-        }
-        out = []
-        registry_url = state.get("registry_url") or pc.default_registry_url()
-        for entry in pc.load_catalog(
-            registry_url,
-            config_dir,
-            require_index_signature=True,
-        ):
-            out.append({
-                **entry,
-                "installed": entry.get("id") in installed_ids,
-                # The UI can show a badge based on the source and whether it carries a signature.
-                "signed": bool(entry.get("signature")),
-            })
-        return {"catalog": out}
-
-    return await asyncio.to_thread(_work)
-
-
-@router.post("/plugins/catalog/install", dependencies=[Depends(require_role("admin"))])
-async def install_from_catalog(request: CatalogInstallRequest):
-    """Installs a plugin from the catalog (bundled by `id`, or remote by `url`)."""
-    from backend.services import plugin_catalog as pc
-    from backend.services import plugin_system as ps
-
-    def _install():
-        config_dir = get_p("GNOSI_CONFIG")
-        if request.url:
-            return pc.install_from_url(
-                config_dir,
-                request.url,
-                request.sha256,
-                request.signature,
-                require_integrity=True,
-            )
-        if request.id:
-            state = _load_plugins_state()
-            registry_url = state.get("registry_url") or pc.default_registry_url()
-            return pc.install_catalog_entry(
-                config_dir,
-                request.id,
-                registry_url,
-                require_index_signature=True,
-            )
-        raise ps.PluginError("`id` or `url` is required")
-
-    try:
-        # The download/extraction stays outside the lock (it can take seconds);
-        # only the state mutation (disabled + no permissions) goes inside.
-        manifest = await asyncio.to_thread(_install)
-    except ps.PluginError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    async with _plugins_mutation_lock:
-        await asyncio.to_thread(_quarantine_installed_plugin, manifest["id"])
-        await asyncio.to_thread(_reconcile_plugin_ai_contributions)
-    return {"installed": manifest}
-
-
-# ---------------------------------------------------------------------------
-# Phase 3: trust store (plugin signing) + remote index.
-# ---------------------------------------------------------------------------
-class TrustedKeyRequest(BaseModel):
-    name: str
-    public_key: str
-
-
-class RegistryUrlRequest(BaseModel):
-    url: Optional[str] = None
-
-
-@router.get("/plugins/trust")
-async def list_trusted_keys():
-    """Lists the NAMES of the trusted keys (doesn't expose the full key material)."""
-    from backend.services import plugin_signing as psign
-
-    def _work():
-        config_dir = get_p("GNOSI_CONFIG")
-        keys = psign.load_trust_store(config_dir)
-        return {"keys": [{"name": n, "fingerprint": (pk or "")[:16]} for n, pk in keys.items()]}
-
-    return await asyncio.to_thread(_work)
-
-
-@router.post("/plugins/trust", dependencies=[Depends(require_role("admin"))])
-async def add_trusted_key(request: TrustedKeyRequest):
-    """Adds a trusted Ed25519 public key (base64). Admin action."""
-    from backend.services import plugin_signing as psign
-
-    def _work():
-        config_dir = get_p("GNOSI_CONFIG")
-        psign.add_trusted_key(config_dir, request.name, request.public_key)
-        return {"added": request.name}
-
-    try:
-        return await asyncio.to_thread(_work)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.delete("/plugins/trust/{name}", dependencies=[Depends(require_role("admin"))])
-async def remove_trusted_key(name: str):
-    """Removes a trusted key by its name."""
-    from backend.services import plugin_signing as psign
-
-    def _work():
-        config_dir = get_p("GNOSI_CONFIG")
-        psign.remove_trusted_key(config_dir, name)
-        return {"removed": name}
-
-    return await asyncio.to_thread(_work)
-
-
-@router.get("/plugins/registry-url")
-async def get_registry_url():
-    """URL of the configured remote plugin index, or the official default."""
-    from backend.services import plugin_catalog as pc
-
-    def _work():
-        return {"url": _load_plugins_state().get("registry_url") or pc.default_registry_url()}
-    return await asyncio.to_thread(_work)
-
-
-@router.put("/plugins/registry-url", dependencies=[Depends(require_role("admin"))])
-async def set_registry_url(request: RegistryUrlRequest):
-    """Configures (or clears) the URL of the remote plugin index."""
-    url = (request.url or "").strip()
-    if url and not url.lower().startswith(("http://", "https://")):
-        raise HTTPException(status_code=400, detail="Registry URL must use HTTP or HTTPS")
-
-    def _work():
-        state = _load_plugins_state()
-        state["registry_url"] = url
-        _save_plugins_state(state)
-        return {"url": url}
-
-    async with _plugins_mutation_lock:
-        return await asyncio.to_thread(_work)
-
 
 def get_table_id(metadata: Optional[dict]) -> Optional[str]:
     """Returns the table_id of a record, looking at both alias keys.

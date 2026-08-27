@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 227 | 1819 |
+| pytest | 229 | 1829 |
 
 ## Files
 
@@ -182,6 +182,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_cleanup_notion_views.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_cleanup_notion_views.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_comments_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_comments_race.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_config_language_locale.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_config_language_locale.py) | 1 | Python AST |
+| pytest | [`backend/tests/test_configuration_plugins_facade.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_configuration_plugins_facade.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_configuration_plugins_route_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_configuration_plugins_route_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_connection_scheduler_alignment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_connection_scheduler_alignment.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_contacts_sync_merge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_contacts_sync_merge.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_csl_styles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_csl_styles.py) | 12 | Python AST |

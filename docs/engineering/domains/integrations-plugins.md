@@ -1,8 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-27
 source_paths:
   - backend/api/integrations_routes.py
+  - backend/api/vault_routes.py
+  - backend/domains/configuration/api/plugin_lifecycle.py
+  - backend/domains/configuration/api/plugin_models.py
+  - backend/domains/configuration/api/plugins.py
+  - backend/domains/configuration/plugin_state.py
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
@@ -15,6 +20,8 @@ source_paths:
   - extensions/mcp
   - extensions/office
 tests:
+  - backend/tests/test_configuration_plugins_facade.py
+  - backend/tests/test_configuration_plugins_route_contract.py
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
@@ -44,6 +51,24 @@ tokens.
 Google and Microsoft OAuth callbacks create or update provider records. IMAP,
 SMTP, CalDAV, Drupal, Notion, and similar adapters normalize their own settings
 into the common integration registry where possible.
+
+## Backend ownership and compatibility
+
+The configuration domain owns the 23 built-in and third-party plugin HTTP
+operations. `backend/domains/configuration/api/plugins.py` translates HTTP
+requests, `plugin_lifecycle.py` owns dependency-aware activation and runtime
+transitions, `plugin_models.py` owns the Pydantic contracts, and
+`plugin_state.py` is the single owner of the per-process locks and normalized
+per-Vault state store.
+
+`backend/api/vault_routes.py` remains a temporary composition facade for
+legacy imports. It injects path, persistence, runtime, model-selection, and
+mutation-lock collaborators and re-exports the historical models and handlers.
+The load, save, lifecycle, summary-model, and mutation-lock seams remain
+dynamically replaceable for plugins and tests. Domain modules never import the
+facade. Route order, paths, methods, status codes, payload schemas, operation
+identifiers, and the generated OpenAPI contract remain frozen during this
+structural migration.
 
 ## Plugin lifecycle
 
