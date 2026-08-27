@@ -7,17 +7,28 @@ from dotenv import load_dotenv
 
 from backend.utils.safe_io import safe_write_text
 
-try:
-    PROJECTES_ROOT = (
-        Path(__file__).resolve().parents[5]
-    )  # config -> backend -> gnosi -> apps -> monorepo -> Projectes
-except IndexError:
-    PROJECTES_ROOT = Path(__file__).resolve().parent.parent.parent
+
+GNOSI_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _resolve_projectes_root() -> Path:
+    """Resolve the repository root without assuming a historical layout."""
+    for candidate in Path(__file__).resolve().parents:
+        if (
+            (candidate / "package.json").is_file()
+            and (candidate / "apps" / "gnosi").is_dir()
+        ):
+            return candidate
+    return GNOSI_ROOT
+
+
+PROJECTES_ROOT = _resolve_projectes_root()
 
 SHARED_ENV = PROJECTES_ROOT / ".env_shared"
 
 ENV_LOCATIONS = [
     SHARED_ENV,  # Shared ones first
+    GNOSI_ROOT / ".env",
     Path.cwd() / ".env",
     Path(__file__).resolve().parents[1] / ".env",
 ]

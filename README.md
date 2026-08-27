@@ -90,7 +90,7 @@ recommended; Docker remains a supported deployment option for servers.
 ### Prerequisites
 
 - Python 3.10+
-- Node.js and npm
+- Node.js 22.22.2 or newer and npm
 - Optional: Docker for the containerized deployment
 - Optional: Ollama or another supported model provider for AI features
 
@@ -115,7 +115,7 @@ In another terminal:
 
 ```bash
 cd apps/gnosi/frontend
-npm install
+npm ci --workspaces=false
 npm run dev
 ```
 

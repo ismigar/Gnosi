@@ -9,7 +9,7 @@
     "node": ">=22.22.2"
   },
   "scripts": {
-    "predev": "if command -v docker >/dev/null 2>&1 && docker ps | grep -q gnosi_frontend; then echo 'ERROR: Docker frontend is already running on port 5173. Stop it first or use Docker.'; exit 1; fi",
+    "predev": "node scripts/check-dev-port.mjs",
     "prebuild": "npm run check:i18n && npm run check:releases",
     "dev": "vite",
     "build": "vite build",

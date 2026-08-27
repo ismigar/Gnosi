@@ -10,8 +10,8 @@ End-to-end testing skill for the Gnosi frontend. Replaces the historical manual 
 
 | Layer | Location | Notes |
 |-------|----------|-------|
-| **App under test** | `monorepo/apps/gnosi/frontend` | Served natively on `localhost:5173`; Docker remains a supported deployment mode |
-| **Test project** | `monorepo/apps/gnosi/e2e` | Separate npm project — runs on the **host** (macOS), NOT inside the Alpine frontend container |
+| **App under test** | `apps/gnosi/frontend` | Served natively on `localhost:5173`; Docker remains a supported deployment mode |
+| **Test project** | `apps/gnosi/e2e` | Separate npm project — runs on the **host** (macOS), NOT inside the Alpine frontend container |
 | **Skill (this folder)** | `pipeline/skills/playwright_e2e` | SOPs, helper scripts, baseline-generation tooling |
 | **CI** | `.github/workflows/e2e.yml` | Sharded 2-way Ubuntu runners |
 
@@ -23,7 +23,7 @@ The frontend container uses **Alpine Linux** (musl libc). Playwright browser bin
 
 ## 2. Test projects (Playwright `projects`)
 
-Defined in [`e2e/playwright.config.ts`](../../e2e/playwright.config.ts):
+Defined in [`e2e/playwright.config.ts`](../../../e2e/playwright.config.ts):
 
 | Project | Test dir | Auth | Purpose |
 |---------|----------|------|---------|
@@ -37,27 +37,22 @@ Defined in [`e2e/playwright.config.ts`](../../e2e/playwright.config.ts):
 
 ## 3. Commands (canonical)
 
-From the **monorepo root** (`monorepo/`) or **git root** (`Projectes/`):
+From `apps/gnosi/e2e/`:
 
 ```bash
-npm run test:e2e:smoke          # smoke only (~10s) — pre-push hook uses this
-npm run test:e2e:a11y           # axe + keyboard accessibility gate
-npm run test:e2e                # full suite (~3min)
-npm run test:e2e:ui             # interactive UI mode (best DX for debugging)
-npm run test:e2e:update         # regenerate visual baselines (current platform)
-npm run test:e2e:linux-baselines # generate Linux baselines via Docker (CI parity)
-```
-
-From `apps/gnosi/e2e/` directly (low-level):
-
-```bash
-npx playwright test --project=chromium-anon   # smoke
+npm run test:smoke                            # smoke
+npm test                                      # all projects
+npm run test:a11y                             # accessibility gate only
 npx playwright test --project=chromium-auth   # features only
-npx playwright test --project=accessibility   # accessibility gate only
-npx playwright test --headed                  # see browser
-npx playwright test --debug                   # step-through inspector
-npx playwright show-report                    # last HTML report
+npm run test:headed                           # see browser
+npm run test:debug                            # step-through inspector
+npm run report                                # last HTML report
 ```
+
+Note: Do not invoke `npm run test:e2e:smoke` from the git root unless the root
+package explicitly declares it, because the synchronized Gnosi root currently
+exposes only workspace-wide `build` and `test` scripts. Instead, run
+`npm run test:smoke` from `apps/gnosi/e2e`.
 
 ---
 
@@ -71,7 +66,7 @@ Gnosi has **no login screen** — auth is header-based via localStorage:
 | `gnosi_user_email` | `''` (fallback) | `X-User-Email` header |
 | `gnosi_role` | — | UI permission gates |
 
-User ID is hardcoded to `'ismael-legacy'` in [`frontend/src/hooks/use-api.js:14`](../../frontend/src/hooks/use-api.js).
+User ID is hardcoded to `'ismael-legacy'` in [`frontend/src/hooks/use-api.js:14`](../../../frontend/src/hooks/use-api.js).
 
 The `setup` project (`tests/setup/auth.setup.ts`) seeds these keys and stores the resulting state at `tests/.auth/state.json` (git-ignored). Authenticated projects inherit it via `storageState`.
 
@@ -100,7 +95,7 @@ Only when the visual change is **intentional** (UI redesign, branding update). F
 4. **`button:visible`** — the app has hidden mobile-toggle buttons that match `button` selectors. Always filter by visibility when targeting "first button" or similar.
 5. **Mock LLM endpoints** — `tests/e2e/ai-chat.spec.ts` intercepts `/api/chat` with `page.route()`. Never let tests call real LLM APIs (cost + flakiness).
 6. **Frontend must be UP** for tests to run. Pre-push hook checks `curl localhost:5173` first and skips if down (with warning).
-7. **No `webServer` in config** — anti-ghosting per [`environment_integrity.md`](../../../../docs/dev_memory/directives/environment_integrity.md). If `:5173` is dead, the test fails — we don't auto-spawn a second instance on `:5174`.
+7. **No `webServer` in config** — anti-ghosting per [`environment_integrity.md`](../../../../../docs/dev_memory/directives/environment_integrity.md). If `:5173` is dead, the test fails — we don't auto-spawn a second instance on `:5174`.
 8. **One suite run at a time** — two simultaneous runs (e.g. two agent/work
    sessions on the same repo) share `test-results/`, overwrite
    `.last-run.json`, double the browser contexts against the single Vite dev
@@ -124,6 +119,34 @@ Only when the visual change is **intentional** (UI redesign, branding update). F
 13. **Native controls first** — scrollable list rows, calendar dates, toggles,
     and sliders must use buttons or associated labels. A pointer-only `div`
     is not an acceptable keyboard implementation.
+14. **Resolve the tracked checkout before starting Vite** — in the current
+    `Projectes` checkout, the active frontend is `apps/gnosi/frontend`.
+    Note: Do not start or diagnose `monorepo/apps/gnosi/frontend` merely
+    because a legacy copy exists there, because it may contain only generated
+    assets and causes `vite: command not found` or a static server without the
+    `/api` proxy. Instead, confirm the path with Git, restore dependencies from
+    the committed lockfile when `node_modules` is absent, and then run the
+    native Vite server from the tracked frontend. Note: Do not let npm resolve
+    the stale root workspace lock when restoring only this app, because it can
+    fail with package/lock mismatches. Instead, use the frontend lockfile with
+    workspace discovery disabled and a Node version satisfying the frontend's
+    declared engine (currently `>=22.22.2`).
+15. **Restore the E2E project independently when its runner is missing** —
+    Note: Do not assume the root workspace provides the `playwright` binary,
+    because a partially restored checkout fails with `playwright: command not
+    found`. Instead, restore `apps/gnosi/e2e` from its own committed lockfile
+    with workspace discovery disabled before running the smoke suite.
+16. **Check both loopback families before starting Vite** — Note: Do not rely
+    only on a Docker process-name check or an IPv4 bind attempt, because an
+    orphan Vite process listening on the IPv6 wildcard can coexist with a new
+    `127.0.0.1:5173` listener and create two competing dev servers. Instead,
+    make `predev` probe both `127.0.0.1` and `::1` and fail if either accepts a
+    connection.
+17. **Wait for backend reloads before E2E** — Note: Do not start Playwright
+    immediately after switching branches while `uvicorn --reload` is active,
+    because application startup can take long enough for navigation tests to
+    time out even though Vite already returns 200. Instead, require a successful
+    `/api/health` response after the reload completes before launching the suite.
 
 ---
 
@@ -140,7 +163,7 @@ Triggers a clean Ubuntu runner that exactly matches the CI environment:
 3. Extract the PNGs into `apps/gnosi/e2e/tests/visual/regression.spec.ts-snapshots/`.
 4. Commit + push. CI will now pass on Linux.
 
-Workflow source: [`.github/workflows/e2e-update-baselines.yml`](../../../../monorepo/.github/workflows/e2e-update-baselines.yml).
+Workflow source: [`.github/workflows/e2e-update-baselines.yml`](../../../../../.github/workflows/e2e-update-baselines.yml).
 
 ### Best-effort: local Docker
 
@@ -167,7 +190,7 @@ Hooks live at `Projectes/.husky/` (git root, not the monorepo).
 
 ## 9. CI
 
-GitHub Actions workflow: [`.github/workflows/e2e.yml`](../../../../monorepo/.github/workflows/e2e.yml).
+GitHub Actions workflow: [`.github/workflows/e2e.yml`](../../../../../.github/workflows/e2e.yml).
 
 - **Triggers**: push/PR with changes under `apps/gnosi/frontend/`, `apps/gnosi/e2e/`, or the workflow itself.
 - **Sharded 2-way**: `matrix.shard: [1/2, 2/2]`.

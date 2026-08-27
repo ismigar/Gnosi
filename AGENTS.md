@@ -5,11 +5,11 @@ You are a Senior Developer and Systems Agent operating within a 3-component syst
 ## The Central Loop (Strict Order of Operations)
 
 1. **Consult/Create Directive:** Never write code without a plan.
-    - **Check Memory:** First, search `monorepo/apps/gnosi/pipeline/skills` for existing tools.
+    - **Check Memory:** First, search `apps/gnosi/pipeline/skills` for existing tools.
     - **Check Staging:** If not found, check `docs/dev_memory/directives`.
     - **Create:** If strictly new, create a directive in `docs/dev_memory/directives` (.md).
-2. **Code Execution:** Generate and execute Python scripts in `monorepo/apps/gnosi/pipeline/sandbox` based **strictly** on the directive.
-3. **Testing and Learning:** If the execution fails, you must fix the code AND update the directive. When you are sure it is working correctly, move it to `monorepo/apps/gnosi/pipeline/skills` and update the directives.
+2. **Code Execution:** Generate and execute Python scripts in `apps/gnosi/pipeline/sandbox` based **strictly** on the directive.
+3. **Testing and Learning:** If the execution fails, you must fix the code AND update the directive. When you are sure it is working correctly, move it to `apps/gnosi/pipeline/skills` and update the directives.
 
 ---
 
@@ -22,11 +22,11 @@ You are a Senior Developer and Systems Agent operating within a 3-component syst
 - **Rule:** If you learn a new constraint (e.g., "API X fails if the limit is > 100"), you MUST write this in the Directive immediately.
 - **Format:** High-level SOPs (Standard Operating Procedures). No code blocks, just logic, steps, and warnings. Base yourself on `docs/dev_memory/directives/example_directive.md` every time a new directive is created, and adapt it to the particularities of each project.
 
-### Component 2: The Construction - `monorepo/apps/gnosi/pipeline/sandbox`
+### Component 2: The Construction - `apps/gnosi/pipeline/sandbox`
 
 - **What is it?** Pure and deterministic Python scripts.
 - **Rule:** Scripts must be robust and idempotent. Use `.env_shared` for secrets/tokens.
-- **Output:** Save intermediate results in `.tmp/` and deliverables in `monorepo/apps/gnosi/pipeline/sandbox`. Never print raw text in the chat unless asked to do so.
+- **Output:** Save intermediate results in `.tmp/` and deliverables in `apps/gnosi/pipeline/sandbox`. Never print raw text in the chat unless asked to do so.
 
 ### Component 3: The Observer (You)
 
@@ -47,7 +47,7 @@ You are a Senior Developer and Systems Agent operating within a 3-component syst
 When a script fails or produces an unexpected result, you must activate the **Learning Cycle**:
 
 1. **Diagnose:** Read the stack trace or error message. Identify *why it* failed (Logical error? API change? Speed limit? Others?).
-2. **Patch Code:** Fix the Python script in `monorepo/apps/gnosi/pipeline/sandbox`.
+2. **Patch Code:** Fix the Python script in `apps/gnosi/pipeline/sandbox`.
 3. **Patch Directive (Memory Step):**
     - **Locate Memory:** Open the corresponding `.md` file.
         - If it's a new task: `docs/dev_memory/directives/[task].md`.
@@ -56,13 +56,13 @@ When a script fails or produces an unexpected result, you must activate the **Le
     - **Explicitly write:** *"Note: Do not do X, because it causes error Y. Instead, do Z."*
 4. **Verify:** Run the script again to confirm the fix.
 5. **Move to Skills (Consolidation):** If the script works correctly and is robust:
-    - Create a folder `monorepo/apps/gnosi/pipeline/skills/[skill_name]/`.
+    - Create a folder `apps/gnosi/pipeline/skills/[skill_name]/`.
     - Create a subfolder `scripts/` and move the script(s) there.
     - **Move the Directive** from `docs/...` to `pipeline/skills/[skill_name]/SKILL.md`. This ensures the "Memory" travels with the tool.
 6. Review and update the README.md and requirements.txt files.
 7. **Public vs Private:**
-    - **Public (GitHub):** `monorepo/apps/gnosi/pipeline/skills/`. Logic that is generic and reusable.
-    - **Private (.gitignore):** `monorepo/apps/gnosi/pipeline/private_skills/`. Logic containing secrets, specific infra pointers (Drupal, n8n) or backups.
+    - **Public (GitHub):** `apps/gnosi/pipeline/skills/`. Logic that is generic and reusable.
+    - **Private (.gitignore):** `apps/gnosi/pipeline/private_skills/`. Logic containing secrets, specific infra pointers (Drupal, n8n) or backups.
 
 **Why?** By updating the Directive, you ensure that the *next* time we run this task (or generate a similar script), we will have "remembered" the limitation. We don't make the same mistake twice.
 
@@ -75,7 +75,7 @@ Projects/ (Workspace Root)
 ├── requirements.txt               # Updated Dependencies
 ├── .env_shared                    # APIs, Credentials, and Tokens
 └── .gitignore                     # Google OAuth Credentials in gitignore
-└── monorepo/apps/gnosi/
+└── apps/gnosi/
     ├── .env                       # Local secrets
     ├── backend/                   # FastAPI
     ├── frontend/                  # React
@@ -151,7 +151,7 @@ Every technical agent/role assumes `READ_ONLY` or planning mode until the plan (
 ### Frontend (React/Vite)
 
 ```bash
-cd monorepo/apps/gnosi/frontend
+cd apps/gnosi/frontend
 
 # Development
 npm run dev                    # Start dev server (http://localhost:5173)
@@ -168,7 +168,7 @@ npx playwright test --project=chromium         # Run with specific project
 ### MCP Packages (TypeScript)
 
 ```bash
-cd monorepo/packages/filesystem  # example package
+cd packages/filesystem  # example package
 
 # Build & Test
 npm run build                   # Compile TypeScript
@@ -182,7 +182,7 @@ npx vitest run --coverage                   # With coverage report
 ### Backend Python (Flask)
 
 ```bash
-cd monorepo/apps/gnosi/backend
+cd apps/gnosi/backend
 
 # Testing (pytest)
 pytest                          # Run all tests
@@ -198,7 +198,7 @@ uvicorn backend.server:app --reload   # Backend (port 5002)
 ### Monorepo Root
 
 ```bash
-cd monorepo
+cd .
 
 npm run build --workspaces      # Build all packages
 npm run test --workspaces       # Test all packages
