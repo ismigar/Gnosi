@@ -204,6 +204,11 @@ test('manual releases package the workflow commit and provision Windows Git befo
     /defaults:\n\s+run:\n\s+shell: powershell -NoProfile -ExecutionPolicy Bypass -File \{0\}/,
   );
   assert.doesNotMatch(windowsJob, /^\s+shell: powershell$/m);
+  assert.doesNotMatch(
+    windowsJob,
+    /Set-ExecutionPolicy\s+-Scope\s+LocalMachine/i,
+    'release steps must not mutate machine-wide PowerShell policy',
+  );
   assert.match(windowsJob, /- name: Ensure Git is available[\s\S]*?- name: Checkout/);
   assert.match(windowsJob, /Git\\cmd/);
 });
