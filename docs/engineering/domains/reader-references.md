@@ -50,6 +50,9 @@ stable citation key, deduplicate candidates, and write a Vault record.
 The read-only lookup orchestration lives in the citations domain, preserves the
 DOI → arXiv → PMID → ISBN → URL priority, and routes user URLs through the
 SSRF-hardened downloader before suggesting any field.
+The designated Resources table is read from one canonical configuration; only
+legacy vaults that have never been configured may auto-adopt the first table
+with a Citation Key, under the same lock used by Settings.
 
 Translation-server is an optional sidecar. Native operation may run without it;
 identifier-specific resolvers and existing references continue to work. Web

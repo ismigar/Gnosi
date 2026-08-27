@@ -532,6 +532,7 @@ from backend.domains.vault.citations import io_api as citation_io_api
 from backend.domains.vault.citations import keys as citation_keys
 from backend.domains.vault.citations import keys_api as citation_keys_api
 from backend.domains.vault.citations import metadata_lookup
+from backend.domains.vault.citations import reference_configuration
 from backend.domains.vault.citations import references_api as citation_references_api
 from backend.domains.vault.citations import search as citation_search
 from backend.domains.vault.citations.references_api import (
@@ -4120,46 +4121,17 @@ def get_reference_table_id() -> Optional[str]:
         )
     except Exception:
         return None
-    cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
-    tid = str(cfg.get("target_table") or "").strip()
-    if tid:
-        return tid
-    # If the user has already touched References in Settings (even if it was to
-    # DISABLE them, leaving target_table=''), we respect the decision and do NOT
-    # auto-migrate. Auto-adoption is only for vaults that have never gone through
-    # Settings (e.g. those that already had "Recursos" before this feature).
-    if cfg.get("references_configured"):
-        return None
-    # One-shot auto-migration: adopts an existing citable table and persists it.
-    try:
-        reg = load_registry()
-        for t in reg.get("tables", []) or []:
-            if _citation_key_prop_name(t):
-                adopted = str(t.get("id") or "").strip()
-                if adopted:
-                    with cfg_lock:
-                        # Re-check with the FRESH state inside the lock: if
-                        # while we were looking for the table the user saved a
-                        # designation in Settings, respect it and don't clobber it.
-                        cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
-                        current = str(cfg.get("target_table") or "").strip()
-                        if current:
-                            return current
-                        if cfg.get("references_configured"):
-                            return None
-                        cfg["target_table"] = adopted
-                        try:
-                            save_json(CONFIG_PATH, cfg)
-                        except Exception:
-                            pass
-                    log.info(
-                        f"📚 Automatically assigned references table: {adopted} "
-                        f"({t.get('name')})"
-                    )
-                    return adopted
-    except Exception:
-        pass
-    return None
+    dependencies = reference_configuration.ReferenceConfigurationDependencies(
+        config_path=CONFIG_PATH,
+        defaults=DEFAULT_CONFIG,
+        config_lock=cfg_lock,
+        load_json=lambda path, default: load_json(path, default),
+        save_json=lambda path, config: save_json(path, config),
+        load_registry=lambda: load_registry(),
+        citation_key_property=lambda table: _citation_key_prop_name(table),
+        logger=log,
+    )
+    return reference_configuration.reference_table_id(dependencies)
 
 
 def ensure_reference_table_schema(table_id: str) -> int:

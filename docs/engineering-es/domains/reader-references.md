@@ -45,6 +45,9 @@ Las referencias ingresan a través de DOI, ISBN, arXiv, PMID, BibTeX, RIS, archi
 La orquestación de consulta, que es solo de lectura, reside en el dominio de citas,
 mantiene la prioridad DOI → arXiv → PMID → ISBN → URL y hace pasar las URL del
 usuario por el descargador protegido contra SSRF antes de sugerir cualquier campo.
+La tabla de Recursos designada se lee desde una única configuración canónica;
+solo los vaults heredados que nunca se hayan configurado pueden adoptar
+automáticamente la primera tabla con Citation Key, bajo el mismo bloqueo que Ajustes.
 
 Translation-server es un sidecar opcional. La operación nativa puede ejecutarse sin ella; los solucionadores específicos de identificador y las referencias existentes continúan funcionando. Los fallos de traducción web devuelven errores procesables en lugar de un registro vacío exitoso.
 

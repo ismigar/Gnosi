@@ -6,7 +6,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from backend.domains.vault.citations import metadata_lookup
+from backend.domains.vault.citations import metadata_lookup, reference_configuration
 
 
 def _dependencies(
@@ -111,6 +111,7 @@ def test_lookup_rejects_payload_without_supported_identifier() -> None:
 
 
 def test_metadata_lookup_domain_does_not_import_http_facade() -> None:
-    source_path = Path(metadata_lookup.__file__ or "")
-    assert source_path.is_file()
-    assert "backend.api.vault_routes" not in source_path.read_text(encoding="utf-8")
+    for module in (metadata_lookup, reference_configuration):
+        source_path = Path(module.__file__ or "")
+        assert source_path.is_file()
+        assert "backend.api.vault_routes" not in source_path.read_text(encoding="utf-8")

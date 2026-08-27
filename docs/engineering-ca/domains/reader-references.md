@@ -45,6 +45,9 @@ Les referències entren a través del DOI, ISBN, arXiv, PMID, BibTeX, RIS, fitxe
 L'orquestració de consulta, que és només de lectura, viu al domini de citacions,
 manté la prioritat DOI → arXiv → PMID → ISBN → URL i fa passar les URL aportades
 per l'usuari pel descarregador protegit contra SSRF abans de suggerir cap camp.
+La taula de Recursos designada es llegeix d'una configuració canònica única;
+només els vaults heretats que mai no s'han configurat poden adoptar automàticament
+la primera taula amb Citation Key, sota el mateix bloqueig que Configuració.
 
 El servidor de traducció és un port opcional. L' operació nativa pot executar- se sense ell; els resoldors específics d' identificador i les referències existents continuen treballant. Els errors de traducció web retornen errors no vàlids en lloc d' un registre buit.
 
