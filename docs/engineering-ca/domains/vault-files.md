@@ -19,6 +19,7 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_vault_translation_drupal_domain_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -60,6 +61,19 @@ vistes abans de l'escriptura atòmica.
 La pàgina llegeix i escriu vistes prèvies, duplicació, història i escombraries s' accepten sota `backend/domains/vault`. Aquest paquet separa esquemes de sol· licitud estrictes, adaptadors de ruta, serveis d' aplicació, repositoris i el únic propietari de les cau de pàgines i panys. El nou comportament Vult pertany al límit de domini.
 
 `backend/api/vault_routes.py` Encara hi ha una compatibilitat temporal i una constant façana mentre la resta de l' encaminador antic es divideix. Injecta operacions de plataforma existents i re- ports implementats en Python, però no és propietari dels gestors de pàgines extrets. La migració preserva les rutes HTTP, codis d' estat, dependències de fons, comentaris i el document OpenAPI determinant. Cada extracció ha de reduir les subsidis del codi de la interqual· lació de la safata de la safata d' interès; mai pot afegir una nova excepció per al codi sota `backend/domains`.
+
+El cicle de vida de les traduccions pertany a
+`backend/domains/vault/translation`: la càrrega opcional de proveïdors, la
+recuperació de fitxers del núvol, la traducció de files i pàgines, els efectes
+mínims de metadades i la propagació d'obsolescència són serveis tipats
+separats. La publicació de files a Drupal pertany a
+`backend/domains/vault/drupal`, que separa el mapatge de camps i identitat, la
+preparació de mitjans locals, la conversió de Markdown i wikilinks, les cau de
+llengües, la coincidència per títol i la sincronització idempotent de nodes. La
+façana conserva els decoradors i docstrings FastAPI originals i els seams
+Python resolts tard, mentre el connector Drupal continua sent el límit de
+transport extern. No canvien rutes, payloads, codis d'estat, tasques de fons ni
+l'ordre de les rutes.
 
 ## Índexs i registres
 

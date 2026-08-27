@@ -19,6 +19,7 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_vault_translation_drupal_domain_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -60,6 +61,19 @@ portátiles y materializa las vistas antes de la escritura atómica.
 Página lee y escribe, previsualiza, duplica, historia y basura se implementan bajo `backend/domains/vault`. Este paquete separa esquemas de petición estrictos, adaptadores de ruta, servicios de aplicación, repositorios y el propietario único de cachés de página y bloqueos. El comportamiento de la nueva bóveda pertenece a ese límite de dominio.
 
 `backend/api/vault_routes.py` sigue siendo una fachada de compatibilidad y composición temporal mientras el resto del router heredado se divide. Inyecta operaciones de plataforma existentes y reexporta símbolos de Python compatibles, pero no es el propietario de los manejadores de páginas extraídos. La migración preserva rutas HTTP, códigos de estado, cargas útiles, dependencias, callbacks de fondo y el documento OpenAPI determinista. Cada extracción debe reducir la asignación de barandilla fuente de la fachada; nunca puede añadir una nueva excepción para el código bajo `backend/domains`.
+
+El ciclo de vida de las traducciones pertenece a
+`backend/domains/vault/translation`: la carga opcional de proveedores, la
+recuperación de archivos en la nube, la traducción de filas y páginas, los
+efectos mínimos de metadatos y la propagación de obsolescencia son servicios
+tipados separados. La publicación de filas en Drupal pertenece a
+`backend/domains/vault/drupal`, que separa el mapeo de campos e identidad, la
+preparación de medios locales, la conversión de Markdown y wikilinks, las
+cachés de idiomas, la coincidencia por título y la sincronización idempotente
+de nodos. La fachada conserva los decoradores y docstrings FastAPI originales
+y los seams Python resueltos en último momento, mientras que el conector
+Drupal sigue siendo el límite de transporte externo. No cambian rutas,
+payloads, códigos de estado, tareas en segundo plano ni el orden de rutas.
 
 ## Índices y cachés
 

@@ -8,6 +8,8 @@ source_paths:
   - backend/domains/vault/files
   - backend/domains/vault/pages
   - backend/domains/vault/trash
+  - backend/domains/vault/translation
+  - backend/domains/vault/drupal
   - backend/platform/files
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
@@ -24,6 +26,7 @@ tests:
   - backend/tests/test_files_provider.py
   - backend/tests/test_vault_assets_files_containment.py
   - backend/tests/test_vault_assets_files_route_contract.py
+  - backend/tests/test_vault_translation_drupal_domain_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -84,6 +87,17 @@ the extracted page handlers. The migration preserves HTTP paths, status codes,
 payloads, dependencies, background callbacks, and the deterministic OpenAPI
 document. Each extraction must reduce the facade's source guardrail allowance;
 it may never add a new exception for code under `backend/domains`.
+
+Translation lifecycle behavior is owned by `backend/domains/vault/translation`:
+optional provider loading, cloud-file recovery, row and whole-page translation,
+minimal metadata effects, and stale-child propagation are separate typed
+services. Drupal row publishing is owned by `backend/domains/vault/drupal`,
+which separates field and identity mapping, local media preparation, Markdown
+and wikilink conversion, language caches, title matching, and idempotent node
+synchronization. The compatibility router retains the original FastAPI
+decorators, route docstrings and late-bound Python seams, while the Drupal
+connector remains the external transport boundary. These moves do not change
+paths, payloads, status codes, background tasks or route order.
 
 ## Indexes and caches
 

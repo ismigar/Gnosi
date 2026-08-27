@@ -141,6 +141,19 @@ from backend.domains.vault.pages import markdown_writer as page_markdown_writer
 from backend.domains.vault.pages import metadata_mutations
 from backend.domains.vault.pages import resolver as page_resolver
 from backend.domains.vault.pages import tags as tags_query
+from backend.domains.vault.translation import adapters as translation_adapters
+from backend.domains.vault.translation import lookup as translation_lookup
+from backend.domains.vault.translation import metadata_io as translation_metadata_io
+from backend.domains.vault.translation import page_service as translation_page_service
+from backend.domains.vault.translation import row_service as translation_row_service
+from backend.domains.vault.translation import staleness as translation_staleness
+from backend.domains.vault.drupal import core as drupal_core
+from backend.domains.vault.drupal import fields as drupal_fields
+from backend.domains.vault.drupal import languages as drupal_languages
+from backend.domains.vault.drupal import markdown as drupal_markdown
+from backend.domains.vault.drupal import matching as drupal_matching
+from backend.domains.vault.drupal import media as drupal_media
+from backend.domains.vault.drupal import service as drupal_service
 from backend.domains.vault.pages.index_entries import (
     build_cache_entry_from_memory as _build_cache_entry_from_memory,
     build_page_cache_entry as _build_page_cache_entry,
@@ -10055,14 +10068,7 @@ def _read_deepl_key() -> str:
     Returns "" when unavailable — the skills degrade to free providers /
     visible placeholders rather than failing.
     """
-    try:
-        from backend.security.keychain_manager import get_keychain
-        kc = get_keychain()
-        if kc.has_credential("deepl_api_key"):
-            return kc.get_credential("deepl_api_key") or ""
-    except Exception as exc:
-        log.warning(f"translate: keychain unavailable, using env fallback: {exc}")
-    return ""
+    return translation_adapters.read_deepl_key(log)
 
 
 def _load_translate_row_skill():
@@ -10071,15 +10077,7 @@ def _load_translate_row_skill():
     Deferred so a missing optional dependency never breaks app startup —
     translation is opt-in per table.
     """
-    try:
-        from pipeline.skills.translate_row.scripts.translate_text import (
-            translate as _translate,
-            detect_source_lang as _detect_source_lang,
-        )
-        return _translate, _detect_source_lang
-    except Exception as exc:
-        log.error(f"translate_row skill not importable: {exc}")
-        raise HTTPException(status_code=500, detail="translate_row skill unavailable")
+    return translation_adapters.load_translate_row_skill(log)
 
 
 async def _get_existing_translations(origin_id: str) -> Dict[str, Any]:
@@ -10088,13 +10086,10 @@ async def _get_existing_translations(origin_id: str) -> Dict[str, Any]:
     subitem/subpage is updated in place instead of duplicated. The lookup runs
     over the TTL-cached page snapshot (in-memory) so it adds no disk I/O.
     """
-    def _work():
-        try:
-            return find_translations_of(origin_id, _get_pages_snapshot())
-        except Exception as exc:
-            log.debug(f"existing-translations lookup failed for {origin_id}: {exc}")
-            return {}
-    return await asyncio.to_thread(_work)
+    return await translation_lookup.existing_translations(
+        origin_id,
+        _TRANSLATION_LOOKUP_DEPENDENCIES,
+    )
 
 
 async def _recover_translations_from_disk(
@@ -10102,63 +10097,15 @@ async def _recover_translations_from_disk(
 ) -> Dict[str, Any]:
     """Safety net for translate-row idempotency under OneDrive.
 
-    `_get_existing_translations` looks at the in-memory index snapshot. If a
-    child translation exists on disk but the indexer was NOT able to index it —an
-    online-only (dataless) file makes the parse fail and it stays as a *stub* entry
-    without `translation_origin_id`/`translation_lang`, so
-    `find_translations_of` doesn't recognize it— the lookup treats it as nonexistent and
-    translate-row would create a DUPLICATE ("... (2).md").
-
-    This fallback scans the table's directory, materializes the
-    online-only files and re-parses the frontmatter to recover the child translations
-    for `origin_id` of the missing languages. Scoped to the table's directory and
-    called ONLY when some language is missing from the snapshot, so the cost is
-    marginal compared to the translation calls themselves. Returns
-    `{lang: SimpleNamespace(id, metadata)}` (same `.id` access shape as the
-    `PageInfo` from the snapshot) for the unknown languages.
-    
+    Scans the table directory only when the in-memory snapshot misses a target
+    language, materializes cloud files and repairs the canonical page index.
     """
-    from types import SimpleNamespace
-
-    out: Dict[str, Any] = {}
-    target = _canonicalize_id(origin_id)
-    if not target:
-        return out
-    known = {str(l).strip().lower() for l in known_langs}
-    try:
-        candidates = sorted(table_dir.glob("*.md"))
-    except OSError:
-        return out
-    for p in candidates:
-        try:
-            await _materialize_if_online_only(p, f"translate-recover/{origin_id}")
-            meta, _ = await asyncio.to_thread(_read_frontmatter_partial, p)
-        except Exception:
-            continue
-        meta = meta or {}
-        if _canonicalize_id(meta.get("translation_origin_id")) != target:
-            continue
-        lang = str(meta.get("translation_lang") or "").strip().lower()
-        if lang and lang not in known and lang not in out:
-            pid = meta.get("id")
-            # We repair the index: insert the recovered entry (same pattern as
-            # create_page) so that the later patch_page —via find_page_path— can
-            # find it, and it stays indexed for future lookups. Without this, the update
-            # fails with 404 because the file wasn't in the index.
-            try:
-                from backend.services.context_vars import get_active_vault_path
-                v_str = str(get_active_vault_path())
-                entry = _build_page_cache_entry(p, p.stat())
-                with _page_index_lock:
-                    _page_index_entries.setdefault(v_str, {})[str(p)] = entry
-                    if pid:
-                        _page_id_to_path.setdefault(v_str, {})[pid] = str(p)
-                    _bump_page_index_version(v_str)
-                _pages_cache_invalidate_all()
-            except Exception as exc:
-                log.debug(f"translate-recover: could not index {p}: {exc}")
-            out[lang] = SimpleNamespace(id=pid, metadata=meta)
-    return out
+    return await translation_lookup.recover_translations_from_disk(
+        origin_id,
+        table_dir,
+        known_langs,
+        _TRANSLATION_LOOKUP_DEPENDENCIES,
+    )
 
 
 def _ensure_status_options_persisted(table_id: str, values: list) -> None:
@@ -10212,40 +10159,163 @@ def _ensure_status_options_persisted(table_id: str, values: list) -> None:
         )
 
 
+_TRANSLATION_LOOKUP_DEPENDENCIES = translation_lookup.TranslationLookupDependencies(
+    page_snapshot=lambda: _get_pages_snapshot(),
+    find_translations=lambda origin_id, pages: find_translations_of(origin_id, pages),
+    canonicalize_id=lambda page_id: _canonicalize_id(page_id),
+    materialize=lambda path, label: _materialize_if_online_only(path, label),
+    read_frontmatter_partial=lambda path: _read_frontmatter_partial(path),
+    active_vault_path=lambda: get_active_vault_path(),
+    build_page_cache_entry=lambda path, stat_result: _build_page_cache_entry(
+        path,
+        stat_result,
+    ),
+    bump_page_index_version=lambda vault_key: _bump_page_index_version(vault_key),
+    invalidate_pages=lambda: _pages_cache_invalidate_all(),
+    page_state=page_state,
+    logger=log,
+)
+
+_TRANSLATION_METADATA_DEPENDENCIES = (
+    translation_metadata_io.TranslationMetadataDependencies(
+        parse_frontmatter=lambda raw, path: parse_frontmatter(raw, path),
+        save_page=lambda path, metadata, body: save_page_md(path, metadata, body),
+        refresh_page_index=lambda path, metadata, body: _refresh_page_index_entry(
+            path,
+            metadata,
+            body,
+        ),
+        invalidate_pages=lambda: _pages_cache_invalidate_all(),
+        effect_write_key=lambda metadata, prop: action_rules_service.effect_write_key(
+            metadata,
+            prop,
+        ),
+        logger=log,
+    )
+)
+
+_TRANSLATION_STALENESS_DEPENDENCIES = (
+    translation_staleness.TranslationStalenessDependencies(
+        table_id=lambda metadata: get_table_id(metadata),
+        table_by_id=lambda table_id: _table_by_id(table_id),
+        content_changed=lambda *args, **kwargs: translatable_content_changed(
+            *args,
+            **kwargs,
+        ),
+        find_translations=lambda origin_id, pages: find_translations_of(
+            origin_id,
+            pages,
+        ),
+        page_snapshot=lambda: _get_pages_snapshot(),
+        on_stale_effect=lambda table: action_rules_service.on_stale_effect(table),
+        persist_status_options=lambda table_id, values: _ensure_status_options_persisted(
+            table_id,
+            values,
+        ),
+        find_page=lambda page_id: find_page_path(page_id),
+        set_stale=lambda page_id, path, status: _set_translation_stale_on_disk(
+            page_id,
+            path,
+            stale_status=status,
+        ),
+        logger=log,
+    )
+)
+
+_ROW_TRANSLATION_DEPENDENCIES = translation_row_service.RowTranslationDependencies(
+    find_page=lambda page_id: find_page_path(page_id),
+    parse_frontmatter=lambda raw, path: parse_frontmatter(raw, path),
+    table_id=lambda metadata: get_table_id(metadata),
+    table_by_id=lambda table_id: _table_by_id(table_id),
+    check_requires=lambda table, action, metadata: action_rules_service.check_requires(
+        table,
+        action,
+        metadata,
+    ),
+    action_translate=action_rules_service.ACTION_TRANSLATE,
+    detect_record_source_lang=lambda metadata: detect_record_source_lang(metadata),
+    is_composite_image_value=lambda value: is_composite_image_value(value),
+    is_image_field_name=lambda name: is_image_field_name(name),
+    translate_image_field=lambda value, translate_one: translate_image_field(
+        value,
+        translate_one,
+    ),
+    language_field_assignment=lambda properties, language, metadata: language_field_assignment(
+        properties,
+        language,
+        metadata,
+    ),
+    status_effect=lambda table, action, target: action_rules_service.status_effect(
+        table,
+        action,
+        target,
+    ),
+    effect_write_key=lambda metadata, prop: action_rules_service.effect_write_key(
+        metadata,
+        prop,
+    ),
+    persist_status_options=lambda table_id, values: _ensure_status_options_persisted(
+        table_id,
+        values,
+    ),
+    write_metadata_key=lambda page_id, path, key, value: _write_metadata_key_on_disk(
+        page_id,
+        path,
+        key,
+        value,
+    ),
+    existing_translations=lambda origin_id: _get_existing_translations(origin_id),
+    recover_translations=lambda origin_id, directory, known: _recover_translations_from_disk(
+        origin_id,
+        directory,
+        known,
+    ),
+    materialize=lambda path, label: _materialize_if_online_only(path, label),
+    known_translations=lambda origin_id: translation_index.get_known_translations(
+        origin_id
+    ),
+    record_translation=lambda origin_id, language, page_id: translation_index.record_translation(
+        origin_id,
+        language,
+        page_id,
+    ),
+    forget_translation=lambda origin_id, language: translation_index.forget_translation(
+        origin_id,
+        language,
+    ),
+    create_page=lambda request, tasks: create_page(request, tasks),
+    patch_page=lambda page_id, request, tasks: patch_page(page_id, request, tasks),
+    load_markdown_translator=lambda: translation_adapters.load_translate_page_skill(
+        log
+    )[0],
+    logger=log,
+)
+
+_PAGE_TRANSLATION_DEPENDENCIES = translation_page_service.PageTranslationDependencies(
+    load_translators=lambda: translation_adapters.load_translate_page_skill(log),
+    read_deepl_key=lambda: _read_deepl_key(),
+    find_page=lambda page_id: find_page_path(page_id),
+    parse_frontmatter=lambda raw, path: parse_frontmatter(raw, path),
+    detect_record_source_lang=lambda metadata: detect_record_source_lang(metadata),
+    existing_translations=lambda origin_id: _get_existing_translations(origin_id),
+    create_page=lambda request, tasks: create_page(request, tasks),
+    patch_page=lambda page_id, request, tasks: patch_page(page_id, request, tasks),
+    logger=log,
+)
+
+
 def _write_metadata_key_on_disk(page_id: str, file_path: Path, key: str, value) -> bool:
     """Writes a SINGLE metadata key directly to the file (without going through
     the PATCH: no rule engine, no etags, no re-resolution by id — we already have the path).
     Idempotent: if the value is already there, it doesn't write. Refreshes the cache like the
     staleness flag does. Used by action_rules effects on the original."""
-    try:
-        raw = file_path.read_text(encoding="utf-8")
-        md, body = parse_frontmatter(raw, file_path)
-    except Exception as exc:
-        log.warning(f"status-effect read failed for {page_id}: {exc}")
-        return False
-    if md.get(key) == value:
-        return False
-    md[key] = value
-    try:
-        save_page_md(file_path, md, body)
-    except Exception as exc:
-        log.warning(f"status-effect write failed for {page_id}: {exc}")
-        return False
-    try:
-        from backend.services.context_vars import get_active_vault_path
-        v_path = get_active_vault_path()
-        if v_path:
-            v_str = str(v_path)
-            stat_result = file_path.stat()
-            new_entry = _build_cache_entry_from_memory(file_path, stat_result, md, body)
-            with _page_index_lock:
-                _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
-                _page_id_to_path.setdefault(v_str, {})[md.get("id") or page_id] = str(file_path)
-                _bump_page_index_version(v_str)
-        _pages_cache_invalidate_all()
-    except Exception as exc:
-        log.debug(f"status-effect cache update failed for {page_id}: {exc}")
-    return True
+    return translation_metadata_io.write_metadata_key_on_disk(
+        page_id,
+        file_path,
+        key,
+        value,
+        _TRANSLATION_METADATA_DEPENDENCIES,
+    )
 
 
 def _set_translation_stale_on_disk(
@@ -10257,51 +10327,14 @@ def _set_translation_stale_on_disk(
 
     Returns True only when it actually wrote (flag flipped). Writes the minimal
     change directly with ``save_page_md`` — NOT through the PATCH handler — so it
-    never re-enters the rule engine, etag checks, or this very propagation. The
-    "already stale → no write" short-circuit is what keeps autosave from
-    triggering a write storm.
-
-    ``stale_status``: `(property, valor)` optional, from the table's `on_stale`
-    rule — when marking stale, the translation's Status reverts (e.g.) to
-    "Draft" in the same write.
-    
+    never re-enters the rule engine, etag checks, or this very propagation.
     """
-    try:
-        raw = file_path.read_text(encoding="utf-8")
-        md, body = parse_frontmatter(raw, file_path)
-    except Exception as exc:
-        log.debug(f"stale-flag read failed for {page_id}: {exc}")
-        return False
-    if md.get("translation_stale") is True:
-        return False  # already flagged → no redundant write
-    md["translation_stale"] = True
-    if stale_status:
-        _prop, _value = stale_status
-        _key = action_rules_service.effect_write_key(md, _prop)
-        if _key:
-            md[_key] = _value
-    try:
-        save_page_md(file_path, md, body)
-    except Exception as exc:
-        log.warning(f"stale-flag write failed for {page_id}: {exc}")
-        return False
-    # Surgical cache refresh so the UI sees the flag without a full rescan
-    # (mirrors what PATCH does after a write).
-    try:
-        from backend.services.context_vars import get_active_vault_path
-        v_path = get_active_vault_path()
-        if v_path:
-            v_str = str(v_path)
-            stat_result = file_path.stat()
-            new_entry = _build_cache_entry_from_memory(file_path, stat_result, md, body)
-            with _page_index_lock:
-                _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
-                _page_id_to_path.setdefault(v_str, {})[md.get("id") or page_id] = str(file_path)
-                _bump_page_index_version(v_str)
-        _pages_cache_invalidate_all()
-    except Exception as exc:
-        log.debug(f"stale-flag cache update failed for {page_id}: {exc}")
-    return True
+    return translation_metadata_io.set_translation_stale_on_disk(
+        page_id,
+        file_path,
+        stale_status,
+        _TRANSLATION_METADATA_DEPENDENCIES,
+    )
 
 
 def _propagate_translation_staleness(
@@ -10323,69 +10356,14 @@ def _propagate_translation_staleness(
     re-translation is due. Re-translation is idempotent, so acting on the signal
     updates in place.
     """
-    try:
-        new_md = new_md or {}
-        if new_md.get("translation_lang"):
-            return  # editing a translation, not an original → nothing to propagate
-        canonical_id = str(new_md.get("id") or origin_id)
-
-        table = _table_by_id(get_table_id(new_md))
-        if table and table.get("translation_enabled"):
-            props = [p for p in (table.get("properties") or []) if p.get("translatable") is True]
-            # Keys by ID and by NAME (and aliases): the frontmatter persists by
-            # name (vault_persist_by_name), but some old rows store
-            # by id. Comparing only by id NEVER detected changes in
-            # name-based rows and translations were never marked stale.
-            keys = []
-            for p in props:
-                for k in (p.get("id"), p.get("name"), *(p.get("aliases") or [])):
-                    if k:
-                        keys.append(k)
-            title_matters = any(
-                (p.get("name") == "title" or p.get("type") == "title") for p in props
-            )
-            changed = translatable_content_changed(
-                keys, old_md, new_md, title_matters=title_matters
-            )
-        else:
-            # Plain page (translate_page mode): title + body are what we translate.
-            changed = translatable_content_changed(
-                [], old_md, new_md,
-                old_body=old_body, new_body=new_body, title_matters=True,
-            )
-        if not changed:
-            return
-
-        translations = find_translations_of(canonical_id, _get_pages_snapshot())
-        if not translations:
-            return
-        # on_stale rule (action_rules): besides the flag, the Status of each
-        # stale translation reverts to "Draft" (= pending review).
-        stale_status = None
-        if table:
-            _sprop, _svalue, _schanged = action_rules_service.on_stale_effect(table)
-            if _sprop and _svalue is not None:
-                stale_status = (_sprop, _svalue)
-                if _schanged:
-                    _ensure_status_options_persisted(table.get("id"), [_svalue])
-        flagged = 0
-        for _lang, page in translations.items():
-            pid = getattr(page, "id", None)
-            ppath = getattr(page, "path", None)
-            if pid is None and isinstance(page, dict):
-                pid = page.get("id")
-                ppath = page.get("path")
-            if not pid:
-                continue
-            fp = Path(ppath) if ppath else find_page_path(pid)
-            if not fp or not fp.exists():
-                continue
-            if _set_translation_stale_on_disk(pid, fp, stale_status=stale_status):
-                flagged += 1
-        if flagged:
-            log.info(f"Flagged {flagged} translation(s) of {canonical_id} as stale.")
-    except Exception as exc:
-        log.debug(f"translation staleness propagation skipped: {exc}")
+    translation_staleness.propagate_translation_staleness(
+        origin_id,
+        old_md,
+        new_md,
+        old_body,
+        new_body,
+        _TRANSLATION_STALENESS_DEPENDENCIES,
+    )
 
 
 async def _do_translate_row(
@@ -10404,354 +10382,15 @@ async def _do_translate_row(
     `translation_lang`). Raises HTTPException for caller-visible problems; the
     single endpoint re-raises them, the bulk endpoint catches them per item.
     """
-    file_path = await asyncio.to_thread(find_page_path, item_id)
-    if not file_path or not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"Page not found (ID: {item_id})")
-    raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
-    metadata, body = parse_frontmatter(raw_content, file_path)
-
-    # Resolve the parent table and validate it's set up for translation.
-    table_id = get_table_id(metadata)
-    table = _table_by_id(table_id) if table_id else None
-    if not table:
-        raise HTTPException(status_code=400, detail="Row is not part of a table")
-    if not table.get("translation_enabled"):
-        raise HTTPException(
-            status_code=400,
-            detail="This table is not configured for translation. Enable it in the schema config.",
-        )
-
-    # Translatable properties carry the explicit flag the SchemaConfigModal writes.
-    properties = table.get("properties") or []
-    translatable_props = [p for p in properties if p.get("translatable") is True]
-    if not translatable_props:
-        raise HTTPException(
-            status_code=400,
-            detail="No translatable fields configured on this table.",
-        )
-
-    # action_rules safeguard (e.g. «a draft cannot be translated»):
-    # the frontend already shows the button disabled with the reason, but the backend
-    # always revalidates (never trust the client alone). 409 with the reason.
-    _ok, _reason = action_rules_service.check_requires(
-        table, action_rules_service.ACTION_TRANSLATE, metadata
+    return await translation_row_service.translate_row(
+        item_id,
+        target_languages,
+        translate_fn=translate_fn,
+        detect_fn=detect_fn,
+        deepl_api_key=deepl_api_key,
+        background_tasks=background_tasks,
+        dependencies=_ROW_TRANSLATION_DEPENDENCIES,
     )
-    if not _ok:
-        raise HTTPException(status_code=409, detail=_reason)
-
-    def _read_meta(prop: dict):
-        # The title field is saved under the canonical key `title`. The key with the
-        # property's NAME (e.g. "Title") may exist in the frontmatter but
-        # EMPTY — that's why `title` must be prioritized for title fields; otherwise,
-        # `_read_meta` would return "" and the subitem would end up taking the title from the
-        # first text field ("Imatge Alt Text"). See bug "no veo resultados".
-        is_title = prop.get("type") == "title" or prop.get("name") == "title"
-        candidate_keys = []
-        if is_title:
-            candidate_keys.append("title")
-        prop_id = prop.get("id")
-        prop_name = prop.get("name") or ""
-        if prop_id:
-            candidate_keys.append(prop_id)
-        if prop_name:
-            candidate_keys.append(prop_name)
-        if is_title:
-            candidate_keys.append("title")  # last resort, already included before
-        # First NON-empty value among the candidate keys.
-        fallback = None
-        for key in candidate_keys:
-            if key in metadata:
-                val = metadata.get(key)
-                if isinstance(val, str) and val.strip():
-                    return val
-                if val not in (None, "", [], {}):
-                    return val
-                if fallback is None:
-                    fallback = val
-        return fallback
-
-    # Source language: the record's "Language" field takes precedence (if it has one); otherwise
-    # heuristic based on the text of the longest translatable field. This way we respect the
-    # user's explicit data instead of guessing (e.g. ES marked as CA).
-    source_lang = detect_record_source_lang(metadata)
-    # If the origin comes from the "Language" field, it is RELIABLE data (the user declared it);
-    # if it comes from the text heuristic, less so. We keep track of this to decide whether we can
-    # trust the per-field detection of the translation-skip further below.
-    source_is_explicit = bool(source_lang)
-    if not source_lang:
-        sample = ""
-        for p in translatable_props:
-            val = _read_meta(p)
-            if isinstance(val, str) and len(val.strip()) > len(sample):
-                sample = val.strip()
-        if not sample:
-            sample = str(metadata.get("title") or "")
-        source_lang = detect_fn(sample) if sample else "en"
-
-    def _translate_one(text: str, lang: str):
-        """Translates a source string→`lang` respecting the per-field skip (#309):
-        with explicit origin ("Language" field) we always translate; without it, if the field already
-        looks like it's in the target language it is kept as is. Reused for text fields and for the
-        text subfields of image fields. Returns (translated, provider)."""
-        if source_is_explicit:
-            field_lang = ""
-        else:
-            try:
-                field_lang = detect_fn(text)
-            except Exception:
-                field_lang = ""
-        if field_lang == lang:
-            return text, "noop"
-        try:
-            return translate_fn(text, source_lang, lang, deepl_api_key=deepl_api_key)
-        except Exception as exc:
-            log.warning(f"translate_row: failed translating field → {lang}: {exc}")
-            return f"[error: {exc}]", "error"
-
-    parent_title = str(metadata.get("title") or "")
-    title_is_translatable = any(
-        (p.get("name") == "title" or p.get("type") == "title") and p.get("translatable") is True
-        for p in translatable_props
-    )
-
-    # The original's markdown body is also translated (articles have their text
-    # in the body, not just in the fields). We reuse the segmenter from `translate_page`, which
-    # preserves code, wikilinks, citations, etc. If it's not importable, the body is left
-    # empty and only the fields are translated (degradation, not an error).
-    _translate_markdown = None
-    if body and body.strip():
-        try:
-            from pipeline.skills.translate_page.scripts.markdown_segmenter import (
-                translate_markdown as _translate_markdown,
-            )
-        except Exception as exc:
-            log.warning(f"translate_row: markdown segmenter unavailable, body left empty: {exc}")
-
-    # Pre-fetch the already-existing translations so re-runs update instead of duplicate.
-    existing_translations = await _get_existing_translations(item_id)
-    # OneDrive safety net: if the index snapshot doesn't have all the
-    # requested translations, they might exist on disk but the indexer
-    # may not have been able to index them (online-only/dataless files → stub entry). We
-    # recover them from disk before creating, so as not to duplicate ("... (2).md").
-    _requested_langs = {
-        str(lang).strip().lower()
-        for lang in target_languages
-        if isinstance(lang, str) and lang.strip()
-    }
-    if not _requested_langs.issubset(existing_translations.keys()):
-        _recovered = await _recover_translations_from_disk(
-            item_id, file_path.parent, set(existing_translations.keys())
-        )
-        for _lang, _page in _recovered.items():
-            existing_translations.setdefault(_lang, _page)
-
-    # MOST reliable source under OneDrive: the LOCAL translation index, which lives outside
-    # the Vault and is never online-only (unlike the snapshot and the disk, which
-    # fail with downloaded files → duplicates were created). We rely on it for
-    # languages that the other paths haven't found, validating each id against disk;
-    # if the subitem no longer exists (deleted), we clean up the stale entry.
-    from types import SimpleNamespace as _SNS
-    _local_known = await asyncio.to_thread(translation_index.get_known_translations, item_id)
-    for _lang, _sid in _local_known.items():
-        if _lang in existing_translations:
-            continue
-        _p = await asyncio.to_thread(find_page_path, _sid)
-        if _p and _p.exists():
-            existing_translations[_lang] = _SNS(id=_sid, metadata={})
-        else:
-            await asyncio.to_thread(translation_index.forget_translation, item_id, _lang)
-
-    created: list = []
-    updated: list = []
-    skipped: list = []
-
-    for lang in target_languages:
-        if not isinstance(lang, str) or not lang.strip():
-            continue
-        lang = lang.strip().lower()
-        if lang == source_lang:
-            skipped.append({"lang": lang, "reason": "same as source"})
-            continue
-
-        sub_metadata: Dict[str, Any] = {
-            "table_id": table_id,
-            "database_table_id": table_id,
-            "translation_lang": lang,
-            "translation_source_lang": source_lang,
-            "translation_origin_id": item_id,
-            # A fresh translation is, by definition, up to date with the origin.
-            "translation_stale": False,
-        }
-        providers_used = set()
-        any_translated = False
-        translated_title = ""
-        first_text_translation = ""
-
-        for prop in translatable_props:
-            val = _read_meta(prop)
-            # Persist by the same key the parent row uses, preferring stable id.
-            key = prop.get("id") or prop.get("name")
-
-            # Image field ({src, alt, title…} composite or string path): it stays the
-            # image (src, without duplicating the file — the subitem references the
-            # same) and only the TEXT subfields are translated (alt, title,
-            # caption, credit). A string path is copied as-is (it is not translated
-            # as if the path were prose). Detected by the composite value or by the name.
-            if is_composite_image_value(val) or (
-                (prop.get("type") == "image" or is_image_field_name(prop.get("name")))
-                and isinstance(val, (dict, str))
-                and val
-            ):
-                new_val, img_provs, img_tr = translate_image_field(
-                    val, lambda s: _translate_one(s, lang)
-                )
-                if key:
-                    sub_metadata[key] = new_val
-                providers_used |= img_provs
-                if img_tr:
-                    any_translated = True
-                continue
-
-            if not isinstance(val, str) or not val.strip():
-                continue
-            translated, provider = _translate_one(val, lang)
-            if provider != "noop":
-                providers_used.add(provider)
-            if key:
-                sub_metadata[key] = translated
-            any_translated = True
-            if (prop.get("name") == "title" or prop.get("type") == "title") and not translated_title:
-                translated_title = translated
-            elif not first_text_translation and prop.get("type") in ("text", "rich_text"):
-                first_text_translation = translated
-
-        # Marks the subitem's "Language" field with the translation's language (if the
-        # table has one). It used to be left empty: the subitem inherited the
-        # translated fields but didn't say what language it was in. It reuses the
-        # catalog option that matches the code; if not, it puts the code in uppercase
-        # ("CA", "EN"…). It's written AFTER the field loop so that it takes precedence even
-        # if someone had marked the language field itself as translatable.
-        lang_key, lang_value = language_field_assignment(properties, lang, metadata)
-        if lang_key and lang_value is not None:
-            sub_metadata[lang_key] = lang_value
-
-        # action_rules effect on the created OR updated translation:
-        # Status "Draft" (= pending human review; the safeguard for
-        # publishing thus blocks unreviewed translations). It's written like the
-        # language field: via sub_metadata, which create/patch merges.
-        _eprop, _evalue, _echanged = action_rules_service.status_effect(
-            table, action_rules_service.ACTION_TRANSLATE, "created"
-        )
-        if _eprop and _evalue is not None:
-            _ekey = _eprop.get("id") or _eprop.get("name")
-            if _ekey:
-                sub_metadata[_ekey] = _evalue
-            if _echanged:
-                _ensure_status_options_persisted(table_id, [_evalue])
-
-        # Translate the markdown body of the original (if there is one and the segmenter
-        # is available). The result is the subitem's `content`.
-        translated_body = ""
-        if _translate_markdown is not None:
-            try:
-                translated_body, body_providers = await asyncio.to_thread(
-                    _translate_markdown, body, source_lang, lang, deepl_api_key=deepl_api_key
-                )
-                providers_used |= {p for p in body_providers if p != "noop"}
-            except Exception as exc:
-                log.warning(f"translate_row: failed translating body → {lang}: {exc}")
-                translated_body = body  # better the original text than nothing
-
-        if not any_translated and not (translated_body and translated_body.strip()):
-            skipped.append({"lang": lang, "reason": "no translatable content"})
-            continue
-
-        if title_is_translatable and translated_title:
-            sub_title = translated_title
-        elif first_text_translation:
-            sub_title = first_text_translation[:120]
-        else:
-            sub_title = f"{parent_title} ({lang})" if parent_title else lang
-        sub_metadata["translation_provider"] = (
-            "mixed" if len(providers_used) > 1 else (next(iter(providers_used), "placeholder"))
-        )
-
-        existing = existing_translations.get(lang)
-        existing_id = getattr(existing, "id", None) if existing is not None else None
-        if existing_id:
-            # Materialize the subitem if OneDrive has downloaded it (online-only)
-            # so that the patch —which reads it to merge— doesn't fail with errno 35.
-            _existing_path = await asyncio.to_thread(find_page_path, existing_id)
-            if _existing_path:
-                await _materialize_if_online_only(_existing_path, f"translate-patch/{existing_id}")
-            # Idempotent update: refresh title, fields and body. We only pass `content`
-            # if we translated the body; if not, we leave it as it was (None) so as not to
-            # erase a body that the user might have edited manually.
-            patch_req = PagePatchRequest(
-                title=sub_title,
-                metadata=sub_metadata,
-                content=(translated_body if (translated_body and translated_body.strip()) else None),
-            )
-            try:
-                await patch_page(existing_id, patch_req, background_tasks)
-                await asyncio.to_thread(translation_index.record_translation, item_id, lang, existing_id)
-                updated.append({
-                    "id": existing_id,
-                    "lang": lang,
-                    "providers": sorted(providers_used),
-                    "title": sub_title,
-                })
-            except Exception as exc:
-                log.error(f"translate_row: failed updating subitem for {lang}: {exc}")
-                skipped.append({"lang": lang, "reason": f"update failed: {exc}"})
-            continue
-
-        sub_request = PageSaveRequest(
-            title=sub_title,
-            content=translated_body or "",
-            parent_id=item_id,
-            metadata=sub_metadata,
-        )
-        try:
-            result = await create_page(sub_request, background_tasks)
-            _new_id = result.get("id")
-            if _new_id:
-                await asyncio.to_thread(translation_index.record_translation, item_id, lang, _new_id)
-            created.append({
-                "id": _new_id,
-                "lang": lang,
-                "providers": sorted(providers_used),
-                "title": sub_title,
-            })
-        except Exception as exc:
-            log.error(f"translate_row: failed creating subitem for {lang}: {exc}")
-            skipped.append({"lang": lang, "reason": f"create failed: {exc}"})
-
-    # action_rules effect on the ORIGINAL: Status "Translated" when at least one
-    # translation has been created or updated. DIRECT write to the path we already
-    # have (like the staleness flag): without re-resolution by id (the index
-    # might be mid-refresh right after creating the child) nor rule
-    # engine. It does not re-mark the children as stale (it doesn't touch translatable fields).
-    if created or updated:
-        _sprop, _svalue, _schanged = action_rules_service.status_effect(
-            table, action_rules_service.ACTION_TRANSLATE, "source"
-        )
-        if _sprop and _svalue is not None:
-            if _schanged:
-                _ensure_status_options_persisted(table_id, [_svalue])
-            _skey = action_rules_service.effect_write_key(metadata, _sprop)
-            if _skey:
-                await asyncio.to_thread(
-                    _write_metadata_key_on_disk, item_id, file_path, _skey, _svalue
-                )
-
-    return {
-        "item_id": item_id,
-        "source_lang": source_lang,
-        "created": created,
-        "updated": updated,
-        "skipped": skipped,
-    }
 
 
 # === Synchronization with Drupal: per-row write ========================
@@ -10760,6 +10399,223 @@ async def _do_translate_row(
 # by `drupal_uuid` (hidden metadata). Resilient to the WAF (create=POST JSON:API,
 # update/translate=custom POST endpoints). See drupal_sync_service.py.
 
+
+def _drupal_client_module():
+    """Resolve the compatibility connector lazily for optional Drupal usage."""
+    from backend.services import drupal_sync_service as drupal
+
+    return drupal
+
+
+_DRUPAL_PATH_DEPENDENCIES = drupal_media.DrupalPathDependencies(
+    assets_root=lambda: get_p("ASSETS"),
+    home_path=lambda: Path(
+        os.environ.get("HOME_HOST_PATH") or os.path.expanduser("~")
+    ),
+)
+
+_DRUPAL_MARKDOWN_DEPENDENCIES = drupal_markdown.DrupalMarkdownDependencies(
+    active_vault_path=lambda: get_active_vault_path(),
+    page_state=page_state,
+    find_page=lambda page_id: find_page_path(page_id),
+    parse_frontmatter=lambda raw, path: parse_frontmatter(raw, path),
+    markdown_to_html=lambda markdown: _drupal_client_module().markdown_to_full_html(
+        markdown
+    ),
+)
+
+_DRUPAL_LANGUAGE_DEPENDENCIES = drupal_languages.DrupalLanguageDependencies(
+    client=lambda: _drupal_client_module()._client(),
+    detect_record_lang_raw=lambda metadata: detect_record_lang_raw(metadata),
+    detect_record_source_lang=lambda metadata: detect_record_source_lang(metadata),
+    logger=log,
+)
+
+
+def _drupal_upload_dependencies():
+    drupal = _drupal_client_module()
+    return drupal_media.DrupalUploadDependencies(
+        resolve_local_path=lambda value: _drupal_resolve_local_path(value),
+        materialize=lambda path, label: _materialize_if_online_only(path, label),
+        shrink_pdf=lambda data, filename: _drupal_shrink_pdf(data, filename),
+        shrink_image=lambda data, filename: _drupal_shrink_image(data, filename),
+        find_existing_file=lambda filename, size: drupal.find_existing_file(
+            filename,
+            size,
+        ),
+        upload_image=lambda bundle, field, filename, data: drupal.upload_image(
+            bundle,
+            field,
+            filename,
+            data,
+        ),
+    )
+
+
+def _drupal_field_dependencies():
+    drupal = _drupal_client_module()
+    return drupal_fields.DrupalFieldDependencies(
+        sync_error=drupal.DrupalSyncError,
+        markdown_to_html=lambda markdown, cache: _drupal_md_to_html(
+            markdown,
+            cache,
+        ),
+        read_prop_value=lambda metadata, prop: _drupal_read_prop_value(
+            metadata,
+            prop,
+        ),
+        upload_field_image=lambda value, bundle, field, metadata, cache: _drupal_upload_field_image(
+            value,
+            bundle,
+            field,
+            metadata,
+            cache,
+        ),
+        resolve_or_create_term=lambda vocabulary, name, cache: drupal.resolve_or_create_term(
+            vocabulary,
+            name,
+            cache=cache,
+        ),
+        coerce_scalar=lambda value, field_type: _drupal_coerce_scalar(
+            value,
+            field_type,
+        ),
+    )
+
+
+def _drupal_sync_dependencies():
+    drupal = _drupal_client_module()
+    return drupal_service.DrupalSyncDependencies(
+        sync_error=drupal.DrupalSyncError,
+        not_found_error=drupal.DrupalNotFound,
+        find_page=lambda page_id: find_page_path(page_id),
+        materialize=lambda path, label: _materialize_if_online_only(path, label),
+        parse_frontmatter=lambda raw, path: parse_frontmatter(raw, path),
+        table_id=lambda metadata: get_table_id(metadata),
+        table_by_id=lambda table_id: _table_by_id(table_id),
+        inject_virtual_fields=lambda table, page_id, metadata, loader: _vf_inject_for_single_page(
+            table,
+            page_id,
+            metadata,
+            loader,
+        ),
+        virtual_page_loader=lambda page_id: _vf_page_loader(page_id),
+        check_requires=lambda table, action, metadata: action_rules_service.check_requires(
+            table,
+            action,
+            metadata,
+        ),
+        action_sync_drupal=action_rules_service.ACTION_SYNC_DRUPAL,
+        props_by_ref=lambda table: _drupal_props_by_ref(table),
+        list_fields=lambda bundle: drupal.list_fields(bundle),
+        build_fields=lambda **kwargs: _drupal_build_fields(**kwargs),
+        resolve_langcode=lambda metadata: _drupal_resolve_langcode(metadata),
+        image_mapping=lambda mapping, field_meta: _drupal_image_mapping(
+            mapping,
+            field_meta,
+        ),
+        field_translatable=lambda bundle, field: _drupal_field_translatable(
+            bundle,
+            field,
+        ),
+        read_prop_value=lambda metadata, prop: _drupal_read_prop_value(
+            metadata,
+            prop,
+        ),
+        upload_field_image=lambda value, bundle, field, metadata, cache: _drupal_upload_field_image(
+            value,
+            bundle,
+            field,
+            metadata,
+            cache,
+        ),
+        uuid_to_fid=lambda file_uuid: _drupal_uuid_to_fid(file_uuid),
+        row_image_alt=lambda metadata, props, image_ref: _drupal_row_image_alt(
+            metadata,
+            props,
+            image_ref,
+        ),
+        find_nodes_by_title=lambda bundle, title: drupal.find_nodes_by_title(
+            bundle,
+            title,
+        ),
+        add_translation=lambda uuid, language, fields: drupal.add_translation(
+            uuid,
+            language,
+            fields,
+        ),
+        base_url=lambda: drupal.base_url(),
+        create_node=lambda bundle, attributes, relationships, language: drupal.create_node(
+            bundle,
+            attributes,
+            relationships,
+            langcode=language,
+        ),
+        update_node=lambda uuid, bundle, attributes, relationships: drupal.update_node(
+            uuid,
+            bundle,
+            attributes,
+            relationships,
+        ),
+        media_signatures=lambda mapping, props, fields, metadata: _drupal_media_signatures(
+            mapping,
+            props,
+            fields,
+            metadata,
+        ),
+        existing_translations=lambda origin_id: _get_existing_translations(origin_id),
+        pages_for_table=lambda table_id: _get_pages_for_table(table_id),
+        identity_metadata=lambda table, uuid, nid, url: _drupal_identity_meta(
+            table,
+            uuid,
+            nid,
+            url,
+        ),
+        status_effect=lambda table, action, target: action_rules_service.status_effect(
+            table,
+            action,
+            target,
+        ),
+        effect_write_key=lambda metadata, prop: action_rules_service.effect_write_key(
+            metadata,
+            prop,
+        ),
+        persist_status_options=lambda table_id, values: _ensure_status_options_persisted(
+            table_id,
+            values,
+        ),
+        patch_page=lambda page_id, request, tasks: patch_page(
+            page_id,
+            request,
+            tasks,
+        ),
+        logger=log,
+    )
+
+
+def _drupal_matching_dependencies():
+    drupal = _drupal_client_module()
+    return drupal_matching.DrupalMatchingDependencies(
+        sync_error=drupal.DrupalSyncError,
+        table_by_id=lambda table_id: _table_by_id(table_id),
+        pages_for_table=lambda table_id: _get_pages_for_table(table_id),
+        find_nodes_by_title=lambda bundle, title: drupal.find_nodes_by_title(
+            bundle,
+            title,
+        ),
+        identity_metadata=lambda table, uuid, nid, url: _drupal_identity_meta(
+            table,
+            uuid,
+            nid,
+            url,
+        ),
+        patch_page=lambda page_id, request, tasks: patch_page(
+            page_id,
+            request,
+            tasks,
+        ),
+    )
+
 # Pseudo-reference in the mapping that associates the page's markdown BODY (not a
 # field) into a Drupal rich text field (e.g. `body`).
 DRUPAL_BODY_REF = "__body__"
@@ -10767,136 +10623,37 @@ DRUPAL_BODY_REF = "__body__"
 
 def _drupal_props_by_ref(table: dict) -> dict:
     """Index of the table's properties by stable id and by name."""
-    out: Dict[str, dict] = {}
-    for p in table.get("properties") or []:
-        if p.get("id"):
-            out[p["id"]] = p
-        if p.get("name"):
-            out.setdefault(p["name"], p)
-    return out
+    return drupal_core.props_by_ref(table)
 
 
 def _drupal_find_column(table: dict, name: str) -> Optional[dict]:
     """Property by name (case-insensitive); for the NID/URL columns."""
-    target = name.strip().lower()
-    for p in table.get("properties") or []:
-        if (p.get("name") or "").strip().lower() == target:
-            return p
-    return None
+    return drupal_core.find_column(table, name)
 
 
 def _drupal_identity_meta(table: dict, uuid, nid, url) -> Dict[str, Any]:
-    """Drupal identity metadata to write to the row: hidden keys
-    (`drupal_uuid/nid/url`) + the visible columns "Drupal NID" / "Drupal URL"
-    if they exist. Shared by the sync and by the title match."""
-    meta: Dict[str, Any] = {
-        "drupal_uuid": uuid or "",
-        "drupal_nid": str(nid) if nid is not None else "",
-        "drupal_url": url or "",
-    }
-    nid_col = _drupal_find_column(table, "Drupal NID")
-    url_col = _drupal_find_column(table, "Drupal URL")
-    if nid_col:
-        meta[nid_col.get("id") or nid_col["name"]] = str(nid) if nid is not None else ""
-    if url_col:
-        meta[url_col.get("id") or url_col["name"]] = url or ""
-    return meta
+    """Drupal identity metadata to write to the row."""
+    return drupal_core.identity_metadata(table, uuid, nid, url)
 
 
 def _drupal_read_prop_value(metadata: dict, prop: dict):
     """Value of a property in the frontmatter, prioritized title→id→name."""
-    is_title = prop.get("type") == "title" or prop.get("name") == "title"
-    keys = []
-    if is_title:
-        keys.append("title")
-    if prop.get("id"):
-        keys.append(prop["id"])
-    if prop.get("name"):
-        keys.append(prop["name"])
-    for k in keys:
-        if k in metadata:
-            v = metadata.get(k)
-            if v not in (None, "", [], {}):
-                return v
-    return None
+    return drupal_core.read_prop_value(metadata, prop)
 
 
 def _drupal_coerce_scalar(value, field_type: Optional[str]):
     """Adapts a Gnosi scalar value to the Drupal field type."""
-    if value is None:
-        return None
-    if field_type in ("integer",):
-        try:
-            return int(float(value))
-        except (TypeError, ValueError):
-            return None
-    if field_type in ("decimal", "float"):
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return None
-    if isinstance(value, list):
-        return ", ".join(str(v) for v in value if v not in (None, ""))
-    return str(value)
+    return drupal_core.coerce_scalar(value, field_type)
 
 
 def _drupal_reanchor_home(p: Path) -> Path:
-    """Re-anchors an absolute OneDrive path to the real HOME if it doesn't exist as-is.
-
-    The ``file://`` links from the Library were saved with the username of the
-    HOME at the time (e.g. ``/Users/ismaelgarcia/``); if the current HOME is different
-    (``/Users/ismaelgarciafernandez/``) the path doesn't resolve. It re-anchors the segment from
-    ``/Library/CloudStorage/`` to the real HOME (``HOME_HOST_PATH`` inside the container,
-    or ``~``). Returns the candidate if it exists; otherwise, the original path untouched.
-    
-    """
-    try:
-        if p.exists():
-            return p
-        marker = "/Library/CloudStorage/"
-        s = str(p)
-        idx = s.find(marker)
-        if idx < 0:
-            return p
-        home = os.environ.get("HOME_HOST_PATH") or os.path.expanduser("~")
-        candidate = Path(home) / s[idx + 1:]  # "Library/CloudStorage/..."
-        if candidate.exists():
-            return candidate
-    except Exception:
-        pass
-    return p
+    """Re-anchors an absolute File Provider path to the real HOME."""
+    return drupal_media.reanchor_home(p, _DRUPAL_PATH_DEPENDENCIES)
 
 
 def _drupal_resolve_local_path(value) -> Optional[Path]:
-    """Resolves the value of an image/file field to a local path on disk.
-
-    Covers the two ways Gnosi stores files: paths relative to the
-    Vault (``Assets/...``) and absolute paths / ``file://`` (Library). Re-anchors
-    absolute OneDrive paths saved under a different username (``_drupal_reanchor_home``).
-    
-    """
-    if not value:
-        return None
-    raw = value[0] if isinstance(value, list) else value
-    raw = str(raw).strip()
-    if not raw:
-        return None
-    if raw.startswith("file://"):
-        from urllib.parse import unquote, urlparse
-
-        return _drupal_reanchor_home(Path(unquote(urlparse(raw).path)))
-    p = Path(raw)
-    if p.is_absolute():
-        return _drupal_reanchor_home(p)
-    # Relative path: it's relative to the Vault's Assets folder (same as
-    # toServedAssetUrl in the frontend), whether it carries the "Assets/" prefix or not
-    # (p. ex. "Articles/x.jpg" → <Vault>/Assets/Articles/x.jpg).
-    idx = raw.find("Assets/")
-    rel = raw[idx + len("Assets/"):] if idx >= 0 else raw.lstrip("./")
-    try:
-        return (get_p("ASSETS") / rel).resolve()
-    except Exception:
-        return None
+    """Resolves the value of an image/file field to a local path on disk."""
+    return drupal_media.resolve_local_path(value, _DRUPAL_PATH_DEPENDENCIES)
 
 
 # Image optimization for WEB before uploading them to Drupal. The
@@ -10911,75 +10668,17 @@ _DRUPAL_JPEG_QUALITY = 82             # minimum quality recommended for web (goo
 
 
 def _drupal_shrink_image(data: bytes, filename: str):
-    """Optimizes an image for web and returns ``(bytes, filename)``.
-
-    It's applied WHENEVER it improves the file size (not only when it exceeds Drupal's limit):
-    downscales to ``_DRUPAL_IMAGE_MAX_DIM`` px and recompresses —JPEG q82 for photos, PNG
-    for graphics with few colors or with transparency (preserves sharpness/alpha).
-    The extension may change to ``.jpg``. It's a no-op if Pillow isn't available, if it's not an
-    image, or if the result would NOT be smaller than the original (never makes it worse).
-    CPU-bound: call it inside ``asyncio.to_thread``."""
-    try:
-        from io import BytesIO
-        from PIL import Image
-    except Exception:
-        return data, filename
-    try:
-        img = Image.open(BytesIO(data))
-        img.load()
-    except Exception:
-        return data, filename  # not an image that Pillow knows how to open
-    fmt = (img.format or "PNG").upper()
-    stem = filename.rsplit(".", 1)[0] if "." in filename else filename
-    w, h = img.size
-    too_big = max(w, h) > _DRUPAL_IMAGE_MAX_DIM
-    # If it's already lightweight AND web-sized, we don't touch it: a re-encode would only degrade it.
-    if not too_big and len(data) <= _DRUPAL_IMAGE_WEB_TARGET:
-        return data, filename
-
-    if too_big:
-        s = _DRUPAL_IMAGE_MAX_DIM / float(max(w, h))
-        img = img.resize((max(1, int(w * s)), max(1, int(h * s))), Image.LANCZOS)
-
-    def _png() -> bytes:
-        buf = BytesIO()
-        mode = "RGBA" if img.mode in ("RGBA", "LA", "P") else "RGB"
-        img.convert(mode).save(buf, format="PNG", optimize=True)
-        return buf.getvalue()
-
-    def _jpeg(q: int) -> bytes:
-        buf = BytesIO()
-        img.convert("RGB").save(buf, format="JPEG", quality=q, optimize=True, progressive=True)
-        return buf.getvalue()
-
-    # Real transparency → PNG is needed (preserves alpha).
-    has_alpha = False
-    try:
-        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-            has_alpha = img.convert("RGBA").getchannel("A").getextrema()[0] < 255
-    except Exception:
-        has_alpha = (fmt == "PNG")
-    # Flat graphic with few colors (logo, illustration) → PNG looks better and weighs little;
-    # photo (many colors) → JPEG, much lighter.
-    is_graphic = False
-    if not has_alpha:
-        try:
-            is_graphic = img.convert("RGB").getcolors(maxcolors=4096) is not None
-        except Exception:
-            is_graphic = False
-
-    if has_alpha or is_graphic:
-        out = _png()
-        return (out, filename) if len(out) < len(data) else (data, filename)
-
-    # Opaque photo → JPEG at web quality; only lower the quality if needed for the hard limit.
-    best = data
-    for q in (_DRUPAL_JPEG_QUALITY, 75, 65, 55):
-        cand = _jpeg(q)
-        best = cand
-        if len(cand) <= _DRUPAL_IMAGE_MAX_BYTES:
-            break
-    return (best, f"{stem}.jpg") if len(best) < len(data) else (data, filename)
+    """Optimizes an image for web and returns ``(bytes, filename)``."""
+    return drupal_media.shrink_image(
+        data,
+        filename,
+        drupal_media.DrupalImageSettings(
+            max_bytes=_DRUPAL_IMAGE_MAX_BYTES,
+            web_target=_DRUPAL_IMAGE_WEB_TARGET,
+            max_dimension=_DRUPAL_IMAGE_MAX_DIM,
+            jpeg_quality=_DRUPAL_JPEG_QUALITY,
+        ),
+    )
 
 
 # The Vault's PDFs (scanned, high-resolution) can weigh dozens of MB and cause
@@ -10990,89 +10689,25 @@ _DRUPAL_GS_PDF_SETTING = "/ebook"  # ~150 dpi: quality/size trade-off for web
 
 
 def _drupal_shrink_pdf(data: bytes, filename: str):
-    """Compresses a PDF with Ghostscript (``/ebook``) if it reduces the size. Returns
-    ``(bytes, filename)``. It's a no-op (returns the original) if it's not a PDF, if ``gs``
-    isn't installed (e.g. on the dev host), if the compression fails/exceeds the
-    timeout, or if the result isn't smaller. CPU/IO-bound: call it inside
-    ``asyncio.to_thread``."""
-    if data[:5] != b"%PDF-":
-        return data, filename
-    import os
-    import subprocess
-    import tempfile
-    try:
-        with tempfile.TemporaryDirectory() as td:
-            in_path = os.path.join(td, "in.pdf")
-            out_path = os.path.join(td, "out.pdf")
-            with open(in_path, "wb") as f:
-                f.write(data)
-            # Argument list (never shell=True) with controlled paths → no injection.
-            subprocess.run(
-                [
-                    "gs", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4",
-                    f"-dPDFSETTINGS={_DRUPAL_GS_PDF_SETTING}",
-                    "-dNOPAUSE", "-dQUIET", "-dBATCH",
-                    f"-sOutputFile={out_path}", in_path,
-                ],
-                check=True, capture_output=True, timeout=120,
-            )
-            if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                with open(out_path, "rb") as f:
-                    out = f.read()
-                # Validates that the output is a real PDF and strictly smaller.
-                if out[:5] == b"%PDF-" and len(out) < len(data):
-                    return out, filename
-    except Exception as exc:  # Missing gs, timeout, corrupt output… → original.
-        log.warning("drupal: PDF compression skipped (%s): %s", filename, exc)
-    return data, filename
+    """Compresses a PDF with Ghostscript if it reduces the size."""
+    return drupal_media.shrink_pdf(
+        data,
+        filename,
+        log,
+        _DRUPAL_GS_PDF_SETTING,
+    )
 
 
 async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, image_cache):
-    """Uploads a local file to an image/file field and returns the JSON:API relationship.
-
-    Materializes OneDrive online-only files before reading them and
-    reuses a file already uploaded within the same run (cache per path).
-    Returns ``None`` if the file can't be resolved.
-    
-    """
-    from backend.services import drupal_sync_service as drupal
-
-    # COMPOSITE image field {src, alt, title} or string (path) — backward-compatible.
-    if isinstance(value, dict):
-        src = value.get("src") or value.get("url") or value.get("path")
-        comp_alt = value.get("alt")
-        comp_title = value.get("title")
-    else:
-        src, comp_alt, comp_title = value, None, None
-    path = _drupal_resolve_local_path(src)
-    if not path:
-        return None
-    await _materialize_if_online_only(path, "drupal-img")
-    if not path.exists():
-        raise RuntimeError(f"file not found: {path}")
-    key = str(path)
-    file_uuid = image_cache.get(key)
-    if not file_uuid:
-        data = await asyncio.to_thread(path.read_bytes)
-        # Reduces the size before uploading (keeps the original in the Vault intact): the
-        # PDFs with Ghostscript (/ebook), everything else as an image with Pillow. Both
-        # are no-ops if they're already small enough or the tool isn't available.
-        if data[:5] == b"%PDF-":
-            data, upload_name = await asyncio.to_thread(_drupal_shrink_pdf, data, path.name)
-        else:
-            data, upload_name = await asyncio.to_thread(_drupal_shrink_image, data, path.name)
-        # Reuses a file already uploaded to Drupal with the same name and size: avoids
-        # creating «_0/_1/…» copies on every re-sync (they were bloating sites/default/files
-        # up to hundreds of duplicates of the same image — see find_existing_file).
-        file_uuid = await drupal.find_existing_file(upload_name, len(data))
-        if not file_uuid:
-            file_uuid = await drupal.upload_image(bundle, drupal_field, upload_name, data)
-        image_cache[key] = file_uuid
-    alt = str(comp_alt or metadata.get("title") or path.stem)
-    meta = {"alt": alt}
-    if comp_title:
-        meta["title"] = str(comp_title)
-    return {"data": {"type": "file--file", "id": file_uuid, "meta": meta}}
+    """Uploads a local file to an image/file field and returns its relationship."""
+    return await drupal_media.upload_field_image(
+        value,
+        bundle,
+        drupal_field,
+        metadata,
+        image_cache,
+        _drupal_upload_dependencies(),
+    )
 
 
 # Preprocessing of Gnosi markdown before sending it to Drupal: resolves
@@ -11086,211 +10721,84 @@ _DRUPAL_UUID_RE = re.compile(r"^[0-9a-fA-F-]{32,36}$")
 
 def _drupal_resolve_title_to_id(title: str) -> Optional[str]:
     """Title → page_id via the in-memory index (like /resolve-by-title)."""
-    tl = str(title or "").strip().lower()
-    if not tl:
-        return None
-    try:
-        from backend.services.context_vars import get_active_vault_path
-
-        v_path = get_active_vault_path()
-        if not v_path:
-            return None
-        with _page_index_lock:
-            for entry in list(_page_index_entries.get(str(v_path), {}).values()):
-                if str(entry.get("title") or "").strip().lower() == tl:
-                    return entry.get("id")
-    except Exception:
-        return None
-    return None
+    return drupal_markdown.resolve_title_to_id(
+        title,
+        _DRUPAL_MARKDOWN_DEPENDENCIES,
+    )
 
 
 def _drupal_wikilink_url(target: str, cache: dict) -> Optional[str]:
     """Drupal URL of a wikilink target's node (title or uuid), or None."""
-    base = target.split("#", 1)[0].strip()
-    if not base:
-        return None
-    if base in cache:
-        return cache[base]
-    url = None
-    pid = base if _DRUPAL_UUID_RE.match(base) else _drupal_resolve_title_to_id(base)
-    if pid:
-        try:
-            fp = find_page_path(pid)
-            if fp and fp.exists():
-                meta, _ = parse_frontmatter(fp.read_text(encoding="utf-8"), fp)
-                url = str(meta.get("drupal_url") or "").strip() or None
-        except Exception:
-            url = None
-    cache[base] = url
-    return url
+    return drupal_markdown.wikilink_url(
+        target,
+        cache,
+        _DRUPAL_MARKDOWN_DEPENDENCIES,
+    )
 
 
 def _drupal_preprocess_md(md: str, *, cache: Optional[dict] = None) -> str:
     """Adapts Gnosi markdown for Drupal: strips embeds and resolves wikilinks."""
-    if not md:
-        return md
-    cache = cache if cache is not None else {}
-    md = _DRUPAL_EMBED_RE.sub("", md)  # Embeds/transclusions are not portable.
-
-    def _repl(m):
-        inner = m.group(1)
-        if "|" in inner:
-            target, display = inner.split("|", 1)
-            display = display.strip()
-        else:
-            target = inner
-            display = inner.split("#", 1)[0].strip()
-        try:
-            url = _drupal_wikilink_url(target.strip(), cache)
-        except Exception:
-            url = None
-        return f"[{display}]({url})" if url else display
-
-    return _DRUPAL_WIKILINK_RE.sub(_repl, md)
+    return drupal_markdown.preprocess_markdown(
+        md,
+        _DRUPAL_MARKDOWN_DEPENDENCIES,
+        cache=cache,
+    )
 
 
 def _drupal_md_to_html(text: str, wl_cache: dict) -> str:
-    """Preprocesses (wikilinks/embeds) and converts to HTML with pandoc. Blocking."""
-    from backend.services import drupal_sync_service as drupal
-
-    return drupal.markdown_to_full_html(_drupal_preprocess_md(text or "", cache=wl_cache))
+    """Preprocesses wikilinks/embeds and converts to HTML with pandoc."""
+    return drupal_markdown.markdown_to_html(
+        text,
+        wl_cache,
+        _DRUPAL_MARKDOWN_DEPENDENCIES,
+    )
 
 
 def _drupal_media_signatures(mapping, props_by_ref, field_meta, metadata) -> Dict[str, str]:
-    """Signature for NON-text fields (image/file and tags) to detect changes between
-    syncs and avoid re-uploading/rewriting what hasn't changed. image/file →
-    ``"size:mtime"`` of the source file; entity_reference (tags) → normalized and
-    sorted names. Fields with no value or that can't be resolved are skipped. Doesn't materialize files
-    (only reads ``stat``), so it's cheap."""
-    sigs: Dict[str, str] = {}
-    for ref, drupal_field in (mapping or {}).items():
-        if not drupal_field:
-            continue
-        ftype = (field_meta.get(drupal_field) or {}).get("type")
-        prop = props_by_ref.get(ref)
-        if not prop:
-            continue
-        value = _drupal_read_prop_value(metadata, prop)
-        if value in (None, "", [], {}):
-            continue
-        if ftype in ("image", "file"):
-            src = value.get("src") if isinstance(value, dict) else value
-            try:
-                path = _drupal_resolve_local_path(src)
-                if path and path.exists():
-                    st = path.stat()
-                    sigs[drupal_field] = f"{st.st_size}:{int(st.st_mtime)}"
-            except Exception:
-                pass
-        elif ftype == "entity_reference":
-            raw = value if isinstance(value, list) else re.split(r"[;,]", str(value))
-            names = sorted(s for s in (str(x).strip().lower() for x in raw) if s)
-            if names:
-                sigs[drupal_field] = "tags:" + "|".join(names)
-    return sigs
+    """Signature for non-text fields to detect changes between syncs."""
+    return drupal_media.media_signatures(
+        mapping,
+        props_by_ref,
+        field_meta,
+        metadata,
+        drupal_media.MediaSignatureDependencies(
+            read_prop_value=lambda page_metadata, prop: _drupal_read_prop_value(
+                page_metadata,
+                prop,
+            ),
+            resolve_local_path=lambda value: _drupal_resolve_local_path(value),
+        ),
+    )
 
 
 async def _drupal_build_fields(
     *, mapping, props_by_ref, field_meta, metadata, body, bundle,
     term_cache, image_cache, text_only=False, media_only=False,
 ):
-    """Builds (attributes, relationships, skipped) for a record.
-
-    ``field_meta``: ``{field_name: {"type":.., "vocab":..}}``. With ``text_only``
-    only text/scalars/body are built — taxonomy and image in Drupal are
-    fields shared between translations, they aren't translated. With ``media_only``
-    the NON-text fields shared between translations are built: image/file
-    **and taxonomy (tags)** — to re-push them when updating an already existing node
-    (the text path doesn't touch them). Note: if a row ends up with no tags, the field
-    isn't sent and old tags are NOT cleared in Drupal (only added/replaced).
-    
-    """
-    from backend.services import drupal_sync_service as drupal
-
-    attributes: Dict[str, Any] = {}
-    relationships: Dict[str, Any] = {}
-    skipped: list = []
-    wl_cache: Dict[str, Any] = {}  # wikilink resolution cache for this call
-    for ref, drupal_field in (mapping or {}).items():
-        if not drupal_field:
-            continue
-        meta = field_meta.get(drupal_field) or {}
-        ftype = meta.get("type")
-        if ref == DRUPAL_BODY_REF:
-            if media_only:
-                continue
-            if not (body or "").strip():
-                continue  # empty body: don't send it (avoids clearing the body in Drupal)
-            html = await asyncio.to_thread(_drupal_md_to_html, body, wl_cache)
-            attributes[drupal_field] = {"value": html, "format": "full_html"}
-            continue
-        prop = props_by_ref.get(ref)
-        if not prop:
-            continue
-        value = _drupal_read_prop_value(metadata, prop)
-        if value in (None, "", [], {}):
-            continue
-        if ftype in ("text_with_summary", "text_long"):
-            if media_only:
-                continue
-            html = await asyncio.to_thread(_drupal_md_to_html, str(value), wl_cache)
-            attributes[drupal_field] = {"value": html, "format": "full_html"}
-        elif ftype == "entity_reference":
-            # Tags: shared non-text field → included on create and on re-push
-            # media (media_only), but NOT in the text-only path (text_only).
-            if text_only:
-                continue
-            vocab = meta.get("vocab") or "tags"
-            names = value if isinstance(value, list) else re.split(r"[;,]", str(value))
-            data = []
-            for name in names:
-                name = str(name).strip()
-                if not name:
-                    continue
-                try:
-                    tid = await drupal.resolve_or_create_term(vocab, name, cache=term_cache)
-                    data.append({"type": f"taxonomy_term--{vocab}", "id": tid})
-                except drupal.DrupalSyncError as exc:
-                    skipped.append({"field": drupal_field, "value": name, "reason": str(exc)})
-            if data:
-                relationships[drupal_field] = {"data": data}
-        elif ftype in ("image", "file"):
-            if text_only:
-                continue
-            try:
-                rel = await _drupal_upload_field_image(value, bundle, drupal_field, metadata, image_cache)
-                if rel:
-                    relationships[drupal_field] = rel
-            except Exception as exc:
-                skipped.append({"field": drupal_field, "reason": f"image: {exc}"})
-        else:
-            if media_only:
-                continue
-            coerced = _drupal_coerce_scalar(value, ftype)
-            if coerced is not None:
-                attributes[drupal_field] = coerced
-    return attributes, relationships, skipped
+    """Builds (attributes, relationships, skipped) for a record."""
+    return await drupal_fields.build_fields(
+        mapping=mapping,
+        properties_by_ref=props_by_ref,
+        field_metadata=field_meta,
+        metadata=metadata,
+        body=body,
+        bundle=bundle,
+        term_cache=term_cache,
+        image_cache=image_cache,
+        text_only=text_only,
+        media_only=media_only,
+        dependencies=_drupal_field_dependencies(),
+    )
 
 
 def _drupal_sibling_rows(table_id, nid, exclude_id):
-    """Sibling rows: other records in the same table linked to the SAME
-    Drupal node (same nid), each in its own language. For tables where
-    translations are separate rows (not subitems)."""
-    if not nid:
-        return []
-    out = []
-    try:
-        for p in _get_pages_for_table(table_id):
-            if p.id == exclude_id:
-                continue
-            md = p.metadata or {}
-            if md.get("translation_lang"):
-                continue
-            if str(md.get("drupal_nid") or "") == str(nid) and str(md.get("drupal_uuid") or "").strip():
-                out.append(p)
-    except Exception as exc:
-        log.warning(f"sync-drupal: sibling lookup failed: {exc}")
-    return out
+    """Sibling rows linked to the same Drupal node."""
+    return drupal_service.sibling_rows(
+        table_id,
+        nid,
+        exclude_id,
+        _drupal_sync_dependencies(),
+    )
 
 
 _DRUPAL_LANGCODES_CACHE = None
@@ -11299,400 +10807,94 @@ _DRUPAL_LANGCODES_CACHE = None
 async def _drupal_langcodes() -> set:
     """Langcodes configured in Drupal (process cache). E.g. {'ca','es','en-gb'}."""
     global _DRUPAL_LANGCODES_CACHE
-    if _DRUPAL_LANGCODES_CACHE is not None:
-        return _DRUPAL_LANGCODES_CACHE
-    from backend.services import drupal_sync_service as drupal
-    langs: set = set()
-    try:
-        async with drupal._client() as c:
-            r = await c.get(
-                "/jsonapi/configurable_language/configurable_language",
-                params={"fields[configurable_language--configurable_language]": "drupal_internal__id"},
-            )
-        for l in (r.json() or {}).get("data", []):
-            code = (l.get("attributes") or {}).get("drupal_internal__id")
-            if code and str(code).lower() not in ("und", "zxx"):
-                langs.add(str(code).lower())
-    except Exception as exc:
-        log.warning(f"drupal: could not read the configured languages: {exc}")
-    _DRUPAL_LANGCODES_CACHE = langs
-    return langs
+    drupal_languages.language_state.langcodes = _DRUPAL_LANGCODES_CACHE
+    result = await drupal_languages.langcodes(
+        _DRUPAL_LANGUAGE_DEPENDENCIES,
+        drupal_languages.language_state,
+    )
+    _DRUPAL_LANGCODES_CACHE = result
+    return result
 
 
 async def _drupal_resolve_langcode(metadata: dict) -> str:
-    """Maps the row's Language field to the REAL Drupal langcode, which may be
-    regional (e.g. 'en-gb', not 'en'). If there's no match, falls back to 2-letter
-    normalization."""
-    langs = await _drupal_langcodes()
-    raw = detect_record_lang_raw(metadata)  # 'en-gb'
-    if raw and langs:
-        if raw in langs:
-            return raw
-        pref = raw.split("-")[0].split("_")[0]
-        if pref in langs:
-            return pref
-    code = detect_record_source_lang(metadata)  # 'en' (two letters)
-    if code and (not langs or code in langs):
-        return code
-    return code or "en"
+    """Maps the row's Language field to the REAL Drupal langcode."""
+    configured = await _drupal_langcodes()
+    return await drupal_languages.resolve_langcode(
+        metadata,
+        _DRUPAL_LANGUAGE_DEPENDENCIES,
+        drupal_languages.language_state,
+        configured_langcodes=configured,
+    )
 
 
 _DRUPAL_FIELD_TRANSLATABLE_CACHE: dict = {}
 
 
 async def _drupal_uuid_to_fid(file_uuid):
-    """uuid of a Drupal file → its internal fid. Needed to set field_image on
-    translations: the TranslationController does a generic set() and the image field
-    expects ``{target_id: fid, alt: ...}`` (not the JSON:API relationship format by uuid)."""
-    if not file_uuid:
-        return None
-    from backend.services import drupal_sync_service as drupal
-    try:
-        async with drupal._client() as c:
-            r = await c.get(
-                f"/jsonapi/file/file/{file_uuid}",
-                params={"fields[file--file]": "drupal_internal__fid"},
-            )
-        return ((r.json() or {}).get("data") or {}).get("attributes", {}).get("drupal_internal__fid")
-    except Exception as exc:
-        log.warning("drupal: uuid→fid ha fallat: %s", exc)
-        return None
+    """uuid of a Drupal file → its internal fid."""
+    return await drupal_languages.uuid_to_fid(
+        file_uuid,
+        _DRUPAL_LANGUAGE_DEPENDENCIES,
+    )
 
 
 async def _drupal_field_translatable(bundle: str, field_name: str) -> bool:
-    """True if the bundle's field is TRANSLATABLE in Drupal (cache). If so, each
-    translation needs its own value (e.g. field_image with its own alt)."""
-    key = f"{bundle}.{field_name}"
-    if key in _DRUPAL_FIELD_TRANSLATABLE_CACHE:
-        return _DRUPAL_FIELD_TRANSLATABLE_CACHE[key]
-    from backend.services import drupal_sync_service as drupal
-    val = False
-    try:
-        async with drupal._client() as c:
-            r = await c.get(
-                "/jsonapi/field_config/field_config",
-                params={
-                    "filter[field_name]": field_name, "filter[bundle]": bundle,
-                    "fields[field_config--field_config]": "translatable",
-                },
-            )
-        data = (r.json() or {}).get("data") or []
-        if data:
-            val = bool(data[0].get("attributes", {}).get("translatable"))
-    except Exception as exc:
-        log.warning("drupal: could not read 'translatable' for %s: %s", field_name, exc)
-    _DRUPAL_FIELD_TRANSLATABLE_CACHE[key] = val
-    return val
+    """True if the bundle's field is translatable in Drupal (cache)."""
+    drupal_languages.language_state.field_translatable = (
+        _DRUPAL_FIELD_TRANSLATABLE_CACHE
+    )
+    return await drupal_languages.field_translatable(
+        bundle,
+        field_name,
+        _DRUPAL_LANGUAGE_DEPENDENCIES,
+        drupal_languages.language_state,
+    )
 
 
 def _drupal_image_mapping(mapping, field_meta):
-    """(ref_prop, drupal_field) of the first image/file field in the mapping, or (None, None)."""
-    for ref, dfield in (mapping or {}).items():
-        if dfield and (field_meta.get(dfield) or {}).get("type") in ("image", "file"):
-            return ref, dfield
-    return None, None
+    """First mapped image/file property and Drupal field."""
+    return drupal_languages.image_mapping(mapping, field_meta)
 
 
 def _drupal_row_image_alt(metadata, props_by_ref, image_ref) -> str:
-    """Image alt text for a row: from the {src,alt} composite, or from an orphaned 'Alt'
-    field (unmigrated rows), or the title as a fallback."""
-    if image_ref:
-        prop = props_by_ref.get(image_ref)
-        if prop:
-            val = _drupal_read_prop_value(metadata, prop)
-            if isinstance(val, dict) and val.get("alt"):
-                return str(val["alt"])
-    for k, v in (metadata or {}).items():
-        if "alt" in str(k).lower() and isinstance(v, str) and v.strip():
-            return v.strip()
-    return str((metadata or {}).get("title") or "")
+    """Image alt text for a row with legacy fallbacks."""
+    return drupal_languages.row_image_alt(
+        metadata,
+        props_by_ref,
+        image_ref,
+        lambda page_metadata, prop: _drupal_read_prop_value(page_metadata, prop),
+    )
 
 
 async def _drupal_row_text_fields(page_id, *, mapping, props_by_ref, field_meta, bundle, term_cache, image_cache):
-    """Reads a row and builds its TEXT fields (for add_translation).
-    Returns (fields, langcode) or (None, None) if it can't be read."""
-    fp = await asyncio.to_thread(find_page_path, page_id)
-    if not fp or not fp.exists():
-        return None, None, None
-    await _materialize_if_online_only(fp, "drupal-sync")
-    raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
-    meta, bdy = parse_frontmatter(raw, fp)
-    # Derived fields (`type:'virtual'`, e.g. «Progress») aren't saved to the .md:
-    # they're injected on read so the sync can map them to Drupal.
-    _vf_table = _table_by_id(get_table_id(meta))
-    if _vf_table:
-        await asyncio.to_thread(
-            _vf_inject_for_single_page, _vf_table, str(meta.get("id") or page_id),
-            meta, _vf_page_loader,
-        )
-    fields, _, _ = await _drupal_build_fields(
-        mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
-        metadata=meta, body=bdy, bundle=bundle,
-        term_cache=term_cache, image_cache=image_cache, text_only=True,
+    """Reads a row and builds its text fields for add_translation."""
+    return await drupal_service.row_text_fields(
+        page_id,
+        mapping=mapping,
+        props_by_ref=props_by_ref,
+        field_meta=field_meta,
+        bundle=bundle,
+        term_cache=term_cache,
+        image_cache=image_cache,
+        dependencies=_drupal_sync_dependencies(),
     )
-    if fields and not fields.get("title"):
-        fields["title"] = str(meta.get("title") or "Sense títol")
-    return fields, (await _drupal_resolve_langcode(meta)), meta
 
 
 async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks, publish: bool = True, scope: str = "all", push_media: bool = False) -> dict:
     """Creates or updates a row's Drupal node.
 
     ``scope``:
-      - ``"all"``: this row's language + all translations (subitems) and
-        sibling rows (same node, one record per language).
+      - ``"all"``: this row's language + all translations and sibling rows.
       - ``"lang_only"``: only this row's language.
-    Creating a new node uploads image/tags; updating only touches the TEXT of
-    the corresponding language (``add_translation``), without re-uploading the image.
-    With ``push_media`` the image (and its alt) is also re-uploaded and re-linked
-    when updating an already existing node.
-    With ``publish=False`` the new node is created unpublished.
-    
     """
-    from backend.services import drupal_sync_service as drupal
-
-    file_path = await asyncio.to_thread(find_page_path, item_id)
-    if not file_path or not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"Page not found (ID: {item_id})")
-    await _materialize_if_online_only(file_path, "drupal-sync")
-    raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
-    metadata, body = parse_frontmatter(raw_content, file_path)
-
-    table_id = get_table_id(metadata)
-    table = _table_by_id(table_id) if table_id else None
-    if not table:
-        raise HTTPException(status_code=400, detail="Row is not part of a table")
-    if not table.get("drupal_sync_enabled"):
-        raise HTTPException(status_code=400, detail="Drupal sync is not enabled on this table")
-    # Injects derived fields (e.g. «Progress») before building the Drupal fields.
-    await asyncio.to_thread(
-        _vf_inject_for_single_page, table, str(metadata.get("id") or item_id),
-        metadata, _vf_page_loader,
+    return await drupal_service.sync_drupal_row(
+        item_id,
+        background_tasks=background_tasks,
+        publish=publish,
+        scope=scope,
+        push_media=push_media,
+        dependencies=_drupal_sync_dependencies(),
     )
-    # action_rules safeguard («a draft cannot be synced»): the
-    # backend always revalidates what the frontend already shows as a disabled button.
-    _ok, _reason = action_rules_service.check_requires(
-        table, action_rules_service.ACTION_SYNC_DRUPAL, metadata
-    )
-    if not _ok:
-        raise HTTPException(status_code=409, detail=_reason)
-    bundle = (table.get("drupal_bundle") or "").strip()
-    mapping = table.get("drupal_field_mapping") or {}
-    if not bundle or not mapping:
-        raise HTTPException(status_code=400, detail="Drupal content type or field mapping not configured")
-
-    props_by_ref = _drupal_props_by_ref(table)
-    try:
-        drupal_fields = await drupal.list_fields(bundle)
-    except drupal.DrupalSyncError as exc:
-        raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
-    field_meta: Dict[str, dict] = {}
-    for f in drupal_fields:
-        ftype = f.get("field_type")
-        vocab = None
-        if ftype == "entity_reference":
-            tbs = f.get("target_bundles") or []
-            vocab = tbs[0] if tbs else "tags"
-        field_meta[f["field_name"]] = {"type": ftype, "vocab": vocab}
-    term_cache: Dict[str, str] = {}
-    image_cache: Dict[str, str] = {}
-
-    source_lang = await _drupal_resolve_langcode(metadata)
-    skipped_fields: list = []
-    languages: list = []
-
-    # TEXT fields of this row (to update its language without re-uploading
-    # the image). The full build (image/tags) is only done when CREATING the node.
-    text_attrs, _, _ = await _drupal_build_fields(
-        mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
-        metadata=metadata, body=body, bundle=bundle,
-        term_cache=term_cache, image_cache=image_cache, text_only=True,
-    )
-    if not text_attrs.get("title"):
-        text_attrs["title"] = str(metadata.get("title") or "Sense títol")
-
-    # TRANSLATABLE field_image: prepares a shared file (uploaded once, from the
-    # main record) to set it on EACH translation with its own alt. If
-    # the field isn't translatable, Drupal shares it automatically and there's no need to do it per language.
-    image_ref, image_field = _drupal_image_mapping(mapping, field_meta)
-    shared_img_fid = None
-    if image_field and await _drupal_field_translatable(bundle, image_field):
-        main_img = _drupal_read_prop_value(metadata, props_by_ref.get(image_ref)) if image_ref else None
-        if main_img not in (None, "", [], {}):
-            try:
-                rel = await _drupal_upload_field_image(main_img, bundle, image_field, metadata, image_cache)
-                if rel:
-                    shared_img_fid = await _drupal_uuid_to_fid(rel.get("data", {}).get("id"))
-            except Exception as exc:
-                skipped_fields.append({"field": image_field, "reason": f"image(trad): {exc}"})
-
-    def _img_field(meta):
-        """field_image for a translation: shared file + this row's alt."""
-        if not (shared_img_fid and image_field):
-            return {}
-        return {image_field: {"target_id": shared_img_fid, "alt": _drupal_row_image_alt(meta, props_by_ref, image_ref)}}
-
-    drupal_uuid = (str(metadata.get("drupal_uuid") or "")).strip() or None
-    prev_url = (str(metadata.get("drupal_url") or "")).strip() or None
-    nid = None
-    url = None
-    created = False
-    # Avoids DUPLICATES: if the row isn't linked but a node with the
-    # exact same title already exists, link to it (and update) instead of creating a
-    # new one (which Drupal would disambiguate with a '-0' alias). If there's >1 (there's already a
-    # duplicate), we don't auto-disambiguate: it falls back to creating and needs manual cleanup.
-    if not drupal_uuid:
-        title_txt = str(metadata.get("title") or "").strip()
-        try:
-            matches = await drupal.find_nodes_by_title(bundle, title_txt) if title_txt else []
-        except drupal.DrupalSyncError:
-            matches = []
-        if len(matches) == 1:
-            drupal_uuid = matches[0]["uuid"]
-            nid = matches[0].get("nid")
-            url = matches[0].get("url")
-            log.info("sync-drupal: '%s' linked by title to node %s (avoids duplicate)", title_txt[:40], nid)
-    try:
-        if drupal_uuid:
-            # Updates ONLY this row's language (text), at the correct langcode.
-            try:
-                r = await drupal.add_translation(drupal_uuid, source_lang, {**text_attrs, **_img_field(metadata)})
-                nid = r.get("nid")
-                url = prev_url or (f"{drupal.base_url()}/node/{nid}" if nid else prev_url)
-                languages.append(source_lang)
-            except drupal.DrupalNotFound:
-                drupal_uuid = None  # stale uuid → create anew
-        if not drupal_uuid:
-            # NEW node: full build (image/tags/body) in the row's language.
-            full_attrs, relationships, skipped_fields = await _drupal_build_fields(
-                mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
-                metadata=metadata, body=body, bundle=bundle,
-                term_cache=term_cache, image_cache=image_cache,
-            )
-            if not full_attrs.get("title"):
-                full_attrs["title"] = str(metadata.get("title") or "Sense títol")
-            create_attrs = full_attrs if publish else {**full_attrs, "status": False}
-            res = await drupal.create_node(bundle, create_attrs, relationships, langcode=source_lang)
-            drupal_uuid = res.get("uuid")
-            nid = res.get("nid")
-            url = res.get("url")
-            created = True
-            languages.append(source_lang)
-    except drupal.DrupalSyncError as exc:
-        msg = str(exc)
-        # Common case: the article requires `field_image` but the image couldn't
-        # be prepared (too large even after reducing, missing, or invalid format).
-        # Clear message instead of Drupal's raw 422/502.
-        if "field_image" in msg:
-            img_reason = next(
-                (s.get("reason") for s in (skipped_fields or [])
-                 if "image" in str(s.get("reason", ""))),
-                None,
-            )
-            detail = "This article needs a valid image smaller than 2 MB before it can be published to Drupal."
-            if img_reason:
-                detail += f" Detail: {img_reason}"
-            raise HTTPException(status_code=400, detail=detail)
-        raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
-
-    # --- Re-push media (image/file) and tags on UPDATE ---
-    # On create, media and tags are already included; the text update path doesn't
-    # touches. With push_media they are re-uploaded/rewritten via update_node (shared fields
-    # between translations → it's enough to do it once for the node). Detection of
-    # change: only re-uploaded if the media/tags signature differs from the last sync,
-    # to avoid needlessly re-uploading and creating+deleting files in Drupal on every touch.
-    media_pushed = False
-    cur_media_sig = None
-    if push_media and drupal_uuid and not created:
-        cur_media_sig = _drupal_media_signatures(mapping, props_by_ref, field_meta, metadata)
-        prev_media_sig = metadata.get("drupal_media_sig") or {}
-        if cur_media_sig != prev_media_sig:
-            _ma, media_rels, media_skipped = await _drupal_build_fields(
-                mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
-                metadata=metadata, body=body, bundle=bundle,
-                term_cache=term_cache, image_cache=image_cache, media_only=True,
-            )
-            if media_skipped:
-                skipped_fields.extend(media_skipped)
-            if media_rels:
-                try:
-                    await drupal.update_node(drupal_uuid, bundle, {}, media_rels)
-                    media_pushed = True
-                except drupal.DrupalSyncError as exc:
-                    skipped_fields.append({"field": "media", "reason": str(exc)})
-
-    # --- "whole node" scope: translations (subitems) + sibling rows ---
-    translations: list = []
-    if scope == "all" and drupal_uuid:
-        # 1) Translations as subitems (parent + child subitems).
-        existing = await _get_existing_translations(item_id)
-        for lang, page in (existing or {}).items():
-            sub_id = getattr(page, "id", None)
-            if not sub_id:
-                continue
-            tfields, tlang, tmeta = await _drupal_row_text_fields(
-                sub_id, mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
-                bundle=bundle, term_cache=term_cache, image_cache=image_cache)
-            tlang = tlang or lang  # REAL Drupal langcode (e.g. en-gb, not en)
-            if not tfields:
-                translations.append({"lang": tlang, "status": "skipped (sense text)"})
-                continue
-            try:
-                await drupal.add_translation(drupal_uuid, tlang, {**tfields, **_img_field(tmeta)})
-                translations.append({"lang": tlang, "status": "ok"})
-                languages.append(tlang)
-            except drupal.DrupalSyncError as exc:
-                translations.append({"lang": tlang, "status": f"error: {exc}"})
-        # 2) Sibling rows: other records of the same node (one per language).
-        siblings = await asyncio.to_thread(_drupal_sibling_rows, table_id, nid, item_id)
-        for sib in siblings:
-            tfields, sib_lang, smeta = await _drupal_row_text_fields(
-                sib.id, mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
-                bundle=bundle, term_cache=term_cache, image_cache=image_cache)
-            if not tfields or not sib_lang:
-                continue
-            try:
-                await drupal.add_translation(drupal_uuid, sib_lang, {**tfields, **_img_field(smeta)})
-                translations.append({"lang": sib_lang, "row": sib.id, "status": "ok"})
-                languages.append(sib_lang)
-            except drupal.DrupalSyncError as exc:
-                translations.append({"lang": sib_lang, "row": sib.id, "status": f"error: {exc}"})
-
-    # --- Writes identity to the row (visible columns + hidden metadata) ---
-    meta_update = _drupal_identity_meta(table, drupal_uuid, nid, url)
-    # action_rules effect on success: Status → «Published to Drupal» (decision §9.3
-    # from the directive). Travels in the same patch as the identity.
-    _eprop, _evalue, _echanged = action_rules_service.status_effect(
-        table, action_rules_service.ACTION_SYNC_DRUPAL, "source"
-    )
-    if _eprop and _evalue is not None:
-        if _echanged:
-            _ensure_status_options_persisted(table_id, [_evalue])
-        meta_update[action_rules_service.effect_write_key(metadata, _eprop)] = _evalue
-    # Saves the media/tags signature for the next sync's change detection,
-    # EXCLUDING the fields that failed (skipped) so they get retried and don't remain
-    # marked as synced without actually having been uploaded.
-    if cur_media_sig is not None:
-        _failed = {s.get("field") for s in (skipped_fields or []) if s.get("field")}
-        meta_update["drupal_media_sig"] = {k: v for k, v in cur_media_sig.items() if k not in _failed}
-    try:
-        await patch_page(item_id, PagePatchRequest(metadata=meta_update), background_tasks)
-    except Exception as exc:
-        log.error(f"sync-drupal: failed writing identity back to {item_id}: {exc}")
-
-    return {
-        "item_id": item_id,
-        "uuid": drupal_uuid,
-        "nid": nid,
-        "url": url,
-        "created": created,
-        "media_pushed": media_pushed,
-        "source_lang": source_lang,
-        "scope": scope,
-        "languages": sorted(set(languages)),
-        "translations": translations,
-        "skipped_fields": skipped_fields,
-    }
 
 
 # --- Sync with Drupal --------------------------------------------
@@ -11792,68 +10994,11 @@ async def match_drupal_rows(background_tasks: BackgroundTasks, payload: dict = B
     Body: ``{table_id, bundle?, item_ids?, dry_run?}``.
     
     """
-    from backend.services import drupal_sync_service as drupal
-
-    table_id = (payload.get("table_id") or "").strip()
-    if not table_id:
-        raise HTTPException(status_code=400, detail="table_id is required")
-    table = _table_by_id(table_id)
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
-    bundle = (payload.get("bundle") or table.get("drupal_bundle") or "").strip()
-    if not bundle:
-        raise HTTPException(status_code=400, detail="Drupal bundle not configured (pass `bundle` or enable sync)")
-    dry_run = bool(payload.get("dry_run", True))
-    only_ids = payload.get("item_ids")
-    wanted = set(str(i) for i in only_ids) if isinstance(only_ids, list) and only_ids else None
-
-    rows = await asyncio.to_thread(_get_pages_for_table, table_id)
-
-    matched: list = []
-    unmatched: list = []
-    ambiguous: list = []
-    for p in rows:
-        if wanted is not None and p.id not in wanted:
-            continue
-        md = p.metadata or {}
-        if md.get("translation_lang"):
-            continue  # translation subitem: covered by the parent node
-        if str(md.get("drupal_uuid") or "").strip():
-            continue  # Already linked.
-        title = (p.title or md.get("title") or "").strip()
-        if not title:
-            continue
-        try:
-            found = await drupal.find_nodes_by_title(bundle, title)
-        except drupal.DrupalSyncError as exc:
-            unmatched.append({"row_id": p.id, "title": title, "reason": str(exc)})
-            continue
-        if len(found) == 1:
-            m = found[0]
-            entry = {"row_id": p.id, "title": title, "nid": m["nid"], "url": m["url"], "uuid": m["uuid"]}
-            if not dry_run:
-                try:
-                    meta = _drupal_identity_meta(table, m["uuid"], m["nid"], m["url"])
-                    await patch_page(p.id, PagePatchRequest(metadata=meta), background_tasks)
-                    entry["applied"] = True
-                except Exception as exc:
-                    entry["applied"] = False
-                    entry["error"] = str(exc)
-            matched.append(entry)
-        elif not found:
-            unmatched.append({"row_id": p.id, "title": title})
-        else:
-            ambiguous.append({"row_id": p.id, "title": title, "nids": [m["nid"] for m in found]})
-
-    return {
-        "status": "ok",
-        "dry_run": dry_run,
-        "bundle": bundle,
-        "counts": {"matched": len(matched), "unmatched": len(unmatched), "ambiguous": len(ambiguous)},
-        "matched": matched,
-        "unmatched": unmatched,
-        "ambiguous": ambiguous,
-    }
+    return await drupal_matching.match_drupal_rows(
+        background_tasks,
+        payload,
+        _drupal_matching_dependencies(),
+    )
 
 
 @router.post(
@@ -12087,149 +11232,11 @@ async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body
     blocks, wikilinks, citations, bibliography, transclusions) are preserved by the
     `translate_page` skill's segmenter. Mirrors `translate_row` but for whole documents.
     """
-    page_id = (payload.get("page_id") or "").strip()
-    target_languages = payload.get("target_languages") or []
-    button_action = payload.get("button_action") or "translate_page"
-
-    if not page_id:
-        raise HTTPException(status_code=400, detail="page_id is required")
-    if not isinstance(target_languages, list) or not target_languages:
-        raise HTTPException(status_code=400, detail="target_languages must be a non-empty list")
-    if button_action != "translate_page":
-        raise HTTPException(status_code=400, detail=f"Unsupported button_action: {button_action}")
-
-    # Defer the import so a missing dependency doesn't break the whole API —
-    # translation is opt-in per page.
-    try:
-        from pipeline.skills.translate_page.scripts.markdown_segmenter import (
-            translate_markdown as _translate_markdown,
-            translate_title as _translate_title,
-            detect_source_lang as _detect_source_lang,
-        )
-    except Exception as exc:
-        log.error(f"translate_page skill not importable: {exc}")
-        raise HTTPException(status_code=500, detail="translate_page skill unavailable")
-
-    # Read the DeepL API key from the Keychain (same source as translate_row).
-    deepl_api_key = ""
-    try:
-        from backend.security.keychain_manager import get_keychain
-        kc = get_keychain()
-        if kc.has_credential("deepl_api_key"):
-            deepl_api_key = kc.get_credential("deepl_api_key") or ""
-    except Exception as exc:
-        log.warning(f"translate_page: keychain unavailable, using env fallback: {exc}")
-
-    # 1. Locate and read the source page.
-    file_path = await asyncio.to_thread(find_page_path, page_id)
-    if not file_path or not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"Page not found (ID: {page_id})")
-    raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
-    metadata, body = parse_frontmatter(raw_content, file_path)
-    parent_title = str(metadata.get("title") or "")
-
-    # 2. Source language: the record's "Language" field governs (if the page is a
-    # table record and has one); otherwise heuristics on the body/title.
-    source_lang = detect_record_source_lang(metadata)
-    if not source_lang:
-        sample = body.strip() if body and body.strip() else parent_title
-        source_lang = _detect_source_lang(sample) if sample else "en"
-
-    # Sync worker run off the event loop: each segment is a blocking HTTP call.
-    def _translate_page_content(src_lang: str, tgt_lang: str):
-        providers = set()
-        t_title, title_provider = _translate_title(
-            parent_title, src_lang, tgt_lang, deepl_api_key=deepl_api_key
-        )
-        if title_provider != "noop":
-            providers.add(title_provider)
-        t_body, body_providers = _translate_markdown(
-            body, src_lang, tgt_lang, deepl_api_key=deepl_api_key
-        )
-        providers |= {p for p in body_providers if p != "noop"}
-        return t_title, t_body, providers
-
-    # 3. Translate per language and create (or idempotently update) one child page each.
-    existing_translations = await _get_existing_translations(page_id)
-    created = []
-    updated = []
-    skipped = []
-
-    for lang in target_languages:
-        if not isinstance(lang, str) or not lang.strip():
-            continue
-        lang = lang.strip().lower()
-        if lang == source_lang:
-            skipped.append({"lang": lang, "reason": "same as source"})
-            continue
-
-        try:
-            translated_title, translated_body, providers_used = await asyncio.to_thread(
-                _translate_page_content, source_lang, lang
-            )
-        except Exception as exc:
-            log.error(f"translate_page: failed translating page {page_id} → {lang}: {exc}")
-            skipped.append({"lang": lang, "reason": f"translate failed: {exc}"})
-            continue
-
-        sub_title = translated_title or (f"{parent_title} ({lang})" if parent_title else lang)
-        sub_metadata: Dict[str, Any] = {
-            "translation_lang": lang,
-            "translation_source_lang": source_lang,
-            "translation_origin_id": page_id,
-            # A fresh translation is, by definition, up to date with the origin.
-            "translation_stale": False,
-            "translation_provider": (
-                "mixed" if len(providers_used) > 1 else next(iter(providers_used), "noop")
-            ),
-        }
-
-        existing = existing_translations.get(lang)
-        existing_id = getattr(existing, "id", None) if existing is not None else None
-        if existing_id:
-            # Idempotent update: refresh the existing subpage's title + body in place.
-            patch_req = PagePatchRequest(
-                title=sub_title, content=translated_body, metadata=sub_metadata
-            )
-            try:
-                await patch_page(existing_id, patch_req, background_tasks)
-                updated.append({
-                    "id": existing_id,
-                    "lang": lang,
-                    "providers": sorted(providers_used),
-                    "title": sub_title,
-                })
-            except Exception as exc:
-                log.error(f"translate_page: failed updating child page for {lang}: {exc}")
-                skipped.append({"lang": lang, "reason": f"update failed: {exc}"})
-            continue
-
-        sub_request = PageSaveRequest(
-            title=sub_title,
-            content=translated_body,
-            parent_id=page_id,
-            metadata=sub_metadata,
-        )
-        try:
-            result = await create_page(sub_request, background_tasks)
-            created.append({
-                "id": result.get("id"),
-                "lang": lang,
-                "providers": sorted(providers_used),
-                "title": sub_title,
-            })
-        except Exception as exc:
-            log.error(f"translate_page: failed creating child page for {lang}: {exc}")
-            skipped.append({"lang": lang, "reason": f"create failed: {exc}"})
-
-    return {
-        "status": "ok",
-        "page_id": page_id,
-        "source_lang": source_lang,
-        "created": created,
-        "updated": updated,
-        "skipped": skipped,
-    }
+    return await translation_page_service.translate_page(
+        background_tasks,
+        payload,
+        _PAGE_TRANSLATION_DEPENDENCIES,
+    )
 
 
 # -----------------------------------------------------------------------------

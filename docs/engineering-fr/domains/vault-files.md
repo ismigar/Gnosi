@@ -19,6 +19,7 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_vault_translation_drupal_domain_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -60,6 +61,20 @@ portables et matérialise les vues avant l'écriture atomique.
 Page lit et écrit, prévisualise, duplication, historique, et les déchets sont implémentés sous `backend/domains/vault`. Ce paquet sépare les schémas de requête stricts, les adaptateurs de route, les services d'application, les dépôts, et le propriétaire unique des caches et verrous de page. Le nouveau comportement de Vault appartient à cette limite de domaine.
 
 `backend/api/vault_routes.py` Il injecte les opérations de plate-forme existantes et les réexportations supportées par les symboles Python, mais il ne possède pas les gestionnaires de pages extraits. La migration préserve les chemins HTTP, les codes d'état, les charges utiles, les dépendances, les rappels d'arrière-plan et le document déterministe OpenAPI. Chaque extraction doit réduire l'allocation de garde-fonte de la façade; il ne peut jamais ajouter une nouvelle exception pour le code sous `backend/domains`.
+
+Le cycle de vie des traductions appartient à
+`backend/domains/vault/translation` : le chargement facultatif des
+fournisseurs, la récupération des fichiers cloud, la traduction des lignes et
+des pages, les effets minimaux de métadonnées et la propagation de l'obsolescence
+sont des services typés séparés. La publication des lignes vers Drupal
+appartient à `backend/domains/vault/drupal`, qui sépare le mappage des champs et
+de l'identité, la préparation des médias locaux, la conversion de Markdown et
+des wikilinks, les caches de langues, la correspondance par titre et la
+synchronisation idempotente des nœuds. La façade conserve les décorateurs et
+docstrings FastAPI d'origine ainsi que les seams Python résolus tardivement,
+tandis que le connecteur Drupal reste la frontière de transport externe. Les
+routes, payloads, codes d'état, tâches d'arrière-plan et l'ordre des routes ne
+changent pas.
 
 ## Index et caches
 
