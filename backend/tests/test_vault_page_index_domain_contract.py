@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 
 from backend.api import vault_routes
-from backend.domains.vault.pages import index_entries, index_service, resolver
+from backend.domains.vault.pages import index_entries, index_service, resolver, tags
+from backend.domains.vault.schemas.pages import PageInfo
 
 
 def test_legacy_facade_exports_canonical_page_index_callables() -> None:
@@ -19,10 +20,86 @@ def test_legacy_facade_exports_canonical_page_index_callables() -> None:
 
 
 def test_page_index_domain_does_not_import_the_http_facade() -> None:
-    for module in (index_entries, index_service, resolver):
+    for module in (index_entries, index_service, resolver, tags):
         source_path = Path(module.__file__ or "")
         assert source_path.is_file()
         assert "backend.api.vault_routes" not in source_path.read_text(encoding="utf-8")
+
+
+def test_tag_query_deduplicates_sources_and_excludes_templates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pages = [
+        PageInfo(
+            id="page-1",
+            title="First",
+            metadata={
+                "tags": "research, shared",
+                "database_table_id": "table-1",
+                "semantic-tags": ["shared", "alpha"],
+            },
+            last_modified="2026-08-27T00:00:00Z",
+            size=1,
+        ),
+        PageInfo(
+            id="page-2",
+            title="Second",
+            metadata={"tags": ["research"]},
+            last_modified="2026-08-27T00:00:00Z",
+            size=1,
+        ),
+        PageInfo(
+            id="template",
+            title="Template",
+            metadata={"tags": ["research"], "is_template": True},
+            last_modified="2026-08-27T00:00:00Z",
+            size=1,
+        ),
+    ]
+    monkeypatch.setattr(
+        vault_routes,
+        "load_registry",
+        lambda: {
+            "tables": [
+                {
+                    "id": "table-1",
+                    "properties": [
+                        {
+                            "id": "semantic-tags",
+                            "name": "Labels",
+                            "type": "multi_select",
+                            "config": {"role": "tags"},
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+
+    response = tags.aggregate_tags(pages)
+
+    assert response == {
+        "tags": [
+            {
+                "name": "research",
+                "count": 2,
+                "pages": [
+                    {"id": "page-1", "title": "First"},
+                    {"id": "page-2", "title": "Second"},
+                ],
+            },
+            {
+                "name": "alpha",
+                "count": 1,
+                "pages": [{"id": "page-1", "title": "First"}],
+            },
+            {
+                "name": "shared",
+                "count": 1,
+                "pages": [{"id": "page-1", "title": "First"}],
+            },
+        ]
+    }
 
 
 def test_page_resolver_finds_canonical_uuid_during_cold_scan(

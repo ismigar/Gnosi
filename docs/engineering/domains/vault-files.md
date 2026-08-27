@@ -91,7 +91,9 @@ not remove the rest of the vault from a response.
 `pages/index_entries.py` owns bounded front-matter reads, cloud-lock retries and
 cache-entry normalization. `pages/index_service.py` owns discovery, refresh,
 reverse-ID maps and deduplicated snapshots. `pages/resolver.py` owns stable-ID,
-canonical UUID, indexed-title and bounded cold-scan resolution. The
+canonical UUID, indexed-title and bounded cold-scan resolution.
+`pages/tags.py` owns the provider-neutral aggregation of front-matter and
+semantic table tags, including per-page deduplication. The
 compatibility router injects the active-vault, registry, calendar and cache
 ports, so none of these services imports the HTTP facade.
 

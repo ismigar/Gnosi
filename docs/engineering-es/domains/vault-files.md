@@ -64,7 +64,9 @@ frontmatter, los reintentos ante bloqueos del proveedor y la normalización de
 entradas de caché. `pages/index_service.py` gestiona el descubrimiento, la
 actualización, el mapa inverso de identificadores y los snapshots deduplicados.
 `pages/resolver.py` resuelve identificadores estables, UUID canónicos, títulos
-indexados y análisis en frío acotados. La fachada inyecta los puertos de bóveda
+indexados y análisis en frío acotados. `pages/tags.py` agrega las etiquetas del
+frontmatter y de las columnas semánticas de tablas, deduplicadas por página. La
+fachada inyecta los puertos de bóveda
 activa, registro, calendario y caché; estos servicios no importan las rutas
 HTTP.
 

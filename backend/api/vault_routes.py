@@ -138,6 +138,7 @@ from backend.domains.vault.pages.state import page_state
 from backend.domains.vault.pages import index_entries as page_index_entries
 from backend.domains.vault.pages import index_service as page_index_service
 from backend.domains.vault.pages import resolver as page_resolver
+from backend.domains.vault.pages import tags as tags_query
 from backend.domains.vault.pages.index_entries import (
     build_cache_entry_from_memory as _build_cache_entry_from_memory,
     build_page_cache_entry as _build_page_cache_entry,
@@ -3329,11 +3330,7 @@ async def get_or_create_daily_note(
 
 def _extract_tags(raw) -> list:
     """Normalizes a `tags` frontmatter value (list or CSV string) to a list."""
-    if isinstance(raw, str):
-        return [t.strip() for t in raw.split(",") if t.strip()]
-    if isinstance(raw, list):
-        return [str(t).strip() for t in raw if str(t).strip()]
-    return []
+    return tags_query.extract_tags(raw)
 
 
 @router.get("/tags")
@@ -3353,57 +3350,7 @@ async def list_vault_tags():
     sides (e.g. the same tag in the frontmatter and in the table column).
     
     """
-    pages = await asyncio.to_thread(_get_pages_snapshot)
-
-    # Tags field per table (id + property name), resolved once from
-    # from the registry so the page loop stays O(pages). Only
-    # tables with a property of role ROLE_TAGS take part.
-    tag_fields: dict = {}
-    try:
-        registry = await asyncio.to_thread(load_registry)
-        for t in registry.get("tables", []) or []:
-            prop = option_catalogs_service.find_role_prop(
-                t, option_catalogs_service.ROLE_TAGS
-            )
-            if prop:
-                tag_fields[str(t.get("id"))] = (prop.get("id"), prop.get("name"))
-    except Exception:
-        # If the registry can't be read, we degrade to frontmatter only.
-        tag_fields = {}
-
-    # tag -> {page_id: title}, dedup by id so the same tag in frontmatter and
-    # in the table column doesn't duplicate the page or inflate the count.
-    tag_map: dict = {}
-
-    def _add(tag: str, page) -> None:
-        tag_map.setdefault(tag, {}).setdefault(page.id, page.title)
-
-    for p in pages:
-        meta = p.metadata or {}
-        if meta.get("is_template"):
-            continue
-        for tag in _extract_tags(meta.get("tags")):
-            _add(tag, p)
-        field = tag_fields.get(get_table_id(meta) or "")
-        if field:
-            fid, fname = field
-            raw = meta.get(fid) if fid else None
-            if raw is None and fname:
-                raw = meta.get(fname)
-            for tag in _extract_tags(raw):
-                _add(tag, p)
-
-    result = [
-        {
-            "name": name,
-            "count": len(pgs),
-            "pages": [{"id": pid, "title": title} for pid, title in pgs.items()],
-        }
-        for name, pgs in tag_map.items()
-    ]
-    # Most-used first, then alphabetical for stability.
-    result.sort(key=lambda x: (-x["count"], x["name"].lower()))
-    return {"tags": result}
+    return await tags_query.list_vault_tags()
 
 
 # ---------------------------------------------------------------------------
@@ -9961,6 +9908,18 @@ page_resolver.configure(
         index_initialized=_page_index_initialized,
         id_to_path=_page_id_to_path,
         logger=log,
+    )
+)
+
+tags_query.configure(
+    tags_query.TagQueryDependencies(
+        page_snapshot=lambda: _get_pages_snapshot(),
+        load_registry=lambda: load_registry(),
+        find_role_property=lambda table, role: (
+            option_catalogs_service.find_role_prop(table, role)
+        ),
+        tags_role=option_catalogs_service.ROLE_TAGS,
+        table_id=lambda metadata: get_table_id(metadata),
     )
 )
 
