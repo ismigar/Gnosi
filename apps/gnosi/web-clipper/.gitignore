@@ -1,0 +1,3 @@
+# Build artifacts from build.sh — rebuilt on demand, attached to releases.
+# Same convention as integrations/libreoffice-cite/.gitignore for the .oxt.
+*.zip

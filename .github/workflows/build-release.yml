@@ -1,0 +1,178 @@
+name: Build desktop packages (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.22.2'
+          cache: 'npm'
+          cache-dependency-path: 'apps/gnosi/electron/package-lock.json'
+
+      - name: Install npm dependencies
+        run: |
+          cd apps/gnosi/electron
+          npm ci
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Build frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          cd apps/gnosi/frontend
+          npm install
+          npm run build
+
+      - name: Build Python bundle
+        run: |
+          cd apps/gnosi/electron
+          ./build-python.sh
+
+      - name: Build Electron app (macOS ARM64)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          cd apps/gnosi/electron
+          npm run build:mac
+
+      - name: Verify macOS application signatures
+        run: |
+          cd apps/gnosi/electron
+          for dmg in dist/*.dmg; do
+            mount_dir="$(mktemp -d)"
+            hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg"
+            codesign --verify --deep --strict --verbose=2 "$mount_dir/Gnosi.app"
+            test -f "$mount_dir/Gnosi.app/Contents/Resources/icon.icns"
+            test -f "$mount_dir/Gnosi.app/Contents/Resources/frontend/dist/index.html"
+            hdiutil detach "$mount_dir"
+            rmdir "$mount_dir"
+          done
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-arm64
+          path: |
+            apps/gnosi/electron/dist/*.dmg
+            apps/gnosi/electron/dist/*.zip
+            apps/gnosi/electron/dist/*.blockmap
+            apps/gnosi/electron/dist/latest-mac.yml
+          retention-days: 5
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.22.2'
+          cache: 'npm'
+          cache-dependency-path: 'apps/gnosi/electron/package-lock.json'
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Install npm dependencies
+        run: |
+          cd apps/gnosi/electron
+          npm ci
+
+      - name: Build frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          cd apps/gnosi/frontend
+          npm install
+          npm run build
+
+      - name: Build Python bundle
+        run: |
+          cd apps/gnosi/electron
+          ./build-python.sh
+
+      - name: Build Electron app (Linux)
+        run: |
+          cd apps/gnosi/electron
+          npm run build:linux
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-x64
+          path: |
+            apps/gnosi/electron/dist/*.AppImage
+            apps/gnosi/electron/dist/*.deb
+            apps/gnosi/electron/dist/*.blockmap
+            apps/gnosi/electron/dist/latest-linux.yml
+          retention-days: 5
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.22.2'
+          cache: 'npm'
+          cache-dependency-path: 'apps/gnosi/electron/package-lock.json'
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Install npm dependencies
+        run: |
+          cd apps/gnosi/electron
+          npm ci
+
+      - name: Build frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          cd apps/gnosi/frontend
+          npm install
+          npm run build
+
+      - name: Build Python bundle
+        run: |
+          cd apps/gnosi/electron
+          ./build-python.sh
+
+      - name: Build Electron app (Windows)
+        run: |
+          cd apps/gnosi/electron
+          npm run build:win
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-x64
+          path: |
+            apps/gnosi/electron/dist/*Setup*.exe
+            apps/gnosi/electron/dist/*.blockmap
+            apps/gnosi/electron/dist/latest.yml
+          retention-days: 5

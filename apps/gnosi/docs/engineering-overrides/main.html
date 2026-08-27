@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% set shell_copy = {
+  "en": {
+    "home_url": "https://gnosi.temenosismael.org/index.html",
+    "home_label": "Gnosi home",
+    "features": "Features",
+    "installation": "Installation",
+    "support": "Support",
+    "documentation": "Engineering docs",
+    "navigation": "Gnosi website navigation",
+    "open_navigation": "Open navigation",
+    "language": "Language",
+    "project": "Project",
+    "issues": "Issues",
+    "support_project": "Support the project",
+    "author": "Author",
+    "projects": "Projects",
+    "legal": "Legal",
+    "privacy": "Privacy policy",
+    "license": "AGPL-3.0 license",
+    "tagline": "Your digital second brain. Local-first, open source and sovereign.",
+    "copyright": "Open-source project under the AGPL-3.0 license."
+  },
+  "ca": {
+    "home_url": "https://gnosi.temenosismael.org/index.ca.html",
+    "home_label": "Inici de Gnosi",
+    "features": "Funcionalitats",
+    "installation": "Instal·lació",
+    "support": "Col·labora",
+    "documentation": "Documentació tècnica",
+    "navigation": "Navegació del web de Gnosi",
+    "open_navigation": "Obre la navegació",
+    "language": "Idioma",
+    "project": "Projecte",
+    "issues": "Incidències",
+    "support_project": "Col·labora amb el projecte",
+    "author": "Autor",
+    "projects": "Projectes",
+    "legal": "Legal",
+    "privacy": "Política de privacitat",
+    "license": "Llicència AGPL-3.0",
+    "tagline": "El teu segon cervell digital. Local-first, codi obert i sobirà.",
+    "copyright": "Projecte de codi obert sota la llicència AGPL-3.0."
+  },
+  "es": {
+    "home_url": "https://gnosi.temenosismael.org/index.es.html",
+    "home_label": "Inicio de Gnosi",
+    "features": "Funcionalidades",
+    "installation": "Instalación",
+    "support": "Colabora",
+    "documentation": "Documentación técnica",
+    "navigation": "Navegación del sitio web de Gnosi",
+    "open_navigation": "Abrir la navegación",
+    "language": "Idioma",
+    "project": "Proyecto",
+    "issues": "Incidencias",
+    "support_project": "Colabora con el proyecto",
+    "author": "Autor",
+    "projects": "Proyectos",
+    "legal": "Legal",
+    "privacy": "Política de privacidad",
+    "license": "Licencia AGPL-3.0",
+    "tagline": "Tu segundo cerebro digital. Local-first, código abierto y soberano.",
+    "copyright": "Proyecto de código abierto bajo la licencia AGPL-3.0."
+  },
+  "fr": {
+    "home_url": "https://gnosi.temenosismael.org/index.fr.html",
+    "home_label": "Accueil de Gnosi",
+    "features": "Fonctionnalités",
+    "installation": "Installation",
+    "support": "Contribuer",
+    "documentation": "Documentation technique",
+    "navigation": "Navigation du site Gnosi",
+    "open_navigation": "Ouvrir la navigation",
+    "language": "Langue",
+    "project": "Projet",
+    "issues": "Problèmes",
+    "support_project": "Soutenir le projet",
+    "author": "Auteur",
+    "projects": "Projets",
+    "legal": "Mentions légales",
+    "privacy": "Politique de confidentialité",
+    "license": "Licence AGPL-3.0",
+    "tagline": "Votre second cerveau numérique. Local-first, open source et souverain.",
+    "copyright": "Projet open source sous licence AGPL-3.0."
+  }
+} %}
+{% set shell = shell_copy.get(config.theme.language, shell_copy["en"]) %}
+{% set landing_base = shell.home_url %}
+{% set documentation_url = "https://gnosi.temenosismael.org/engineering/" %}
+{% if config.theme.language == "ca" %}
+  {% set documentation_url = documentation_url ~ "ca/" %}
+{% elif config.theme.language == "es" %}
+  {% set documentation_url = documentation_url ~ "es/" %}
+{% elif config.theme.language == "fr" %}
+  {% set documentation_url = documentation_url ~ "fr/" %}
+{% endif %}
+
+{% block extrahead %}
+  {{ super() }}
+  <link rel="stylesheet" href="/shell.css">
+  <script src="/navigation.js" defer></script>
+  <style>
+    :root {
+      --md-text-font: var(--gnosi-shell-font, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", serif);
+      --md-code-font: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    [data-md-color-scheme="default"] {
+      --md-default-bg-color: var(--gnosi-shell-bg, #f6f3ec);
+      --md-default-fg-color: var(--gnosi-shell-ink, #1e293b);
+      --md-default-fg-color--light: var(--gnosi-shell-muted, #64748b);
+      --md-default-fg-color--lighter: #8290a3;
+      --md-default-fg-color--lightest: var(--gnosi-shell-line, #d6c9b3);
+      --md-code-bg-color: var(--gnosi-shell-card, #fffdf8);
+      --md-code-fg-color: var(--gnosi-shell-ink, #1e293b);
+      --md-typeset-a-color: var(--gnosi-shell-primary, #3b82f6);
+    }
+
+    body,
+    input { font-family: var(--md-text-font); }
+    body { overflow-wrap: anywhere; }
+
+    .md-grid { max-width: var(--gnosi-shell-width, 1100px); }
+    .md-content,
+    .md-content__inner,
+    .md-typeset,
+    .md-typeset__table,
+    .highlight { min-width: 0; }
+
+    .md-typeset img,
+    .md-typeset video,
+    .md-typeset iframe,
+    .md-typeset svg { height: auto; max-width: 100%; }
+
+    .md-typeset__table,
+    .md-typeset pre,
+    .md-typeset .highlight,
+    .md-typeset .mermaid {
+      max-width: 100%;
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+    }
+
+    .md-container,
+    .md-main {
+      background:
+        radial-gradient(circle at 85% 8%, rgb(231 220 200 / 45%) 0, transparent 34rem),
+        var(--gnosi-shell-bg, #f6f3ec);
+    }
+
+    .md-typeset h1,
+    .md-typeset h2,
+    .md-typeset h3,
+    .md-typeset h4 {
+      color: var(--gnosi-shell-ink, #1e293b);
+      font-family: var(--md-text-font);
+      letter-spacing: -0.018em;
+    }
+
+    .md-typeset h2 {
+      border-bottom: 1px solid var(--gnosi-shell-line, #d6c9b3);
+      padding-bottom: 0.35rem;
+    }
+
+    .md-typeset table:not([class]) {
+      background: var(--gnosi-shell-card, #fffdf8);
+      border: 1px solid var(--gnosi-shell-line, #d6c9b3);
+      border-radius: 0.5rem;
+      box-shadow: 0 0.45rem 1.5rem rgb(34 32 28 / 6%);
+      overflow: hidden;
+    }
+
+    .md-typeset table:not([class]) th {
+      background: var(--gnosi-shell-accent, #e7dcc8);
+      color: var(--gnosi-shell-ink, #1e293b);
+    }
+
+    .md-typeset .admonition,
+    .md-typeset details {
+      background: var(--gnosi-shell-card, #fffdf8);
+      border-color: var(--gnosi-shell-line, #d6c9b3);
+      box-shadow: 0 0.35rem 1.2rem rgb(34 32 28 / 6%);
+    }
+
+    .md-typeset code,
+    .md-typeset pre,
+    .md-typeset kbd { font-family: var(--md-code-font); }
+
+    .md-sidebar__scrollwrap,
+    .md-search__form { background: transparent; }
+
+    .md-header {
+      top: var(--gnosi-shell-height, 66px);
+      z-index: 90;
+    }
+
+    @media (max-width: 48rem) {
+      .md-content__inner { margin-inline: 0; }
+      .md-typeset table:not([class]) th,
+      .md-typeset table:not([class]) td { min-width: 8rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block header %}
+  <nav class="navbar" aria-label="{{ shell.navigation }}">
+    <div class="nav-container">
+      <a href="{{ landing_base }}" class="brand" aria-label="{{ shell.home_label }}">
+        <span class="brand-logo" aria-hidden="true">G</span>
+        <span class="logo">Gnosi</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-navigation" aria-label="{{ shell.open_navigation }}">
+        <span class="nav-toggle-icon" aria-hidden="true"></span>
+      </button>
+      <div class="nav-links" id="site-navigation">
+        <a href="{{ landing_base }}#funcionalidades">{{ shell.features }}</a>
+        <a href="{{ landing_base }}#ia">IA</a>
+        <a href="{{ landing_base }}#instalacion">{{ shell.installation }}</a>
+        <a href="{{ landing_base }}#colaborar">{{ shell.support }}</a>
+        <a class="active" href="{{ documentation_url }}" aria-current="page">{{ shell.documentation }}</a>
+        <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+      <div class="lang-switch" aria-label="{{ shell.language }}">
+        {% if config.theme.language == "en" %}<span class="active" aria-current="true">EN</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/" data-language="en">EN</a>{% endif %}
+        {% if config.theme.language == "ca" %}<span class="active" aria-current="true">CA</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/ca/" data-language="ca">CA</a>{% endif %}
+        {% if config.theme.language == "es" %}<span class="active" aria-current="true">ES</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/es/" data-language="es">ES</a>{% endif %}
+        {% if config.theme.language == "fr" %}<span class="active" aria-current="true">FR</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/fr/" data-language="fr">FR</a>{% endif %}
+      </div>
+    </div>
+  </nav>
+  {{ super() }}
+{% endblock %}
+
+{% block footer %}
+  {{ super() }}
+  <footer class="gnosi-shell-footer">
+    <div class="footer-content">
+      <div class="footer-brand">
+        <a class="brand" href="{{ landing_base }}">
+          <span class="brand-logo" aria-hidden="true">G</span>
+          <span class="logo">Gnosi</span>
+        </a>
+        <p>{{ shell.tagline }}</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>{{ shell.project }}</h4>
+          <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="{{ documentation_url }}">{{ shell.documentation }}</a>
+          <a href="https://github.com/ismigar/Gnosi/issues" target="_blank" rel="noopener noreferrer">{{ shell.issues }}</a>
+          <a href="{{ landing_base }}#colaborar">{{ shell.support_project }}</a>
+        </div>
+        <div class="footer-col">
+          <h4>{{ shell.author }}</h4>
+          <a href="https://github.com/ismigar" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://ismigar.github.io/Projectes" target="_blank" rel="noopener noreferrer">{{ shell.projects }}</a>
+        </div>
+        <div class="footer-col">
+          <h4>{{ shell.legal }}</h4>
+          <a href="https://gnosi.temenosismael.org/privacy.html">{{ shell.privacy }}</a>
+          <a href="https://github.com/ismigar/Gnosi/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">{{ shell.license }}</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2024–2026 Ismael Garcia Fernandez · {{ shell.copyright }}</p>
+    </div>
+  </footer>
+{% endblock %}
