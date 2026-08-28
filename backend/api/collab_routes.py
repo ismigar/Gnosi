@@ -29,41 +29,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-# Optional identity via JWT. If the auth module is present (auth PR
-# merged), we trust the session cookie over the user_id received via
-# query. If it isn't present yet in this installation, collaboration works
-# just the same with identity via query (personal/legacy mode). This way this
-# module doesn't hard-depend on auth and can be deployed independently.
-try:
-    from backend.data.management_db import get_mgmt_db
-    from backend.services.auth_service import (
-        COOKIE_NAME,
-        decode_access_token,
-        require_auth_enabled,
-        resolve_identity,
-    )
-except ImportError:  # pragma: no cover
-    COOKIE_NAME = "gnosi_session"
-
-    def decode_access_token(_token):
-        return None
-
-    def require_auth_enabled():
-        # Keeping the module's "no hard dependency on auth" contract: without
-        # auth_service there is nothing to enforce with, so behave as before.
-        return False
-
-    # Unreachable while require_auth_enabled() is False, but defined so the
-    # module still imports cleanly without auth_service.
-    def resolve_identity(_conn, _db):
-        return None
-
-    def get_mgmt_db():
-        yield None
+from backend.services.auth_service import (
+    COOKIE_NAME,
+    decode_access_token,
+    require_auth_enabled,
+    resolve_identity,
+)
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +50,7 @@ class _Peer:
 
     __slots__ = ("ws", "user_id", "name")
 
-    def __init__(self, ws: WebSocket, user_id: str, name: str):
+    def __init__(self, ws: WebSocket, user_id: str, name: str) -> None:
         self.ws = ws
         self.user_id = user_id
         self.name = name
@@ -131,7 +106,11 @@ class CollabManager:
     def peers(self, page_id: str) -> List[_Peer]:
         return list(self._rooms.get(page_id, set()))
 
-    def presence_payload(self, room: str, page_id: Optional[str] = None) -> dict:
+    def presence_payload(
+        self,
+        room: str,
+        page_id: Optional[str] = None,
+    ) -> dict[str, Any]:
         """List of unique users present (a user can have 2 tabs).
         `room` is the internal key (vault+page_id); `page_id` is the real value
         shown in the message (without the vault prefix)."""
@@ -141,7 +120,12 @@ class CollabManager:
         users = [{"id": uid, "name": nm} for uid, nm in seen.items()]
         return {"type": "presence", "page_id": page_id or room, "users": users, "count": len(users)}
 
-    async def broadcast(self, page_id: str, message: dict, exclude: Optional[_Peer] = None) -> None:
+    async def broadcast(
+        self,
+        page_id: str,
+        message: dict[str, Any],
+        exclude: Optional[_Peer] = None,
+    ) -> None:
         """Sends a JSON message to all peers on the page.
 
         Peers for which sending fails (dead connection) are removed so they
@@ -196,7 +180,7 @@ async def collab_ws(
     page_id: str,
     user_id: str = Query(default="anon"),
     name: str = Query(default="Anònim"),
-):
+) -> None:
     # Enforcement is applied here rather than by the app-wide gate: refusing a
     # WebSocket means closing it with a code, which an HTTPException cannot
     # express. This socket carries CRDT updates that persist to the page, so

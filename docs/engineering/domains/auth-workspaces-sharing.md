@@ -61,6 +61,12 @@ their boundaries. `python-jose` stubs are locked in the development dependency
 group, and the remaining legacy ORM timestamp mutation is isolated with
 `setattr` until column declarations move fully to `Mapped[]`.
 
+The collaboration WebSocket imports the same typed identity service as HTTP.
+Authentication policy—not optional module availability—decides whether a
+credential is required, so personal mode remains frictionless while org mode
+and PAT clients share one resolver. Closing before acceptance still reports
+policy violation, and room keys retain their Vault namespace.
+
 ## Authorization model
 
 ```mermaid
