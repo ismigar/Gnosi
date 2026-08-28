@@ -12,6 +12,7 @@ source_paths:
   - backend/services/page_sidecar.py
   - backend/services/field_resolver.py
   - backend/services/translation_helpers.py
+  - backend/services/relation_sync.py
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
   - frontend/src/pages/VaultDashboard.jsx
@@ -29,6 +30,7 @@ tests:
   - backend/tests/test_vault_assets_files_containment.py
   - backend/tests/test_vault_assets_files_route_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_relation_sync.py
   - backend/tests/test_translation_helpers.py
   - backend/tests/test_vault_templates.py
   - backend/tests/test_vault_templates_routes.py
@@ -176,7 +178,10 @@ parsed-frontmatter caches. The router only supplies the active cache paths,
 parser and safe JSON writer, so cache behavior is independent of the file provider.
 `links/relation_sync.py` owns the idempotent filesystem and cache updates for
 direct-to-inverse relation changes. Pure schema matching remains a separate
-rule port, while the compatibility router supplies late-bound page IO.
+typed rule port: it resolves relation fields by normalized current names and
+aliases, requires one unambiguous inverse field, and emits only add/remove
+operations over canonical relation IDs. The compatibility router supplies
+late-bound page IO.
 
 Startup first loads valid disk snapshots, then starts refresh work. A partial
 file-provider scan is marked partial and cannot replace a known complete cache.

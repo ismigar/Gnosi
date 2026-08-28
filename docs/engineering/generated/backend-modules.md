@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 5 | 1184 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 809 |
-| `services` | 148 | 34301 |
+| `services` | 148 | 34314 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146554 source lines**.
+Total: **699 modules** and **146567 source lines**.
 
 ## agent
 
@@ -775,7 +775,7 @@ Total: **699 modules** and **146554 source lines**.
 | [`backend/services/reference_table_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reference_table_config.py) | 63 | 0 | 2 | 0 | 2 | Storage for the Vault's "References Table" designation. |
 | [`backend/services/references_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/references_io.py) | 634 | 0 | 24 | 0 | 15 | Import/Export BibTeX and RIS ↔ Recursos fields (Gnosi). |
 | [`backend/services/relation_links.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/relation_links.py) | 151 | 0 | 6 | 0 | 5 | Relation wikilinks in the frontmatter — shared helpers. |
-| [`backend/services/relation_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/relation_sync.py) | 129 | 0 | 5 | 0 | 4 | Bidirectional relation sync — pure logic. |
+| [`backend/services/relation_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/relation_sync.py) | 142 | 0 | 5 | 0 | 4 | Bidirectional relation sync — pure logic. |
 | [`backend/services/rule_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/rule_engine.py) | 82 | 1 | 6 | 0 | 1 | Compatibility facade for typed database formulas, rollups and automations. |
 | [`backend/services/social_clients.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py) | 606 | 4 | 0 | 0 | 4 | Social Network API Clients |
 | [`backend/services/social_compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_compose.py) | 144 | 0 | 5 | 0 | 5 | AI layer for composing social media posts. |

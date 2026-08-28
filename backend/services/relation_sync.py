@@ -20,7 +20,10 @@ without pulling in dependencies.
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any, TypeAlias, cast
+
+JsonMap: TypeAlias = dict[str, Any]
 
 # Relation item in the frontmatter: `[[Title|id]]` (the id lives in the alias) or a bare id.
 _WIKILINK_RE = re.compile(r"^\s*\[\[[^\]\|]*\|\s*(?P<rid>[^\]\|]+?)\s*\]\]\s*$")
@@ -32,12 +35,12 @@ def _norm(name: Any) -> str:
     return re.sub(r"^[^\w]+", "", str(name or ""), flags=re.UNICODE).strip().lower()
 
 
-def to_ids(value: Any) -> List[str]:
+def to_ids(value: Any) -> list[str]:
     """Relation field value → list of clean ids (accepts ids or `[[T|id]]`)."""
     if value is None:
         return []
     items = value if isinstance(value, list) else [value]
-    out: List[str] = []
+    out: list[str] = []
     for v in items:
         if not isinstance(v, str):
             continue
@@ -49,17 +52,24 @@ def to_ids(value: Any) -> List[str]:
     return out
 
 
-def _relations(table: Optional[Dict]) -> List[Dict]:
+def _relations(table: JsonMap | None) -> list[JsonMap]:
     if not table:
         return []
-    return [p for p in (table.get("properties") or []) if p.get("type") == "relation"]
+    properties = table.get("properties") or []
+    if not isinstance(properties, list):
+        return []
+    return [
+        cast(JsonMap, prop)
+        for prop in properties
+        if isinstance(prop, dict) and prop.get("type") == "relation"
+    ]
 
 
 def resolve_inverse_relation(
-    origin_table: Optional[Dict],
+    origin_table: JsonMap | None,
     frontmatter_key: str,
-    get_table: Callable[[str], Optional[Dict]],
-) -> Optional[Tuple[str, str]]:
+    get_table: Callable[[str], JsonMap | None],
+) -> tuple[str, str] | None:
     """`(target_table_id, inverse_field_name)` for the `frontmatter_key` field of
     `origin_table`, or `None` if it's ambiguous/unknown.
 
@@ -79,7 +89,7 @@ def resolve_inverse_relation(
         return None
     dest = cands[0].get("relation_database_id")
     oid = origin_table.get("id")
-    if not dest or dest == oid:
+    if not isinstance(dest, str) or not dest or dest == oid:
         return None
     if len([p for p in _relations(origin_table)
             if p.get("relation_database_id") == dest]) != 1:
@@ -88,15 +98,18 @@ def resolve_inverse_relation(
     inv = [q for q in _relations(dtable) if q.get("relation_database_id") == oid]
     if len(inv) != 1:
         return None
-    return dest, inv[0].get("name")
+    inverse_name = inv[0].get("name")
+    if not isinstance(inverse_name, str) or not inverse_name:
+        return None
+    return dest, inverse_name
 
 
 def relation_changes(
-    old_meta: Optional[Dict],
-    new_meta: Optional[Dict],
-    origin_table: Optional[Dict],
-    get_table: Callable[[str], Optional[Dict]],
-) -> List[Tuple[str, str, str]]:
+    old_meta: JsonMap | None,
+    new_meta: JsonMap | None,
+    origin_table: JsonMap | None,
+    get_table: Callable[[str], JsonMap | None],
+) -> list[tuple[str, str, str]]:
     """List of `(target_id, inverse_field_name, op)` to apply on the other side.
     `op` ∈ {"add", "remove"}. Compares the relation fields of `old_meta` and `new_meta`.
     
@@ -105,7 +118,7 @@ def relation_changes(
     new_meta = new_meta or {}
     # Normalized names of the schema's relation fields (name + aliases): the
     # single source for recognizing a relation field, whatever its name.
-    rel_norms = set()
+    rel_norms: set[str] = set()
     for p in _relations(origin_table):
         rel_norms.add(_norm(p.get("name")))
         for a in (p.get("aliases") or []):
@@ -114,7 +127,7 @@ def relation_changes(
         k for k in (*old_meta.keys(), *new_meta.keys())
         if isinstance(k, str) and _norm(k) in rel_norms
     }
-    out: List[Tuple[str, str, str]] = []
+    out: list[tuple[str, str, str]] = []
     for key in keys:
         pair = resolve_inverse_relation(origin_table, key, get_table)
         if not pair:
