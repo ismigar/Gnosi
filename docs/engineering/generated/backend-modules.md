@@ -10,7 +10,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 46 | 8515 |
+| `agent` | 46 | 8519 |
 | `api` | 38 | 11438 |
 | `app` | 6 | 603 |
 | `application root` | 4 | 107 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146720 source lines**.
+Total: **699 modules** and **146724 source lines**.
 
 ## agent
 
@@ -60,7 +60,7 @@ Total: **699 modules** and **146720 source lines**.
 | [`backend/agent/gnosi_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/gnosi_tools.py) | 159 | 1 | 0 | 0 | 1 | Compatibility facade for stable first-party Gnosi tools. |
 | [`backend/agent/graph.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/graph.py) | 47 | 1 | 1 | 0 | 1 | No module docstring |
 | [`backend/agent/internal_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/internal_sources.py) | 561 | 0 | 22 | 0 | 10 | Scoped read adapters for first-party Gnosi data modules. |
-| [`backend/agent/job_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/job_tools.py) | 83 | 0 | 7 | 0 | 6 | Governed tools for provider-neutral durable capability jobs. |
+| [`backend/agent/job_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/job_tools.py) | 87 | 0 | 7 | 0 | 6 | Governed tools for provider-neutral durable capability jobs. |
 | [`backend/agent/llm_wiki_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/llm_wiki_tools.py) | 120 | 0 | 4 | 0 | 4 | Governed agent adapters for the built-in LLM Wiki plugin. |
 | [`backend/agent/mail_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/mail_tools.py) | 168 | 0 | 10 | 8 | 8 | Governed adapters for exact mail reads and mutations. |
 | [`backend/agent/memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py) | 192 | 2 | 4 | 0 | 3 | Lazy compatibility stores for legacy Chroma-backed Agent memory. |

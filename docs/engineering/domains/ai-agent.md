@@ -668,6 +668,10 @@ Contact tools bind each operation to a typed management session and
 workspace-scoped `ContactsService`. Duplicate detection, bounded updates and
 destructive merges still close the session deterministically, while a missing
 primary after a concurrent update now follows the existing error-result path.
+Provider-neutral job tools resolve a concrete active Vault before listing,
+estimating, reading, resuming or cancelling durable work. Missing request
+context fails at this adapter boundary, while namespaced job identifiers and
+all persisted result payloads remain unchanged.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
