@@ -9,17 +9,19 @@ from .data_dir import resolve_data_dir
 _tmp_base = Path("/tmp/gnosi_pending_vault")
 LOG_DIR = _tmp_base / "logs"
 
+
 def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[Path]]:
     """
     Returns a dictionary of absolute paths for the whole project.
-    
-    NO DEFAULT VAULT FOLDER: If no path is provided in overrides (Settings), 
+
+    NO DEFAULT VAULT FOLDER: If no path is provided in overrides (Settings),
     the vault_path will be None and the system should handle it gracefully.
     """
     if overrides is None:
         overrides = {}
 
     from .env_config import load_env
+
     load_env()
 
     _this_file = Path(__file__).resolve()
@@ -31,6 +33,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     env_vault_docker = os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
     env_vault_host = os.environ.get("VAULT_HOST_PATH")
     env_vault = env_vault_docker or env_vault_host
+    vault_path: Path | None
     if env_vault and (env_vault_docker or Path(env_vault).exists()):
         vault_path = Path(env_vault)
     else:
@@ -47,7 +50,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
                 rerooted = Path.home().joinpath(*parts[3:])
                 if rerooted.exists():
                     vault_path = rerooted
-    
+
     if vault_path and not vault_path.is_absolute():
         vault_path = project_root / vault_path
 
@@ -92,10 +95,13 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         # Idempotent migration (one-time only): if the file still exists at the
         # old location —e.g. the other Mac after a `git pull`— we copy it
         # to the new volume. We don't delete the old one (it's harmless as a fallback).
-        _old_secrets = project_root / "pipeline" / "private_skills" / "secrets" / "integrations.json"
+        _old_secrets = (
+            project_root / "pipeline" / "private_skills" / "secrets" / "integrations.json"
+        )
         _new_secrets = secrets_dir / "integrations.json"
         if _old_secrets.exists() and not _new_secrets.exists():
             import shutil
+
             shutil.copy2(_old_secrets, _new_secrets)
     except Exception:
         pass
@@ -130,7 +136,20 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
 
     # ── Ensure foundational directories exist (Safe mode) ──
     if vault_path:
-        for p in [vault_path, db_path, assets_path, calendar_path, mail_path, plantilles_path, dibuixos_path, wiki_path, dashboard_path, persistent_base, agent_instructions, agent_tools]:
+        for p in [
+            vault_path,
+            db_path,
+            assets_path,
+            calendar_path,
+            mail_path,
+            plantilles_path,
+            dibuixos_path,
+            wiki_path,
+            dashboard_path,
+            persistent_base,
+            agent_instructions,
+            agent_tools,
+        ]:
             if p:
                 try:
                     if not p.exists():
@@ -140,7 +159,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
 
     return {
         "PROJECT_DIR": project_root,
-        "VAULT": vault_path, # Keep original as None if not set
+        "VAULT": vault_path,  # Keep original as None if not set
         "DATABASES": db_path,
         "NEWSLETTERS": newsletters_path,
         "ASSETS": assets_path,

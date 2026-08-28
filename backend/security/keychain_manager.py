@@ -14,21 +14,22 @@ import subprocess
 import platform
 import json
 import base64
+import logging
 from pathlib import Path
 from typing import Optional, Dict, List
+
+from cryptography.fernet import Fernet
 
 from backend.config.data_dir import resolve_data_dir
 
 
-def _get_logger():
+def _get_logger() -> logging.Logger:
     """Lazy logger import to avoid circular dependencies."""
     try:
         from backend.config.logger_config import get_logger
 
         return get_logger(__name__)
     except ImportError:
-        import logging
-
         return logging.getLogger(__name__)
 
 
@@ -48,7 +49,7 @@ class KeychainManager:
 
     def _check_docker(self) -> bool:
         """Check if running inside Docker."""
-        return Path("/.dockerenv").exists() or os.environ.get("DOCKER_CONTAINER")
+        return Path("/.dockerenv").exists() or bool(os.environ.get("DOCKER_CONTAINER"))
 
     def _get_key_name(self, key: str) -> str:
         """Generate keychain key name with prefix."""
@@ -240,9 +241,7 @@ class KeychainManager:
         except OSError:
             pass
 
-    def _fallback_cipher(self):
-        from cryptography.fernet import Fernet
-
+    def _fallback_cipher(self) -> Fernet:
         storage_path = self._get_fallback_path()
         key_path = self._get_fallback_key_path()
         if not key_path.exists():
@@ -271,7 +270,9 @@ class KeychainManager:
 
             cipher = Fernet(base64.urlsafe_b64encode(hashlib.sha256(master_key).digest()))
             try:
-                return json.loads(cipher.decrypt(content))
+                decoded = json.loads(cipher.decrypt(content))
+                if isinstance(decoded, dict):
+                    return {str(key): str(value) for key, value in decoded.items()}
             except Exception:
                 pass
         try:
@@ -289,7 +290,9 @@ class KeychainManager:
         try:
             data = json.loads(self._fallback_cipher().decrypt(storage_path.read_bytes()))
         except InvalidToken as exc:
-            raise RuntimeError(f"Encrypted credential file cannot be decrypted: {storage_path}") from exc
+            raise RuntimeError(
+                f"Encrypted credential file cannot be decrypted: {storage_path}"
+            ) from exc
         if not isinstance(data, dict):
             raise RuntimeError(f"Encrypted credential file has an invalid payload: {storage_path}")
         return {str(key): str(value) for key, value in data.items()}
@@ -401,9 +404,7 @@ class KeychainManager:
                 if "acct" in item:
                     parts = item.split("=")
                     if len(parts) > 1:
-                        keys.append(
-                            parts[1].strip('"').replace(f"{SERVICE_PREFIX}_", "")
-                        )
+                        keys.append(parts[1].strip('"').replace(f"{SERVICE_PREFIX}_", ""))
 
         try:
             for key in self._read_file_data():
@@ -419,8 +420,12 @@ class KeychainManager:
         return self.get_credential(key) is not None
 
 
+_keychain_instance: KeychainManager | None = None
+
+
 def get_keychain() -> KeychainManager:
     """Get singleton keychain manager instance."""
-    if not hasattr(get_keychain, "_instance"):
-        get_keychain._instance = KeychainManager()
-    return get_keychain._instance
+    global _keychain_instance
+    if _keychain_instance is None:
+        _keychain_instance = KeychainManager()
+    return _keychain_instance

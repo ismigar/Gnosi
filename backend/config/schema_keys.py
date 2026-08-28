@@ -4,16 +4,38 @@ Candidate keys and aliases for data extraction from JSON and local Markdown.
 Hardcoded keys; not configurable via params.yaml.
 """
 
+from typing import Any
+
 # -----------------------------------
 # Node Keys
 # -----------------------------------
 NODE_ID_KEYS = ["id", "page_id", "uuid", "ID", "key", "node_id"]
 NODE_TITLE_KEYS = [
-    "Nota", "Name", "Títol", "Title", "Título", "Nom", "label", "title", "name", "text", "Titre"
+    "Nota",
+    "Name",
+    "Títol",
+    "Title",
+    "Título",
+    "Nom",
+    "label",
+    "title",
+    "name",
+    "text",
+    "Titre",
 ]
-NODE_KIND_KEYS  = [
-    "kind", "Tipus de nota", "type", "Tipus", "categoria", "class", "classe", 
-    "Tipo", "Tipo de nota", "Type", "Type de note", "Catégorie"
+NODE_KIND_KEYS = [
+    "kind",
+    "Tipus de nota",
+    "type",
+    "Tipus",
+    "categoria",
+    "class",
+    "classe",
+    "Tipo",
+    "Tipo de nota",
+    "Type",
+    "Type de note",
+    "Catégorie",
 ]
 
 # -----------------------------------
@@ -27,11 +49,25 @@ EDGE_ARRAY_KEYS = ["edges", "links", "relations", "connections", "enllacos", "en
 # -----------------------------------
 # Relation and Project Keys
 # -----------------------------------
-PROJECT_KEYS    = [
-    "Projecte", "Projectes", "Project", "Projects", "Proyecto", "Proyectos", "Projet", "Projets"
+PROJECT_KEYS = [
+    "Projecte",
+    "Projectes",
+    "Project",
+    "Projects",
+    "Proyecto",
+    "Proyectos",
+    "Projet",
+    "Projets",
 ]
 LINKS_PROP_KEYS = [
-    "Enllaça a", "Enlaza a", "Link to", "Links to", "Enlace a", "Lien vers", "Lie à", "Relacionado con"
+    "Enllaça a",
+    "Enlaza a",
+    "Link to",
+    "Links to",
+    "Enlace a",
+    "Lien vers",
+    "Lie à",
+    "Relacionado con",
 ]
 
 # -----------------------------------
@@ -49,19 +85,16 @@ SELECT_TO_KIND = {
     "nota diàleg": "dialogo",
     "diàleg": "dialogo",
     "dialogo": "dialogo",
-
     # Spanish
     "nota permanente": "permanent",
     "permanente": "permanent",
     "nota índice": "index",
     "índice": "index",
-
     # English
     "permanent note": "permanent",
     "reading note": "lectura",
     "literature note": "lectura",
     "index note": "index",
-
     # French
     "note permanente": "permanent",
     "note de lecture": "lectura",
@@ -69,10 +102,11 @@ SELECT_TO_KIND = {
     "index": "index",
 }
 
+
 # -----------------------------------
 # Helper Functions
 # -----------------------------------
-def pick(d: dict, keys: list[str]):
+def pick(d: dict[str, Any], keys: list[str]) -> Any | None:
     """Returns the first existing value in d for any key in keys."""
     for k in keys:
         if k in d:
@@ -83,7 +117,7 @@ def pick(d: dict, keys: list[str]):
 # -----------------------------------
 # Public API: Retrieve Full Schema
 # -----------------------------------
-def get_schema_keys() -> dict:
+def get_schema_keys() -> dict[str, Any]:
     """
     Return dictionary containing all core keys and mappings.
     Importable as:
@@ -94,16 +128,12 @@ def get_schema_keys() -> dict:
         "NODE_ID_KEYS": NODE_ID_KEYS,
         "NODE_TITLE_KEYS": NODE_TITLE_KEYS,
         "NODE_KIND_KEYS": NODE_KIND_KEYS,
-
         "EDGE_SRC_KEYS": EDGE_SRC_KEYS,
         "EDGE_DST_KEYS": EDGE_DST_KEYS,
         "EDGE_ARRAY_KEYS": EDGE_ARRAY_KEYS,
-
         "PROJECT_KEYS": PROJECT_KEYS,
         "LINKS_PROP_KEYS": LINKS_PROP_KEYS,
-
         "SELECT_TO_KIND": SELECT_TO_KIND,
-
         # Expose helper function
         "pick": pick,
     }

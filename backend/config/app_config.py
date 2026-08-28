@@ -101,7 +101,7 @@ class Config:
         )
 
         # Load paths with optional overrides from params.yaml.
-        self.paths: dict[str, Path] = get_paths(params.get("paths", {}))
+        self.paths: dict[str, Path | None] = get_paths(params.get("paths", {}))
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.params.get(key, default)

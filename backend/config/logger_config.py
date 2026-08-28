@@ -1,19 +1,20 @@
 import logging
-from .paths_config import LOG_DIR
 from typing import Optional
-from pathlib import Path
+
+from .paths_config import LOG_DIR
 
 # Configure the log directory and file (resilient to None for March 30)
 LOG_FILE = (LOG_DIR / "gnosi.log") if LOG_DIR else None
 
-def setup_logging(level=logging.INFO):
+
+def setup_logging(level: int = logging.INFO) -> logging.Logger:
     """Encapsulated log setup with console and file handlers."""
     fmt = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
     datefmt = "%H:%M:%S"
 
     # Console handler is ALWAYS safe
-    handlers = [logging.StreamHandler()]
-    
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+
     # File handler is only attempted if VAULT_PATH is configured
     if LOG_DIR and LOG_FILE:
         try:
@@ -36,5 +37,6 @@ def setup_logging(level=logging.INFO):
 
     return logging.getLogger(__name__)
 
-def get_logger(name: Optional[str] = None):
+
+def get_logger(name: Optional[str] = None) -> logging.Logger:
     return logging.getLogger(name)
