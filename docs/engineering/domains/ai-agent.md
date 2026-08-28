@@ -696,6 +696,11 @@ configured local-data directory before opening its audit database. Memory and
 Vault search use their explicit lazy-store accessors, while model-catalog JSON,
 model identifiers, reliability ranking and evaluation metadata are narrowed at
 their input boundaries without altering routing evidence.
+Notion integration boundaries now type hosted-MCP responses, Markdown trees,
+attachment localization callbacks and clone-verification configuration. An
+atomic, idempotent integration-key deletion primitive removes irrecoverably
+expired OAuth credentials instead of repeatedly retrying a dead token; clone
+schemas, page bodies, views and attachment markers retain their formats.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

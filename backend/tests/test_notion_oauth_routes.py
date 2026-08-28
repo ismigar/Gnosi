@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 
 from starlette.requests import Request
 
 from backend.api import notion_oauth_routes
+from backend.services.integration_manager import IntegrationManager
 
 
 def _request(headers: list[tuple[bytes, bytes]]) -> Request:
@@ -60,3 +62,17 @@ def test_status_and_disconnect_use_integration_manager(monkeypatch) -> None:
         ("notion_mcp_client", {}),
         ("notion_mcp_pending", {}),
     ]
+
+
+def test_integration_manager_delete_key_is_atomic_and_idempotent(monkeypatch) -> None:
+    manager = IntegrationManager.__new__(IntegrationManager)
+    manager._lock = threading.RLock()
+    stored = {"notion_mcp": {"token": "secret"}, "other": {"enabled": True}}
+    saves: list[dict[str, object]] = []
+    monkeypatch.setattr(manager, "_load", lambda: dict(stored))
+    monkeypatch.setattr(manager, "_save", lambda value: saves.append(dict(value)))
+
+    manager.delete_key("notion_mcp")
+    manager.delete_key("missing")
+
+    assert saves == [{"other": {"enabled": True}}]

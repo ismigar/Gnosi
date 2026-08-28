@@ -306,6 +306,15 @@ class IntegrationManager:
             config[key] = value
             self._save(config)
 
+    def delete_key(self, key: str) -> None:
+        """Remove one integration key atomically when it exists."""
+        with self._lock:
+            config = self._load()
+            if key not in config:
+                return
+            del config[key]
+            self._save(config)
+
     def bulk_update(self, updates: dict[str, Any]) -> None:
         """Updates multiple integration keys and saves once."""
         with self._lock:

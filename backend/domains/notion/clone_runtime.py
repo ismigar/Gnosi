@@ -155,8 +155,7 @@ class CloneRuntime:
         asset_writer = (
             (lambda url, prop: save_asset(url, prop, table)) if save_asset is not None else None
         )
-        result = resolve_file_markers(body, resolver, asset_writer)
-        localized, downloaded, failed = cast(tuple[str, int, int], result)
+        localized, downloaded, failed = resolve_file_markers(body, resolver, asset_writer)
         self.report["attachments"] += downloaded
         if failed and save_asset is not None:
             self.report["warnings"].append(
@@ -199,10 +198,13 @@ class CloneRuntime:
         return localized
 
     def localize_body(self, body: str, table: JsonMap) -> str:
-        if self.save_asset is None or not body:
+        save_asset = self.save_asset
+        if save_asset is None or not body:
             return body
-        result = localize_body(body, lambda url, prop: self.save_asset(url, prop, table))
-        localized, downloaded = cast(tuple[str, int], result)
+        localized, downloaded = localize_body(
+            body,
+            lambda url, prop: save_asset(url, prop, table),
+        )
         self.report["attachments"] += downloaded
         return localized
 
@@ -303,14 +305,14 @@ def _warn_unselected_relations(runtime: CloneRuntime) -> None:
 
 
 def _localize_row_values(runtime: CloneRuntime, values: JsonMap, table: JsonMap) -> JsonMap:
-    if runtime.save_asset is None:
+    save_asset = runtime.save_asset
+    if save_asset is None:
         return values
-    result = localize_values(
+    localized, downloaded = localize_values(
         values,
         table.get("properties", []),
-        lambda url, prop: runtime.save_asset(url, prop, table),
+        lambda url, prop: save_asset(url, prop, table),
     )
-    localized, downloaded = cast(tuple[JsonMap, int], result)
     runtime.report["attachments"] += downloaded
     return localized
 

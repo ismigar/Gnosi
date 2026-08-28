@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 274 | 2005 |
+| pytest | 274 | 2006 |
 
 ## Files
 
@@ -274,7 +274,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_notion_domain_facades.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_domain_facades.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_notion_importer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_importer.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_notion_mcp_md.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_mcp_md.py) | 19 | Python AST |
-| pytest | [`backend/tests/test_notion_oauth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_oauth_routes.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_notion_oauth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_oauth_routes.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_notion_pagination_guard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_pagination_guard.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_notion_schema_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_schema_config.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_notion_view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_view_recreator.py) | 19 | Python AST |
