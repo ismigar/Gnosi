@@ -151,10 +151,13 @@ facade. Route order, paths, methods, status codes, payload schemas, operation
 identifiers, and the generated OpenAPI contract remain frozen during this
 structural migration.
 
-The plugin dispatcher and sandbox facade share one typed two-argument host
-handler contract: bounded arguments plus the calling plugin id. Vault RPCs now
-import canonical page, registry and configuration owners lazily, preserving
-cycle avoidance while removing dynamic compatibility-facade calls.
+The plugin domain and dispatcher share a typed two-argument host-handler
+contract: bounded arguments plus the calling plugin id. The historical sandbox
+facade keeps its introspectable one-argument public annotation for compatibility
+and adapts it exactly once at the internal injection seam. Contract tests freeze
+that facade signature. Vault RPCs import canonical page, registry and
+configuration owners lazily, preserving cycle avoidance while removing dynamic
+compatibility-facade calls.
 
 The built-in web clipper keeps its mapping logic pure. Destination columns are
 resolved by immutable id, current name or historical alias; explicit opt-outs

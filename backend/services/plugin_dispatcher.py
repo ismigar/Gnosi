@@ -16,7 +16,7 @@ It's activated by calling `wire()` at backend startup (server.py).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Callable, Dict, cast
 
 from backend.domains.plugins.sandbox import HostHandler
 
@@ -329,7 +329,11 @@ def wire() -> None:
     global _wired
     if _wired:
         return
-    plugin_sandbox.set_host_handlers(_HOST_HANDLERS)
+    # The compatibility facade preserves its historical one-argument
+    # annotation. The typed sandbox invokes these handlers with plugin context.
+    plugin_sandbox.set_host_handlers(
+        cast(Dict[str, Callable[[Dict[str, Any]], Any]], _HOST_HANDLERS)
+    )
     plugin_events.set_plugin_dispatcher(_dispatch)
     _wired = True
     logger.info("plugin_dispatcher connectat (handlers + bus)")

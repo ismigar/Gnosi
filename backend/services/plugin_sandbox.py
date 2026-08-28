@@ -36,7 +36,7 @@ _METHOD_PERMISSION: Dict[str, str] = {
     "network.fetch": "network",
 }
 
-_host_handlers: Dict[str, _sandbox.HostHandler] = {}
+_host_handlers: Dict[str, Callable[[Dict[str, Any]], Any]] = {}
 
 # Preserve the historical module attributes used by subprocess fakes and
 # diagnostics. Python module objects are shared, so patching these attributes
@@ -44,7 +44,7 @@ _host_handlers: Dict[str, _sandbox.HostHandler] = {}
 _COMPATIBILITY_MODULES = (json, subprocess, threading)
 
 
-def set_host_handlers(handlers: Dict[str, _sandbox.HostHandler]) -> None:
+def set_host_handlers(handlers: Dict[str, Callable[[Dict[str, Any]], Any]]) -> None:
     """Injects the real implementations of vault.*/network.* from the routes."""
 
     global _host_handlers

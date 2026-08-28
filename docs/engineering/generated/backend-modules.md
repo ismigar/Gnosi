@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 5 | 1164 |
 | `scripts` | 2 | 69 |
 | `security` | 5 | 829 |
-| `services` | 148 | 34719 |
+| `services` | 148 | 34723 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 450 |
 
-Total: **695 modules** and **147197 source lines**.
+Total: **695 modules** and **147201 source lines**.
 
 ## agent
 
@@ -759,7 +759,7 @@ Total: **695 modules** and **147197 source lines**.
 | [`backend/services/plugin_access.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_access.py) | 41 | 0 | 2 | 1 | 2 | FastAPI guards for optional per-vault capabilities. |
 | [`backend/services/plugin_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_ai_contributions.py) | 497 | 0 | 16 | 0 | 6 | Governed AI contributions from installed third-party plugins. |
 | [`backend/services/plugin_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_catalog.py) | 247 | 0 | 10 | 0 | 7 | Plugin catalog/gallery (phase 2.2 of plugin_system.md). |
-| [`backend/services/plugin_dispatcher.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_dispatcher.py) | 335 | 0 | 13 | 0 | 7 | Dispatcher: joins the event bus with the data sandbox (phase 3). |
+| [`backend/services/plugin_dispatcher.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_dispatcher.py) | 339 | 0 | 13 | 0 | 7 | Dispatcher: joins the event bus with the data sandbox (phase 3). |
 | [`backend/services/plugin_events.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_events.py) | 107 | 0 | 3 | 0 | 3 | Vault event bus for data plugins (phase 3). |
 | [`backend/services/plugin_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_sandbox.py) | 96 | 0 | 4 | 0 | 3 | Compatibility facade for the restricted third-party plugin sandbox. |
 | [`backend/services/plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_signing.py) | 154 | 0 | 8 | 0 | 6 | Plugin signing and trust (phase 3 of plugin_system.md). |
