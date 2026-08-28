@@ -45,6 +45,7 @@ tests:
   - backend/tests/test_agent_context_sources.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
+  - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
   - backend/tests/test_agent_resilience.py
@@ -117,6 +118,11 @@ same local/remote locality; credentials and catalog defaults never expand the
 allowlist. Authentication, policy, and content errors never cause failover.
 The selected fallback is marked in message metadata and in the stream receipt,
 so a local model cannot unexpectedly send private context to a remote provider.
+
+The stdio MCP client validates JSON-RPC object boundaries, types pending async
+requests explicitly, and routes tools through a cache that refreshes only on a
+miss. Malformed tool catalogs fail locally instead of leaking unchecked values
+into the agent runtime.
 
 ## Tool governance
 

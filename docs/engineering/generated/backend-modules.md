@@ -17,7 +17,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `config` | 9 | 1081 |
 | `data` | 2 | 203 |
 | `domains` | 363 | 82694 |
-| `mcp` | 3 | 394 |
+| `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
 | `platform` | 11 | 1045 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **694 modules** and **145753 source lines**.
+Total: **694 modules** and **145778 source lines**.
 
 ## agent
 
@@ -539,7 +539,7 @@ Total: **694 modules** and **145753 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/mcp/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/mcp/client.py`](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/client.py) | 285 | 3 | 1 | 1 | 2 | No module docstring |
+| [`backend/mcp/client.py`](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/client.py) | 310 | 3 | 1 | 1 | 2 | Async JSON-RPC client and multi-server routing for stdio MCP connectors. |
 | [`backend/mcp/http_client.py`](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/http_client.py) | 109 | 1 | 2 | 0 | 3 | MCP client over HTTP (streamable) with Bearer OAuth. |
 
 ## migrations

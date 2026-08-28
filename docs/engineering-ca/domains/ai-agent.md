@@ -27,6 +27,7 @@ tests:
   - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
+  - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
   - tests/e2e/tests/e2e/ai-chat.spec.ts
 ---
@@ -79,6 +80,11 @@ segueixen el mateix patró dins del domini de configuració, sense alterar l'ord
 de les rutes ni els identificadors d'operació.
 
 L' encaminador de models resol combinacions de proveïdor/ model, límits de context, suport d' eines, despeses i política de reserva. S' obtindran les Credives del magatzem secret local o la migració d' entorn suportat, no es mostren al frontal. Les raons de suport per separat es registra de les respostes d' usuari per a distingir els operadors, el rebuig, les credencials del proveïdor, el context i l' eina en lacompatibilitat.
+
+El client MCP per stdio valida els límits d'objectes JSON-RPC, tipa explícitament
+les peticions asíncrones pendents i encamina les eines amb una memòria cau que
+només es refresca quan hi ha una fallada de cerca. Els catàlegs malformats fallen
+localment i no propaguen valors sense validar al runtime de l'agent.
 
 ## Interfície de governança
 

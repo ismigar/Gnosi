@@ -40,6 +40,7 @@ tests:
   - backend/tests/test_agent_context_sources.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
+  - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
   - backend/tests/test_agent_resilience.py
@@ -99,6 +100,11 @@ l'ordre des routes ni les identifiants d'opération.
 Le routeur modèle résout les combinaisons fournisseur/modèle, les limites de contexte, le support des outils, les plafonds de dépenses et la politique de repli. Les pouvoirs sont obtenus à partir de stockage secret local ou de migration d'environnement supporté, non exposés à la frontend. Les raisons de défaillance sont enregistrées séparément des réponses orientées vers l'utilisateur afin que les opérateurs puissent distinguer le temps de fermeture, le rejet du fournisseur, les pouvoirs non valides, le débordement de contexte et l'incompatibilité des outils.
 
 Un délai transitoire, une défaillance de connexion, une limite de fréquence ou 5xx peuvent se déplacer vers un autre modèle configuré avec la même localité locale/remote; les erreurs d'authentification, de politique et de contenu ne le font jamais. Le retour sélectionné est marqué dans les métadonnées des messages et dans le reçu du flux, de sorte qu'un modèle local ne peut pas envoyer de contexte privé inattendu à un fournisseur distant.
+
+Le client MCP stdio valide les limites des objets JSON-RPC, type explicitement
+les requêtes asynchrones en attente et route les outils avec un cache actualisé
+uniquement lors d'un échec de recherche. Un catalogue malformé échoue localement
+sans propager de valeurs non validées dans le runtime de l'agent.
 
 ## Gouvernance des outils
 

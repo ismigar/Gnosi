@@ -27,6 +27,7 @@ tests:
   - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
+  - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
   - tests/e2e/tests/e2e/ai-chat.spec.ts
 ---
@@ -79,6 +80,11 @@ de agentes siguen el mismo patrón en el dominio de configuración, sin cambiar
 el orden de las rutas ni los identificadores de operación.
 
 El router de modelo resuelve combinaciones de proveedores/modelos, límites de contexto, soporte de herramientas, límites de gasto y política de reserva. Las credenciales se obtienen de la migración de entornos de almacenamiento secreto local o soportado, no expuesta a la interfaz. Las razones de fallo se registran por separado de las respuestas orientadas al usuario para que los operadores puedan distinguir el tiempo de espera, el rechazo del proveedor, las credenciales inválidas, el desbordamiento de contexto y la incompatibilidad de la herramienta.
+
+El cliente MCP por stdio valida los límites de objetos JSON-RPC, tipa
+explícitamente las peticiones asíncronas pendientes y dirige las herramientas
+mediante una caché que solo se actualiza cuando falla una búsqueda. Los catálogos
+malformados fallan localmente sin propagar valores no validados al runtime.
 
 ## Gobernanza de los instrumentos
 
