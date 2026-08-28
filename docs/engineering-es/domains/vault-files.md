@@ -25,6 +25,7 @@ tests:
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -83,6 +84,11 @@ fachada Python compatible: conserva la clase, el singleton, las firmas, los
 descriptores, el estado y los errores históricos, y resuelve tarde el estado
 mutable y los colaboradores reemplazables. Los módulos de dominio no importan
 el router HTTP ni la fachada de compatibilidad.
+
+El almacenamiento de tablas tiene propietarios explícitos: `assets/table_paths.py`
+controla rutas y revisiones; `assets/persistence.py`, la ingestión y eliminación
+contenidas; `assets/quarantine.py`, la eliminación recuperable; y
+`tables/folders.py`, las carpetas físicas. Todos reciben puertos estrechos de la fachada.
 
 `backend/api/vault_routes.py` sigue siendo una fachada de compatibilidad y composición temporal mientras el resto del router heredado se divide. Inyecta operaciones de plataforma existentes y reexporta símbolos de Python compatibles, pero no es el propietario de los manejadores de páginas extraídos. La migración preserva rutas HTTP, códigos de estado, cargas útiles, dependencias, callbacks de fondo y el documento OpenAPI determinista. Cada extracción debe reducir la asignación de barandilla fuente de la fachada; nunca puede añadir una nueva excepción para el código bajo `backend/domains`.
 

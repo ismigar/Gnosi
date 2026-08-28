@@ -25,6 +25,7 @@ tests:
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -84,6 +85,11 @@ façade Python compatible : elle conserve la classe, le singleton, les
 signatures, les descripteurs, l'état et les erreurs historiques, tout en
 résolvant tardivement l'état mutable et les collaborateurs remplaçables. Les
 modules du domaine n'importent ni le routeur HTTP ni la façade de compatibilité.
+
+Le stockage des tables a des propriétaires explicites : `assets/table_paths.py`
+gère les chemins et révisions, `assets/persistence.py` l'ingestion et la
+suppression confinées, `assets/quarantine.py` la suppression récupérable, et
+`tables/folders.py` les dossiers physiques. Tous reçoivent des ports étroits.
 
 `backend/api/vault_routes.py` Il injecte les opérations de plate-forme existantes et les réexportations supportées par les symboles Python, mais il ne possède pas les gestionnaires de pages extraits. La migration préserve les chemins HTTP, les codes d'état, les charges utiles, les dépendances, les rappels d'arrière-plan et le document déterministe OpenAPI. Chaque extraction doit réduire l'allocation de garde-fonte de la façade; il ne peut jamais ajouter une nouvelle exception pour le code sous `backend/domains`.
 
