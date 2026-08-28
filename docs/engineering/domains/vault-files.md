@@ -10,6 +10,7 @@ source_paths:
   - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
+  - backend/services/field_resolver.py
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
   - frontend/src/pages/VaultDashboard.jsx
@@ -73,6 +74,10 @@ destabilize portable content.
 or creates a missing stable ID, maps schema keys to storage names, strips
 virtual fields, writes internal state to the sidecar, decorates portable
 relations and materializes view snapshots before the atomic file write.
+`services/field_resolver.py` owns that schema-key mapping contract. It accepts
+immutable field IDs, current names and historical aliases, resolves conflicts
+deterministically, and emits only current human-readable names at storage and
+response boundaries while preserving unrelated local metadata.
 
 `pages/save_helpers.py` owns complete-save metadata preparation, destination
 selection, existing-ID reuse and version-before-write behavior.

@@ -17,27 +17,38 @@ names): the resolver matches by id, current name, or alias, and `to_storage_name
 `to_response_names` always rewrite to the current name. See the
 `docs/dev_memory/directives/vault_persist_by_name.md` directive.
 """
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, TypeAlias, cast
+
+Metadata: TypeAlias = dict[str, Any]
+TableSchema: TypeAlias = dict[str, Any]
+PropertySchema: TypeAlias = dict[str, Any]
+
+
+def _properties(table: TableSchema) -> list[PropertySchema]:
+    raw = table.get("properties", []) or []
+    if not isinstance(raw, list):
+        return []
+    return [cast(PropertySchema, prop) for prop in raw if isinstance(prop, dict)]
 
 
 def is_field_id(value: Any) -> bool:
     return isinstance(value, str) and value.startswith("fld_") and len(value) == 12
 
 
-def get_property_by_id(table: Dict, field_id: str) -> Optional[Dict]:
+def get_property_by_id(table: TableSchema, field_id: str) -> PropertySchema | None:
     if not table or not field_id:
         return None
-    for p in table.get("properties", []) or []:
+    for p in _properties(table):
         if p.get("id") == field_id:
             return p
     return None
 
 
-def get_property_by_name(table: Dict, name: str) -> Optional[Dict]:
+def get_property_by_name(table: TableSchema, name: str) -> PropertySchema | None:
     """Matches by CURRENT name first; otherwise, by alias (old name)."""
     if not table or not name:
         return None
-    props = table.get("properties", []) or []
+    props = _properties(table)
     for p in props:
         if p.get("name") == name:
             return p
@@ -48,7 +59,7 @@ def get_property_by_name(table: Dict, name: str) -> Optional[Dict]:
     return None
 
 
-def resolve_property(table: Dict, ref: str) -> Optional[Dict]:
+def resolve_property(table: TableSchema, ref: str) -> PropertySchema | None:
     """Resolves a ref (id, current name, or alias) to the full property."""
     if not ref:
         return None
@@ -57,7 +68,7 @@ def resolve_property(table: Dict, ref: str) -> Optional[Dict]:
     return get_property_by_name(table, ref)
 
 
-def resolve_ref(table: Dict, ref: str) -> Tuple[Optional[str], Optional[str]]:
+def resolve_ref(table: TableSchema, ref: str) -> tuple[str | None, str | None]:
     """Returns (id, name) for a given ref."""
     prop = resolve_property(table, ref)
     if not prop:
@@ -65,10 +76,15 @@ def resolve_ref(table: Dict, ref: str) -> Tuple[Optional[str], Optional[str]]:
         if is_field_id(ref):
             return ref, None
         return None, ref
-    return prop.get("id"), prop.get("name")
+    field_id = prop.get("id")
+    name = prop.get("name")
+    return (
+        field_id if isinstance(field_id, str) else None,
+        name if isinstance(name, str) else None,
+    )
 
 
-def get_meta_value(metadata: Dict, table: Dict, ref: str) -> Any:
+def get_meta_value(metadata: Metadata, table: TableSchema, ref: str) -> Any:
     """Reads metadata by ref (id or name). Prioritizes id, falls back to name."""
     if not metadata:
         return None
@@ -80,7 +96,12 @@ def get_meta_value(metadata: Dict, table: Dict, ref: str) -> Any:
     return None
 
 
-def set_meta_value(metadata: Dict, table: Dict, ref: str, value: Any) -> Dict:
+def set_meta_value(
+    metadata: Metadata,
+    table: TableSchema,
+    ref: str,
+    value: Any,
+) -> Metadata:
     """
         Writes metadata using id as the key whenever possible.
     Removes the name-key if it was still present (lazy migration).
@@ -99,7 +120,7 @@ def set_meta_value(metadata: Dict, table: Dict, ref: str, value: Any) -> Dict:
     return metadata
 
 
-def expand_metadata_for_response(metadata: Dict, table: Dict) -> Dict:
+def expand_metadata_for_response(metadata: Metadata, table: TableSchema) -> Metadata:
     """
         For API responses: if a key is a field_id and the corresponding property
     exists in the schema, also add an entry with the current name
@@ -110,7 +131,7 @@ def expand_metadata_for_response(metadata: Dict, table: Dict) -> Dict:
     """
     if not metadata or not table:
         return dict(metadata or {})
-    properties = table.get("properties", []) or []
+    properties = _properties(table)
     id_to_name = {p["id"]: p["name"] for p in properties if p.get("id") and p.get("name")}
     out = dict(metadata)
     for k, v in metadata.items():
@@ -121,7 +142,7 @@ def expand_metadata_for_response(metadata: Dict, table: Dict) -> Dict:
     return out
 
 
-def migrate_metadata_keys(metadata: Dict, table: Dict) -> Tuple[Dict, int]:
+def migrate_metadata_keys(metadata: Metadata, table: TableSchema) -> tuple[Metadata, int]:
     """
         Rewrites all name → id keys whenever we find a match in the schema.
     Returns (migrated_metadata, number_of_migrated_keys).
@@ -130,10 +151,10 @@ def migrate_metadata_keys(metadata: Dict, table: Dict) -> Tuple[Dict, int]:
     """
     if not metadata or not table:
         return metadata or {}, 0
-    properties = table.get("properties", []) or []
+    properties = _properties(table)
     name_to_id = {p["name"]: p["id"] for p in properties if p.get("id") and p.get("name")}
     migrated = 0
-    new_meta = {}
+    new_meta: Metadata = {}
     for k, v in metadata.items():
         if k in name_to_id:
             new_meta[name_to_id[k]] = v
@@ -149,7 +170,7 @@ _PRIO_FIELD_ID = 1
 _PRIO_ALIAS = 2
 
 
-def to_storage_names(metadata: Dict, table: Dict) -> Tuple[Dict, bool]:
+def to_storage_names(metadata: Metadata, table: TableSchema) -> tuple[Metadata, bool]:
     """Rewrites ALL resolvable keys to the column's **current name**.
 
     This is the canonical WRITE boundary (disk) and response boundary: it guarantees that a
@@ -164,19 +185,30 @@ def to_storage_names(metadata: Dict, table: Dict) -> Tuple[Dict, bool]:
     if not isinstance(metadata, dict) or not metadata or not table:
         return (dict(metadata) if isinstance(metadata, dict) else {}), False
 
-    props = table.get("properties", []) or []
-    name_set = {p["name"] for p in props if p.get("name")}
-    id_to_name = {p["id"]: p["name"] for p in props if p.get("id") and p.get("name")}
-    alias_to_name: Dict[str, str] = {}
+    props = _properties(table)
+    name_set = {
+        name
+        for p in props
+        if isinstance((name := p.get("name")), str) and name
+    }
+    id_to_name = {
+        field_id: name
+        for p in props
+        if isinstance((field_id := p.get("id")), str)
+        and field_id
+        and isinstance((name := p.get("name")), str)
+        and name
+    }
+    alias_to_name: dict[str, str] = {}
     for p in props:
         cname = p.get("name")
         for a in (p.get("aliases") or []):
-            if a and a != cname and a not in name_set:
+            if isinstance(cname, str) and isinstance(a, str) and a and a != cname and a not in name_set:
                 alias_to_name[a] = cname
 
-    chosen: Dict[str, Tuple[int, Any]] = {}  # current_name -> (priority, value)
-    passthrough: Dict[str, Any] = {}          # unresolvable keys (real locals)
-    order: List[Tuple[str, str]] = []         # order of first appearance
+    chosen: dict[str, tuple[int, Any]] = {}  # current_name -> (priority, value)
+    passthrough: Metadata = {}  # unresolvable keys (real locals)
+    order: list[tuple[str, str]] = []  # order of first appearance
 
     def consider(cname: str, prio: int, value: Any) -> None:
         if cname not in chosen:
@@ -196,7 +228,7 @@ def to_storage_names(metadata: Dict, table: Dict) -> Tuple[Dict, bool]:
             order.append(("raw", k))
             passthrough[k] = v
 
-    out: Dict[str, Any] = {}
+    out: Metadata = {}
     for kind, key in order:
         out[key] = chosen[key][1] if kind == "col" else passthrough[key]
 
@@ -204,7 +236,7 @@ def to_storage_names(metadata: Dict, table: Dict) -> Tuple[Dict, bool]:
     return out, changed
 
 
-def to_response_names(metadata: Dict, table: Dict) -> Dict:
+def to_response_names(metadata: Metadata, table: TableSchema) -> Metadata:
     """Version for API responses: keys resolved to the current name, without `fld_*`
     or aliases. Does not mutate. Replaces `expand_metadata_for_response`."""
     out, _ = to_storage_names(metadata, table)
