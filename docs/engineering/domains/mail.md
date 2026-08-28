@@ -8,6 +8,7 @@ source_paths:
   - backend/services/google_mail_service.py
   - backend/services/microsoft_mail_service.py
   - backend/services/mail_ingester.py
+  - backend/services/mail_metadata_manager.py
   - backend/services/vault_mail_sync_service.py
   - frontend/src/pages/MailPage.jsx
   - frontend/src/components/Mail
@@ -17,6 +18,7 @@ tests:
   - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
+  - backend/tests/test_mail_metadata_manager.py
   - backend/tests/test_vault_mail_sync_service.py
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
 ---
@@ -44,6 +46,10 @@ third-party discovery calls, never the service API consumed by Gnosi.
 
 Batch ingestion uses savepoints so a malformed message cannot roll back earlier
 messages. Message and thread identity must remain stable across repeated syncs.
+Per-thread UI metadata is persisted as a validated JSON object under the local
+secrets/data boundary. Read-modify-write operations share one lock so concurrent
+tabs cannot silently discard each other's fields; malformed root or thread
+entries fail closed without affecting valid records.
 Folder names are provider values; the UI translates known semantic folders
 without changing persisted comparison values.
 

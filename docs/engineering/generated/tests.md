@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 268 | 1983 |
+| pytest | 269 | 1986 |
 
 ## Files
 
@@ -247,6 +247,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_mail_decoding.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_decoding.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_mail_ingester_savepoint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_ingester_savepoint.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_mail_inline_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_inline_images.py) | 14 | Python AST |
+| pytest | [`backend/tests/test_mail_metadata_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_metadata_manager.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_mail_reply_cid.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_reply_cid.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_mcp_retry_after.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mcp_retry_after.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_mcp_tool_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mcp_tool_contributions.py) | 1 | Python AST |

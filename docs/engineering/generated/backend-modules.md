@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 5 | 1184 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 809 |
-| `services` | 148 | 34189 |
+| `services` | 148 | 34206 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **697 modules** and **146267 source lines**.
+Total: **697 modules** and **146284 source lines**.
 
 ## agent
 
@@ -735,7 +735,7 @@ Total: **697 modules** and **146267 source lines**.
 | [`backend/services/lookup_normalizers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/lookup_normalizers.py) | 49 | 0 | 0 | 0 | 0 | Compatibility facade for pure citation lookup normalizers. |
 | [`backend/services/mail_ingester.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_ingester.py) | 69 | 0 | 1 | 0 | 0 | Compatibility facade for newsletter ingestion. |
 | [`backend/services/mail_inline_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_inline_images.py) | 349 | 3 | 11 | 0 | 10 | Converts vault images referenced in an email body into inline |
-| [`backend/services/mail_metadata_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_metadata_manager.py) | 50 | 1 | 0 | 0 | 0 | No module docstring |
+| [`backend/services/mail_metadata_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_metadata_manager.py) | 67 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/marketplace_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/marketplace_http.py) | 109 | 2 | 2 | 0 | 3 | Bounded public HTTP access for marketplace indexes and packages. |
 | [`backend/services/marketplace_submission.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/marketplace_submission.py) | 85 | 1 | 2 | 0 | 3 | Optional broker client for moderated marketplace submissions. |
 | [`backend/services/mcp_tool_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mcp_tool_contributions.py) | 94 | 0 | 3 | 0 | 1 | Governed read-only MCP tools exposed for explicit skill composition. |
