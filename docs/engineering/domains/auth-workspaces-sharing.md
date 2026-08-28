@@ -139,6 +139,12 @@ models. Unknown historical fields survive reads, atomic writes retain the
 established profile shape, and success responses are validated before returning
 their directly indexable mapping contract.
 
+Personal multi-Vault listing, creation, rename and deletion now construct
+explicit nested Pydantic response models. Slugs, nullable legacy values, active
+selection and deletion receipts retain their original dictionary shape, while
+path containment, primary-Vault protection and artifact cleanup remain
+unchanged.
+
 ## Public API
 
 PAT-authenticated routes apply token scopes plus normal workspace/vault

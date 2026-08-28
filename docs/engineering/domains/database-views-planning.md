@@ -187,7 +187,9 @@ page-on-disk identity before mutation. Their read-modify-write cycle shares the
 canonical registry lock and refreshes the facade cache after an atomic save;
 optional Obsidian section synchronization remains a typed best-effort adapter.
 Stable `view_id` takes precedence over headings during upsert so parallel embeds
-cannot overwrite each other.
+cannot overwrite each other. Read, upsert and deletion results pass through
+dedicated Pydantic models before returning the same legacy dictionaries; the
+request schema and frozen OpenAPI document are unchanged.
 
 Bulk field edits, Zotero Extra promotion, and template application share one
 typed page-mutation service. Each target is isolated, checks an optional ETag,

@@ -57,7 +57,7 @@ Discovered **107 variables** across **167 source references**.
 | `GNOSI_RUN_LIVE_E2E` | Python | '' | [`backend/tests/conftest.py:16`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py#L16)<br>[`backend/tests/test_e2e_tables_assets.py:27`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_tables_assets.py#L27)<br>[`backend/tests/test_vault_trash.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_trash.py#L38) |
 | `GNOSI_SHARED_ENV_FILE` | Python | unset | [`scripts/migrate-to-keychain.py:91`](https://github.com/ismigar/Gnosi/blob/main/scripts/migrate-to-keychain.py#L91) |
 | `GNOSI_TROCR_MODEL` | Python | unset | [`backend/services/handwriting.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py#L59) |
-| `GNOSI_VAULTS_ROOT` | Python | unset | [`backend/api/vaults_routes.py:64`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py#L64) |
+| `GNOSI_VAULTS_ROOT` | Python | unset | [`backend/api/vaults_routes.py:103`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py#L103) |
 | `GNOSI_VAULT_PATH` | Python | unset | [`pipeline/utils/vault_loader.py:16`](https://github.com/ismigar/Gnosi/blob/main/pipeline/utils/vault_loader.py#L16) |
 | `GNOSI_VAULT_TEMPLATES_INDEX_URL` | Python | DEFAULT_INDEX_URL | [`backend/services/vault_templates.py:107`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_templates.py#L107) |
 | `GNOSI_WHISPER_MODEL` | Python | unset | [`backend/services/transcription.py:76`](https://github.com/ismigar/Gnosi/blob/main/backend/services/transcription.py#L76) |
