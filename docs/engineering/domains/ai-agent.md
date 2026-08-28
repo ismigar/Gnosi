@@ -701,6 +701,10 @@ attachment localization callbacks and clone-verification configuration. An
 atomic, idempotent integration-key deletion primitive removes irrecoverably
 expired OAuth credentials instead of repeatedly retrying a dead token; clone
 schemas, page bodies, views and attachment markers retain their formats.
+Core AI workflow contributions use an internal typed specification for identity,
+activation, source requirements, tools, and instructions. Descriptor creation
+therefore cannot conflate string fields with source/tool sequences, while the
+published catalog schema and ordering remain unchanged.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

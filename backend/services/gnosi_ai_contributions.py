@@ -1,7 +1,7 @@
 """Governed core skills and tools for first-party Gnosi operations."""
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Dict, Iterable, Tuple, TypedDict
 
 from backend.agent.gnosi_tools import (
     CONFIRMED_WRITE_TOOLS,
@@ -81,6 +81,16 @@ CORE_GNOSI_DOMAIN_SKILLS = (
 )
 
 
+class WorkflowSpec(TypedDict):
+    id: str
+    name: str
+    description: str
+    activation: SkillActivation
+    sources: list[str]
+    tools: list[str]
+    instructions: str
+
+
 def _tool_name(handler: Any) -> str:
     return str(
         getattr(handler, "name", "")
@@ -96,7 +106,7 @@ def _input_schema(handler: Any) -> Dict[str, Any]:
     ):
         schema = schema_model.model_json_schema()
         schema.pop("title", None)
-        return schema
+        return {str(key): value for key, value in schema.items()}
     return {"type": "object", "properties": {}}
 
 
@@ -446,7 +456,7 @@ def core_gnosi_skill_descriptors(
         for domain, tool_ids in by_domain.items()
         if tool_ids
     )
-    workflow_specs = (
+    workflow_specs: tuple[WorkflowSpec, ...] = (
         {
             "id": "core.gnosi-reader-topic-evolution",
             "name": "Reader topic evolution",
