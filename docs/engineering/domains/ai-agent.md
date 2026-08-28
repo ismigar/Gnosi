@@ -676,6 +676,10 @@ MCP tool construction narrows each third-party descriptor and JSON schema
 before creating its dynamic Pydantic argument model. Required and optional
 fields preserve their prior call semantics, malformed entries remain isolated,
 and server-qualified routing continues through the existing MCP client.
+Mail tools use the installed LangChain tool contract directly and type the
+bounded serialization boundary for exact messages, threads and folders.
+Remote read/star/reply/batch behavior, account confinement and confirmation
+effects are unchanged.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

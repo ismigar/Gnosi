@@ -2,13 +2,9 @@
 from __future__ import annotations
 
 import json
-from typing import List
+from typing import Any
 
-try:
-    from langchain_core.tools import tool
-except Exception:  # pragma: no cover
-    def tool(fn=None, **_kwargs):
-        return fn if fn else (lambda function: function)
+from langchain_core.tools import tool
 
 
 def _account(account: str) -> str:
@@ -17,7 +13,7 @@ def _account(account: str) -> str:
     return _assert_global_integration_access(account)
 
 
-def _bounded(value):
+def _bounded(value: Any) -> Any:
     from backend.agent.gnosi_tools import _bounded_json_value
 
     return _bounded_json_value(value)
@@ -139,7 +135,7 @@ async def reply_mail_message(
 @tool
 async def batch_mail_action(
     account: str,
-    message_ids: List[str],
+    message_ids: list[str],
     action: str,
 ) -> str:
     """Apply one supported remote action to at most 100 messages after confirmation."""
