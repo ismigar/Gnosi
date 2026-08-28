@@ -12,16 +12,20 @@ import inspect
 import json
 import re
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, Optional
+from typing import Any, Dict, Iterable, Mapping, Optional, cast
 
 import yaml
 
 from backend.config.app_config import load_params
 from backend.config.logger_config import get_logger
 from backend.models.agent_skills import (
+    CatalogOrigin,
     CatalogStatus,
     ConfirmationPolicy,
+    OriginType,
+    ToolDescriptor,
     ToolEffect,
 )
 from backend.services import builtin_plugins, plugin_sandbox, plugin_system
@@ -43,7 +47,8 @@ _registered_plugin_ids: set[str] = set()
 def _runtime_context() -> tuple[Path, dict[str, Any]]:
     """Load the active vault's plugin directory and lifecycle state."""
 
-    from backend.api.vault_routes import get_p, _load_plugins_state
+    from backend.domains.vault.api.configuration_routes import _load_plugins_state
+    from backend.domains.vault.pages.runtime import get_p
 
     try:
         config_dir = get_p("GNOSI_CONFIG")
@@ -142,7 +147,9 @@ def _contribution_status(
     )
 
 
-def _skill_provider(plugin_id: str):
+def _skill_provider(
+    plugin_id: str,
+) -> Callable[[], Iterable[Mapping[str, Any]]]:
     def provide() -> Iterable[Mapping[str, Any]]:
         try:
             config_dir, _state, manifest, granted, enabled = _plugin_snapshot(
@@ -189,8 +196,8 @@ def _permission_policy(required_permissions: set[str]) -> dict[str, Any]:
     }
 
 
-def _schema_python_type(schema: Mapping[str, Any]) -> type:
-    kind = schema.get("type")
+def _schema_python_type(schema: Mapping[str, Any]) -> type[Any]:
+    kind = str(schema.get("type") or "")
     return {
         "string": str,
         "integer": int,
@@ -210,15 +217,14 @@ def _callable_signature(input_schema: Mapping[str, Any]) -> inspect.Signature:
             raise plugin_system.PluginError(
                 f"Sandboxed tool argument is not a safe identifier: {name!r}"
             )
-        default = (
-            inspect.Parameter.empty if name in required else schema.get("default")
-        )
+        schema_mapping = schema if isinstance(schema, Mapping) else {}
+        default = inspect.Parameter.empty if name in required else schema_mapping.get("default")
         parameters.append(
             inspect.Parameter(
                 str(name),
                 inspect.Parameter.KEYWORD_ONLY,
                 default=default,
-                annotation=_schema_python_type(schema),
+                annotation=_schema_python_type(schema_mapping),
             )
         )
     return inspect.Signature(parameters=parameters)
@@ -230,12 +236,12 @@ def _sandbox_handler(
     description: str,
     input_schema: Mapping[str, Any],
     required_permissions: set[str],
-):
+) -> Callable[..., Any]:
     """Create a schema-bearing callable backed by the restricted Node runner."""
 
     action = tool_id.removeprefix(f"plugin.{plugin_id}.")
 
-    def invoke(**arguments):
+    def invoke(**arguments: Any) -> Any:
         config_dir, state, manifest, granted, enabled = _plugin_snapshot(plugin_id)
         if not enabled or "ai:tools" not in granted:
             raise RuntimeError(f"Plugin tool {tool_id!r} is suspended")
@@ -260,11 +266,11 @@ def _sandbox_handler(
 
     invoke.__name__ = re.sub(r"[^A-Za-z0-9_]", "_", tool_id)
     invoke.__doc__ = description or f"Run the sandboxed plugin tool {tool_id}."
-    invoke.__signature__ = _callable_signature(input_schema)
+    setattr(invoke, "__signature__", _callable_signature(input_schema))
     return invoke
 
 
-def _tool_provider(plugin_id: str):
+def _tool_provider(plugin_id: str) -> Callable[[], Iterable[ToolRegistration]]:
     def provide() -> Iterable[ToolRegistration]:
         try:
             config_dir, _state, manifest, granted, enabled = _plugin_snapshot(
@@ -275,7 +281,7 @@ def _tool_provider(plugin_id: str):
                 plugin_id,
                 (manifest.get("contributes") or {}).get("agentTools") or [],
             )
-            registrations = []
+            registrations: list[ToolRegistration] = []
             declared = set(manifest.get("permissions") or [])
             for value in records:
                 record = dict(value)
@@ -306,10 +312,12 @@ def _tool_provider(plugin_id: str):
                     )
                 tool_id = str(record.get("id") or "")
                 description = str(record.get("description") or "")
-                input_schema = record.get("input_schema") or {
-                    "type": "object",
-                    "properties": {},
-                }
+                raw_input_schema = record.get("input_schema")
+                input_schema = (
+                    cast(dict[str, Any], raw_input_schema)
+                    if isinstance(raw_input_schema, dict)
+                    else {"type": "object", "properties": {}}
+                )
                 policy = _permission_policy(required_permissions)
                 record.update(policy)
                 record["status"] = (
@@ -327,6 +335,10 @@ def _tool_provider(plugin_id: str):
                 metadata["required_permissions"] = sorted(required_permissions)
                 metadata["sandboxed"] = True
                 record["metadata"] = metadata
+                record["origin"] = CatalogOrigin(
+                    type=OriginType.PLUGIN,
+                    id=plugin_id,
+                )
                 handler = _sandbox_handler(
                     plugin_id,
                     tool_id,
@@ -335,7 +347,10 @@ def _tool_provider(plugin_id: str):
                     required_permissions,
                 )
                 registrations.append(
-                    ToolRegistration(descriptor=record, handler=handler)
+                    ToolRegistration(
+                        descriptor=ToolDescriptor.model_validate(record),
+                        handler=handler,
+                    )
                 )
             return registrations
         except plugin_system.PluginError as exc:

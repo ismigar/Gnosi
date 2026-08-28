@@ -652,6 +652,10 @@ without weakening validation or moving execution into the application process.
 The approval-registry provider constructs validated `ToolDescriptor` instances
 directly and exposes a signature-preserving lazy callable, so catalog policy
 and runtime loading share one typed record boundary.
+Third-party plugin contributions use the same descriptor contract after
+narrowing manifest schemas and resolving the active Vault through the typed
+domain adapter. Their handlers remain Node-sandbox callables with exactly the
+declared permission subset; typing does not import plugin Python into FastAPI.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

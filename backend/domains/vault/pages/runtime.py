@@ -20,12 +20,12 @@ def _active_vault_path() -> Path:
     return path
 
 
-def get_p(key: str) -> _legacy.Path:
+def get_p(key: str) -> Path:
     base = _active_vault_path()
     if key == "LIBRARY":
-        return _legacy._resolve_library(base)
-    local_data = _legacy.resolve_data_dir()
-    mapping = {
+        return Path(_legacy._resolve_library(base))
+    local_data = Path(_legacy.resolve_data_dir())
+    mapping: dict[str, Path] = {
         "VAULT": base,
         "ASSETS": base / "Assets",
         "DATABASES": base / "BD",
