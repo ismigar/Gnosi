@@ -55,6 +55,12 @@ and account claims, password rotation, profile updates and session cookies
 retain their existing validation and transaction behavior. Pydantic permission
 objects preserve their historical defaults and exact OpenAPI representation.
 
+The authentication service types management sessions, policy-cache generators,
+HTTP/WebSocket connection identity, PAT lookup and JWT subject decoding at
+their boundaries. `python-jose` stubs are locked in the development dependency
+group, and the remaining legacy ORM timestamp mutation is isolated with
+`setattr` until column declarations move fully to `Mapped[]`.
+
 ## Authorization model
 
 ```mermaid

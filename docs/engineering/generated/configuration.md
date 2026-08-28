@@ -40,7 +40,7 @@ Discovered **106 variables** across **168 source references**.
 | `GNOSI_HOST_OPEN_PORT` | Python | '5099' | [`pipeline/skills/host_open_helper/scripts/host_open_helper.py:54`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/host_open_helper/scripts/host_open_helper.py#L54) |
 | `GNOSI_HOST_PICK_HELPER_URL` | Python | unset | [`backend/api/system_routes.py:311`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py#L311) |
 | `GNOSI_HOST_SEARCH_HELPER_URL` | Python | unset | [`backend/api/system_routes.py:447`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py#L447) |
-| `GNOSI_JWT_SECRET` | Python | redacted | [`backend/services/auth_service.py:40`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py#L40) |
+| `GNOSI_JWT_SECRET` | Python | redacted | [`backend/services/auth_service.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py#L42) |
 | `GNOSI_LITERATURE_CONTACT_EMAIL` | Python | 'gnosi-ci@example.org' | [`backend/tests/test_literature_live_smoke.py:20`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_live_smoke.py#L20) |
 | `GNOSI_LLM_WIKI_MAX_DOWNLOAD_MB` | Python | '500' | [`backend/services/llm_wiki_extractors.py:33`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_extractors.py#L33) |
 | `GNOSI_MARKETPLACE_SUBMISSION_TOKEN` | Python | redacted | [`backend/services/marketplace_submission.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/services/marketplace_submission.py#L41) |
