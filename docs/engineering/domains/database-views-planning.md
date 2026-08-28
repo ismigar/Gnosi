@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-28
 source_paths:
+  - backend/data/db.py
   - backend/api/vault_routes.py
   - backend/domains/vault/tables/catalogs
   - backend/domains/vault/tables/formula_recalculation.py
@@ -61,6 +62,12 @@ A Gnosi database is a schema and view layer over pages, normally rooted in a
 Vault folder. Page front matter contains record values. Registry data defines
 field types, view configurations, formulas, rollups, relations, options,
 display settings, and actions.
+
+Each active Vault resolves to one locally stored SQLite engine and typed session
+factory. The engine registry is keyed by Vault path, uses a typed SQLAlchemy
+declarative base, runs schema migration before first connection and disposes
+pooled connections on Vault deletion. SQLite files remain outside cloud-synced
+Vault storage.
 
 At least one main view is an invariant. Startup and read-time repair paths
 restore it when legacy or interrupted writes leave a table without a valid

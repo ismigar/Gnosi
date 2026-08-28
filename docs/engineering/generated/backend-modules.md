@@ -15,7 +15,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `app` | 6 | 603 |
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
-| `data` | 2 | 210 |
+| `data` | 2 | 214 |
 | `domains` | 368 | 83135 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146651 source lines**.
+Total: **699 modules** and **146655 source lines**.
 
 ## agent
 
@@ -163,7 +163,7 @@ Total: **699 modules** and **146651 source lines**.
 
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| [`backend/data/db.py`](https://github.com/ismigar/Gnosi/blob/main/backend/data/db.py) | 128 | 1 | 4 | 0 | 5 | No module docstring |
+| [`backend/data/db.py`](https://github.com/ismigar/Gnosi/blob/main/backend/data/db.py) | 132 | 2 | 4 | 0 | 5 | No module docstring |
 | [`backend/data/management_db.py`](https://github.com/ismigar/Gnosi/blob/main/backend/data/management_db.py) | 82 | 1 | 4 | 0 | 2 | No module docstring |
 
 ## domains

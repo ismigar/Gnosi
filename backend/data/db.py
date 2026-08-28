@@ -1,15 +1,19 @@
+from collections.abc import Generator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 import threading
 from pathlib import Path
 from backend.services.context_vars import get_active_vault_path
 
 # Store of database engines (one per active vault path)
-_engines = {}
-_sessionmakers = {}
+_engines: dict[str, Engine] = {}
+_sessionmakers: dict[str, sessionmaker[Session]] = {}
 _lock = threading.Lock()
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 class VaultNotConfiguredError(Exception):
     """Raised when no vault path has been configured by the user."""
@@ -17,7 +21,7 @@ class VaultNotConfiguredError(Exception):
     pass
 
 
-def get_engine_for_path(vault_path: Path):
+def get_engine_for_path(vault_path: Path) -> tuple[Engine, sessionmaker[Session]]:
     """Returns or creates a SQLAlchemy engine for a specific path."""
     if not vault_path:
         raise VaultNotConfiguredError(
@@ -65,7 +69,7 @@ def get_engine_for_path(vault_path: Path):
         return _engines[v_str], _sessionmakers[v_str]
 
 
-def vault_db_path_for(vault_path) -> Path:
+def vault_db_path_for(vault_path: str | Path) -> Path:
     """Local path of a vault's per-vault SQLite DB (same naming as
     `get_engine_for_path`, without creating anything)."""
     import hashlib as _hashlib
@@ -80,7 +84,7 @@ def vault_db_path_for(vault_path) -> Path:
     return Path(local_data) / "system" / "vault_dbs" / f"gnosi_vault_{vault_hash}.db"
 
 
-def dispose_engine_for_path(vault_path) -> None:
+def dispose_engine_for_path(vault_path: str | Path) -> None:
     """Closes and forgets the engine of a vault (vault deletion). Without this,
     the pooled connections keep the deleted DB file alive and a re-created
     vault at the same path would silently reuse the stale engine."""
@@ -98,10 +102,10 @@ def dispose_engine_for_path(vault_path) -> None:
 # Proxy object for the legacy 'engine' variable to avoid breaking imports
 # But it's better to avoid global engine access if possible.
 # Since existing code might use 'engine', we'll provide a warning or a default.
-engine = None  # Placeholder, we should use get_db()
+engine: Engine | None = None  # Placeholder, we should use get_db()
 
 
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency that resolves the DB according to the active context."""
     v_path = get_active_vault_path()
 
