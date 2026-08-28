@@ -2,11 +2,15 @@
 
 import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
+from typing import cast as _strict_cast
+
+from fastapi import APIRouter
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 
 
-@_legacy.router.get("/resolve-by-title", response_model=None)
+@router.get("/resolve-by-title", response_model=None)
 async def resolve_by_title(title: str) -> _LegacyAny:
     """Resolve a literal title (or a note alias) to a UUID via _page_index_entries.
 
@@ -228,7 +232,7 @@ async def _bulk_warm_one(pid: str) -> str:
         return "failed"
 
 
-_legacy.page_queries_api.register_preview_routes(_legacy.router)
+_legacy.page_queries_api.register_preview_routes(router)
 get_page_preview = _legacy.page_queries_api.get_page_preview
 bulk_warm_previews = _legacy.page_queries_api.bulk_warm_previews
 _SAVE_HELPER_DEPENDENCIES = _legacy.page_save_helpers.SaveHelperDependencies(
@@ -468,7 +472,7 @@ _PATCH_PAGE_DEPENDENCIES = _legacy.page_patch_service.PatchPageDependencies(
     safe_error_detail=_legacy.safe_error_detail,
 )
 save_page, patch_page = _legacy.page_commands_api.register_write_routes(
-    _legacy.router,
+    router,
     editor_dependency=_legacy.require_role("editor"),
     workspace_context_dependency=_legacy.get_workspace_context,
     save_dependencies=_SAVE_PAGE_DEPENDENCIES,

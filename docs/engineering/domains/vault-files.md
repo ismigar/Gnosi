@@ -132,6 +132,10 @@ and delegated history registration. Drawing backups, soft deletion, recovery
 windows, permissions and route ordering remain owned by their existing domain
 services while the HTTP composition surface is strict.
 
+Page preview and save composition likewise share one narrowed router for title
+resolution and delegated preview/write registration. Cache identity, alias
+matching, active-vault checks and generated route schemas remain unchanged.
+
 Table-scoped storage has explicit owners. `assets/table_paths.py` owns contained
 asset paths, per-property directories, revisions and collision-safe rename
 helpers; `assets/persistence.py` owns recursive metadata ingestion and contained
