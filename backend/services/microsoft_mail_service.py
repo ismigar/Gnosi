@@ -17,6 +17,8 @@ from typing import Any
 
 import requests as http
 
+from backend.services.mail_inline_images import InlineImage, MimeAsset
+
 log = logging.getLogger(__name__)
 
 GRAPH = "https://graph.microsoft.com/v1.0"
@@ -307,7 +309,7 @@ def microsoft_get_message(email: str, message_id: str) -> dict[str, Any] | None:
 
 def microsoft_get_inline_parts(
     email: str, message_id: str, wanted_cids: set[str]
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, MimeAsset]:
     """Retrieves a message's inline attachments by Content-ID via Graph.
 
     Args:
@@ -326,7 +328,7 @@ def microsoft_get_inline_parts(
     data = _authed_get(email, f"/me/messages/{message_id}/attachments")
     if not data:
         return {}
-    parts: dict[str, dict[str, Any]] = {}
+    parts: dict[str, MimeAsset] = {}
     for att in data.get("value", []):
         cid = (att.get("contentId") or "").strip("<>")
         content_bytes = att.get("contentBytes")
@@ -364,8 +366,8 @@ def microsoft_get_counts(email: str) -> dict[str, dict[str, int]]:
 
 
 def _graph_attachments(
-    attachments: list[dict[str, Any]] | None = None,
-    inline_images: list[dict[str, Any]] | None = None,
+    attachments: list[MimeAsset] | None = None,
+    inline_images: list[InlineImage] | None = None,
 ) -> list[dict[str, Any]]:
     """Maps attachments {filename, content_type, data} and inline images
     {…, content_id} to Microsoft Graph's fileAttachment format."""
@@ -402,8 +404,8 @@ def microsoft_send_message(
     body: str,
     cc: str | None = None,
     bcc: str | None = None,
-    attachments: list[dict[str, Any]] | None = None,
-    inline_images: list[dict[str, Any]] | None = None,
+    attachments: list[MimeAsset] | None = None,
+    inline_images: list[InlineImage] | None = None,
 ) -> bool:
     def _addr(s: str) -> list[dict[str, dict[str, str]]]:
         return [{"emailAddress": {"address": a.strip()}} for a in s.split(",") if a.strip()]
@@ -435,8 +437,8 @@ def microsoft_reply_message(
     to: str | None = None,
     cc: str | None = None,
     bcc: str | None = None,
-    attachments: list[dict[str, Any]] | None = None,
-    inline_images: list[dict[str, Any]] | None = None,
+    attachments: list[MimeAsset] | None = None,
+    inline_images: list[InlineImage] | None = None,
 ) -> bool:
     is_html = body.strip().startswith("<")
     payload: dict[str, Any] = {

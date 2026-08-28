@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from backend.services.mail_inline_images import InlineImage, MimeAsset
+
 log = logging.getLogger(__name__)
 
 
@@ -15,10 +17,10 @@ def imap_smtp_send(
     body: str,
     cc: str | None = None,
     bcc: str | None = None,
-    attachments: list[Any] | None = None,
+    attachments: list[MimeAsset] | None = None,
     from_email: str | None = None,
     from_name: str | None = None,
-    inline_images: list[Any] | None = None,
+    inline_images: list[InlineImage] | None = None,
 ) -> bool:
     """Send a message via SMTP using an IMAP account's SMTP config.
 

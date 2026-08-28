@@ -149,7 +149,7 @@ def _get_imap_account(email: str) -> dict[str, Any] | None:
     acc = integration_manager.get_mail_account(email)
     if not acc or not integration_manager.is_imap_account(acc):
         return None
-    return cast(dict[str, Any], integration_manager.resolve_imap_defaults(acc))
+    return integration_manager.resolve_imap_defaults(acc)
 
 
 def _imap_connect_fresh(acc: dict[str, Any]) -> Optional[imaplib.IMAP4]:

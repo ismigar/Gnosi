@@ -8,6 +8,8 @@ from typing import Any, Optional, cast
 
 from backend.domains.mail.services.accounts import _is_microsoft_account
 from backend.services.mail_inline_images import (
+    InlineImage,
+    MimeAsset,
     extract_inline_parts_from_mime,
     find_cid_srcs,
     find_mail_cid_refs,
@@ -21,7 +23,7 @@ log = logging.getLogger(__name__)
 
 async def _gmail_get_attachment_bytes(
     email: str, message_id: str, attachment_id: str
-) -> tuple[Any, ...]:
+) -> tuple[bytes | None, str | None]:
     """Returns (data_bytes, content_type) for a Gmail attachment."""
     import base64
 
@@ -80,8 +82,8 @@ async def _imap_fetch_raw(email: str, message_id: str, folder: str) -> Any:
 
 
 async def _collect_original_inline_parts(
-    email: str, message_id: str, wanted_cids: set[Any], folder: str = "INBOX"
-) -> Any:
+    email: str, message_id: str, wanted_cids: set[str], folder: str = "INBOX"
+) -> dict[str, MimeAsset] | None:
     """Retrieves the inline parts of an existing message by Content-ID.
 
     Same provider selection as get_attachment: IMAP-eligible (including
@@ -109,7 +111,7 @@ async def _collect_original_inline_parts(
             mail = await asyncio.to_thread(gmail_get_message, email, message_id)
             if not mail:
                 return None
-            parts = {}
+            parts: dict[str, MimeAsset] = {}
             for img in mail.get("inline_images") or []:
                 img_cid = (img.get("cid") or "").strip("<>")
                 if not img_cid or img_cid not in wanted or img_cid in parts:
@@ -117,8 +119,8 @@ async def _collect_original_inline_parts(
                 data, _ = await _gmail_get_attachment_bytes(email, message_id, img["attachment_id"])
                 if data:
                     parts[img_cid] = {
-                        "filename": img.get("filename") or "image",
-                        "content_type": img.get("content_type") or "image/png",
+                        "filename": str(img.get("filename") or "image"),
+                        "content_type": str(img.get("content_type") or "image/png"),
                         "data": data,
                     }
             return parts
@@ -147,7 +149,7 @@ async def _collect_original_inline_parts(
 async def _embed_quoted_cid_images(
     email: str,
     body: str,
-    inline_images: list[Any],
+    inline_images: list[InlineImage],
     source_message_id: Optional[str] | None = None,
     source_folder: str = "INBOX",
     *,
@@ -179,19 +181,20 @@ async def _embed_quoted_cid_images(
 
     # A single fetch per source message (the email/folder from the URL dictate:
     # the quoted message may be from a different account/folder than the sending one).
-    groups: dict[tuple[str, str, str], set[Any]] = {}
+    groups: dict[tuple[str, str, str], set[str]] = {}
     for ref in api_refs:
         key = (
-            cast(str, ref["email"] or email),
-            cast(str, ref["message_id"]),
-            cast(str, ref["folder"] or source_folder),
+            ref["email"] or email,
+            ref["message_id"],
+            ref["folder"] or source_folder,
         )
         groups.setdefault(key, set()).add(ref["cid"])
+    source_message_key: tuple[str, str, str] | None = None
     if residual:
-        key = (email, cast(str, source_message_id), source_folder)
-        groups.setdefault(key, set()).update(residual)
+        source_message_key = (email, cast(str, source_message_id), source_folder)
+        groups.setdefault(source_message_key, set()).update(residual)
 
-    parts_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+    parts_by_key: dict[tuple[str, str, str], dict[str, MimeAsset]] = {}
     for (src_email, src_mid, src_folder), cids in groups.items():
         try:
             parts = await collector(src_email, src_mid, cids, src_folder)
@@ -208,32 +211,40 @@ async def _embed_quoted_cid_images(
                 src_mid,
             )
             parts = {}
-        parts_by_key[(src_email, src_mid, src_folder)] = cast(dict[str, Any], parts)
+        parts_by_key[(src_email, src_mid, src_folder)] = cast(dict[str, MimeAsset], parts)
 
-    def _attach(key: Any, cid: Any) -> Any:
+    def _attach(key: tuple[str, str, str], cid: str) -> str | None:
         part = parts_by_key[key].get(cid.strip("<>"))
         if not part:
             log.warning("Quoted image has no matching part in original message %s: %r", key[1], cid)
             return None
         new_cid = new_content_id()
-        inline_images.append({**part, "content_id": new_cid})
+        inline_images.append(
+            {
+                "filename": part.get("filename", "image"),
+                "content_type": part.get("content_type", "application/octet-stream"),
+                "data": part["data"],
+                "content_id": new_cid,
+            }
+        )
         return new_cid
 
     url_mapping = {}
     for ref in api_refs:
         key = (
-            cast(str, ref["email"] or email),
-            cast(str, ref["message_id"]),
-            cast(str, ref["folder"] or source_folder),
+            ref["email"] or email,
+            ref["message_id"],
+            ref["folder"] or source_folder,
         )
         new_cid = _attach(key, ref["cid"])
         if new_cid:
             url_mapping[ref["url"]] = new_cid
     cid_mapping = {}
-    for old_cid in residual:
-        new_cid = _attach((email, source_message_id, source_folder), old_cid)
-        if new_cid:
-            cid_mapping[old_cid] = new_cid
+    if source_message_key is not None:
+        for old_cid in residual:
+            new_cid = _attach(source_message_key, old_cid)
+            if new_cid:
+                cid_mapping[old_cid] = new_cid
 
     body = rewrite_mail_cid_srcs(body, url_mapping)
     return rewrite_cid_srcs(body, cid_mapping)

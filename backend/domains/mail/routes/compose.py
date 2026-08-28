@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, List, Optional, cast
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from fastapi import Body, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,7 @@ from backend.services.google_mail_service import (
 )
 from backend.services.imap_mail_sync_service import imap_sync_service
 from backend.services.mail_inline_images import (
+    MimeAsset,
     extract_vault_inline_images,
 )
 from backend.services.workspace_service import require_role
@@ -313,12 +314,12 @@ async def send_mail(
     if not body:
         raise HTTPException(status_code=400, detail="Missing BODY")
 
-    attachment_data: list[Any] = []
+    attachment_data: list[MimeAsset] = []
     for f in attachments:
         content = await f.read()
         attachment_data.append(
             {
-                "filename": f.filename,
+                "filename": f.filename or "attachment",
                 "content_type": f.content_type or "application/octet-stream",
                 "data": content,
             }
@@ -353,8 +354,8 @@ async def send_mail(
             body,
             cc,
             bcc,
-            attachments=cast(list[Any], attachment_data or None),
-            inline_images=cast(list[Any], inline_images or None),
+            attachments=attachment_data or None,
+            inline_images=inline_images or None,
         )
     elif _is_imap_account(smtp_email):
         from backend.services.imap_mail_sync_service import imap_smtp_send
@@ -370,7 +371,7 @@ async def send_mail(
             attachment_data or None,
             from_email=from_email or email,
             from_name=from_name or imap_acc.get("display_name"),
-            inline_images=cast(list[Any], inline_images or None),
+            inline_images=inline_images or None,
         )
     elif attachment_data or inline_images:
         success = send_new_message_with_attachments(
@@ -381,7 +382,7 @@ async def send_mail(
             cc,
             bcc,
             attachment_data,
-            inline_images=cast(list[Any], inline_images or None),
+            inline_images=inline_images or None,
         )
     else:
         success = send_new_message(smtp_email, to, subject, body, cc, bcc)
@@ -602,10 +603,16 @@ async def reply_message(
     bcc: Optional[str] = Form(default=None),
     attachments: List[UploadFile] = File(default=[]),
 ) -> Any:
-    att_list: list[Any] = []
+    att_list: list[MimeAsset] = []
     for att in attachments:
         data = await att.read()
-        att_list.append({"filename": att.filename, "data": data, "content_type": att.content_type})
+        att_list.append(
+            {
+                "filename": att.filename or "attachment",
+                "data": data,
+                "content_type": att.content_type or "application/octet-stream",
+            }
+        )
 
     # Same conversion as in /send: vault images → inline CID attachments.
     body, inline_images = extract_vault_inline_images(body)
@@ -630,8 +637,8 @@ async def reply_message(
             cast(str, to),
             cast(str, cc),
             cast(str, bcc),
-            attachments=cast(list[Any], att_list or None),
-            inline_images=cast(list[Any], inline_images or None),
+            attachments=att_list or None,
+            inline_images=inline_images or None,
         )
     else:
         success = send_reply(
@@ -641,8 +648,8 @@ async def reply_message(
             to_recipients=cast(str, to),
             cc_recipients=cast(str, cc),
             bcc_recipients=cast(str, bcc),
-            attachments=cast(list[Any], att_list if att_list else None),
-            inline_images=cast(list[Any], inline_images or None),
+            attachments=att_list or None,
+            inline_images=inline_images or None,
         )
     if success:
         return {"status": "success"}

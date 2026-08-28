@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build  # type: ignore[import-untyped]
 
-from backend.services.mail_inline_images import build_mail_content
+from backend.services.mail_inline_images import InlineImage, MimeAsset, build_mail_content
 
 log = logging.getLogger(__name__)
 
@@ -146,8 +146,8 @@ def send_reply(
     cc_recipients: str | None = None,
     bcc_recipients: str | None = None,
     subject: str | None = None,
-    attachments: list[dict[str, Any]] | None = None,
-    inline_images: list[dict[str, Any]] | None = None,
+    attachments: list[MimeAsset] | None = None,
+    inline_images: list[InlineImage] | None = None,
 ) -> bool:
     """Sends a reply or forward to an existing thread, with optional attachments."""
     service = get_gmail_service(email)
@@ -308,8 +308,8 @@ def send_new_message_with_attachments(
     body: str,
     cc: str | None = None,
     bcc: str | None = None,
-    attachments: list[dict[str, Any]] | None = None,
-    inline_images: list[dict[str, Any]] | None = None,
+    attachments: list[MimeAsset] | None = None,
+    inline_images: list[InlineImage] | None = None,
 ) -> bool:
     """Sends a new email with optional file attachments and inline images."""
     service = get_gmail_service(email)

@@ -8,9 +8,9 @@ import time
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from fastapi import HTTPException
 
 from backend.services.context_vars import get_active_vault_path, get_primary_vault_path
@@ -20,16 +20,19 @@ log = logging.getLogger(__name__)
 
 
 def get_mail_vault_path() -> Path:
-    base = get_primary_vault_path()
-    return (base / "Mail") if base else (get_active_vault_path() / "Mail")
+    base = get_primary_vault_path() or get_active_vault_path()
+    if base is None:
+        raise RuntimeError("No active vault is configured for mail storage")
+    return base / "Mail"
 
 
 def get_vault_path() -> Optional[Path]:
     # Returns `Optional[Path]` because `get_primary_vault_path()` and
     # `get_active_vault_path()` both return `Optional[Path]`: if no config
     # or context defines "VAULT", both yield `None`. Callers must
-    # save the return value or use `get_mail_vault_path()` (it has a built-in fallback).
-    return cast(Optional[Path], get_primary_vault_path() or get_active_vault_path())
+    # save the return value or use `get_mail_vault_path()` (it raises an explicit
+    # configuration error instead of returning an invalid path).
+    return get_primary_vault_path() or get_active_vault_path()
 
 
 _MESSAGE_ID_RE = re.compile(r"^[A-Za-z0-9_\-@.+]+$")

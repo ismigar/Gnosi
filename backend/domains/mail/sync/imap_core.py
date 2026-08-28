@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Optional
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from backend.config.app_config import load_params
 from backend.domains.mail.sync.imap_protocol import (

@@ -3,10 +3,13 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/api/mail_routes.py
+  - backend/domains/mail
   - backend/models/mail.py
   - backend/services/hybrid_mail_service.py
   - backend/services/google_mail_service.py
   - backend/services/microsoft_mail_service.py
+  - backend/services/oauth2_helpers.py
+  - backend/services/mail_inline_images.py
   - backend/services/mail_ingester.py
   - backend/services/mail_metadata_manager.py
   - backend/services/vault_mail_sync_service.py
@@ -16,9 +19,9 @@ tests:
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
   - backend/tests/test_mail_reply_cid.py
-  - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
   - backend/tests/test_mail_metadata_manager.py
+  - backend/tests/test_mail_vault_repository.py
   - backend/tests/test_vault_mail_sync_service.py
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
 ---
@@ -43,6 +46,10 @@ Google and Microsoft provider adapters expose the same typed Gnosi message,
 attachment, draft, label, and send boundaries. Dynamic SDK payloads are narrowed
 inside each adapter; the only local typing exceptions are the exact untyped
 third-party discovery calls, never the service API consumed by Gnosi.
+OAuth refresh accepts only a concrete non-empty token before persisting it.
+Google's untyped credential constructor and refresh call are isolated and
+documented inside that adapter; IMAP and SMTP receive standard-library
+connection types at the XOAUTH2 boundary.
 
 Batch ingestion uses savepoints so a malformed message cannot roll back earlier
 messages. Message and thread identity must remain stable across repeated syncs.
@@ -58,6 +65,8 @@ boundary, requires a configured Mail directory before any filesystem access,
 and deduplicates by provider message id. Multipart text, HTML, categories,
 labels and attachment presence retain their historical Markdown/frontmatter
 representation; a missing Vault fails closed without creating files elsewhere.
+Every synchronized note retains `database_table_id: mail`, and frontmatter is
+serialized through `yaml.dump` rather than hand-built string escaping.
 
 ## MIME and content safety
 
@@ -80,6 +89,9 @@ The inline-image boundary uses typed MIME asset descriptors and a common
 `Message` root for text, related and mixed trees. It accepts only decoded byte
 payloads, normalizes optional content types, and leaves asset URLs unchanged
 when no active Vault or materialized file is available.
+The same `MimeAsset` and `InlineImage` contracts flow unchanged through Gmail,
+Microsoft Graph and SMTP senders. Quoted assets are promoted to inline images
+by explicitly filling every required field and generating a fresh Content-ID.
 
 ## Compose and send
 
@@ -94,6 +106,9 @@ diagnostics on failure.
 The mail database stores messages, tags, message-tag associations, and saved
 views. Saved views contain visible fields, typed filters, logic, grouping,
 sorting, and available actions as JSON within SQLite rows.
+Create and partial-update schemas remain separate Pydantic contracts so an
+update may omit its name without weakening the create requirement; their HTTP
+and OpenAPI shapes remain compatible with 2.x clients.
 
 ## Invariants
 

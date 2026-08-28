@@ -11,17 +11,21 @@ Error policy:
     message in Catalan ready to show in the UI. The upper layer decides
     whether to turn it into a 401 error so the frontend shows "reconnect".
 """
+
 from __future__ import annotations
 
 import base64
+import imaplib
 import logging
-from typing import Optional, Tuple
+import smtplib
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 
 class OAuth2RefreshError(Exception):
     """The access_token cannot be renewed because the refresh_token isn't valid either."""
+
     def __init__(self, email: str, original: Exception | None = None):
         self.email = email
         self.original = original
@@ -36,11 +40,12 @@ def _record_refresh_outcome(email: str, error: str | None) -> None:
 
     On success, it clears `last_refresh_error`. On failure, it stores the cause
     and the timestamp. It doesn't block the flow if persistence fails.
-    
+
     """
     try:
         from backend.services.integration_manager import integration_manager
         import time
+
         with integration_manager._lock:  # noqa: SLF001 — direct access to update in place
             data = integration_manager._load()  # noqa: SLF001
             email_lower = email.strip().lower()
@@ -60,7 +65,7 @@ def _record_refresh_outcome(email: str, error: str | None) -> None:
         pass  # best-effort, we don't want this to bring down the refresh because of it
 
 
-def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
+def ensure_fresh_token(email: str) -> tuple[str | None, dict[str, Any] | None]:
     """Returns `(access_token, account_dict)` for a Google account.
 
     - If the current access_token is valid, it's returned unchanged.
@@ -69,7 +74,7 @@ def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
 
     For non-Google accounts, returns `(None, account_dict)` so the caller
     knows it must log in with a password.
-    
+
     """
     from backend.services.integration_manager import integration_manager
     from backend.config.env_config import get_env
@@ -92,7 +97,7 @@ def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
         from google.auth.transport.requests import Request
         import time
 
-        creds = Credentials(
+        creds = Credentials(  # type: ignore[no-untyped-call]  # Google SDK lacks typing
             token=account.get("token"),
             refresh_token=account.get("refresh_token"),
             token_uri=account.get("token_uri", "https://oauth2.googleapis.com/token"),
@@ -105,16 +110,19 @@ def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
         #   - So we rely on `last_refresh_success_at`: if the token is
         #     more than 50 min old (Google issues them for 1h), we force a refresh.
         #   - If we've never recorded a successful refresh (legacy account), we force it.
-        TOKEN_LIFETIME_S = 3600        # access_tokens duren 1h
-        REFRESH_MARGIN_S = 600         # refresh 10 min before expiring
+        TOKEN_LIFETIME_S = 3600  # access_tokens duren 1h
+        REFRESH_MARGIN_S = 600  # refresh 10 min before expiring
         last_ok = account.get("last_refresh_success_at") or 0
         age = time.time() - last_ok if last_ok else float("inf")
         needs_refresh = age >= (TOKEN_LIFETIME_S - REFRESH_MARGIN_S)
 
         if (creds.expired or needs_refresh) and creds.refresh_token:
             try:
-                creds.refresh(Request())
-                integration_manager.update_mail_account_token(email, creds.token)
+                creds.refresh(Request())  # type: ignore[no-untyped-call]  # Google SDK lacks typing
+                refreshed_token = creds.token
+                if not isinstance(refreshed_token, str) or not refreshed_token:
+                    raise RuntimeError("Google OAuth2 refresh returned no access token")
+                integration_manager.update_mail_account_token(email, refreshed_token)
                 log.info(f"[OAuth2] Token renovat per {email}")
                 # We re-read to have fresh state.
                 account = integration_manager.get_mail_account(email) or account
@@ -127,7 +135,8 @@ def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
                 log.error(f"[OAuth2] Refresc fallit per {email}: {e}")
                 raise
 
-        return creds.token, account
+        access_token = creds.token
+        return access_token if isinstance(access_token, str) else None, account
     except OAuth2RefreshError:
         raise
     except Exception as e:
@@ -140,28 +149,28 @@ def build_xoauth2_string(email: str, access_token: str) -> bytes:
 
     RFC format: `user={email}\\x01auth=Bearer {token}\\x01\\x01`
     Returns bytes because imaplib.authenticate expects it that way.
-    
+
     """
     return f"user={email}\x01auth=Bearer {access_token}\x01\x01".encode()
 
 
-def xoauth2_imap_login(imap, email: str, access_token: str) -> None:
+def xoauth2_imap_login(imap: imaplib.IMAP4, email: str, access_token: str) -> None:
     """Authenticates an already-open IMAP4 connection with XOAUTH2.
 
     Raises the original imaplib exception on failure — the caller can decide
     whether to retry after a forced refresh.
-    
+
     """
     auth_string = build_xoauth2_string(email, access_token)
     imap.authenticate("XOAUTH2", lambda _challenge: auth_string)
 
 
-def xoauth2_smtp_login(smtp, email: str, access_token: str) -> None:
+def xoauth2_smtp_login(smtp: smtplib.SMTP, email: str, access_token: str) -> None:
     """Authenticates an already-open SMTP connection with XOAUTH2.
 
     smtplib has no native helper, so we send the AUTH command manually
     with the base64 string.
-    
+
     """
     auth_string = build_xoauth2_string(email, access_token)
     encoded = base64.b64encode(auth_string).decode("ascii")
