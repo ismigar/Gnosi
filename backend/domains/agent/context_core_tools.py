@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from langchain_core.tools import StructuredTool
 
@@ -151,7 +151,7 @@ class ContextCoreTools:
         if ref["type"] == "url":
             from backend.agent.web_context import fetch_url_text
 
-            return cast(str, fetch_url_text(ref["ref"]))
+            return fetch_url_text(ref["ref"])
         return None
 
     @staticmethod
@@ -262,7 +262,7 @@ class ContextCoreTools:
                     "Do NOT answer from memory: use search_context with relevant "
                     "keywords and take an identifier from its results."
                 )
-            return cast(str, wrap_untrusted(source.LABEL, body))
+            return wrap_untrusted(source.LABEL, body)
         except Exception as exc:  # noqa: BLE001
             log.exception("Failed to read %s from external source %s", reference, source_id)
             return f"Error reading «{reference}» from {source.LABEL}: {exc}"
@@ -282,7 +282,7 @@ class ContextCoreTools:
             from backend.agent.web_context import wrap_untrusted
 
             body = read_internal_record(ref["ref"], ref.get("scope") or {}, record_id)
-            return cast(str, wrap_untrusted(f"Gnosi {ref['label']} record {record_id}", body))
+            return wrap_untrusted(f"Gnosi {ref['label']} record {record_id}", body)
         except KeyError:
             return (
                 f"Record «{record_id}» does not exist inside the attached source scope. "

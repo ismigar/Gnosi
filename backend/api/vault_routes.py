@@ -32,10 +32,6 @@ from fastapi import (
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-try:
-    from PIL import Image
-except Exception:
-    Image = None
 from backend.config.app_config import load_params
 from backend.config.data_dir import resolve_data_dir
 from backend.config.env_config import default_host_helper_url, default_thumb_daemon_url

@@ -705,6 +705,9 @@ Core AI workflow contributions use an internal typed specification for identity,
 activation, source requirements, tools, and instructions. Descriptor creation
 therefore cannot conflate string fields with source/tool sequences, while the
 published catalog schema and ordering remain unchanged.
+Attached-context readers now preserve the concrete string contracts of URL,
+external-source, and internal-record wrappers directly. No dynamic cast masks a
+provider mismatch at these untrusted-content boundaries.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
