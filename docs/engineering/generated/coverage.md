@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 361 | 40 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 43 | 19 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 10 | 12 | 0 |
-| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 26 | 15 | 0 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 26 | 16 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 67 | 25 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 15 | 9 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 11 | 7 | 0 |
@@ -20,7 +20,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 6 | 2 | 0 |
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 78 | 21 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 12 | 10 | 0 |
-| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 11 | 3 | 0 |
+| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 12 | 4 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 50 | 5 | 0 |
 
 ## Platform foundation and runtime

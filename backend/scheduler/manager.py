@@ -725,20 +725,15 @@ class SchedulerManager:
 
     def _task_academic_repository_sync(self) -> dict[str, Any]:
         """Queue due incremental OAI harvests without blocking the scheduler."""
-        from backend.services.literature_service import enqueue_due_syncs
+        from backend.scheduler.literature_tasks import queue_due_repository_syncs
 
-        queued = enqueue_due_syncs()
-        return {
-            "queued": queued,
-            "message": f"Queued {queued} academic repository synchronizations.",
-        }
+        return queue_due_repository_syncs()
 
     def _task_academic_review_updates(self) -> dict[str, Any]:
         """Queue due saved review strategies without blocking the scheduler."""
-        from backend.services.literature_service import enqueue_due_review_updates
+        from backend.scheduler.literature_tasks import queue_due_review_updates
 
-        queued = enqueue_due_review_updates()
-        return {"queued": queued, "message": f"Queued {queued} literature review updates."}
+        return queue_due_review_updates()
 
     def _task_system_maintenance(self) -> dict[str, Any]:
         """Comprehensive system cleanup: logs, mailbox, sandbox, and caches."""

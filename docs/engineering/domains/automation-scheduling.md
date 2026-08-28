@@ -8,6 +8,7 @@ source_paths:
   - backend/scheduler/notifications.py
   - backend/platform/notifications.py
   - backend/scheduler/task_handlers.py
+  - backend/scheduler/literature_tasks.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
   - backend/services/literature_service.py
@@ -20,6 +21,8 @@ tests:
   - backend/tests/test_platform_notifications.py
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_literature_service.py
+  - backend/tests/test_scheduler_literature_tasks.py
+  - backend/tests/test_durable_job_worker.py
   - tests/e2e/tests/e2e/automation-scout.spec.ts
 ---
 
@@ -65,6 +68,11 @@ guards overlapping instances according to task policy and uses fresh database
 or provider contexts. A process restart reconciles schedules from persisted
 configuration instead of trusting only in-memory state.
 
+Native startup enables the scheduler by default. Deterministic smoke tests and
+diagnostic sessions over real local data may set `GNOSI_DISABLE_SCHEDULER=1` so
+the API and UI can be verified without firing overdue third-party integrations;
+this switch does not alter persisted task configuration.
+
 The manager owns scheduling lifecycle, persistence, overlap control, and task
 history. `task_handlers.py` owns dispatch policy and the larger operational task
 bodies, including bounded maintenance. This keeps task execution reusable and
@@ -98,6 +106,13 @@ registration rejects a missing callable before constructing its typed contract.
 Scheduled contact synchronization constructs each engine with explicit database,
 workspace, and integration arguments, preventing account payloads from being
 misbound to workspace identity as service signatures evolve.
+
+Academic scheduler adapters resolve the active Vault before entering literature
+storage. A first-run process without a configured Vault records a successful,
+structured skip with zero queued jobs instead of constructing `Path(None)`.
+Reader queue recovery likewise verifies that the provider-owned job document
+still exists before claiming work; orphaned queue records are rejected once and
+never create failing worker threads.
 
 ## Vault automations
 

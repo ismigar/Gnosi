@@ -6,7 +6,7 @@ Environment names and source-written defaults discovered through static inspecti
 
 Regenerate with `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **106 variables** across **166 source references**.
+Discovered **107 variables** across **167 source references**.
 
 | Variable | Runtime | Source default | Consumers |
 | --- | --- | --- | --- |
@@ -33,6 +33,7 @@ Discovered **106 variables** across **166 source references**.
 | `GNOSI_CLONE_HEARTBEAT` | Python | str(Path.home() / '.gnosi_clone_heartbeat') | [`backend/api/notion_routes.py:268`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_routes.py#L268) |
 | `GNOSI_DATA_DIR` | Python | str(resolve_data_dir()), tempfile.mkdtemp(prefix='gnosi-test-contacts-'), tempfile.mkdtemp(prefix='gnosi-test-mailingest-') | [`backend/tests/test_contacts_sync_merge.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_contacts_sync_merge.py#L24)<br>[`backend/tests/test_mail_ingester_savepoint.py:27`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_ingester_savepoint.py#L27)<br>[`pipeline/skills/notion_clone/scripts/backfill_notion_views.py:43`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/notion_clone/scripts/backfill_notion_views.py#L43) |
 | `GNOSI_DEV_MEMORY_ROOT` | Python | unset | [`backend/api/analytics_routes.py:27`](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py#L27) |
+| `GNOSI_DISABLE_SCHEDULER` | Python | unset | [`backend/app/lifespan.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py#L28) |
 | `GNOSI_FILES_PROVIDER` | Python | '' | [`backend/platform/files/__init__.py:78`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/__init__.py#L78) |
 | `GNOSI_FILE_INDEX_REFRESH_SECONDS` | Python | '600' | [`backend/services/vault_file_index.py:58`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_file_index.py#L58) |
 | `GNOSI_FILE_INDEX_STALE_SECONDS` | Python | str(7 * 24 * 3600) | [`backend/services/vault_file_index.py:61`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_file_index.py#L61) |

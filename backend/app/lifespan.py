@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
@@ -20,6 +21,12 @@ from backend.scheduler.manager import scheduler_manager
 
 
 log = logging.getLogger(__name__)
+
+
+def _scheduler_start_enabled() -> bool:
+    """Keep smoke tests read-only without changing the default native runtime."""
+    value = str(os.environ.get("GNOSI_DISABLE_SCHEDULER") or "").strip().lower()
+    return value not in {"1", "true", "yes", "on"}
 
 
 def _registered_vault_paths() -> set[Path]:
@@ -277,7 +284,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     log.info("Database schema verification complete (%s stores).", len(migrated_databases))
     assert_signing_secret_safe()
 
-    scheduler_manager.start()
+    if _scheduler_start_enabled():
+        scheduler_manager.start()
+    else:
+        log.info("Scheduler startup disabled by GNOSI_DISABLE_SCHEDULER.")
     durable_job_worker.start()
     confirmation_task = asyncio.create_task(_confirmation_maintenance_loop())
 

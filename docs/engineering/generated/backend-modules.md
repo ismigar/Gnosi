@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | `agent` | 46 | 8533 |
 | `api` | 38 | 11464 |
-| `app` | 6 | 597 |
+| `app` | 6 | 607 |
 | `application root` | 2 | 41 |
 | `config` | 8 | 1008 |
 | `data` | 2 | 214 |
@@ -21,14 +21,14 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1275 |
 | `platform` | 12 | 1224 |
-| `scheduler` | 5 | 1164 |
+| `scheduler` | 6 | 1212 |
 | `scripts` | 2 | 69 |
 | `security` | 5 | 829 |
-| `services` | 148 | 34723 |
+| `services` | 148 | 34770 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 450 |
 
-Total: **695 modules** and **147201 source lines**.
+Total: **696 modules** and **147306 source lines**.
 
 ## agent
 
@@ -131,7 +131,7 @@ Total: **695 modules** and **147201 source lines**.
 | [`backend/app/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/__init__.py) | 5 | 0 | 0 | 0 | 0 | FastAPI composition for the Gnosi backend. |
 | [`backend/app/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/errors.py) | 44 | 0 | 2 | 1 | 2 | Global HTTP error translation and private diagnostic notification. |
 | [`backend/app/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/factory.py) | 53 | 0 | 2 | 1 | 1 | Typed construction of the Gnosi FastAPI application. |
-| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 303 | 0 | 12 | 4 | 12 | Application startup, maintenance and shutdown lifecycle. |
+| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 313 | 0 | 13 | 4 | 13 | Application startup, maintenance and shutdown lifecycle. |
 | [`backend/app/middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/middleware.py) | 30 | 0 | 1 | 0 | 1 | Ordered middleware composition for Gnosi's FastAPI application. |
 | [`backend/app/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py) | 162 | 0 | 1 | 0 | 1 | Single ordered registry for every public Gnosi router. |
 
@@ -621,7 +621,8 @@ Total: **695 modules** and **147201 source lines**.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/scheduler/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/__init__.py) | 1 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/scheduler/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/contracts.py) | 28 | 2 | 0 | 0 | 2 | Typed scheduler configuration contracts. |
-| [`backend/scheduler/manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py) | 785 | 1 | 0 | 0 | 1 | Scheduler Manager: Manages scheduled tasks using APScheduler. |
+| [`backend/scheduler/literature_tasks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/literature_tasks.py) | 53 | 0 | 3 | 0 | 3 | Vault-aware scheduler adapters for academic literature maintenance. |
+| [`backend/scheduler/manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py) | 780 | 1 | 0 | 0 | 1 | Scheduler Manager: Manages scheduled tasks using APScheduler. |
 | [`backend/scheduler/notifications.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/notifications.py) | 7 | 0 | 0 | 0 | 0 | Compatibility facade for the scheduler notification boundary. |
 | [`backend/scheduler/task_handlers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/task_handlers.py) | 343 | 1 | 10 | 0 | 6 | Large scheduler task handlers kept outside the lifecycle manager. |
 
@@ -685,7 +686,7 @@ Total: **695 modules** and **147201 source lines**.
 | [`backend/services/data_dir_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/data_dir_migration.py) | 592 | 2 | 30 | 0 | 12 | Journaled and recoverable migration of Gnosi's per-device data directory. |
 | [`backend/services/drupal_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/drupal_sync_service.py) | 71 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical Drupal connector. |
 | [`backend/services/durable_job_queue.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/durable_job_queue.py) | 249 | 0 | 19 | 0 | 8 | Small SQLite-backed queue for restart-safe background capabilities. |
-| [`backend/services/durable_job_worker.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/durable_job_worker.py) | 241 | 2 | 7 | 0 | 4 | Process-local dispatcher for the durable capability queue. |
+| [`backend/services/durable_job_worker.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/durable_job_worker.py) | 288 | 2 | 7 | 0 | 4 | Process-local dispatcher for the durable capability queue. |
 | [`backend/services/feed_ingester.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/feed_ingester.py) | 28 | 0 | 1 | 0 | 0 | Compatibility facade for feed ingestion. |
 | [`backend/services/field_resolver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/field_resolver.py) | 243 | 0 | 12 | 0 | 9 | Field resolution by immutable ID or name (compatibility layer). |
 | [`backend/services/files_provider/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/__init__.py) | 29 | 0 | 0 | 0 | 0 | Compatibility facade for the provider-neutral file platform. |

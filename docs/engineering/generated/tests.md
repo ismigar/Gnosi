@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 278 | 2027 |
+| pytest | 280 | 2031 |
 
 ## Files
 
@@ -156,7 +156,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_ai_timeout.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_timeout.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_app_config_language.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_config_language.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_app_config_resolution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_config_resolution.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_app_lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_lifespan.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_app_lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_lifespan.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_article_extractor_excerpt.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_article_extractor_excerpt.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_artificial_analysis.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_attachment_name_numbering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_attachment_name_numbering.py) | 5 | Python AST |
@@ -197,6 +197,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_database_rules_views_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_database_rules_views_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_drawing_soft_delete.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_soft_delete.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_duplicate_page_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_duplicate_page_index.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_durable_job_worker.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_durable_job_worker.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_e2e_etag_concurrency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_etag_concurrency.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_e2e_import_references_item_type.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_import_references_item_type.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_e2e_option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_option_catalogs.py) | 6 | Python AST |
@@ -324,6 +325,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_safe_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_safe_io.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sanitize_html_xss.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sanitize_html_xss.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_save_page_md_guard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_save_page_md_guard.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_scheduler_literature_tasks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_scheduler_literature_tasks.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_scheduler_task_handlers_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_scheduler_task_handlers_domain_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_schema_migrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_schema_migrations.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_set_user_password_script.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_set_user_password_script.py) | 15 | Python AST |
