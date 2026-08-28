@@ -42,6 +42,7 @@ source_paths:
   - backend/agent/conversation_memory.py
   - backend/agent/context_safety.py
   - backend/mcp/client.py
+  - pipeline/ai_client.py
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
@@ -63,6 +64,7 @@ tests:
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_ai_model_registry_api.py
   - backend/tests/test_ai_content_routes.py
+  - backend/tests/test_pipeline_ai_client.py
   - backend/tests/test_provider_delete.py
   - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
@@ -138,6 +140,13 @@ secret storage or supported environment migration, not exposed to the
 frontend. Failure reasons are recorded separately from user-facing responses so
 operators can distinguish timeout, provider rejection, invalid credentials,
 context overflow, and tool incompatibility.
+
+The legacy hybrid client remains available to social composition, mail drafting
+and older pipeline parsers through a strictly typed compatibility boundary. It
+narrows dynamic YAML provider maps, requires a concrete provider URL before any
+network call, validates OpenAI-compatible response envelopes, writes its
+prompt-hash cache atomically below the per-device data directory, and preserves
+the established primary-then-fallback behavior without exposing credentials.
 
 The router normalizes unknown registry metadata before iteration, compares
 token quotas and context windows as integers, and keeps its usage ledger behind

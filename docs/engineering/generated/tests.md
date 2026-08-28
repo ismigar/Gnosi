@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 275 | 2012 |
+| pytest | 276 | 2019 |
 
 ## Files
 
@@ -288,6 +288,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_password_hashing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_password_hashing.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_pat_authentication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pat_authentication.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_path_resolver_freshness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_path_resolver_freshness.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_pipeline_ai_client.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pipeline_ai_client.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_pipeline_naming.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pipeline_naming.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_pipeline_skill_classification.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pipeline_skill_classification.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_planning_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_agent_tools.py) | 4 | Python AST |
