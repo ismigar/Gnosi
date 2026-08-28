@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 3 | 1126 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 804 |
-| `services` | 148 | 37337 |
+| `services` | 148 | 37306 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **620 modules** and **140660 source lines**.
+Total: **620 modules** and **140629 source lines**.
 
 ## agent
 
@@ -643,14 +643,14 @@ Total: **620 modules** and **140660 source lines**.
 | [`backend/services/literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_models.py) | 351 | 0 | 21 | 0 | 10 | Canonical academic-work normalization and deterministic deduplication. |
 | [`backend/services/literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_review_service.py) | 593 | 0 | 32 | 10 | 4 | Vault-native systematic-review records, blind decisions, and exports. |
 | [`backend/services/literature_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_service.py) | 144 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical literature domain. |
-| [`backend/services/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki.py) | 707 | 0 | 29 | 0 | 11 | Incremental Zettelkasten ingestion for Gnosi's built-in LLM Wiki. |
+| [`backend/services/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki.py) | 696 | 0 | 29 | 0 | 11 | Incremental Zettelkasten ingestion for Gnosi's built-in LLM Wiki. |
 | [`backend/services/llm_wiki_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_actions.py) | 185 | 1 | 4 | 1 | 5 | Application actions shared by LLM Wiki HTTP routes and agent tools. |
 | [`backend/services/llm_wiki_agent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_agent.py) | 215 | 1 | 7 | 0 | 8 | Lifecycle and protection rules for the built-in LLM Wiki agent profile. |
 | [`backend/services/llm_wiki_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_ai_contributions.py) | 263 | 0 | 4 | 0 | 2 | Declarative agent skills and governed tools contributed by LLM Wiki. |
 | [`backend/services/llm_wiki_assist.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_assist.py) | 185 | 0 | 7 | 0 | 4 | Accessible editing for the Brain Inbox (F6). |
 | [`backend/services/llm_wiki_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_config.py) | 462 | 0 | 29 | 0 | 12 | Per-vault configuration for the built-in LLM Wiki ("Brain") plugin. |
 | [`backend/services/llm_wiki_extractors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_extractors.py) | 739 | 1 | 35 | 0 | 10 | Ordered, provenance-preserving source extraction for LLM Wiki. |
-| [`backend/services/llm_wiki_indices.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_indices.py) | 789 | 0 | 45 | 0 | 17 | Deterministic managed indexes and logs for the LLM Wiki Brain table. |
+| [`backend/services/llm_wiki_indices.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_indices.py) | 769 | 0 | 45 | 0 | 17 | Deterministic managed indexes and logs for the LLM Wiki Brain table. |
 | [`backend/services/llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_lint.py) | 296 | 0 | 8 | 0 | 3 | LLM Wiki (Brain) lint — the "Lint" operation of Karpathy's pattern. |
 | [`backend/services/llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_pdf_annotations.py) | 302 | 0 | 9 | 0 | 2 | Persistent PDF highlights generated from grounded LLM Wiki citations. |
 | [`backend/services/llm_wiki_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_storage.py) | 454 | 0 | 29 | 0 | 11 | Durable jobs, provenance manifests, and evidence snapshots for LLM Wiki. |

@@ -1,4 +1,5 @@
 """Deterministic managed indexes and logs for the LLM Wiki Brain table."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -147,8 +148,7 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, An
             (
                 dict(item)
                 for item in config.get("source_tables") or []
-                if isinstance(item, dict)
-                and item.get("table_id") == source_table_id
+                if isinstance(item, dict) and item.get("table_id") == source_table_id
             ),
             {},
         )
@@ -214,11 +214,7 @@ def sync_source_dimensions(
         for table_id in source_configs
     }
     source_pages = {
-        table_id: {
-            _page_id(page): page
-            for page in _brain_pages(table_id)
-            if _page_id(page)
-        }
+        table_id: {_page_id(page): page for page in _brain_pages(table_id) if _page_id(page)}
         for table_id in source_configs
     }
 
@@ -347,25 +343,19 @@ def rebuild_search_cache(brain_table_id: str) -> int:
         upsert_records=upsert_search_records,
         clear_search_cache=clear_search_cache,
     )
-    return cast(
-        int,
-        llm_wiki_search_index.rebuild_search_cache(
-            brain_table_id,
-            dependencies=dependencies,
-        ),
+    return llm_wiki_search_index.rebuild_search_cache(
+        brain_table_id,
+        dependencies=dependencies,
     )
 
 
 def _fts_path(brain_table_id: str) -> Path:
     from backend.api.vault_routes import get_p
 
-    return cast(
-        Path,
-        llm_wiki_search_index.fts_path(
-            brain_table_id,
-            local_data=lambda: get_p("LOCAL_DATA"),
-            safe_token=_safe_token,
-        ),
+    return llm_wiki_search_index.fts_path(
+        brain_table_id,
+        local_data=lambda: get_p("LOCAL_DATA"),
+        safe_token=_safe_token,
     )
 
 
@@ -381,15 +371,12 @@ def upsert_search_records(
     callers receiving a file-change event can pass a smaller delta without
     rewriting unrelated records.
     """
-    return cast(
-        int,
-        llm_wiki_search_index.upsert_search_records(
-            brain_table_id,
-            records,
-            replace_snapshot=replace_snapshot,
-            path_for_index=_fts_path,
-            logger=logger,
-        ),
+    return llm_wiki_search_index.upsert_search_records(
+        brain_table_id,
+        records,
+        replace_snapshot=replace_snapshot,
+        path_for_index=_fts_path,
+        logger=logger,
     )
 
 
@@ -418,54 +405,44 @@ def search_index_candidates(
     limit: int = 128,
 ) -> list[dict[str, Any]]:
     """Return lexical candidates from FTS5, falling back to the JSON cache."""
-    return cast(
-        list[dict[str, Any]],
-        llm_wiki_search_index.search_index_candidates(
-            brain_table_id,
-            query,
-            limit,
-            path_for_index=_fts_path,
-            load_cache=load_search_cache,
-        ),
+    return llm_wiki_search_index.search_index_candidates(
+        brain_table_id,
+        query,
+        limit,
+        path_for_index=_fts_path,
+        load_cache=load_search_cache,
     )
 
 
 def search_index_status(brain_table_id: str) -> dict[str, Any]:
     """Expose bounded freshness metadata for diagnostics and UX progress."""
-    return cast(
-        dict[str, Any],
-        llm_wiki_search_index.search_index_status(
-            brain_table_id,
-            path_for_index=_fts_path,
-        ),
+    return llm_wiki_search_index.search_index_status(
+        brain_table_id,
+        path_for_index=_fts_path,
     )
 
 
 def load_search_cache(brain_table_id: str) -> list[dict[str, Any]]:
     from backend.api.vault_routes import get_p
 
-    return cast(
-        list[dict[str, Any]],
-        llm_wiki_search_index.load_search_cache(
-            brain_table_id,
-            local_data=lambda: get_p("LOCAL_DATA"),
-            safe_token=_safe_token,
-        ),
+    return llm_wiki_search_index.load_search_cache(
+        brain_table_id,
+        local_data=lambda: get_p("LOCAL_DATA"),
+        safe_token=_safe_token,
     )
 
 
 def search_vector(text: str, dimensions: int = 192) -> list[float]:
     """Build a deterministic local hashed vector for hybrid cache search."""
-    return cast(list[float], llm_wiki_search_index.search_vector(text, dimensions))
+    return llm_wiki_search_index.search_vector(text, dimensions)
 
 
 def vector_similarity(left: list[Any], right: list[Any]) -> float:
     """Cosine similarity for normalized cache vectors."""
-    return cast(float, llm_wiki_search_index.vector_similarity(left, right))
+    return llm_wiki_search_index.vector_similarity(left, right)
 
 
-def _index_rendering_dependencies(
-) -> llm_wiki_index_rendering.RenderingDependencies:
+def _index_rendering_dependencies() -> llm_wiki_index_rendering.RenderingDependencies:
     return llm_wiki_index_rendering.RenderingDependencies(
         metadata=_meta,
         note_kind=_note_kind,
@@ -493,18 +470,15 @@ def _upsert_resource_index(
     config: dict[str, Any],
     props_by_id: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    return cast(
-        dict[str, Any],
-        llm_wiki_index_rendering.upsert_resource_index(
-            brain_table_id,
-            source_table_id,
-            resource_id,
-            readings,
-            source_config,
-            config,
-            props_by_id,
-            dependencies=_index_rendering_dependencies(),
-        ),
+    return llm_wiki_index_rendering.upsert_resource_index(
+        brain_table_id,
+        source_table_id,
+        resource_id,
+        readings,
+        source_config,
+        config,
+        props_by_id,
+        dependencies=_index_rendering_dependencies(),
     )
 
 
@@ -515,16 +489,13 @@ def _rebuild_dimension_indexes(
     permanents: list[Any],
     config: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    return cast(
-        list[dict[str, Any]],
-        llm_wiki_index_rendering.rebuild_dimension_indexes(
-            brain_table_id,
-            prop,
-            readings,
-            permanents,
-            config,
-            dependencies=_index_rendering_dependencies(),
-        ),
+    return llm_wiki_index_rendering.rebuild_dimension_indexes(
+        brain_table_id,
+        prop,
+        readings,
+        permanents,
+        config,
+        dependencies=_index_rendering_dependencies(),
     )
 
 
@@ -565,19 +536,21 @@ def _schema_content(config: dict[str, Any]) -> str:
             f"{', '.join(source.get('attachment_property_ids') or []) or '—'} · URL "
             f"{', '.join(source.get('url_property_ids') or []) or '—'}"
         )
-    return "\n".join([
-        "This document describes the managed Brain schema. Content outside the managed "
-        "block is preserved.",
-        "",
-        f"- Configuration version: `{config.get('version', 2)}`",
-        f"- Brain table: `{config.get('brain_table_id') or '—'}`",
-        f"- Index fields: `{', '.join(config.get('index_field_ids') or []) or '—'}`",
-        "- Sources:",
-        *(source_lines or ["  - No configured sources"]),
-        "",
-        "Convention: reading notes are atomic and managed; permanent notes are manual; "
-        "indexes rewrite only their delimited blocks.",
-    ])
+    return "\n".join(
+        [
+            "This document describes the managed Brain schema. Content outside the managed "
+            "block is preserved.",
+            "",
+            f"- Configuration version: `{config.get('version', 2)}`",
+            f"- Brain table: `{config.get('brain_table_id') or '—'}`",
+            f"- Index fields: `{', '.join(config.get('index_field_ids') or []) or '—'}`",
+            "- Sources:",
+            *(source_lines or ["  - No configured sources"]),
+            "",
+            "Convention: reading notes are atomic and managed; permanent notes are manual; "
+            "indexes rewrite only their delimited blocks.",
+        ]
+    )
 
 
 def _set_visible_note_type(
@@ -616,7 +589,9 @@ def _upsert_managed_page(
     metadata = {
         "title": title,
         "table_id": brain_table_id,
-        "note_type": "index" if role in {ROLE_GENERAL_INDEX, ROLE_RESOURCE_INDEX, ROLE_DIMENSION_INDEX} else "system",
+        "note_type": "index"
+        if role in {ROLE_GENERAL_INDEX, ROLE_RESOURCE_INDEX, ROLE_DIMENSION_INDEX}
+        else "system",
         "llm_wiki_managed": True,
         "llm_wiki_role": role,
         **(selector or {}),
@@ -631,7 +606,10 @@ def _upsert_managed_page(
             old_meta,
             _replace_managed_block(body, managed_key, content),
         )
-        return {"id": str(old_meta.get("id") or _page_id(page)), "title": str(old_meta.get("title") or title)}
+        return {
+            "id": str(old_meta.get("id") or _page_id(page)),
+            "title": str(old_meta.get("title") or title),
+        }
 
     brain_dir = _resolve_table_folder_from_metadata({"table_id": brain_table_id})
     if not brain_dir:
@@ -658,7 +636,9 @@ def _find_managed_page(
         meta = _meta(page)
         if meta.get("llm_wiki_role") != role:
             continue
-        if selector and any(str(meta.get(key) or "") != str(value or "") for key, value in selector.items()):
+        if selector and any(
+            str(meta.get(key) or "") != str(value or "") for key, value in selector.items()
+        ):
             continue
         return page
     return None

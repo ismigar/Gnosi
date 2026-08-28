@@ -5,6 +5,7 @@ Application code validates citations, owns stable note ids, persists job
 checkpoints, and updates deterministic index pages.  The LLM never writes
 files directly.
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -23,11 +24,11 @@ from backend.domains.llm_wiki import ingestion as llm_wiki_ingestion
 from backend.domains.llm_wiki import planning as llm_wiki_planning
 from backend.domains.llm_wiki import writing as llm_wiki_writing
 from backend.services import (
-    llm_wiki_config,
-    llm_wiki_extractors,
-    llm_wiki_indices,
-    llm_wiki_pdf_annotations,
-    llm_wiki_storage,
+    llm_wiki_config as llm_wiki_config,
+    llm_wiki_extractors as llm_wiki_extractors,
+    llm_wiki_indices as llm_wiki_indices,
+    llm_wiki_pdf_annotations as llm_wiki_pdf_annotations,
+    llm_wiki_storage as llm_wiki_storage,
 )
 
 logger = get_logger(__name__)
@@ -69,6 +70,7 @@ def is_running(page_id: str, source_table_id: str = "") -> bool:
 # Source compatibility helpers
 # ---------------------------------------------------------------------------
 
+
 def read_source(
     metadata: dict[str, Any],
     body: str,
@@ -102,9 +104,7 @@ def read_source(
         config,
     )
     text = "\n\n".join(
-        segment["text"]
-        for origin in origins
-        for segment in origin.get("segments") or []
+        segment["text"] for origin in origins for segment in origin.get("segments") or []
     )
     kinds = "+".join(dict.fromkeys(str(origin.get("kind") or "") for origin in origins))
     return text, kinds or "empty"
@@ -143,15 +143,18 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
             meta = llm_wiki_storage.page_metadata(page)
             if meta.get("is_template"):
                 continue
-            out.append({
-                "id": str(getattr(page, "id", "") or meta.get("id") or ""),
-                "title": str(getattr(page, "title", "") or meta.get("title") or ""),
-                "type": str(meta.get("Tipus") or meta.get("note_type") or ""),
-                "same_source": bool(source_page_id) and (
-                    str(meta.get("llm_wiki_resource_id") or "") == source_page_id
-                    or source_page_id in _fonts_ids(meta)
-                ),
-            })
+            out.append(
+                {
+                    "id": str(getattr(page, "id", "") or meta.get("id") or ""),
+                    "title": str(getattr(page, "title", "") or meta.get("title") or ""),
+                    "type": str(meta.get("Tipus") or meta.get("note_type") or ""),
+                    "same_source": bool(source_page_id)
+                    and (
+                        str(meta.get("llm_wiki_resource_id") or "") == source_page_id
+                        or source_page_id in _fonts_ids(meta)
+                    ),
+                }
+            )
     except Exception as exc:  # noqa: BLE001
         logger.warning("llm_wiki could not load the Brain index: %s", exc)
     return out[:300]
@@ -161,6 +164,7 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
 # Planning and grounding
 # ---------------------------------------------------------------------------
 
+
 def _build_chunk_prompt(
     chunk: dict[str, Any],
     source_title: str,
@@ -168,21 +172,18 @@ def _build_chunk_prompt(
     language: str,
     ai_dimensions: list[dict[str, Any]],
 ) -> str:
-    return cast(
-        str,
-        llm_wiki_planning.build_chunk_prompt(
-            chunk,
-            source_title,
-            brain_index,
-            language,
-            ai_dimensions,
-            locator_label=_locator_label,
-        ),
+    return llm_wiki_planning.build_chunk_prompt(
+        chunk,
+        source_title,
+        brain_index,
+        language,
+        ai_dimensions,
+        locator_label=_locator_label,
     )
 
 
 def _parse_plan(text: str) -> Dict[str, Any]:
-    return cast(Dict[str, Any], llm_wiki_planning.parse_plan(text, logger=logger))
+    return llm_wiki_planning.parse_plan(text, logger=logger)
 
 
 def _validate_and_reduce_plans(
@@ -191,15 +192,12 @@ def _validate_and_reduce_plans(
     ai_dimensions: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Validate evidence, classify dimensions, and assign stable managed keys."""
-    return cast(
-        tuple[list[dict[str, Any]], list[str]],
-        llm_wiki_planning.validate_and_reduce_plans(
-            plans,
-            origins,
-            ai_dimensions,
-            normalized_text=_normalized_text,
-            validate_dimensions=_validate_ai_dimensions,
-        ),
+    return llm_wiki_planning.validate_and_reduce_plans(
+        plans,
+        origins,
+        ai_dimensions,
+        normalized_text=_normalized_text,
+        validate_dimensions=_validate_ai_dimensions,
     )
 
 
@@ -207,15 +205,13 @@ def _validate_ai_dimensions(
     raw: Any,
     allowed_by_field: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    return cast(
-        dict[str, Any],
-        llm_wiki_planning.validate_ai_dimensions(raw, allowed_by_field),
-    )
+    return llm_wiki_planning.validate_ai_dimensions(raw, allowed_by_field)
 
 
 # ---------------------------------------------------------------------------
 # Deterministic writes
 # ---------------------------------------------------------------------------
+
 
 def _today() -> str:
     return dt.date.today().isoformat()
@@ -342,19 +338,16 @@ def _apply_plan(
         uuid_factory=lambda: str(uuid.uuid4()),
         generated_note_type=GENERATED_NOTE_TYPE,
     )
-    return cast(
-        Dict[str, List[str]],
-        llm_wiki_writing.apply_plan(
-            plan,
-            source_page_id,
-            source_title,
-            brain_table_id,
-            source_table_id=source_table_id,
-            source_config=source_config,
-            config=config,
-            source_dimensions=source_dimensions,
-            dependencies=dependencies,
-        ),
+    return llm_wiki_writing.apply_plan(
+        plan,
+        source_page_id,
+        source_title,
+        brain_table_id,
+        source_table_id=source_table_id,
+        source_config=source_config,
+        config=config,
+        source_dimensions=source_dimensions,
+        dependencies=dependencies,
     )
 
 
@@ -394,6 +387,7 @@ def _effective_dimensions(
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
+
 
 def process_resource(
     source_page_id: str,
@@ -463,23 +457,20 @@ def process_resource(
             writing=PHASE_WRITING,
         ),
     )
-    return cast(
-        Dict[str, Any],
-        llm_wiki_ingestion.process_resource(
-            source_page_id,
-            source_title,
-            metadata,
-            body,
-            brain_table_id,
-            vault_root,
-            language,
-            source_table_id=source_table_id,
-            source_table=source_table,
-            source_config=source_config,
-            job_id=job_id,
-            resume_checkpoint=resume_checkpoint,
-            dependencies=dependencies,
-        ),
+    return llm_wiki_ingestion.process_resource(
+        source_page_id,
+        source_title,
+        metadata,
+        body,
+        brain_table_id,
+        vault_root,
+        language,
+        source_table_id=source_table_id,
+        source_table=source_table,
+        source_config=source_config,
+        job_id=job_id,
+        resume_checkpoint=resume_checkpoint,
+        dependencies=dependencies,
     )
 
 
@@ -602,13 +593,16 @@ def _on_ingest_success(
     try:
         from backend.services import plugin_events
 
-        plugin_events.emit("llm-wiki:ingested", {
-            "page_id": source_page_id,
-            "source_table_id": source_table_id,
-            "pages_touched": report.get("pages_touched", 0),
-            "created": len(report.get("created", [])),
-            "updated": len(report.get("updated", [])),
-        })
+        plugin_events.emit(
+            "llm-wiki:ingested",
+            {
+                "page_id": source_page_id,
+                "source_table_id": source_table_id,
+                "pages_touched": report.get("pages_touched", 0),
+                "created": len(report.get("created", [])),
+                "updated": len(report.get("updated", [])),
+            },
+        )
     except Exception as exc:  # noqa: BLE001
         logger.warning("llm_wiki could not emit the ingest event: %s", exc)
 
@@ -616,6 +610,7 @@ def _on_ingest_success(
 # ---------------------------------------------------------------------------
 # Dimension mapping
 # ---------------------------------------------------------------------------
+
 
 def _dimension_context(
     config: dict[str, Any],
@@ -632,15 +627,12 @@ def _dimension_context(
         dimension_options=_dimension_options,
         metadata_value=_metadata_property_value,
     )
-    return cast(
-        tuple[dict[str, Any], list[dict[str, Any]]],
-        llm_wiki_dimensions.build_dimension_context(
-            config,
-            source_table,
-            source_config,
-            metadata,
-            dependencies=dependencies,
-        ),
+    return llm_wiki_dimensions.build_dimension_context(
+        config,
+        source_table,
+        source_config,
+        metadata,
+        dependencies=dependencies,
     )
 
 
@@ -657,10 +649,7 @@ def _dimension_options(
     prop: dict[str, Any],
     pages_for_table: Callable[[str], Iterable[Any]],
 ) -> list[dict[str, Any]]:
-    return cast(
-        list[dict[str, Any]],
-        llm_wiki_dimensions.dimension_options(prop, pages_for_table),
-    )
+    return llm_wiki_dimensions.dimension_options(prop, pages_for_table)
 
 
 def _metadata_property_value(
