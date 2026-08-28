@@ -11,6 +11,7 @@ source_paths:
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/field_resolver.py
+  - backend/services/translation_helpers.py
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
   - frontend/src/pages/VaultDashboard.jsx
@@ -28,6 +29,7 @@ tests:
   - backend/tests/test_vault_assets_files_containment.py
   - backend/tests/test_vault_assets_files_route_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_translation_helpers.py
   - backend/tests/test_vault_templates.py
   - backend/tests/test_vault_templates_routes.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
@@ -148,7 +150,10 @@ no source-guardrail allowance.
 Translation lifecycle behavior is owned by `backend/domains/vault/translation`:
 optional provider loading, cloud-file recovery, row and whole-page translation,
 minimal metadata effects, and stale-child propagation are separate typed
-services. Drupal row publishing is owned by `backend/domains/vault/drupal`,
+services. The shared pure helper boundary canonicalizes source identities,
+detects translatable changes and language fields, reuses existing option labels,
+and translates only textual image subfields while retaining their source asset.
+Drupal row publishing is owned by `backend/domains/vault/drupal`,
 which separates field and identity mapping, local media preparation, Markdown
 and wikilink conversion, language caches, title matching, and idempotent node
 synchronization. The compatibility router retains the original FastAPI
