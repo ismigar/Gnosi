@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { X, Folder, ChevronRight, ArrowLeft, Home, Search, File as FileIcon, FolderOpen } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { useTranslation } from 'react-i18next';
+import { transportFetch } from '../shared/api/transports';
 
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
@@ -125,7 +126,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         let cancelled = false;
         void (async () => {
             try {
-                const res = await fetch('/api/system/native-pick/available');
+                const res = await transportFetch('/api/system/native-pick/available');
                 const data = await res.json();
                 if (!cancelled) setNativeAvailable(!!data.available);
             } catch {
@@ -190,7 +191,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         const handle = setTimeout(async () => {
             setLoading(true);
             try {
-                const res = await fetch('/api/system/search', {
+                const res = await transportFetch('/api/system/search', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ query: q, limit: 200 }),
@@ -235,7 +236,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         setLoading(true);
         setError('');
         try {
-            const res = await fetch('/api/system/browse', {
+            const res = await transportFetch('/api/system/browse', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path }),
@@ -324,7 +325,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         setNativeError('');
         setNativePicking(true);
         try {
-            const res = await fetch('/api/system/native-pick', {
+            const res = await transportFetch('/api/system/native-pick', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ mode, prompt: titleText, multiple: canMulti }),

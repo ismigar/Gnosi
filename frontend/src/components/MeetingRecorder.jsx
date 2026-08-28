@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { Mic, Square, Loader2, X, FileText, Monitor, Users, AlertTriangle, Check } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';

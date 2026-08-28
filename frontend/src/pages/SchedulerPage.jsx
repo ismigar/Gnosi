@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Clock, RefreshCw, AlertCircle, Edit2, Check, X } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
+import { transportFetch } from '../shared/api/transports';
 
 const formatInterval = (minutes) => {
     if (!minutes && minutes !== 0) return null;
@@ -41,7 +42,7 @@ const SchedulerPage = () => {
     const loadSchedulers = async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const res = await fetch('/api/schedulers');
+            const res = await transportFetch('/api/schedulers');
             if (res.ok) {
                 const data = await res.json();
                 setSchedulers(data);
@@ -58,7 +59,7 @@ const SchedulerPage = () => {
 
     const toggleTask = async (task) => {
         try {
-            const res = await fetch(`/api/schedulers/${task.name}`, {
+            const res = await transportFetch(`/api/schedulers/${task.name}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ interval_minutes: task.interval_minutes, enabled: !task.enabled })
@@ -88,7 +89,7 @@ const SchedulerPage = () => {
         const newMinutes = hoursToMinutes(editingInterval[task.name]);
         if (newMinutes === null) return;
         try {
-            const res = await fetch(`/api/schedulers/${task.name}`, {
+            const res = await transportFetch(`/api/schedulers/${task.name}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ interval_minutes: newMinutes, enabled: task.enabled })

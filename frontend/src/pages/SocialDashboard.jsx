@@ -8,6 +8,7 @@ import ContentCalendar from './ContentCalendar';
 import PostHistory from './PostHistory';
 import { PublishSocialModal } from '../components/Vault/PublishSocialModal';
 import { AppHeader } from '../components/AppHeader';
+import { transportFetch } from '../shared/api/transports';
 
 const DEFAULT_STREAMS = [
     { id: "mastodon-home", title: "Mastodon Home", icon: "🐘", network: "mastodon" },
@@ -32,7 +33,7 @@ const SocialDashboard = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch('/api/social/streams')
+        transportFetch('/api/social/streams')
             .then(r => r.ok ? r.json() : null)
             .then(data => { if (data) setColumns(data); })
             .catch(() => {});
@@ -40,7 +41,7 @@ const SocialDashboard = () => {
 
     const saveStreams = async (newColumns) => {
         try {
-            await fetch('/api/social/streams', {
+            await transportFetch('/api/social/streams', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newColumns),
@@ -52,7 +53,7 @@ const SocialDashboard = () => {
 
     const fetchStreamFeed = async (stream) => {
         try {
-            const res = await fetch(`/api/social/feed/${stream.id}`);
+            const res = await transportFetch(`/api/social/feed/${stream.id}`);
             const data = res.ok ? await res.json() : [];
             setStreamData(prev => ({ ...prev, [stream.id]: data }));
         } catch {

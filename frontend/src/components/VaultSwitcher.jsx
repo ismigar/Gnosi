@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import { Vault, Plus, Check, Loader, Trash2, Store, PackagePlus } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import VaultTemplateMarketplace from './VaultTemplateMarketplace';
@@ -10,6 +9,11 @@ import {
     canonicalVaultSwitchPath,
     persistVaultCatalog,
 } from '../lib/vaultRouting';
+import {
+    createVault,
+    deleteVault,
+    fetchVaultCatalog,
+} from '../shared/api/vaults';
 
 /**
  * Vault selector (personal multi-vault mode). Lists the vaults, allows creating new ones, and
@@ -31,7 +35,7 @@ export default function VaultSwitcher() {
 
     const load = async () => {
         try {
-            const { data } = await axios.get('/api/vaults');
+            const data = await fetchVaultCatalog();
             const list = data.vaults || [];
             persistVaultCatalog(list);
             setVaults(list);
@@ -56,7 +60,7 @@ export default function VaultSwitcher() {
         if (!name) return;
         setBusy('create'); setError('');
         try {
-            await axios.post('/api/vaults', { name });
+            await createVault(name);
             setNewName(''); setCreating(false);
             await load();
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
@@ -70,7 +74,7 @@ export default function VaultSwitcher() {
         if (!v) return;
         setBusy('del:' + v.id); setError('');
         try {
-            await axios.delete(`/api/vaults/${v.id}`);
+            await deleteVault(v.id);
             await load();
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); setConfirmTarget(null); }

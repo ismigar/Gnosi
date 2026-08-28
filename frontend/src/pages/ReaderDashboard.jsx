@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { toast } from '../lib/toast';
 import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Menu, X, History } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';

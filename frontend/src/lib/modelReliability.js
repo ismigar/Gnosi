@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 
 /**
  * Recorded failures per model, by reason.

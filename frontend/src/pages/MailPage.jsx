@@ -10,6 +10,7 @@ import { cachedJson } from '../lib/cachedJson';
 import { AppHeader } from '../components/AppHeader';
 import { Inbox, PanelLeft } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { transportFetch } from '../shared/api/transports';
 
 export default function MailPage() {
     return (
@@ -107,7 +108,7 @@ function MailPageInner() {
             ? [selectedAccount.email]
             : accs.map(a => a.email || a.username).filter(Boolean);
         if (!emailList.length) return;
-        Promise.all(emailList.map(e => fetch(`/api/mail/counts?email=${encodeURIComponent(e)}`).then(r => r.json()).catch(() => ({}))))
+        Promise.all(emailList.map(e => transportFetch(`/api/mail/counts?email=${encodeURIComponent(e)}`).then(r => r.json()).catch(() => ({}))))
             .then(results => {
                 const merged = {};
                 results.forEach(res => {
@@ -130,7 +131,7 @@ function MailPageInner() {
         undoRef.current = null;
         toast.dismiss('undo-toast');
         try {
-            const res = await fetch(
+            const res = await transportFetch(
                 `/api/mail/messages/${action.mailId}/move?email=${encodeURIComponent(action.email)}`,
                 {
                     method: 'POST',

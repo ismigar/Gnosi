@@ -20,6 +20,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { ensureBackendOrigin } from '../lib/electron';
 import { canonicalizeVaultApiUrl } from '../lib/vaultRouting';
+import { openWebSocket, WEB_SOCKET_OPEN_STATE } from '../shared/api/specialized-transports';
+import { transportFetch } from '../shared/api/transports';
 
 async function buildWsUrl(pageId) {
     // In the Electron shell the `app://` scheme does not intercept WebSocket
@@ -46,7 +48,7 @@ export function useCollaboration(pageId) {
 
     useEffect(() => {
         let cancelled = false;
-        fetch('/api/health', { credentials: 'include' })
+        transportFetch('/api/health', { credentials: 'include' })
             .then((r) => (r.ok ? r.json() : null))
             .then((data) => {
                 if (!cancelled && data?.gnosi_mode) setGnosiMode(data.gnosi_mode);
@@ -76,7 +78,7 @@ export function useCollaboration(pageId) {
         const connect = async () => {
             let ws;
             try {
-                ws = new WebSocket(await buildWsUrl(pageId));
+                ws = openWebSocket(await buildWsUrl(pageId));
             } catch {
                 return; // Invalid URL or WS unavailable
             }
@@ -131,7 +133,7 @@ export function useCollaboration(pageId) {
 
     const send = useCallback((message) => {
         const ws = wsRef.current;
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        if (ws && ws.readyState === WEB_SOCKET_OPEN_STATE) {
             ws.send(JSON.stringify(message));
         }
     }, []);

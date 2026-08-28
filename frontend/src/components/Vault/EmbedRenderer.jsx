@@ -3,6 +3,7 @@ import { Frame, ExternalLink, Edit3, FolderOpen, AlertTriangle, RefreshCw } from
 import { useTranslation } from 'react-i18next';
 import { VaultEditorContext } from './VaultEditorContext';
 import { withActiveVault } from '../../lib/fileResource';
+import { transportFetch } from '../../shared/api/transports';
 
 const normalizeUrl = (value) => {
     if (typeof value !== 'string') return '';
@@ -131,7 +132,7 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
         // all cases, but `response.ok` is indicator enough.
         (async () => {
             try {
-                const res = await fetch(url, { method: 'HEAD' });
+                const res = await transportFetch(url, { method: 'HEAD' });
                 if (cancelled) return;
                 setAvailability(res.ok ? 'ok' : 'missing');
             } catch {

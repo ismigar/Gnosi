@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun, Users, UserPlus, Loader2, Check, Navigation } from 'lucide-react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../ConfirmModal';

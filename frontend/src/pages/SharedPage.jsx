@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { Loader2, Lock, FileText } from 'lucide-react';
 import { VaultMarkdown } from '../components/Vault/VaultMarkdown';
 

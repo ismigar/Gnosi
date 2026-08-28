@@ -16,11 +16,12 @@ import { toast } from '../../lib/toast';
 import MailTagPicker, { TagPill } from './MailTagPicker';
 import { useMailTags } from '../../hooks/useMailTags';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { translateFolderName } from './mailFolderUtils';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { transportFetch } from '../../shared/api/transports';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -431,7 +432,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         // Race guard: if the message changes while this fetch is in flight, the
         // late response must not write to the previous message's thread.
         let cancelled = false;
-        fetch(`/api/mail/threads/${encodeURIComponent(tid)}?email=${encodeURIComponent(email)}`)
+        transportFetch(`/api/mail/threads/${encodeURIComponent(tid)}?email=${encodeURIComponent(email)}`)
             .then(r => r.json())
             .then(data => {
                 if (cancelled) return;
@@ -476,7 +477,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
             const params = new URLSearchParams();
             if (msgEmail) params.set('email', msgEmail);
             if (msgFolder) params.set('folder', msgFolder);
-            fetch(`/api/mail/messages/${id}?${params}`)
+            transportFetch(`/api/mail/messages/${id}?${params}`)
                 .then(r => r.json())
                 .then(data => setThreadMsgData(prev => ({ ...prev, [id]: data })))
                 .catch(() => {});
@@ -502,7 +503,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         const params = new URLSearchParams();
         if (msgEmail) params.set('email', msgEmail);
         if (msgFolder) params.set('folder', msgFolder);
-        fetch(`/api/mail/messages/${selectedMail.id}?${params}`)
+        transportFetch(`/api/mail/messages/${selectedMail.id}?${params}`)
             .then(res => res.json())
             .then(data => {
                 if (cancelled) return;
@@ -523,7 +524,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         if (!context) return;
         setExtractedEntities(null);
         try {
-            const res = await fetch('/api/mail/ai/extract_entities', {
+            const res = await transportFetch('/api/mail/ai/extract_entities', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ context })
@@ -598,7 +599,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         // of counts wasn't invalidated and the sidebar kept the old counter).
         const folder = mailData?.imap_folder || selectedMail?.imap_folder || '';
         const folderQuery = folder ? `&folder=${encodeURIComponent(folder)}` : '';
-        fetch(`/api/mail/messages/${id}/read?email=${encodeURIComponent(email)}${folderQuery}`, {
+        transportFetch(`/api/mail/messages/${id}/read?email=${encodeURIComponent(email)}${folderQuery}`, {
             method: 'POST'
         })
         .then(() => {
@@ -671,7 +672,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         const snooze_until = snoozeMap[option]?.toISOString();
         if (!snooze_until) return;
         try {
-            await fetch(`/api/mail/messages/${mailData.id}/snooze`, {
+            await transportFetch(`/api/mail/messages/${mailData.id}/snooze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ snooze_until })
@@ -742,7 +743,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         if (!mailData || !effectiveEmail) return;
         const newValue = !mailData.is_starred;
         setMailData(prev => ({ ...prev, is_starred: newValue }));
-        fetch(`/api/mail/messages/${mailData.id}/star?email=${encodeURIComponent(effectiveEmail)}`, {
+        transportFetch(`/api/mail/messages/${mailData.id}/star?email=${encodeURIComponent(effectiveEmail)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ starred: newValue })
@@ -753,7 +754,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
     const handleArchive = () => {
         if (!mailData?.id || !effectiveEmail) return;
         const folderParam = mailData.imap_folder ? `&folder=${encodeURIComponent(mailData.imap_folder)}` : '';
-        fetch(`/api/mail/messages/${mailData.id}/archive?email=${encodeURIComponent(effectiveEmail)}${folderParam}`, { method: 'POST' })
+        transportFetch(`/api/mail/messages/${mailData.id}/archive?email=${encodeURIComponent(effectiveEmail)}${folderParam}`, { method: 'POST' })
             .then(res => {
                 if (!res.ok) throw new Error('archive_failed');
                 onActionDone?.(mailData.id, 'archive', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder });
@@ -769,7 +770,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         // markdown remains on disk (it reappears when the list is reloaded).
         const isVaultDraft = (mailData.source === 'vault') || (selectedMail?.source === 'vault');
         if (isVaultDraft) {
-            fetch(`/api/mail/drafts/${mailData.id}`, { method: 'DELETE' })
+            transportFetch(`/api/mail/drafts/${mailData.id}`, { method: 'DELETE' })
                 .then(res => {
                     if (!res.ok) throw new Error('delete_draft_failed');
                     // We pass actionType='delete_draft' (not 'trash') so that
@@ -783,7 +784,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         }
         if (!effectiveEmail) return;
         const folderParam = mailData.imap_folder ? `&folder=${encodeURIComponent(mailData.imap_folder)}` : '';
-        fetch(`/api/mail/messages/${mailData.id}/trash?email=${encodeURIComponent(effectiveEmail)}${folderParam}`, { method: 'POST' })
+        transportFetch(`/api/mail/messages/${mailData.id}/trash?email=${encodeURIComponent(effectiveEmail)}${folderParam}`, { method: 'POST' })
             .then(res => {
                 if (!res.ok) throw new Error('trash_failed');
                 onActionDone?.(mailData.id, 'trash', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder });
@@ -803,7 +804,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         
         setMailData(prev => ({ ...prev, is_spam: newValue, category: newValue ? 'SPAM' : 'Main' }));
         
-        fetch(`/api/mail/messages/${mailData.id}/spam?email=${encodeURIComponent(effectiveEmail)}`, {
+        transportFetch(`/api/mail/messages/${mailData.id}/spam?email=${encodeURIComponent(effectiveEmail)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ spam: newValue })
@@ -828,7 +829,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         setShowMove(v => !v);
         if (moveFolders.length === 0) {
             try {
-                const res = await fetch(`/api/mail/folders?email=${encodeURIComponent(effectiveEmail)}`);
+                const res = await transportFetch(`/api/mail/folders?email=${encodeURIComponent(effectiveEmail)}`);
                 const data = await res.json();
                 setMoveFolders(data.folders || []);
             } catch {
@@ -842,7 +843,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         setMoving(true);
         setShowMove(false);
         try {
-            const res = await fetch(
+            const res = await transportFetch(
                 `/api/mail/messages/${mailData.id}/move?email=${encodeURIComponent(effectiveEmail)}`,
                 { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target_folder: folderName, imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }) }
             );

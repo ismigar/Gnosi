@@ -22,7 +22,17 @@ jobs:
         with:
           node-version: '22.22.2'
           cache: pnpm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.9.15'
+          enable-cache: true
       - run: pnpm install --frozen-lockfile
+      - run: uv sync --frozen
+      - name: Check deterministic OpenAPI and generated frontend client
+        run: pnpm check:api-client
       - run: pnpm lint:frontend
       - run: pnpm --filter @gnosi/frontend typecheck
       - run: pnpm test:frontend
@@ -47,12 +57,8 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy
       - run: uv run python scripts/check-source-guardrails.py --require-pruned
-      - name: Strict type-check of extracted backend boundaries
-        run: >-
-          uv run mypy --strict --follow-imports=skip
-          --allow-untyped-decorators --allow-subclassing-any
-          --ignore-missing-imports backend/app backend/domains backend/platform
-          backend/services/files_provider
+      - name: Strict type-check of the complete backend
+        run: uv run mypy --strict --exclude '^backend/tests/' backend
       - run: uv run python -m compileall -q backend pipeline scripts extensions
       - run: uv run pytest
 

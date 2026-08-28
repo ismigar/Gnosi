@@ -2,10 +2,10 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import AgentContextSources from './AgentContextSources';
 
-vi.mock('axios', () => ({
+vi.mock('../shared/api/legacy-http', () => ({
     default: {
         get: vi.fn(),
         post: vi.fn(),

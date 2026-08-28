@@ -7,7 +7,7 @@ import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { Tldraw, createTLStore, defaultShapeUtils, getSnapshot, loadSnapshot } from 'tldraw';
 import { createShapeId, toRichText } from '@tldraw/tlschema';
 import 'tldraw/tldraw.css';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle, FilePlus2, Search, ScanText, PenLine } from 'lucide-react';

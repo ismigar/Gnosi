@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import EmojiPicker from 'emoji-picker-react';
 import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
 import { Search, Upload, Link2, X, Loader2, Smile } from 'lucide-react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';

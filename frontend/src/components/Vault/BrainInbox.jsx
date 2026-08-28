@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { BrainCircuit, Loader2, Trash2, X } from 'lucide-react';
 import { toast } from '../../lib/toast';

@@ -10,6 +10,7 @@ import {
     normalizeResourceFacets,
     notebookResourceCatalogUrl,
 } from './notebookResourceCatalog';
+import { transportFetch } from '../../shared/api/transports';
 
 const EMPTY_RESOURCE_IDS = Object.freeze([]);
 
@@ -59,7 +60,7 @@ export default function NotebookCreateDialog({
         const controller = new AbortController();
         const timer = window.setTimeout(() => {
             setLoadingResources(true);
-            fetch(notebookResourceCatalogUrl({
+            transportFetch(notebookResourceCatalogUrl({
                 query,
                 page: resourceData.page,
                 filters,
@@ -112,7 +113,7 @@ export default function NotebookCreateDialog({
         if (!selectedIds.size || creating) return;
         setCreating(true);
         try {
-            const response = await fetch('/api/notebooks', {
+            const response = await transportFetch('/api/notebooks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Database, FileText, Paperclip, Layers, Globe, Landmark, X, Plus, Loader2, Blocks, SlidersHorizontal } from 'lucide-react';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { toast } from '../lib/toast';
 
 /**

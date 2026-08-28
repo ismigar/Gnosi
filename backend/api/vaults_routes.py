@@ -164,7 +164,7 @@ def _ensure_main_vault(db: Session, ws_id: str, default_path: Path) -> Vault | N
     return v
 
 
-@router.get("", response_model=None)
+@router.get("", response_model=VaultListResponse)
 def list_vaults(
     ctx: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
@@ -191,7 +191,7 @@ def list_vaults(
 @router.post(
     "",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=VaultMutationResponse,
 )
 def create_vault(
     payload: CreateVaultPayload,
@@ -246,7 +246,7 @@ def create_vault(
 @router.patch(
     "/{vault_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=VaultMutationResponse,
 )
 def rename_vault(
     vault_id: str,
@@ -286,7 +286,7 @@ def rename_vault(
 @router.delete(
     "/{vault_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=VaultDeleteResponse,
 )
 def delete_vault(
     vault_id: str,

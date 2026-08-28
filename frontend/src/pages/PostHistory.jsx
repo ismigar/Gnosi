@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle, Calendar, ExternalLink } from 'lucide-react';
 import i18n from '../i18n';
+import { transportFetch } from '../shared/api/transports';
 
 const PostHistory = () => {
     const { t } = useTranslation();
@@ -16,7 +17,7 @@ const PostHistory = () => {
     const fetchHistory = async () => {
         setIsRefreshing(true);
         try {
-            const res = await fetch('/api/social/history');
+            const res = await transportFetch('/api/social/history');
             if (res.ok) {
                 const data = await res.json();
                 setHistory(data.reverse()); // Show newest first

@@ -4,6 +4,7 @@ import { toast } from '../lib/toast';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, AlertCircle } from 'lucide-react';
 import i18n from '../i18n';
 import ConfirmModal from '../components/ConfirmModal';
+import { transportFetch } from '../shared/api/transports';
 
 const ContentCalendar = () => {
     const [scheduledPosts, setScheduledPosts] = useState([]);
@@ -18,7 +19,7 @@ const ContentCalendar = () => {
 
     const fetchScheduledPosts = async () => {
         try {
-            const res = await fetch('/api/social/scheduled');
+            const res = await transportFetch('/api/social/scheduled');
             if (res.ok) {
                 const data = await res.json();
                 setScheduledPosts(data);
@@ -37,7 +38,7 @@ const ContentCalendar = () => {
         setConfirmTarget(null);
 
         try {
-            const res = await fetch(`/api/social/scheduled/${postId}`, { method: 'DELETE' });
+            const res = await transportFetch(`/api/social/scheduled/${postId}`, { method: 'DELETE' });
             if (!res.ok) {
                 // Without this else, a 4xx/5xx response caused the post
                 // to keep appearing even though the user thought it had already been

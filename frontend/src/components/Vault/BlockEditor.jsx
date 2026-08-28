@@ -43,7 +43,7 @@ import {
     PanelBottomOpen,
     Info,
 } from 'lucide-react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import {
     useCreateBlockNote,
     getDefaultReactSlashMenuItems,
@@ -135,6 +135,7 @@ import {
     saveToggleDomExpansionState,
     saveToggleExpansionState,
 } from './toggleExpansionStateUtils';
+import { transportFetch } from '../../shared/api/transports';
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -1643,7 +1644,7 @@ export function EditorInner({
         }
         const qs = params.toString();
         const url = qs ? `/api/vault/assets/upload?${qs}` : '/api/vault/assets/upload';
-        const res = await fetch(url, { method: 'POST', body: formData });
+        const res = await transportFetch(url, { method: 'POST', body: formData });
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
         return data.url;

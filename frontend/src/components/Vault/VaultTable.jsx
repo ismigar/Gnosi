@@ -29,6 +29,7 @@ import { useTitlePreview } from './useTitlePreview';
 import { normalizeTableFunctionalities } from './tableFunctionalityUtils';
 import { getTableFocusTarget, getTableRecordFocusPreparation } from './tableRecordFocusUtils';
 import { hasResourceReference } from './resourceLinkUtils';
+import { transportFetch } from '../../shared/api/transports';
 
 // A cell's dropdown (select/multi_select) rendered in a PORTAL at
 // `document.body` with `position: fixed`, anchored below the input. This way it escapes the
@@ -397,7 +398,7 @@ import { TranslateLanguagesModal } from './TranslateLanguagesModal';
 import { SyncDrupalModal } from './SyncDrupalModal';
 import { PublishSocialModal } from './PublishSocialModal';
 import { ProcessResourceModal } from './ProcessResourceModal';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { toast } from '../../lib/toast';
 import { notifyError } from '../../lib/notifyError';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -1616,7 +1617,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
         try {
             setOpeningResourceId(note.id);
-            const response = await fetch('/api/vault/open-resource', {
+            const response = await transportFetch('/api/vault/open-resource', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -2261,7 +2262,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
 
         try {
-            const response = await fetch('/api/vault/open-resource', {
+            const response = await transportFetch('/api/vault/open-resource', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -2407,7 +2408,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         for (let i = 0; i < pageEntries.length; i += CHUNK) {
             const slice = pageEntries.slice(i, i + CHUNK);
             const results = await Promise.allSettled(slice.map(([id, metadata]) =>
-                fetch(`/api/vault/pages/${id}`, {
+                transportFetch(`/api/vault/pages/${id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ metadata }),
@@ -2604,7 +2605,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         if (trimmed === '' || trimmed === note.title) return; // no-op (empty doesn't clear the title)
         setOptimisticTitles(prev => new Map(prev).set(noteId, trimmed));
         try {
-            const response = await fetch(`/api/vault/pages/${noteId}`, {
+            const response = await transportFetch(`/api/vault/pages/${noteId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: trimmed }),
@@ -4623,7 +4624,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                     const p = fileDeletePrompt;
                                     setFileDeleteBusy(true);
                                     try {
-                                        const res = await fetch('/api/vault/delete-physical-file', {
+                                        const res = await transportFetch('/api/vault/delete-physical-file', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ target: p.target }),

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Repeat, MessageCircle, Share } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { transportFetch } from '../../shared/api/transports';
 
 const PostCard = ({ post }) => {
     const { t } = useTranslation();
@@ -31,7 +32,7 @@ const PostCard = ({ post }) => {
 
         try {
             const action = liked ? 'unlike' : 'like';
-            const res = await fetch('/api/social/interact', {
+            const res = await transportFetch('/api/social/interact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ post_id: id, network, action, cid })
@@ -55,7 +56,7 @@ const PostCard = ({ post }) => {
 
         try {
             const action = reposted ? 'unreblog' : 'reblog';
-            const res = await fetch('/api/social/interact', {
+            const res = await transportFetch('/api/social/interact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ post_id: id, network, action, cid })

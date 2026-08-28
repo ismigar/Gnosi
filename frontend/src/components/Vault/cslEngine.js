@@ -27,6 +27,7 @@
  */
 import CSL from 'citeproc';
 import { ZOTERO_TO_CSL_TYPE, LABEL_TO_ZOTERO_TYPE } from './zoteroSchema';
+import { transportFetch } from '../../shared/api/transports';
 
 /**
  * Resolves the Vault's "Item Type" field (canonical Zotero key or
@@ -76,7 +77,7 @@ let _dynamicStylesCache = null;
 export async function fetchAvailableStyles({ force = false } = {}) {
     if (_dynamicStylesCache && !force) return _dynamicStylesCache;
     try {
-        const r = await fetch('/api/vault/csl/styles');
+        const r = await transportFetch('/api/vault/csl/styles');
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         const styles = (data?.styles || []).map((s) => ({
@@ -110,7 +111,7 @@ const _localeCache = new Map();  // langCode → XML string
 const _engineCache = new Map();  // `${styleId}|${locale}` → CSL.Engine (lazy)
 
 async function fetchText(url) {
-    const r = await fetch(url);
+    const r = await transportFetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}`);
     return r.text();
 }

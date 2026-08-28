@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import {
     CheckCircle2, CircleAlert, Database, Eye, EyeOff, KeyRound, Loader2, Pencil, Plus,

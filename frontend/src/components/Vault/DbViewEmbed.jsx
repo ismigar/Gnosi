@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { Accessibility, AlertCircle, Focus, HelpCircle, LayoutTemplate, ListTree, MoreHorizontal, Plus, Search, Settings, SlidersHorizontal, ChevronDown, ChevronUp, X, Edit2, Copy, Trash2, Rows3 } from 'lucide-react';
 import { compareFieldValues, matchesRule, normalizeForSearch } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';

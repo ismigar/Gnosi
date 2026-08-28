@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { useTranslation, Trans } from 'react-i18next';
 import { KeyRound, Plus, Trash2, Copy, Check } from 'lucide-react';
 import i18n from '../i18n';

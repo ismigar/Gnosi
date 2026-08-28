@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import {
     Archive, ArrowLeft, BookOpenCheck, Bot, Check, ChevronDown, ChevronRight,
@@ -11,7 +11,7 @@ import { usePlugins } from '../plugins/usePlugins';
 import { useKeyboardScroll } from '../hooks/useKeyboardScroll';
 import { toast } from '../lib/toast';
 import { AppHeader } from '../components/AppHeader';
-import { canonicalizeVaultApiUrl } from '../lib/vaultRouting';
+import { openEventStream, supportsEventStreams } from '../shared/api/specialized-transports';
 import './LiteraturePage.css';
 
 const EMPTY_FILTERS = {
@@ -571,11 +571,11 @@ export default function LiteraturePage() {
 
     const followSearch = useCallback((searchId) => {
         stopProgress();
-        if (typeof window.EventSource !== 'function') {
+        if (!supportsEventStreams()) {
             startPolling(searchId);
             return;
         }
-        const stream = new window.EventSource(canonicalizeVaultApiUrl(`/api/vault/literature/searches/${encodeURIComponent(searchId)}/events?after=${eventCursorRef.current}`));
+        const stream = openEventStream(`/api/vault/literature/searches/${encodeURIComponent(searchId)}/events?after=${eventCursorRef.current}`);
         eventSourceRef.current = stream;
         SEARCH_EVENTS.forEach((eventName) => stream.addEventListener(eventName, (event) => {
             const sequence = Number(event.lastEventId || 0);

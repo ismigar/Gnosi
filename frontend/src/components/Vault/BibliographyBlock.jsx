@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { BookText, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { VaultEditorContext } from './VaultEditorContext';

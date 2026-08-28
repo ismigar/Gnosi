@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Vault as VaultIcon, Check, Plus, Loader } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -9,6 +8,7 @@ import {
     canonicalVaultSwitchPath,
     persistVaultCatalog,
 } from '../lib/vaultRouting';
+import { createVault, fetchVaultCatalog } from '../shared/api/vaults';
 
 /**
  * GLOBAL vault selector for the sidebar (personal multi-vault mode). Icon + popover
@@ -30,7 +30,7 @@ export default function VaultMenu() {
 
     const load = async () => {
         try {
-            const { data } = await axios.get('/api/vaults');
+            const data = await fetchVaultCatalog();
             const list = data.vaults || [];
             persistVaultCatalog(list);
             setVaults(list);
@@ -62,7 +62,7 @@ export default function VaultMenu() {
         const name = newName.trim();
         if (!name) return;
         setBusy('create');
-        try { await axios.post('/api/vaults', { name }); setNewName(''); setCreating(false); await load(); }
+        try { await createVault(name); setNewName(''); setCreating(false); await load(); }
         catch { /* */ } finally { setBusy(''); }
     };
 

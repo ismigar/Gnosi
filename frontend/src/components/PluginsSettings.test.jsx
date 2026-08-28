@@ -1,14 +1,14 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 
 import { PluginsSettings } from './PluginsSettings';
 import { notifyError } from '../lib/notifyError';
 
 const setPluginEnabled = vi.hoisted(() => vi.fn());
 
-vi.mock('axios', () => ({
+vi.mock('../shared/api/legacy-http', () => ({
     default: {
         get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn(),
     },

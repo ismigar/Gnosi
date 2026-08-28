@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { Bell, X, Calendar, MapPin, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { vaultPath } from '../lib/vaultRouting';
 

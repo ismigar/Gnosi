@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { transportFetch } from '../shared/api/transports';
 
 const API = '/api/mail/views';
 
@@ -11,7 +12,7 @@ export function useMailViews() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(API);
+            const res = await transportFetch(API);
             if (!res.ok) throw new Error('Error loading views');
             setViews(await res.json());
         } catch (e) {
@@ -24,7 +25,7 @@ export function useMailViews() {
     useEffect(() => { fetchViews(); }, [fetchViews]);
 
     const createView = useCallback(async (data) => {
-        const res = await fetch(API, {
+        const res = await transportFetch(API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -36,7 +37,7 @@ export function useMailViews() {
     }, []);
 
     const updateView = useCallback(async (id, data) => {
-        const res = await fetch(`${API}/${id}`, {
+        const res = await transportFetch(`${API}/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -48,7 +49,7 @@ export function useMailViews() {
     }, []);
 
     const deleteView = useCallback(async (id) => {
-        const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+        const res = await transportFetch(`${API}/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Error eliminant vista');
         setViews(prev => prev.filter(v => v.id !== id));
     }, []);

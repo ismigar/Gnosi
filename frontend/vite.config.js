@@ -141,6 +141,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), httpToHttpsRedirectPlugin()],
     base: env.VITE_BASE_PATH || "./",
+    resolve: {
+      alias: {
+        "@": path.join(rootDir, "src"),
+      },
+    },
     // App version injected into the UI (shown in the Control Center). Source
     // single source: frontend/package.json → see src/lib/version.js and
     // scripts/bump-version.sh. It's read here (not above) to pick up the

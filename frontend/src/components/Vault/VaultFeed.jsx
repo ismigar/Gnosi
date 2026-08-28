@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp, PanelRight, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters, withResolvedSystemDates } from './schemaUtils';
 import { normalizeOptions, optionChipStyle, autoColorFor } from './optionCatalogUtils';
@@ -26,6 +26,7 @@ import {
     normalizeRelationValues,
     unlinkRelationFromRecord,
 } from './relationItemUtils';
+import { transportFetch } from '../../shared/api/transports';
 
 // How many records are rendered per batch; infinite scroll adds more as
 // that the sentinel enters the view. Keeping it low saves initial DOM.
@@ -571,7 +572,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
-                            fetch('/api/vault/open-resource', {
+                            transportFetch('/api/vault/open-resource', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({

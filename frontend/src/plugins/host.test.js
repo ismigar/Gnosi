@@ -5,7 +5,7 @@ const { axiosGet, axiosPut } = vi.hoisted(() => ({
     axiosPut: vi.fn(),
 }));
 
-vi.mock('axios', () => ({
+vi.mock('../shared/api/legacy-http', () => ({
     default: {
         get: axiosGet,
         put: axiosPut,

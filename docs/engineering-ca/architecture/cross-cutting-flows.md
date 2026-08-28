@@ -10,11 +10,24 @@ source_paths:
   - frontend/src/context/AuthContext.jsx
   - frontend/src/hooks/useModalKeyboard.js
   - frontend/src/index.css
+  - frontend/src/lib/vaultRouting.js
+  - frontend/src/shared/api/client.ts
+  - frontend/src/shared/api/request-context.ts
+  - frontend/src/shared/api/transports.ts
+  - frontend/src/shared/api/specialized-transports.ts
+  - frontend/api-boundaries.json
+  - openapi/openapi.json
+  - scripts/generate_openapi.py
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - tests/e2e/tests/accessibility/accessibility.spec.ts
+  - frontend/src/lib/vaultRouting.test.js
+  - frontend/src/shared/api/client.test.ts
+  - frontend/src/shared/api/transports.test.ts
+  - backend/tests/test_openapi_generation.py
+  - pipeline/tests/test_frontend_api_boundary.py
 ---
 
 # Desigxs de creu
@@ -47,6 +60,18 @@ Les variables de context porten la volta activa a través de les crides de serve
 `ActiveVaultMiddleware` resol primer la ruta canònica i després aplica la
 prioritat capçalera → consulta → galeta. Helpers tipats comparteixen aquesta
 resolució entre HTTP i WebSocket, i el context sempre es restaura en acabar.
+
+El frontend separa la construcció de rutes del transport de xarxa. L’HTTP
+ordinari passa pel client tipat `openapi-fetch` o per l’adaptador de
+compatibilitat; tots dos deleguen a `transportFetch`, que afegeix el context de
+workspace, usuari i Vault sense substituir `window.fetch`. TanStack Query
+gestiona la memòria cau del servidor. SSE, streaming, descàrregues i WebSockets
+usen adaptadors especialitzats explícits.
+
+OpenAPI i els tipus TypeScript es generen de manera determinista en un runtime
+efímer. Un guard prohibeix Axios, `fetch` directe, monkeypatches globals i
+transports especials no revisats; l’allowlist mínima documenta només els límits
+del navegador que no poden importar el client de l’aplicació.
 
 ## Flux de configuració
 

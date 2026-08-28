@@ -8,7 +8,7 @@ import rrulePlugin from '@fullcalendar/rrule';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import caLocale from '@fullcalendar/core/locales/ca';
 import esLocale from '@fullcalendar/core/locales/es';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { useVaultSelection } from '../../hooks/useVaultSelection';

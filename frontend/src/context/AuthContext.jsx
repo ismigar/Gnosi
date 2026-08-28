@@ -18,11 +18,12 @@
  *     App gates behind <LoginPage> too.
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { transportFetch } from '../shared/api/transports';
 
 const AuthContext = createContext(null);
 
 async function authFetch(url, options = {}) {
-    const res = await fetch(url, {
+    const res = await transportFetch(url, {
         credentials: 'include',
         ...options,
         headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
@@ -92,7 +93,7 @@ export function AuthProvider({ children }) {
         let alive = true;
         (async () => {
             await Promise.all([
-                fetch('/api/health')
+                transportFetch('/api/health')
                     .then((r) => (r.ok ? r.json() : null))
                     .then((d) => {
                         if (!alive) return;

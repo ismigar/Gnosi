@@ -10,7 +10,8 @@ import { translateFolderName } from './mailFolderUtils';
 import { useMailTags } from '../../hooks/useMailTags';
 import MailTagPicker, { TagPill } from './MailTagPicker';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
-import { canonicalizeVaultApiUrl } from '../../lib/vaultRouting';
+import { openEventStream } from '../../shared/api/specialized-transports';
+import { transportFetch } from '../../shared/api/transports';
 
 const cleanName = (addr) =>
     (addr || '').split('<')[0].trim().replace(/^["']+|["']+$/g, '').trim() || addr || '';
@@ -136,7 +137,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         }
 
         Promise.all(emailList.map(email =>
-            fetch(buildUrl(email, { force })).then(r => r.json()).catch(() => ({ messages: [], total: 0 }))
+            transportFetch(buildUrl(email, { force })).then(r => r.json()).catch(() => ({ messages: [], total: 0 }))
         ))
             .then(results => {
                 const newTokens = {};
@@ -176,7 +177,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                         const pfKey = `${emailList2.join(',')}|${pf}|`;
                         if (msgCacheRef.current[pfKey]) return;
                         Promise.all(emailList2.map(em =>
-                            fetch(`/api/mail/messages?email=${encodeURIComponent(em)}&limit=50&folder=${encodeURIComponent(pf)}`)
+                            transportFetch(`/api/mail/messages?email=${encodeURIComponent(em)}&limit=50&folder=${encodeURIComponent(pf)}`)
                                 .then(r => r.json()).catch(() => ({ messages: [] }))
                         )).then(pfResults => {
                             const pfSeen = new Set();
@@ -211,7 +212,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             const token = pageTokens[email];
             const offset = offsets[email] || 0;
             if (!token && totals[email] && offset >= totals[email]) return Promise.resolve({ messages: [], total: totals[email] });
-            return fetch(buildUrl(email, { pageToken: token, offset }))
+            return transportFetch(buildUrl(email, { pageToken: token, offset }))
                 .then(r => r.json()).catch(() => ({ messages: [], total: 0 }));
         }))
             .then(results => {
@@ -262,13 +263,13 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
         let es;
         try {
-            es = new EventSource(canonicalizeVaultApiUrl(url));
+            es = openEventStream(url);
         } catch {
             return;
         }
 
         const onNew = () => {
-            // Invalidates cache and redoes a silent fetch (stale-while-revalidate).
+            // Invalidates cache and redoes a silent request (stale-while-revalidate).
             const emails = account?.email
                 ? [account.email]
                 : enabledAccounts.map(a => a.email || a.username).filter(Boolean);
@@ -467,7 +468,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                 setLoading(true);
                 try {
                     const results = await Promise.all(emailList.map(async email => {
-                        const res = await fetch(`/api/mail/empty_folder?email=${encodeURIComponent(email)}&folder=${encodeURIComponent(folder)}`, { method: 'POST' });
+                        const res = await transportFetch(`/api/mail/empty_folder?email=${encodeURIComponent(email)}&folder=${encodeURIComponent(folder)}`, { method: 'POST' });
                         return { email, ok: res.ok, res };
                     }));
 
@@ -686,7 +687,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     const getFolders = async (email) => {
         if (foldersCacheRef.current[email]?.length) return foldersCacheRef.current[email];
         try {
-            const res = await fetch(`/api/mail/folders?email=${encodeURIComponent(email)}`);
+            const res = await transportFetch(`/api/mail/folders?email=${encodeURIComponent(email)}`);
             const d = await res.json();
             const folders = d.folders || [];
             foldersCacheRef.current[email] = folders;
@@ -711,7 +712,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         if (!email || !msg.id) return;
         setMessages(prev => filterOutThread(prev, msg.id, msg.thread_id));
         try {
-            const res = await fetch(`/api/mail/messages/${msg.id}/move?email=${encodeURIComponent(email)}`, {
+            const res = await transportFetch(`/api/mail/messages/${msg.id}/move?email=${encodeURIComponent(email)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ target_folder: folderName, imap_uid: msg.imap_uid, imap_folder: msg.imap_folder })
@@ -765,7 +766,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         const results = await Promise.all(emailsToCall.map(({ email, ids: groupIds }) =>
             Promise.all(groupIds.map(id => {
                 const m = msgById[id] || {};
-                return fetch(`/api/mail/messages/${id}/move?email=${encodeURIComponent(email)}`, {
+                return transportFetch(`/api/mail/messages/${id}/move?email=${encodeURIComponent(email)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ target_folder: folderName, imap_uid: m.imap_uid, imap_folder: m.imap_folder })
@@ -797,7 +798,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         if (action === 'star') {
             const newVal = !msg.is_starred;
             setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_starred: newVal } : m));
-            await fetch(`/api/mail/messages/${msg.id}/star?email=${encodeURIComponent(effectiveEmail)}`, {
+            await transportFetch(`/api/mail/messages/${msg.id}/star?email=${encodeURIComponent(effectiveEmail)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ starred: newVal }),
@@ -806,16 +807,16 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             setMessages(prev => filterOutThread(prev, msg.id, msg.thread_id));
             purgeMsgFromCache(msg.id, msg.thread_id);
             onRecordAction?.('archive', msg.id, effectiveEmail, { imap_uid: msg.imap_uid, imap_folder: msg.imap_folder });
-            await fetch(`/api/mail/messages/${msg.id}/archive?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' }).catch(() => {});
+            await transportFetch(`/api/mail/messages/${msg.id}/archive?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' }).catch(() => {});
         } else if (action === 'trash') {
             setMessages(prev => filterOutThread(prev, msg.id, msg.thread_id));
             purgeMsgFromCache(msg.id, msg.thread_id);
             onRecordAction?.('trash', msg.id, effectiveEmail, { imap_uid: msg.imap_uid, imap_folder: msg.imap_folder });
             if (msg.source === 'vault') {
-                await fetch(`/api/mail/drafts/${msg.id}`, { method: 'DELETE' }).catch(() => {});
+                await transportFetch(`/api/mail/drafts/${msg.id}`, { method: 'DELETE' }).catch(() => {});
                 onBatchDone?.();
             } else {
-                await fetch(`/api/mail/messages/${msg.id}/trash?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' }).catch(() => {});
+                await transportFetch(`/api/mail/messages/${msg.id}/trash?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' }).catch(() => {});
             }
         }
     };
@@ -848,7 +849,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             const imapIds = ids.filter(id => !vaultIds.includes(id));
 
             const results = await Promise.all([
-                ...vaultIds.map(id => fetch(`/api/mail/drafts/${id}`, { method: 'DELETE' })
+                ...vaultIds.map(id => transportFetch(`/api/mail/drafts/${id}`, { method: 'DELETE' })
                     .then(r => ({ ok: r.ok, ids: [id] }))
                     .catch(() => ({ ok: false, ids: [id] }))),
                 ...(() => {
@@ -867,7 +868,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                 }, {})
                         );
                     return emailsToCall.map(({ email, ids: groupIds }) =>
-                        fetch(`/api/mail/batch?email=${encodeURIComponent(email)}`, {
+                        transportFetch(`/api/mail/batch?email=${encodeURIComponent(email)}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ action, ids: groupIds }),
@@ -898,7 +899,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                         }, {})
                 );
             await Promise.all(emailsToCall.map(({ email, ids: groupIds }) =>
-                fetch(`/api/mail/batch?email=${encodeURIComponent(email)}`, {
+                transportFetch(`/api/mail/batch?email=${encodeURIComponent(email)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action, ids: groupIds }),

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import toast from 'react-hot-toast';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

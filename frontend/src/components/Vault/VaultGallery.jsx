@@ -23,6 +23,7 @@ import {
 } from './relationItemUtils';
 import { GalleryContentPreview, GalleryOpenButton } from './GalleryCardPreview';
 import { AutoriaDisplay } from './AutoriaField';
+import { transportFetch } from '../../shared/api/transports';
 
 export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
     const { t } = useTranslation();
@@ -503,7 +504,7 @@ export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {},
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
-                            fetch('/api/vault/open-resource', {
+                            transportFetch('/api/vault/open-resource', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({

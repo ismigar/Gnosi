@@ -6,11 +6,12 @@ import "@blocknote/core/fonts/inter.css";
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { toast } from '../../lib/toast';
+import { transportFetch } from '../../shared/api/transports';
 
 async function uploadFileToVault(file) {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch('/api/vault/assets/upload', { method: 'POST', body: formData });
+    const res = await transportFetch('/api/vault/assets/upload', { method: 'POST', body: formData });
     if (!res.ok) throw new Error('Upload failed');
     const data = await res.json();
     return data.url;

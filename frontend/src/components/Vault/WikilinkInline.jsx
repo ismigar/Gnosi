@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { WikilinkHoverPreview } from './WikilinkHoverPreview';
 import { WikilinkContextMenu } from './WikilinkContextMenu';
 import { VaultEditorContext } from './VaultEditorContext';

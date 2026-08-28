@@ -21,7 +21,7 @@
  * Module-level store with subscription (same pattern as usePlugins): the
  * command palette, the shell, and the config panel read the active contributions.
  */
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 
 const API = '/api/vault/plugins';
 

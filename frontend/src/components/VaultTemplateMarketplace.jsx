@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import './VaultTemplateMarketplace.css';
 import {
     AlertTriangle, CheckCircle2, Download, FileArchive, Loader,

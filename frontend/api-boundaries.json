@@ -1,0 +1,18 @@
+{
+  "directFetch": {
+    "frontend/src/components/Vault/zotero-host.html": "Classic isolated Zotero reader host cannot import the Vite ESM transport bundle.",
+    "frontend/src/shared/api/transports.ts": "Canonical browser fetch boundary for generated, compatibility and specialized clients."
+  },
+  "eventSource": {
+    "frontend/src/shared/api/specialized-transports.ts": "Typed same-origin SSE boundary with Vault URL canonicalization."
+  },
+  "streamReader": {
+    "frontend/src/components/AgentChat.jsx": "Incremental agent response parser consumes the body exposed by streamFetch."
+  },
+  "webSocket": {
+    "frontend/src/shared/api/specialized-transports.ts": "Typed WebSocket constructor boundary shared by collaboration providers."
+  },
+  "xmlHttpRequest": {
+    "frontend/src/shared/api/legacy-http.ts": "Upload progress requires XMLHttpRequest until all upload endpoints expose a generated streaming contract."
+  }
+}

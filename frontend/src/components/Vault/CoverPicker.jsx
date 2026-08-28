@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Image as ImageIcon, Link2, Upload, Search, X, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { toast } from '../../lib/toast';

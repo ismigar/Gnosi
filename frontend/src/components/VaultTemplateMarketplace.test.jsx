@@ -1,11 +1,11 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 
 import VaultTemplateMarketplace from './VaultTemplateMarketplace';
 
-vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('../shared/api/legacy-http', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
 const translate = vi.hoisted(() => (key, values = {}) => Object.entries(values || {}).reduce(
     (text, [name, value]) => text.replace(`{{${name}}}`, value),
     key,

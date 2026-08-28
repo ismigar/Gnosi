@@ -10,7 +10,7 @@
  * only for tables with a `Citation Key` column).
  */
 import React, { useCallback, useRef, useState } from 'react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Download, Loader2, ChevronDown, LibraryBig } from 'lucide-react';

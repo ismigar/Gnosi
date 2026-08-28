@@ -22,7 +22,7 @@
  * Escape hatch: pass `force: true` in the request body to skip the etag check
  * (useful for "overwrite anyway" buttons in conflict toasts).
  */
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { setActiveVaultCookie } from './fileResource.js';
 
 // Global axios timeout: prevents requests to slow IMAP / external APIs from

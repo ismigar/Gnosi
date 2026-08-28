@@ -7,11 +7,12 @@ import {
 import { toast } from '../../lib/toast';
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import MailBlockEditor from './MailBlockEditor';
 import { AddressInput } from './MailAddressInput';
 import { DigitalBrainCalendar } from '../Vault/DigitalBrainCalendar';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { transportFetch } from '../../shared/api/transports';
 
 // ─── AttachmentBadge ──────────────────────────────────────────────────────────
 function AttachmentBadge({ file, onRemove }) {
@@ -98,7 +99,7 @@ export default function MailComposer({
         const bodyText = currentBody?.replace(/<[^>]*>/g, '').trim() || '';
         if (!bodyText && !currentSubject) return;
         try {
-            const res = await fetch('/api/mail/drafts', {
+            const res = await transportFetch('/api/mail/drafts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -202,12 +203,12 @@ export default function MailComposer({
                 // folder: the backend resolves the cid: of the quoted message against the
                 // original message (for IMAP we need to know its folder).
                 const folderQuery = sourceFolder ? `&folder=${encodeURIComponent(sourceFolder)}` : '';
-                res = await fetch(
+                res = await transportFetch(
                     `/api/mail/messages/${replyToMessageId}/reply?email=${encodeURIComponent(smtpEmail)}${folderQuery}`,
                     { method: 'POST', body: formData }
                 );
             } else {
-                res = await fetch(`/api/mail/send?email=${encodeURIComponent(smtpEmail)}`, {
+                res = await transportFetch(`/api/mail/send?email=${encodeURIComponent(smtpEmail)}`, {
                     method: 'POST',
                     body: formData,
                 });
@@ -215,7 +216,7 @@ export default function MailComposer({
             const data = await res.json();
             if (data.status === 'success' || data.message_id) {
                 if (draftIdRef.current) {
-                    fetch(`/api/mail/drafts/${draftIdRef.current}`, { method: 'DELETE' }).catch(() => {});
+                    transportFetch(`/api/mail/drafts/${draftIdRef.current}`, { method: 'DELETE' }).catch(() => {});
                     onDraftSaved?.();
                 }
                 toast.success(t('mail.sent_ok'));
@@ -306,7 +307,7 @@ export default function MailComposer({
         }
         setAiGenerating(true);
         try {
-            const res = await fetch('/api/mail/ai/generate_draft', {
+            const res = await transportFetch('/api/mail/ai/generate_draft', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ context: body, prompt: `Create a professional draft about: ${subject}` }),

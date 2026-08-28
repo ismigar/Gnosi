@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, Loader2, X, RefreshCw, Check } from 'lucide-react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 

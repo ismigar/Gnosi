@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { useTranslation, Trans } from 'react-i18next';
 import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors, PackageCheck, Store, RefreshCw, Search, Send, BookOpen, Languages, Users, Inbox, Calendar, Database, Cpu, NotebookTabs, Clock3 } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';

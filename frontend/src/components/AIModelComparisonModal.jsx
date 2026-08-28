@@ -12,6 +12,7 @@ import {
 } from '../lib/modelComparisonRegistry';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import './AIModelComparisonModal.css';
+import { transportFetch } from '../shared/api/transports';
 
 const PROFILE_KEYS = ['worker', 'administrative', 'documentalist', 'allrounder', 'expert', 'unrated'];
 const MODE_KEYS = ['text', 'image', 'audio', 'video'];
@@ -111,7 +112,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         setLoading(true);
         setErrorCode('');
         setFallbackNoticeDismissed(false);
-        fetch('/api/ai/model-comparison', { signal: controller.signal })
+        transportFetch('/api/ai/model-comparison', { signal: controller.signal })
             .then(async (response) => {
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok) {
@@ -168,8 +169,8 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         setConfigurationLoading(true);
         setConfigurationError('');
         Promise.all([
-            fetch('/api/ai/models', { signal: controller.signal }),
-            fetch('/api/ai/model-catalog', { signal: controller.signal }),
+            transportFetch('/api/ai/models', { signal: controller.signal }),
+            transportFetch('/api/ai/model-catalog', { signal: controller.signal }),
         ])
             .then(async ([registryResponse, catalogResponse]) => {
                 if (!registryResponse.ok || !catalogResponse.ok) {
@@ -342,7 +343,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         if (!apiKeyInput.trim()) return;
         setSavingApiKey(true);
         try {
-            const response = await fetch('/api/ai/providers/artificial_analysis/credentials', {
+            const response = await transportFetch('/api/ai/providers/artificial_analysis/credentials', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ api_key: apiKeyInput.trim(), base_url: '' }),
@@ -407,7 +408,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         });
     };
     const saveRegistry = async (nextModels) => {
-        const response = await fetch('/api/ai/models', {
+        const response = await transportFetch('/api/ai/models', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ models: nextModels, budget: registry.budget || {} }),
@@ -446,7 +447,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         setSetup((current) => ({ ...current, error: '' }));
         try {
             if (needsApiKey) {
-                const credentialResponse = await fetch(`/api/ai/providers/${encodeURIComponent(provider.id)}/credentials`, {
+                const credentialResponse = await transportFetch(`/api/ai/providers/${encodeURIComponent(provider.id)}/credentials`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -457,7 +458,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                 if (!credentialResponse.ok) throw new Error('Credential save failed');
             }
             if (!provider.enabled || !provider.connected) {
-                const statusResponse = await fetch(`/api/ai/providers/${encodeURIComponent(provider.id)}/status`, {
+                const statusResponse = await transportFetch(`/api/ai/providers/${encodeURIComponent(provider.id)}/status`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enabled: true }),

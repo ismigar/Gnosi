@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '../lib/toast';
 import { ConfirmModal } from './ConfirmModal';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
+import { transportFetch } from '../shared/api/transports';
 
 const API_BASE = '/api';
 
@@ -45,7 +46,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     async function fetchSources() {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/reader/sources`);
+            const res = await transportFetch(`${API_BASE}/reader/sources`);
             if (res.ok) setSources(await res.json());
         } catch (e) {
             console.error('Error fetching sources:', e);
@@ -56,7 +57,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
 
     async function fetchScheduler() {
         try {
-            const res = await fetch(`${API_BASE}/schedulers`);
+            const res = await transportFetch(`${API_BASE}/schedulers`);
             if (res.ok) {
                 const all = await res.json();
                 // Only show reader-related tasks
@@ -74,7 +75,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
         if (!newUrl.trim()) return;
         setAddLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/reader/sources`, {
+            const res = await transportFetch(`${API_BASE}/reader/sources`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -103,7 +104,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     async function executeDeleteSource() {
         if (!confirmModal.id) return;
         try {
-            const res = await fetch(`${API_BASE}/reader/sources/${confirmModal.id}`, { method: 'DELETE' });
+            const res = await transportFetch(`${API_BASE}/reader/sources/${confirmModal.id}`, { method: 'DELETE' });
             if (!res.ok) {
                 // Without this branch, a 4xx/5xx response caused the
                 // source to remain in the list even though the user had already confirmed.
@@ -126,7 +127,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
         const formData = new FormData();
         formData.append('file', file);
         try {
-            const res = await fetch(`${API_BASE}/reader/sources/opml`, {
+            const res = await transportFetch(`${API_BASE}/reader/sources/opml`, {
                 method: 'POST',
                 body: formData,
             });
@@ -143,7 +144,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
 
     async function handleToggleTask(name, enabled, interval) {
         try {
-            await fetch(`${API_BASE}/schedulers/${name}`, {
+            await transportFetch(`${API_BASE}/schedulers/${name}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ interval_minutes: interval, enabled: !enabled }),
@@ -157,7 +158,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     async function handleRunTask(name) {
         setRunningTask(name);
         try {
-            const res = await fetch(`${API_BASE}/schedulers/${name}/run`, { method: 'POST' });
+            const res = await transportFetch(`${API_BASE}/schedulers/${name}/run`, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
                 fetchSources();

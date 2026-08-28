@@ -1,11 +1,12 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
+import { TestApiProvider } from '../test/TestApiProvider';
 
 import LiteraturePage from './LiteraturePage';
 
-vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }));
+vi.mock('../shared/api/legacy-http', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }));
 vi.mock('../plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => true }) }));
 vi.mock('../lib/toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import { toast } from '../lib/toast';
@@ -60,7 +61,11 @@ async function renderPage() {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    await act(async () => root.render(<LiteraturePage />));
+    await act(async () => root.render(
+        <TestApiProvider>
+            <LiteraturePage />
+        </TestApiProvider>,
+    ));
     await act(async () => {});
 }
 
@@ -241,7 +246,11 @@ describe('LiteraturePage', () => {
         container = document.createElement('div');
         document.body.appendChild(container);
         root = createRoot(container);
-        await act(async () => root.render(<LiteraturePage />));
+        await act(async () => root.render(
+            <TestApiProvider>
+                <LiteraturePage />
+            </TestApiProvider>,
+        ));
         await act(async () => {});
 
         const configure = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.search.configure_sources'));

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CalendarRange, RefreshCw, Route, Wallet } from 'lucide-react';
 import { VaultTimeline } from '../components/Vault/VaultTimeline';

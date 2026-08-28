@@ -25,6 +25,7 @@ import { useConfigChanged } from '../lib/configEvents';
 import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
 import { GraphLoadingState } from '../components/GraphLoadingState';
 import '../viewer/style.css';
+import { transportFetch } from '../shared/api/transports';
 
 const MINIMUM_LOADING_DURATION_MS = 900;
 
@@ -158,7 +159,7 @@ function GraphPage() {
             setLoading(true);
         }
 
-        fetch('/api/graph').then(res => {
+        transportFetch('/api/graph').then(res => {
             if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
             return res.json();
         }).then(graph => {
@@ -210,7 +211,7 @@ function GraphPage() {
     }, [graphData]);
 
     const fetchConfigData = () => {
-        fetch('/api/config')
+        transportFetch('/api/config')
             .then(res => res.json())
             .then(data => setConfig(data))
             .catch(err => console.error("Error loading config:", err));
@@ -224,14 +225,14 @@ function GraphPage() {
         fetchConfigData();
 
         // Fetch table metadata for filter UI
-        fetch('/api/vault/tables')
+        transportFetch('/api/vault/tables')
             .then(r => r.json())
             .then(data => setAvailableTables(data))
             .catch(e => console.error("Error fetching tables for filters:", e));
 
         // Global id→title map to resolve the values of reference-type
         // fields in filters (show the page title, not the id).
-        fetch('/api/vault/global-index')
+        transportFetch('/api/vault/global-index')
             .then(r => (r.ok ? r.json() : {}))
             .then(data => setIdTitleMap(data && typeof data === 'object' ? data : {}))
             .catch(e => console.error("Error fetching global index for filters:", e));
@@ -364,7 +365,7 @@ function GraphPage() {
         setVisibleTables(seededTables);
         setSourcesInitialized(true);
 
-        fetch('/api/config', {
+        transportFetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

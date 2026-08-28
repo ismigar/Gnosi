@@ -3,6 +3,7 @@ import { X, Calendar, BarChart3, Clock, Loader2, ArrowUpRight, Cpu, Layers, Filt
 import { useTranslation } from 'react-i18next';
 import './AIUsageHistoryModal.css';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
+import { transportFetch } from '../shared/api/transports';
 
 const PROFILE_ICONS = {
     worker: '🟢',
@@ -41,7 +42,7 @@ export function AIUsageHistoryModal({ isOpen, onClose, activeModels = [] }) {
         if (!isOpen) return undefined;
         const controller = new AbortController();
         setLoading(true);
-        fetch('/api/ai/usage/history', { signal: controller.signal })
+        transportFetch('/api/ai/usage/history', { signal: controller.signal })
             .then(async (res) => {
                 if (!res.ok) throw new Error('Failed to load history');
                 return res.json();

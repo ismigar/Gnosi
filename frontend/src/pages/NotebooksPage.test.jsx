@@ -185,7 +185,11 @@ describe('NotebookDetail permissions', () => {
 
         expect(globalThis.fetch).toHaveBeenCalledWith(
             '/api/notebooks/notebook-1/refresh/cancel',
-            { method: 'POST' },
+            expect.objectContaining({
+                credentials: 'include',
+                headers: expect.any(Headers),
+                method: 'POST',
+            }),
         );
     });
 

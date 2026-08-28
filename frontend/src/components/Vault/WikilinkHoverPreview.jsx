@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { IconRenderer } from './IconRenderer';

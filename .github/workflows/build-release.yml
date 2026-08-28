@@ -36,8 +36,20 @@ jobs:
         with:
           node-version: '22.22.2'
           cache: pnpm
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.9.15'
       - name: Install frozen Node dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install frozen Python dependencies
+        run: uv sync --frozen
+      - name: Check deterministic OpenAPI and generated frontend client
+        run: pnpm check:api-client
       - name: Build frontend
         env:
           NODE_OPTIONS: --max-old-space-size=4096

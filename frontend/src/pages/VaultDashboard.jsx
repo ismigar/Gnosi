@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { toast } from '../lib/toast';
 import { v4 as uuidv4 } from 'uuid';
 import { logError, notifyError } from '../lib/notifyError';

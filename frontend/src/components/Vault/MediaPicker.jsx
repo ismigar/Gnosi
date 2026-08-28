@@ -11,7 +11,7 @@
  * InsertContentModal, "Vault" tab).
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import {
     Image as ImageIcon, Folder, FolderOpen, ChevronRight, ChevronDown,

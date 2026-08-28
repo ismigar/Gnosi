@@ -1,11 +1,11 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { WikilinkHoverPreview } from './WikilinkHoverPreview';
 
-vi.mock('axios', () => ({
+vi.mock('../../shared/api/legacy-http', () => ({
     default: { get: vi.fn() },
 }));
 

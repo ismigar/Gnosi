@@ -1,9 +1,14 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { Database, Link2, Check, Loader, Unlink, Settings, X, RotateCw } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
 import { ConfirmModal } from './ConfirmModal';
+import {
+    createVault,
+    deleteVault,
+    fetchVaultCatalog,
+} from '../shared/api/vaults';
 
 // Import config persistence: the source of truth is the SERVER (GET/PUT
 // /api/notion/import-config, per-workspace) so it survives origin changes
@@ -129,7 +134,7 @@ export default function NotionImportSettings() {
 
     const loadVaults = useCallback(async () => {
         try {
-            const { data } = await axios.get('/api/vaults');
+            const data = await fetchVaultCatalog();
             setVaults(data.vaults || []);
         } catch { /* multi-vault not available: clones to the active vault */ }
     }, []);
@@ -178,7 +183,7 @@ export default function NotionImportSettings() {
             return cloneVaultId;
         }
         const name = (newVaultName.trim() || 'Notion');
-        const { data } = await axios.post('/api/vaults', { name });
+        const data = await createVault(name);
         await loadVaults();
         setCloneVaultId(data.id);
         return data.id;
@@ -388,7 +393,7 @@ export default function NotionImportSettings() {
         if (!vid || vid === '__new__') return;
         setBusy('delclone'); setError('');
         try {
-            await axios.delete(`/api/vaults/${vid}?delete_files=true`);
+            await deleteVault(vid, true);
             setDestClone(null); setReport(null); setVerify(null); setUsedVaultId(null);
             setCloneVaultId('__new__');
             await loadVaults();

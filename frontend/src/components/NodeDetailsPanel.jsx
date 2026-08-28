@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { VaultMarkdown } from './Vault/VaultMarkdown';
+import { transportFetch } from '../shared/api/transports';
 
 export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
     const { t } = useTranslation();
@@ -27,7 +28,7 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
         // the real endpoint. It used to call `/api/node/{id}`, which doesn't exist in the
         // native backend → 404 on every click (panel with no content + error in the
         // console). Nodes that aren't pages (404) fall back to `initialData`.
-        fetch(`/api/vault/pages/${encodeURIComponent(nodeId)}`)
+        transportFetch(`/api/vault/pages/${encodeURIComponent(nodeId)}`)
             .then(res => {
                 if (!res.ok) throw new Error("Node not found");
                 return res.json();

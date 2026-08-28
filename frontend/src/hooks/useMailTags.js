@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, useState, useEffect, useCallback } from 'react';
+import { transportFetch } from '../shared/api/transports';
 
 const API = '/api/mail/tags';
 
@@ -11,7 +12,7 @@ function useMailTagsImpl() {
     const fetchTags = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(API);
+            const res = await transportFetch(API);
             if (!res.ok) throw new Error('Error carregant etiquetes');
             setTags(await res.json());
         } catch (e) {
@@ -24,7 +25,7 @@ function useMailTagsImpl() {
     useEffect(() => { fetchTags(); }, [fetchTags]);
 
     const createTag = useCallback(async ({ name, color }) => {
-        const res = await fetch(API, {
+        const res = await transportFetch(API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, color }),
@@ -36,7 +37,7 @@ function useMailTagsImpl() {
     }, []);
 
     const updateTag = useCallback(async (id, { name, color }) => {
-        const res = await fetch(`${API}/${id}`, {
+        const res = await transportFetch(`${API}/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, color }),
@@ -48,19 +49,19 @@ function useMailTagsImpl() {
     }, []);
 
     const deleteTag = useCallback(async (id) => {
-        const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+        const res = await transportFetch(`${API}/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Error eliminant etiqueta');
         setTags(prev => prev.filter(t => t.id !== id));
     }, []);
 
     const getMessageTags = useCallback(async (messageId) => {
-        const res = await fetch(`/api/mail/messages/${encodeURIComponent(messageId)}/tags`);
+        const res = await transportFetch(`/api/mail/messages/${encodeURIComponent(messageId)}/tags`);
         if (!res.ok) return [];
         return await res.json();
     }, []);
 
     const setMessageTags = useCallback(async (messageId, tagIds, metadata = {}) => {
-        const res = await fetch(`/api/mail/messages/${encodeURIComponent(messageId)}/tags`, {
+        const res = await transportFetch(`/api/mail/messages/${encodeURIComponent(messageId)}/tags`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -76,14 +77,14 @@ function useMailTagsImpl() {
     }, []);
 
     const getTaggedMessages = useCallback(async (tagId) => {
-        const res = await fetch(`${API}/${encodeURIComponent(tagId)}/messages`);
+        const res = await transportFetch(`${API}/${encodeURIComponent(tagId)}/messages`);
         if (!res.ok) return { tag: null, messages: [] };
         return await res.json();
     }, []);
 
     const getBatchMessageTags = useCallback(async (messageIds) => {
         if (!messageIds.length) return {};
-        const res = await fetch('/api/mail/tags/messages/batch', {
+        const res = await transportFetch('/api/mail/tags/messages/batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message_ids: messageIds }),

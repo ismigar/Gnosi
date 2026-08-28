@@ -3,6 +3,7 @@ import { Send, Calendar as CalendarIcon, X, AlertTriangle, Loader2 } from 'lucid
 import { useTranslation } from 'react-i18next';
 import Scheduler from './Scheduler';
 import { toast } from '../../lib/toast';
+import { transportFetch } from '../../shared/api/transports';
 
 const NETWORK_STYLES = {
     mastodon: { color: 'bg-purple-600', border: 'border-purple-500/50' },
@@ -22,7 +23,7 @@ const Composer = () => {
     const [scheduledTime, setScheduledTime] = useState(null);
 
     useEffect(() => {
-        fetch('/api/social/networks')
+        transportFetch('/api/social/networks')
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (!data) return;
@@ -52,7 +53,7 @@ const Composer = () => {
                 ...(scheduledTime && !immediate && { scheduled_time: scheduledTime.toISOString() })
             };
 
-            const res = await fetch(endpoint, {
+            const res = await transportFetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

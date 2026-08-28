@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { X, Folder, ChevronRight, ArrowLeft, Home, Search } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
+import { transportFetch } from '../shared/api/transports';
 
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
@@ -45,7 +46,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
         setLoading(true);
         setError('');
         try {
-            const res = await fetch('/api/system/browse', {
+            const res = await transportFetch('/api/system/browse', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path })

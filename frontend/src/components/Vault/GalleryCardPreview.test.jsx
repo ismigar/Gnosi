@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -9,7 +9,7 @@ import {
 } from './GalleryCardPreview';
 import { getGalleryMarkdown } from './galleryCardPreviewUtils';
 
-vi.mock('axios', () => ({
+vi.mock('../../shared/api/legacy-http', () => ({
     default: { get: vi.fn() },
 }));
 

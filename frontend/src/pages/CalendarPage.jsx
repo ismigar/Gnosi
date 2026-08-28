@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { toast } from '../lib/toast';
 import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Circle, Trash2, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';

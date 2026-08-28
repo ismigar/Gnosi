@@ -14,7 +14,7 @@ import { useApi } from '../hooks/use-api';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import { IconRenderer } from './Vault/IconRenderer';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import { toast } from '../lib/toast';
 import { emitConfigChanged } from '../lib/configEvents';
 import { getEffectiveTableId, toValueStrings } from '../utils/graphFilters';
@@ -51,6 +51,7 @@ import { SettingsSectionTabs } from './SettingsSectionTabs';
 import { SocialNetworkIcon, isKnownSocialNetwork } from './social/SocialNetworkIcon';
 import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
+import { transportFetch } from '../shared/api/transports';
 
 const formatCost = (value, symbol, decimals = 2) => {
     const num = Number(value);
@@ -734,7 +735,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         if (!isOpen || activeTab !== 'graph' || graphNodesFetchedRef.current) return;
         graphNodesFetchedRef.current = true;
         setGraphNodesLoading(true);
-        fetch('/api/graph')
+        transportFetch('/api/graph')
             .then(r => (r.ok ? r.json() : { nodes: [] }))
             .then(g => setGraphNodes(Array.isArray(g?.nodes) ? g.nodes : []))
             .catch(() => setGraphNodes([]))
@@ -942,8 +943,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
     const loadSocialSettings = async () => {
         try {
             const [nRes, sRes] = await Promise.all([
-                fetch('/api/social/networks'),
-                fetch('/api/social/streams'),
+                transportFetch('/api/social/networks'),
+                transportFetch('/api/social/streams'),
             ]);
             if (nRes.ok) setSocialNetworks(await nRes.json());
             if (sRes.ok) setSocialStreams(await sRes.json());
@@ -955,7 +956,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         const previous = socialNetworks;
         setSocialNetworks(updated);
         try {
-            const res = await fetch('/api/social/networks', {
+            const res = await transportFetch('/api/social/networks', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated),
@@ -974,7 +975,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         const previous = socialStreams;
         setSocialStreams(updated);
         try {
-            const res = await fetch('/api/social/streams', {
+            const res = await transportFetch('/api/social/streams', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated),
@@ -1148,7 +1149,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     useEffect(() => {
         if (activeTab === 'calendar' && isOpen) {
-            fetch('/api/calendar/calendars')
+            transportFetch('/api/calendar/calendars')
                 .then(r => {
                     const authErr = r.headers.get('X-Calendar-Auth-Error') || '';
                     setGoogleCalAuthError(Boolean(authErr));
@@ -1285,7 +1286,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         let cancelled = false;
         Promise.all(emails.map(async email => {
             try {
-                const r = await fetch(`/api/mail/counts?email=${encodeURIComponent(email)}`);
+                const r = await transportFetch(`/api/mail/counts?email=${encodeURIComponent(email)}`);
                 if (!r.ok) return { email, ok: false };
                 const data = await r.json();
                 return { email, ok: data && Object.keys(data).length > 0 };
@@ -1451,7 +1452,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const checkGoogleAuth = async () => {
         try {
-            const res = await fetch('/api/auth/google/status');
+            const res = await transportFetch('/api/auth/google/status');
             if (res.ok) {
                 const data = await res.json();
                 setGoogleAuthConfigured(data.configured);
@@ -1461,7 +1462,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadConfig = async (hydrationGeneration = null) => {
         try {
-            const res = await fetch('/api/config');
+            const res = await transportFetch('/api/config');
             if (res.ok) {
                 const cfg = await res.json();
                 setDraft(prev => ({
@@ -1496,7 +1497,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadIntegrations = async (hydrationGeneration = null) => {
         try {
-            const res = await fetch(`/api/integrations?t=${Date.now()}`);
+            const res = await transportFetch(`/api/integrations?t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
                 setIntegrations(data);
@@ -1515,7 +1516,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadAiCatalog = async (hydrationGeneration = null) => {
         try {
-            const res = await fetch('/api/ai/catalog');
+            const res = await transportFetch('/api/ai/catalog');
             if (res.ok) {
                 const payload = await res.json();
                 if (payload?.config?.providers) {
@@ -1542,9 +1543,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         // model in the registry is not a valid target for a new agent.
         try {
             const [modelsRes, comparisonRes, usageRes] = await Promise.all([
-                fetch('/api/ai/models'),
-                fetch('/api/ai/model-comparison'),
-                fetch('/api/ai/usage')
+                transportFetch('/api/ai/models'),
+                transportFetch('/api/ai/model-comparison'),
+                transportFetch('/api/ai/usage')
             ]);
             
             if (modelsRes.ok) {
@@ -1621,7 +1622,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
     const saveAiBudget = async (newCap, newEnforceBlock) => {
         setSavingBudget(true);
         try {
-            const modelsRes = await fetch('/api/ai/models');
+            const modelsRes = await transportFetch('/api/ai/models');
             let currentModels = [];
             let currentBudget = {};
             if (modelsRes.ok) {
@@ -1639,7 +1640,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                 enforce_block: Boolean(newEnforceBlock)
             };
 
-            const response = await fetch('/api/ai/models', {
+            const response = await transportFetch('/api/ai/models', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ models: currentModels, budget: updatedBudget }),
@@ -1649,7 +1650,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                 throw new Error('Save failed');
             }
 
-            const uRes = await fetch('/api/ai/usage');
+            const uRes = await transportFetch('/api/ai/usage');
             if (uRes.ok) setAiUsage(await uRes.json());
             window.dispatchEvent(new CustomEvent('gnosi-ai-models-changed', {
                 detail: { source: 'budget-settings' },
@@ -1678,11 +1679,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         // (table selection) and Databases tabs. They used to be loaded inside
         // loadZoteroData, removed when the Zotero integration was taken out of Settings.
         try {
-            const res = await fetch('/api/vault/tables');
+            const res = await transportFetch('/api/vault/tables');
             if (res.ok) setTables(await res.json());
         } catch (e) { console.error("Tables fetch error:", e); }
         try {
-            const res = await fetch('/api/vault/databases');
+            const res = await transportFetch('/api/vault/databases');
             if (res.ok) setDatabases(await res.json());
         } catch (e) { console.error("Databases fetch error:", e); }
     };
@@ -1691,7 +1692,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setNewsletterSourcesLoading(true);
         setNewsletterSourcesError('');
         try {
-            const res = await fetch('/api/reader/sources');
+            const res = await transportFetch('/api/reader/sources');
             if (!res.ok) {
                 setNewsletterSourcesError(t('subs_sources_load_error_status', { status: res.status }));
                 return;
@@ -1709,7 +1710,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadNewsletterAccount = async () => {
         try {
-            const res = await fetch('/api/reader/newsletter-account');
+            const res = await transportFetch('/api/reader/newsletter-account');
             if (!res.ok) return;
             const data = await res.json();
             const next = {
@@ -1750,7 +1751,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             if (newsletterPasswordDirty) {
                 payload.password = newsletterAccount.password;
             }
-            const res = await fetch('/api/reader/newsletter-account', {
+            const res = await transportFetch('/api/reader/newsletter-account', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1785,7 +1786,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             if (newsletterPasswordDirty && newsletterAccount.password) {
                 payload.password = newsletterAccount.password;
             }
-            const res = await fetch('/api/reader/newsletter-account/test', {
+            const res = await transportFetch('/api/reader/newsletter-account/test', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1803,7 +1804,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setNewsletterAccountSyncing(true);
         setNewsletterAccountStatus(t('subs_news_status_syncing'));
         try {
-            const res = await fetch('/api/reader/newsletter-account/sync', { method: 'POST' });
+            const res = await transportFetch('/api/reader/newsletter-account/sync', { method: 'POST' });
             const data = await res.json().catch(() => ({}));
             setNewsletterAccountStatus(data.message || (res.ok ? t('subs_news_status_sync_started') : t('subs_news_status_sync_error')));
             await loadNewsletterSources();
@@ -2195,7 +2196,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         }
 
         try {
-            const res = await fetch('/api/reader/sources', {
+            const res = await transportFetch('/api/reader/sources', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newsletterName || finalUrl, url: finalUrl, type: newsletterType })
@@ -2222,7 +2223,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             const formData = new FormData();
             formData.append('file', file);
 
-            const res = await fetch('/api/reader/sources/opml', {
+            const res = await transportFetch('/api/reader/sources/opml', {
                 method: 'POST',
                 body: formData,
             });
@@ -3805,7 +3806,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                         message: t('subs_delete_modal_message', { name: s.name }),
                                                         onConfirm: async () => {
                                                             try {
-                                                                await fetch(`/api/reader/sources/${s.id}`, { method: 'DELETE' });
+                                                                await transportFetch(`/api/reader/sources/${s.id}`, { method: 'DELETE' });
                                                                 loadNewsletterSources();
                                                                 setConfirmConfig(prev => ({ ...prev, isOpen: false }));
                                                             } catch (e) {

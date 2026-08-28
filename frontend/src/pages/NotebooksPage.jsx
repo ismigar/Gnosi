@@ -43,6 +43,7 @@ import { useKeyboardScroll } from '../hooks/useKeyboardScroll';
 import { toast } from '../lib/toast';
 import { vaultPath } from '../lib/vaultRouting';
 import './NotebooksPage.css';
+import { transportFetch } from '../shared/api/transports';
 
 const ACTIVE_STATES = new Set(['queued', 'indexing']);
 const MOBILE_TAB_IDS = ['sources', 'chat', 'settings'];
@@ -78,7 +79,7 @@ function NotebookLibrary({ onCreate }) {
         const controller = new AbortController();
         const timer = window.setTimeout(() => {
             setLoading(true);
-            fetch(`/api/notebooks?q=${encodeURIComponent(query)}&page=${data.page}&page_size=24`, { signal: controller.signal })
+            transportFetch(`/api/notebooks?q=${encodeURIComponent(query)}&page=${data.page}&page_size=24`, { signal: controller.signal })
                 .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Notebook library failed (${response.status})`)))
                 .then(setData)
                 .catch((error) => {
@@ -186,7 +187,7 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
 
     useEffect(() => {
         const controller = new AbortController();
-        fetch(notebookResourceCatalogUrl({
+        transportFetch(notebookResourceCatalogUrl({
             notebookId,
             query,
             page: data.page,
@@ -216,7 +217,7 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
         if (!selected.size) return;
         setSaving(true);
         try {
-            const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/sources`, {
+            const response = await transportFetch(`/api/notebooks/${encodeURIComponent(notebookId)}/sources`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ resource_ids: [...selected] }),
@@ -477,8 +478,8 @@ export function NotebookDetail({ notebookId }) {
         try {
             const sourceUrl = `/api/notebooks/${encodeURIComponent(notebookId)}/sources?page=${page}&page_size=50`;
             const [notebookResponse, sourceResponse] = await Promise.all([
-                fetch(`/api/notebooks/${encodeURIComponent(notebookId)}?refresh=${refresh ? 'true' : 'false'}`),
-                fetch(sourceUrl),
+                transportFetch(`/api/notebooks/${encodeURIComponent(notebookId)}?refresh=${refresh ? 'true' : 'false'}`),
+                transportFetch(sourceUrl),
             ]);
             if (notebookResponse.status === 404) {
                 navigate(vaultPath('notebooks'), { replace: true });
@@ -491,7 +492,7 @@ export function NotebookDetail({ notebookId }) {
                 notebookData.active_revision !== null
                 && notebookData.active_revision !== sourceData.active_revision
             ) {
-                const currentSourcesResponse = await fetch(sourceUrl);
+                const currentSourcesResponse = await transportFetch(sourceUrl);
                 if (currentSourcesResponse.ok) sourceData = await currentSourcesResponse.json();
             }
             setNotebook(notebookData);
@@ -508,7 +509,7 @@ export function NotebookDetail({ notebookId }) {
     useEffect(() => {
         if (!notebook?.chat_ready) return undefined;
         const controller = new AbortController();
-        fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/chat-sources`, { signal: controller.signal })
+        transportFetch(`/api/notebooks/${encodeURIComponent(notebookId)}/chat-sources`, { signal: controller.signal })
             .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Chat source list failed (${response.status})`)))
             .then((data) => {
                 if (!Array.isArray(data.sources)) {
@@ -545,7 +546,7 @@ export function NotebookDetail({ notebookId }) {
     }, [load, notebook]);
 
     const patchNotebook = async (patch) => {
-        const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}`, {
+        const response = await transportFetch(`/api/notebooks/${encodeURIComponent(notebookId)}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
         });
         if (!response.ok) {
@@ -595,7 +596,7 @@ export function NotebookDetail({ notebookId }) {
 
     const refresh = async () => {
         try {
-            const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh`, {
+            const response = await transportFetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force: true, reason: 'manual' }),
             });
             if (!response.ok) throw new Error(`Notebook refresh failed (${response.status})`);
@@ -609,7 +610,7 @@ export function NotebookDetail({ notebookId }) {
     const retryResource = async (resourceId) => {
         setRetryingId(resourceId);
         try {
-            const response = await fetch(
+            const response = await transportFetch(
                 `/api/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(resourceId)}/refresh`,
                 {
                     method: 'POST',
@@ -630,7 +631,7 @@ export function NotebookDetail({ notebookId }) {
     const cancelRefresh = async () => {
         setCancelling(true);
         try {
-            const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh/cancel`, { method: 'POST' });
+            const response = await transportFetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh/cancel`, { method: 'POST' });
             if (!response.ok) throw new Error(`Notebook cancellation failed (${response.status})`);
             setNotebook(await response.json());
             toast.success(t('notebooks.index_cancelled', 'Indexing cancelled.'));
@@ -645,7 +646,7 @@ export function NotebookDetail({ notebookId }) {
     const remove = async (resourceId) => {
         setRemovingId(resourceId);
         try {
-            const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(resourceId)}`, { method: 'DELETE' });
+            const response = await transportFetch(`/api/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(resourceId)}`, { method: 'DELETE' });
             if (!response.ok) throw new Error('Removal failed');
             toast.success(t('notebooks.resource_removed', 'Resource removed from the notebook.'));
             await load({ refresh: false });
@@ -655,14 +656,14 @@ export function NotebookDetail({ notebookId }) {
         } finally { setRemovingId(''); }
     };
     const deleteNotebook = async () => {
-        const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}`, { method: 'DELETE' });
+        const response = await transportFetch(`/api/notebooks/${encodeURIComponent(notebookId)}`, { method: 'DELETE' });
         if (response.ok) {
             toast.success(t('notebooks.deleted', 'Notebook deleted.'));
             navigate(vaultPath('notebooks'));
         }
     };
     const clearConversation = async () => {
-        const response = await fetch(
+        const response = await transportFetch(
             `/api/chat/sessions/gnosy/${encodeURIComponent(notebook.conversation_session_id)}?notebook_id=${encodeURIComponent(notebook.id)}`,
             { method: 'DELETE' },
         );

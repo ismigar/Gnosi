@@ -20,6 +20,7 @@
  *     catch (err) { notifyError('save-page', err, t('errors.save_page')); }
  */
 import { toast as hotToast } from 'react-hot-toast';
+import { transportFetch } from '../shared/api/transports';
 
 const DEFAULT_DEDUPE_MS = 4000;
 const _recent = new Map(); // message → timestamp
@@ -126,7 +127,7 @@ export function _persistNotification({ title, message, level }) {
             && localStorage.getItem('gnosi_workspace_id')) || 'personal';
         const userEmail = (typeof localStorage !== 'undefined'
             && localStorage.getItem('gnosi_user_email')) || '';
-        fetch('/api/system/notifications', {
+        transportFetch('/api/system/notifications', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

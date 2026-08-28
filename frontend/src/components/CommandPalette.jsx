@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from '../shared/api/legacy-http';
 import {
     Command, Search, FileText, Network, Users, Mail, Calendar, BookOpen,
     Share2, Image as ImageIcon, Clock, Plus, Sun, Moon, Monitor, Settings, Hash, Presentation, Upload, MessageSquare, LayoutPanelLeft, Puzzle,

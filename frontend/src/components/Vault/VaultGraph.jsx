@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { GraphViewer } from '../GraphViewer';
 import { Loader2, Settings2, Maximize2, ZoomIn, ZoomOut, Target, AlertTriangle } from 'lucide-react';

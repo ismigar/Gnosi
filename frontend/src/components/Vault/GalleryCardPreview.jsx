@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

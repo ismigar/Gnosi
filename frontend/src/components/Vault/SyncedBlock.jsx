@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, Pencil, Check, Loader2 } from 'lucide-react';
 import { VaultMarkdown } from './VaultMarkdown';
-import { canonicalizeVaultApiUrl } from '../../lib/vaultRouting';
+import { openEventStream, supportsEventStreams } from '../../shared/api/specialized-transports';
 
 /**
  * SyncedBlock
@@ -24,9 +24,9 @@ const _syncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastCh
 const _sseListeners = new Set();
 let _sse = null;
 const ensureSyncedSSE = () => {
-    if (_sse || typeof EventSource === 'undefined') return;
+    if (_sse || !supportsEventStreams()) return;
     try {
-        _sse = new EventSource(canonicalizeVaultApiUrl('/api/vault/synced-events'));
+        _sse = openEventStream('/api/vault/synced-events');
         _sse.onmessage = (e) => {
             let d; try { d = JSON.parse(e.data); } catch { return; }
             if (d?.syncId) _sseListeners.forEach((fn) => { try { fn(d.syncId); } catch { /* noop */ } });
