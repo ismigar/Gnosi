@@ -52,6 +52,11 @@ Reader routing, storage, analysis, and source access now live in
 storage live in `backend/domains/literature/`. Existing API and service modules
 remain compatibility facades with unchanged public contracts.
 
+Vault-dependent Reader analysis, result access, resume, cancellation, article
+backfill and podcast generation all pass through one active-Vault guard. Missing
+context returns a recoverable service-unavailable response before creating a
+job or thread; valid Vault paths and all existing route payloads remain stable.
+
 Literature HTTP routes, canonical models, and systematic-review services are
 strictly typed. PRISMA counting, screening transitions, open-access evidence,
 and CSV/JSON/Markdown/SVG exports live in the pure `review_logic.py` domain;

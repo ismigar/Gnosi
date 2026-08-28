@@ -37,6 +37,13 @@ log = logging.getLogger(__name__)
 ALLOWED_SSL_MODES = ("starttls", "ssl", "none")
 
 
+def _require_active_vault() -> Path:
+    vault_path = get_active_vault_path()
+    if vault_path is None:
+        raise HTTPException(status_code=503, detail="No active Vault is available")
+    return vault_path
+
+
 class NewsletterDefaults(TypedDict):
     mail_server: str
     mail_port: int
@@ -399,7 +406,7 @@ def start_reader_analysis(payload: ReaderAnalysisRequest) -> RouteReturn:
     from backend.services.reader_analysis import start_analysis
 
     return start_analysis(
-        get_active_vault_path(),
+        _require_active_vault(),
         payload.source_scope(),
         language=payload.language,
         guidance=payload.guidance,
@@ -411,7 +418,7 @@ def list_reader_analyses(limit: int = Query(default=20, ge=1, le=100)) -> RouteR
     """List recent durable Reader analyses in the active vault."""
     from backend.services.reader_analysis import list_analyses
 
-    return list_analyses(get_active_vault_path(), limit=limit)
+    return list_analyses(_require_active_vault(), limit=limit)
 
 
 @router.get("/analysis/{job_id}")
@@ -420,7 +427,7 @@ def get_reader_analysis_status(job_id: str) -> RouteReturn:
     from backend.services.reader_analysis import get_status
 
     try:
-        return get_status(get_active_vault_path(), job_id)
+        return get_status(_require_active_vault(), job_id)
     except (KeyError, ValueError) as error:
         raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
 
@@ -431,7 +438,7 @@ def get_reader_analysis_result(job_id: str) -> RouteReturn:
     from backend.services.reader_analysis import read_result
 
     try:
-        return read_result(get_active_vault_path(), job_id)
+        return read_result(_require_active_vault(), job_id)
     except (KeyError, ValueError) as error:
         raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
     except RuntimeError as error:
@@ -447,7 +454,7 @@ def resume_reader_analysis(job_id: str) -> RouteReturn:
     from backend.services.reader_analysis import resume_analysis
 
     try:
-        return resume_analysis(get_active_vault_path(), job_id)
+        return resume_analysis(_require_active_vault(), job_id)
     except (KeyError, ValueError) as error:
         raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
 
@@ -461,7 +468,7 @@ def cancel_reader_analysis(job_id: str) -> RouteReturn:
     from backend.services.reader_analysis import cancel_analysis
 
     try:
-        return cancel_analysis(get_active_vault_path(), job_id)
+        return cancel_analysis(_require_active_vault(), job_id)
     except (KeyError, ValueError) as error:
         raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
 
@@ -662,9 +669,7 @@ def trigger_backfill_extract() -> RouteReturn:
         }
     )
 
-    from backend.services.context_vars import get_active_vault_path
-
-    vault_path = get_active_vault_path()
+    vault_path = _require_active_vault()
 
     thread = threading.Thread(target=_run_backfill, args=(vault_path,), daemon=True)
     thread.start()
@@ -702,8 +707,6 @@ def get_article(article_id: int, db: Session = Depends(get_db)) -> RouteReturn:
 def trigger_podcast_generation() -> RouteReturn:
     """Launches podcast generation in the background"""
     from backend.services.audio_summarizer import start_generation_async, generation_status
-    from backend.services.context_vars import get_active_vault_path
-
     if generation_status["running"]:
         return {
             "status": "already_running",
@@ -712,7 +715,7 @@ def trigger_podcast_generation() -> RouteReturn:
         }
 
     launch = cast(Callable[..., bool], start_generation_async)
-    started = launch(vault_path=get_active_vault_path())
+    started = launch(vault_path=_require_active_vault())
     if not started:
         raise HTTPException(status_code=409, detail="Generation already in progress.")
     return {"status": "started", "message": "Generation started in the background."}
