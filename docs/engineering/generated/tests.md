@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 272 | 1997 |
+| pytest | 273 | 2001 |
 
 ## Files
 
@@ -258,6 +258,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_media_service_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_media_service_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_media_upload.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_media_upload.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_meeting_reminders_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_meeting_reminders_race.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_microsoft_auth_routes.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_migrate_table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_migrate_table_system_dates.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_catalog.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_reliability.py) | 9 | Python AST |

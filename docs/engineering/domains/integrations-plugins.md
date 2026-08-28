@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
+  - backend/api/microsoft_auth_routes.py
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
   - backend/api/vault_routes.py
@@ -33,6 +34,7 @@ source_paths:
 tests:
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
+  - backend/tests/test_microsoft_auth_routes.py
   - backend/tests/test_google_contacts_service.py
   - backend/tests/test_keychain_manager.py
   - backend/tests/test_configuration_plugins_facade.py
@@ -94,6 +96,12 @@ refreshes and persists access tokens through the integration manager, preserves
 ETag-aware updates, and normalizes primary names, addresses, organizations,
 photos and provider timestamps. Untyped SDK objects remain confined to this
 adapter and do not cross its typed service functions.
+
+Microsoft OAuth applies the same bounded-state rule: generated authorization
+states expire after ten minutes and are consumed before token exchange. Token
+and Graph profile JSON are narrowed inside the route adapter, blocking stale
+configuration before network calls and persisting the historical mail-account
+shape without changing redirects or OpenAPI.
 
 Hosted Notion MCP uses OAuth 2.1 dynamic client registration and PKCE. Its typed
 boundary validates discovery and registration objects, requires a returned

@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 46 | 8476 |
-| `api` | 38 | 11358 |
+| `api` | 38 | 11384 |
 | `app` | 6 | 603 |
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146414 source lines**.
+Total: **699 modules** and **146440 source lines**.
 
 ## agent
 
@@ -105,7 +105,7 @@ Total: **699 modules** and **146414 source lines**.
 | [`backend/api/literature_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/literature_routes.py) | 601 | 15 | 33 | 15 | 0 | HTTP contracts for academic search and systematic literature review. |
 | [`backend/api/mail_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/mail_routes.py) | 234 | 0 | 1 | 1 | 0 | Compatibility facade and composition boundary for the mail domain. |
 | [`backend/api/meeting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/meeting_routes.py) | 58 | 0 | 3 | 2 | 2 | Endpoints for the AI meeting notetaker. |
-| [`backend/api/microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py) | 160 | 0 | 4 | 3 | 0 | Microsoft OAuth2 authentication routes. |
+| [`backend/api/microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py) | 186 | 1 | 5 | 3 | 0 | Microsoft OAuth2 authentication routes. |
 | [`backend/api/notebook_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notebook_routes.py) | 349 | 4 | 16 | 2 | 1 | HTTP contracts for the grounded notebook workspace. |
 | [`backend/api/notion_oauth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_oauth_routes.py) | 210 | 0 | 13 | 4 | 3 | OAuth 2.1 to Notion's hosted MCP (mcp.notion.com) — for recreating views. |
 | [`backend/api/notion_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_routes.py) | 537 | 3 | 27 | 13 | 11 | Compatibility-preserving FastAPI surface for the typed Notion domain. |

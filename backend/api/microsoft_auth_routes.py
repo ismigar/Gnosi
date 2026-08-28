@@ -6,19 +6,38 @@ provider='microsoft' so the rest of the mail stack picks them up
 automatically.
 """
 import asyncio
-import secrets
 import logging
+import secrets
+import time
+from typing import Any, TypedDict, cast
+from urllib.parse import urlencode
+
 import requests as http
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
+
 from backend.config.env_config import get_env
 from backend.services.integration_manager import integration_manager
 
 router = APIRouter(prefix="/api/auth/microsoft", tags=["auth"])
 log = logging.getLogger(__name__)
 
-# In-memory store for pending OAuth states (state → {})
-_pending: dict = {}
+class MicrosoftOAuthConfig(TypedDict):
+    client_id: str
+    client_secret: str
+    redirect_uri: str
+
+
+# In-memory store for pending OAuth states (state → monotonic creation time).
+_pending: dict[str, float] = {}
+_PENDING_TTL_SECONDS = 600.0
+
+
+def _prune_pending() -> None:
+    now = time.monotonic()
+    for state, created_at in list(_pending.items()):
+        if now - created_at > _PENDING_TTL_SECONDS:
+            _pending.pop(state, None)
 
 SCOPES = " ".join([
     "https://graph.microsoft.com/Mail.Read",
@@ -32,7 +51,7 @@ AUTH_URL  = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 
 
-def _get_config() -> dict | None:
+def _get_config() -> MicrosoftOAuthConfig | None:
     client_id     = get_env("MICROSOFT_OAUTH_CLIENT_ID")
     client_secret = get_env("MICROSOFT_OAUTH_CLIENT_SECRET")
     redirect_uri  = get_env(
@@ -45,13 +64,13 @@ def _get_config() -> dict | None:
 
 
 @router.get("/status")
-async def status():
+async def status():  # type: ignore[no-untyped-def]
     cfg = _get_config()
     return {"configured": cfg is not None, "client_id": cfg["client_id"] if cfg else None}
 
 
 @router.get("/login")
-async def login():
+async def login():  # type: ignore[no-untyped-def]
     cfg = _get_config()
     if not cfg:
         raise HTTPException(
@@ -62,7 +81,8 @@ async def login():
             ),
         )
     state = secrets.token_urlsafe(32)
-    _pending[state] = True
+    _prune_pending()
+    _pending[state] = time.monotonic()
 
     params = {
         "client_id":     cfg["client_id"],
@@ -76,20 +96,19 @@ async def login():
     # urlencode ensures correct encoding of spaces in SCOPES, `://` in
     # redirect_uri, etc. Manual concatenation used to produce invalid URLs
     # depending on the values.
-    from urllib.parse import urlencode
     url = AUTH_URL + "?" + urlencode(params)
     return RedirectResponse(url=url)
 
 
 @router.get("/callback")
-async def callback(request: Request):
+async def callback(request: Request):  # type: ignore[no-untyped-def]
     code  = request.query_params.get("code")
     state = request.query_params.get("state")
     error = request.query_params.get("error")
 
     if error:
         desc = request.query_params.get("error_description", error)
-        log.error(f"[Microsoft] OAuth error: {desc}")
+        log.error("[Microsoft] OAuth error: %s", desc)
         return RedirectResponse(url=f"/?error={desc}")
 
     if not code or state not in _pending:
@@ -97,6 +116,11 @@ async def callback(request: Request):
 
     _pending.pop(state, None)
     cfg = _get_config()
+    if cfg is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Microsoft OAuth configuration is no longer available",
+        )
 
     # Exchange code for tokens — `requests` is blocking; off-thread so
     # not freeze the event loop for up to 15s.
@@ -115,9 +139,10 @@ async def callback(request: Request):
             timeout=15,
         )
         resp.raise_for_status()
-        tokens = resp.json()
-    except Exception as e:
-        log.error(f"[Microsoft] Error exchanging code: {e}")
+        token_payload: Any = resp.json()
+        tokens = cast(dict[str, Any], token_payload) if isinstance(token_payload, dict) else {}
+    except Exception as exc:
+        log.error("[Microsoft] Error exchanging code: %s", exc)
         raise HTTPException(status_code=500, detail="Error obtenint token")
 
     access_token  = tokens.get("access_token")
@@ -131,16 +156,17 @@ async def callback(request: Request):
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
         )
-        me = me_resp.json()
+        profile_payload: Any = me_resp.json()
+        me = cast(dict[str, Any], profile_payload) if isinstance(profile_payload, dict) else {}
         email = me.get("mail") or me.get("userPrincipalName", "")
         name  = me.get("displayName", email)
-    except Exception as e:
-        log.error(f"[Microsoft] Error retrieving profile: {e}")
+    except Exception as exc:
+        log.error("[Microsoft] Error retrieving profile: %s", exc)
         raise HTTPException(status_code=500, detail="Could not retrieve the profile")
 
-    log.info(f"[Microsoft] OAuth completed for {email}")
+    log.info("[Microsoft] OAuth completed for %s", email)
 
-    account_data = {
+    account_data: dict[str, Any] = {
         "id":                    f"microsoft_{email}",
         "email":                 email,
         "name":                  name,
