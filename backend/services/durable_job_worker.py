@@ -46,9 +46,17 @@ def register_job_dispatcher(
     replace: bool = False,
 ) -> None:
     """Register a provider-owned durable queue dispatcher."""
-    contract = job_type if isinstance(job_type, DurableJobDispatcherContract) else DurableJobDispatcherContract(
-        job_type=str(job_type or ""), provider="legacy", dispatch=dispatcher, schema_version=1,
-    )
+    if isinstance(job_type, DurableJobDispatcherContract):
+        contract = job_type
+    else:
+        if dispatcher is None:
+            raise ValueError("Invalid durable job dispatcher contract.")
+        contract = DurableJobDispatcherContract(
+            job_type=str(job_type or ""),
+            provider="legacy",
+            dispatch=dispatcher,
+            schema_version=1,
+        )
     normalized = str(contract.job_type or "").strip().lower()
     if not normalized or len(normalized) > 96 or not callable(contract.dispatch):
         raise ValueError("Invalid durable job dispatcher contract.")
@@ -111,7 +119,8 @@ def _literature_review_dispatcher(item: dict[str, Any], payload: dict[str, Any])
     vault_path = str(payload.get("vault_path") or "").strip()
     review_id = str(payload.get("review_id") or "").strip()
     job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
-    strategy = payload.get("strategy") if isinstance(payload.get("strategy"), dict) else {}
+    raw_strategy = payload.get("strategy")
+    strategy: dict[str, Any] = dict(raw_strategy) if isinstance(raw_strategy, dict) else {}
     interval_days = int(payload.get("interval_days") or 7)
     if not vault_path or not review_id or not job_id:
         raise ValueError("Durable literature review update payload is missing vault_path, review_id, or job_id.")
@@ -199,7 +208,10 @@ class DurableJobWorker:
         dispatched = 0
         for item in durable_job_queue.ready_jobs(limit=32):
             job_type = str(item.get("job_type") or "")
-            payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+            raw_payload = item.get("payload")
+            payload: dict[str, Any] = (
+                dict(raw_payload) if isinstance(raw_payload, dict) else {}
+            )
             with _DISPATCHER_LOCK:
                 contract = _DISPATCHERS.get(job_type)
             if contract is None:

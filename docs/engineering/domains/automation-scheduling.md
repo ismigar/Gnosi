@@ -82,6 +82,11 @@ errors, and registers only candidates whose deterministic identity is new to
 that review. The next run is persisted with the review configuration rather
 than held only by the scheduler process.
 
+The queue requires an explicit `LOCAL_DATA` root and fails before opening
+SQLite when configuration is incomplete. Worker adapters narrow opaque queue
+payloads to concrete mappings before dispatch, and legacy dispatcher
+registration rejects a missing callable before constructing its typed contract.
+
 ## Vault automations
 
 Vault automation rules combine triggers, conditions, and actions. Derived field

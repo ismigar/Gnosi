@@ -42,7 +42,10 @@ def _parse(value: Any) -> datetime:
 
 
 def queue_path() -> Path:
-    root = Path(load_params(strict_env=False).paths["LOCAL_DATA"])
+    configured_root = load_params(strict_env=False).paths.get("LOCAL_DATA")
+    if configured_root is None:
+        raise RuntimeError("LOCAL_DATA is required for the durable job queue")
+    root = Path(configured_root)
     root.mkdir(parents=True, exist_ok=True)
     return root / "agent_jobs.sqlite3"
 
