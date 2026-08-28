@@ -95,11 +95,10 @@ _IMPORT_CFG_LOCK = threading.Lock()
 def _import_cfg_path() -> Path:
     from backend.config.app_config import load_params
 
-    return (
-        Path(load_params(strict_env=False).paths["LOCAL_DATA"])
-        / "system"
-        / "notion_import_config.json"
-    )
+    configured_root = load_params(strict_env=False).paths.get("LOCAL_DATA")
+    if configured_root is None:
+        raise RuntimeError("LOCAL_DATA is required for Notion import configuration")
+    return Path(configured_root) / "system" / "notion_import_config.json"
 
 
 @router.get(
@@ -353,7 +352,7 @@ def _route_clone_dependencies() -> RouteCloneDependencies:
     return RouteCloneDependencies(
         get_token=_get_token,
         mcp_connected=lambda: bool(notion_mcp.is_connected()),
-        active_vault_path=lambda: cast(Optional[Path], get_active_vault_path()),
+        active_vault_path=get_active_vault_path,
         client_factory=cast(Callable[[str], Any], NotionClient),
         fetch_page=lambda page_id: str(notion_mcp.fetch(page_id)),
         mcp_to_markdown=lambda markdown: str(notion_mcp_md.mcp_to_markdown(markdown)),
@@ -498,7 +497,7 @@ def _verification_dependencies() -> VerificationDependencies:
     from backend.services.relation_links import relation_keys_from_table
 
     return VerificationDependencies(
-        active_vault_path=lambda: cast(Optional[Path], get_active_vault_path()),
+        active_vault_path=get_active_vault_path,
         client_factory=cast(Callable[[str], Any], NotionClient),
         clone_table_id=notion_clone.clone_table_id,
         load_registry=lambda: dict(vault_routes.load_registry()),

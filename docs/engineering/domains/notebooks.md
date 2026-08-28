@@ -115,6 +115,9 @@ Queued or expired leased jobs resume after process restart. Revision activation
 is transactional. If a previously indexed source fails to refresh, its last
 valid representation remains available with `stale` status; a new failed
 source is reported and excluded.
+Analysis admission resolves a concrete active Vault before enqueueing the job;
+missing request context fails before a durable payload can contain an ambiguous
+or machine-dependent path.
 
 New revisions are retention-eligible. Cleanup preserves the active revision,
 the configured recent completed and audit windows, every revision pinned by a

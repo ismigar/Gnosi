@@ -134,6 +134,9 @@ translation and clone-progress state boundary. The three historical
 `backend/services/notion_{importer,clone,view_recreator}.py` paths are explicit
 compatibility facades; imports, globals and late-bound monkeypatch seams remain
 available while the canonical implementation lives in the domain package.
+Notion import preferences require the configured `LOCAL_DATA` root, while clone
+and verification dependencies consume the typed optional active-Vault accessor
+directly rather than recasting its result at each route boundary.
 Notion route order, methods, paths, payload schemas, descriptions and the
 deterministic OpenAPI document remain byte-stable.
 

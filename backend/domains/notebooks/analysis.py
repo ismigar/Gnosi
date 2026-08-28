@@ -74,7 +74,10 @@ def start_notebook_analysis(
         connection.commit()
     from backend.services.context_vars import get_active_vault_path
 
-    vault_path = Path(get_active_vault_path()).resolve()
+    active_vault_path = get_active_vault_path()
+    if active_vault_path is None:
+        raise RuntimeError("An active vault is required for notebook analysis")
+    vault_path = active_vault_path.resolve()
     durable_job_queue.enqueue(
         "notebook_analysis",
         {
