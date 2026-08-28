@@ -5,6 +5,8 @@ source_paths:
   - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
+  - backend/domains/agent/routes/checkpoints.py
+  - backend/domains/agent/routes/shared.py
   - backend/services/durable_job_worker.py
   - backend/agent/agent_context.py
   - backend/agent/factory.py
@@ -174,6 +176,12 @@ histories: returning to a previous mode restores that namespace.
 Notebook deletion enumerates all registered derived principals and deletes
 their checkpoint threads before cascading notebook indexes, revisions, and
 analysis rows. Original Vault data is outside this deletion boundary.
+
+Notebook HTTP routes are strictly typed and consume public checkpoint helpers
+from the Agent domain instead of private compatibility-facade symbols. Missing
+active Vault or checkpoint storage now fails explicitly; transcript deletion
+and reads retain the same isolated thread identifiers and frozen OpenAPI
+responses.
 
 ## HTTP contracts
 

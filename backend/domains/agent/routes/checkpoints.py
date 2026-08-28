@@ -45,6 +45,10 @@ def _checkpoint_key(
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
 
 
+chat_thread_id = _chat_thread_id
+checkpoint_key = _checkpoint_key
+
+
 _TURN_ID_FIELD_RE = re.compile(
     r"^(?:gnosi_)?(?:turn|session|conversation|thread|trace)(?:_(?:id|uuid|identifier|ref|reference|key|token))?$"
     r"|^(?:id|uuid|identifier|ref|reference|key|token)_(?:turn|session|conversation|thread|trace)$"
@@ -258,6 +262,9 @@ def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, An
     ]
 
 
+public_checkpoint_messages = _public_checkpoint_messages
+
+
 def _rewound_checkpoint_messages(
     stored_messages: List[Any],
     *,
@@ -287,6 +294,9 @@ def _thread_lock(thread_id: str) -> asyncio.Lock:
         lock = asyncio.Lock()
         _THREAD_LOCKS[thread_id] = lock
     return lock
+
+
+thread_lock = _thread_lock
 
 
 def _ai_runtime_revision(ai_cfg: Dict[str, Any]) -> str:

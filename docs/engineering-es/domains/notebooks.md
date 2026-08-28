@@ -5,6 +5,8 @@ source_paths:
   - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
+  - backend/domains/agent/routes/checkpoints.py
+  - backend/domains/agent/routes/shared.py
   - backend/services/durable_job_worker.py
   - backend/agent/agent_context.py
   - backend/agent/factory.py
@@ -169,6 +171,12 @@ historiales: volver a un modo anterior restaura su espacio de nombres.
 Eliminar un cuaderno borra los threads de checkpoint derivados antes de
 eliminar en cascada índices, revisiones y análisis. Los datos originales del
 Vault quedan fuera de este límite.
+
+Las rutas HTTP de cuadernos están estrictamente tipadas y consumen helpers
+públicos de checkpoints del dominio Agent en lugar de símbolos privados de la
+fachada compatible. La ausencia de Vault activo o almacenamiento de checkpoints
+falla explícitamente; el borrado y lectura de conversaciones conserva los mismos
+hilos aislados y las respuestas OpenAPI congeladas.
 
 ## Contratos HTTP
 

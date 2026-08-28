@@ -84,9 +84,15 @@ def _validated_skill_ids(values: Optional[List[str]]) -> Optional[List[str]]:
 
 
 def _vault_scope() -> tuple[Path, str]:
-    vault = Path(get_active_vault_path()).resolve()
+    active_path = get_active_vault_path()
+    if active_path is None:
+        raise RuntimeError("No active vault is available for the agent runtime.")
+    vault = Path(active_path).resolve()
     digest = hashlib.sha256(str(vault).encode("utf-8")).hexdigest()[:20]
     return vault, digest
+
+
+vault_scope = _vault_scope
 
 
 def _tool_stream_event(
@@ -161,7 +167,7 @@ def _prepare_index_title_replacements(message: str) -> Optional[Dict[str, Any]]:
     )
     event = confirmation_event(result)
     if event:
-        return cast(Dict[str, Any], event)
+        return event
     try:
         payload = json.loads(result)
     except (TypeError, ValueError):

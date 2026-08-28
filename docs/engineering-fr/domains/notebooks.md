@@ -5,6 +5,8 @@ source_paths:
   - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
+  - backend/domains/agent/routes/checkpoints.py
+  - backend/domains/agent/routes/shared.py
   - backend/services/durable_job_worker.py
   - backend/agent/agent_context.py
   - backend/agent/factory.py
@@ -183,6 +185,12 @@ mode précédent restaure son espace de noms.
 La suppression d'un carnet énumère tous ses principaux dérivés et supprime leurs
 threads de checkpoint avant la suppression en cascade des index, révisions et
 analyses. Les données originales du Vault restent hors de cette limite.
+
+Les routes HTTP des carnets sont strictement typées et utilisent les helpers
+publics de checkpoint du domaine Agent plutôt que les symboles privés de la
+façade compatible. L'absence de Vault actif ou de stockage des checkpoints
+échoue explicitement ; la suppression et la lecture des conversations conservent
+les mêmes fils isolés et les réponses OpenAPI gelées.
 
 ## Contrats HTTP
 
