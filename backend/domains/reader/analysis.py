@@ -123,7 +123,7 @@ def _default_model_call(prompt: str, user_message: str) -> str:
     from backend.agent.factory import generate_text
 
     text, _model = generate_text(prompt, user_message=user_message, timeout=120)
-    return text
+    return str(text)
 
 
 def _fallback_batch_summary(batch: Dict[str, Any]) -> Dict[str, Any]:

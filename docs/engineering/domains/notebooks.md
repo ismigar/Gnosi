@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
   - backend/services/durable_job_worker.py
@@ -12,6 +13,7 @@ source_paths:
   - frontend/src/components/Notebooks
   - frontend/src/components/AgentChat.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
@@ -23,6 +25,10 @@ tests:
 # Grounded notebooks
 
 ## Responsibility
+
+`backend/domains/notebooks/` now owns repository access, catalog and resource
+selection, ingestion, evidence, analysis, chat, and state. The historical
+service remains a compatibility facade for the unchanged API and worker calls.
 
 Grounded notebooks provide a dedicated `/notebooks` workspace for asking
 questions about the attachments and URLs held by selected records in the

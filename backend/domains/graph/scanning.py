@@ -294,7 +294,7 @@ def _resolve_active_vault_path(cfg: Any) -> Path | None:
 
         active = get_active_vault_path()
         if active:
-            return active
+            return cast(Path, active)
     except Exception:
         pass
     return cast(Optional[Path], cfg.paths.get("VAULT"))

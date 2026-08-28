@@ -8,7 +8,7 @@ import re
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, cast
 
 from fastapi import HTTPException
 
@@ -96,9 +96,10 @@ def search_oai_index(
             WHERE {where} ORDER BY bm25(oai_records_fts) LIMIT ?""",
             params,
         ).fetchall()
-    return academic_connectors.filter_works(
+    filtered = academic_connectors.filter_works(
         [json.loads(row["work_json"]) for row in rows], filters
-    )[:requested_limit]
+    )
+    return cast(list[dict[str, Any]], filtered)[:requested_limit]
 
 
 def _oai_fts_expression(query: str) -> str:

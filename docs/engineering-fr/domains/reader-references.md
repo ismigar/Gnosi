@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-08-28
 source_paths:
+  - backend/domains/reader
+  - backend/domains/literature
   - backend/api/reader.py
   - backend/models/reader.py
   - backend/models/pdf_annotation.py
@@ -10,6 +12,8 @@ source_paths:
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/components/Vault/ZoteroReaderTab.jsx
 tests:
+  - backend/tests/test_reader_analysis_domain.py
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_vault_export_domain_contract.py
   - backend/tests/test_citation_key_and_pubmed.py
   - backend/tests/test_references_io.py
@@ -18,6 +22,11 @@ tests:
 ---
 
 # Lecteur, références et citations
+
+Les routes, le stockage, l'analyse et les sources du Reader résident désormais
+dans `backend/domains/reader/`; les dépôts, la recherche, la synchronisation et
+le stockage bibliographique dans `backend/domains/literature/`. Les anciens
+modules restent des façades compatibles.
 
 ## Responsabilité
 

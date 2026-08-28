@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
   - backend/services/durable_job_worker.py
@@ -12,6 +13,7 @@ source_paths:
   - frontend/src/components/Notebooks
   - frontend/src/components/AgentChat.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
@@ -23,6 +25,10 @@ tests:
 # Cuadernos fundamentados en fuentes
 
 ## Responsabilidad
+
+`backend/domains/notebooks/` gestiona ahora el repositorio, el catálogo, las
+fuentes, la ingestión, las evidencias, el análisis, el chat y el estado. El
+servicio histórico queda como fachada compatible para la API y los workers.
 
 Los cuadernos fundamentados ofrecen un espacio `/notebooks` dedicado a
 preguntar sobre los adjuntos y las URL de los registros seleccionados en la

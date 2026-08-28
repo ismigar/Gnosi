@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
   - backend/services/durable_job_worker.py
@@ -12,6 +13,7 @@ source_paths:
   - frontend/src/components/Notebooks
   - frontend/src/components/AgentChat.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
@@ -23,6 +25,10 @@ tests:
 # Quaderns fonamentats en fonts
 
 ## Responsabilitat
+
+`backend/domains/notebooks/` gestiona ara el repositori, el catàleg, les fonts,
+la ingestió, les evidències, l'anàlisi, el xat i l'estat. El servei històric es
+manté com una façana compatible per a l'API i els workers existents.
 
 Els quaderns fonamentats ofereixen un espai `/notebooks` dedicat a preguntar
 sobre els adjunts i els URL dels registres seleccionats a la taula Referències

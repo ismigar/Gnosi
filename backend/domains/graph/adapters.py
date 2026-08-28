@@ -2,8 +2,8 @@
 
 from typing import Any, TypeAlias
 
-import networkx as nx  # type: ignore[import-untyped]
-import yaml  # type: ignore[import-untyped]
+import networkx as nx
+import yaml
 
 Graph: TypeAlias = Any
 

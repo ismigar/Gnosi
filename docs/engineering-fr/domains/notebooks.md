@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
   - backend/services/durable_job_worker.py
@@ -12,6 +13,7 @@ source_paths:
   - frontend/src/components/Notebooks
   - frontend/src/components/AgentChat.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
@@ -23,6 +25,10 @@ tests:
 # Carnets fondés sur les sources
 
 ## Responsabilité
+
+`backend/domains/notebooks/` gère désormais le dépôt, le catalogue, les sources,
+l'ingestion, les preuves, l'analyse, le chat et l'état. Le service historique
+reste une façade compatible pour l'API et les workers existants.
 
 Les carnets fondés sur les sources fournissent un espace `/notebooks` dédié aux
 questions portant sur les pièces jointes et les URL des enregistrements
