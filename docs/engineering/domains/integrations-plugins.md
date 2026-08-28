@@ -19,6 +19,8 @@ source_paths:
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
+  - backend/services/plugin_catalog.py
+  - backend/services/plugin_signing.py
   - backend/services/plugin_sandbox.py
   - backend/services/plugin_dispatcher.py
   - backend/services/marketplace_http.py
@@ -184,6 +186,10 @@ The Vault configuration composition layer now consumes the strict return types
 of plugin state, lifecycle and summary services directly. It retains late-bound
 facade seams for tests and extensions, but no longer casts already-typed state,
 so persistence and runtime refresh contracts have one authoritative owner.
+Built-in lifecycle transitions do not resolve a filesystem path. Third-party
+manifest validation resolves the current Vault's plugin directory lazily, only
+after identifying the target as external; this keeps request-scoped Vault
+selection and isolated lifecycle calls deterministic.
 
 Built-in secondary capabilities use the same per-Vault lifecycle boundary. The
 authoritative registry declares dependencies, routes, UI surfaces and Settings
@@ -231,6 +237,11 @@ every selected package requires both SHA-256 integrity and a trusted detached
 Ed25519 signature. Installed provenance records the source URL, checksum, and
 verified publisher. Local ZIP installation remains available for development,
 but starts disabled with no grants.
+
+Catalog JSON, per-Vault state, grants and the local trust store are normalized
+at their dynamic boundaries before reaching typed lifecycle and signature
+services. Unknown forward-compatible fields remain intact; malformed key maps
+recover to an empty user-key collection without replacing bundled trust.
 
 Installed plugins can be exported as deterministic ZIPs. Public submission is
 an administrator operation sent to an explicitly configured moderation broker;

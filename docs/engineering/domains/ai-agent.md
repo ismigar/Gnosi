@@ -200,6 +200,13 @@ binds the user, session, tool, arguments, effect, and expiry; accepting a stale
 or altered action does not authorize a different invocation. Maintenance
 expires and removes records independently of chat traffic.
 
+Versioned capability metadata is narrowed from model or mapping input before
+validation. Version 2 contracts fail closed unless timeout, idempotency,
+privacy, egress and durable-result policies are complete and valid; legacy
+version 1 descriptors remain compatible. Cooperative cancellation wraps any
+Python awaitable in a cancellable future, so coroutine and future based provider
+adapters share the same token semantics.
+
 ## Skills and plugins
 
 Built-in runtime skills live in `pipeline/skills/`. User and plugin packages are

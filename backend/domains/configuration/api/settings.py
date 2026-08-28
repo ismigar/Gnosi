@@ -100,7 +100,10 @@ def _validate_llm_wiki_agent(current_ai: object, new_config: dict[str, Any]) -> 
     from backend.services.llm_wiki_agent import LlmWikiAgentError, validate_agent_preserved
 
     try:
-        validate_agent_preserved(current_ai, ai_payload)
+        current_ai_payload = (
+            cast(dict[str, Any], current_ai) if isinstance(current_ai, dict) else {}
+        )
+        validate_agent_preserved(current_ai_payload, ai_payload)
     except LlmWikiAgentError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

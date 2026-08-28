@@ -31,12 +31,15 @@ class PluginLifecycleDependencies:
     logger: logging.Logger
 
 
-def _validate_installed_plugin(plugin_id: str, config_dir: Path) -> None:
+def _validate_installed_plugin(
+    plugin_id: str,
+    config_dir: Callable[[], Path],
+) -> None:
     if plugin_id in builtin_plugins.BUILTIN_PLUGIN_IDS:
         return
     from backend.services import plugin_system
 
-    plugin_system.read_manifest(config_dir, plugin_id)
+    plugin_system.read_manifest(config_dir(), plugin_id)
 
 
 def _enable_plugin(
@@ -131,7 +134,7 @@ def _apply_lifecycle_mutation(
     transition_agent: LifecycleTransition,
 ) -> PluginState:
     state = dependencies.load_state()
-    _validate_installed_plugin(plugin_id, dependencies.config_dir())
+    _validate_installed_plugin(plugin_id, dependencies.config_dir)
     state, affected = _transition_plugin_state(state, plugin_id, payload)
     affected.append(plugin_id)
 

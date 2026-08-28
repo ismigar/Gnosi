@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -25,11 +26,9 @@ async def assert_plugins_enabled(*plugin_ids: str) -> None:
     """Reject unless every requested capability is enabled in the active vault."""
     from backend.api.vault_routes import _load_plugins_state
 
-    state = await asyncio.to_thread(_load_plugins_state)
+    state: dict[str, Any] = await asyncio.to_thread(_load_plugins_state)
     missing = [
-        plugin_id
-        for plugin_id in plugin_ids
-        if not builtin_plugins.is_enabled(state, plugin_id)
+        plugin_id for plugin_id in plugin_ids if not builtin_plugins.is_enabled(state, plugin_id)
     ]
     if missing:
         raise HTTPException(

@@ -98,7 +98,7 @@ def _plugin_lifecycle_dependencies() -> plugin_lifecycle.PluginLifecycleDependen
         load_state=lambda: _legacy._load_plugins_state(),
         save_state=lambda state: _legacy._save_plugins_state(state),
         mutation_lock=lambda: _legacy._plugins_mutation_lock,
-        config_dir=lambda: _legacy.get_p("GNOSI_CONFIG"),
+        config_dir=lambda: _legacy._get_plugins_path().parent,
         reconcile=lambda: _legacy._reconcile_plugin_ai_contributions(),
         refresh_runtime=lambda request, state: _legacy._refresh_plugin_runtime(request, state),
         logger=_legacy.log,

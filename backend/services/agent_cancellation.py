@@ -41,8 +41,7 @@ def _prune(now: float) -> None:
 
 def _scope_digest(scope: dict[str, Any]) -> str:
     values = [
-        str(scope.get(key) or "")
-        for key in ("workspace_id", "user_id", "agent_id", "session_id")
+        str(scope.get(key) or "") for key in ("workspace_id", "user_id", "agent_id", "session_id")
     ]
     return hashlib.sha256("\0".join(values).encode("utf-8")).hexdigest()
 
@@ -113,7 +112,7 @@ async def await_with_cancellation(
     poll_seconds: float = 0.05,
 ) -> Any:
     """Await an operation and cancel its task as soon as the client disconnects."""
-    task = asyncio.create_task(operation)
+    task: asyncio.Future[Any] = asyncio.ensure_future(operation)
     try:
         while not task.done():
             if is_cancelled(token):

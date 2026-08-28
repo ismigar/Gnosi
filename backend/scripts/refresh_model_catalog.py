@@ -11,17 +11,19 @@ when neither the remote fetch nor the disk cache is available. Idempotent;
 run it whenever the vendored snapshot feels stale (providers release models
 weekly, the runtime refreshes itself daily anyway).
 """
+
 from __future__ import annotations
 
 import json
 import sys
+from typing import Any
 
 import requests
 
 from backend.agent.model_catalog import MODELS_DEV_URL, VENDORED_PATH, build_catalog
 
 
-def _without_timestamp(catalog: dict) -> dict:
+def _without_timestamp(catalog: dict[str, Any]) -> dict[str, Any]:
     stripped = dict(catalog)
     stripped.pop("generated_at", None)
     return stripped
@@ -39,8 +41,10 @@ def main() -> int:
     n_providers = len(catalog["providers"])
     n_models = sum(len(p["models"]) for p in catalog["providers"])
     if n_providers < 50 or n_models < 1000:
-        print(f"ERROR: suspiciously small catalog ({n_providers} providers, "
-              f"{n_models} models); vendored file NOT touched.")
+        print(
+            f"ERROR: suspiciously small catalog ({n_providers} providers, "
+            f"{n_models} models); vendored file NOT touched."
+        )
         return 1
     # Skip the write when only `generated_at` would change: the weekly CI run
     # diffs the file to decide whether to open a PR, and a bare timestamp bump
@@ -55,7 +59,8 @@ def main() -> int:
             return 0
     VENDORED_PATH.parent.mkdir(parents=True, exist_ok=True)
     VENDORED_PATH.write_text(
-        json.dumps(catalog, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        json.dumps(catalog, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    )
     print(f"Wrote {VENDORED_PATH} — {n_providers} providers, {n_models} models.")
     return 0
 
