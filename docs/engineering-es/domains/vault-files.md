@@ -82,6 +82,10 @@ El índice de páginas acelera el listado, la resolución de identificadores, el
 `links/document_inventory.py` gestiona el inventario TTL por vault de los enlaces
 globales. Excluye historial y papelera, aísla archivos ilegibles, incluye los
 dashboards JSON y recorre el disco si el índice del proveedor aún no está disponible.
+`links/document_cache.py` gestiona las cachés persistentes del cuerpo Markdown y
+del frontmatter analizado, invalidadas por mtime. La fachada solo inyecta las
+rutas activas, el parser y el escritor JSON seguro; el comportamiento no depende
+del proveedor de archivos.
 
 Iniciar primero carga instantáneas de disco válidas, luego comienza el trabajo de actualización. Un análisis parcial de proveedor de archivos está marcado parcial y no puede reemplazar una caché completa conocida. Los fallos por archivo están aislados de modo que un marcador de posición solo en línea o huérfano no elimina el resto del almacén de una respuesta.
 

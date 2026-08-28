@@ -19,7 +19,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Tuple, Iterable
+from typing import List, Optional, Dict, Any, Tuple, Iterable, cast
 from datetime import datetime, timezone, timedelta
 import logging
 import urllib.parse
@@ -537,6 +537,7 @@ from backend.domains.vault.links.api import overview as link_overview_api
 from backend.domains.vault.links.api import preview as link_preview_api
 from backend.domains.vault.links.api.dependencies import LinkApiDependencies
 from backend.domains.vault.links import index_service as link_index_service
+from backend.domains.vault.links import document_cache as link_document_cache
 from backend.domains.vault.links import document_inventory as link_document_inventory
 from backend.domains.vault.links import parsing as link_parsing
 from backend.domains.vault.links.schemas import LinkMentionsRequest
@@ -7756,85 +7757,66 @@ _ITER_DOCS_TTL = 60.0
 # stale entries quickly — without having to pay for the read.
 _body_cache: Dict[str, tuple[int, str]] = {}
 _body_cache_lock = threading.Lock()
-_BODY_CACHE_PERSIST_PENDING = False
 _BODY_CACHE_PERSIST_DEBOUNCE = 10.0  # seconds
-_body_cache_persist_lock = threading.Lock()
+
+# Cache of PARSED documents indexed by path → (mtime_ns, metadata, body).
+# `_body_cache` only spares the READ; this second cache also avoids reparsing
+# frontmatter while the underlying file remains unchanged.
+_parsed_doc_cache: Dict[str, tuple[int, Dict[str, Any], str]] = {}
+_parsed_doc_lock = threading.Lock()
+_PARSED_DOC_PERSIST_DEBOUNCE = 10.0  # seconds
+
+
+def _document_cache_dependencies() -> link_document_cache.DocumentCacheDependencies:
+    """Bind the links cache service to the current compatibility globals."""
+    return link_document_cache.DocumentCacheDependencies(
+        body_cache=_body_cache,
+        body_lock=_body_cache_lock,
+        parsed_cache=cast(
+            link_document_cache.ParsedDocumentCache,
+            _parsed_doc_cache,
+        ),
+        parsed_lock=_parsed_doc_lock,
+        page_index_cache_path=lambda: get_p("PAGE_INDEX_CACHE"),
+        data_dir=resolve_data_dir,
+        write_json=lambda path, payload: safe_write_json(
+            path,
+            payload,
+            indent=None,
+            ensure_ascii=False,
+        ),
+        parse_frontmatter=lambda raw, path: cast(
+            tuple[link_document_cache.Metadata, str],
+            parse_frontmatter(raw, path),
+        ),
+        body_persist_debounce=_BODY_CACHE_PERSIST_DEBOUNCE,
+        parsed_persist_debounce=_PARSED_DOC_PERSIST_DEBOUNCE,
+        logger=log,
+    )
 
 
 def _get_body_cache_path() -> Optional[Path]:
     """Local path where the body cache is persisted. Same pattern as page-index."""
-    base = get_p("PAGE_INDEX_CACHE")
-    if base:
-        return base.parent / "vault_body_cache.json"
-    return resolve_data_dir() / "cache" / "vault_body_cache.json"
+    return link_document_cache.cache_path("body", _document_cache_dependencies())
 
 
 def _save_body_cache_to_disk() -> None:
     """Persists the body cache to disk. Called under lock for a consistent
     snapshot. Typical size: 3500 × ~3KB body = ~10MB JSON."""
-    try:
-        cache_path = _get_body_cache_path()
-        if not cache_path:
-            return
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        with _body_cache_lock:
-            payload = {
-                path: {"mtime_ns": mt, "body": bd}
-                for path, (mt, bd) in _body_cache.items()
-            }
-        safe_write_json(cache_path, payload, indent=None, ensure_ascii=False)
-        log.info(f"💾 Body cache saved ({len(payload)} files)")
-    except Exception as e:
-        log.warning(f"body-cache persist failed: {e}")
+    link_document_cache.save_body_cache(_document_cache_dependencies())
 
 
 def _schedule_body_cache_persist() -> None:
     """Debounce persist: individual invalidations trigger a save to disk
     at most every `_BODY_CACHE_PERSIST_DEBOUNCE` seconds."""
-    global _BODY_CACHE_PERSIST_PENDING
-    with _body_cache_persist_lock:
-        if _BODY_CACHE_PERSIST_PENDING:
-            return
-        _BODY_CACHE_PERSIST_PENDING = True
-
-    def _run():
-        global _BODY_CACHE_PERSIST_PENDING
-        time.sleep(_BODY_CACHE_PERSIST_DEBOUNCE)
-        try:
-            _save_body_cache_to_disk()
-        except Exception:
-            pass
-        finally:
-            with _body_cache_persist_lock:
-                _BODY_CACHE_PERSIST_PENDING = False
-
-    threading.Thread(target=_run, daemon=True, name="body-cache-persist").start()
+    link_document_cache.schedule_body_cache_persist(_document_cache_dependencies())
 
 
 def _load_body_cache_from_disk() -> bool:
     """Loads the saved body cache. Returns True if it was useful. It does not
     validate mtimes here — that is done in `_get_body_for_path` for each
     entry queried (amortized cost)."""
-    try:
-        cache_path = _get_body_cache_path()
-        if not cache_path or not cache_path.exists():
-            return False
-        data = json.loads(cache_path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            return False
-        with _body_cache_lock:
-            _body_cache.clear()
-            for path, val in data.items():
-                if isinstance(val, dict):
-                    mt = val.get("mtime_ns") or 0
-                    bd = val.get("body") or ""
-                    if mt and bd:
-                        _body_cache[path] = (mt, bd)
-        log.info(f"📂 Body cache loaded from disk ({len(_body_cache)} files)")
-        return True
-    except Exception as e:
-        log.warning(f"body-cache load failed: {e}")
-        return False
+    return link_document_cache.load_body_cache(_document_cache_dependencies())
 
 # TTL for the stale-path check in `_get_pages_snapshot`. Each `Path.exists()`
 # call on OneDrive takes ~10ms — multiplied by 3988 entries that's 40s. We limit
@@ -7859,59 +7841,18 @@ def _get_body_for_path(file_path: Path) -> str:
     result — acceptable gradual degradation.
     
     """
-    path_str = str(file_path)
-    try:
-        mtime_ns = file_path.stat().st_mtime_ns
-    except OSError:
-        return ""
-
-    with _body_cache_lock:
-        cached = _body_cache.get(path_str)
-        if cached and cached[0] == mtime_ns:
-            return cached[1]
-
-    try:
-        raw_content = file_path.read_text(encoding="utf-8")
-    except OSError as e:
-        if e.errno == 35:
-            # Silent Errno 35 (deadlock) — log.debug instead of warning
-            # so as not to flood the logs with 3988 messages during OneDrive sync.
-            log.debug(f"Body skip (Errno 35): {file_path.name}")
-        else:
-            log.warning(f"Error reading body of {file_path.name}: {e}")
-        return ""
-    except Exception as e:
-        log.warning(f"Error reading body of {file_path.name}: {e}")
-        return ""
-
-    with _body_cache_lock:
-        _body_cache[path_str] = (mtime_ns, raw_content)
-    _schedule_body_cache_persist()
-    return raw_content
-
-
-# Cache of PARSED documents indexed by path → (mtime_ns, metadata, body).
-# `_body_cache` only spares the READ; `parse_frontmatter` still ran for every
-# file on each `_ITER_DOCS_TTL` rebuild, so a rebuild cost ~18s on the real
-# vault and pushed a cold /unlinked-mentions past the frontend's 30s axios
-# timeout (`[load-unlinked-mentions] timeout of 30000ms exceeded`). Keyed by
-# mtime, a rebuild is now O(stat) per unchanged file instead of O(parse).
-#
-# **Disk persistence**: mirrors `_body_cache`. Without it every backend restart
-# (and every autoreload in dev) paid the full re-parse on the first request.
-_parsed_doc_cache: Dict[str, tuple[int, Dict[str, Any], str]] = {}
-_parsed_doc_lock = threading.Lock()
-_PARSED_DOC_PERSIST_PENDING = False
-_PARSED_DOC_PERSIST_DEBOUNCE = 10.0  # seconds
-_parsed_doc_persist_lock = threading.Lock()
+    return link_document_cache.body_for_path(
+        file_path,
+        _document_cache_dependencies(),
+    )
 
 
 def _get_parsed_doc_cache_path() -> Optional[Path]:
     """Local path where the parsed-document cache is persisted."""
-    base = get_p("PAGE_INDEX_CACHE")
-    if base:
-        return base.parent / "vault_parsed_doc_cache.json"
-    return resolve_data_dir() / "cache" / "vault_parsed_doc_cache.json"
+    return link_document_cache.cache_path(
+        "parsed_doc",
+        _document_cache_dependencies(),
+    )
 
 
 def _save_parsed_doc_cache_to_disk() -> None:
@@ -7922,78 +7863,20 @@ def _save_parsed_doc_cache_to_disk() -> None:
     one odd page must not cost every other page its cached parse. A skipped
     entry is simply re-parsed after the next restart.
     """
-    try:
-        cache_path = _get_parsed_doc_cache_path()
-        if not cache_path:
-            return
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        with _parsed_doc_lock:
-            snapshot = list(_parsed_doc_cache.items())
-        payload = {}
-        skipped = 0
-        for path, (mtime_ns, metadata, body) in snapshot:
-            try:
-                json.dumps(metadata, allow_nan=False)
-            except (TypeError, ValueError):
-                skipped += 1
-                continue
-            payload[path] = {"mtime_ns": mtime_ns, "metadata": metadata, "body": body}
-        safe_write_json(cache_path, payload, indent=None, ensure_ascii=False)
-        suffix = f", {skipped} skipped" if skipped else ""
-        log.info(f"💾 Parsed-document cache saved ({len(payload)} files{suffix})")
-    except Exception as e:
-        log.warning(f"parsed-doc-cache save failed: {e}")
+    link_document_cache.save_parsed_cache(_document_cache_dependencies())
 
 
 def _schedule_parsed_doc_cache_persist() -> None:
     """Debounce persist, mirroring `_schedule_body_cache_persist`."""
-    global _PARSED_DOC_PERSIST_PENDING
-    with _parsed_doc_persist_lock:
-        if _PARSED_DOC_PERSIST_PENDING:
-            return
-        _PARSED_DOC_PERSIST_PENDING = True
-
-    def _run():
-        global _PARSED_DOC_PERSIST_PENDING
-        time.sleep(_PARSED_DOC_PERSIST_DEBOUNCE)
-        try:
-            _save_parsed_doc_cache_to_disk()
-        except Exception:
-            pass
-        finally:
-            with _parsed_doc_persist_lock:
-                _PARSED_DOC_PERSIST_PENDING = False
-
-    threading.Thread(target=_run, daemon=True, name="parsed-doc-cache-persist").start()
+    link_document_cache.schedule_parsed_cache_persist(
+        _document_cache_dependencies(),
+    )
 
 
 def _load_parsed_doc_cache_from_disk() -> bool:
     """Loads the saved parsed-document cache. Mtimes are not validated here —
     `_get_parsed_document` does it per entry queried (amortized cost)."""
-    try:
-        cache_path = _get_parsed_doc_cache_path()
-        if not cache_path or not cache_path.exists():
-            return False
-        data = json.loads(cache_path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            return False
-        with _parsed_doc_lock:
-            _parsed_doc_cache.clear()
-            for path, val in data.items():
-                if not isinstance(val, dict):
-                    continue
-                mt = val.get("mtime_ns") or 0
-                metadata = val.get("metadata")
-                body = val.get("body") or ""
-                if mt and isinstance(metadata, dict):
-                    _parsed_doc_cache[path] = (mt, metadata, body)
-        log.info(
-            f"📂 Parsed-document cache loaded from disk ({len(_parsed_doc_cache)} files)"
-        )
-        return True
-    except Exception as e:
-        log.warning(f"parsed-doc-cache load failed: {e}")
-        return False
+    return link_document_cache.load_parsed_cache(_document_cache_dependencies())
 
 
 def _get_parsed_document(file_path: Path) -> Optional[tuple[Dict[str, Any], str]]:
@@ -8002,27 +7885,13 @@ def _get_parsed_document(file_path: Path) -> Optional[tuple[Dict[str, Any], str]
     Returns None when the file is unreadable or empty, mirroring the behaviour
     `_iter_linkable_page_documents` had when `_get_body_for_path` returned "".
     """
-    path_str = str(file_path)
-    try:
-        mtime_ns = file_path.stat().st_mtime_ns
-    except OSError:
-        return None
-
-    with _parsed_doc_lock:
-        cached = _parsed_doc_cache.get(path_str)
-        if cached and cached[0] == mtime_ns:
-            return cached[1], cached[2]
-
-    raw_content = _get_body_for_path(file_path)
-    if not raw_content:
-        return None
-
-    metadata, body = parse_frontmatter(raw_content, file_path)
-
-    with _parsed_doc_lock:
-        _parsed_doc_cache[path_str] = (mtime_ns, metadata, body)
-    _schedule_parsed_doc_cache_persist()
-    return metadata, body
+    return cast(
+        Optional[tuple[Dict[str, Any], str]],
+        link_document_cache.parsed_document(
+            file_path,
+            _document_cache_dependencies(),
+        ),
+    )
 
 
 def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, bool]]:

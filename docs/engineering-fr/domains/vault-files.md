@@ -83,6 +83,10 @@ L'index de page accélère la liste, la résolution d'identification, l'accès a
 `links/document_inventory.py` gère l'inventaire TTL par vault des liens globaux.
 Il exclut l'historique et la corbeille, isole les fichiers illisibles, inclut les
 tableaux de bord JSON et parcourt le disque si l'index fournisseur est indisponible.
+`links/document_cache.py` gère les caches persistants du corps Markdown et du
+frontmatter analysé, invalidés par mtime. La façade injecte uniquement les
+chemins actifs, le parseur et l'écriture JSON sûre ; le comportement reste
+indépendant du fournisseur de fichiers.
 
 Démarrer charge d'abord des instantanés de disque valides, puis démarre le travail de rafraîchissement. Un scan partiel du fournisseur de fichiers est marqué de manière partielle et ne peut remplacer un cache complet connu. Les défaillances par fichier sont isolées de sorte qu'un marqueur de place en ligne ou orphelin ne supprime pas le reste de la voûte d'une réponse.
 

@@ -109,6 +109,9 @@ is derived and must tolerate a cold rebuild.
 `links/document_inventory.py` owns the per-vault TTL inventory used by global
 links. It excludes history and trash, isolates unreadable files, includes JSON
 dashboards, and falls back to a disk walk while the provider index is unavailable.
+`links/document_cache.py` owns the persistent, mtime-keyed Markdown body and
+parsed-frontmatter caches. The router only supplies the active cache paths,
+parser and safe JSON writer, so cache behavior is independent of the file provider.
 
 Startup first loads valid disk snapshots, then starts refresh work. A partial
 file-provider scan is marked partial and cannot replace a known complete cache.
