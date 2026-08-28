@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 210 |
-| `domains` | 368 | 83126 |
+| `domains` | 368 | 83131 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1220 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146633 source lines**.
+Total: **699 modules** and **146638 source lines**.
 
 ## agent
 
@@ -364,7 +364,7 @@ Total: **699 modules** and **146633 source lines**.
 | [`backend/domains/social/vault_ports.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/social/vault_ports.py) | 84 | 0 | 7 | 3 | 0 | Typed late-bound Vault ports for social publication persistence. |
 | [`backend/domains/vault/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/__init__.py) | 5 | 0 | 0 | 0 | 0 | Vault domain boundaries. |
 | [`backend/domains/vault/annotations/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/annotations/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault domain package. |
-| [`backend/domains/vault/annotations/pdf_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/annotations/pdf_routes.py) | 148 | 2 | 5 | 0 | 1 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/annotations/pdf_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/annotations/pdf_routes.py) | 153 | 2 | 5 | 0 | 1 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | HTTP adapters for the vault domain. |
 | [`backend/domains/vault/api/configuration_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/configuration_routes.py) | 335 | 0 | 21 | 4 | 7 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/api/core_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/core_routes.py) | 376 | 0 | 18 | 4 | 14 | Typed Vault domain extracted from the historical route facade. |

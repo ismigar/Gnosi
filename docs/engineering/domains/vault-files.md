@@ -243,6 +243,11 @@ unlinked mentions share a typed page-synchronization router. Request models use
 Pydantic directly while retaining their historical module identity, preserving
 schema names, SSE behavior and OpenAPI output.
 
+PDF annotation CRUD follows the same model: direct Pydantic request bases and a
+single typed router, with historical schema identity retained. Source URI
+filtering, page ordering, editor permissions and annotation serialization are
+unchanged.
+
 ## File providers
 
 The provider abstraction selects local, generic macOS File Provider, OneDrive,

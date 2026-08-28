@@ -2,8 +2,13 @@
 
 import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
+from typing import cast as _strict_cast
+
+from fastapi import APIRouter
+from pydantic import BaseModel
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 
 from sqlalchemy.orm import Session as _AnnSession
 
@@ -11,7 +16,7 @@ from backend.data.db import get_db as _ann_get_db
 from backend.models.pdf_annotation import PdfAnnotation as _PdfAnnotation
 
 
-class _PdfAnnotationCreate(_legacy.BaseModel):
+class _PdfAnnotationCreate(BaseModel):
     __module__ = "backend.api.vault_routes"
     source_uri: str
     page: int
@@ -23,7 +28,7 @@ class _PdfAnnotationCreate(_legacy.BaseModel):
     tags: _legacy.Optional[str] = None
 
 
-class _PdfAnnotationUpdate(_legacy.BaseModel):
+class _PdfAnnotationUpdate(BaseModel):
     __module__ = "backend.api.vault_routes"
     color: _legacy.Optional[str] = None
     rects: _legacy.Optional[_legacy.List[_legacy.Dict[str, float]]] = None
@@ -48,7 +53,7 @@ def _pdf_annotation_to_dict(ann: _PdfAnnotation) -> _legacy.Dict[str, _legacy.An
     }
 
 
-@_legacy.router.get("/pdf-annotations", response_model=None)
+@router.get("/pdf-annotations", response_model=None)
 def list_pdf_annotations(
     source_uri: str = _legacy.Query(..., min_length=1),
     db: _AnnSession = _legacy.Depends(_ann_get_db),
@@ -68,7 +73,7 @@ def list_pdf_annotations(
     return [_pdf_annotation_to_dict(i) for i in items]
 
 
-@_legacy.router.post(
+@router.post(
     "/pdf-annotations",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -106,7 +111,7 @@ def create_pdf_annotation(
     return _pdf_annotation_to_dict(ann)
 
 
-@_legacy.router.patch(
+@router.patch(
     "/pdf-annotations/{ann_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -132,7 +137,7 @@ def update_pdf_annotation(
     return _pdf_annotation_to_dict(ann)
 
 
-@_legacy.router.delete(
+@router.delete(
     "/pdf-annotations/{ann_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
