@@ -27,7 +27,7 @@ def _audio_dir() -> Path:
 
 
 @router.post("/record")
-async def record_meeting(
+async def record_meeting(  # type: ignore[no-untyped-def]
     audio: UploadFile = File(...),
     title: str = Form("Reunió"),
     mode: str = Form("presencial"),
@@ -53,6 +53,6 @@ async def record_meeting(
 
 
 @router.get("/status")
-async def meeting_status():
+async def meeting_status():  # type: ignore[no-untyped-def]
     """Status of the in-flight job (polled from the frontend)."""
     return meeting_notes.get_status()

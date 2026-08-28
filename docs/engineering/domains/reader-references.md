@@ -148,6 +148,9 @@ mode, one reviewer's decision is hidden until both reviewers submit; conflicts
 move to explicit consensus. AI may propose editable queries, rerank, screen, or
 synthesize retrieved metadata, but cannot exclude a candidate or claim evidence
 beyond the title, abstract, or full text actually supplied.
+Both the token-overlap fallback and optional local-embedding reranker use one
+typed ranking record shape, preserving score and original-rank ordering across
+the two implementations.
 
 OAI indexes and temporary search state are reconstructible and live below
 `LOCAL_DATA`; protocols, histories, candidates, decisions, and audit artifacts

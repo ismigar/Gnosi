@@ -20,7 +20,7 @@ _MAX_BYTES = 12 * 1024 * 1024  # 12 MB
 
 
 @router.get("/status")
-async def handwriting_status():
+async def handwriting_status():  # type: ignore[no-untyped-def]
     """Indicates whether the local engine (transformers + PIL) is available."""
     return {
         "available": handwriting.is_available(),
@@ -30,7 +30,7 @@ async def handwriting_status():
 
 
 @router.post("/warmup")
-async def handwriting_warmup():
+async def handwriting_warmup():  # type: ignore[no-untyped-def]
     """Preloads the model in the background (idempotent, non-blocking).
 
     The frontend calls this when opening the canvas so the 1st real
@@ -42,7 +42,7 @@ async def handwriting_warmup():
 
 
 @router.post("/recognize")
-async def recognize_handwriting(
+async def recognize_handwriting(  # type: ignore[no-untyped-def]
     image: UploadFile = File(...),
     correct: Optional[bool] = Form(None),
     language: Optional[str] = Form(None),

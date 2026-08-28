@@ -54,7 +54,7 @@ def _bounded_works(values: Any, limit: int = 100) -> list[dict[str, Any]]:
 
 def _token_overlap_rerank(query: str, works: list[dict[str, Any]]) -> dict[str, Any]:
     query_tokens = set(normalize_title(query).split())
-    ranked = []
+    ranked: list[dict[str, Any]] = []
     for ordinal, work in enumerate(works):
         title_tokens = set(normalize_title(f"{work.get('title', '')} {work.get('abstract', '')}").split())
         denominator = len(query_tokens | title_tokens) or 1
@@ -89,7 +89,7 @@ def _local_embedding_rerank(query: str, works: list[dict[str, Any]]) -> tuple[di
     texts = [query, *(f"{work.get('title', '')}. {work.get('abstract', '')}"[:10_000] for work in works)]
     try:
         vectors = _EMBEDDING_MODEL.encode(texts, normalize_embeddings=True, show_progress_bar=False)
-        ranked = [
+        ranked: list[dict[str, Any]] = [
             {"id": work.get("id"), "score": round(float(vectors[0] @ vectors[index + 1]), 6), "original_rank": index + 1}
             for index, work in enumerate(works)
         ]

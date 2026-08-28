@@ -50,6 +50,12 @@ attachments, searches, schemas, histories, trash, exports, citations, and
 multi-vault selection. It is the largest domain and the primary owner of data
 sovereignty.
 
+Local handwriting recognition is an optional ingestion adapter at the Vault
+boundary. Model and processor objects remain isolated as third-party runtime
+values; the service exposes a typed result containing text, raw recognition,
+line values, model identity, and correction status without changing the public
+upload contract.
+
 ## Page lifecycle
 
 ```mermaid

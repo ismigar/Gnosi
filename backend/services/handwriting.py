@@ -25,14 +25,14 @@ import logging
 import os
 import threading
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from backend.config.app_config import load_params
 
 log = logging.getLogger(__name__)
 
-_MODEL = None          # VisionEncoderDecoderModel
-_PROCESSOR = None      # TrOCRProcessor
+_MODEL: Any = None          # VisionEncoderDecoderModel
+_PROCESSOR: Any = None      # TrOCRProcessor
 _LOCK = threading.Lock()
 _WARMUP_THREAD = None   # in-flight preload thread (avoids duplicates)
 
@@ -90,7 +90,7 @@ def is_loaded() -> bool:
     return _MODEL is not None and _PROCESSOR is not None
 
 
-def _load():
+def _load() -> tuple[Any, Any]:
     """Loads (lazily) the TrOCR processor + model (singleton, CPU)."""
     global _MODEL, _PROCESSOR
     if _MODEL is not None and _PROCESSOR is not None:
@@ -125,7 +125,7 @@ def warmup() -> bool:
         if _WARMUP_THREAD is not None and _WARMUP_THREAD.is_alive():
             return True
 
-        def _run():
+        def _run() -> None:
             try:
                 _load()
             except Exception as e:  # pragma: no cover - clean degradation
@@ -174,7 +174,7 @@ def recognize(
     segment: bool = True,
     correct: Optional[bool] = None,
     language: Optional[str] = None,
-) -> dict:
+) -> dict[str, Any]:
     """Recognizes the handwritten text from a PNG/JPEG image.
 
     `segment=True` splits the image into lines and recognizes them one by one (better
@@ -223,7 +223,7 @@ def recognize(
     }
 
 
-def _segment_lines(image):
+def _segment_lines(image: Any) -> list[Any]:
     """Splits a multi-line image into crops of one line each.
 
     Horizontal projection: we sum the "ink" (dark pixels) per row; contiguous

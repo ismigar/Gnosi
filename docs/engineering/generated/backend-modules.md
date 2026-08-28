@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 5 | 1184 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 809 |
-| `services` | 148 | 34372 |
+| `services` | 148 | 34376 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146767 source lines**.
+Total: **699 modules** and **146771 source lines**.
 
 ## agent
 
@@ -742,7 +742,7 @@ Total: **699 modules** and **146767 source lines**.
 | [`backend/services/marketplace_submission.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/marketplace_submission.py) | 85 | 1 | 2 | 0 | 3 | Optional broker client for moderated marketplace submissions. |
 | [`backend/services/mcp_tool_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mcp_tool_contributions.py) | 94 | 0 | 3 | 0 | 1 | Governed read-only MCP tools exposed for explicit skill composition. |
 | [`backend/services/media_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/media_service.py) | 572 | 1 | 1 | 0 | 1 | No module docstring |
-| [`backend/services/meeting_notes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_notes.py) | 161 | 0 | 6 | 0 | 3 | AI-powered meeting minutes taker orchestrator. |
+| [`backend/services/meeting_notes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_notes.py) | 165 | 0 | 6 | 0 | 3 | AI-powered meeting minutes taker orchestrator. |
 | [`backend/services/meeting_reminders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_reminders.py) | 329 | 0 | 15 | 0 | 4 | AI-powered meeting reminder engine (agenda). |
 | [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 485 | 0 | 20 | 0 | 8 | Microsoft Graph API mail service. |
 | [`backend/services/notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notebook_service.py) | 210 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical notebooks domain. |

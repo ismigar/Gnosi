@@ -94,7 +94,9 @@ authority for scheduler/API races.
 Meeting recording uploads bounded audio to a background workflow. Status polling
 separates recording, transcription, summarization, note creation, completion,
 and failure. Generated notes are written through Vault-safe operations and
-retain event/source context.
+retain event/source context. The background service normalizes the legacy Vault
+route result to a concrete mapping before reading the created page identifier;
+dynamic compatibility handlers do not leak into the typed job boundary.
 
 ## Invariants
 
