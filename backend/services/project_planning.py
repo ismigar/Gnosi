@@ -14,7 +14,7 @@ from datetime import date, datetime, time, timedelta
 from math import ceil
 from pathlib import Path
 from threading import Lock
-from typing import Any
+from typing import Any, cast
 import json
 import uuid
 
@@ -41,7 +41,7 @@ def _number(value: Any, field: str, *, minimum: float = 0.0, strict: bool = Fals
     return result
 
 
-def _iso_day(value: str, field: str) -> str:
+def _iso_day(value: object, field: str) -> str:
     try:
         return date.fromisoformat(str(value)).isoformat()
     except ValueError as exc:
@@ -60,14 +60,16 @@ def default_state() -> dict[str, Any]:
     return {
         "version": STORE_VERSION,
         "revision": 0,
-        "calendars": [{
-            "id": DEFAULT_CALENDAR_ID,
-            "name": "Project default",
-            "working_weekdays": [1, 2, 3, 4, 5],
-            "holidays": [],
-            "hours_per_day": 8.0,
-            "workday_start": "09:00",
-        }],
+        "calendars": [
+            {
+                "id": DEFAULT_CALENDAR_ID,
+                "name": "Project default",
+                "working_weekdays": [1, 2, 3, 4, 5],
+                "holidays": [],
+                "hours_per_day": 8.0,
+                "workday_start": "09:00",
+            }
+        ],
         "resources": [],
         "assignments": [],
         "recurrences": [],
@@ -95,12 +97,16 @@ def normalize_calendar(value: dict[str, Any], *, existing_id: str | None = None)
         "name": name,
         "working_weekdays": weekdays,
         "holidays": holidays,
-        "hours_per_day": _number(value.get("hours_per_day", 8), "hours_per_day", minimum=0, strict=True),
+        "hours_per_day": _number(
+            value.get("hours_per_day", 8), "hours_per_day", minimum=0, strict=True
+        ),
         "workday_start": workday_start[:5],
     }
 
 
-def normalize_resource(value: dict[str, Any], calendar_ids: set[str], *, existing_id: str | None = None) -> dict[str, Any]:
+def normalize_resource(
+    value: dict[str, Any], calendar_ids: set[str], *, existing_id: str | None = None
+) -> dict[str, Any]:
     """Validates a resource record without coupling it to a task editor."""
     resource_id = existing_id or str(value.get("id") or uuid.uuid4())
     name = str(value.get("name") or "").strip()
@@ -117,7 +123,9 @@ def normalize_resource(value: dict[str, Any], calendar_ids: set[str], *, existin
         "name": name,
         "type": resource_type,
         "calendar_id": calendar_id if resource_type == "work" else None,
-        "availability_units": _number(value.get("availability_units", 100), "availability_units", minimum=0, strict=True),
+        "availability_units": _number(
+            value.get("availability_units", 100), "availability_units", minimum=0, strict=True
+        ),
         "standard_rate": _number(value.get("standard_rate", 0), "standard_rate"),
         "overtime_rate": _number(value.get("overtime_rate", 0), "overtime_rate"),
         "cost_per_use": _number(value.get("cost_per_use", 0), "cost_per_use"),
@@ -126,7 +134,9 @@ def normalize_resource(value: dict[str, Any], calendar_ids: set[str], *, existin
     }
 
 
-def normalize_assignment(value: dict[str, Any], resource_ids: set[str], *, existing_id: str | None = None) -> dict[str, Any]:
+def normalize_assignment(
+    value: dict[str, Any], resource_ids: set[str], *, existing_id: str | None = None
+) -> dict[str, Any]:
     """Validates an assignment linked by stable task and resource IDs."""
     assignment_id = existing_id or str(value.get("id") or uuid.uuid4())
     task_id = str(value.get("task_id") or "").strip()
@@ -137,13 +147,17 @@ def normalize_assignment(value: dict[str, Any], resource_ids: set[str], *, exist
         raise PlanningValidationError("assignment resource does not exist")
     start = value.get("start")
     end = value.get("end")
-    normalized_start = _iso_datetime(start, "start").isoformat(timespec="minutes") if start else None
+    normalized_start = (
+        _iso_datetime(start, "start").isoformat(timespec="minutes") if start else None
+    )
     normalized_end = _iso_datetime(end, "end").isoformat(timespec="minutes") if end else None
     if normalized_start and normalized_end and normalized_end <= normalized_start:
         raise PlanningValidationError("assignment end must be after start")
     task_type = str(value.get("task_type") or "fixed_duration")
     if task_type not in {"fixed_duration", "fixed_work", "fixed_units"}:
-        raise PlanningValidationError("task_type must be fixed_duration, fixed_work, or fixed_units")
+        raise PlanningValidationError(
+            "task_type must be fixed_duration, fixed_work, or fixed_units"
+        )
     return {
         "id": assignment_id,
         "project_id": str(value.get("project_id") or "").strip() or None,
@@ -151,9 +165,14 @@ def normalize_assignment(value: dict[str, Any], resource_ids: set[str], *, exist
         "resource_id": resource_id,
         "units": _number(value.get("units", 100), "units", minimum=0, strict=True),
         "planned_work_hours": _number(value.get("planned_work_hours", 0), "planned_work_hours"),
-        "remaining_work_hours": _number(value.get("remaining_work_hours", value.get("planned_work_hours", 0)), "remaining_work_hours"),
+        "remaining_work_hours": _number(
+            value.get("remaining_work_hours", value.get("planned_work_hours", 0)),
+            "remaining_work_hours",
+        ),
         "actual_work_hours": _number(value.get("actual_work_hours", 0), "actual_work_hours"),
-        "rate_override": None if value.get("rate_override") in (None, "") else _number(value.get("rate_override"), "rate_override"),
+        "rate_override": None
+        if value.get("rate_override") in (None, "")
+        else _number(value.get("rate_override"), "rate_override"),
         "start": normalized_start,
         "end": normalized_end,
         "task_type": task_type,
@@ -165,12 +184,20 @@ def normalize_assignment(value: dict[str, Any], resource_ids: set[str], *, exist
 
 
 def _calendar_is_working(day: date, calendar: dict[str, Any]) -> bool:
-    return day.weekday() + 1 in {7 if item == 0 else item for item in calendar["working_weekdays"]} and day.isoformat() not in set(calendar["holidays"])
+    return day.weekday() + 1 in {
+        7 if item == 0 else item for item in calendar["working_weekdays"]
+    } and day.isoformat() not in set(calendar["holidays"])
 
 
-def _assignment_daily_hours(assignment: dict[str, Any], calendar: dict[str, Any]) -> dict[str, float]:
+def _assignment_daily_hours(
+    assignment: dict[str, Any], calendar: dict[str, Any]
+) -> dict[str, float]:
     """Spreads planned work evenly over the working dates in its explicit range."""
-    if not assignment.get("start") or not assignment.get("end") or not assignment["planned_work_hours"]:
+    if (
+        not assignment.get("start")
+        or not assignment.get("end")
+        or not assignment["planned_work_hours"]
+    ):
         return {}
     start = _iso_datetime(assignment["start"], "start").date()
     end = _iso_datetime(assignment["end"], "end").date()
@@ -189,9 +216,9 @@ def _assignment_daily_hours(assignment: dict[str, Any], calendar: dict[str, Any]
 def _effective_rate(resource: dict[str, Any], assignment: dict[str, Any]) -> float:
     """Resolves an assignment override or the latest rate effective at start."""
     if assignment.get("rate_override") is not None:
-        return assignment["rate_override"]
+        return cast(float, assignment["rate_override"])
     start = str(assignment.get("start") or "9999-12-31")[:10]
-    candidates = []
+    candidates: list[tuple[str, float]] = []
     for item in resource.get("rate_history") or []:
         if not isinstance(item, dict):
             continue
@@ -202,7 +229,7 @@ def _effective_rate(resource: dict[str, Any], assignment: dict[str, Any]) -> flo
             continue
         if effective <= start:
             candidates.append((effective, rate))
-    return max(candidates, default=("", resource["standard_rate"]))[1]
+    return max(candidates, default=("", cast(float, resource["standard_rate"])))[1]
 
 
 def calculate_allocation(state: dict[str, Any]) -> dict[str, Any]:
@@ -222,13 +249,27 @@ def calculate_allocation(state: dict[str, Any]) -> dict[str, Any]:
             continue
         rate = _effective_rate(resource, assignment)
         overtime_cost = assignment.get("overtime_work_hours", 0) * resource.get("overtime_rate", 0)
-        material_cost = assignment.get("material_quantity", 0) * rate if resource["type"] == "material" else 0
-        cost = assignment["planned_work_hours"] * rate + overtime_cost + material_cost + resource["cost_per_use"] + assignment.get("fixed_cost", 0)
-        assignment_summaries.append({
-            "id": assignment["id"], "task_id": assignment["task_id"], "resource_id": resource["id"],
-            "planned_work_hours": assignment["planned_work_hours"], "remaining_work_hours": assignment["remaining_work_hours"],
-            "actual_work_hours": assignment["actual_work_hours"], "estimated_cost": round(cost, 2),
-        })
+        material_cost = (
+            assignment.get("material_quantity", 0) * rate if resource["type"] == "material" else 0
+        )
+        cost = (
+            assignment["planned_work_hours"] * rate
+            + overtime_cost
+            + material_cost
+            + resource["cost_per_use"]
+            + assignment.get("fixed_cost", 0)
+        )
+        assignment_summaries.append(
+            {
+                "id": assignment["id"],
+                "task_id": assignment["task_id"],
+                "resource_id": resource["id"],
+                "planned_work_hours": assignment["planned_work_hours"],
+                "remaining_work_hours": assignment["remaining_work_hours"],
+                "actual_work_hours": assignment["actual_work_hours"],
+                "estimated_cost": round(cost, 2),
+            }
+        )
         if resource["type"] != "work" or not resource.get("active"):
             continue
         calendar = calendars.get(resource.get("calendar_id") or DEFAULT_CALENDAR_ID)
@@ -236,30 +277,45 @@ def calculate_allocation(state: dict[str, Any]) -> dict[str, Any]:
             continue
         for day, hours in _assignment_daily_hours(assignment, calendar).items():
             key = (resource["id"], day)
-            bucket = buckets.setdefault(key, {
-                "resource_id": resource["id"], "resource_name": resource["name"], "date": day,
-                "assigned_hours": 0.0,
-                "capacity_hours": calendar["hours_per_day"] * resource["availability_units"] / 100,
-                "assignment_ids": [],
-            })
+            bucket = buckets.setdefault(
+                key,
+                {
+                    "resource_id": resource["id"],
+                    "resource_name": resource["name"],
+                    "date": day,
+                    "assigned_hours": 0.0,
+                    "capacity_hours": calendar["hours_per_day"]
+                    * resource["availability_units"]
+                    / 100,
+                    "assignment_ids": [],
+                },
+            )
             bucket["assigned_hours"] += hours
             bucket["assignment_ids"].append(assignment["id"])
     for bucket in buckets.values():
         bucket["assigned_hours"] = round(bucket["assigned_hours"], 2)
         bucket["capacity_hours"] = round(bucket["capacity_hours"], 2)
-        bucket["overallocated_hours"] = round(max(0.0, bucket["assigned_hours"] - bucket["capacity_hours"]), 2)
+        bucket["overallocated_hours"] = round(
+            max(0.0, bucket["assigned_hours"] - bucket["capacity_hours"]), 2
+        )
         if bucket["overallocated_hours"]:
-            warnings.append({
-                "code": "resource_overallocated", "resource_id": bucket["resource_id"], "date": bucket["date"],
-                "message": f"{bucket['resource_name']} exceeds capacity by {bucket['overallocated_hours']} h",
-                "assignment_ids": bucket["assignment_ids"],
-            })
+            warnings.append(
+                {
+                    "code": "resource_overallocated",
+                    "resource_id": bucket["resource_id"],
+                    "date": bucket["date"],
+                    "message": f"{bucket['resource_name']} exceeds capacity by {bucket['overallocated_hours']} h",
+                    "assignment_ids": bucket["assignment_ids"],
+                }
+            )
     return {
         "revision": state.get("revision", 0),
         "assignment_summaries": assignment_summaries,
         "buckets": sorted(buckets.values(), key=lambda item: (item["date"], item["resource_name"])),
         "warnings": warnings,
-        "total_estimated_cost": round(sum(item["estimated_cost"] for item in assignment_summaries), 2),
+        "total_estimated_cost": round(
+            sum(item["estimated_cost"] for item in assignment_summaries), 2
+        ),
     }
 
 
@@ -290,10 +346,7 @@ def propose_leveling(state: dict[str, Any]) -> dict[str, Any]:
     proposals: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for warning in allocation["warnings"]:
-        candidates = [
-            assignments.get(assignment_id)
-            for assignment_id in warning["assignment_ids"]
-        ]
+        candidates = [assignments.get(assignment_id) for assignment_id in warning["assignment_ids"]]
         dated = [item for item in candidates if item and item.get("start") and item.get("end")]
         if not dated:
             continue
@@ -306,8 +359,10 @@ def propose_leveling(state: dict[str, Any]) -> dict[str, Any]:
         calendar = calendars.get((resource or {}).get("calendar_id") or DEFAULT_CALENDAR_ID)
         bucket = next(
             (
-                item for item in allocation["buckets"]
-                if item["resource_id"] == candidate["resource_id"] and item["date"] == warning["date"]
+                item
+                for item in allocation["buckets"]
+                if item["resource_id"] == candidate["resource_id"]
+                and item["date"] == warning["date"]
             ),
             None,
         )
@@ -316,20 +371,26 @@ def propose_leveling(state: dict[str, Any]) -> dict[str, Any]:
         delay_days = max(1, ceil(bucket["overallocated_hours"] / bucket["capacity_hours"]))
         start = _iso_datetime(candidate["start"], "start")
         end = _iso_datetime(candidate["end"], "end")
-        proposals.append({
-            "id": f"level-{candidate['id']}-{warning['date']}",
-            "assignment_id": candidate["id"],
-            "task_id": candidate["task_id"],
-            "resource_id": candidate["resource_id"],
-            "reason": "resource_overallocated",
-            "source_date": warning["date"],
-            "delay_working_days": delay_days,
-            "source_start": candidate["start"],
-            "source_end": candidate["end"],
-            "suggested_start": _shift_to_next_working_date(start, calendar, delay_days).isoformat(timespec="minutes"),
-            "suggested_end": _shift_to_next_working_date(end, calendar, delay_days).isoformat(timespec="minutes"),
-            "requires_review": True,
-        })
+        proposals.append(
+            {
+                "id": f"level-{candidate['id']}-{warning['date']}",
+                "assignment_id": candidate["id"],
+                "task_id": candidate["task_id"],
+                "resource_id": candidate["resource_id"],
+                "reason": "resource_overallocated",
+                "source_date": warning["date"],
+                "delay_working_days": delay_days,
+                "source_start": candidate["start"],
+                "source_end": candidate["end"],
+                "suggested_start": _shift_to_next_working_date(
+                    start, calendar, delay_days
+                ).isoformat(timespec="minutes"),
+                "suggested_end": _shift_to_next_working_date(end, calendar, delay_days).isoformat(
+                    timespec="minutes"
+                ),
+                "requires_review": True,
+            }
+        )
     return {
         "revision": state.get("revision", 0),
         "warnings": allocation["warnings"],

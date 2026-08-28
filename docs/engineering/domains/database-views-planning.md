@@ -21,6 +21,7 @@ source_paths:
   - backend/services/rule_engine.py
   - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
+  - backend/services/project_planning.py
   - backend/services/planning_scheduler.py
   - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
@@ -223,6 +224,14 @@ The deterministic engine now separates fact normalization, one-task forward
 scheduling, constraint diagnostics, successor indexing, the backward slack pass,
 ALAP placement and payload serialization. This keeps persisted facts immutable
 while preserving partial schedules and diagnostics for recoverable graph errors.
+
+The coalesced scheduler keeps Markdown parsing, saving and ETag checks behind a
+narrow late-bound Vault port, with typed source records for every candidate
+write. It validates plugin-state shape before reading settings and writes only
+automatic boundaries whose source ETag is unchanged. Resource rate history and
+assignment overrides are narrowed at the planning-store boundary, so allocation
+and leveling calculations remain strictly typed without changing persisted
+numbers or schedule semantics.
 
 Period durations retain both their numeric value and configured unit (`hours`,
 `days`, or `years`). Calendar years are added as calendar-year offsets, which
