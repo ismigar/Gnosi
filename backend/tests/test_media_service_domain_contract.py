@@ -111,7 +111,7 @@ def _descriptor_target(name: str) -> Callable[..., object]:
 
 def test_legacy_python_surface_is_exact() -> None:
     """Freeze public signatures and every historical monkeypatch descriptor."""
-    assert str(inspect.signature(MediaService)) == "()"
+    assert str(inspect.signature(MediaService)) == "() -> None"
     assert inspect.isgeneratorfunction(MediaService._scan_recursive)
     assert media_service.__class__ is MediaService
     assert MEDIA_ROOTS == {

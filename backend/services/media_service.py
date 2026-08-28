@@ -54,6 +54,7 @@ def _active_vault_path() -> Path:
         raise RuntimeError("No active vault is configured")
     return path
 
+
 # TTL for the recursive scan cache. On OneDrive with tens of thousands
 # of images the first pass can take minutes; here we keep the result
 # to avoid repeating it on every pagination.
@@ -109,7 +110,7 @@ class MediaService:
     # reason as _USER_META_FILENAME: user data, inside the vault.
     _VIEWS_FILENAME = "media_views.json"
 
-    def __init__(self):  # type: ignore[no-untyped-def]  # Legacy introspection contract.
+    def __init__(self) -> None:
         # We no longer initialize the path here to avoid errors at boot
         self._media_dir_cache = None
         self._scan_cache: _ScanCache = {}

@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 282 | 2037 |
+| pytest | 283 | 2040 |
 
 ## Files
 
@@ -345,6 +345,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_translation_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_helpers.py) | 38 | Python AST |
 | pytest | [`backend/tests/test_translation_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_index.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_truthy_checkbox_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_truthy_checkbox_parity.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_typed_public_share_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_public_share_routes.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_typed_small_api_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_small_api_routes.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_typed_vault_api_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_vault_api_routes.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_validator_string_dunder.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_validator_string_dunder.py) | 4 | Python AST |

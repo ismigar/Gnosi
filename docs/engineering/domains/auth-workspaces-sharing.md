@@ -128,11 +128,13 @@ Revocation is soft so the system retains an audit record. Expired or revoked
 links reveal no page content. Public asset resolution inherits the same share
 scope rather than accepting an arbitrary path.
 
-The sharing route boundary types serialization, vault-path resolution and ORM
-mutation without adding response annotations to legacy handlers, preserving the
-frozen OpenAPI schemas. Stored multi-vault identifiers are resolved to concrete
-paths before activating page context, while missing configuration retains the
-existing recoverable fallback and service-unavailable response.
+The sharing route boundary types serialization, vault-path resolution, ORM
+mutation and every handler response. Named Pydantic models validate direct-call
+mappings before serialization, while compatibility registrations explicitly
+disable response-model publication to preserve the frozen OpenAPI schemas.
+Stored multi-vault identifiers are resolved to concrete paths before activating
+page context, while missing configuration retains the existing recoverable
+fallback and service-unavailable response.
 
 Vault-scoped identity settings use separate Pydantic request and legacy-read
 models. Unknown historical fields survive reads, atomic writes retain the
@@ -152,10 +154,11 @@ authorization. Token plaintext is shown only at creation. Revocation prevents
 future use without needing to delete its audit row.
 The typed public facade updates ORM timestamps through the descriptor boundary,
 contains legacy Markdown writes beneath the active Vault, and routes configured
-Web Clipper records through the normal page-creation pipeline. Historical route
-return annotations remain intentionally absent because adding them would change
-the frozen FastAPI response schemas; all helper and request payload boundaries
-are strict.
+Web Clipper records through the normal page-creation pipeline. Token, ping,
+page, clipper-configuration and clip results cross named Pydantic response
+models, then retain their historical dictionary or list shape. Explicit
+`response_model=None` registration keeps the FastAPI schemas byte-stable until
+the coordinated OpenAPI/client contract PR.
 
 ## Invariants
 
@@ -171,6 +174,6 @@ are strict.
 ## Verification focus
 
 Run central-gate, enforcement-flag, account, placeholder, email-case, password,
-PAT, public-surface, workspace-race, membership, and sharing tests. Browser QA
-checks login/logout, account updates, workspace switching, and anonymous share
-access in a clean session.
+PAT, public-surface, direct typed-response, workspace-race, membership, and
+sharing tests. Browser QA checks login/logout, account updates, workspace
+switching, and anonymous share access in a clean session.

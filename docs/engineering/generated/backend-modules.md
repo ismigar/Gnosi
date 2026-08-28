@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 46 | 8533 |
-| `api` | 38 | 11752 |
+| `api` | 38 | 11887 |
 | `app` | 6 | 607 |
 | `application root` | 2 | 41 |
 | `config` | 8 | 1008 |
@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 6 | 1212 |
 | `scripts` | 2 | 69 |
 | `security` | 5 | 829 |
-| `services` | 148 | 34770 |
+| `services` | 148 | 34771 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 450 |
 
-Total: **696 modules** and **147594 source lines**.
+Total: **696 modules** and **147730 source lines**.
 
 ## agent
 
@@ -109,17 +109,17 @@ Total: **696 modules** and **147594 source lines**.
 | [`backend/api/notion_oauth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_oauth_routes.py) | 210 | 0 | 13 | 4 | 3 | OAuth 2.1 to Notion's hosted MCP (mcp.notion.com) — for recreating views. |
 | [`backend/api/notion_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_routes.py) | 536 | 3 | 27 | 13 | 11 | Compatibility-preserving FastAPI surface for the typed Notion domain. |
 | [`backend/api/planning_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/planning_routes.py) | 736 | 9 | 28 | 23 | 10 | API for normalized project-planning resources and allocation reports. |
-| [`backend/api/public_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/public_routes.py) | 353 | 3 | 14 | 1 | 10 | Gnosi's public API with Personal Access Token (PAT) authentication. |
+| [`backend/api/public_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/public_routes.py) | 450 | 12 | 14 | 1 | 10 | Gnosi's public API with Personal Access Token (PAT) authentication. |
 | [`backend/api/reader.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/reader.py) | 75 | 0 | 0 | 0 | 0 | Compatibility facade for the Reader HTTP API. |
 | [`backend/api/scheduler_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/scheduler_routes.py) | 100 | 1 | 6 | 6 | 6 | No module docstring |
-| [`backend/api/share_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/share_routes.py) | 213 | 1 | 7 | 4 | 5 | External share links for single vault pages (Notion-style). |
+| [`backend/api/share_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/share_routes.py) | 249 | 6 | 7 | 4 | 5 | External share links for single vault pages (Notion-style). |
 | [`backend/api/social_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/social_routes.py) | 786 | 8 | 23 | 18 | 22 | No module docstring |
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 694 | 5 | 23 | 9 | 23 | HTTP routes for system notifications, status and filesystem access. |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py) | 185 | 4 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | No module docstring |
 | [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 279 | 0 | 2 | 0 | 0 | No module docstring |
 | [`backend/api/vault_templates_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_templates_routes.py) | 320 | 7 | 10 | 0 | 8 | Vault template catalog, creation, export, and moderated submission routes. |
-| [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_views_routes.py) | 404 | 4 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
+| [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_views_routes.py) | 406 | 4 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
 | [`backend/api/vaults_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py) | 378 | 6 | 10 | 0 | 9 | Vaults API (personal multi-vault mode): list, create and choose vaults. |
 | [`backend/api/virtual_fields.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/virtual_fields.py) | 676 | 0 | 32 | 0 | 26 | Virtual fields: derived properties computed by the backend at read-time. |
 | [`backend/api/workspace_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/workspace_routes.py) | 35 | 0 | 0 | 0 | 0 | Compatibility facade for the workspace domain router. |
@@ -738,7 +738,7 @@ Total: **696 modules** and **147594 source lines**.
 | [`backend/services/marketplace_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/marketplace_http.py) | 109 | 2 | 2 | 0 | 3 | Bounded public HTTP access for marketplace indexes and packages. |
 | [`backend/services/marketplace_submission.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/marketplace_submission.py) | 85 | 1 | 2 | 0 | 3 | Optional broker client for moderated marketplace submissions. |
 | [`backend/services/mcp_tool_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mcp_tool_contributions.py) | 103 | 0 | 3 | 0 | 1 | Governed read-only MCP tools exposed for explicit skill composition. |
-| [`backend/services/media_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/media_service.py) | 572 | 1 | 1 | 0 | 1 | No module docstring |
+| [`backend/services/media_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/media_service.py) | 573 | 1 | 1 | 0 | 1 | No module docstring |
 | [`backend/services/meeting_notes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_notes.py) | 165 | 0 | 6 | 0 | 3 | AI-powered meeting minutes taker orchestrator. |
 | [`backend/services/meeting_reminders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_reminders.py) | 330 | 0 | 15 | 0 | 4 | AI-powered meeting reminder engine (agenda). |
 | [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 487 | 0 | 20 | 0 | 8 | Microsoft Graph API mail service. |

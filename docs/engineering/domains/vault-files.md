@@ -130,12 +130,14 @@ scanning and its persistent derived cache, synchronized metadata and saved-view
 sidecars, filters, pagination, the lazy folder tree, contained uploads, EXIF
 extraction, and stable file serialization. `backend/services/media_service.py`
 remains the compatible Python facade: it preserves the historical class,
-singleton, signatures, descriptors, state and errors while resolving mutable
-state and replaceable collaborators late. The facade now validates that an
-active vault exists before crossing a filesystem boundary and uses the typed
-media contracts for roots, scans, queries, uploads, EXIF data and serialized
-file information. Domain modules never import the HTTP router or the
-compatibility facade.
+singleton, callable shape, descriptors, state and errors while resolving
+mutable state and replaceable collaborators late. Its internal constructor now
+has an explicit `None` return annotation, removing the final handwritten
+backend typing exception without changing construction behavior. The facade
+validates that an active vault exists before crossing a filesystem boundary and
+uses the typed media contracts for roots, scans, queries, uploads, EXIF data and
+serialized file information. Domain modules never import the HTTP router or
+the compatibility facade.
 
 The transitional media HTTP module narrows the dynamically imported legacy
 router once to a concrete `APIRouter`. Route decorators and delegated asset,

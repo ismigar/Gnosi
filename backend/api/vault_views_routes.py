@@ -11,6 +11,7 @@ import logging
 import sys
 from collections.abc import Callable
 from contextlib import AbstractContextManager
+from importlib import import_module
 from pathlib import Path
 from typing import Any, List, Optional, cast
 
@@ -164,9 +165,10 @@ def _sync_page(page_id: str, registry: dict[str, Any], vault_path: Path) -> bool
         sandbox = Path(__file__).parents[2] / "pipeline" / "sandbox"
         if str(sandbox) not in sys.path:
             sys.path.insert(0, str(sandbox))
-        from sync_sections import sync_page_view  # type: ignore
-
-        sync = cast(Callable[[str, dict[str, Any], Path], bool], sync_page_view)
+        sync = cast(
+            Callable[[str, dict[str, Any], Path], bool],
+            getattr(import_module("sync_sections"), "sync_page_view"),
+        )
         return sync(page_id, registry, vault_path)
     except Exception as e:
         log.debug(f"sync_page_view no disponible: {e}")
