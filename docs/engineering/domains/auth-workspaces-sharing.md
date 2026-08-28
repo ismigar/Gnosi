@@ -109,6 +109,12 @@ scope rather than accepting an arbitrary path.
 PAT-authenticated routes apply token scopes plus normal workspace/vault
 authorization. Token plaintext is shown only at creation. Revocation prevents
 future use without needing to delete its audit row.
+The typed public facade updates ORM timestamps through the descriptor boundary,
+contains legacy Markdown writes beneath the active Vault, and routes configured
+Web Clipper records through the normal page-creation pipeline. Historical route
+return annotations remain intentionally absent because adding them would change
+the frozen FastAPI response schemas; all helper and request payload boundaries
+are strict.
 
 ## Invariants
 

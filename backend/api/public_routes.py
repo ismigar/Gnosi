@@ -15,7 +15,7 @@ import secrets
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel
@@ -61,12 +61,12 @@ def require_pat(
     ).first()
     if not token:
         raise HTTPException(status_code=401, detail="Invalid or revoked token")
-    token.last_used_at = datetime.now(timezone.utc)
+    setattr(token, "last_used_at", datetime.now(timezone.utc))
     db.commit()
     return token
 
 
-def _token_scopes(token: ApiToken) -> set:
+def _token_scopes(token: ApiToken) -> set[str]:
     return {s.strip() for s in (token.scopes or "").split(",") if s.strip()}
 
 
@@ -89,7 +89,7 @@ class CreateTokenRequest(BaseModel):
 
 
 @router.post("/tokens")
-def create_token(
+def create_token(  # type: ignore[no-untyped-def]
     body: CreateTokenRequest,
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
@@ -119,7 +119,7 @@ def create_token(
 
 
 @router.get("/tokens")
-def list_tokens(
+def list_tokens(  # type: ignore[no-untyped-def]
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
 ):
@@ -138,7 +138,7 @@ def list_tokens(
 
 
 @router.delete("/tokens/{token_id}")
-def revoke_token(
+def revoke_token(  # type: ignore[no-untyped-def]
     token_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
@@ -146,7 +146,7 @@ def revoke_token(
     tok = db.query(ApiToken).filter(ApiToken.id == token_id, ApiToken.user_id == context.user_id).first()
     if not tok:
         raise HTTPException(status_code=404, detail="Token no trobat")
-    tok.revoked = 1
+    setattr(tok, "revoked", 1)
     db.commit()
     return {"status": "revoked", "id": token_id}
 
@@ -157,7 +157,12 @@ def _sanitize_filename(title: str) -> str:
     return sanitize_vault_title(title)
 
 
-def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -> dict:
+def _write_vault_page(
+    folder: str,
+    title: str,
+    content: str,
+    extra_meta: dict[str, Any],
+) -> dict[str, str]:
     """Writes a .md page to the vault with minimal frontmatter. Returns {id, path}."""
     import yaml
     vault = get_active_vault_path()
@@ -191,7 +196,7 @@ def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -
 
 
 @router.get("/public/ping")
-def public_ping(token: ApiToken = Depends(require_pat)):
+def public_ping(token: ApiToken = Depends(require_pat)):  # type: ignore[no-untyped-def]
     """Authentication check for public API clients."""
     return {"ok": True, "user_id": token.user_id, "scopes": token.scopes}
 
@@ -204,9 +209,12 @@ class PublicPageRequest(BaseModel):
 
 
 @router.post("/public/pages")
-def public_create_page(body: PublicPageRequest, token: ApiToken = Depends(require_pat_write)):
+def public_create_page(  # type: ignore[no-untyped-def]
+    body: PublicPageRequest,
+    token: ApiToken = Depends(require_pat_write),
+):
     """Creates a page in the vault via the public API (PAT)."""
-    extra = {"created": datetime.now(timezone.utc).isoformat()}
+    extra: dict[str, Any] = {"created": datetime.now(timezone.utc).isoformat()}
     if body.tags:
         extra["tags"] = body.tags
     res = _write_vault_page(body.folder or "Wiki", body.title, body.content, extra)
@@ -220,10 +228,10 @@ class ClipRequest(BaseModel):
     tags: Optional[list[str]] = None
     # Values for the destination table's columns, keyed by property id (or
     # name). Ignored when the clipper is not pointed at a table.
-    fields: Optional[dict] = None
+    fields: Optional[dict[str, Any]] = None
 
 
-def _clipper_state() -> tuple[bool, dict]:
+def _clipper_state() -> tuple[bool, dict[str, Any]]:
     """(enabled, settings) of the `web-clipper` plugin from `.gnosi/plugins.json`.
 
     An unreadable state uses the core-only fallback so external writes never
@@ -240,13 +248,15 @@ def _clipper_state() -> tuple[bool, dict]:
     return builtin_plugins.is_enabled(state, web_clipper.PLUGIN_ID), (cfg if isinstance(cfg, dict) else {})
 
 
-def _clipper_target(cfg: dict) -> tuple[Optional[dict], Optional[dict]]:
+def _clipper_target(
+    cfg: dict[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """(table, registry) configured as the clip destination, or (None, None)."""
     table_id = str((cfg or {}).get("table_id") or "").strip()
     if not table_id:
         return None, None
     from backend.api.vault_routes import load_registry
-    registry = load_registry() or {}
+    registry = cast(dict[str, Any], load_registry() or {})
     table = next(
         (t for t in (registry.get("tables") or []) if str(t.get("id")) == table_id),
         None,
@@ -255,7 +265,7 @@ def _clipper_target(cfg: dict) -> tuple[Optional[dict], Optional[dict]]:
 
 
 @router.get("/public/clip/config")
-def public_clip_config(
+def public_clip_config(  # type: ignore[no-untyped-def]
     token: ApiToken = Depends(require_pat),
     context: WorkspaceContext = Depends(get_workspace_context),
 ):
@@ -281,7 +291,7 @@ def public_clip_config(
 
 
 @router.post("/public/clip")
-async def public_clip(
+async def public_clip(  # type: ignore[no-untyped-def]
     body: ClipRequest,
     background_tasks: BackgroundTasks,
     token: ApiToken = Depends(require_pat_write),
