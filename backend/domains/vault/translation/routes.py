@@ -2,11 +2,15 @@
 
 import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
+from typing import cast as _strict_cast
+
+from fastapi import APIRouter
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 
 
-@_legacy.router.get(
+@router.get(
     "/drupal/content-types",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -21,7 +25,7 @@ async def drupal_content_types() -> _LegacyAny:
         raise _legacy.HTTPException(status_code=502, detail=f"Drupal: {exc}")
 
 
-@_legacy.router.get(
+@router.get(
     "/drupal/content-types/{bundle}/fields",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -36,7 +40,7 @@ async def drupal_content_type_fields(bundle: str) -> _LegacyAny:
         raise _legacy.HTTPException(status_code=502, detail=f"Drupal: {exc}")
 
 
-@_legacy.router.post(
+@router.post(
     "/skills/sync-drupal-row",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -75,7 +79,7 @@ async def sync_drupal_row(
     return {"status": "ok", **result}
 
 
-@_legacy.router.post(
+@router.post(
     "/skills/sync-drupal-rows",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -114,7 +118,7 @@ async def sync_drupal_rows(
     return {"status": "ok", "results": results, "errors": errors}
 
 
-@_legacy.router.post(
+@router.post(
     "/skills/match-drupal-rows",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -137,7 +141,7 @@ async def match_drupal_rows(
     )
 
 
-@_legacy.router.post(
+@router.post(
     "/skills/translate-row",
     dependencies=[
         _legacy.Depends(_legacy.require_role("editor")),
@@ -191,7 +195,7 @@ async def translate_row(
     return {"status": "ok", **result}
 
 
-@_legacy.router.post(
+@router.post(
     "/skills/translate-rows",
     dependencies=[
         _legacy.Depends(_legacy.require_role("editor")),
@@ -257,7 +261,7 @@ async def translate_rows(
     return {"status": "ok", "count": len(results), "results": results, "errors": errors}
 
 
-@_legacy.router.post(
+@router.post(
     "/skills/generate-button-action",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -304,7 +308,7 @@ async def generate_button_action(
         }
 
 
-@_legacy.router.post(
+@router.post(
     "/skills/execute-button-action",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -362,7 +366,7 @@ async def execute_button_action(
         )
 
 
-@_legacy.router.post(
+@router.post(
     "/skills/translate-page",
     dependencies=[
         _legacy.Depends(_legacy.require_role("editor")),

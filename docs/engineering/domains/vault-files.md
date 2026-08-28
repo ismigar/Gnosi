@@ -136,6 +136,11 @@ Page preview and save composition likewise share one narrowed router for title
 resolution and delegated preview/write registration. Cache identity, alias
 matching, active-vault checks and generated route schemas remain unchanged.
 
+Translation and Drupal synchronization routes narrow their late-bound router at
+the module boundary as well. Single-row, bulk, matching, generated-button and
+page translation operations preserve role checks, background work and external
+error mapping while remaining visible to strict typing.
+
 Table-scoped storage has explicit owners. `assets/table_paths.py` owns contained
 asset paths, per-property directories, revisions and collision-safe rename
 helpers; `assets/persistence.py` owns recursive metadata ingestion and contained
