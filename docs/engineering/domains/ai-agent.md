@@ -5,6 +5,7 @@ source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
   - backend/domains/llm_wiki/legacy_ports.py
+  - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
   - backend/services/llm_wiki_pdf_annotations.py
   - backend/domains/agent
@@ -518,6 +519,9 @@ mappings to typed objects while deliberately retaining late-bound path and
 reference-table callables from `vault_routes`; disposable-Vault tests and
 existing integrations can therefore replace those historical seams without
 duplicating their mutable state.
+Its HTTP boundary narrows the late-bound legacy router once to `APIRouter`, so
+Brain designation and LLM Wiki configuration endpoints remain strictly typed
+without altering permissions, payload schemas, route order or OpenAPI output.
 `backend/domains/configuration/llm_wiki_schema.py` separately owns idempotent
 Brain-field repair and consolidation of one canonical source relation, including
 legacy aliases, page metadata and contextual embedded views.

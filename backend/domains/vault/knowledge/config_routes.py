@@ -2,11 +2,15 @@
 
 import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
+from typing import cast as _strict_cast
+
+from fastapi import APIRouter
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 
 
-@_legacy.router.get("/brain-table", response_model=None)
+@router.get("/brain-table", response_model=None)
 async def get_brain_table() -> _LegacyAny:
     """Return the designated Brain table status for Settings and UI gating.
 
@@ -28,7 +32,7 @@ async def get_brain_table() -> _LegacyAny:
     }
 
 
-@_legacy.router.post(
+@router.post(
     "/brain-table",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -69,7 +73,7 @@ async def set_brain_table(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(.
     }
 
 
-@_legacy.router.post(
+@router.post(
     "/brain-table/create",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -127,7 +131,7 @@ async def create_brain_table(
     }
 
 
-@_legacy.router.delete(
+@router.delete(
     "/brain-table",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -221,7 +225,7 @@ def _llm_wiki_property_options(prop: dict[_LegacyAny, _LegacyAny]) -> list[dict[
     ]
 
 
-@_legacy.router.get("/llm-wiki/config", response_model=None)
+@router.get("/llm-wiki/config", response_model=None)
 async def get_llm_wiki_config() -> _LegacyAny:
     """Return the migrated v2 per-vault LLM Wiki configuration."""
     from backend.services import llm_wiki_config
@@ -248,7 +252,7 @@ _LLM_WIKI_CONFIG_DEPENDENCIES = _legacy.llm_wiki_configuration.LlmWikiConfigDepe
 )
 
 
-@_legacy.router.put(
+@router.put(
     "/llm-wiki/config",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -260,7 +264,7 @@ async def put_llm_wiki_config(
     return await _legacy.llm_wiki_configuration.put_config(payload, _LLM_WIKI_CONFIG_DEPENDENCIES)
 
 
-@_legacy.router.post(
+@router.post(
     "/llm-wiki/brain/create",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
