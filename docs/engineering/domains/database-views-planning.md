@@ -164,6 +164,13 @@ Registries are written atomically and refreshed after batch metadata changes.
 Cached snapshots are invalidated when source records or the schema revision
 changes.
 
+Per-page view routes validate the registry root, source table, filter field and
+page-on-disk identity before mutation. Their read-modify-write cycle shares the
+canonical registry lock and refreshes the facade cache after an atomic save;
+optional Obsidian section synchronization remains a typed best-effort adapter.
+Stable `view_id` takes precedence over headings during upsert so parallel embeds
+cannot overwrite each other.
+
 Bulk field edits, Zotero Extra promotion, and template application share one
 typed page-mutation service. Each target is isolated, checks an optional ETag,
 refreshes the page index after a write, and reports skips, conflicts, and errors
