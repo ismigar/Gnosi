@@ -96,7 +96,9 @@ separates recording, transcription, summarization, note creation, completion,
 and failure. Generated notes are written through Vault-safe operations and
 retain event/source context. The background service normalizes the legacy Vault
 route result to a concrete mapping before reading the created page identifier;
-dynamic compatibility handlers do not leak into the typed job boundary.
+dynamic compatibility handlers do not leak into the typed job boundary. Record
+and polling responses pass through dedicated Pydantic models while returning
+the same directly indexable dictionaries used by existing callers.
 
 ## Invariants
 

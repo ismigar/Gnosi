@@ -56,7 +56,9 @@ Local handwriting recognition is an optional ingestion adapter at the Vault
 boundary. Model and processor objects remain isolated as third-party runtime
 values; the service exposes a typed result containing text, raw recognition,
 line values, model identity, and correction status without changing the public
-upload contract.
+upload contract. Status, warmup and recognition dictionaries are validated by
+dedicated Pydantic response models before retaining their historical mapping
+shape for direct callers and the byte-stable OpenAPI surface.
 
 ## Page lifecycle
 

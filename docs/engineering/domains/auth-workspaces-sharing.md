@@ -134,6 +134,11 @@ frozen OpenAPI schemas. Stored multi-vault identifiers are resolved to concrete
 paths before activating page context, while missing configuration retains the
 existing recoverable fallback and service-unavailable response.
 
+Vault-scoped identity settings use separate Pydantic request and legacy-read
+models. Unknown historical fields survive reads, atomic writes retain the
+established profile shape, and success responses are validated before returning
+their directly indexable mapping contract.
+
 ## Public API
 
 PAT-authenticated routes apply token scopes plus normal workspace/vault
