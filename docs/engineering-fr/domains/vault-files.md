@@ -5,6 +5,8 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
+  - backend/domains/media
+  - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/files_provider
@@ -20,6 +22,8 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_media_upload.py
+  - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
@@ -70,6 +74,16 @@ late-bound.
 ## Limites de l'arrière-pays
 
 Page lit et écrit, prévisualise, duplication, historique, et les déchets sont implémentés sous `backend/domains/vault`. Ce paquet sépare les schémas de requête stricts, les adaptateurs de route, les services d'application, les dépôts, et le propriétaire unique des caches et verrous de page. Le nouveau comportement de Vault appartient à cette limite de domaine.
+
+`backend/domains/media` gère la résolution des racines multimédias, l'analyse
+récursive consciente du fournisseur et son cache dérivé persistant, les
+sidecars synchronisés de métadonnées et de vues, les filtres, la pagination,
+l'arbre paresseux des dossiers, les téléversements confinés, EXIF et la
+sérialisation stable des fichiers. `backend/services/media_service.py` reste la
+façade Python compatible : elle conserve la classe, le singleton, les
+signatures, les descripteurs, l'état et les erreurs historiques, tout en
+résolvant tardivement l'état mutable et les collaborateurs remplaçables. Les
+modules du domaine n'importent ni le routeur HTTP ni la façade de compatibilité.
 
 `backend/api/vault_routes.py` Il injecte les opérations de plate-forme existantes et les réexportations supportées par les symboles Python, mais il ne possède pas les gestionnaires de pages extraits. La migration préserve les chemins HTTP, les codes d'état, les charges utiles, les dépendances, les rappels d'arrière-plan et le document déterministe OpenAPI. Chaque extraction doit réduire l'allocation de garde-fonte de la façade; il ne peut jamais ajouter une nouvelle exception pour le code sous `backend/domains`.
 

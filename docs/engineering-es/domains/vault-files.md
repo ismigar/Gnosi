@@ -5,6 +5,8 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
+  - backend/domains/media
+  - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/files_provider
@@ -20,6 +22,8 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_media_upload.py
+  - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
@@ -69,6 +73,16 @@ tipado late-bound.
 ## Límite del motor
 
 Página lee y escribe, previsualiza, duplica, historia y basura se implementan bajo `backend/domains/vault`. Este paquete separa esquemas de petición estrictos, adaptadores de ruta, servicios de aplicación, repositorios y el propietario único de cachés de página y bloqueos. El comportamiento de la nueva bóveda pertenece a ese límite de dominio.
+
+`backend/domains/media` posee la resolución de las raíces multimedia, el
+escaneo recursivo consciente del proveedor y su caché derivada persistente, los
+sidecars sincronizados de metadatos y vistas, los filtros, la paginación, el
+árbol perezoso de carpetas, las subidas contenidas, EXIF y la serialización
+estable de archivos. `backend/services/media_service.py` sigue siendo la
+fachada Python compatible: conserva la clase, el singleton, las firmas, los
+descriptores, el estado y los errores históricos, y resuelve tarde el estado
+mutable y los colaboradores reemplazables. Los módulos de dominio no importan
+el router HTTP ni la fachada de compatibilidad.
 
 `backend/api/vault_routes.py` sigue siendo una fachada de compatibilidad y composición temporal mientras el resto del router heredado se divide. Inyecta operaciones de plataforma existentes y reexporta símbolos de Python compatibles, pero no es el propietario de los manejadores de páginas extraídos. La migración preserva rutas HTTP, códigos de estado, cargas útiles, dependencias, callbacks de fondo y el documento OpenAPI determinista. Cada extracción debe reducir la asignación de barandilla fuente de la fachada; nunca puede añadir una nueva excepción para el código bajo `backend/domains`.
 

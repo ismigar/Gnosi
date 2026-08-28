@@ -10,7 +10,9 @@ source_paths:
   - backend/domains/vault/trash
   - backend/domains/vault/translation
   - backend/domains/vault/drupal
+  - backend/domains/media
   - backend/platform/files
+  - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/vault_templates.py
@@ -25,6 +27,8 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_media_upload.py
+  - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_assets_files_containment.py
   - backend/tests/test_vault_assets_files_route_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
@@ -88,6 +92,15 @@ links and physical deletion live under `backend/domains/vault/files`. These
 packages separate strict request schemas, route adapters, application services,
 repositories, and the single owners of mutable locks, caches and token stores.
 New Vault behavior belongs in the corresponding domain boundary.
+
+`backend/domains/media` owns media-root resolution, provider-conscious recursive
+scanning and its persistent derived cache, synchronized metadata and saved-view
+sidecars, filters, pagination, the lazy folder tree, contained uploads, EXIF
+extraction, and stable file serialization. `backend/services/media_service.py`
+remains the compatible Python facade: it preserves the historical class,
+singleton, signatures, descriptors, state and errors while resolving mutable
+state and replaceable collaborators late. Domain modules never import the HTTP
+router or the compatibility facade.
 
 `backend/api/vault_routes.py` remains a temporary compatibility and composition
 facade while the rest of the legacy router is split. It injects existing

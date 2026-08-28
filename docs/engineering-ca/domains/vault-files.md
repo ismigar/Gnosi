@@ -5,6 +5,8 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
+  - backend/domains/media
+  - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/files_provider
@@ -20,6 +22,8 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_media_upload.py
+  - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
@@ -69,6 +73,16 @@ es resol mitjançant un port tipat late-bound.
 ## Límit del dorsal
 
 La pàgina llegeix i escriu vistes prèvies, duplicació, història i escombraries s' accepten sota `backend/domains/vault`. Aquest paquet separa esquemes de sol· licitud estrictes, adaptadors de ruta, serveis d' aplicació, repositoris i el únic propietari de les cau de pàgines i panys. El nou comportament Vult pertany al límit de domini.
+
+`backend/domains/media` gestiona la resolució de les arrels multimèdia,
+l'escaneig recursiu conscient del proveïdor i la seva cau derivada persistent,
+els sidecars sincronitzats de metadades i vistes, els filtres, la paginació,
+l'arbre mandrós de carpetes, les pujades contingudes, l'EXIF i la serialització
+estable dels fitxers. `backend/services/media_service.py` continua sent la
+façana Python compatible: conserva la classe, el singleton, les signatures, els
+descriptors, l'estat i els errors històrics, i resol tard l'estat mutable i els
+col·laboradors substituïbles. Els mòduls de domini no importen l'encaminador
+HTTP ni la façana de compatibilitat.
 
 `backend/api/vault_routes.py` Encara hi ha una compatibilitat temporal i una constant façana mentre la resta de l' encaminador antic es divideix. Injecta operacions de plataforma existents i re- ports implementats en Python, però no és propietari dels gestors de pàgines extrets. La migració preserva les rutes HTTP, codis d' estat, dependències de fons, comentaris i el document OpenAPI determinant. Cada extracció ha de reduir les subsidis del codi de la interqual· lació de la safata de la safata d' interès; mai pot afegir una nova excepció per al codi sota `backend/domains`.
 
