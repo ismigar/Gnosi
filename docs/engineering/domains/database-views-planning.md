@@ -16,6 +16,7 @@ source_paths:
   - backend/api/virtual_fields.py
   - backend/services/table_system_dates.py
   - backend/services/option_catalogs.py
+  - backend/services/action_rules.py
   - backend/services/rule_engine.py
   - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
@@ -30,6 +31,7 @@ source_paths:
   - frontend/src/utils/projectPlanning.js
   - frontend/src/utils/vaultFilters.js
 tests:
+  - backend/tests/test_action_rules.py
   - backend/tests/test_database_rules_views_domain_contract.py
   - backend/tests/test_rule_engine_derived_order.py
   - backend/tests/test_rollup_percent_checked_parity.py
@@ -175,6 +177,10 @@ panel must preserve the same field type and option semantics.
 Status values introduced by action rules are persisted idempotently through the
 table domain. Registry failures are logged but never turn the originating rule
 into a failed user action.
+The pure rule boundary resolves fields by id, current name or alias, evaluates
+declared prerequisites without treating absent data as a denial, preserves the
+frontmatter key already in use, and seeds missing status options deterministically.
+Button rules remain distinct from change-triggered automations.
 
 The Planning HTTP boundary is strictly typed while preserving its frozen
 OpenAPI contract. Active-vault resolution fails explicitly when no vault is
