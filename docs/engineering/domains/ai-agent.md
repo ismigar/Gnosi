@@ -11,6 +11,7 @@ source_paths:
   - backend/domains/configuration/ai
   - backend/agent
   - backend/agent/memory.py
+  - backend/agent/vault_tools.py
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
@@ -55,6 +56,9 @@ tests:
   - backend/tests/test_agent_quality_telemetry.py
   - backend/tests/test_agent_resilience.py
   - backend/tests/test_agent_legacy_memory.py
+  - backend/tests/test_vault_tools.py
+  - backend/tests/test_agent_read_pdf_containment.py
+  - backend/tests/test_agent_create_page_containment.py
   - backend/tests/test_agent_recovery.py
   - backend/tests/test_agent_universal_runtime_phase2.py
   - backend/tests/test_e2e_tables_assets.py
@@ -77,6 +81,12 @@ Gnosi separates models, agents, skills, and tools:
 - Tool: a callable operation classified by effect and origin.
 - Context source: user-selected Vault, table, file, or external material added
   to a conversation with explicit containment and size behavior.
+
+The Vault knowledge tool belt keeps LangChain `StructuredTool` objects at the
+registration boundary and unwraps their typed callables only for internal tool
+composition. Page creation registers through the canonical Vault owner, Vault
+search obtains its dedicated lazy store explicitly, and path/PDF reads retain
+their containment and server-owned size ceilings.
 
 The Artificial Analysis feed is a typed, server-side comparison boundary. It
 keeps API credentials private, validates every paginated response, enriches only
