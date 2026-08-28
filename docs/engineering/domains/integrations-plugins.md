@@ -177,6 +177,11 @@ manifest structure, signatures where required, and declared effects. Enabling
 reconciles managed settings, AI profiles, skills, or tools idempotently.
 Disabling suspends managed contributions while preserving user-owned overrides.
 
+The Vault configuration composition layer now consumes the strict return types
+of plugin state, lifecycle and summary services directly. It retains late-bound
+facade seams for tests and extensions, but no longer casts already-typed state,
+so persistence and runtime refresh contracts have one authoritative owner.
+
 Built-in secondary capabilities use the same per-Vault lifecycle boundary. The
 authoritative registry declares dependencies, routes, UI surfaces and Settings
 destinations. `.gnosi/plugins.json` schema version 2 records explicit

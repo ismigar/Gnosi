@@ -74,19 +74,19 @@ _plugins_mutation_lock = plugin_state.store().mutation_lock
 
 
 def _load_plugins_state() -> dict[str, _LegacyAny]:
-    return _strict_cast(dict[str, _LegacyAny], plugin_state.store().load())
+    return plugin_state.store().load()
 
 
 def _save_plugins_state(state: dict[str, _LegacyAny]) -> dict[str, _LegacyAny]:
-    return _strict_cast(dict[str, _LegacyAny], plugin_state.store().save(state))
+    return plugin_state.store().save(state)
 
 
 def _llm_wiki_enabled(state: dict[str, _LegacyAny]) -> bool:
-    return _strict_cast(bool, plugins_api.llm_wiki_enabled(state))
+    return plugins_api.llm_wiki_enabled(state)
 
 
 def _reconcile_plugin_ai_contributions() -> dict[str, _LegacyAny]:
-    return _strict_cast(dict[str, _LegacyAny], plugins_api.reconcile_plugin_ai_contributions())
+    return plugins_api.reconcile_plugin_ai_contributions()
 
 
 async def _refresh_plugin_runtime(request: _legacy.Request, state: dict[str, _LegacyAny]) -> None:
@@ -108,16 +108,13 @@ def _plugin_lifecycle_dependencies() -> plugin_lifecycle.PluginLifecycleDependen
 async def _change_plugin_lifecycle(
     plugin_id: str, payload: plugin_models.PluginLifecycleRequest, request: _legacy.Request
 ) -> dict[str, _LegacyAny]:
-    return _strict_cast(
-        dict[str, _LegacyAny],
-        await plugin_lifecycle.change_plugin_lifecycle(
-            plugin_id, payload, request, _plugin_lifecycle_dependencies()
-        ),
+    return await plugin_lifecycle.change_plugin_lifecycle(
+        plugin_id, payload, request, _plugin_lifecycle_dependencies()
     )
 
 
 def _configured_summary_model() -> tuple[str, str]:
-    return _strict_cast(tuple[str, str], plugins_api.configured_summary_model())
+    return plugins_api.configured_summary_model()
 
 
 def _plugin_ai_configuration() -> dict[str, _LegacyAny]:
