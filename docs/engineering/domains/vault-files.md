@@ -5,6 +5,7 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
+  - backend/domains/vault/media/routes.py
   - backend/domains/media
   - backend/platform/files
   - backend/services/media_service.py
@@ -119,6 +120,12 @@ active vault exists before crossing a filesystem boundary and uses the typed
 media contracts for roots, scans, queries, uploads, EXIF data and serialized
 file information. Domain modules never import the HTTP router or the
 compatibility facade.
+
+The transitional media HTTP module narrows the dynamically imported legacy
+router once to a concrete `APIRouter`. Route decorators and delegated asset,
+file, icon and property registrations all use that same typed instance, keeping
+registration order and the OpenAPI contract stable without scattering type
+exceptions across individual handlers.
 
 Table-scoped storage has explicit owners. `assets/table_paths.py` owns contained
 asset paths, per-property directories, revisions and collision-safe rename

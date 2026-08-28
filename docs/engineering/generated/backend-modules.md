@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 210 |
-| `domains` | 368 | 83085 |
+| `domains` | 368 | 83088 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1220 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146592 source lines**.
+Total: **699 modules** and **146595 source lines**.
 
 ## agent
 
@@ -457,7 +457,7 @@ Total: **699 modules** and **146592 source lines**.
 | [`backend/domains/vault/links/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/schemas.py) | 13 | 1 | 0 | 0 | 0 | Public request contracts for vault links. |
 | [`backend/domains/vault/links/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/state.py) | 86 | 3 | 0 | 0 | 0 | Single process-wide owner for the reverse-link index. |
 | [`backend/domains/vault/media/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault domain package. |
-| [`backend/domains/vault/media/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/routes.py) | 453 | 0 | 30 | 14 | 14 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/media/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/routes.py) | 456 | 0 | 30 | 14 | 14 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/__init__.py) | 5 | 0 | 0 | 0 | 0 | Page catalog, persistence, preview and indexing boundaries. |
 | [`backend/domains/vault/pages/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/cache.py) | 140 | 0 | 9 | 1 | 9 | Concurrency and short-lived caches for vault page operations. |
 | [`backend/domains/vault/pages/create_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/create_service.py) | 200 | 1 | 4 | 2 | 2 | Application service for creating one vault page. |

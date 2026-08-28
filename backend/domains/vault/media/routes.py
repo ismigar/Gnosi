@@ -4,7 +4,10 @@ import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
+from fastapi import APIRouter
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 _VALID_MEDIA_ROOTS = {"images", "assets", "library", "vault"}
 
 
@@ -14,7 +17,7 @@ def _validate_root(root: str) -> str:
     return root
 
 
-@_legacy.router.get("/media/roots", response_model=None)
+@router.get("/media/roots", response_model=None)
 async def get_media_roots() -> _LegacyAny:
     """Returns the roots available for media search (Images, Assets,
     Library, Vault). Each element indicates `available` based on whether the folder
@@ -22,7 +25,7 @@ async def get_media_roots() -> _LegacyAny:
     return _legacy.media_service.get_roots()
 
 
-@_legacy.router.get("/media", response_model=None)
+@router.get("/media", response_model=None)
 async def get_all_media(
     album: str | None = _legacy.Query(None),
     limit: int = _legacy.Query(50, ge=1, le=500),
@@ -76,14 +79,14 @@ async def get_all_media(
     )
 
 
-@_legacy.router.get("/media/albums", response_model=None)
+@router.get("/media/albums", response_model=None)
 async def get_albums() -> _LegacyAny:
     """Returns the list of top-level albums. Compat: the new frontend
     uses /media/tree for hierarchical navigation."""
     return _legacy.media_service.get_albums()
 
 
-@_legacy.router.get("/media/tree", response_model=None)
+@router.get("/media/tree", response_model=None)
 async def get_media_tree(
     path: str | None = _legacy.Query(None), root: str = _legacy.Query("images")
 ) -> _LegacyAny:
@@ -97,7 +100,7 @@ async def get_media_tree(
     return _legacy.media_service.get_tree_node(path, root=root)
 
 
-@_legacy.router.post(
+@router.post(
     "/media/upload",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -112,7 +115,7 @@ async def upload_media(
     return result
 
 
-@_legacy.router.patch(
+@router.patch(
     "/media/metadata",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -150,13 +153,13 @@ async def update_media_metadata(
     return {"status": "ok"}
 
 
-@_legacy.router.get("/media/views", response_model=None)
+@router.get("/media/views", response_model=None)
 async def list_media_views() -> _LegacyAny:
     """Returns the user's saved views (JSON sidecar in the vault)."""
     return _legacy.media_service.list_views()
 
 
-@_legacy.router.post(
+@router.post(
     "/media/views",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -169,7 +172,7 @@ async def create_media_view(payload: dict[str, _LegacyAny] = _legacy.Body(...)) 
         raise _legacy.HTTPException(status_code=400, detail=str(e))
 
 
-@_legacy.router.patch(
+@router.patch(
     "/media/views/{view_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -184,7 +187,7 @@ async def update_media_view(
     return updated
 
 
-@_legacy.router.delete(
+@router.delete(
     "/media/views/{view_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -208,7 +211,7 @@ def _onedrive_read_failure_hint(err: OSError) -> str:
     return _strict_cast(str, _legacy.file_serving.read_failure_hint(err))
 
 
-_legacy.assets_api.register_image_route(_legacy.router)
+_legacy.assets_api.register_image_route(router)
 serve_vault_image = _legacy.assets_api.serve_vault_image
 
 
@@ -219,7 +222,7 @@ async def _serve_file_with_containment(
 
 
 _legacy.files_api.register_serving_routes(
-    _legacy.router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
+    router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
 )
 serve_library_file = _legacy.files_api.serve_library_file
 serve_vault_raw_file = _legacy.files_api.serve_vault_raw_file
@@ -259,7 +262,7 @@ def _save_local_links(mapping: dict[str, str]) -> None:
 
 
 _legacy.assets_api.register_custom_icon_routes(
-    _legacy.router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
+    router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
 )
 get_custom_icons = _legacy.assets_api.get_custom_icons
 save_custom_icons = _legacy.assets_api.save_custom_icons
@@ -303,7 +306,7 @@ def _file_response_payload(
 
 
 _legacy.files_api.register_property_routes(
-    _legacy.router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
+    router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
 )
 upload_property_file = _legacy.files_api.upload_property_file
 link_existing_file = _legacy.files_api.link_existing_file
@@ -331,7 +334,7 @@ def _run_osascript_picker(script: str) -> str:
     return result.stdout.strip()
 
 
-@_legacy.router.post(
+@router.post(
     "/pick-folder",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -357,7 +360,7 @@ async def pick_folder() -> _LegacyAny:
         )
 
 
-@_legacy.router.post(
+@router.post(
     "/pick-file",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -384,7 +387,7 @@ async def pick_file() -> _LegacyAny:
         )
 
 
-@_legacy.router.get("/unsplash/search", response_model=None)
+@router.get("/unsplash/search", response_model=None)
 async def unsplash_search(
     query: str = _legacy.Query(...), page: int = _legacy.Query(1)
 ) -> _LegacyAny:
@@ -448,6 +451,6 @@ _legacy.page_duplicate_api.configure(
     )
 )
 _legacy.page_duplicate_api.register_routes(
-    _legacy.router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
+    router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
 )
 duplicate_page = _legacy.page_duplicate_api.duplicate_page
