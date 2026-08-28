@@ -8,6 +8,7 @@ source_paths:
   - backend/services/llm_wiki_pdf_annotations.py
   - backend/domains/agent
   - backend/domains/configuration/agent
+  - backend/domains/configuration/ai
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -27,6 +28,9 @@ tests:
   - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
+  - backend/tests/test_ai_model_registry_api.py
+  - backend/tests/test_ai_content_routes.py
+  - backend/tests/test_provider_delete.py
   - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
   - tests/e2e/tests/e2e/ai-chat.spec.ts
@@ -85,6 +89,12 @@ El cliente MCP por stdio valida los límites de objetos JSON-RPC, tipa
 explícitamente las peticiones asíncronas pendientes y dirige las herramientas
 mediante una caché que solo se actualiza cuando falla una búsqueda. Los catálogos
 malformados fallan localmente sin propagar valores no validados al runtime.
+
+La configuración de IA mantiene credenciales, marcas de desconexión, registro
+de modelos, presupuesto y uso en una fachada de compatibilidad estrictamente
+tipada. La generación y corrección del editor viven en el dominio de
+configuración AI, mientras que la carga YAML validada y las respuestas legacy
+explícitas preservan exactamente los contratos HTTP y OpenAPI existentes.
 
 ## Gobernanza de los instrumentos
 

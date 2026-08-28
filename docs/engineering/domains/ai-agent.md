@@ -8,6 +8,7 @@ source_paths:
   - backend/services/llm_wiki_pdf_annotations.py
   - backend/domains/agent
   - backend/domains/configuration/agent
+  - backend/domains/configuration/ai
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -45,6 +46,9 @@ tests:
   - backend/tests/test_agent_context_sources.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
+  - backend/tests/test_ai_model_registry_api.py
+  - backend/tests/test_ai_content_routes.py
+  - backend/tests/test_provider_delete.py
   - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
@@ -123,6 +127,12 @@ The stdio MCP client validates JSON-RPC object boundaries, types pending async
 requests explicitly, and routes tools through a cache that refreshes only on a
 miss. Malformed tool catalogs fail locally instead of leaking unchecked values
 into the agent runtime.
+
+AI settings keep provider credentials, connection tombstones, model registry,
+budget and usage routes in a strictly typed compatibility facade. Editor
+generation and correction live in the configuration AI domain, while validated
+YAML mapping loads and explicit legacy response metadata preserve the existing
+HTTP and OpenAPI contracts exactly.
 
 ## Tool governance
 

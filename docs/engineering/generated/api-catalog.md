@@ -10,7 +10,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 - Registered routers: **36**
 - Discovered operations: **295**
-- Unregistered route modules: **1**
+- Unregistered route modules: **2**
 
 ## Router registrations
 
@@ -57,19 +57,17 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Method | Effective path | Handler | Tags | Dependency guards | Summary | Source |
 | --- | --- | --- | --- | --- | --- | --- |
-| `GET` | `/api/ai/catalog` | `get_ai_catalog` | AI Settings | — | Get ai catalog | [`backend/api/ai_routes.py:137`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L137) |
-| `POST` | `/api/ai/correct` | `correct_text` | AI Settings | — | Corrects spelling and grammar of a fragment using AI. | [`backend/api/ai_routes.py:742`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L742) |
-| `POST` | `/api/ai/generate` | `generate_content` | AI Settings | — | One-shot AI text generation to insert into Vault pages. | [`backend/api/ai_routes.py:679`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L679) |
-| `GET` | `/api/ai/model-catalog` | `get_model_catalog` | AI Settings | — | Provider → model catalog (ids + cost/context/capabilities) feeding the | [`backend/api/ai_routes.py:381`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L381) |
-| `GET` | `/api/ai/model-comparison` | `get_model_comparison` | AI Settings | — | Complete, freshly paginated Artificial Analysis language-model feed. | [`backend/api/ai_routes.py:430`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L430) |
-| `GET` | `/api/ai/models` | `get_model_registry` | AI Settings | — | Returns the router's model registry (config `ai.models`, or the default) | [`backend/api/ai_routes.py:346`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L346) |
-| `PUT` | `/api/ai/models` | `set_model_registry` | AI Settings | [Depends(require_role('admin'))] | Saves the model registry and the budget policy to params.yaml. | [`backend/api/ai_routes.py:530`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L530) |
-| `DELETE` | `/api/ai/providers/{provider_id}` | `delete_provider` | AI Settings | [Depends(require_role('admin'))] | Disconnect a provider: config entry, its stored credential AND its | [`backend/api/ai_routes.py:221`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L221) |
-| `POST` | `/api/ai/providers/{provider_id}/credentials` | `set_provider_credentials` | AI Settings | [Depends(require_role('admin'))] | Set provider credentials | [`backend/api/ai_routes.py:152`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L152) |
-| `PATCH` | `/api/ai/providers/{provider_id}/status` | `update_provider_status` | AI Settings | [Depends(require_role('admin'))] | Update provider status | [`backend/api/ai_routes.py:299`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L299) |
-| `POST` | `/api/ai/providers/{provider_id}/validate` | `validate_provider` | AI Settings | [Depends(require_role('admin'))] | Attempts to validate the provider by making a simple 'ping' request. | [`backend/api/ai_routes.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L41) |
-| `GET` | `/api/ai/usage` | `get_ai_usage` | AI Settings | — | Current-period AI spend: USD + the Settings currency, cap, ratio and a | [`backend/api/ai_routes.py:453`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L453) |
-| `GET` | `/api/ai/usage/history` | `get_ai_usage_history` | AI Settings | — | Returns all historical usage records grouped by period, provider, and model. | [`backend/api/ai_routes.py:462`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L462) |
+| `GET` | `/api/ai/catalog` | `get_ai_catalog` | AI Settings | — | Get ai catalog | [`backend/api/ai_routes.py:180`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L180) |
+| `GET` | `/api/ai/model-catalog` | `get_model_catalog` | AI Settings | — | Provider → model catalog (ids + cost/context/capabilities) feeding the | [`backend/api/ai_routes.py:444`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L444) |
+| `GET` | `/api/ai/model-comparison` | `get_model_comparison` | AI Settings | — | Complete, freshly paginated Artificial Analysis language-model feed. | [`backend/api/ai_routes.py:496`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L496) |
+| `GET` | `/api/ai/models` | `get_model_registry` | AI Settings | — | Returns the router's model registry (config `ai.models`, or the default) | [`backend/api/ai_routes.py:408`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L408) |
+| `PUT` | `/api/ai/models` | `set_model_registry` | AI Settings | [Depends(require_role('admin'))] | Saves the model registry and the budget policy to params.yaml. | [`backend/api/ai_routes.py:604`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L604) |
+| `DELETE` | `/api/ai/providers/{provider_id}` | `delete_provider` | AI Settings | [Depends(require_role('admin'))] | Disconnect a provider: config entry, its stored credential AND its | [`backend/api/ai_routes.py:275`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L275) |
+| `POST` | `/api/ai/providers/{provider_id}/credentials` | `set_provider_credentials` | AI Settings | [Depends(require_role('admin'))] | Set provider credentials | [`backend/api/ai_routes.py:200`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L200) |
+| `PATCH` | `/api/ai/providers/{provider_id}/status` | `update_provider_status` | AI Settings | [Depends(require_role('admin'))] | Update provider status | [`backend/api/ai_routes.py:362`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L362) |
+| `POST` | `/api/ai/providers/{provider_id}/validate` | `validate_provider` | AI Settings | [Depends(require_role('admin'))] | Attempts to validate the provider by making a simple 'ping' request. | [`backend/api/ai_routes.py:71`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L71) |
+| `GET` | `/api/ai/usage` | `get_ai_usage` | AI Settings | — | Current-period AI spend: USD + the Settings currency, cap, ratio and a | [`backend/api/ai_routes.py:519`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L519) |
+| `GET` | `/api/ai/usage/history` | `get_ai_usage_history` | AI Settings | — | Returns all historical usage records grouped by period, provider, and model. | [`backend/api/ai_routes.py:529`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L529) |
 | `GET` | `/api/analytics` | `get_analytics` | Analytics, analytics | — | Get complete analytics overview (with cache). | [`backend/api/analytics_routes.py:125`](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py#L125) |
 | `DELETE` | `/api/analytics/directives` | `delete_directive` | Analytics, analytics | [Depends(require_role('admin'))] | Delete a directive file or an entire skill folder. | [`backend/api/analytics_routes.py:331`](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py#L331) |
 | `GET` | `/api/analytics/directives` | `get_directive_analytics` | Analytics, analytics | — | Get directive analytics from all sources (with cache). | [`backend/api/analytics_routes.py:165`](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py#L165) |
@@ -329,9 +327,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `POST` | `/api/workspaces/{workspace_id}/members/{user_id}/vaults` | `grant_vault_access` | Workspaces, workspaces | Depends(get_mgmt_db), Depends(require_role('admin')) | Grant vault access | [`backend/domains/workspace/api/routes.py:359`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/api/routes.py#L359) |
 | `DELETE` | `/api/workspaces/{workspace_id}/members/{user_id}/vaults/{vault_id}` | `revoke_vault_access` | Workspaces, workspaces | Depends(get_mgmt_db), Depends(require_role('admin')) | Revoke vault access | [`backend/domains/workspace/api/routes.py:405`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/api/routes.py#L405) |
 | `GET` | `/api/workspaces/{workspace_id}/vaults` | `list_workspace_vaults` | Workspaces, workspaces | Depends(get_mgmt_db), Depends(require_role('admin')) | List workspace vaults | [`backend/domains/workspace/api/routes.py:310`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/api/routes.py#L310) |
+| `POST` | `/correct` | `correct_text` | — | — | Corrects spelling and grammar of a fragment using AI. | [`backend/domains/configuration/ai/content_routes.py:155`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py#L155) |
 | `GET` | `/databases` | `list_databases` | — | [Depends(get_workspace_context)] | List databases | [`backend/domains/vault/tables/routes.py:48`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L48) |
 | `POST` | `/databases` | `create_database` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Create database | [`backend/domains/vault/tables/routes.py:60`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L60) |
 | `DELETE` | `/databases/{database_id}` | `delete_database` | — | [Depends(get_workspace_context)], [Depends(require_role('admin'))] | Delete database | [`backend/domains/vault/tables/routes.py:69`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L69) |
+| `POST` | `/generate` | `generate_content` | — | — | One-shot AI text generation to insert into Vault pages. | [`backend/domains/configuration/ai/content_routes.py:109`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py#L109) |
 | `GET` | `/option-catalogs` | `list_option_catalogs` | — | [Depends(get_workspace_context)] | List option catalogs | [`backend/domains/vault/tables/routes.py:363`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L363) |
 | `DELETE` | `/option-catalogs/{name}` | `delete_option_catalog` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Deletes a shared catalog. 409 if any field still references it. | [`backend/domains/vault/tables/routes.py:389`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L389) |
 | `PUT` | `/option-catalogs/{name}` | `put_option_catalog` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Creates or replaces a shared catalog. Body: ``{options: [...]}``. | [`backend/domains/vault/tables/routes.py:372`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L372) |
@@ -357,4 +357,5 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 These files contain an `APIRouter` or route-oriented module name but are not mounted by the FastAPI composition registry. They may be obsolete, imported indirectly, or under development and require human review.
 
+- [`backend/domains/configuration/ai/content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py)
 - [`backend/domains/vault/tables/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py)
