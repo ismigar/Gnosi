@@ -635,6 +635,10 @@ progress without reading internal prompts.
 Security boundaries remain conservative: generated tools are revalidated at
 load time, connector URLs can use the public-host egress policy, and common
 credentials are redacted before diagnostics or tool messages are persisted.
+The generated-tool registry declares its local SQLite path only through an
+idempotent initialization boundary; migrations and parent-directory creation
+complete before any search, approval, rejection or statistics query can open
+the database. Cloud-synced source files remain separate from this local state.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
