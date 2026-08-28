@@ -8,6 +8,7 @@ source_paths:
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
   - backend/services/hybrid_calendar_service.py
+  - backend/services/vault_calendar_sync_service.py
   - backend/services/meeting_reminders.py
   - frontend/src/pages/CalendarPage.jsx
   - frontend/src/components/MeetingRecorder.jsx
@@ -16,6 +17,7 @@ tests:
   - backend/tests/test_calendar_geocoding_domain.py
   - backend/tests/test_hybrid_calendar_service.py
   - backend/tests/test_calendar_path_containment.py
+  - backend/tests/test_google_calendar_event_updates.py
   - backend/tests/test_meeting_reminders_race.py
   - tests/e2e/tests/e2e/calendar.spec.ts
 ---
@@ -38,6 +40,12 @@ The hybrid provider service is strictly typed and keeps Google as one adapter
 beside generic CalDAV. CalDAV account detection therefore supports Nextcloud,
 iCloud, Fastmail, Radicale and compatible servers through configured URLs,
 without introducing storage-provider-specific workspace behavior.
+
+The optional Google-to-Vault mirror narrows calendar and event payloads before
+filesystem work, requires a configured Vault, uses provider event IDs as stable
+filenames and contains account/calendar folders beneath `Calendar/External`.
+Missing identities are skipped and each calendar folder removes only stale
+Markdown rows from the bounded synchronization window.
 
 ## Event aggregation
 
