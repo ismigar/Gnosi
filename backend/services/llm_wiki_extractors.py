@@ -88,11 +88,11 @@ def capability_report() -> dict[str, Any]:
 
 
 def extract_resource_sources(
-    metadata: dict,
+    metadata: dict[str, Any],
     body: str,
     vault_root: Path,
-    source_table: dict,
-    source_config: dict,
+    source_table: dict[str, Any],
+    source_config: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Extract every configured attachment followed by every configured URL.
 
@@ -169,7 +169,9 @@ def chunk_origins(
     return origin_domain.chunk_origins(origins, max_chars=max_chars)
 
 
-def _values_for_property(metadata: dict, prop: Optional[dict]) -> list[str]:
+def _values_for_property(
+    metadata: dict[str, Any], prop: Optional[dict[str, Any]]
+) -> list[str]:
     if not prop:
         return []
     names = [str(prop.get("name") or ""), str(prop.get("id") or "")]
@@ -199,11 +201,13 @@ def _resolve_attachment_path(raw: str, vault_root: Path) -> Optional[Path]:
     if value.lower().startswith("file://"):
         value = unquote(urlparse(value).path)
     try:
-        from backend.api.vault_routes import _reroot_attachment_under_current_host
+        from backend.domains.vault.registry.runtime import (
+            _reroot_attachment_under_current_host,
+        )
 
         rerooted = _reroot_attachment_under_current_host(value)
         if rerooted and rerooted.exists():
-            return rerooted.resolve()
+            return Path(rerooted).resolve()
     except Exception:
         pass
 
@@ -418,7 +422,7 @@ def probe_streaming_url(url: str, *, fingerprint: str = "") -> dict[str, Any]:
     if not ok:
         raise ExtractionError(f"Unsafe URL blocked: {reason}")
     try:
-        import yt_dlp
+        import yt_dlp  # type: ignore[import-untyped]
     except Exception as exc:
         raise ExtractionError("yt-dlp is not installed") from exc
     options = {
@@ -706,9 +710,9 @@ def _embedded_media_url(content: bytes, base_url: str, *, xml: bool = False) -> 
 
 def _temporary_root() -> Path:
     """Keep extraction temporaries in local Gnosi data, never in the vault."""
-    from backend.api.vault_routes import get_p
+    from backend.domains.vault.pages.runtime import get_p
 
-    root = get_p("LOCAL_DATA") / "llm_wiki" / "tmp"
+    root = Path(get_p("LOCAL_DATA")) / "llm_wiki" / "tmp"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

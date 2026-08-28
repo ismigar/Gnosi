@@ -544,6 +544,10 @@ Source extraction is split between `backend/domains/llm_wiki/documents.py` for
 typed document and media adapters and `origins.py` for deterministic evidence
 identity, deduplication and chunking. The historical service remains a compact
 compatibility facade so notebook and plugin contracts keep their current symbols.
+Extractor inputs now carry explicit metadata/configuration mappings and cross
+legacy attachment and local-data helpers as concrete `Path` values. The
+optional `yt-dlp` import is the sole localized untyped third-party adapter;
+public-URL checks, fingerprints, source ordering and provenance remain stable.
 Processing is split further into `planning.py` for prompts, parsing and grounded
 plans, `dimensions.py` for fixed/source/AI field mapping, `ingestion.py` for the
 blocking workflow, and `writing.py` for idempotent persistence. `index_rendering.py` owns managed resource,
