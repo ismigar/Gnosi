@@ -148,6 +148,11 @@ option, view and contained-path contracts directly. It no longer recasts their
 results, so each domain module remains the sole owner of its return type while
 the flat historical route inventory and OpenAPI document stay unchanged.
 
+The transitional table composition graph now injects concrete option lists,
+typed join definitions and a protocol-compatible Markdown rematerializer. The
+adapter preserves late-bound legacy decoration while rejecting a non-text
+snapshot result instead of allowing it to cross into persistence.
+
 Cross-record changes are serialized per table by
 `tables/formula_recalculation.py`. Concurrent requests are coalesced into a
 pending pass; every visible row is recomputed, changed Markdown is written, and

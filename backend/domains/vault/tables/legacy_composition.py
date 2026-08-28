@@ -1,6 +1,7 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
+from collections.abc import Callable
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
@@ -344,9 +345,7 @@ table_option_dependencies = table_options.OptionDependencies(
     invalidate_page_responses=_pages_cache_invalidate_all,
     read_prop_value=action_rules_service.read_prop_value,
     get_prop_config=option_catalogs_service.get_prop_config,
-    get_prop_options=lambda prop, catalogs=None: option_catalogs_service.get_prop_options(
-        prop, catalogs
-    ),
+    get_prop_options=option_catalogs_service.get_prop_options,
     set_prop_options=option_catalogs_service.set_prop_options,
     normalize_options=option_catalogs_service.normalize_options,
     auto_color=option_catalogs_service.auto_color,
@@ -368,6 +367,30 @@ vault_schema_dependencies = vault_view_schema.SchemaDependencies(
     logger=_legacy.log,
 )
 table_row_query_dependencies: table_rows.TableRowQueryDependencies
+def _rematerialize_snapshot(
+    markdown: str,
+    page_id: str,
+    *,
+    resolve_ids: Callable[[str, str | None], list[str]],
+    id_to_title: Callable[[str], str | None],
+    config_for: Callable[[str], dict[str, _LegacyAny]],
+    resolve_table: Callable[
+        [str, str | None], vault_view_snapshots.SnapshotTable | None
+    ],
+) -> str:
+    result = rematerialize_md(
+        markdown,
+        page_id,
+        resolve_ids,
+        id_to_title=id_to_title,
+        config_for=config_for,
+        resolve_table=resolve_table,
+    )
+    if not isinstance(result, str):
+        raise TypeError("Snapshot rematerialization must return Markdown text")
+    return result
+
+
 vault_view_snapshot_dependencies = vault_view_snapshots.SnapshotDependencies(
     pages_for_table=lambda table_id: _legacy._get_pages_for_table(table_id),
     table_by_id=lambda table_id: _legacy._table_by_id(table_id),
@@ -387,7 +410,7 @@ vault_view_snapshot_dependencies = vault_view_snapshots.SnapshotDependencies(
     default_limit=_VIEW_SNAPSHOT_DEFAULT_LIMIT,
     documents=lambda: _legacy._iter_linkable_page_documents(),
     resolve_page_id=lambda metadata, path: _legacy._resolve_page_id_from_metadata(metadata, path),
-    rematerialize=rematerialize_md,
+    rematerialize=_rematerialize_snapshot,
     write_text=lambda path, content: _legacy.safe_write_text(path, content),
     logger=_legacy.log,
 )

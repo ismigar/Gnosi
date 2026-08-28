@@ -41,7 +41,7 @@ class SnapshotDependencies:
     virtual_page_loader: Callable[[str], list[PageInfo]]
     response_names: Callable[[RegistryData, RegistryData], RegistryData]
     load_registry: Callable[[], RegistryData]
-    apply_joins: Callable[[ViewRows, list[object], Callable[[str], ViewRows]], ViewRows]
+    apply_joins: Callable[[ViewRows, list[RegistryData], Callable[[str], ViewRows]], ViewRows]
     resolve_row_ids: Callable[[ViewRows, RegistryData, str | None], list[str]]
     resolve_rows: Callable[[ViewRows, RegistryData, str | None], ViewRows]
     decorate_relation: Callable[[str], str]

@@ -31,7 +31,7 @@ class PropertyDependencies:
     save_registry: Callable[[RegistryData], None]
     registry_mutation: Callable[[], AbstractContextManager[None]]
     get_prop_options: Callable[[RegistryData], list[RegistryData]]
-    set_prop_options: Callable[[RegistryData, object], None]
+    set_prop_options: Callable[[RegistryData, list[RegistryData]], None]
     normalize_options: Callable[[object], list[RegistryData]]
     option_types: frozenset[str] | set[str]
 
