@@ -11135,6 +11135,28 @@ export interface components {
             /** Password */
             password?: string | null;
         };
+        /**
+         * NewsletterConnectionTestResponse
+         * @description Result of a POP3 connection test.
+         */
+        NewsletterConnectionTestResponse: {
+            /** Message */
+            message: string;
+            /** Messages */
+            messages: number;
+            /** Ok */
+            ok: boolean;
+        };
+        /**
+         * NewsletterSyncResponse
+         * @description Acknowledgement that newsletter ingestion was queued.
+         */
+        NewsletterSyncResponse: {
+            /** Message */
+            message: string;
+            /** Ok */
+            ok: boolean;
+        };
         /** NotebookCreateRequest */
         NotebookCreateRequest: {
             /**
@@ -11532,6 +11554,77 @@ export interface components {
             source_title: string;
         };
         /**
+         * ReaderAnalysisJobResponse
+         * @description Public durable state for one Reader analysis job.
+         */
+        ReaderAnalysisJobResponse: {
+            /** Completed At */
+            completed_at?: string | null;
+            /**
+             * Completed Batches
+             * @default 0
+             */
+            completed_batches: number;
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /** Error */
+            error?: string | null;
+            /** Job Id */
+            job_id: string;
+            /**
+             * Language
+             * @default Catalan
+             */
+            language: string;
+            /**
+             * Phase
+             * @default
+             */
+            phase: string;
+            /**
+             * Processed Articles
+             * @default 0
+             */
+            processed_articles: number;
+            /**
+             * Progress
+             * @default 0
+             */
+            progress: number;
+            /**
+             * Result Available
+             * @default false
+             */
+            result_available: boolean;
+            retry?: components["schemas"]["ReaderAnalysisRetryResponse"];
+            scope?: components["schemas"]["ReaderScopeResponse"];
+            /**
+             * Snapshot Digest
+             * @default
+             */
+            snapshot_digest: string;
+            /** State */
+            state: string;
+            /**
+             * Total Articles
+             * @default 0
+             */
+            total_articles: number;
+            /**
+             * Total Batches
+             * @default 0
+             */
+            total_batches: number;
+            /**
+             * Updated At
+             * @default
+             */
+            updated_at: string;
+        };
+        /**
          * ReaderAnalysisRequest
          * @description Validated scope and output preferences for a durable Reader analysis.
          */
@@ -11560,6 +11653,369 @@ export interface components {
             language: string;
             /** Source Ids */
             source_ids?: number[];
+            /**
+             * Unread Only
+             * @default true
+             */
+            unread_only: boolean;
+        };
+        /**
+         * ReaderAnalysisResultResponse
+         * @description Structured result plus the rendered report for a completed analysis.
+         */
+        ReaderAnalysisResultResponse: {
+            /**
+             * Article Count
+             * @default 0
+             */
+            article_count: number;
+            /**
+             * Completed At
+             * @default
+             */
+            completed_at: string;
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /** Job Id */
+            job_id: string;
+            /**
+             * Language
+             * @default Catalan
+             */
+            language: string;
+            /**
+             * Report Markdown
+             * @default
+             */
+            report_markdown: string;
+            /**
+             * Request
+             * @default
+             */
+            request: string;
+            scope?: components["schemas"]["ReaderScopeResponse"];
+            /**
+             * Snapshot Digest
+             * @default
+             */
+            snapshot_digest: string;
+            /** Topics */
+            topics?: components["schemas"]["ReaderAnalysisTopicResponse"][];
+        };
+        /**
+         * ReaderAnalysisRetryResponse
+         * @description Persisted retry budget and scheduling state for an analysis.
+         */
+        ReaderAnalysisRetryResponse: {
+            /**
+             * Attempt
+             * @default 0
+             */
+            attempt: number;
+            /**
+             * Automatic Enabled
+             * @default true
+             */
+            automatic_enabled: boolean;
+            /**
+             * Base Delay Seconds
+             * @default 5
+             */
+            base_delay_seconds: number;
+            /**
+             * Budget Exhausted
+             * @default false
+             */
+            budget_exhausted: boolean;
+            /**
+             * Last Resume Kind
+             * @default initial
+             */
+            last_resume_kind: string;
+            /** Last Retry Reason */
+            last_retry_reason?: string | null;
+            /**
+             * Max Attempts
+             * @default 3
+             */
+            max_attempts: number;
+            /**
+             * Max Delay Seconds
+             * @default 300
+             */
+            max_delay_seconds: number;
+            /**
+             * Model Call Budget
+             * @default 100
+             */
+            model_call_budget: number;
+            /**
+             * Model Calls Used
+             * @default 0
+             */
+            model_calls_used: number;
+            /** Next Retry At */
+            next_retry_at?: string | null;
+        };
+        /**
+         * ReaderAnalysisTopicResponse
+         * @description One synthesized topic in a completed Reader analysis.
+         */
+        ReaderAnalysisTopicResponse: {
+            /**
+             * Article Count
+             * @default 0
+             */
+            article_count: number;
+            /** Article Ids */
+            article_ids?: string[];
+            /**
+             * Evolution
+             * @default
+             */
+            evolution: string;
+            /**
+             * Fallback
+             * @default false
+             */
+            fallback: boolean;
+            /** Period End */
+            period_end?: string | null;
+            /** Period Start */
+            period_start?: string | null;
+            /** Topic */
+            topic: string;
+            /** Turning Points */
+            turning_points?: unknown[];
+        };
+        /**
+         * ReaderArticleExtractResponse
+         * @description Result of extracting one article's full body.
+         */
+        ReaderArticleExtractResponse: {
+            /** Length */
+            length: number;
+            /** Message */
+            message: string;
+        };
+        /**
+         * ReaderArticleReadResponse
+         * @description Acknowledgement for an article read-state mutation.
+         */
+        ReaderArticleReadResponse: {
+            /** Message */
+            message: string;
+        };
+        /**
+         * ReaderBackfillStatusResponse
+         * @description Progress of the full-content backfill worker.
+         */
+        ReaderBackfillStatusResponse: {
+            /** Current */
+            current: string;
+            /** Done */
+            done: number;
+            /** Error */
+            error?: string | null;
+            /** Extracted */
+            extracted: number;
+            /** Failed */
+            failed: number;
+            /** Running */
+            running: boolean;
+            /** Total */
+            total: number;
+        };
+        /**
+         * ReaderBackfillTriggerResponse
+         * @description Backfill launch state, including current progress when already running.
+         */
+        ReaderBackfillTriggerResponse: {
+            /**
+             * Current
+             * @default
+             */
+            current: string;
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /** Error */
+            error?: string | null;
+            /**
+             * Extracted
+             * @default 0
+             */
+            extracted: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Running
+             * @default false
+             */
+            running: boolean;
+            /** Status */
+            status: string;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /**
+         * ReaderInventoryCategoryResponse
+         * @description Per-category count in a Reader inventory.
+         */
+        ReaderInventoryCategoryResponse: {
+            /** Category */
+            category: string;
+            /** Count */
+            count: number;
+        };
+        /**
+         * ReaderInventoryFeedResponse
+         * @description Per-feed count in a Reader inventory.
+         */
+        ReaderInventoryFeedResponse: {
+            /** Category */
+            category?: string | null;
+            /** Count */
+            count: number;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ReaderInventoryResponse
+         * @description Exact aggregate counts for one normalized Reader scope.
+         */
+        ReaderInventoryResponse: {
+            /** Categories */
+            categories: components["schemas"]["ReaderInventoryCategoryResponse"][];
+            /** Category Count */
+            category_count: number;
+            /** Count */
+            count: number;
+            /** Feed Count */
+            feed_count: number;
+            /** Feeds */
+            feeds: components["schemas"]["ReaderInventoryFeedResponse"][];
+            /** Newest */
+            newest?: string | null;
+            /** Oldest */
+            oldest?: string | null;
+            /** Read Count */
+            read_count: number;
+            /** Record Fields */
+            record_fields: string[];
+            scope: components["schemas"]["ReaderScopeResponse"];
+            /** Source */
+            source: string;
+            /** Unread Count */
+            unread_count: number;
+        };
+        /**
+         * ReaderMessageResponse
+         * @description Stable message payload returned by simple Reader mutations.
+         */
+        ReaderMessageResponse: {
+            /** Message */
+            message: string;
+        };
+        /**
+         * ReaderPodcastGenerationResponse
+         * @description Acknowledgement for background podcast generation.
+         */
+        ReaderPodcastGenerationResponse: {
+            /** Message */
+            message: string;
+            /**
+             * Progress
+             * @default
+             */
+            progress: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * ReaderPodcastInfoResponse
+         * @description Metadata for the latest generated podcast, when one exists.
+         */
+        ReaderPodcastInfoResponse: {
+            /** Created At */
+            created_at?: string | null;
+            /** Exists */
+            exists: boolean;
+            /** Filename */
+            filename?: string | null;
+            /** Formatted Date */
+            formatted_date?: string | null;
+            /** Formatted Time */
+            formatted_time?: string | null;
+        };
+        /**
+         * ReaderPodcastStatusResponse
+         * @description Observable podcast-generation state.
+         */
+        ReaderPodcastStatusResponse: {
+            /** Error */
+            error?: string | null;
+            /** Progress */
+            progress: string;
+            /** Result Filename */
+            result_filename?: string | null;
+            /** Running */
+            running: boolean;
+        };
+        /**
+         * ReaderScopeResponse
+         * @description Normalized scope shared by Reader inventory and analysis jobs.
+         */
+        ReaderScopeResponse: {
+            /** Categories */
+            categories?: string[];
+            /**
+             * Date From
+             * @default
+             */
+            date_from: string;
+            /**
+             * Date To
+             * @default
+             */
+            date_to: string;
+            /**
+             * Include Full Content
+             * @default false
+             */
+            include_full_content: boolean;
+            /**
+             * Limit
+             * @default 200
+             */
+            limit: number;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Read Status
+             * @default unread
+             */
+            read_status: string;
+            /** Source Ids */
+            source_ids?: number[];
+            /** Source Names */
+            source_names?: string[];
             /**
              * Unread Only
              * @default true
@@ -21756,7 +22212,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderAnalysisJobResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -21796,7 +22252,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderAnalysisJobResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21834,7 +22290,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderAnalysisJobResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21872,7 +22328,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderAnalysisJobResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21910,7 +22366,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderAnalysisResultResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21948,7 +22404,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderAnalysisJobResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22064,7 +22520,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderArticleExtractResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22104,7 +22560,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderArticleReadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22140,7 +22596,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderBackfillTriggerResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22176,7 +22632,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderBackfillStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22218,7 +22674,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderInventoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22330,7 +22786,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NewsletterSyncResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22370,7 +22826,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NewsletterConnectionTestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22406,7 +22862,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderPodcastGenerationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22442,7 +22898,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderPodcastInfoResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22514,7 +22970,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderPodcastStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22628,7 +23084,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderMessageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22668,7 +23124,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReaderMessageResponse"];
                 };
             };
             /** @description Validation Error */

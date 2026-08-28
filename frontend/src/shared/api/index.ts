@@ -2,6 +2,55 @@ export { $api, apiClient } from './client';
 export { ApiProvider } from './ApiProvider';
 export { assertApiSuccess, GnosiApiError, unwrapApiResult } from './errors';
 export { queryClient } from './query-client';
+export {
+  cancelReaderAnalysis,
+  createReaderSource,
+  deleteReaderSource,
+  extractReaderArticle,
+  fetchNewsletterAccount,
+  fetchReaderAnalyses,
+  fetchReaderAnalysis,
+  fetchReaderAnalysisResult,
+  fetchReaderArticle,
+  fetchReaderArticles,
+  fetchReaderBackfillStatus,
+  fetchReaderInventory,
+  fetchReaderPodcastInfo,
+  fetchReaderPodcastStatus,
+  fetchReaderSources,
+  generateReaderPodcast,
+  importReaderOpml,
+  markReaderArticleRead,
+  readerPodcastUrl,
+  resumeReaderAnalysis,
+  startReaderAnalysis,
+  syncNewsletterAccount,
+  testNewsletterAccount,
+  triggerReaderBackfill,
+  updateNewsletterAccount,
+} from './reader';
+export type {
+  NewsletterAccount,
+  NewsletterAccountUpdate,
+  NewsletterConnectionTest,
+  NewsletterSyncResult,
+  ReaderAnalysisInput,
+  ReaderAnalysisJob,
+  ReaderAnalysisResult,
+  ReaderArticle,
+  ReaderArticleExtractResult,
+  ReaderArticlesQuery,
+  ReaderBackfillStatus,
+  ReaderBackfillTrigger,
+  ReaderInventory,
+  ReaderInventoryQuery,
+  ReaderMessage,
+  ReaderPodcastGeneration,
+  ReaderPodcastInfo,
+  ReaderPodcastStatus,
+  ReaderSource,
+  ReaderSourceInput,
+} from './reader';
 export { currentRequestContext, requestContextMiddleware } from './request-context';
 export {
   clearSchedulerHistory,
@@ -69,6 +118,19 @@ export {
   useScheduledTasks,
   useUpdateScheduledTask,
 } from './useSchedulerTasks';
+export {
+  readerQueryKeys,
+  useCreateReaderSource,
+  useDeleteReaderSource,
+  useImportReaderOpml,
+  useMarkReaderArticleRead,
+  useNewsletterAccount,
+  useReaderArticles,
+  useReaderInventory,
+  useReaderPodcastInfo,
+  useReaderSources,
+  useUpdateNewsletterAccount,
+} from './useReaderData';
 export { useVaultCatalog } from './useVaultCatalog';
 export {
   createVault,

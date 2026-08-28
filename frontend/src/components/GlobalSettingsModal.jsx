@@ -58,6 +58,16 @@ import {
     updateSocialNetworks,
     updateSocialStreams,
 } from '../shared/api/social';
+import {
+    createReaderSource,
+    deleteReaderSource,
+    fetchNewsletterAccount,
+    fetchReaderSources,
+    importReaderOpml,
+    syncNewsletterAccount as requestNewsletterSync,
+    testNewsletterAccount as requestNewsletterTest,
+    updateNewsletterAccount,
+} from '../shared/api/reader';
 
 const formatCost = (value, symbol, decimals = 2) => {
     const num = Number(value);
@@ -1405,7 +1415,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                         const next = { ...newsletterAccount };
                         if (!newsletterPasswordDirty) delete next.password;
                         promises.push(
-                            axios.put('/api/reader/newsletter-account', next)
+                            updateNewsletterAccount(next)
                         );
                     }
 
@@ -1688,12 +1698,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setNewsletterSourcesLoading(true);
         setNewsletterSourcesError('');
         try {
-            const res = await transportFetch('/api/reader/sources');
-            if (!res.ok) {
-                setNewsletterSourcesError(t('subs_sources_load_error_status', { status: res.status }));
-                return;
-            }
-            const sources = await res.json();
+            const sources = await fetchReaderSources();
             setNewsletterSources((sources || []).filter(s => ['rss', 'newsletter', 'youtube', 'newsletter_account'].includes(s.type)));
             setNewsletterSourcesLoaded(true);
         } catch (err) {
@@ -1706,9 +1711,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadNewsletterAccount = async () => {
         try {
-            const res = await transportFetch('/api/reader/newsletter-account');
-            if (!res.ok) return;
-            const data = await res.json();
+            const data = await fetchNewsletterAccount();
             const next = {
                 mail_server: data.mail_server || '',
                 mail_port: data.mail_port || 110,
@@ -1747,15 +1750,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             if (newsletterPasswordDirty) {
                 payload.password = newsletterAccount.password;
             }
-            const res = await transportFetch('/api/reader/newsletter-account', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) {
-                setSavingStatus('error');
-                return;
-            }
+            await updateNewsletterAccount(payload);
             setSavingStatus('saved');
             setTimeout(() => setSavingStatus('idle'), 2000);
             setNewsletterPasswordDirty(false);
@@ -1782,15 +1777,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             if (newsletterPasswordDirty && newsletterAccount.password) {
                 payload.password = newsletterAccount.password;
             }
-            const res = await transportFetch('/api/reader/newsletter-account/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json().catch(() => ({}));
-            setNewsletterAccountStatus(data.message || data.detail || (res.ok ? '' : t('subs_news_status_test_error')));
-        } catch (_error) {
-            setNewsletterAccountStatus(t('subs_news_status_test_error'));
+            const data = await requestNewsletterTest(payload);
+            setNewsletterAccountStatus(data.message || '');
+        } catch (error) {
+            setNewsletterAccountStatus(error instanceof Error
+                ? error.message
+                : t('subs_news_status_test_error'));
         } finally {
             setNewsletterAccountTesting(false);
         }
@@ -1800,12 +1792,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setNewsletterAccountSyncing(true);
         setNewsletterAccountStatus(t('subs_news_status_syncing'));
         try {
-            const res = await transportFetch('/api/reader/newsletter-account/sync', { method: 'POST' });
-            const data = await res.json().catch(() => ({}));
-            setNewsletterAccountStatus(data.message || (res.ok ? t('subs_news_status_sync_started') : t('subs_news_status_sync_error')));
+            const data = await requestNewsletterSync();
+            setNewsletterAccountStatus(data.message || t('subs_news_status_sync_started'));
             await loadNewsletterSources();
-        } catch (_error) {
-            setNewsletterAccountStatus(t('subs_news_status_sync_conn_error'));
+        } catch (error) {
+            setNewsletterAccountStatus(error instanceof Error
+                ? error.message
+                : t('subs_news_status_sync_conn_error'));
         } finally {
             setNewsletterAccountSyncing(false);
         }
@@ -2192,21 +2185,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         }
 
         try {
-            const res = await transportFetch('/api/reader/sources', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newsletterName || finalUrl, url: finalUrl, type: newsletterType })
+            await createReaderSource({
+                name: newsletterName || finalUrl,
+                url: finalUrl,
+                type: newsletterType,
             });
-            if (res.ok) {
-                setNewsletterName(''); setNewsletterAddress(''); loadNewsletterSources();
-                setNewsletterStatus(newsletterType === 'youtube' && finalUrl !== newsletterAddress.trim()
-                    ? t('subs_form_status_youtube_converted', { url: finalUrl })
-                    : t('subs_form_status_added'));
-            } else {
-                const j = await res.json().catch(() => ({}));
-                setNewsletterStatus(j.detail || t('subs_form_status_error'));
-            }
-        } catch { setNewsletterStatus(t('subs_form_status_error')); }
+            setNewsletterName(''); setNewsletterAddress(''); loadNewsletterSources();
+            setNewsletterStatus(newsletterType === 'youtube' && finalUrl !== newsletterAddress.trim()
+                ? t('subs_form_status_youtube_converted', { url: finalUrl })
+                : t('subs_form_status_added'));
+        } catch (error) {
+            setNewsletterStatus(error instanceof Error ? error.message : t('subs_form_status_error'));
+        }
     };
 
     const handleNewsletterOpmlUpload = async (file) => {
@@ -2216,21 +2206,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setNewsletterStatus(t('subs_opml_status_importing'));
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const res = await transportFetch('/api/reader/sources/opml', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await res.json().catch(() => ({}));
-
-            if (!res.ok) {
-                setNewsletterStatus(data?.detail || t('subs_opml_status_failed'));
-                return;
-            }
-
+            const data = await importReaderOpml(file);
             setNewsletterStatus(data?.message || t('subs_opml_status_done'));
             await loadNewsletterSources();
         } catch (err) {
@@ -3802,7 +3778,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                         message: t('subs_delete_modal_message', { name: s.name }),
                                                         onConfirm: async () => {
                                                             try {
-                                                                await transportFetch(`/api/reader/sources/${s.id}`, { method: 'DELETE' });
+                                                                await deleteReaderSource(s.id);
                                                                 loadNewsletterSources();
                                                                 setConfirmConfig(prev => ({ ...prev, isOpen: false }));
                                                             } catch (e) {

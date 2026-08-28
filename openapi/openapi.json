@@ -3400,6 +3400,49 @@
         "title": "NewsletterAccountUpdate",
         "type": "object"
       },
+      "NewsletterConnectionTestResponse": {
+        "description": "Result of a POP3 connection test.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "messages": {
+            "title": "Messages",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "ok",
+          "messages"
+        ],
+        "title": "NewsletterConnectionTestResponse",
+        "type": "object"
+      },
+      "NewsletterSyncResponse": {
+        "description": "Acknowledgement that newsletter ingestion was queued.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "ok"
+        ],
+        "title": "NewsletterSyncResponse",
+        "type": "object"
+      },
       "NotebookCreateRequest": {
         "properties": {
           "conversation_mode": {
@@ -4320,6 +4363,108 @@
         "title": "PublishRequest",
         "type": "object"
       },
+      "ReaderAnalysisJobResponse": {
+        "description": "Public durable state for one Reader analysis job.",
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "completed_batches": {
+            "default": 0,
+            "title": "Completed Batches",
+            "type": "integer"
+          },
+          "created_at": {
+            "default": "",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "language": {
+            "default": "Catalan",
+            "title": "Language",
+            "type": "string"
+          },
+          "phase": {
+            "default": "",
+            "title": "Phase",
+            "type": "string"
+          },
+          "processed_articles": {
+            "default": 0,
+            "title": "Processed Articles",
+            "type": "integer"
+          },
+          "progress": {
+            "default": 0,
+            "title": "Progress",
+            "type": "integer"
+          },
+          "result_available": {
+            "default": false,
+            "title": "Result Available",
+            "type": "boolean"
+          },
+          "retry": {
+            "$ref": "#/components/schemas/ReaderAnalysisRetryResponse"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ReaderScopeResponse"
+          },
+          "snapshot_digest": {
+            "default": "",
+            "title": "Snapshot Digest",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "total_articles": {
+            "default": 0,
+            "title": "Total Articles",
+            "type": "integer"
+          },
+          "total_batches": {
+            "default": 0,
+            "title": "Total Batches",
+            "type": "integer"
+          },
+          "updated_at": {
+            "default": "",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "state"
+        ],
+        "title": "ReaderAnalysisJobResponse",
+        "type": "object"
+      },
       "ReaderAnalysisRequest": {
         "description": "Validated scope and output preferences for a durable Reader analysis.",
         "properties": {
@@ -4370,6 +4515,683 @@
           }
         },
         "title": "ReaderAnalysisRequest",
+        "type": "object"
+      },
+      "ReaderAnalysisResultResponse": {
+        "description": "Structured result plus the rendered report for a completed analysis.",
+        "properties": {
+          "article_count": {
+            "default": 0,
+            "title": "Article Count",
+            "type": "integer"
+          },
+          "completed_at": {
+            "default": "",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "created_at": {
+            "default": "",
+            "title": "Created At",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "language": {
+            "default": "Catalan",
+            "title": "Language",
+            "type": "string"
+          },
+          "report_markdown": {
+            "default": "",
+            "title": "Report Markdown",
+            "type": "string"
+          },
+          "request": {
+            "default": "",
+            "title": "Request",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ReaderScopeResponse"
+          },
+          "snapshot_digest": {
+            "default": "",
+            "title": "Snapshot Digest",
+            "type": "string"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/ReaderAnalysisTopicResponse"
+            },
+            "title": "Topics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "ReaderAnalysisResultResponse",
+        "type": "object"
+      },
+      "ReaderAnalysisRetryResponse": {
+        "description": "Persisted retry budget and scheduling state for an analysis.",
+        "properties": {
+          "attempt": {
+            "default": 0,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "automatic_enabled": {
+            "default": true,
+            "title": "Automatic Enabled",
+            "type": "boolean"
+          },
+          "base_delay_seconds": {
+            "default": 5,
+            "title": "Base Delay Seconds",
+            "type": "integer"
+          },
+          "budget_exhausted": {
+            "default": false,
+            "title": "Budget Exhausted",
+            "type": "boolean"
+          },
+          "last_resume_kind": {
+            "default": "initial",
+            "title": "Last Resume Kind",
+            "type": "string"
+          },
+          "last_retry_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Retry Reason"
+          },
+          "max_attempts": {
+            "default": 3,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "max_delay_seconds": {
+            "default": 300,
+            "title": "Max Delay Seconds",
+            "type": "integer"
+          },
+          "model_call_budget": {
+            "default": 100,
+            "title": "Model Call Budget",
+            "type": "integer"
+          },
+          "model_calls_used": {
+            "default": 0,
+            "title": "Model Calls Used",
+            "type": "integer"
+          },
+          "next_retry_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Retry At"
+          }
+        },
+        "title": "ReaderAnalysisRetryResponse",
+        "type": "object"
+      },
+      "ReaderAnalysisTopicResponse": {
+        "description": "One synthesized topic in a completed Reader analysis.",
+        "properties": {
+          "article_count": {
+            "default": 0,
+            "title": "Article Count",
+            "type": "integer"
+          },
+          "article_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Article Ids",
+            "type": "array"
+          },
+          "evolution": {
+            "default": "",
+            "title": "Evolution",
+            "type": "string"
+          },
+          "fallback": {
+            "default": false,
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          },
+          "turning_points": {
+            "items": {},
+            "title": "Turning Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "topic"
+        ],
+        "title": "ReaderAnalysisTopicResponse",
+        "type": "object"
+      },
+      "ReaderArticleExtractResponse": {
+        "description": "Result of extracting one article's full body.",
+        "properties": {
+          "length": {
+            "title": "Length",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "length"
+        ],
+        "title": "ReaderArticleExtractResponse",
+        "type": "object"
+      },
+      "ReaderArticleReadResponse": {
+        "description": "Acknowledgement for an article read-state mutation.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ReaderArticleReadResponse",
+        "type": "object"
+      },
+      "ReaderBackfillStatusResponse": {
+        "description": "Progress of the full-content backfill worker.",
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "string"
+          },
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "extracted": {
+            "title": "Extracted",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "running",
+          "total",
+          "done",
+          "extracted",
+          "failed",
+          "current"
+        ],
+        "title": "ReaderBackfillStatusResponse",
+        "type": "object"
+      },
+      "ReaderBackfillTriggerResponse": {
+        "description": "Backfill launch state, including current progress when already running.",
+        "properties": {
+          "current": {
+            "default": "",
+            "title": "Current",
+            "type": "string"
+          },
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "extracted": {
+            "default": 0,
+            "title": "Extracted",
+            "type": "integer"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "running": {
+            "default": false,
+            "title": "Running",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ReaderBackfillTriggerResponse",
+        "type": "object"
+      },
+      "ReaderInventoryCategoryResponse": {
+        "description": "Per-category count in a Reader inventory.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "count"
+        ],
+        "title": "ReaderInventoryCategoryResponse",
+        "type": "object"
+      },
+      "ReaderInventoryFeedResponse": {
+        "description": "Per-feed count in a Reader inventory.",
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "count"
+        ],
+        "title": "ReaderInventoryFeedResponse",
+        "type": "object"
+      },
+      "ReaderInventoryResponse": {
+        "description": "Exact aggregate counts for one normalized Reader scope.",
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/ReaderInventoryCategoryResponse"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "category_count": {
+            "title": "Category Count",
+            "type": "integer"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "feed_count": {
+            "title": "Feed Count",
+            "type": "integer"
+          },
+          "feeds": {
+            "items": {
+              "$ref": "#/components/schemas/ReaderInventoryFeedResponse"
+            },
+            "title": "Feeds",
+            "type": "array"
+          },
+          "newest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest"
+          },
+          "oldest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest"
+          },
+          "read_count": {
+            "title": "Read Count",
+            "type": "integer"
+          },
+          "record_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Record Fields",
+            "type": "array"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ReaderScopeResponse"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "unread_count": {
+            "title": "Unread Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "count",
+          "read_count",
+          "unread_count",
+          "feed_count",
+          "category_count",
+          "feeds",
+          "categories",
+          "record_fields",
+          "scope"
+        ],
+        "title": "ReaderInventoryResponse",
+        "type": "object"
+      },
+      "ReaderMessageResponse": {
+        "description": "Stable message payload returned by simple Reader mutations.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ReaderMessageResponse",
+        "type": "object"
+      },
+      "ReaderPodcastGenerationResponse": {
+        "description": "Acknowledgement for background podcast generation.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "progress": {
+            "default": "",
+            "title": "Progress",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "ReaderPodcastGenerationResponse",
+        "type": "object"
+      },
+      "ReaderPodcastInfoResponse": {
+        "description": "Metadata for the latest generated podcast, when one exists.",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "formatted_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formatted Date"
+          },
+          "formatted_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formatted Time"
+          }
+        },
+        "required": [
+          "exists"
+        ],
+        "title": "ReaderPodcastInfoResponse",
+        "type": "object"
+      },
+      "ReaderPodcastStatusResponse": {
+        "description": "Observable podcast-generation state.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "string"
+          },
+          "result_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Filename"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "running",
+          "progress"
+        ],
+        "title": "ReaderPodcastStatusResponse",
+        "type": "object"
+      },
+      "ReaderScopeResponse": {
+        "description": "Normalized scope shared by Reader inventory and analysis jobs.",
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "date_from": {
+            "default": "",
+            "title": "Date From",
+            "type": "string"
+          },
+          "date_to": {
+            "default": "",
+            "title": "Date To",
+            "type": "string"
+          },
+          "include_full_content": {
+            "default": false,
+            "title": "Include Full Content",
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 200,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "read_status": {
+            "default": "unread",
+            "title": "Read Status",
+            "type": "string"
+          },
+          "source_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Source Ids",
+            "type": "array"
+          },
+          "source_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Names",
+            "type": "array"
+          },
+          "unread_only": {
+            "default": true,
+            "title": "Unread Only",
+            "type": "boolean"
+          }
+        },
+        "title": "ReaderScopeResponse",
         "type": "object"
       },
       "RecalculatePayload": {
@@ -34493,7 +35315,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReaderAnalysisJobResponse"
+                  },
+                  "title": "Response List Reader Analyses Api Reader Analysis Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -34614,7 +35442,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderAnalysisJobResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34736,7 +35566,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderAnalysisJobResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34858,7 +35690,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderAnalysisJobResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34980,7 +35814,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderAnalysisResultResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -35102,7 +35938,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderAnalysisJobResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -35373,7 +36211,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderBackfillTriggerResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -35486,7 +36326,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderBackfillStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -35732,7 +36574,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderArticleExtractResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -35864,7 +36708,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderArticleReadResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -36045,7 +36891,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderInventoryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -36396,7 +37244,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NewsletterSyncResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -36526,7 +37376,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NewsletterConnectionTestResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -36639,7 +37491,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderPodcastGenerationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -36752,7 +37606,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderPodcastInfoResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -36978,7 +37834,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderPodcastStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -37343,7 +38201,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderMessageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -37465,7 +38325,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderMessageResponse"
+                }
               }
             },
             "description": "Successful Response"

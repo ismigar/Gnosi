@@ -17,6 +17,21 @@ from backend.domains.reader.internal_sources import (
     normalize_scope,
     reader_inventory,
 )
+from backend.domains.reader.schemas import (
+    NewsletterConnectionTestResponse,
+    NewsletterSyncResponse,
+    ReaderAnalysisJobResponse,
+    ReaderAnalysisResultResponse,
+    ReaderArticleExtractResponse,
+    ReaderArticleReadResponse,
+    ReaderBackfillStatusResponse,
+    ReaderBackfillTriggerResponse,
+    ReaderInventoryResponse,
+    ReaderMessageResponse,
+    ReaderPodcastGenerationResponse,
+    ReaderPodcastInfoResponse,
+    ReaderPodcastStatusResponse,
+)
 from backend.models import reader as models
 from backend.services.context_vars import get_active_vault_path
 from backend.services.plugin_access import require_plugins
@@ -115,7 +130,11 @@ def create_source(source: models.FeedSourceCreate, db: Session = Depends(get_db)
     return new_source
 
 
-@router.delete("/sources/{source_id}", dependencies=[Depends(require_role("editor"))])
+@router.delete(
+    "/sources/{source_id}",
+    response_model=ReaderMessageResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 def delete_source(source_id: int, db: Session = Depends(get_db)) -> RouteReturn:
     """Delete a source and its articles"""
     db_source = db.query(models.FeedSource).filter(models.FeedSource.id == source_id).first()
@@ -127,7 +146,11 @@ def delete_source(source_id: int, db: Session = Depends(get_db)) -> RouteReturn:
     return {"message": "Source deleted successfully"}
 
 
-@router.post("/sources/opml", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/sources/opml",
+    response_model=ReaderMessageResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db)) -> RouteReturn:
     """Upload an OPML file to import feeds"""
     log.info(f"[OPML] Iniciant pujada de: {file.filename}")
@@ -296,7 +319,11 @@ def update_newsletter_account(
     return _account_to_response(acc)
 
 
-@router.post("/newsletter-account/test", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/newsletter-account/test",
+    response_model=NewsletterConnectionTestResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 def test_newsletter_account(
     payload: Optional[models.NewsletterAccountUpdate] = None, db: Session = Depends(get_db)
 ) -> RouteReturn:
@@ -364,7 +391,11 @@ def _run_newsletter_sync_safe() -> None:
         log.exception("Newsletter sync failed")
 
 
-@router.post("/newsletter-account/sync", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/newsletter-account/sync",
+    response_model=NewsletterSyncResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 def sync_newsletter_account(background_tasks: BackgroundTasks) -> RouteReturn:
     """
     Schedule a newsletter ingestion run. Returns immediately (202 Accepted-ish);
@@ -375,7 +406,7 @@ def sync_newsletter_account(background_tasks: BackgroundTasks) -> RouteReturn:
     return {"ok": True, "message": "Sincronització iniciada en segon pla."}
 
 
-@router.get("/inventory")
+@router.get("/inventory", response_model=ReaderInventoryResponse)
 def get_reader_inventory(
     unread_only: bool = True,
     source_id: Optional[List[int]] = Query(default=None),
@@ -399,6 +430,8 @@ def get_reader_inventory(
 
 @router.post(
     "/analysis",
+    response_model=ReaderAnalysisJobResponse,
+    response_model_exclude_unset=True,
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("ai-platform"))],
 )
 def start_reader_analysis(payload: ReaderAnalysisRequest) -> RouteReturn:
@@ -413,7 +446,11 @@ def start_reader_analysis(payload: ReaderAnalysisRequest) -> RouteReturn:
     )
 
 
-@router.get("/analysis")
+@router.get(
+    "/analysis",
+    response_model=List[ReaderAnalysisJobResponse],
+    response_model_exclude_unset=True,
+)
 def list_reader_analyses(limit: int = Query(default=20, ge=1, le=100)) -> RouteReturn:
     """List recent durable Reader analyses in the active vault."""
     from backend.services.reader_analysis import list_analyses
@@ -421,7 +458,11 @@ def list_reader_analyses(limit: int = Query(default=20, ge=1, le=100)) -> RouteR
     return list_analyses(_require_active_vault(), limit=limit)
 
 
-@router.get("/analysis/{job_id}")
+@router.get(
+    "/analysis/{job_id}",
+    response_model=ReaderAnalysisJobResponse,
+    response_model_exclude_unset=True,
+)
 def get_reader_analysis_status(job_id: str) -> RouteReturn:
     """Return progress for one analysis job in the active vault."""
     from backend.services.reader_analysis import get_status
@@ -432,7 +473,11 @@ def get_reader_analysis_status(job_id: str) -> RouteReturn:
         raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
 
 
-@router.get("/analysis/{job_id}/result")
+@router.get(
+    "/analysis/{job_id}/result",
+    response_model=ReaderAnalysisResultResponse,
+    response_model_exclude_unset=True,
+)
 def get_reader_analysis_result(job_id: str) -> RouteReturn:
     """Return the structured cited result for one completed analysis."""
     from backend.services.reader_analysis import read_result
@@ -447,6 +492,8 @@ def get_reader_analysis_result(job_id: str) -> RouteReturn:
 
 @router.post(
     "/analysis/{job_id}/resume",
+    response_model=ReaderAnalysisJobResponse,
+    response_model_exclude_unset=True,
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("ai-platform"))],
 )
 def resume_reader_analysis(job_id: str) -> RouteReturn:
@@ -461,6 +508,8 @@ def resume_reader_analysis(job_id: str) -> RouteReturn:
 
 @router.post(
     "/analysis/{job_id}/cancel",
+    response_model=ReaderAnalysisJobResponse,
+    response_model_exclude_unset=True,
     dependencies=[Depends(require_role("editor"))],
 )
 def cancel_reader_analysis(job_id: str) -> RouteReturn:
@@ -506,7 +555,11 @@ def get_articles(
     return result
 
 
-@router.patch("/articles/{article_id}/read", dependencies=[Depends(require_role("editor"))])
+@router.patch(
+    "/articles/{article_id}/read",
+    response_model=ReaderArticleReadResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 def mark_article_read(
     article_id: int, read: bool = True, db: Session = Depends(get_db)
 ) -> RouteReturn:
@@ -525,6 +578,7 @@ def mark_article_read(
 
 @router.post(
     "/articles/{article_id}/extract",
+    response_model=ReaderArticleExtractResponse,
     dependencies=[Depends(require_role("editor"))],
 )
 def extract_article_full_content(article_id: int, db: Session = Depends(get_db)) -> RouteReturn:
@@ -645,6 +699,8 @@ def _run_backfill(vault_path: Path) -> None:
 
 @router.post(
     "/articles/backfill-extract",
+    response_model=ReaderBackfillTriggerResponse,
+    response_model_exclude_unset=True,
     dependencies=[Depends(require_role("editor"))],
 )
 def trigger_backfill_extract() -> RouteReturn:
@@ -676,7 +732,10 @@ def trigger_backfill_extract() -> RouteReturn:
     return {"status": "started"}
 
 
-@router.get("/articles/backfill-extract/status")
+@router.get(
+    "/articles/backfill-extract/status",
+    response_model=ReaderBackfillStatusResponse,
+)
 def get_backfill_extract_status() -> RouteReturn:
     """Poll the backfill progress. Safe to call any time."""
     return backfill_status
@@ -702,11 +761,14 @@ def get_article(article_id: int, db: Session = Depends(get_db)) -> RouteReturn:
 
 @router.post(
     "/podcast/generate",
+    response_model=ReaderPodcastGenerationResponse,
+    response_model_exclude_unset=True,
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("ai-platform"))],
 )
 def trigger_podcast_generation() -> RouteReturn:
     """Launches podcast generation in the background"""
     from backend.services.audio_summarizer import start_generation_async, generation_status
+
     if generation_status["running"]:
         return {
             "status": "already_running",
@@ -721,7 +783,7 @@ def trigger_podcast_generation() -> RouteReturn:
     return {"status": "started", "message": "Generation started in the background."}
 
 
-@router.get("/podcast/status")
+@router.get("/podcast/status", response_model=ReaderPodcastStatusResponse)
 def get_podcast_status() -> RouteReturn:
     """Returns the current status of podcast generation"""
     from backend.services.audio_summarizer import generation_status
@@ -734,7 +796,11 @@ def get_podcast_status() -> RouteReturn:
     }
 
 
-@router.get("/podcast/info")
+@router.get(
+    "/podcast/info",
+    response_model=ReaderPodcastInfoResponse,
+    response_model_exclude_unset=True,
+)
 def get_podcast_info() -> RouteReturn:
     """Returns information about the last generated podcast"""
     import os
