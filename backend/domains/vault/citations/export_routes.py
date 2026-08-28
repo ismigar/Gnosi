@@ -4,7 +4,10 @@ import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
+from fastapi import APIRouter
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 import subprocess as _ext_subprocess
 import tempfile as _ext_tempfile
 
@@ -33,7 +36,7 @@ def _citation_page_entries(vault_key: str) -> _LegacyAny:
 def _references_detect_format(raw: str) -> str:
     from backend.services import references_io
 
-    return _strict_cast(str, references_io.detect_format(raw))
+    return references_io.detect_format(raw)
 
 
 def _references_parse(raw: str, fmt: str) -> _LegacyAny:
@@ -45,7 +48,7 @@ def _references_parse(raw: str, fmt: str) -> _LegacyAny:
 def _references_serialize(metadata: list[dict[_LegacyAny, _LegacyAny]], fmt: str) -> str:
     from backend.services import references_io
 
-    return _strict_cast(str, references_io.serialize_references(metadata, fmt))
+    return references_io.serialize_references(metadata, fmt)
 
 
 def _references_find_existing(
@@ -69,13 +72,13 @@ def _references_add_indexes(
 def _references_normalize_title(value: object) -> str:
     from backend.services.import_dedup import normalize_title_for_dedup
 
-    return _strict_cast(str, normalize_title_for_dedup(value))
+    return normalize_title_for_dedup(value)
 
 
 def _references_normalize_item_type(value: str, catalog: list[str]) -> str:
     from backend.services.csl_type_resolver import normalize_item_type
 
-    return _strict_cast(str, normalize_item_type(value, catalog))
+    return normalize_item_type(value, catalog)
 
 
 def _references_list_styles() -> _LegacyAny:
@@ -215,7 +218,7 @@ _CITATION_EXPORT_DEPENDENCIES = _legacy.citation_exporting.ExportDependencies(
     pandoc_missing_message=lambda: _PANDOC_MISSING_MSG,
 )
 format_citation, format_citations, format_bibliography = (
-    _legacy.citation_formatting.register_routes(_legacy.router, _CITATION_FORMATTING_DEPENDENCIES)
+    _legacy.citation_formatting.register_routes(router, _CITATION_FORMATTING_DEPENDENCIES)
 )
 
 
@@ -223,7 +226,7 @@ def _extract_csl_entries(html_out: str) -> list[str]:
     return _strict_cast(list[str], _legacy.citation_formatting.extract_csl_entries(html_out))
 
 
-@_legacy.router.get("/export/{page_id}", response_model=None)
+@router.get("/export/{page_id}", response_model=None)
 async def export_page(
     page_id: str,
     format: str = _legacy.Query("docx", regex="^(docx|odt|html|pdf|tex|markdown)$"),
@@ -610,7 +613,7 @@ def _reference_table_by_id_primary(table_id: str) -> dict[_LegacyAny, _LegacyAny
 
 get_reference_table, set_reference_table, create_reference_table, clear_reference_table = (
     _legacy.citation_references_api.register_routes(
-        _legacy.router,
+        router,
         post_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
         create_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
         delete_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],

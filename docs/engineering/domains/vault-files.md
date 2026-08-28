@@ -228,6 +228,11 @@ daily notes and tag aggregation. User display labels cross the legacy ORM
 descriptor boundary as concrete strings, preserving the existing fallback from
 name to email to identifier.
 
+Citation formatting and export registration now cross one typed router, while
+reference format detection, serialization and normalization return their native
+strict string contracts directly. Export formats, citation resolution and
+Pandoc error behavior remain stable.
+
 ## File providers
 
 The provider abstraction selects local, generic macOS File Provider, OneDrive,
