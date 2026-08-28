@@ -711,6 +711,10 @@ provider mismatch at these untrusted-content boundaries.
 Inventory cache readers retain the legacy Vault monkeypatch seams through a
 narrow typed adapter. This preserves plugin and test compatibility without
 allowing dynamically re-exported callables to spread into the agent domain.
+Confirmed page and table dispatchers apply the same rule to Vault mutation
+seams: each dynamically re-exported handler is narrowed at the call site, while
+conflict detection, partial-result reporting, rollback, and background cleanup
+retain their historical behavior.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

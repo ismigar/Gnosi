@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 214 |
-| `domains` | 368 | 83159 |
+| `domains` | 368 | 83186 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1220 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146812 source lines**.
+Total: **699 modules** and **146839 source lines**.
 
 ## agent
 
@@ -185,9 +185,9 @@ Total: **699 modules** and **146812 source lines**.
 | [`backend/domains/agent/generated_tools/validator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/generated_tools/validator.py) | 331 | 3 | 0 | 0 | 1 | Security validation for generated agent tools. |
 | [`backend/domains/agent/gnosi_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_confirmations.py) | 346 | 0 | 7 | 0 | 6 | Preparation tools for consequential first-party actions. |
 | [`backend/domains/agent/gnosi_dispatch.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch.py) | 29 | 0 | 1 | 1 | 1 | Executor for claimed first-party confirmations. |
-| [`backend/domains/agent/gnosi_dispatch_basic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_basic.py) | 221 | 0 | 8 | 8 | 0 | Confirmed handlers for pages, contacts, mail and calendars. |
+| [`backend/domains/agent/gnosi_dispatch_basic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_basic.py) | 226 | 0 | 8 | 8 | 0 | Confirmed handlers for pages, contacts, mail and calendars. |
 | [`backend/domains/agent/gnosi_dispatch_rows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_rows.py) | 202 | 0 | 7 | 2 | 0 | Confirmed handlers for deterministic row rewrites. |
-| [`backend/domains/agent/gnosi_dispatch_tables.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_tables.py) | 269 | 0 | 8 | 5 | 0 | Confirmed handlers for table, history, trash and schema operations. |
+| [`backend/domains/agent/gnosi_dispatch_tables.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_tables.py) | 291 | 0 | 8 | 5 | 0 | Confirmed handlers for table, history, trash and schema operations. |
 | [`backend/domains/agent/gnosi_integrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_integrations.py) | 390 | 0 | 12 | 8 | 11 | First-party calendar, mail and contacts tools. |
 | [`backend/domains/agent/gnosi_mutation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_mutation.py) | 64 | 0 | 2 | 0 | 2 | Cross-process page mutation lock. |
 | [`backend/domains/agent/gnosi_support.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_support.py) | 566 | 1 | 28 | 2 | 11 | Shared deterministic helpers for first-party Gnosi tools. |

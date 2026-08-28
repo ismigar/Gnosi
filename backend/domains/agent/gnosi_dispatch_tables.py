@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from collections.abc import Awaitable, Callable
+from pathlib import Path
+from typing import Any, cast
 
 from backend.domains.agent.gnosi_dispatch_basic import ActionHandler
 from backend.domains.agent.gnosi_support import (
@@ -81,7 +83,11 @@ async def _trash_table_rows(
     failed_ids: list[str] = []
     for item in prepared:
         try:
-            await asyncio.to_thread(_move_page_to_trash, str(item["id"]), item["path"])
+            move_to_trash = cast(
+                Callable[[str, Path], dict[str, Any]],
+                _move_page_to_trash,
+            )
+            await asyncio.to_thread(move_to_trash, str(item["id"]), item["path"])
             changed.append(item)
         except Exception:
             failed_ids.append(str(item["id"]))
@@ -157,7 +163,8 @@ async def _delete_table(
 
     tasks = background_tasks or BackgroundTasks()
     try:
-        result = await route_delete_table(
+        delete_table = cast(Callable[..., Awaitable[Any]], route_delete_table)
+        result = await delete_table(
             table_id,
             tasks,
             expected_table_revision=str(arguments["table_revision"]),
@@ -205,7 +212,11 @@ async def _restore_page_version(
         version, str(arguments.get("version_revision") or ""), "The saved version"
     )
     tasks = background_tasks or BackgroundTasks()
-    result = await route_restore_page_version(page_id, timestamp, tasks)
+    restore_version = cast(
+        Callable[..., Awaitable[Any]],
+        route_restore_page_version,
+    )
+    result = await restore_version(page_id, timestamp, tasks)
     payload = dict(result) if isinstance(result, dict) else {}
     payload["cleanup_status"] = "queued" if tasks.tasks else "not_required"
     return payload
@@ -231,7 +242,14 @@ async def _empty_trash(
             failed_ids.append(entry_id)
             continue
         try:
-            result = await asyncio.to_thread(_purge_trash_entry, entry_id)
+            purge_trash_entry = cast(
+                Callable[[str], dict[str, Any]],
+                _purge_trash_entry,
+            )
+            result: dict[str, Any] = await asyncio.to_thread(
+                purge_trash_entry,
+                entry_id,
+            )
             purged += 1
             freed += int(result.get("freed_bytes") or 0)
         except Exception:
@@ -255,7 +273,11 @@ async def _change_schema(
     current_revision = _file_revision(schema_path) if schema_path.exists() else ""
     if current_revision != str(arguments.get("current_revision") or ""):
         raise ActionConflictError("The schema changed after the confirmation preview.")
-    result = await save_schema(
+    save_table_schema = cast(
+        Callable[[str, dict[str, Any]], Awaitable[Any]],
+        save_schema,
+    )
+    result = await save_table_schema(
         str(arguments["folder"]), dict(arguments.get("schema_definition") or {})
     )
     return dict(result)

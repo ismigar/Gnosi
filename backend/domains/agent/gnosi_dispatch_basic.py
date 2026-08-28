@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any, cast
 
 from backend.domains.agent.gnosi_support import (
@@ -29,7 +30,11 @@ async def _delete_page(
     if not path:
         raise LookupError("Page not found.")
     _require_file_revision(path, str(arguments.get("page_revision") or ""), "The page")
-    _move_page_to_trash(str(arguments["page_id"]), path)
+    move_to_trash = cast(
+        Callable[[str, Path], dict[str, Any]],
+        _move_page_to_trash,
+    )
+    move_to_trash(str(arguments["page_id"]), path)
     return {"status": "trashed", "page_id": str(arguments["page_id"])}
 
 
@@ -205,7 +210,7 @@ async def _create_calendar_event(
     )
     if not event:
         raise RuntimeError("The calendar event could not be created.")
-    cast(Callable[[], None], _invalidate_calendar_cache)()
+    _invalidate_calendar_cache()
     return {"status": "created", "event_id": str(event.get("id") or "")}
 
 
