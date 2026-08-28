@@ -2,8 +2,12 @@
 
 import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
+from typing import cast as _strict_cast
+
+from fastapi import APIRouter
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 LLM_WIKI_PROCESSED_COL = "Processat pel Cervell"
 
 
@@ -109,7 +113,7 @@ def mark_resource_processed(page_id: str, date_str: str) -> bool:
     return True
 
 
-@_legacy.router.post(
+@router.post(
     "/llm-wiki/process",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -130,7 +134,7 @@ async def llm_wiki_process(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(
         raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-@_legacy.router.get(
+@router.get(
     "/llm-wiki/status/{item_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -149,7 +153,7 @@ async def llm_wiki_status(
         raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-@_legacy.router.get(
+@router.get(
     "/llm-wiki/evidence/{resource_id}/{snapshot_id}/{segment_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -166,7 +170,7 @@ async def llm_wiki_evidence(resource_id: str, snapshot_id: str, segment_id: str)
     return evidence
 
 
-@_legacy.router.post(
+@router.post(
     "/llm-wiki/maintenance",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -185,7 +189,7 @@ async def llm_wiki_maintenance(semantic: bool = _legacy.Query(default=False)) ->
         raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-@_legacy.router.get(
+@router.get(
     "/llm-wiki/lint",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -207,7 +211,7 @@ async def llm_wiki_lint(suggest: bool = _legacy.Query(default=False)) -> _Legacy
     return report
 
 
-@_legacy.router.get(
+@router.get(
     "/llm-wiki/suggestions",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -219,7 +223,7 @@ async def llm_wiki_list_suggestions() -> _LegacyAny:
     return {"suggestions": await _legacy.asyncio.to_thread(llm_wiki_suggestions.load_queue)}
 
 
-@_legacy.router.post(
+@router.post(
     "/llm-wiki/suggestions/{suggestion_id}/accept",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -233,7 +237,7 @@ async def llm_wiki_accept_suggestion(
     )
 
 
-@_legacy.router.post(
+@router.post(
     "/llm-wiki/suggestions/{suggestion_id}/reject",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -250,7 +254,7 @@ async def llm_wiki_reject_suggestion(suggestion_id: str) -> _LegacyAny:
     return {"rejected": suggestion_id}
 
 
-@_legacy.router.post(
+@router.post(
     "/llm-wiki/suggestions/{suggestion_id}/dismiss",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -260,7 +264,7 @@ async def llm_wiki_dismiss_suggestion(suggestion_id: str) -> _LegacyAny:
     return await llm_wiki_reject_suggestion(suggestion_id)
 
 
-@_legacy.router.post(
+@router.post(
     "/llm-wiki/suggestions/{suggestion_id}/reformulate",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -285,7 +289,7 @@ async def llm_wiki_reformulate(suggestion_id: str) -> _LegacyAny:
     return {"variants": variants}
 
 
-@_legacy.router.post(
+@router.post(
     "/llm-wiki/suggestions/{suggestion_id}/dictate",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -331,7 +335,7 @@ async def llm_wiki_dictate(
     return await _legacy.asyncio.to_thread(llm_wiki_assist.correct_dictation, sug, transcript)
 
 
-@_legacy.router.post(
+@router.post(
     "/llm-wiki/glossary",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,

@@ -522,6 +522,9 @@ duplicating their mutable state.
 Its HTTP boundary narrows the late-bound legacy router once to `APIRouter`, so
 Brain designation and LLM Wiki configuration endpoints remain strictly typed
 without altering permissions, payload schemas, route order or OpenAPI output.
+The processing boundary uses the same typed router for durable ingestion,
+polling, evidence, maintenance, lint, suggestion review, dictation and glossary
+learning; late-bound services and recoverable HTTP errors remain unchanged.
 `backend/domains/configuration/llm_wiki_schema.py` separately owns idempotent
 Brain-field repair and consolidation of one canonical source relation, including
 legacy aliases, page metadata and contextual embedded views.
