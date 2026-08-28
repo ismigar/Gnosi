@@ -270,11 +270,12 @@ when the primary Vault path is absent, rather than constructing a path from
 the old ORM descriptor boundary without changing disk folders, slugs, purge
 rules or path-containment checks.
 
-Vault template catalog, installation, export and moderated submission expose a
-typed manifest boundary while intentionally retaining unannotated legacy route
-returns so FastAPI's frozen response schemas do not drift. Signature checks,
-privacy findings, deterministic packages and rollback on registration failure
-remain unchanged.
+Vault template catalog, installation, export and moderated submission expose
+typed request and response boundaries. Handlers validate every mapping before
+returning it while disabling response-model publication on the compatibility
+routes, so the frozen FastAPI schemas and direct-call dictionary contract do
+not drift. Signature checks, privacy findings, deterministic packages and
+rollback on registration failure remain unchanged.
 
 ## File providers
 
@@ -374,7 +375,9 @@ in the manifest; executable plugin code never travels inside a Vault template.
 
 Public submission is separate from export and requires administrator access.
 It uses an optional moderation broker rather than a GitHub credential embedded
-in Gnosi.
+in Gnosi. Broker-specific extra receipt fields remain lossless through an
+extra-permitting response model; catalog failure payloads retain their legacy
+shape for offline and signature-error recovery.
 
 ## Concurrency invariants
 
