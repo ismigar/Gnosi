@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 3 | 1126 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 804 |
-| `services` | 148 | 33480 |
+| `services` | 148 | 33563 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **690 modules** and **144047 source lines**.
+Total: **690 modules** and **144130 source lines**.
 
 ## agent
 
@@ -782,7 +782,7 @@ Total: **690 modules** and **144047 source lines**.
 | [`backend/services/vault_file_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_file_index.py) | 360 | 0 | 12 | 0 | 12 | vault_file_index.py — Vault file/folder name index. |
 | [`backend/services/vault_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_mail_sync_service.py) | 206 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/vault_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_routing.py) | 95 | 0 | 6 | 0 | 6 | Canonical vault slug helpers shared by routing and management APIs. |
-| [`backend/services/vault_templates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_templates.py) | 491 | 1 | 17 | 0 | 10 | Verified Vault template catalogs, packages, exports, and installation. |
+| [`backend/services/vault_templates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_templates.py) | 574 | 1 | 22 | 0 | 11 | Verified Vault template catalogs, packages, exports, and installation. |
 | [`backend/services/vault_warmup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_warmup.py) | 127 | 0 | 3 | 1 | 3 | Proactive warmup of the vault's CRITICAL files (OneDrive online-only). |
 | [`backend/services/view_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/view_snapshot.py) | 140 | 0 | 2 | 0 | 2 | Compatibility facade for persisted saved-view snapshots and row evaluation. |
 | [`backend/services/web_clipper.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/web_clipper.py) | 257 | 0 | 9 | 0 | 6 | Web Clipper as a configurable plugin: destination table and field mapping. |

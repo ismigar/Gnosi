@@ -25,6 +25,8 @@ tests:
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_templates.py
+  - backend/tests/test_vault_templates_routes.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - backend/tests/test_vault_table_routes_composition_contract.py
   - backend/tests/test_vault_legacy_facade.py
@@ -185,6 +187,11 @@ L' eliminació normal es recuperable: pàgines i actius relacionats es mouen a t
 ## Plantilles d' anticipació
 
 El repositori de plantilles és un catàleg d' execució; els actius de paquets no es troben en el repositori d' aplicacions Git. La creació d' una plantilla verifica la signatura d' índex separada, paquet SHA- 256, signatura de l' editor, manifest, l' inventari, els límits de l' arxiu, rutes, tipus de fitxers i enllaços abans d' escriure. L' extracció es produeix en un directori d' arc de sisiging sota l' arrel de Vultes. El directori completat es mou a lloc atòmic i només s' ha registrat a la gestió de bases de dades, de manera que un fracàs no pot exposar a una Culta parcial.
+
+La validació de l'arxiu separa la comprovació limitada de cada entrada, la lectura
+del manifest, la comparació de l'inventari i la integritat del payload. Aquests
+passos purs i tipats mantenen el mateix contracte tancat davant d'errors i cada
+ajudant queda per sota del límit de complexitat del backend.
 
 L' exportació està permetent la llista basada en els noms i els determinants. Exclosiona `.gnosi`, connectors, botigues de confiança, correu, paperera, historial, contingut d' entorn, enllaços, fitxers illegibles i continguts de mida. Una llista de vistes prèvies totes i excloses i explora fitxers de text lligats per a valors credents com ara credents. Cercar requereix informació explícita. Els connectors recomanats són identificadors en el codi d' executables no es mouen mai dins d' una plantilla Vault.
 

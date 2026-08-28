@@ -27,6 +27,8 @@ tests:
   - backend/tests/test_vault_assets_files_containment.py
   - backend/tests/test_vault_assets_files_route_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_templates.py
+  - backend/tests/test_vault_templates_routes.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - backend/tests/test_vault_table_routes_composition_contract.py
   - backend/tests/test_vault_legacy_facade.py
@@ -254,6 +256,11 @@ file inventory, archive limits, paths, file types, and links before writing.
 Extraction occurs in a sibling staging directory under the Vaults root. The
 completed directory is moved into place atomically and only then registered in
 the management database, so a failure cannot expose a partial Vault.
+
+Archive validation is decomposed into bounded entry validation, manifest
+decoding, inventory comparison, and payload-integrity checks. These pure typed
+steps retain the same fail-closed package contract while keeping every helper
+below the backend complexity limit.
 
 Export is allowlist-based and deterministic. It excludes `.gnosi`, plugins,
 trust stores, mail, trash, history, executable content, environment files,

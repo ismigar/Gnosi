@@ -25,6 +25,8 @@ tests:
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_templates.py
+  - backend/tests/test_vault_templates_routes.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - backend/tests/test_vault_table_routes_composition_contract.py
   - backend/tests/test_vault_legacy_facade.py
@@ -190,6 +192,11 @@ Suppression ordinaire est récupérable : les pages et les actifs connexes passe
 ## Modèles de value
 
 Le dépôt de template est un catalogue d'exécution signé; les actifs du paquet ne sont pas suivis dans le dépôt de l'application Git. Créer à partir d'un modèle vérifie la signature d'index détaché, le paquet SHA-256, signature de l'éditeur, manifeste, inventaire de fichiers, limites d'archives, chemins, types de fichiers et liens avant l'écriture. L'extraction se produit dans un répertoire de mise en scène de frères sous la racine de Vaults. Le répertoire complété est déplacé en place atomiquement et seulement alors enregistré dans la base de données de gestion, de sorte qu'un échec ne peut pas exposer un Vault partiel.
+
+La validation de l'archive sépare le contrôle borné de chaque entrée, la lecture
+du manifeste, la comparaison de l'inventaire et l'intégrité du payload. Ces
+étapes pures et typées conservent le même contrat fermé en cas d'erreur et chaque
+assistant reste sous la limite de complexité du backend.
 
 L'exportation est basée sur la liste et déterministe. `.gnosi`, plugins, magasins de confiance, courrier, ordure, historique, contenu exécutable, fichiers d'environnement, liens, fichiers illisibles et contenu surdimensionné. Un aperçu liste chaque fichier inclus et exclu et scanne les fichiers texte limités pour des valeurs de type de certification. Les résultats nécessitent une reconnaissance explicite. Les plugins recommandés sont des identifiants dans le manifeste; le code exécutable du plugin ne voyage jamais dans un modèle de Vault.
 

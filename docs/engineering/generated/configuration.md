@@ -58,7 +58,7 @@ Discovered **106 variables** across **168 source references**.
 | `GNOSI_TROCR_MODEL` | Python | unset | [`backend/services/handwriting.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py#L59) |
 | `GNOSI_VAULTS_ROOT` | Python | unset | [`backend/api/vaults_routes.py:61`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py#L61) |
 | `GNOSI_VAULT_PATH` | Python | unset | [`pipeline/utils/vault_loader.py:16`](https://github.com/ismigar/Gnosi/blob/main/pipeline/utils/vault_loader.py#L16) |
-| `GNOSI_VAULT_TEMPLATES_INDEX_URL` | Python | DEFAULT_INDEX_URL | [`backend/services/vault_templates.py:68`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_templates.py#L68) |
+| `GNOSI_VAULT_TEMPLATES_INDEX_URL` | Python | DEFAULT_INDEX_URL | [`backend/services/vault_templates.py:107`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_templates.py#L107) |
 | `GNOSI_WHISPER_MODEL` | Python | unset | [`backend/services/transcription.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/services/transcription.py#L41) |
 | `GROQ_API_KEY` | Python | redacted | [`backend/domains/agent/llm.py:154`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py#L154)<br>[`pipeline/skills/rss_to_audio/scripts/rss_to_audio.py:20`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/rss_to_audio/scripts/rss_to_audio.py#L20) |
 | `HF_API_KEY` | Python | redacted | [`backend/agent/graph.py:26`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/graph.py#L26) |

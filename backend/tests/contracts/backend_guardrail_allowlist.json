@@ -1,11 +1,5 @@
 {
-  "allowlist": {
-    "backend/services/vault_templates.py": {
-      "max_complexity": 22,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    }
-  },
+  "allowlist": {},
   "format": "gnosi-backend-guardrails-v1",
   "limits": {
     "complexity": 15,

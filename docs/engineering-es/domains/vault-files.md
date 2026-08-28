@@ -25,6 +25,8 @@ tests:
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_templates.py
+  - backend/tests/test_vault_templates_routes.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - backend/tests/test_vault_table_routes_composition_contract.py
   - backend/tests/test_vault_legacy_facade.py
@@ -188,6 +190,11 @@ La eliminación ordinaria es recuperable: las páginas y los activos relacionado
 ## Plantillas de vault
 
 El repositorio de plantillas es un catálogo de tiempo de ejecución firmado; los activos de paquete no se rastrean en el repositorio Git de aplicaciones. Crear a partir de una plantilla verifica la firma de índice separada, paquete SHA-256, firma de editor, manifiesto, inventario de archivos, límites de archivo, rutas, tipos de archivo y enlaces antes de escribir. La extracción ocurre en un directorio de escenificación de hermanos bajo la raíz Vaults. El directorio completado se mueve atómicamente y sólo entonces se registra en la base de datos de gestión, por lo que un fallo no puede exponer una bóveda parcial.
+
+La validación del archivo separa la comprobación acotada de cada entrada, la
+lectura del manifiesto, la comparación del inventario y la integridad del
+payload. Estos pasos puros y tipados mantienen el mismo contrato cerrado ante
+errores y cada ayudante queda bajo el límite de complejidad del backend.
 
 La exportación se basa en listas de permisos y determinista. `.gnosi`, plugins, tiendas de confianza, correo, basura, historial, contenido ejecutable, archivos de entorno, enlaces, archivos ilegibles y contenido sobredimensionado. Una vista previa lista todos los archivos incluidos y excluidos y escanea archivos de texto delimitados para valores de credencial. Los hallazgos requieren reconocimiento explícito. Los complementos recomendados son identificadores en el manifiesto; el código de complemento ejecutable nunca viaja dentro de una plantilla Vault.
 
