@@ -10,7 +10,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 46 | 8475 |
+| `agent` | 46 | 8476 |
 | `api` | 38 | 11312 |
 | `app` | 6 | 603 |
 | `application root` | 4 | 107 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **696 modules** and **146112 source lines**.
+Total: **696 modules** and **146113 source lines**.
 
 ## agent
 
@@ -66,7 +66,7 @@ Total: **696 modules** and **146112 source lines**.
 | [`backend/agent/memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py) | 192 | 2 | 4 | 0 | 3 | Lazy compatibility stores for legacy Chroma-backed Agent memory. |
 | [`backend/agent/model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_catalog.py) | 529 | 0 | 24 | 0 | 20 | Provider → model catalog for the model-comparison activation workflow. |
 | [`backend/agent/model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_reliability.py) | 220 | 0 | 10 | 0 | 5 | Why a model call failed, recorded as evidence per provider:model. |
-| [`backend/agent/model_router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_router.py) | 552 | 1 | 14 | 0 | 13 | Data-driven, budget-aware model router. |
+| [`backend/agent/model_router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_router.py) | 553 | 1 | 14 | 0 | 13 | Data-driven, budget-aware model router. |
 | [`backend/agent/notion_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/notion_tools.py) | 76 | 0 | 5 | 5 | 5 | Governed adapters for connected Notion discovery and exact cloning. |
 | [`backend/agent/planning_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/planning_tools.py) | 167 | 0 | 13 | 12 | 12 | Governed tools over Gnosi's authoritative project-planning services. |
 | [`backend/agent/provider_resilience.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/provider_resilience.py) | 175 | 1 | 3 | 0 | 3 | Provider failover that is safe for cached, request-independent workflows. |

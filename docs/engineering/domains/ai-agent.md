@@ -126,6 +126,12 @@ frontend. Failure reasons are recorded separately from user-facing responses so
 operators can distinguish timeout, provider rejection, invalid credentials,
 context overflow, and tool incompatibility.
 
+The router normalizes unknown registry metadata before iteration, compares
+token quotas and context windows as integers, and keeps its usage ledger behind
+typed atomic path/load/save boundaries. Monetary caps distinguish an absent cap
+from zero explicitly, preserving the existing near-cap and free-model fallback
+policy while making malformed persisted data recover to an empty ledger.
+
 Runtime model selection belongs to the agent profile. `pinned` uses only the
 assigned provider/model, `resilient` starts there and permits failover only on a
 transient error, and `adaptive` may choose from the primary plus the profile's
