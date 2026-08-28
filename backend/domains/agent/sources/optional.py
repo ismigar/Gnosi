@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Coroutine
-from typing import Any, TypeVar
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeVar, cast
 
 from backend.domains.agent.sources.scopes import (
     MAX_EXCERPT_CHARS,
@@ -115,7 +115,8 @@ def _meeting_pages(scope: dict[str, Any]) -> list[Any]:
     start = scope.get("date_from") or ""
     end = scope.get("date_to") or ""
     pages = []
-    for page in _get_pages_snapshot():
+    read_pages = cast(Callable[[], list[Any]], _get_pages_snapshot)
+    for page in read_pages():
         metadata = dict(getattr(page, "metadata", {}) or {})
         title = str(getattr(page, "title", "") or metadata.get("title") or "")
         if metadata.get("icon") != "🎙️" and not title.startswith(("Acta —", "Minutes —")):
