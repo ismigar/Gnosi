@@ -7,7 +7,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Optional, cast
 
 from langgraph.errors import GraphRecursionError
 
@@ -42,11 +42,14 @@ def _failure_reason(
 ) -> Optional[str]:
     if isinstance(error, (SessionBusyError, TimeoutError, GraphRecursionError)):
         return None
-    return record_failure(
-        provider,
-        model_id,
-        error,
-        scope_key=reliability_scope,
+    return cast(
+        Optional[str],
+        record_failure(
+            provider,
+            model_id,
+            error,
+            scope_key=reliability_scope,
+        ),
     )
 
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.tools import StructuredTool
 
@@ -74,9 +74,12 @@ def build_notebook_context_tools(
             ),
             limit=max(1, min(int(limit), 50)),
         )
-        return wrap_untrusted(
-            f"Grounded notebook {ref['label']} search results",
-            json.dumps(payload, ensure_ascii=False, default=str),
+        return cast(
+            str,
+            wrap_untrusted(
+                f"Grounded notebook {ref['label']} search results",
+                json.dumps(payload, ensure_ascii=False, default=str),
+            ),
         )
 
     def read_notebook_context_evidence(chunk_id: str, source_id: str = "") -> str:
@@ -94,9 +97,12 @@ def build_notebook_context_tools(
                 else None
             ),
         )
-        return wrap_untrusted(
-            f"Grounded notebook {ref['label']} exact evidence",
-            json.dumps(payload, ensure_ascii=False, default=str),
+        return cast(
+            str,
+            wrap_untrusted(
+                f"Grounded notebook {ref['label']} exact evidence",
+                json.dumps(payload, ensure_ascii=False, default=str),
+            ),
         )
 
     def start_notebook_context_analysis(request: str, source_id: str = "") -> str:
@@ -142,9 +148,12 @@ def build_notebook_context_tools(
             revision=int(ref["scope"]["revision"]),
             include_result=True,
         )
-        return wrap_untrusted(
-            f"Grounded notebook {ref['label']} whole-notebook analysis",
-            json.dumps(payload, ensure_ascii=False, default=str)[:120_000],
+        return cast(
+            str,
+            wrap_untrusted(
+                f"Grounded notebook {ref['label']} whole-notebook analysis",
+                json.dumps(payload, ensure_ascii=False, default=str)[:120_000],
+            ),
         )
 
     return [

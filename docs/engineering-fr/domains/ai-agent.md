@@ -4,6 +4,8 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
+  - backend/domains/agent
+  - backend/domains/configuration/agent
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -26,6 +28,7 @@ tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_turn_contract.py
+  - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_context_sources.py
   - backend/tests/test_agent_skill_runtime.py
@@ -73,6 +76,13 @@ sequenceDiagram
     Graph->>Catalog: Validate tool effect and confirmation
     Graph-->>Chat: Ordered events and final response
 ```
+
+Les imports historiques d'Agent restent disponibles au moyen de façades de
+compatibilité étroites, tandis que le paquet de domaine gère le contexte, les
+outils internes, les contrats de preuve et de citation, l'état des flux, les
+confirmations, les sessions et les routes. Le catalogue et la gouvernance des
+agents suivent le même modèle dans le domaine de configuration, sans modifier
+l'ordre des routes ni les identifiants d'opération.
 
 Le routeur modèle résout les combinaisons fournisseur/modèle, les limites de contexte, le support des outils, les plafonds de dépenses et la politique de repli. Les pouvoirs sont obtenus à partir de stockage secret local ou de migration d'environnement supporté, non exposés à la frontend. Les raisons de défaillance sont enregistrées séparément des réponses orientées vers l'utilisateur afin que les opérateurs puissent distinguer le temps de fermeture, le rejet du fournisseur, les pouvoirs non valides, le débordement de contexte et l'incompatibilité des outils.
 

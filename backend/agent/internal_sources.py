@@ -118,7 +118,7 @@ def _request_scope() -> Dict[str, str]:
     """Resolve the authenticated chat execution scope or fail closed."""
     from backend.agent.action_confirmations import current_confirmation_scope
 
-    return current_confirmation_scope()
+    return cast(Dict[str, str], current_confirmation_scope())
 
 
 def _workspace_id() -> str:

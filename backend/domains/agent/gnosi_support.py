@@ -9,7 +9,7 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, cast
 
-import yaml  # type: ignore[import-untyped]  # Third-party package has no stubs.
+import yaml
 
 from backend.services.content_revision import tree_revision
 from backend.utils.safe_io import safe_write_bytes, safe_write_text
@@ -46,13 +46,16 @@ def _confirmation(
     from backend.agent.action_confirmations import request_confirmation
 
     prefix = f"chat.confirmations.actions.{action}"
-    return request_confirmation(
-        action,
-        arguments,
-        title_key=f"{prefix}.title",
-        summary_key=f"{prefix}.summary",
-        details=details,
-        destructive=destructive,
+    return cast(
+        str,
+        request_confirmation(
+            action,
+            arguments,
+            title_key=f"{prefix}.title",
+            summary_key=f"{prefix}.summary",
+            details=details,
+            destructive=destructive,
+        ),
     )
 
 
@@ -69,7 +72,7 @@ def _confirmation_scope() -> Dict[str, str]:
     """Return the authenticated workspace bound to the current chat turn."""
     from backend.agent.action_confirmations import current_confirmation_scope
 
-    return current_confirmation_scope()
+    return cast(Dict[str, str], current_confirmation_scope())
 
 
 def _workspace_id() -> str:
@@ -321,7 +324,7 @@ def _resolve_page(identifier: str) -> Optional[Path]:
     lowered = needle.casefold()
     indexed = path_resolver.find_path(needle, _vault())
     if indexed:
-        return indexed
+        return cast(Path, indexed)
     title_match = None
     for path in _page_files():
         try:

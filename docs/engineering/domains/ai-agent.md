@@ -4,6 +4,8 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
+  - backend/domains/agent
+  - backend/domains/configuration/agent
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -31,6 +33,7 @@ tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_turn_contract.py
+  - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_context_sources.py
   - backend/tests/test_agent_skill_runtime.py
@@ -79,6 +82,13 @@ sequenceDiagram
     Graph->>Catalog: Validate tool effect and confirmation
     Graph-->>Chat: Ordered events and final response
 ```
+
+Legacy Agent imports remain available through narrow compatibility facades,
+while the domain package owns context matching and storage, first-party tool
+dispatch, evidence and citation contracts, stream state, confirmations,
+sessions, and route composition. Agent catalog and governance routes use the
+same pattern under the configuration domain, preserving route order and
+operation identifiers.
 
 The model router resolves provider/model combinations, context limits, tool
 support, spend caps, and fallback policy. Credentials are obtained from local

@@ -4,6 +4,8 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
+  - backend/domains/agent
+  - backend/domains/configuration/agent
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -15,6 +17,7 @@ tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_chat_safety.py
+  - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_agent_action_confirmations.py
@@ -55,6 +58,13 @@ sequenceDiagram
     Graph->>Catalog: Validate tool effect and confirmation
     Graph-->>Chat: Ordered events and final response
 ```
+
+Las importaciones históricas de Agent siguen disponibles mediante fachadas de
+compatibilidad estrechas, mientras que el paquete de dominio gestiona el
+contexto, las herramientas propias, la evidencia y las citas, el estado del
+flujo, las confirmaciones, las sesiones y las rutas. El catálogo y la gobernanza
+de agentes siguen el mismo patrón en el dominio de configuración, sin cambiar
+el orden de las rutas ni los identificadores de operación.
 
 El router de modelo resuelve combinaciones de proveedores/modelos, límites de contexto, soporte de herramientas, límites de gasto y política de reserva. Las credenciales se obtienen de la migración de entornos de almacenamiento secreto local o soportado, no expuesta a la interfaz. Las razones de fallo se registran por separado de las respuestas orientadas al usuario para que los operadores puedan distinguir el tiempo de espera, el rechazo del proveedor, las credenciales inválidas, el desbordamiento de contexto y la incompatibilidad de la herramienta.
 

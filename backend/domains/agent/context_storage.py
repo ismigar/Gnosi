@@ -213,7 +213,7 @@ def _read_vault_ref(ref: Dict[str, Any]) -> str:
 def _read_url_ref(ref: Dict[str, Any]) -> str:
     from backend.agent.web_context import fetch_url_text, wrap_untrusted
 
-    return wrap_untrusted(ref["ref"], fetch_url_text(ref["ref"]))
+    return cast(str, wrap_untrusted(ref["ref"], fetch_url_text(ref["ref"])))
 
 
 def _read_external_ref(ref: Dict[str, Any]) -> str:
@@ -234,9 +234,12 @@ def _read_internal_ref(ref: Dict[str, Any]) -> str:
     from backend.agent.internal_sources import describe_internal_source
     from backend.agent.web_context import wrap_untrusted
 
-    return wrap_untrusted(
-        f"Gnosi {ref['label']} inventory",
-        describe_internal_source(ref["ref"], ref.get("scope") or {}),
+    return cast(
+        str,
+        wrap_untrusted(
+            f"Gnosi {ref['label']} inventory",
+            describe_internal_source(ref["ref"], ref.get("scope") or {}),
+        ),
     )
 
 

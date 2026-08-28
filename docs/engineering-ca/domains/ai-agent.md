@@ -4,6 +4,8 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
+  - backend/domains/agent
+  - backend/domains/configuration/agent
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -15,6 +17,7 @@ tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_chat_safety.py
+  - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_agent_action_confirmations.py
@@ -55,6 +58,13 @@ sequenceDiagram
     Graph->>Catalog: Validate tool effect and confirmation
     Graph-->>Chat: Ordered events and final response
 ```
+
+Les importacions històriques d'Agent continuen disponibles mitjançant façanes
+de compatibilitat estretes, mentre que el paquet de domini gestiona el context,
+les eines pròpies, l'evidència i les citacions, l'estat del flux, les
+confirmacions, les sessions i les rutes. El catàleg i la governança d'agents
+segueixen el mateix patró dins del domini de configuració, sense alterar l'ordre
+de les rutes ni els identificadors d'operació.
 
 L' encaminador de models resol combinacions de proveïdor/ model, límits de context, suport d' eines, despeses i política de reserva. S' obtindran les Credives del magatzem secret local o la migració d' entorn suportat, no es mostren al frontal. Les raons de suport per separat es registra de les respostes d' usuari per a distingir els operadors, el rebuig, les credencials del proveïdor, el context i l' eina en lacompatibilitat.
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from langchain_core.tools import StructuredTool
 
@@ -44,7 +44,7 @@ def build_reader_context_tools(reader_ref: dict[str, Any]) -> list[Any]:
         from backend.agent.internal_sources import describe_internal_source
 
         payload = describe_internal_source("reader", reader_ref.get("scope") or {})
-        return wrap_untrusted("Gnosi Reader inventory", payload)
+        return cast(str, wrap_untrusted("Gnosi Reader inventory", payload))
 
     def search_reader_context(
         query: str = "",
@@ -77,9 +77,12 @@ def build_reader_context_tools(reader_ref: dict[str, Any]) -> list[Any]:
             offset=offset,
         )
         payload = _reader_search(scope, query)
-        return wrap_untrusted(
-            "Gnosi Reader filtered search",
-            json.dumps(payload, ensure_ascii=False, default=str),
+        return cast(
+            str,
+            wrap_untrusted(
+                "Gnosi Reader filtered search",
+                json.dumps(payload, ensure_ascii=False, default=str),
+            ),
         )
 
     def read_reader_context_article(
@@ -100,9 +103,12 @@ def build_reader_context_tools(reader_ref: dict[str, Any]) -> list[Any]:
             content_offset=content_offset,
             content_limit=content_limit,
         )
-        return wrap_untrusted(
-            f"Gnosi Reader article {article_id}",
-            json.dumps(payload, ensure_ascii=False, default=str),
+        return cast(
+            str,
+            wrap_untrusted(
+                f"Gnosi Reader article {article_id}",
+                json.dumps(payload, ensure_ascii=False, default=str),
+            ),
         )
 
     def start_reader_context_analysis(
@@ -148,7 +154,7 @@ def build_reader_context_tools(reader_ref: dict[str, Any]) -> list[Any]:
                 "The Reader analysis is outside the collection attached to this turn."
             )
         result = read_result(get_active_vault_path(), job_id) if include_result else status
-        return result
+        return cast(dict[str, Any], result)
 
     def reader_context_analysis_status(job_id: str) -> str:
         """Return progress for a durable analysis of the attached Reader collection."""
@@ -157,9 +163,12 @@ def build_reader_context_tools(reader_ref: dict[str, Any]) -> list[Any]:
     def read_reader_context_analysis(job_id: str) -> str:
         """Read a completed attached-Reader analysis with article-id evidence."""
         payload = _reader_job(job_id, include_result=True)
-        return wrap_untrusted(
-            f"Gnosi Reader analysis {job_id}",
-            json.dumps(payload, ensure_ascii=False, default=str)[:120_000],
+        return cast(
+            str,
+            wrap_untrusted(
+                f"Gnosi Reader analysis {job_id}",
+                json.dumps(payload, ensure_ascii=False, default=str)[:120_000],
+            ),
         )
 
     return [

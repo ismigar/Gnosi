@@ -161,7 +161,7 @@ def _prepare_index_title_replacements(message: str) -> Optional[Dict[str, Any]]:
     )
     event = confirmation_event(result)
     if event:
-        return event
+        return cast(Dict[str, Any], event)
     try:
         payload = json.loads(result)
     except (TypeError, ValueError):
