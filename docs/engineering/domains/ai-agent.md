@@ -649,6 +649,9 @@ through loader caches, dynamic JSON schemas, learning-loop results and sandbox
 resource callbacks. Untrusted schema payloads are narrowed before Pydantic
 model creation; these annotations document the existing subprocess contract
 without weakening validation or moving execution into the application process.
+The approval-registry provider constructs validated `ToolDescriptor` instances
+directly and exposes a signature-preserving lazy callable, so catalog policy
+and runtime loading share one typed record boundary.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
