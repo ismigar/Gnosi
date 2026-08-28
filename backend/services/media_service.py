@@ -1,8 +1,8 @@
 try:
-    from PIL import Image
+    from PIL import Image as _PILImage
     from PIL.ExifTags import GPSTAGS, TAGS
 except ImportError:
-    Image = None
+    _PILImage = None  # type: ignore[assignment]
 
 import logging
 import os
@@ -24,6 +24,9 @@ from backend.domains.media import scan_cache as _scan_cache_domain
 from backend.domains.media import uploads as _uploads
 from backend.domains.media import views as _views_domain
 from backend.domains.media.types import (
+    MediaInfo as _MediaInfo,
+)
+from backend.domains.media.types import (
     MediaRoots as _MediaRoots,
 )
 from backend.domains.media.types import (
@@ -42,6 +45,14 @@ from backend.services.context_vars import get_active_vault_path
 from backend.utils.safe_io import safe_write_bytes, sanitize_path_segment
 
 log = logging.getLogger(__name__)
+
+
+def _active_vault_path() -> Path:
+    """Return the active vault or fail before attempting filesystem access."""
+    path = get_active_vault_path()
+    if path is None:
+        raise RuntimeError("No active vault is configured")
+    return path
 
 # TTL for the recursive scan cache. On OneDrive with tens of thousands
 # of images the first pass can take minutes; here we keep the result
@@ -98,7 +109,7 @@ class MediaService:
     # reason as _USER_META_FILENAME: user data, inside the vault.
     _VIEWS_FILENAME = "media_views.json"
 
-    def __init__(self):
+    def __init__(self):  # type: ignore[no-untyped-def]  # Legacy introspection contract.
         # We no longer initialize the path here to avoid errors at boot
         self._media_dir_cache = None
         self._scan_cache: _ScanCache = {}
@@ -129,7 +140,7 @@ class MediaService:
 
         return _roots.root_dir(
             root,
-            active_vault_path=lambda: get_active_vault_path(),
+            active_vault_path=_active_vault_path,
             resolve_library=resolve_library_late,
             logger=log,
         )
@@ -171,7 +182,7 @@ class MediaService:
     def _scan_recursive(
         self,
         root: Path,
-        skip_dirs: Optional[set] = None,
+        skip_dirs: Optional[set[str]] = None,
     ) -> Iterator[Tuple[Path, float]]:
         """
                 Recursively walks `root`, emitting (path, mtime) for each file
@@ -183,10 +194,9 @@ class MediaService:
         for root="vault", which must skip .git, .gnosi, BD/, etc.
 
         """
-        typed_skip = _typing.cast(Optional[set[str]], skip_dirs)
         yield from _scan_cache_domain.scan_recursive(
             root,
-            typed_skip,
+            skip_dirs,
             valid_extensions=self._VALID_EXTENSIONS,
             recurse=lambda path, skipped: self._scan_recursive(path, skipped),
             logger=log,
@@ -220,7 +230,7 @@ class MediaService:
     def _scan_with_cache(
         self,
         target_dir: Path,
-        skip_dirs: Optional[set] = None,
+        skip_dirs: Optional[set[str]] = None,
     ) -> List[Tuple[Path, float]]:
         """Returns the index (path, mtime) for `target_dir` with a TTL cache +
         disk persistence to survive container restarts.
@@ -233,7 +243,7 @@ class MediaService:
         return _scan_cache_domain.scan_with_cache(
             self,
             target_dir,
-            _typing.cast(Optional[set[str]], skip_dirs),
+            skip_dirs,
             _SCAN_CACHE_TTL_S,
             lambda: time.time(),
             log,
@@ -249,7 +259,7 @@ class MediaService:
 
     def _user_meta_path(self) -> Optional[Path]:
         return _metadata.user_meta_path(
-            lambda: get_active_vault_path(),
+            _active_vault_path,
             self._USER_META_FILENAME,
             log,
         )
@@ -296,7 +306,7 @@ class MediaService:
 
     def _views_path(self) -> Optional[Path]:
         return _views_domain.views_path(
-            lambda: get_active_vault_path(),
+            _active_vault_path,
             self._VIEWS_FILENAME,
             log,
         )
@@ -359,13 +369,13 @@ class MediaService:
         entries: List[Tuple[Path, float]],
         root: str,
         *,
-        kinds: Optional[set],
-        extensions: Optional[set],
+        kinds: Optional[set[str]],
+        extensions: Optional[set[str]],
         q: Optional[str],
         desc_contains: Optional[str],
-        tags_any: Optional[set],
-        tags_all: Optional[set],
-        tags_none: Optional[set],
+        tags_any: Optional[set[str]],
+        tags_all: Optional[set[str]],
+        tags_none: Optional[set[str]],
         size_min_bytes: Optional[int],
         size_max_bytes: Optional[int],
         mtime_from_ts: Optional[float],
@@ -382,16 +392,16 @@ class MediaService:
 
         """
         return _query.apply_filters_and_sort(
-            self,
+            _typing.cast(_query.QueryService, self),
             entries,
             root,
-            kinds=_typing.cast(Optional[set[str]], kinds),
-            extensions=_typing.cast(Optional[set[str]], extensions),
+            kinds=kinds,
+            extensions=extensions,
             q=q,
             desc_contains=desc_contains,
-            tags_any=_typing.cast(Optional[set[str]], tags_any),
-            tags_all=_typing.cast(Optional[set[str]], tags_all),
-            tags_none=_typing.cast(Optional[set[str]], tags_none),
+            tags_any=tags_any,
+            tags_all=tags_all,
+            tags_none=tags_none,
             size_min_bytes=size_min_bytes,
             size_max_bytes=size_max_bytes,
             mtime_from_ts=mtime_from_ts,
@@ -401,7 +411,7 @@ class MediaService:
         )
 
     @staticmethod
-    def _csv_to_set(value: Optional[str], lower: bool = True) -> Optional[set]:
+    def _csv_to_set(value: Optional[str], lower: bool = True) -> Optional[set[str]]:
         return _query.csv_to_set(value, lower)
 
     def _resolve_album_dir(
@@ -453,7 +463,7 @@ class MediaService:
 
         """
         result = _query.get_all_media(
-            self,
+            _typing.cast(_query.QueryService, self),
             album,
             limit,
             offset,
@@ -509,7 +519,7 @@ class MediaService:
 
         """
         result = _uploads.upload_media(
-            self,
+            _typing.cast(_uploads.UploadService, self),
             file,
             album,
             split_album=lambda value: re.split(r"[\\/]+", value),
@@ -520,15 +530,15 @@ class MediaService:
         return _typing.cast(Dict[str, Any], result)
 
     def _get_exif_data(self, path: Path) -> Dict[str, Any]:
-        if not Image:
+        if not _PILImage:
             return {"date_taken": None, "lat": None, "lng": None}
         result = _uploads.get_exif_data(
             path,
-            image=_typing.cast(_uploads.ImageModule, Image),
+            image=_typing.cast(_uploads.ImageModule, _PILImage),
             tags=_typing.cast(_typing.Mapping[int, str | int], TAGS),
             gps_tags=_typing.cast(_typing.Mapping[int, str | int], GPSTAGS),
             parse_exif_date=lambda value: datetime.strptime(
-                value,
+                _typing.cast(str, value),
                 "%Y:%m:%d %H:%M:%S",
             ).isoformat(),
             convert_degrees=lambda value: self._convert_to_degrees(value),
@@ -536,7 +546,7 @@ class MediaService:
         )
         return _typing.cast(Dict[str, Any], result)
 
-    def _convert_to_degrees(self, value):
+    def _convert_to_degrees(self, value: _typing.Sequence[_uploads.RationalValue]) -> float:
         return _uploads.convert_to_degrees(value)
 
     def _get_file_info(
@@ -544,18 +554,19 @@ class MediaService:
         path: Path,
         fast: bool = False,
         root: str = "images",
-    ) -> Dict[str, Any]:
+    ) -> _MediaInfo:
         result = _uploads.get_file_info(
             _typing.cast(_uploads.FileInfoService, self),
             path,
             fast,
             root,
-            active_vault_path=lambda: get_active_vault_path(),
+            active_vault_path=_active_vault_path,
             media_roots=_typing.cast(_MediaRoots, MEDIA_ROOTS),
             from_timestamp=lambda timestamp: datetime.fromtimestamp(timestamp).isoformat(),
         )
-        return _typing.cast(Dict[str, Any], result)
+        return result
 
 
 # The global instance remains valid since the constructor is now safe
-media_service = MediaService()
+_media_service_factory = _typing.cast(_typing.Callable[[], MediaService], MediaService)
+media_service = _media_service_factory()

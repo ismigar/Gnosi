@@ -99,8 +99,11 @@ sidecars, filters, pagination, the lazy folder tree, contained uploads, EXIF
 extraction, and stable file serialization. `backend/services/media_service.py`
 remains the compatible Python facade: it preserves the historical class,
 singleton, signatures, descriptors, state and errors while resolving mutable
-state and replaceable collaborators late. Domain modules never import the HTTP
-router or the compatibility facade.
+state and replaceable collaborators late. The facade now validates that an
+active vault exists before crossing a filesystem boundary and uses the typed
+media contracts for roots, scans, queries, uploads, EXIF data and serialized
+file information. Domain modules never import the HTTP router or the
+compatibility facade.
 
 Table-scoped storage has explicit owners. `assets/table_paths.py` owns contained
 asset paths, per-property directories, revisions and collision-safe rename
