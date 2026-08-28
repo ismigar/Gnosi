@@ -715,6 +715,9 @@ Confirmed page and table dispatchers apply the same rule to Vault mutation
 seams: each dynamically re-exported handler is narrowed at the call site, while
 conflict detection, partial-result reporting, rollback, and background cleanup
 retain their historical behavior.
+Context storage and the built-in LLM Wiki catalog also narrow their legacy Vault
+readers locally. Plugin lifecycle verification binds a concrete active Vault,
+including in isolated tests, before resolving filesystem-backed configuration.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

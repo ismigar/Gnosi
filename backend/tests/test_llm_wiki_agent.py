@@ -208,13 +208,17 @@ def test_generic_settings_save_cannot_remove_or_unmanage_the_profile():
         validate_agent_preserved(current, edited)
 
 
-def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(monkeypatch):
+def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(
+    monkeypatch,
+    tmp_path,
+):
     """The endpoint must not turn off the feature before the explicit confirm."""
     import asyncio
     from types import SimpleNamespace
 
     from backend.api import vault_routes as vr
     from backend.scheduler import manager as scheduler_module
+    from backend.services.context_vars import active_vault_path
 
     state = {"disabled": [], "settings": {}, "granted": {}}
     transitions = []
@@ -256,7 +260,11 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(monkeyp
         )
         assert result["enabled"] is False
 
-    asyncio.run(scenario())
+    vault_token = active_vault_path.set(tmp_path)
+    try:
+        asyncio.run(scenario())
+    finally:
+        active_vault_path.reset(vault_token)
     assert "llm-wiki" in state["disabled"]
     assert state["enabled_builtin"] == ["resources"]
     assert transitions == [False]

@@ -45,7 +45,8 @@ def _table_pages(table_id: str) -> List[Any]:
     from backend.api.vault_routes import _get_pages_for_table
 
     try:
-        return _get_pages_for_table(table_id) or []
+        list_pages = cast(Callable[[str], List[Any]], _get_pages_for_table)
+        return list_pages(table_id) or []
     except Exception as exc:  # noqa: BLE001
         log.warning("Could not list the pages of table %s: %s", table_id, exc)
         return []
@@ -213,7 +214,7 @@ def _read_vault_ref(ref: Dict[str, Any]) -> str:
 def _read_url_ref(ref: Dict[str, Any]) -> str:
     from backend.agent.web_context import fetch_url_text, wrap_untrusted
 
-    return cast(str, wrap_untrusted(ref["ref"], fetch_url_text(ref["ref"])))
+    return wrap_untrusted(ref["ref"], fetch_url_text(ref["ref"]))
 
 
 def _read_external_ref(ref: Dict[str, Any]) -> str:
@@ -234,12 +235,9 @@ def _read_internal_ref(ref: Dict[str, Any]) -> str:
     from backend.agent.internal_sources import describe_internal_source
     from backend.agent.web_context import wrap_untrusted
 
-    return cast(
-        str,
-        wrap_untrusted(
-            f"Gnosi {ref['label']} inventory",
-            describe_internal_source(ref["ref"], ref.get("scope") or {}),
-        ),
+    return wrap_untrusted(
+        f"Gnosi {ref['label']} inventory",
+        describe_internal_source(ref["ref"], ref.get("scope") or {}),
     )
 
 
