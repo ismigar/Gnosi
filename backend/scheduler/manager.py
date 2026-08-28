@@ -4,34 +4,18 @@ Scheduler Manager: Manages scheduled tasks using APScheduler.
 
 import json
 import os
-from pathlib import Path
-from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, asdict
 import threading
+from dataclasses import asdict
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, TextIO, cast
+
 from backend.config.app_config import load_params
 from backend.data.management_db import get_mgmt_session
 from backend.models.scheduler import TaskExecutionHistory
 from backend.scheduler import task_handlers as scheduler_task_handlers
-
-# Try to import notification service from skills
-try:
-    from pipeline.skills.notification_service.scripts.notification_service import notify
-except ImportError:
-    # Fallback if skill is not available or path issues
-    def notify(title, message, level="INFO", workspace_id="default"):
-        pass
-
-
-@dataclass
-class ScheduledTask:
-    name: str
-    description: str
-    interval_minutes: float
-    enabled: bool
-    last_run: Optional[str] = None
-    next_run: Optional[str] = None
-    status: str = "idle"  # idle, running, success, error
+from backend.scheduler.contracts import ScheduledTask, TaskSpec
+from backend.scheduler.notifications import notify
 
 
 class SchedulerManager:
@@ -40,7 +24,7 @@ class SchedulerManager:
     Uses a simple file-based persistence for task configurations.
     """
 
-    AVAILABLE_TASKS = {
+    AVAILABLE_TASKS: dict[str, TaskSpec] = {
         "fetch_feeds": {
             "description": "Fetch RSS/YouTube feeds",
             "default_interval": 120,  # 2 hours
@@ -126,7 +110,7 @@ class SchedulerManager:
         },
     }
 
-    TASK_PLUGIN_REQUIREMENTS = {
+    TASK_PLUGIN_REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "fetch_feeds": ("feeds-reader",),
         "fetch_newsletters": ("feeds-reader",),
         "generate_podcast": ("feeds-reader", "ai-platform"),
@@ -141,7 +125,7 @@ class SchedulerManager:
         "run_capability_automations": ("automations", "ai-platform"),
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         cfg = load_params(strict_env=False)
         self.config_path = cfg.paths.get("SCHEDULER")
 
@@ -161,16 +145,16 @@ class SchedulerManager:
                 except Exception:
                     pass
 
-        self._tasks: Dict[str, ScheduledTask] = {}
+        self._tasks: dict[str, ScheduledTask] = {}
         self._running = False
-        self._thread: Optional[threading.Thread] = None
-        self._lock_file = None  # held while scheduler owns the singleton mutex
+        self._thread: threading.Thread | None = None
+        self._lock_file: TextIO | None = None
         self._degraded = False  # True if we start up without being able to read any source
 
         self._load_config()
 
     @staticmethod
-    def _try_read_tasks(path) -> Optional[Dict[str, Any]]:
+    def _try_read_tasks(path: Path | None) -> dict[str, Any] | None:
         """Reads and parses a task config file.
 
         Returns the dict {name: task_data} if the file exists, is readable, and
@@ -213,7 +197,7 @@ class SchedulerManager:
                 updated = True
         return updated
 
-    def _load_config(self):
+    def _load_config(self) -> None:
         """Loads the scheduler config resiliently.
 
         Preference order:
@@ -269,7 +253,7 @@ class SchedulerManager:
             log.info("⏰ Scheduler: no configuration found; creating defaults.")
             self._init_default_tasks(persist=True)
 
-    def _init_default_tasks(self, persist: bool = True):
+    def _init_default_tasks(self, persist: bool = True) -> None:
         """Initialize with default tasks (all disabled).
 
         `persist=False` leaves the defaults in memory only — used in degraded
@@ -286,7 +270,7 @@ class SchedulerManager:
         if persist:
             self._save_config()
 
-    def _save_config(self):
+    def _save_config(self) -> None:
         """Persists the config to the vault and ALWAYS to the local mirror.
 
         In degraded mode we do NOT write to the vault (we preserve the existing file
@@ -312,7 +296,7 @@ class SchedulerManager:
 
         self._save_mirror(data)
 
-    def _save_mirror(self, data: Optional[Dict[str, Any]] = None):
+    def _save_mirror(self, data: dict[str, Any] | None = None) -> None:
         """Writes the local mirror (always readable; immune to OneDrive)."""
         if not self.local_mirror_path:
             return
@@ -329,16 +313,16 @@ class SchedulerManager:
                 f"Failed to save scheduler mirror to {self.local_mirror_path}: {e}"
             )
 
-    def get_tasks(self) -> List[Dict[str, Any]]:
+    def get_tasks(self) -> list[dict[str, Any]]:
         """Get all scheduled tasks."""
         return [asdict(task) for task in self._tasks.values()]
 
-    def get_task(self, name: str) -> Optional[Dict[str, Any]]:
+    def get_task(self, name: str) -> dict[str, Any] | None:
         """Get a specific task."""
         task = self._tasks.get(name)
         return asdict(task) if task else None
 
-    def start(self):
+    def start(self) -> None:
         """Start the background scheduler thread."""
         from backend.config.logger_config import get_logger
 
@@ -352,8 +336,11 @@ class SchedulerManager:
         # host from racing on the same tasks (duplicate mail fetches, racing
         # filesystem cleanups, etc.). For a multi-host deployment this would
         # need to be replaced with a distributed lock (Redis, DB advisory).
+        fcntl: Any
         try:
-            import fcntl
+            import fcntl as fcntl_module
+
+            fcntl = fcntl_module
         except ImportError:
             fcntl = None  # Non-POSIX; fall back to in-process singleton only.
 
@@ -391,7 +378,7 @@ class SchedulerManager:
         self._thread.start()
         log.info("✅ SchedulerManager thread started.")
 
-    def _run_loop(self):
+    def _run_loop(self) -> None:
         """Main scheduler loop."""
         import time
         from backend.config.logger_config import get_logger
@@ -423,7 +410,7 @@ class SchedulerManager:
 
             time.sleep(60)  # Check every minute
 
-    def update_task(self, name: str, interval_minutes: float, enabled: bool) -> Dict[str, Any]:
+    def update_task(self, name: str, interval_minutes: float, enabled: bool) -> dict[str, Any]:
         """Update a task's configuration."""
         if name not in self._tasks:
             raise ValueError(f"Task '{name}' not found")
@@ -436,7 +423,7 @@ class SchedulerManager:
 
         return {"success": True, "task": asdict(task)}
 
-    def clear_all_history(self) -> Dict[str, Any]:
+    def clear_all_history(self) -> dict[str, Any]:
         """Clear the execution history of all tasks."""
         for task in self._tasks.values():
             task.last_run = None
@@ -456,7 +443,7 @@ class SchedulerManager:
 
         return {"success": True, "message": "Scheduler history cleared"}
 
-    def run_task_now(self, name: str) -> Dict[str, Any]:
+    def run_task_now(self, name: str) -> dict[str, Any]:
         """Run a task immediately."""
         if name not in self._tasks:
             raise ValueError(f"Task '{name}' not found")
@@ -468,7 +455,8 @@ class SchedulerManager:
         # "quiet" tasks (e.g. meeting_reminders, every minute) do NOT emit the
         # start/end notifications: they would flood macOS with bubbles. Their alerts
         # own alerts (if any) are handled by the service itself.
-        quiet = bool(self.AVAILABLE_TASKS.get(name, {}).get("quiet"))
+        task_spec = self.AVAILABLE_TASKS.get(name)
+        quiet = bool(task_spec and task_spec.get("quiet"))
 
         # Log task start
         if not quiet:
@@ -520,16 +508,20 @@ class SchedulerManager:
             if execution_id:
                 try:
                     with get_mgmt_session() as db:
-                        history = (
+                        stored_history = (
                             db.query(TaskExecutionHistory)
                             .filter(TaskExecutionHistory.id == execution_id)
                             .first()
                         )
-                        if history:
-                            history.status = "success"
-                            history.message = msg
-                            history.finished_at = datetime.now(timezone.utc)
-                            history.duration_seconds = duration
+                        if stored_history:
+                            setattr(stored_history, "status", "success")
+                            setattr(stored_history, "message", msg)
+                            setattr(
+                                stored_history,
+                                "finished_at",
+                                datetime.now(timezone.utc),
+                            )
+                            setattr(stored_history, "duration_seconds", duration)
                             db.commit()
                 except Exception as _e:
                     # Don't crash the scheduler over a bookkeeping error,
@@ -554,15 +546,19 @@ class SchedulerManager:
             if execution_id:
                 try:
                     with get_mgmt_session() as db:
-                        history = (
+                        stored_history = (
                             db.query(TaskExecutionHistory)
                             .filter(TaskExecutionHistory.id == execution_id)
                             .first()
                         )
-                        if history:
-                            history.status = "error"
-                            history.message = error_msg
-                            history.finished_at = datetime.now(timezone.utc)
+                        if stored_history:
+                            setattr(stored_history, "status", "error")
+                            setattr(stored_history, "message", error_msg)
+                            setattr(
+                                stored_history,
+                                "finished_at",
+                                datetime.now(timezone.utc),
+                            )
                             db.commit()
                 except Exception as _e:
                     # Don't crash the scheduler over a bookkeeping error,
@@ -594,7 +590,7 @@ class SchedulerManager:
             detail = error or result.get("message") or "Task returned an unsuccessful result"
             raise RuntimeError(str(detail))
 
-    def _task_publish_scheduled_social(self) -> Dict[str, Any]:
+    def _task_publish_scheduled_social(self) -> dict[str, Any]:
         """Publishes scheduled social posts that are already due.
 
         Reuses the async endpoint `process_scheduled_posts`. The job runs in a
@@ -606,8 +602,9 @@ class SchedulerManager:
         from fastapi import BackgroundTasks
         from backend.api.social_routes import process_scheduled_posts
 
-        def _runner():
-            return asyncio.run(process_scheduled_posts(BackgroundTasks()))
+        def _runner() -> dict[str, Any]:
+            result = asyncio.run(process_scheduled_posts(BackgroundTasks()))
+            return cast(dict[str, Any], result)
 
         try:
             return _runner()
@@ -617,7 +614,7 @@ class SchedulerManager:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
                 return ex.submit(_runner).result()
 
-    def _task_run_capability_automations(self) -> Dict[str, Any]:
+    def _task_run_capability_automations(self) -> dict[str, Any]:
         """Execute the bounded snapshot of due governed automations."""
         import asyncio
 
@@ -625,7 +622,7 @@ class SchedulerManager:
 
         return asyncio.run(run_due_automations())
 
-    def _execute_task(self, name: str) -> Dict[str, Any]:
+    def _execute_task(self, name: str) -> dict[str, Any]:
         """Execute a specific task."""
         from backend.api.vault_routes import _load_plugins_state
         from backend.services import builtin_plugins
@@ -637,7 +634,7 @@ class SchedulerManager:
             builtin_plugins.is_enabled,
         )
 
-    def _task_purge_trash(self) -> Dict[str, Any]:
+    def _task_purge_trash(self) -> dict[str, Any]:
         """Purges Vault trash entries older than 90 days.
 
         The logic lives in `backend/api/vault_routes.py::purge_expired_trash`
@@ -646,9 +643,10 @@ class SchedulerManager:
         """
         from backend.api.vault_routes import purge_expired_trash
 
-        return purge_expired_trash()
+        callback = cast(Callable[[], dict[str, Any]], purge_expired_trash)
+        return callback()
 
-    def _task_materialize_view_snapshots(self) -> Dict[str, Any]:
+    def _task_materialize_view_snapshots(self) -> dict[str, Any]:
         """Materializes view snapshots into the markdown across the whole vault
         so the migration is real (views = tables/lists navigable without
         Gnosi). Only rewrites pages with a stale snapshot.
@@ -659,9 +657,10 @@ class SchedulerManager:
         """
         from backend.api.vault_routes import refresh_view_snapshots
 
-        return refresh_view_snapshots()
+        callback = cast(Callable[[], dict[str, Any]], refresh_view_snapshots)
+        return callback()
 
-    def _task_meeting_reminders(self) -> Dict[str, Any]:
+    def _task_meeting_reminders(self) -> dict[str, Any]:
         """Scans upcoming meetings and sends alerts with an AI-generated agenda.
 
         The logic lives in `backend/services/meeting_reminders.py`. "quiet" task:
@@ -672,41 +671,43 @@ class SchedulerManager:
 
         return scan_and_notify()
 
-    def _task_fetch_mail(self) -> Dict[str, Any]:
+    def _task_fetch_mail(self) -> dict[str, Any]:
         """Sync mail from all configured accounts (Gmail + IMAP)."""
         return scheduler_task_handlers.fetch_mail()
 
-    def _task_fetch_contacts(self) -> Dict[str, Any]:
+    def _task_fetch_contacts(self) -> dict[str, Any]:
         """Fetch Contacts from all configured accounts."""
         return scheduler_task_handlers.fetch_contacts()
 
-    def _task_fetch_feeds(self) -> Dict[str, Any]:
+    def _task_fetch_feeds(self) -> dict[str, Any]:
         """Fetch RSS/YouTube feeds and store new articles."""
         from backend.services.feed_ingester import fetch_and_store_feeds
 
         count = fetch_and_store_feeds()
         return {"new_articles": int(count or 0)}
 
-    def _task_fetch_newsletters(self) -> Dict[str, Any]:
+    def _task_fetch_newsletters(self) -> dict[str, Any]:
         """Fetch POP3 newsletters and store new articles."""
         from backend.services.mail_ingester import fetch_and_store_newsletters
 
         count = fetch_and_store_newsletters()
         return {"new_articles": int(count or 0)}
 
-    def _task_generate_podcast(self) -> Dict[str, Any]:
+    def _task_generate_podcast(self) -> dict[str, Any]:
         """Generate the daily podcast from unread articles."""
         from backend.services.audio_summarizer import generate_daily_podcast
 
         filename = generate_daily_podcast()
         return {"filename": filename, "generated": bool(filename)}
 
-    def _task_llm_wiki_maintenance(self) -> Dict[str, Any]:
+    def _task_llm_wiki_maintenance(self) -> dict[str, Any]:
         """Rebuild managed Brain indexes without invoking an LLM."""
         from backend.api.vault_routes import _llm_wiki_enabled, _load_plugins_state
         from backend.services import llm_wiki_config, llm_wiki_indices, llm_wiki_lint
 
-        if not _llm_wiki_enabled(_load_plugins_state()):
+        is_enabled = cast(Callable[[dict[str, Any]], bool], _llm_wiki_enabled)
+        load_plugins_state = cast(Callable[[], dict[str, Any]], _load_plugins_state)
+        if not is_enabled(load_plugins_state()):
             return {"skipped": True, "reason": "plugin_disabled"}
         config = llm_wiki_config.load_config()
         brain_table_id = str(config.get("brain_table_id") or "")
@@ -722,7 +723,7 @@ class SchedulerManager:
             "lint": llm_wiki_lint.run_lint(brain_table_id, source_ids),
         }
 
-    def _task_academic_repository_sync(self) -> Dict[str, Any]:
+    def _task_academic_repository_sync(self) -> dict[str, Any]:
         """Queue due incremental OAI harvests without blocking the scheduler."""
         from backend.services.literature_service import enqueue_due_syncs
 
@@ -732,24 +733,26 @@ class SchedulerManager:
             "message": f"Queued {queued} academic repository synchronizations.",
         }
 
-    def _task_academic_review_updates(self) -> Dict[str, Any]:
+    def _task_academic_review_updates(self) -> dict[str, Any]:
         """Queue due saved review strategies without blocking the scheduler."""
         from backend.services.literature_service import enqueue_due_review_updates
 
         queued = enqueue_due_review_updates()
         return {"queued": queued, "message": f"Queued {queued} literature review updates."}
 
-    def _task_system_maintenance(self) -> Dict[str, Any]:
+    def _task_system_maintenance(self) -> dict[str, Any]:
         """Comprehensive system cleanup: logs, mailbox, sandbox, and caches."""
         return scheduler_task_handlers.system_maintenance()
 
-    def _task_suggest_connections(self) -> Dict[str, Any]:
+    def _task_suggest_connections(self) -> dict[str, Any]:
         """Generate proposals in the canonical Brain connection queue."""
 
         from backend.api.vault_routes import _llm_wiki_enabled, _load_plugins_state
         from backend.services.llm_wiki_actions import run_maintenance
 
-        if not _llm_wiki_enabled(_load_plugins_state()):
+        is_enabled = cast(Callable[[dict[str, Any]], bool], _llm_wiki_enabled)
+        load_plugins_state = cast(Callable[[], dict[str, Any]], _load_plugins_state)
+        if not is_enabled(load_plugins_state()):
             return {
                 "success": True,
                 "skipped": True,
@@ -762,18 +765,18 @@ class SchedulerManager:
             **report,
         }
 
-    def _task_fetch_calendar(self) -> Dict[str, Any]:
+    def _task_fetch_calendar(self) -> dict[str, Any]:
         """No-op: hybrid architecture queries the API directly, without syncing to the vault."""
         return {"new_events": 0, "message": "hybrid mode — no vault sync"}
 
-    def _task_update_analytics(self) -> Dict[str, Any]:
+    def _task_update_analytics(self) -> dict[str, Any]:
         """Update cached analytics."""
         from backend.agent.generated_tools.registry import registry
 
         stats = registry.get_stats()
         return {"stats": stats}
 
-    def _task_update_memories(self) -> Dict[str, Any]:
+    def _task_update_memories(self) -> dict[str, Any]:
         """Refresh the graph response and analytics without invoking an LLM."""
         return scheduler_task_handlers.update_memories(self._task_update_analytics)
 

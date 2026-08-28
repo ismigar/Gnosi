@@ -4,6 +4,8 @@ last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/contracts.py
+  - backend/scheduler/notifications.py
   - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
@@ -11,6 +13,7 @@ source_paths:
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
@@ -25,6 +28,11 @@ tests:
 The scheduler executes configured recurring and one-shot tasks, records history,
 exposes operational state, and coordinates domain jobs such as synchronization,
 publishing, ingestion, maintenance, and planning refresh.
+
+Scheduler task metadata, persisted runtime state, and the optional notification
+boundary are strictly typed in dedicated modules. The manager remains below the
+source-size guardrail and validates legacy persisted task dictionaries before
+constructing runtime tasks.
 
 ## Task model
 

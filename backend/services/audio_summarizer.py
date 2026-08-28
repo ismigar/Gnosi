@@ -46,8 +46,7 @@ LANGUAGE_REQUIREMENT_TEMPLATE = (
 SYSTEM_PROMPT_TEMPLATE = (
     "You are an intelligent podcast assistant. "
     "Write exclusively the text that will be read literally out loud, "
-    "without adding notes, section titles, or meta-comments. "
-    + LANGUAGE_REQUIREMENT_TEMPLATE
+    "without adding notes, section titles, or meta-comments. " + LANGUAGE_REQUIREMENT_TEMPLATE
 )
 
 PODCAST_LANGUAGES = {
@@ -67,9 +66,7 @@ def _build_batches(articles):
     for art in articles:
         source_name = art.source.name if art.source else "Unknown"
         snippet = art.content[:MAX_SNIPPET_CHARS] if art.content else ""
-        article_text = (
-            f"Source: {source_name}\nTitle: {art.title}\nContent: {snippet}\n\n"
-        )
+        article_text = f"Source: {source_name}\nTitle: {art.title}\nContent: {snippet}\n\n"
 
         if current_size + len(article_text) > MAX_BATCH_CHARS:
             if current_batch_texts:
@@ -190,9 +187,7 @@ def _summarize_batch(
     """Send one article batch to the configured LLM and return its script."""
     joined = "\n".join(batch_texts)
     num_articles = len(batch_texts)
-    language_requirement = LANGUAGE_REQUIREMENT_TEMPLATE.format(
-        language_name=language_name
-    )
+    language_requirement = LANGUAGE_REQUIREMENT_TEMPLATE.format(language_name=language_name)
 
     if total_batches == 1:
         user_prompt = (
@@ -212,12 +207,12 @@ def _summarize_batch(
             f"ARTICLES:\n{joined}"
         )
 
-    response = llm.invoke([
-        SystemMessage(
-            content=SYSTEM_PROMPT_TEMPLATE.format(language_name=language_name)
-        ),
-        HumanMessage(content=user_prompt),
-    ])
+    response = llm.invoke(
+        [
+            SystemMessage(content=SYSTEM_PROMPT_TEMPLATE.format(language_name=language_name)),
+            HumanMessage(content=user_prompt),
+        ]
+    )
     content = getattr(response, "content", "") or ""
     if not isinstance(content, str):
         content = str(content)
@@ -306,11 +301,11 @@ def get_podcast_output_dir(vault_path=None):
     return Path(vault_path) / "data" / "podcasts"
 
 
-def generate_daily_podcast():
+def generate_daily_podcast() -> str | None:
     """
     Collect unread articles from the last 24 hours, generate a batched script
     through the configured AI model, and convert it to MP3 audio.
-    
+
     """
     global generation_status
     generation_status["running"] = True
@@ -319,6 +314,7 @@ def generate_daily_podcast():
 
     # Get DB session dynamically
     from backend.data.db import get_db
+
     db_gen = get_db()
     db: Session = next(db_gen)
 
@@ -391,9 +387,7 @@ def generate_daily_podcast():
 
         # 4. Merge all the summaries
         full_script = "\n\n".join(all_summaries)
-        log.info(
-            f"Full script: {len(full_script)} chars ({len(full_script.split())} words)."
-        )
+        log.info(f"Full script: {len(full_script)} chars ({len(full_script.split())} words).")
         generation_status["progress"] = "Generating TTS audio..."
 
         # 5. Generate audio
@@ -422,7 +416,7 @@ def generate_daily_podcast():
     finally:
         # Close the session obtained from the generator
         try:
-            next(db_gen) # This will trigger the generator's 'finally'
+            next(db_gen)  # This will trigger the generator's 'finally'
         except StopIteration:
             pass
         generation_status["running"] = False

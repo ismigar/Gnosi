@@ -4,11 +4,14 @@ last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/contracts.py
+  - backend/scheduler/notifications.py
   - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
@@ -20,6 +23,11 @@ tests:
 ## Responsabilité
 
 Le programmeur exécute des tâches récurrentes et uniques configurées, enregistre l'historique, expose l'état opérationnel et coordonne les tâches de domaine telles que la synchronisation, la publication, l'ingestion, la maintenance et la planification de rafraîchissement.
+
+Les métadonnées des tâches, l'état d'exécution persistant et la frontière de
+notification facultative sont strictement typés dans des modules dédiés. Le
+gestionnaire reste sous la limite de taille et valide les dictionnaires de
+tâches hérités avant de construire les tâches d'exécution.
 
 ## Modèle de tâche
 

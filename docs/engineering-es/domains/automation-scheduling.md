@@ -4,6 +4,8 @@ last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/contracts.py
+  - backend/scheduler/notifications.py
   - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
@@ -11,6 +13,7 @@ source_paths:
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
@@ -23,6 +26,11 @@ tests:
 ## Responsabilidad
 
 El planificador ejecuta tareas recurrentes y de una sola toma configuradas, registra el historial, expone el estado operativo y coordina trabajos de dominio como sincronización, publicación, ingestión, mantenimiento y actualización de planificación.
+
+Los metadatos de tarea, el estado de ejecución persistido y la frontera
+opcional de notificaciones están tipados estrictamente en módulos dedicados. El
+gestor se mantiene bajo el guardrail de tamaño y valida los diccionarios de
+tareas heredados antes de construir tareas de ejecución.
 
 ## Modelo de tareas
 

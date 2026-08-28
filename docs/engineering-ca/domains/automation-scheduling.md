@@ -4,6 +4,8 @@ last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/contracts.py
+  - backend/scheduler/notifications.py
   - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
@@ -11,6 +13,7 @@ source_paths:
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
@@ -23,6 +26,11 @@ tests:
 ## Reversió
 
 El planificador executa tasques recurrents i úniques, registres historial, exposen les tasques operatives, i les coordenades de domini, com ara la sincronització, la publicació, la ingestió, el manteniment i la planificació de refresc.
+
+Les metadades de tasca, l'estat d'execució persistent i la frontera opcional de
+notificacions estan tipats estrictament en mòduls dedicats. El gestor es manté
+per sota del guardrail de mida i valida els diccionaris de tasques heretats
+abans de construir tasques d'execució.
 
 ## Model de tasca
 

@@ -21,15 +21,15 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
 | `platform` | 11 | 1045 |
-| `scheduler` | 3 | 1126 |
+| `scheduler` | 5 | 1184 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 809 |
-| `services` | 148 | 33725 |
+| `services` | 148 | 33719 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **691 modules** and **144583 source lines**.
+Total: **693 modules** and **144635 source lines**.
 
 ## agent
 
@@ -617,7 +617,9 @@ Total: **691 modules** and **144583 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/scheduler/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/__init__.py) | 1 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/scheduler/manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py) | 782 | 2 | 0 | 0 | 1 | Scheduler Manager: Manages scheduled tasks using APScheduler. |
+| [`backend/scheduler/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/contracts.py) | 28 | 2 | 0 | 0 | 2 | Typed scheduler configuration contracts. |
+| [`backend/scheduler/manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py) | 785 | 1 | 0 | 0 | 1 | Scheduler Manager: Manages scheduled tasks using APScheduler. |
+| [`backend/scheduler/notifications.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/notifications.py) | 27 | 0 | 1 | 0 | 1 | Optional scheduler notification boundary. |
 | [`backend/scheduler/task_handlers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/task_handlers.py) | 343 | 1 | 10 | 0 | 6 | Large scheduler task handlers kept outside the lifecycle manager. |
 
 ## scripts
@@ -665,7 +667,7 @@ Total: **691 modules** and **144583 source lines**.
 | [`backend/services/agent_stream_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_stream_protocol.py) | 21 | 0 | 0 | 0 | 0 | Compatibility exports for the agent-domain stream protocol. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
 | [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 714 | 1 | 30 | 0 | 27 | Artificial Analysis model-comparison feed. |
-| [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 456 | 1 | 13 | 0 | 14 | No module docstring |
+| [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 450 | 1 | 13 | 0 | 14 | No module docstring |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 164 | 1 | 4 | 1 | 4 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 636 | 0 | 25 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
 | [`backend/services/builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/builtin_plugins.py) | 253 | 0 | 7 | 0 | 6 | Registry and state rules for Gnosi's optional built-in capabilities. |
