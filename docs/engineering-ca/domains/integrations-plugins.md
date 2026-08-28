@@ -26,6 +26,8 @@ source_paths:
   - extensions/mcp
   - extensions/office
 tests:
+  - backend/tests/test_integration_secret_storage.py
+  - backend/tests/test_keychain_manager.py
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_configuration_plugins_route_contract.py
   - backend/tests/test_plugin_domain_contract.py
@@ -49,6 +51,12 @@ tests:
 ## Reversió
 
 Les Integració connecten els comptes d' usuari i sistemes externs. Els connectors s' expandeixen Gnosi amb contribucions Declatives i amb comportament executables declarats. Els servidors MC contribueixen eines agent a través d' un límit de protocol separat.
+
+La frontera HTTP d'integracions està tipada estrictament sense canviar els
+payloads públics. Les proves de connexió Mail i DAV validen les credencials de
+text obligatòries abans d'obrir sockets. Les URL DAV poden apuntar a xarxes
+privades autoallotjades com Nextcloud, però es bloquegen loopback, link-local,
+multicast, adreces reservades i no especificades.
 
 ## Integració persisteix
 

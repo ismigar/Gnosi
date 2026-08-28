@@ -26,6 +26,8 @@ source_paths:
   - extensions/mcp
   - extensions/office
 tests:
+  - backend/tests/test_integration_secret_storage.py
+  - backend/tests/test_keychain_manager.py
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_configuration_plugins_route_contract.py
   - backend/tests/test_plugin_domain_contract.py
@@ -51,6 +53,12 @@ tests:
 Integrations connect user accounts and external systems. Plugins extend Gnosi
 with declarative contributions and bounded executable behavior. MCP servers
 contribute agent tools through a separate protocol boundary.
+
+The integrations HTTP boundary is strictly typed without changing its public
+payloads. Mail and DAV connection tests validate required string credentials
+before opening sockets. DAV URLs may target private self-hosted networks such
+as Nextcloud, while loopback, link-local, multicast, reserved, and unspecified
+addresses remain blocked.
 
 ## Integration persistence
 

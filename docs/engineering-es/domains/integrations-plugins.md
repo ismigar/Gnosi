@@ -26,6 +26,8 @@ source_paths:
   - extensions/mcp
   - extensions/office
 tests:
+  - backend/tests/test_integration_secret_storage.py
+  - backend/tests/test_keychain_manager.py
   - backend/tests/test_notion_clone.py
   - backend/tests/test_notion_domain_facades.py
   - backend/tests/test_notion_importer.py
@@ -49,6 +51,12 @@ tests:
 ## Responsabilidad
 
 Las integraciones conectan cuentas de usuario y sistemas externos. Los complementos extienden Gnosi con contribuciones declarativas y comportamiento ejecutable limitado. Los servidores MCP aportan herramientas de agente a través de un límite de protocolo separado.
+
+La frontera HTTP de integraciones está tipada estrictamente sin cambiar los
+payloads públicos. Las pruebas de conexión Mail y DAV validan las credenciales
+de texto obligatorias antes de abrir sockets. Las URL DAV pueden apuntar a
+redes privadas autoalojadas como Nextcloud, pero se bloquean loopback,
+link-local, multicast, direcciones reservadas y no especificadas.
 
 ## Persistencia en la integración
 
