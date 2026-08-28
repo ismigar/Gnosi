@@ -1,10 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/mail_routes.py
   - backend/models/mail.py
   - backend/services/hybrid_mail_service.py
+  - backend/services/google_mail_service.py
+  - backend/services/microsoft_mail_service.py
   - backend/services/mail_ingester.py
   - frontend/src/pages/MailPage.jsx
   - frontend/src/components/Mail
@@ -25,6 +27,11 @@ Le courrier intègre les comptes IMAP/SMTP, l'indexation locale des messages, le
 ## Synchronisation
 
 Les intégrations de comptes décrivent les références protocole et OAuth/crédentiel. Une synchronisation complète ou incrémentale lit les messages du fournisseur, normalise les identifiants et le contenu MIME et écrit des lignes d'index locales. Les travailleurs d'IMAP IDLE détiennent une connexion par compte éligible et déclenchent un rafraîchissement incrémental lorsque le serveur annonce des changements.
+
+Les adaptateurs Google et Microsoft exposent les mêmes frontières typées pour
+les messages, pièces jointes, brouillons, libellés et envois. Les payloads
+dynamiques des SDK sont validés dans chaque adaptateur ; les seules exceptions
+locales concernent les appels tiers exacts sans stubs, jamais l'API Gnosi.
 
 L'ingestion par lots utilise des savepoints afin qu'un message malformé ne puisse pas retourner les messages précédents. L'identité du message et du thread doit rester stable sur les synchronisations répétées. Les noms de dossiers sont des valeurs de fournisseur; l'interface utilisateur traduit les dossiers sémantiques connus sans modifier les valeurs de comparaison persistantes.
 

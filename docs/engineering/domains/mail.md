@@ -1,10 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/mail_routes.py
   - backend/models/mail.py
   - backend/services/hybrid_mail_service.py
+  - backend/services/google_mail_service.py
+  - backend/services/microsoft_mail_service.py
   - backend/services/mail_ingester.py
   - frontend/src/pages/MailPage.jsx
   - frontend/src/components/Mail
@@ -31,6 +33,11 @@ or incremental sync reads provider messages, normalizes identifiers and MIME
 content, and writes local index rows. IMAP IDLE workers hold one connection per
 eligible account and trigger incremental refresh when the server announces
 changes.
+
+Google and Microsoft provider adapters expose the same typed Gnosi message,
+attachment, draft, label, and send boundaries. Dynamic SDK payloads are narrowed
+inside each adapter; the only local typing exceptions are the exact untyped
+third-party discovery calls, never the service API consumed by Gnosi.
 
 Batch ingestion uses savepoints so a malformed message cannot roll back earlier
 messages. Message and thread identity must remain stable across repeated syncs.
