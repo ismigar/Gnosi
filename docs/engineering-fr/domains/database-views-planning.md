@@ -41,6 +41,8 @@ tests:
   - backend/tests/test_view_filter_rename.py
   - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
+  - backend/tests/test_planning_agent_tools.py
+  - backend/tests/test_planning_scheduler.py
   - backend/tests/test_project_planning.py
   - frontend/src/utils/projectPlanning.test.js
   - tests/e2e/tests/e2e/dashboards.spec.ts
@@ -118,6 +120,11 @@ Les éditeurs de propriété de pages utilisent des commandes de champ. `select`
 Les statuts introduits par les règles d'action sont persistés de façon idempotente
 par le domaine des tables. Une erreur du registre est journalisée sans faire
 échouer l'action d'origine.
+
+La frontière HTTP de Planning est strictement typée et conserve le contrat
+OpenAPI figé. La résolution du vault actif échoue explicitement lorsqu'aucun
+vault n'est sélectionné, et la matérialisation des récurrences consomme de façon
+bornée les occurrences RRULE tout en préservant les identifiants et ETags.
 
 ## Planification des projets
 

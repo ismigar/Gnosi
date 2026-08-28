@@ -28,6 +28,8 @@ tests:
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_view_filter_rename.py
   - backend/tests/test_planning_engine.py
+  - backend/tests/test_planning_agent_tools.py
+  - backend/tests/test_planning_scheduler.py
   - backend/tests/test_project_planning.py
   - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
@@ -83,6 +85,11 @@ omisiones, conflictos y errores sin interrumpir las demás filas.
 Los estados introducidos por reglas de acción se persisten de forma idempotente
 desde el dominio de tablas. Un error del registro queda anotado y no hace fallar
 la acción original.
+
+La frontera HTTP de Planning está tipada estrictamente y conserva el contrato
+OpenAPI congelado. La resolución del vault activo falla explícitamente cuando
+no hay uno seleccionado, y la materialización de recurrencias consume de forma
+acotada las ocurrencias RRULE, preservando identificadores estables y ETags.
 
 ## Planificación de proyectos
 

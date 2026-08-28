@@ -41,6 +41,8 @@ tests:
   - backend/tests/test_view_filter_rename.py
   - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
+  - backend/tests/test_planning_agent_tools.py
+  - backend/tests/test_planning_scheduler.py
   - backend/tests/test_project_planning.py
   - frontend/src/utils/projectPlanning.test.js
   - tests/e2e/tests/e2e/dashboards.spec.ts
@@ -164,6 +166,11 @@ panel must preserve the same field type and option semantics.
 Status values introduced by action rules are persisted idempotently through the
 table domain. Registry failures are logged but never turn the originating rule
 into a failed user action.
+
+The Planning HTTP boundary is strictly typed while preserving its frozen
+OpenAPI contract. Active-vault resolution fails explicitly when no vault is
+selected, and recurrence materialization uses bounded iterator consumption for
+RRULE occurrences while preserving stable task identifiers and ETag checks.
 
 ## Project planning
 

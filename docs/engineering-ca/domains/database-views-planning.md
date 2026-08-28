@@ -28,6 +28,8 @@ tests:
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_view_filter_rename.py
   - backend/tests/test_planning_engine.py
+  - backend/tests/test_planning_agent_tools.py
+  - backend/tests/test_planning_scheduler.py
   - backend/tests/test_project_planning.py
   - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
@@ -82,6 +84,11 @@ conflictes i errors sense interrompre la resta de files.
 
 Els estats introduïts per regles d'acció es persisteixen idempotentment des del
 domini de taules. Un error del registre queda al log i no fa fallar l'acció original.
+
+La frontera HTTP de Planning està tipada estrictament i conserva el contracte
+OpenAPI congelat. La resolució del vault actiu falla explícitament si no n'hi ha
+cap de seleccionat, i la materialització de recurrències consumeix de manera
+acotada les ocurrències RRULE, preservant identificadors estables i ETags.
 
 ## Planificació de projecte
 
