@@ -7,11 +7,13 @@ source_paths:
   - backend/api/meeting_routes.py
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
+  - backend/services/hybrid_calendar_service.py
   - frontend/src/pages/CalendarPage.jsx
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
 tests:
   - backend/tests/test_calendar_geocoding_domain.py
+  - backend/tests/test_hybrid_calendar_service.py
   - backend/tests/test_calendar_path_containment.py
   - backend/tests/test_meeting_reminders_race.py
   - tests/e2e/tests/e2e/calendar.spec.ts
@@ -28,6 +30,11 @@ existente. La normalización de etiquetas de Photon, el rechazo de URL, la
 validación de resultados y la deduplicación pertenecen al dominio de
 geocodificación de Calendar, no al módulo de rutas; los payloads de proveedores
 se validan en esa frontera de adaptación.
+
+El servicio híbrido de proveedores está estrictamente tipado y mantiene Google
+como un adaptador junto al CalDAV genérico. La detección de cuentas CalDAV admite
+Nextcloud, iCloud, Fastmail, Radicale y servidores compatibles mediante URL
+configuradas, sin comportamiento ligado al proveedor de almacenamiento.
 
 ## Agregación de eventos
 

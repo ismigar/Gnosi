@@ -7,11 +7,13 @@ source_paths:
   - backend/api/meeting_routes.py
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
+  - backend/services/hybrid_calendar_service.py
   - frontend/src/pages/CalendarPage.jsx
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
 tests:
   - backend/tests/test_calendar_geocoding_domain.py
+  - backend/tests/test_hybrid_calendar_service.py
   - backend/tests/test_calendar_path_containment.py
   - backend/tests/test_meeting_reminders_race.py
   - tests/e2e/tests/e2e/calendar.spec.ts
@@ -30,6 +32,11 @@ The HTTP boundary is strictly typed while preserving the existing response
 contract. Photon label normalization, URL rejection, result validation, and
 deduplication belong to the Calendar geocoding domain rather than the route
 module; provider payloads remain validated at that adapter boundary.
+
+The hybrid provider service is strictly typed and keeps Google as one adapter
+beside generic CalDAV. CalDAV account detection therefore supports Nextcloud,
+iCloud, Fastmail, Radicale and compatible servers through configured URLs,
+without introducing storage-provider-specific workspace behavior.
 
 ## Event aggregation
 

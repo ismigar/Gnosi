@@ -5,12 +5,13 @@ Supported providers:
   - google  → Google Calendar API v3
   - caldav  → any CalDAV server (iCloud, Fastmail, Nextcloud, Radicale…)
 """
+
 import logging
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
-from typing import Optional
 from email.header import decode_header as _raw_decode
+from typing import Any
 
 import requests
 
@@ -20,22 +21,32 @@ log = logging.getLogger(__name__)
 
 # ── Namespaces CalDAV ──────────────────────────────────────────────────────────
 _NS = {
-    "d":   "DAV:",
+    "d": "DAV:",
     "cal": "urn:ietf:params:xml:ns:caldav",
-    "cs":  "http://calendarserver.org/ns/",
-    "oc":  "http://owncloud.org/ns",
+    "cs": "http://calendarserver.org/ns/",
+    "oc": "http://owncloud.org/ns",
 }
+JsonObject = dict[str, Any]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def _get_account(email: str) -> Optional[dict]:
+
+def _get_account(email: str) -> JsonObject | None:
     integrations = integration_manager.get_all_safe()
-    all_accs = integrations.get("calendars", []) + integrations.get("emails", [])
-    return next((a for a in all_accs if (a.get("email") or a.get("username")) == email), None)
+    raw_accounts = integrations.get("calendars", []) + integrations.get("emails", [])
+    return next(
+        (
+            account
+            for account in raw_accounts
+            if isinstance(account, dict)
+            and (account.get("email") or account.get("username")) == email
+        ),
+        None,
+    )
 
 
-def _normalize_dt(val) -> str:
+def _normalize_dt(val: object) -> str:
     """Converts various datetime formats to ISO string."""
     if not val:
         return ""
@@ -53,7 +64,7 @@ def _normalize_dt(val) -> str:
     return s
 
 
-def _ical_prop(component, name: str, default="") -> str:
+def _ical_prop(component: Any, name: str, default: str = "") -> str:
     try:
         val = component.get(name)
         if val is None:
@@ -67,8 +78,10 @@ def _ical_prop(component, name: str, default="") -> str:
 
 # ── Google Calendar ────────────────────────────────────────────────────────────
 
-def _google_service(email: str):
+
+def _google_service(email: str) -> Any:
     from backend.services.google_calendar_service import get_google_calendar_service
+
     return get_google_calendar_service(email)
 
 
@@ -77,14 +90,15 @@ class GoogleAuthExpired(Exception):
 
     It propagates up to the route so the UI can request reconnection instead of
     silently showing an empty list. `email` indicates the affected account.
-    
+
     """
-    def __init__(self, email: str = ""):
+
+    def __init__(self, email: str = "") -> None:
         self.email = email
         super().__init__(email)
 
 
-def google_list_calendars(email: str) -> list[dict]:
+def google_list_calendars(email: str) -> list[JsonObject]:
     """Returns the list of calendars available for a Google account."""
     service = _google_service(email)
     if not service:
@@ -105,7 +119,7 @@ def google_list_calendars(email: str) -> list[dict]:
         ]
     except Exception as e:
         log.error(f"google_list_calendars {email}: {e}")
-        if 'invalid_grant' in str(e).lower() or 'expired or revoked' in str(e).lower():
+        if "invalid_grant" in str(e).lower() or "expired or revoked" in str(e).lower():
             raise GoogleAuthExpired(email)
         return []
 
@@ -114,9 +128,9 @@ def google_list_events(
     email: str,
     time_min: str,
     time_max: str,
-    search: Optional[str] = None,
-    calendar_id: Optional[str] = None,
-) -> list[dict]:
+    search: str | None = None,
+    calendar_id: str | None = None,
+) -> list[JsonObject]:
     """Queries all calendars (or one specific one) and returns normalized events."""
     service = _google_service(email)
     if not service:
@@ -126,7 +140,7 @@ def google_list_events(
     if calendar_id:
         calendars = [c for c in calendars if c["id"] == calendar_id]
 
-    events = []
+    events: list[JsonObject] = []
     for cal in calendars:
         try:
             kwargs = dict(
@@ -148,51 +162,57 @@ def google_list_events(
     return events
 
 
-def google_get_event(email: str, event_id: str, calendar_id: str = "primary") -> Optional[dict]:
+def google_get_event(email: str, event_id: str, calendar_id: str = "primary") -> JsonObject | None:
     service = _google_service(email)
     if not service:
         return None
     try:
         e = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
-        cal_info = {"id": calendar_id, "name": calendar_id, "color": None, "account": email, "provider": "google"}
+        cal_info = {
+            "id": calendar_id,
+            "name": calendar_id,
+            "color": None,
+            "account": email,
+            "provider": "google",
+        }
         return _normalize_google_event(e, email, cal_info)
     except Exception as ex:
         log.error(f"google_get_event {event_id}: {ex}")
         return None
 
 
-def _normalize_google_event(e: dict, email: str, cal: dict) -> dict:
+def _normalize_google_event(e: JsonObject, email: str, cal: JsonObject) -> JsonObject:
     start = e.get("start", {})
-    end   = e.get("end", {})
+    end = e.get("end", {})
     all_day = "date" in start and "dateTime" not in start
     source = f"{email} - {cal['name']}" if cal.get("name") and cal["name"] != email else email
     return {
-        "id":            e["id"],
-        "calendar_id":   cal["id"],
+        "id": e["id"],
+        "calendar_id": cal["id"],
         "calendar_name": cal.get("name", ""),
-        "title":         e.get("summary", "(sense títol)"),
-        "start":         start.get("dateTime") or start.get("date", ""),
-        "end":           end.get("dateTime") or end.get("date", ""),
-        "all_day":       all_day,
-        "location":      e.get("location", ""),
-        "description":   e.get("description", ""),
-        "source":        source,
-        "account":       email,
-        "provider":      "google",
-        "color":         cal.get("color"),
-        "status":        e.get("status", "confirmed"),
-        "link":          e.get("htmlLink", ""),
-        "recurrence":    e.get("recurrence"),
+        "title": e.get("summary", "(sense títol)"),
+        "start": start.get("dateTime") or start.get("date", ""),
+        "end": end.get("dateTime") or end.get("date", ""),
+        "all_day": all_day,
+        "location": e.get("location", ""),
+        "description": e.get("description", ""),
+        "source": source,
+        "account": email,
+        "provider": "google",
+        "color": cal.get("color"),
+        "status": e.get("status", "confirmed"),
+        "link": e.get("htmlLink", ""),
+        "recurrence": e.get("recurrence"),
         "recurring_event_id": e.get("recurringEventId"),
-        "event_type":    e.get("eventType", "default"),
+        "event_type": e.get("eventType", "default"),
         "birthday_properties": e.get("birthdayProperties"),
-        "is_read_only":  cal.get("access_role") == "reader",
+        "is_read_only": cal.get("access_role") == "reader",
         "attendees": [
             {
                 "email": a.get("email", ""),
-                "name":  a.get("displayName", ""),
-                "rsvp":  a.get("responseStatus", "needsAction"),
-                "self":  a.get("self", False),
+                "name": a.get("displayName", ""),
+                "rsvp": a.get("responseStatus", "needsAction"),
+                "self": a.get("self", False),
                 "organizer": a.get("organizer", False),
             }
             for a in e.get("attendees", [])
@@ -203,7 +223,8 @@ def _normalize_google_event(e: dict, email: str, cal: dict) -> dict:
 
 # ── CalDAV ─────────────────────────────────────────────────────────────────────
 
-def _caldav_session(acc: dict) -> requests.Session:
+
+def _caldav_session(acc: JsonObject) -> requests.Session:
     s = requests.Session()
     s.auth = (acc.get("username") or acc.get("email", ""), acc.get("password", ""))
     s.headers["Content-Type"] = "application/xml; charset=utf-8"
@@ -211,7 +232,7 @@ def _caldav_session(acc: dict) -> requests.Session:
     return s
 
 
-def _caldav_base_url(acc: dict) -> str:
+def _caldav_base_url(acc: JsonObject) -> str:
     url = (acc.get("caldav_url") or acc.get("server_url") or "").rstrip("/")
     email = acc.get("email") or acc.get("username") or ""
     if not url and "icloud.com" in email:
@@ -219,7 +240,7 @@ def _caldav_base_url(acc: dict) -> str:
     return url
 
 
-def _is_caldav_account(acc: dict) -> bool:
+def _is_caldav_account(acc: JsonObject) -> bool:
     return (
         acc.get("provider") in ("caldav", "manual")
         or bool(acc.get("caldav_url"))
@@ -227,7 +248,7 @@ def _is_caldav_account(acc: dict) -> bool:
     )
 
 
-def caldav_list_calendars(email: str) -> list[dict]:
+def caldav_list_calendars(email: str) -> list[JsonObject]:
     acc = _get_account(email)
     if not acc:
         return []
@@ -247,19 +268,24 @@ def caldav_list_calendars(email: str) -> list[dict]:
   </d:prop>
 </d:propfind>"""
     try:
-        r = session.request("PROPFIND", base_url + "/", data=body, headers={"Depth": "1"}, timeout=15)
+        r = session.request(
+            "PROPFIND", base_url + "/", data=body, headers={"Depth": "1"}, timeout=15
+        )
         r.raise_for_status()
     except Exception as ex:
         log.error(f"caldav_list_calendars {email}: {ex}")
         return []
 
-    calendars = []
+    calendars: list[JsonObject] = []
     try:
         root = ET.fromstring(r.text)
         for resp in root.findall(".//{DAV:}response"):
             href = resp.findtext("{DAV:}href", "")
             restype = resp.find(".//{DAV:}resourcetype")
-            is_cal = restype is not None and restype.find("{urn:ietf:params:xml:ns:caldav}calendar") is not None
+            is_cal = (
+                restype is not None
+                and restype.find("{urn:ietf:params:xml:ns:caldav}calendar") is not None
+            )
             if not is_cal:
                 continue
             # Last NON-empty segment of the href (calendar id): robust to an href without a trailing
@@ -269,14 +295,18 @@ def caldav_list_calendars(email: str) -> list[dict]:
             # if there wasn't one.
             _segs = [s for s in href.split("/") if s]
             name = resp.findtext(".//{DAV:}displayname") or (_segs[-1] if _segs else "") or href
-            calendars.append({
-                "id":       href,
-                "name":     name,
-                "color":    None,
-                "account":  email,
-                "provider": "caldav",
-                "url":      base_url.rstrip("/") + "/" + href.lstrip("/") if not href.startswith("http") else href,
-            })
+            calendars.append(
+                {
+                    "id": href,
+                    "name": name,
+                    "color": None,
+                    "account": email,
+                    "provider": "caldav",
+                    "url": base_url.rstrip("/") + "/" + href.lstrip("/")
+                    if not href.startswith("http")
+                    else href,
+                }
+            )
     except Exception as ex:
         log.error(f"caldav_list_calendars parse {email}: {ex}")
 
@@ -287,15 +317,15 @@ def caldav_list_events(
     email: str,
     time_min: str,
     time_max: str,
-    search: Optional[str] = None,
-) -> list[dict]:
+    search: str | None = None,
+) -> list[JsonObject]:
     acc = _get_account(email)
     if not acc:
         return []
 
     calendars = caldav_list_calendars(email)
-    session   = _caldav_session(acc)
-    events    = []
+    session = _caldav_session(acc)
+    events: list[JsonObject] = []
 
     for cal in calendars:
         cal_url = cal["url"]
@@ -334,9 +364,15 @@ def _to_caldav_dt(iso: str) -> str:
         return iso
 
 
-def _parse_caldav_response(xml_text: str, email: str, cal: dict, search: Optional[str]) -> list[dict]:
+def _parse_caldav_response(
+    xml_text: str,
+    email: str,
+    cal: JsonObject,
+    search: str | None,
+) -> list[JsonObject]:
     from icalendar import Calendar as iCal
-    events = []
+
+    events: list[JsonObject] = []
     try:
         root = ET.fromstring(xml_text)
     except Exception:
@@ -354,7 +390,11 @@ def _parse_caldav_response(xml_text: str, email: str, cal: dict, search: Optiona
                 if component.name != "VEVENT":
                     continue
                 ev = _normalize_caldav_event(component, email, cal)
-                if q and q not in ev["title"].lower() and q not in ev.get("description", "").lower():
+                if (
+                    q
+                    and q not in ev["title"].lower()
+                    and q not in ev.get("description", "").lower()
+                ):
                     continue
                 events.append(ev)
         except Exception as ex:
@@ -363,11 +403,11 @@ def _parse_caldav_response(xml_text: str, email: str, cal: dict, search: Optiona
     return events
 
 
-def _normalize_caldav_event(component, email: str, cal: dict) -> dict:
-    uid   = _ical_prop(component, "UID")
+def _normalize_caldav_event(component: Any, email: str, cal: JsonObject) -> JsonObject:
+    uid = _ical_prop(component, "UID")
     title = _ical_prop(component, "SUMMARY", "(sense títol)")
     start = _ical_prop(component, "DTSTART")
-    end   = _ical_prop(component, "DTEND") or _ical_prop(component, "DUE")
+    end = _ical_prop(component, "DTEND") or _ical_prop(component, "DUE")
     all_day = "T" not in start if start else False
     source = f"{email} - {cal['name']}" if cal.get("name") and cal["name"] != email else email
     rrule_obj = component.get("RRULE")
@@ -379,30 +419,31 @@ def _normalize_caldav_event(component, email: str, cal: dict) -> dict:
             rrule_str = str(rrule_obj)
 
     return {
-        "id":            uid,
-        "calendar_id":   cal["id"],
+        "id": uid,
+        "calendar_id": cal["id"],
         "calendar_name": cal.get("name", ""),
-        "title":         title,
-        "start":         start,
-        "end":           end,
-        "all_day":       all_day,
-        "location":      _ical_prop(component, "LOCATION"),
-        "description":   _ical_prop(component, "DESCRIPTION"),
-        "source":        source,
-        "account":       email,
-        "provider":      "caldav",
-        "color":         cal.get("color"),
-        "status":        _ical_prop(component, "STATUS", "confirmed").lower(),
-        "link":          _ical_prop(component, "URL"),
-        "recurrence":    rrule_str,
+        "title": title,
+        "start": start,
+        "end": end,
+        "all_day": all_day,
+        "location": _ical_prop(component, "LOCATION"),
+        "description": _ical_prop(component, "DESCRIPTION"),
+        "source": source,
+        "account": email,
+        "provider": "caldav",
+        "color": cal.get("color"),
+        "status": _ical_prop(component, "STATUS", "confirmed").lower(),
+        "link": _ical_prop(component, "URL"),
+        "recurrence": rrule_str,
         "recurring_event_id": None,
-        "is_read_only":  False,
+        "is_read_only": False,
     }
 
 
 # ── Public dispatcher ──────────────────────────────────────────────────────────
 
-def list_calendars(email: str) -> list[dict]:
+
+def list_calendars(email: str) -> list[JsonObject]:
     acc = _get_account(email)
     if not acc:
         return []
@@ -417,9 +458,9 @@ def list_events(
     email: str,
     time_min: str,
     time_max: str,
-    search: Optional[str] = None,
-    calendar_id: Optional[str] = None,
-) -> list[dict]:
+    search: str | None = None,
+    calendar_id: str | None = None,
+) -> list[JsonObject]:
     acc = _get_account(email)
     if not acc:
         return []
@@ -430,7 +471,7 @@ def list_events(
     return []
 
 
-def get_event(email: str, event_id: str, calendar_id: Optional[str] = None) -> Optional[dict]:
+def get_event(email: str, event_id: str, calendar_id: str | None = None) -> JsonObject | None:
     acc = _get_account(email)
     if not acc:
         return None
