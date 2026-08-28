@@ -6,6 +6,8 @@ from typing import cast as _strict_cast
 
 from fastapi import APIRouter
 
+from backend.domains.configuration import llm_wiki as _llm_wiki_configuration
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 
@@ -236,7 +238,7 @@ async def get_llm_wiki_config() -> _LegacyAny:
     return await _legacy.asyncio.to_thread(_llm_wiki_config_response, cfg)
 
 
-_LLM_WIKI_CONFIG_DEPENDENCIES = _legacy.llm_wiki_configuration.LlmWikiConfigDependencies(
+_LLM_WIKI_CONFIG_DEPENDENCIES = _llm_wiki_configuration.LlmWikiConfigDependencies(
     table_by_id=lambda table_id: _legacy._table_by_id(table_id),
     infer_brain_roles=lambda table: _legacy._infer_brain_roles(table),
     property_options=lambda prop: _llm_wiki_property_options(prop),
@@ -261,7 +263,7 @@ async def put_llm_wiki_config(
     payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
 ) -> _LegacyAny:
     """Validate and atomically save Brain, sources, roles, and index fields."""
-    return await _legacy.llm_wiki_configuration.put_config(payload, _LLM_WIKI_CONFIG_DEPENDENCIES)
+    return await _llm_wiki_configuration.put_config(payload, _LLM_WIKI_CONFIG_DEPENDENCIES)
 
 
 @router.post(

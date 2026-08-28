@@ -21,6 +21,7 @@ source_paths:
   - backend/services/literature_import_service.py
   - backend/services/literature_ai_service.py
   - backend/services/references_io.py
+  - backend/services/audio_summarizer.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/pages/LiteraturePage.jsx
   - frontend/src/components/ResourcesPluginConfig.jsx
@@ -56,6 +57,9 @@ Vault-dependent Reader analysis, result access, resume, cancellation, article
 backfill and podcast generation all pass through one active-Vault guard. Missing
 context returns a recoverable service-unavailable response before creating a
 job or thread; valid Vault paths and all existing route payloads remain stable.
+Podcast generation consumes the canonical typed database-session generator
+directly and closes it in the existing `finally` boundary; no cast or duplicate
+session factory sits between Reader orchestration and persistence.
 
 Literature HTTP routes, canonical models, and systematic-review services are
 strictly typed. PRISMA counting, screening transitions, open-access evidence,

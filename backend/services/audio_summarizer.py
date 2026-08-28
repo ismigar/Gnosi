@@ -4,11 +4,11 @@ import io
 import os
 import re
 import threading
-from collections.abc import Callable, Generator, Sequence
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import TypedDict
 
 from gtts import gTTS  # type: ignore[import-untyped]
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -332,8 +332,7 @@ def generate_daily_podcast() -> str | None:
     # Get DB session dynamically
     from backend.data.db import get_db
 
-    typed_get_db = cast(Callable[[], Generator[Session, None, None]], get_db)
-    db_gen = typed_get_db()
+    db_gen = get_db()
     db: Session = next(db_gen)
 
     try:

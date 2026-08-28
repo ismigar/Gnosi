@@ -4,6 +4,11 @@ import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
+from backend.domains.configuration import (
+    llm_wiki_records as _llm_wiki_records,
+    llm_wiki_schema as _llm_wiki_schema,
+)
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 _BRAIN_SCHEMA_DEFINITIONS: list[tuple[str, str, dict[str, str]]] = [
     (
@@ -128,7 +133,7 @@ def _ensure_default_db_group() -> None:
         _legacy.log.info("🧠 Created the `gnosi_vault_db` database group in the sidebar registry")
 
 
-_BRAIN_SCHEMA_DEPENDENCIES = _legacy.llm_wiki_schema.BrainSchemaDependencies(
+_BRAIN_SCHEMA_DEPENDENCIES = _llm_wiki_schema.BrainSchemaDependencies(
     registry_mutation=lambda: _legacy.registry_mutation(),
     load_registry=lambda: _legacy.load_registry(),
     save_registry=lambda registry: _legacy.save_registry(registry),
@@ -156,11 +161,8 @@ def ensure_brain_table_schema(
     table_id: str, locale: str = "en", property_id_hints: dict[str, str] | None = None
 ) -> int:
     """Add missing Brain fields and stable property ids idempotently."""
-    return _strict_cast(
-        int,
-        _legacy.llm_wiki_schema.ensure_brain_table_schema(
-            table_id, locale, property_id_hints, _BRAIN_SCHEMA_DEPENDENCIES
-        ),
+    return _llm_wiki_schema.ensure_brain_table_schema(
+        table_id, locale, property_id_hints, _BRAIN_SCHEMA_DEPENDENCIES
     )
 
 
@@ -446,18 +448,15 @@ def ensure_brain_source_relation(
     A singular relation is preferred, duplicate plural relations are merged and
     removed, and resource-page views are normalized to filter by the host page.
     """
-    return _strict_cast(
-        str,
-        _legacy.llm_wiki_schema.ensure_brain_source_relation(
-            brain_table_id, source_table_id, locale, _BRAIN_SCHEMA_DEPENDENCIES
-        ),
+    return _llm_wiki_schema.ensure_brain_source_relation(
+        brain_table_id, source_table_id, locale, _BRAIN_SCHEMA_DEPENDENCIES
     )
 
 
-def _brain_record_dependencies() -> _legacy.llm_wiki_records.BrainRecordDependencies:
+def _brain_record_dependencies() -> _llm_wiki_records.BrainRecordDependencies:
     from backend.services import llm_wiki_config, llm_wiki_storage
 
-    return _legacy.llm_wiki_records.BrainRecordDependencies(
+    return _llm_wiki_records.BrainRecordDependencies(
         table_by_id=lambda table_id: _legacy._table_by_id(table_id),
         pages_for_table=lambda table_id: _legacy._get_pages_for_table(table_id),
         parse_frontmatter=lambda content, path: _legacy.parse_frontmatter(content, path),
@@ -487,11 +486,8 @@ def _normalize_brain_page_contract(
     source_titles: dict[tuple[str, str], str],
 ) -> bool:
     """Normalize visible note types, source cardinality, and source labels."""
-    return _strict_cast(
-        bool,
-        _legacy.llm_wiki_records.normalize_brain_page_contract(
-            metadata, config, brain_table, source_titles, _brain_record_dependencies()
-        ),
+    return _llm_wiki_records.normalize_brain_page_contract(
+        metadata, config, brain_table, source_titles, _brain_record_dependencies()
     )
 
 
@@ -499,11 +495,8 @@ def _normalize_existing_brain_pages(
     brain_table_id: str, config: dict[_LegacyAny, _LegacyAny]
 ) -> int:
     """Migrate existing managed notes to the current singular-source contract."""
-    return _strict_cast(
-        int,
-        _legacy.llm_wiki_records.normalize_existing_brain_pages(
-            brain_table_id, config, _brain_record_dependencies()
-        ),
+    return _llm_wiki_records.normalize_existing_brain_pages(
+        brain_table_id, config, _brain_record_dependencies()
     )
 
 

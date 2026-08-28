@@ -72,6 +72,7 @@ class PluginStateStore:
 
 
 _store: PluginStateStore | None = None
+_bootstrap_lock = threading.Lock()
 
 
 def configure(dependencies: PluginStateDependencies) -> None:
@@ -86,3 +87,20 @@ def store() -> PluginStateStore:
     if _store is None:
         raise RuntimeError("Plugin state has not been configured")
     return _store
+
+
+def load_with_dependencies(dependencies: PluginStateDependencies) -> PluginState:
+    """Load state without requiring the HTTP composition root to be imported.
+
+    Once the process-wide store exists, it remains the single synchronized
+    owner. During early non-HTTP startup, a short-lived store provides the same
+    normalization and persistence behavior behind a bootstrap lock.
+    """
+    current = _store
+    if current is not None:
+        return current.load()
+    with _bootstrap_lock:
+        current = _store
+        if current is not None:
+            return current.load()
+        return PluginStateStore(dependencies).load()

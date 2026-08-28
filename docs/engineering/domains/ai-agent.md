@@ -3,6 +3,7 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
+  - backend/domains/configuration/plugin_state.py
   - backend/domains/llm_wiki
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
@@ -19,6 +20,8 @@ source_paths:
   - backend/api/ai_routes.py
   - backend/api/tools_routes.py
   - backend/services/agent_quality_telemetry.py
+  - backend/services/plugin_ai_contributions.py
+  - backend/services/llm_wiki_actions.py
   - backend/services/reader_analysis.py
   - backend/services/agent_cancellation.py
   - backend/services/provider_health.py
@@ -45,6 +48,9 @@ tests:
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
+  - backend/tests/test_plugin_ai_contributions.py
+  - backend/tests/test_configuration_plugins_facade.py
+  - backend/tests/test_plugins_state_race.py
   - backend/tests/test_artificial_analysis.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_pr6_agent_remaining_contract.py
@@ -175,6 +181,14 @@ validated into a catalog while preserving origin, activation, compatibility,
 and managed-versus-user-owned fields. Plugin reconciliation is idempotent:
 disabling a plugin suspends its managed contribution without deleting user
 overrides.
+
+Plugin reconciliation can also run before FastAPI route composition. It derives
+the `.gnosi` directory from the canonical active-Vault context and reads state
+through `backend/domains/configuration/plugin_state.py`; it never imports a
+Vault route merely to resolve paths or configuration. Before the process-wide
+store exists, the same normalizer and atomic writer run behind a bootstrap
+lock; after composition, reconciliation reuses the shared store and mutation
+locks.
 
 The legacy Chroma memory facade remains lazy and strictly typed for import
 compatibility. Importing it creates only the configured storage directory; it
@@ -532,6 +546,10 @@ duplicating their mutable state.
 Its HTTP boundary narrows the late-bound legacy router once to `APIRouter`, so
 Brain designation and LLM Wiki configuration endpoints remain strictly typed
 without altering permissions, payload schemas, route order or OpenAPI output.
+The route adapter imports the canonical configuration, schema and record
+services directly, avoiding partially initialized facade lookups during
+standalone Agent startup. Runtime-replaceable Vault operations remain explicit
+ports, including the typed `VaultActionsPort` used by Brain processing actions.
 The processing boundary uses the same typed router for durable ingestion,
 polling, evidence, maintenance, lint, suggestion review, dictation and glossary
 learning; late-bound services and recoverable HTTP errors remain unchanged.

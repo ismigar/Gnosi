@@ -8,6 +8,7 @@ source_paths:
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - backend/domains/configuration/api/settings.py
+  - backend/domains/configuration/plugin_state.py
   - backend/services/data_dir_migration.py
   - backend/api/system_routes.py
   - frontend/src/App.jsx
@@ -48,6 +49,11 @@ The lifecycle module keeps the public `lifespan` context manager as a linear
 orchestrator. Focused helpers own plugin reconciliation, agent startup, index
 warmup, table repair, mail workers, and bounded shutdown while preserving their
 documented order and failure isolation.
+
+Early plugin reconciliation is transport-neutral: it can read normalized,
+atomically persisted per-Vault state before any HTTP route module is imported.
+This keeps Agent construction independent of Vault facade initialization order,
+while normal application startup converges on the same process-wide state store.
 
 1. Assert that an exposed deployment is not using a public development JWT
    secret.
