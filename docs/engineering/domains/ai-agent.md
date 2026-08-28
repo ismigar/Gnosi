@@ -15,6 +15,7 @@ source_paths:
   - backend/services/reader_analysis.py
   - backend/services/agent_cancellation.py
   - backend/services/provider_health.py
+  - backend/services/artificial_analysis.py
   - backend/services/agent_capability_health.py
   - backend/services/agent_stream_protocol.py
   - backend/services/agent_stream_journal.py
@@ -33,6 +34,7 @@ tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
+  - backend/tests/test_artificial_analysis.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_chat_safety.py
@@ -64,6 +66,11 @@ Gnosi separates models, agents, skills, and tools:
 - Tool: a callable operation classified by effect and origin.
 - Context source: user-selected Vault, table, file, or external material added
   to a conversation with explicit containment and size behavior.
+
+The Artificial Analysis feed is a typed, server-side comparison boundary. It
+keeps API credentials private, validates every paginated response, enriches only
+missing catalog metadata, preserves verified cached metrics, and falls back to
+stale cache or models.dev with explicit provenance.
 
 ## Startup and request flow
 

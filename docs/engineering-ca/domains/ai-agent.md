@@ -11,12 +11,14 @@ source_paths:
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
   - backend/api/tools_routes.py
+  - backend/services/artificial_analysis.py
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
+  - backend/tests/test_artificial_analysis.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_skill_runtime.py
@@ -40,6 +42,11 @@ Força les eines compatibles.
 - Eina: una operació cal· lada classificada per efecte i origen.
 - Font de context: S' ha afegit l' usuari- Vulta, taula, fitxer o material extern
 a una conversa amb comportament de contenció i mida explícita.
+
+El feed d'Artificial Analysis és una frontera tipada del servidor. Manté les
+credencials privades, valida totes les pàgines, completa només metadades absents,
+preserva mètriques verificades de la memòria cau i usa una còpia antiga o
+models.dev amb procedència explícita quan el servei no respon.
 
 ## Inici i sol· licitud de flux
 

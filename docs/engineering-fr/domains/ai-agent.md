@@ -15,6 +15,7 @@ source_paths:
   - backend/services/reader_analysis.py
   - backend/services/agent_cancellation.py
   - backend/services/provider_health.py
+  - backend/services/artificial_analysis.py
   - backend/services/agent_capability_health.py
   - backend/services/agent_stream_protocol.py
   - backend/agent/provider_resilience.py
@@ -28,6 +29,7 @@ tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
+  - backend/tests/test_artificial_analysis.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_chat_safety.py
@@ -58,6 +60,11 @@ limite les outils compatibles.
 - Outil: une opération calable classée par effet et origine.
 - Source du contexte : bulle sélectionnée par l'utilisateur, table, fichier ou matériel externe ajouté
 à une conversation avec un comportement de confinement explicite et de taille.
+
+Le flux Artificial Analysis est une frontière serveur typée. Il garde les
+identifiants privés, valide toutes les pages, complète uniquement les métadonnées
+absentes, conserve les métriques vérifiées du cache et utilise un cache périmé
+ou models.dev avec une provenance explicite lorsque le service échoue.
 
 ## Démarrage et flux de requête
 

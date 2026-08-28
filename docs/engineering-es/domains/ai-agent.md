@@ -11,12 +11,14 @@ source_paths:
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
   - backend/api/tools_routes.py
+  - backend/services/artificial_analysis.py
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
+  - backend/tests/test_artificial_analysis.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_skill_runtime.py
@@ -40,6 +42,11 @@ limita las herramientas compatibles.
 - Herramienta: operación callable clasificada por efecto y origen.
 - Fuente contextual: Vault, tabla, archivo o material externo seleccionado por el usuario añadido
 a una conversación con contención explícita y comportamiento de tamaño.
+
+El feed de Artificial Analysis es una frontera tipada del servidor. Mantiene
+privadas las credenciales, valida todas las páginas, completa solo metadatos
+ausentes, conserva métricas verificadas de la caché y recurre a una copia
+antigua o a models.dev con procedencia explícita cuando el servicio falla.
 
 ## Flujo de inicio y solicitud
 

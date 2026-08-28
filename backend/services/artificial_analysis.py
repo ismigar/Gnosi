@@ -21,9 +21,7 @@ import requests
 from backend.agent.model_catalog import load_catalog
 
 
-ARTIFICIAL_ANALYSIS_URL = (
-    "https://artificialanalysis.ai/api/v2/language/models/free"
-)
+ARTIFICIAL_ANALYSIS_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
 _TIMEOUT_SECONDS = 12
 _CACHE_MAX_AGE_SECONDS = 24 * 3600
 _FALLBACK_CODES = {"rate_limited", "network_error", "upstream_error"}
@@ -94,9 +92,7 @@ def _cache_is_fresh(
     if not raw_fetched_at:
         return False
     try:
-        fetched_at = datetime.fromisoformat(
-            str(raw_fetched_at).replace("Z", "+00:00")
-        )
+        fetched_at = datetime.fromisoformat(str(raw_fetched_at).replace("Z", "+00:00"))
     except ValueError:
         return False
     if fetched_at.tzinfo is None:
@@ -204,7 +200,8 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, List[Dict[st
                     route["provider"]
                     and route["model_id"]
                     and not any(
-                        (item["provider"], item["model_id"]) == (route["provider"], route["model_id"])
+                        (item["provider"], item["model_id"])
+                        == (route["provider"], route["model_id"])
                         for item in existing["routes"]
                     )
                 ):
@@ -253,7 +250,7 @@ def _slug_candidate_bases(slug: str) -> List[str]:
     Deduplication keeps the iteration bounded.
     """
     candidates: List[str] = []
-    seen: set = set()
+    seen: set[str] = set()
     current = slug
     if current:
         candidates.append(current)
@@ -285,7 +282,7 @@ def _matching_enrichment_entries(
     stripped iteratively so a model listed under its base name still resolves.
     """
     creator_name = str((model.get("model_creator") or {}).get("name") or "")
-    seen_ids: set = set()
+    seen_ids: set[tuple[Any, Any]] = set()
     matches: List[Dict[str, Any]] = []
     for raw_key in (model.get("slug"), model.get("name")):
         for candidate in _slug_candidate_bases(str(raw_key or "")):
@@ -300,8 +297,8 @@ def _matching_enrichment_entries(
                 matches.append(entry)
     if creator_name and matches:
         matches.sort(
-            key=lambda entry: not _provider_matches_creator(
-                entry.get("provider_id") or "", creator_name
+            key=lambda entry: (
+                not _provider_matches_creator(entry.get("provider_id") or "", creator_name)
             )
         )
     return matches
@@ -314,29 +311,49 @@ def _merge_cached_metrics(
     """Fill missing upstream metrics from the last successful AA payload."""
     if not cached:
         return payload
+    cached_by_key = _cached_models_by_key(cached)
+    for model in payload.get("models") or []:
+        previous = _matching_cached_model(model, cached_by_key)
+        if previous:
+            _restore_cached_metrics(model, previous)
+    return payload
+
+
+def _cached_models_by_key(cached: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Index cached rows under every stable upstream identifier."""
     cached_by_key: Dict[str, Dict[str, Any]] = {}
     for model in cached.get("models") or []:
         for raw_key in (model.get("id"), model.get("slug"), model.get("name")):
             key = _normalize_name(str(raw_key or ""))
             if key:
                 cached_by_key.setdefault(key, model)
+    return cached_by_key
 
-    for model in payload.get("models") or []:
-        previous = None
-        for raw_key in (model.get("id"), model.get("slug"), model.get("name")):
-            previous = cached_by_key.get(_normalize_name(str(raw_key or "")))
-            if previous:
-                break
-        if not previous:
-            continue
-        metric_sources = dict(model.get("metric_sources") or {})
-        for field in _PRESERVED_METRIC_FIELDS:
-            if model.get(field) is None and previous.get(field) is not None:
-                model[field] = previous[field]
-                metric_sources[field] = "artificial_analysis_cache"
-        if metric_sources:
-            model["metric_sources"] = metric_sources
-    return payload
+
+def _matching_cached_model(
+    model: Dict[str, Any],
+    cached_by_key: Dict[str, Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Find the first cached row matching a normalized identifier."""
+    for raw_key in (model.get("id"), model.get("slug"), model.get("name")):
+        previous = cached_by_key.get(_normalize_name(str(raw_key or "")))
+        if previous:
+            return previous
+    return None
+
+
+def _restore_cached_metrics(
+    model: Dict[str, Any],
+    previous: Dict[str, Any],
+) -> None:
+    """Restore only metrics omitted by the latest upstream response."""
+    metric_sources = dict(model.get("metric_sources") or {})
+    for field in _PRESERVED_METRIC_FIELDS:
+        if model.get(field) is None and previous.get(field) is not None:
+            model[field] = previous[field]
+            metric_sources[field] = "artificial_analysis_cache"
+    if metric_sources:
+        model["metric_sources"] = metric_sources
 
 
 def _enrich_cached_payload(
@@ -390,17 +407,27 @@ def _recommended_profile(
                 return profile
         return "expert"
 
-    coding = model.get("coding")
-    if coding is not None:
-        if coding > 70:
-            return "expert"
-        elif coding > 50:
-            return "allrounder"
-        elif coding > 30:
-            return "administrative"
-        return "worker"
+    coding_profile = _profile_from_coding(model.get("coding"))
+    if coding_profile is not None:
+        return coding_profile
+    return _profile_from_tags(set(model.get("tags") or []))
 
-    tags = set(model.get("tags") or [])
+
+def _profile_from_coding(coding: Any) -> Optional[str]:
+    """Map a coding benchmark to its legacy task band."""
+    if coding is None:
+        return None
+    if coding > 70:
+        return "expert"
+    if coding > 50:
+        return "allrounder"
+    if coding > 30:
+        return "administrative"
+    return "worker"
+
+
+def _profile_from_tags(tags: set[str]) -> str:
+    """Fall back to catalog capabilities when no benchmark is available."""
     if "code" in tags:
         return "expert"
     if "long" in tags or "vision" in tags or "tools" in tags:
@@ -409,6 +436,73 @@ def _recommended_profile(
         return "worker"
 
     return "unrated"
+
+
+def _routes_for_entries(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Collect unique usable routes from all matching catalog providers."""
+    routes: List[Dict[str, Any]] = []
+    route_keys: set[tuple[Any, Any]] = set()
+    for entry in entries:
+        for route in entry.get("routes") or []:
+            route_key = (route.get("provider"), route.get("model_id"))
+            if route_key not in route_keys:
+                route_keys.add(route_key)
+                routes.append(route)
+    return routes
+
+
+def _normalized_comparison_model(
+    row: Dict[str, Any],
+    enrichment: Dict[str, List[Dict[str, Any]]],
+) -> Dict[str, Any]:
+    """Normalize one authoritative row and apply catalog-only fallbacks."""
+    pricing = row.get("pricing") or {}
+    performance = row.get("performance") or {}
+    evaluations = row.get("evaluations") or {}
+    creator = row.get("model_creator") or {}
+    creator_name = str(creator.get("name") or "")
+    matched_entries = _matching_enrichment_entries(row, enrichment)
+    match = max(
+        matched_entries,
+        key=lambda item: (
+            _provider_matches_creator(item.get("provider_id") or "", creator_name),
+            item.get("context_window") or 0,
+        ),
+        default={},
+    )
+    input_price = _number(pricing.get("price_1m_input_tokens"))
+    output_price = _number(pricing.get("price_1m_output_tokens"))
+    metric_sources: Dict[str, str] = {}
+    if input_price is None and match.get("input_price") is not None:
+        input_price = match["input_price"]
+        metric_sources["input_price"] = "models_dev"
+    if output_price is None and match.get("output_price") is not None:
+        output_price = match["output_price"]
+        metric_sources["output_price"] = "models_dev"
+    if not row.get("context_window_tokens") and match.get("context_window"):
+        metric_sources["context_window"] = "models_dev"
+    context_window = int(row.get("context_window_tokens") or match.get("context_window") or 0)
+    model = {
+        "id": str(row.get("id") or row.get("slug") or row.get("name") or ""),
+        "slug": str(row.get("slug") or ""),
+        "name": str(row.get("name") or row.get("slug") or ""),
+        "creator": creator_name,
+        "release_date": row.get("release_date") or match.get("release_date") or "",
+        "input_price": input_price,
+        "output_price": output_price,
+        "context_window": context_window or None,
+        "speed": _number(performance.get("median_output_tokens_per_second")),
+        "latency": _number(performance.get("median_time_to_first_token_seconds")),
+        "intelligence": _number(evaluations.get("artificial_analysis_intelligence_index")),
+        "coding": _number(evaluations.get("artificial_analysis_coding_index")),
+        "agentic": _number(evaluations.get("artificial_analysis_agentic_index")),
+        "tags": list(match.get("tags") or []),
+        "modes": _supported_modes(row.get("modes"), match.get("modes")),
+        "routes": _routes_for_entries(matched_entries),
+    }
+    if metric_sources:
+        model["metric_sources"] = metric_sources
+    return model
 
 
 def build_comparison_payload(
@@ -420,77 +514,14 @@ def build_comparison_payload(
     """Normalize API rows, enrich known metadata, and assign one recommended role."""
     enrichment = _catalog_enrichment_index(catalog or {})
     models: List[Dict[str, Any]] = []
-    seen: set = set()
+    seen: set[str] = set()
 
     for row in rows:
-        # Dedup by normalized id/slug/name: keep the first (most complete) entry.
-        # Mirrors build_catalog_fallback_payload; pagination overlap or upstream
-        # id/slug/name variation can otherwise yield the same model twice.
-        dedup_key = _normalize_name(
-            str(row.get("id") or row.get("slug") or row.get("name") or "")
-        )
+        dedup_key = _normalize_name(str(row.get("id") or row.get("slug") or row.get("name") or ""))
         if not dedup_key or dedup_key in seen:
             continue
         seen.add(dedup_key)
-        pricing = row.get("pricing") or {}
-        performance = row.get("performance") or {}
-        evaluations = row.get("evaluations") or {}
-        creator = row.get("model_creator") or {}
-        creator_name = str(creator.get("name") or "")
-        matched_entries = _matching_enrichment_entries(row, enrichment)
-        # _matching_enrichment_entries orders creator-matched providers first;
-        # pick the first, breaking ties toward the larger context window. If no
-        # provider matches the creator, the list is unchanged and max-context
-        # (the legacy behavior) decides.
-        match = max(
-            matched_entries,
-            key=lambda item: (
-                _provider_matches_creator(item.get("provider_id") or "", creator_name),
-                item.get("context_window") or 0,
-            ),
-            default={},
-        )
-        routes = []
-        route_keys = set()
-        for entry in matched_entries:
-            for route in entry.get("routes") or []:
-                route_key = (route.get("provider"), route.get("model_id"))
-                if route_key not in route_keys:
-                    route_keys.add(route_key)
-                    routes.append(route)
-        context_window = int(row.get("context_window_tokens") or match.get("context_window") or 0)
-        input_price = _number(pricing.get("price_1m_input_tokens"))
-        output_price = _number(pricing.get("price_1m_output_tokens"))
-        metric_sources = {}
-        if input_price is None and match.get("input_price") is not None:
-            input_price = match["input_price"]
-            metric_sources["input_price"] = "models_dev"
-        if output_price is None and match.get("output_price") is not None:
-            output_price = match["output_price"]
-            metric_sources["output_price"] = "models_dev"
-        if not row.get("context_window_tokens") and match.get("context_window"):
-            metric_sources["context_window"] = "models_dev"
-        model = {
-            "id": str(row.get("id") or row.get("slug") or row.get("name") or ""),
-            "slug": str(row.get("slug") or ""),
-            "name": str(row.get("name") or row.get("slug") or ""),
-            "creator": str(creator.get("name") or ""),
-            "release_date": row.get("release_date") or match.get("release_date") or "",
-            "input_price": input_price,
-            "output_price": output_price,
-            "context_window": context_window or None,
-            "speed": _number(performance.get("median_output_tokens_per_second")),
-            "latency": _number(performance.get("median_time_to_first_token_seconds")),
-            "intelligence": _number(evaluations.get("artificial_analysis_intelligence_index")),
-            "coding": _number(evaluations.get("artificial_analysis_coding_index")),
-            "agentic": _number(evaluations.get("artificial_analysis_agentic_index")),
-            "tags": list(match.get("tags") or []),
-            "modes": _supported_modes(row.get("modes"), match.get("modes")),
-            "routes": routes,
-        }
-        if metric_sources:
-            model["metric_sources"] = metric_sources
-        models.append(model)
+        models.append(_normalized_comparison_model(row, enrichment))
 
     intelligence_values = sorted(
         model["intelligence"] for model in models if model["intelligence"] is not None
@@ -498,11 +529,14 @@ def build_comparison_payload(
     for model in models:
         model["profile"] = _recommended_profile(model, intelligence_values)
 
-    models.sort(key=lambda model: (
-        model["intelligence"] is not None,
-        model["intelligence"] or -1,
-        model["release_date"],
-    ), reverse=True)
+    models.sort(
+        key=lambda model: (
+            model["intelligence"] is not None,
+            model["intelligence"] or -1,
+            model["release_date"],
+        ),
+        reverse=True,
+    )
     return {
         "source": "Artificial Analysis",
         "source_url": "https://artificialanalysis.ai",
@@ -523,26 +557,30 @@ def build_catalog_fallback_payload(catalog: Dict[str, Any], reason: str) -> Dict
             if not key or key in seen:
                 continue
             seen.add(key)
-            rows.append({
-                "id": str(model.get("id") or model.get("name") or ""),
-                "slug": str(model.get("id") or ""),
-                "name": str(model.get("name") or model.get("id") or ""),
-                "release_date": model.get("release_date") or "",
-                "context_window_tokens": int(model.get("context_window") or 0),
-                "modes": list(model.get("modes") or []),
-                "model_creator": {"name": str(provider.get("name") or "")},
-                "pricing": {
-                    "price_1m_input_tokens": model.get("cost_in"),
-                    "price_1m_output_tokens": model.get("cost_out"),
-                },
-            })
+            rows.append(
+                {
+                    "id": str(model.get("id") or model.get("name") or ""),
+                    "slug": str(model.get("id") or ""),
+                    "name": str(model.get("name") or model.get("id") or ""),
+                    "release_date": model.get("release_date") or "",
+                    "context_window_tokens": int(model.get("context_window") or 0),
+                    "modes": list(model.get("modes") or []),
+                    "model_creator": {"name": str(provider.get("name") or "")},
+                    "pricing": {
+                        "price_1m_input_tokens": model.get("cost_in"),
+                        "price_1m_output_tokens": model.get("cost_out"),
+                    },
+                }
+            )
     payload = build_comparison_payload(rows, catalog)
-    payload.update({
-        "source": "models.dev",
-        "source_url": "https://models.dev",
-        "fallback": True,
-        "fallback_reason": reason,
-    })
+    payload.update(
+        {
+            "source": "models.dev",
+            "source_url": "https://models.dev",
+            "fallback": True,
+            "fallback_reason": reason,
+        }
+    )
     return payload
 
 
@@ -568,6 +606,81 @@ def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
     return payload
 
 
+def _configured_api_key() -> str:
+    """Resolve the server-side key from process or managed credentials."""
+    api_key = (os.getenv("ARTIFICIAL_ANALYSIS_API_KEY") or os.getenv("AA_API_KEY") or "").strip()
+    if api_key:
+        return api_key
+    try:
+        from backend.config.app_config import load_params
+        from backend.security.ai_credentials import resolve_provider_api_key
+
+        ai_config = dict(load_params(strict_env=False).get("ai", {}) or {})
+        provider_config = dict((ai_config.get("providers") or {}).get("artificial_analysis") or {})
+        return (resolve_provider_api_key("artificial_analysis", provider_config) or "").strip()
+    except Exception:
+        return ""
+
+
+def _rate_limit_retry_at(response: Any) -> Optional[str]:
+    """Convert an optional upstream reset epoch to a stable UTC timestamp."""
+    reset_value = getattr(response, "headers", {}).get("X-Ratelimit-Reset")
+    try:
+        return datetime.fromtimestamp(float(str(reset_value)), timezone.utc).isoformat(
+            timespec="seconds"
+        )
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+def _validated_page_payload(response: Any) -> Dict[str, Any]:
+    """Validate one upstream page and map statuses to structured failures."""
+    if response.status_code == 401:
+        raise ArtificialAnalysisError("api_key_invalid", 401)
+    if response.status_code == 403:
+        raise ArtificialAnalysisError("tier_forbidden", 403)
+    if response.status_code == 429:
+        raise ArtificialAnalysisError(
+            "rate_limited",
+            429,
+            retry_at=_rate_limit_retry_at(response),
+        )
+    if not response.ok:
+        raise ArtificialAnalysisError("upstream_error", 502)
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise ArtificialAnalysisError("invalid_response", 502) from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        raise ArtificialAnalysisError("invalid_response", 502)
+    return payload
+
+
+def _fetch_model_pages(api_key: str) -> tuple[List[Dict[str, Any]], Any]:
+    """Fetch the complete paginated upstream feed."""
+    rows: List[Dict[str, Any]] = []
+    page = 1
+    index_version = None
+    session = requests.Session()
+    while True:
+        response = session.get(
+            ARTIFICIAL_ANALYSIS_URL,
+            headers={"x-api-key": api_key},
+            params={"page": page},
+            timeout=_TIMEOUT_SECONDS,
+        )
+        payload = _validated_page_payload(response)
+        rows.extend(payload["data"])
+        index_version = payload.get("intelligence_index_version", index_version)
+        pagination = payload.get("pagination") or {}
+        if not pagination.get("has_more"):
+            break
+        page += 1
+        if page > int(pagination.get("total_pages") or page):
+            break
+    return rows, index_version
+
+
 def fetch_all_models() -> Dict[str, Any]:
     """Fetch every page from Artificial Analysis and build the comparison feed."""
     cached = _read_cache()
@@ -577,80 +690,13 @@ def fetch_all_models() -> Dict[str, Any]:
             load_catalog(force_refresh=False),
         )
 
-    api_key = (
-        os.getenv("ARTIFICIAL_ANALYSIS_API_KEY")
-        or os.getenv("AA_API_KEY")
-        or ""
-    ).strip()
-    if not api_key:
-        try:
-            from backend.config.app_config import load_params
-            from backend.security.ai_credentials import resolve_provider_api_key
-
-            ai_config = dict(load_params(strict_env=False).get("ai", {}) or {})
-            provider_config = dict(
-                (ai_config.get("providers") or {}).get("artificial_analysis") or {}
-            )
-            api_key = (
-                resolve_provider_api_key("artificial_analysis", provider_config)
-                or ""
-            ).strip()
-        except Exception:
-            api_key = ""
+    api_key = _configured_api_key()
     if not api_key:
         return _fallback_payload(ArtificialAnalysisError("api_key_missing", 503))
 
-    rows: List[Dict[str, Any]] = []
-    page = 1
-    index_version = None
-    session = requests.Session()
     try:
-        while True:
-            response = session.get(
-                ARTIFICIAL_ANALYSIS_URL,
-                headers={"x-api-key": api_key},
-                params={"page": page},
-                timeout=_TIMEOUT_SECONDS,
-            )
-            if response.status_code == 401:
-                raise ArtificialAnalysisError("api_key_invalid", 401)
-            if response.status_code == 403:
-                raise ArtificialAnalysisError("tier_forbidden", 403)
-            if response.status_code == 429:
-                reset_value = getattr(response, "headers", {}).get(
-                    "X-Ratelimit-Reset"
-                )
-                try:
-                    retry_at = datetime.fromtimestamp(
-                        float(reset_value),
-                        timezone.utc,
-                    ).isoformat(timespec="seconds")
-                except (TypeError, ValueError, OSError):
-                    retry_at = None
-                raise ArtificialAnalysisError(
-                    "rate_limited",
-                    429,
-                    retry_at=retry_at,
-                )
-            if not response.ok:
-                raise ArtificialAnalysisError("upstream_error", 502)
-            try:
-                payload = response.json()
-            except ValueError as exc:
-                raise ArtificialAnalysisError("invalid_response", 502) from exc
-
-            data = payload.get("data")
-            if not isinstance(data, list):
-                raise ArtificialAnalysisError("invalid_response", 502)
-            rows.extend(data)
-            index_version = payload.get("intelligence_index_version", index_version)
-            pagination = payload.get("pagination") or {}
-            if not pagination.get("has_more"):
-                break
-            page += 1
-            if page > int(pagination.get("total_pages") or page):
-                break
-    except requests.RequestException as exc:
+        rows, index_version = _fetch_model_pages(api_key)
+    except requests.RequestException:
         return _fallback_payload(ArtificialAnalysisError("network_error", 502))
     except ArtificialAnalysisError as exc:
         return _fallback_payload(exc)

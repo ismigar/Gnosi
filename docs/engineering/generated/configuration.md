@@ -10,10 +10,10 @@ Discovered **112 variables** across **178 source references**.
 
 | Variable | Runtime | Source default | Consumers |
 | --- | --- | --- | --- |
-| `AA_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:582`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L582) |
+| `AA_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:611`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L611) |
 | `ANTHROPIC_API_KEY` | Python | redacted | [`backend/domains/agent/llm.py:175`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py#L175) |
 | `APERTIUM_PUBLIC_API_URL` | Python | unset | [`pipeline/skills/translate_row/scripts/translate_text.py:315`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L315) |
-| `ARTIFICIAL_ANALYSIS_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:581`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L581) |
+| `ARTIFICIAL_ANALYSIS_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:611`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L611) |
 | `BACKUP_DEST_DIR` | Python | unset | [`pipeline/skills/backup_projectes/scripts/backup_projectes.py:14`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/backup_projectes/scripts/backup_projectes.py#L14) |
 | `BASE_URL` | Vite | runtime-provided | [`frontend/src/lib/spellcheck/nspellManager.js:101`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/lib/spellcheck/nspellManager.js#L101) |
 | `CORS_ORIGINS` | Python | '' | [`backend/app/middleware.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/app/middleware.py#L19) |
