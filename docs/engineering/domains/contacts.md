@@ -1,10 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/contacts_routes.py
   - backend/models/contact.py
   - backend/services/contacts_service.py
+  - backend/services/contacts_sync_engine.py
   - backend/services/google_contacts_service.py
   - frontend/src/pages/ContactsPage.jsx
   - frontend/src/components/Contacts
@@ -22,6 +23,11 @@ tests:
 Contacts provides a local normalized address book over manual records and
 connected Google, CardDAV, and compatible sources. It supplies search and
 recipient/attendee autocomplete to Mail and Calendar.
+
+The HTTP routes and synchronization provider boundary are strictly typed.
+Integration credentials are validated before a Google or CardDAV provider is
+constructed, and heterogeneous synchronization counters and errors keep an
+explicit result contract without changing the public payload.
 
 ## Data model
 

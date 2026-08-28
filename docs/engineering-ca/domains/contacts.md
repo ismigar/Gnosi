@@ -1,10 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/contacts_routes.py
   - backend/models/contact.py
   - backend/services/contacts_service.py
+  - backend/services/contacts_sync_engine.py
   - backend/services/google_contacts_service.py
   - frontend/src/pages/ContactsPage.jsx
   - frontend/src/components/Contacts
@@ -20,6 +21,11 @@ tests:
 ## Reversió
 
 Contactes proveeix d' una llibreta d' adreces normalitzada local sobre registres manuals i connectats a Google, CardDAV i fonts compatibles. Proporciona cerca i destinatari/ attegene autocompletat amb el correu i el calendari.
+
+Les rutes HTTP i la frontera dels proveïdors de sincronització estan tipades
+estrictament. Les credencials d'integració es validen abans de construir un
+proveïdor Google o CardDAV, i els comptadors i errors heterogenis de
+sincronització mantenen un contracte explícit sense canviar el payload públic.
 
 ## Model de dades
 

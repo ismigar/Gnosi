@@ -1,10 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/contacts_routes.py
   - backend/models/contact.py
   - backend/services/contacts_service.py
+  - backend/services/contacts_sync_engine.py
   - backend/services/google_contacts_service.py
   - frontend/src/pages/ContactsPage.jsx
   - frontend/src/components/Contacts
@@ -20,6 +21,11 @@ tests:
 ## Responsabilidad
 
 Contactos proporciona una libreta de direcciones normalizada local sobre registros manuales y conexiones de Google, CardDAV, y fuentes compatibles. Proporciona búsqueda y destinatario / attendee autocompletado a Correo y Calendario.
+
+Las rutas HTTP y la frontera de proveedores de sincronización están tipadas
+estrictamente. Las credenciales de integración se validan antes de construir
+un proveedor Google o CardDAV, y los contadores y errores heterogéneos de
+sincronización mantienen un contrato explícito sin cambiar el payload público.
 
 ## Modelo de datos
 
