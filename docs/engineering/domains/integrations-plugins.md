@@ -16,6 +16,7 @@ source_paths:
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
   - backend/services/plugin_sandbox.py
+  - backend/services/plugin_dispatcher.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
   - backend/services/notion_clone.py
@@ -34,6 +35,7 @@ tests:
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
+  - backend/tests/test_plugin_network_guard.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
   - backend/tests/test_notion_clone.py
@@ -108,6 +110,11 @@ dynamically replaceable for plugins and tests. Domain modules never import the
 facade. Route order, paths, methods, status codes, payload schemas, operation
 identifiers, and the generated OpenAPI contract remain frozen during this
 structural migration.
+
+The plugin dispatcher and sandbox facade share one typed two-argument host
+handler contract: bounded arguments plus the calling plugin id. Vault RPCs now
+import canonical page, registry and configuration owners lazily, preserving
+cycle avoidance while removing dynamic compatibility-facade calls.
 
 ## Plugin lifecycle
 

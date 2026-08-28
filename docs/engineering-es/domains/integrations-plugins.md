@@ -16,6 +16,7 @@ source_paths:
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
   - backend/services/plugin_sandbox.py
+  - backend/services/plugin_dispatcher.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
   - backend/services/notion_clone.py
@@ -39,6 +40,7 @@ tests:
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
+  - backend/tests/test_plugin_network_guard.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
   - frontend/src/plugins/host.test.js
@@ -90,6 +92,11 @@ de progreso del clon. Las tres rutas históricas
 compatibilidad explícitas: los imports, globals y puntos de `monkeypatch` con
 resolución tardía siguen disponibles. El orden, métodos, paths, payloads,
 descripciones y documento OpenAPI de Notion permanecen idénticos byte a byte.
+
+El dispatcher y la fachada del sandbox comparten un contrato tipado de host
+handler con dos argumentos: argumentos acotados e identificador del plugin. Los
+RPC de Vault importan de forma perezosa los propietarios canónicos de páginas,
+registro y configuración, evitando ciclos y llamadas a la fachada dinámica.
 
 ## Ciclo de vida del complemento
 

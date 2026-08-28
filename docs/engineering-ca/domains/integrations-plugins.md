@@ -16,6 +16,7 @@ source_paths:
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
   - backend/services/plugin_sandbox.py
+  - backend/services/plugin_dispatcher.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
   - backend/services/notion_clone.py
@@ -34,6 +35,7 @@ tests:
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
+  - backend/tests/test_plugin_network_guard.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
   - backend/tests/test_notion_clone.py
@@ -90,6 +92,11 @@ gestors del host injectats, la ruta del runner i els punts de substitució
 tardana; l'estat del lifecycle i del sandbox no es duplica entre les capes.
 
 `backend/api/vault_routes.py` Encara hi ha una façana temporal per a les importacions heretats. Injecta el camí, persisteix, l' hora, la combinació de models i els col· mutacions en cadena de bloqueig i els re- ports dels models històrics i els gestors històrics. La càrrega, desa, el cicle vital, el resum i els línies de substitució de la mutació segueixen sent substituïts dinàmicament per als connectors i proves. Els mòduls de domini mai importa la façana. L' ordre de la ruta, els mètodes d' estat, els codis d' execució, els esquemes, l' identificador, l' operació i el contracte OpenAPI generats durant aquesta migració estructural.
+
+El dispatcher i la façana del sandbox comparteixen un contracte tipat de host
+handler amb dos arguments: arguments acotats i identificador del plugin. Els RPC
+de Vault importen mandrosament els propietaris canònics de pàgines, registre i
+configuració, evitant cicles i eliminant crides a la façana dinàmica.
 
 ## Ciccle de vida d' endollat
 

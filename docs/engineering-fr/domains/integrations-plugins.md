@@ -16,6 +16,7 @@ source_paths:
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
   - backend/services/plugin_sandbox.py
+  - backend/services/plugin_dispatcher.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
   - backend/services/notion_clone.py
@@ -39,6 +40,7 @@ tests:
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
+  - backend/tests/test_plugin_network_guard.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
   - frontend/src/plugins/host.test.js
@@ -91,6 +93,11 @@ compatibilité explicites : les imports, globals et points de `monkeypatch` à
 résolution tardive restent disponibles. L'ordre, les méthodes, chemins,
 payloads, descriptions et le document OpenAPI de Notion restent identiques
 octet par octet.
+
+Le dispatcher et la façade du sandbox partagent un contrat typé de host handler
+à deux arguments : arguments bornés et identifiant du plugin appelant. Les RPC
+Vault importent paresseusement les propriétaires canoniques des pages, du
+registre et de la configuration, sans cycle ni façade dynamique.
 
 ## Cycle de vie du greffon
 
