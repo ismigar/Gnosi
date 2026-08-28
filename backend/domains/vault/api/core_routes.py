@@ -4,16 +4,19 @@ import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
+from fastapi import APIRouter
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 
 
-@_legacy.router.get("/virtual-fields", response_model=None)
+@router.get("/virtual-fields", response_model=None)
 async def list_virtual_fields() -> _LegacyAny:
     """Catalogue of virtual field computers available for the schema config UI."""
     return {"computers": _legacy._vf_list_specs()}
 
 
-_legacy.page_queries_api.register_status_routes(_legacy.router)
+_legacy.page_queries_api.register_status_routes(router)
 get_indexer_status_endpoint = _legacy.page_queries_api.get_indexer_status_endpoint
 list_sidebar_summary = _legacy.page_queries_api.list_sidebar_summary
 
@@ -55,7 +58,7 @@ def _resolve_user_label(user_id: str | None) -> str:
         try:
             u = db.query(User).filter(User.id == user_id).first()
             if u:
-                label = u.name or u.email or user_id
+                label = str(u.name or u.email or user_id)
         finally:
             try:
                 next(gen)
@@ -176,7 +179,7 @@ _CREATE_PAGE_DEPENDENCIES = _legacy.page_create_service.CreatePageDependencies(
     emit_created=_emit_page_created,
 )
 create_page = _legacy.page_commands_api.register_create_route(
-    _legacy.router,
+    router,
     editor_dependency=_legacy.require_role("editor"),
     workspace_context_dependency=_legacy.get_workspace_context,
     dependencies=_CREATE_PAGE_DEPENDENCIES,
@@ -305,7 +308,7 @@ def _find_daily_note_in_table(
     )
 
 
-@_legacy.router.get("/daily", response_model=None)
+@router.get("/daily", response_model=None)
 async def list_daily_notes() -> _LegacyAny:
     """Lists existing daily notes (one per day), newest first.
 
@@ -319,7 +322,7 @@ async def list_daily_notes() -> _LegacyAny:
     return await _legacy.daily_notes_service.list_notes(_daily_notes_dependencies())
 
 
-@_legacy.router.post(
+@router.post(
     "/daily",
     dependencies=[
         _legacy.Depends(_legacy.require_role("editor")),
@@ -353,7 +356,7 @@ def _extract_tags(raw: _LegacyAny) -> list[_LegacyAny]:
     return _strict_cast(list[_LegacyAny], _legacy.tags_query.extract_tags(raw))
 
 
-@_legacy.router.get("/tags", response_model=None)
+@router.get("/tags", response_model=None)
 async def list_vault_tags() -> _LegacyAny:
     """Aggregates all `tags` across the vault with their page counts.
 

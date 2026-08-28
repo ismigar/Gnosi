@@ -223,6 +223,11 @@ context-manager decorator for mutation cycles and treats a missing active Vault
 as an absent cloud attachment root. Registry/table route order, locking, caches
 and provider-specific attachment candidates remain unchanged.
 
+The core Vault API reuses one typed router for virtual fields, index status,
+daily notes and tag aggregation. User display labels cross the legacy ORM
+descriptor boundary as concrete strings, preserving the existing fallback from
+name to email to identifier.
+
 ## File providers
 
 The provider abstraction selects local, generic macOS File Provider, OneDrive,
