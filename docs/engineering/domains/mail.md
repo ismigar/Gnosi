@@ -8,6 +8,7 @@ source_paths:
   - backend/services/google_mail_service.py
   - backend/services/microsoft_mail_service.py
   - backend/services/mail_ingester.py
+  - backend/services/vault_mail_sync_service.py
   - frontend/src/pages/MailPage.jsx
   - frontend/src/components/Mail
 tests:
@@ -16,6 +17,7 @@ tests:
   - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
+  - backend/tests/test_vault_mail_sync_service.py
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
 ---
 
@@ -44,6 +46,12 @@ Batch ingestion uses savepoints so a malformed message cannot roll back earlier
 messages. Message and thread identity must remain stable across repeated syncs.
 Folder names are provider values; the UI translates known semantic folders
 without changing persisted comparison values.
+
+The legacy Gmail-to-Vault exporter narrows discovery payloads at its service
+boundary, requires a configured Mail directory before any filesystem access,
+and deduplicates by provider message id. Multipart text, HTML, categories,
+labels and attachment presence retain their historical Markdown/frontmatter
+representation; a missing Vault fails closed without creating files elsewhere.
 
 ## MIME and content safety
 
