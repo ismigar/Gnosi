@@ -221,9 +221,18 @@ def _organization_membership(
         membership = db.query(Membership).filter(Membership.user_id == user_id).first()
         if not membership:
             workspace_id = _ensure_personal_exists(db, user_id, default_vault_path)
-            membership = db.query(Membership).filter(Membership.user_id == user_id).first()
+            membership = (
+                db.query(Membership)
+                .filter(
+                    Membership.user_id == user_id,
+                    Membership.workspace_id == workspace_id,
+                )
+                .first()
+            )
         else:
-            workspace_id = membership.workspace_id
+            workspace_id = str(membership.workspace_id)
+        if membership is None:
+            raise RuntimeError("Workspace bootstrap did not create a membership")
         return workspace_id, membership
 
     membership = (
@@ -297,13 +306,17 @@ def _organization_vault_path(
 def _membership_capabilities(membership: Membership) -> list[str]:
     """Decode explicit capabilities and apply administrative defaults."""
     capabilities = ["read"]
-    if membership.permissions:
+    raw_permissions = membership.permissions
+    if isinstance(raw_permissions, str) and raw_permissions:
         try:
-            permissions = json.loads(membership.permissions)
-            capabilities = permissions.get("capabilities", ["read"])
+            permissions = json.loads(raw_permissions)
+            decoded = permissions.get("capabilities", ["read"])
+            if isinstance(decoded, list):
+                capabilities = [str(item) for item in decoded]
         except (ValueError, TypeError, AttributeError):
             pass
-    if membership.role in ["admin", "owner"] and "admin" not in capabilities:
+    role = str(membership.role)
+    if role in ["admin", "owner"] and "admin" not in capabilities:
         capabilities.append("admin")
         if "write" not in capabilities:
             capabilities.append("write")
@@ -323,6 +336,10 @@ def get_workspace_context(
     params = load_params(strict_env=False)
     project_root = params.paths.get("PROJECT_DIR")
     default_vault_path = params.paths.get("VAULT")
+    if project_root is None:
+        raise HTTPException(status_code=500, detail="PROJECT_DIR no configurat")
+    if default_vault_path is None:
+        raise HTTPException(status_code=500, detail="VAULT_PATH no configurat")
 
     # Resolve the user: a credential (cookie/Bearer, already in `auth_uid`), or
     # the install's sole local account. `x_user_id` is accepted as a parameter
@@ -358,7 +375,7 @@ def get_workspace_context(
     return WorkspaceContext(
         workspace_id=x_workspace_id,
         user_id=x_user_id,
-        role=membership.role,
+        role=str(membership.role),
         vault_path=v_path,
         capabilities=capabilities,
     )

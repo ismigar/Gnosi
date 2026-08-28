@@ -37,6 +37,13 @@ of the friendly mode label.
 The frontend gate selects login or application UI, but all authorization is
 enforced in backend dependencies and services.
 
+Workspace resolution validates the configured project and Vault roots before
+any bootstrap or path selection. Personal bootstrap is race-safe and confirms
+the winning membership after a uniqueness conflict; organization mode narrows
+membership roles and JSON capabilities before constructing the request context.
+Missing mounts fall back only where personal-mode compatibility explicitly
+allows it and never fabricate an organization Vault.
+
 ## Session and token authentication
 
 Email/password login verifies a password hash and issues a signed JWT in an
