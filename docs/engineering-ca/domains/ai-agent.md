@@ -10,6 +10,7 @@ source_paths:
   - backend/domains/configuration/agent
   - backend/domains/configuration/ai
   - backend/agent
+  - backend/agent/memory.py
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
@@ -33,6 +34,7 @@ tests:
   - backend/tests/test_provider_delete.py
   - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
+  - backend/tests/test_agent_legacy_memory.py
   - tests/e2e/tests/e2e/ai-chat.spec.ts
 ---
 
@@ -105,6 +107,12 @@ Accions requerides crear registres pendents amb confirmació. Confirmació de l'
 ## Skils i connectors
 
 Les habilitats en temps integrat viuen en `pipeline/skills/`Els paquets d' usuari i connectors es validen en un catàleg mentre es preserva l' origen, l' activació, la compatibilitat i els camps controlats contra l' usuari. La reconciliació del connector és idescriptible: deshabilitar un connector suspendre la seva contribució gestionada sense eliminar les sobreescriucions de l' usuari.
+
+La façana legacy de memòria Chroma continua sent mandrosa i estrictament tipada
+per compatibilitat d'importació. Importar-la només crea el directori configurat
+i no carrega models d'embeddings. Sense embeddings, les lectures són buides i
+les escriptures fallen explícitament; la memòria personal canònica continua al
+servei SQLite governat i acotat del domini Agent.
 
 ## Context i memòria
 

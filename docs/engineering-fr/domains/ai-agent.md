@@ -10,6 +10,7 @@ source_paths:
   - backend/domains/configuration/agent
   - backend/domains/configuration/ai
   - backend/agent
+  - backend/agent/memory.py
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
@@ -48,6 +49,7 @@ tests:
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
   - backend/tests/test_agent_resilience.py
+  - backend/tests/test_agent_legacy_memory.py
   - backend/tests/test_agent_recovery.py
   - backend/tests/test_e2e_tables_assets.py
   - backend/tests/test_vault_trash.py
@@ -125,6 +127,12 @@ Les actions nécessitant une confirmation créent des dossiers en suspens durabl
 ## Compétences et plugins
 
 Les compétences en cours d'exécution intégrées vivent dans `pipeline/skills/`. Les paquets utilisateur et plugin sont validés dans un catalogue tout en préservant l'origine, l'activation, la compatibilité et les champs gérés-versus-utilisateurs. La conciliation des plugins est idempotent : désactiver un plugin suspend sa contribution gérée sans supprimer les surcharges utilisateur.
+
+La façade legacy de mémoire Chroma reste paresseuse et strictement typée pour la
+compatibilité des imports. Son import ne crée que le répertoire configuré et ne
+charge aucun modèle d'embedding. Sans embeddings, les lectures restent vides et
+les écritures échouent explicitement ; la mémoire personnelle canonique demeure
+dans le service SQLite gouverné et borné du domaine Agent.
 
 ## Contexte et mémoire
 

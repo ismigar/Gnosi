@@ -10,6 +10,7 @@ source_paths:
   - backend/domains/configuration/agent
   - backend/domains/configuration/ai
   - backend/agent
+  - backend/agent/memory.py
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
@@ -53,6 +54,7 @@ tests:
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
   - backend/tests/test_agent_resilience.py
+  - backend/tests/test_agent_legacy_memory.py
   - backend/tests/test_agent_recovery.py
   - backend/tests/test_agent_universal_runtime_phase2.py
   - backend/tests/test_e2e_tables_assets.py
@@ -153,6 +155,12 @@ validated into a catalog while preserving origin, activation, compatibility,
 and managed-versus-user-owned fields. Plugin reconciliation is idempotent:
 disabling a plugin suspends its managed contribution without deleting user
 overrides.
+
+The legacy Chroma memory facade remains lazy and strictly typed for import
+compatibility. Importing it creates only the configured storage directory; it
+does not load embedding models. Missing embeddings degrade to empty reads and
+explicit failed writes, while canonical governed personal memory remains in the
+Agent domain's scoped SQLite service.
 
 ## Context and memory
 

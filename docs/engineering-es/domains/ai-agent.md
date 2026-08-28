@@ -10,6 +10,7 @@ source_paths:
   - backend/domains/configuration/agent
   - backend/domains/configuration/ai
   - backend/agent
+  - backend/agent/memory.py
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
@@ -33,6 +34,7 @@ tests:
   - backend/tests/test_provider_delete.py
   - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
+  - backend/tests/test_agent_legacy_memory.py
   - tests/e2e/tests/e2e/ai-chat.spec.ts
 ---
 
@@ -105,6 +107,12 @@ Las acciones que requieren confirmación crean registros pendientes duraderos. L
 ## Habilidades y complementos
 
 Las habilidades de ejecución incorporadas viven en `pipeline/skills/`. Los paquetes de usuario y plugin se validan en un catálogo mientras se preserva el origen, activación, compatibilidad y campos gestionados contra usuarios. La reconciliación de plugins es idempotente: desactivar un plugin suspende su contribución administrada sin eliminar las sobreposiciones de usuario.
+
+La fachada legacy de memoria Chroma sigue siendo perezosa y estrictamente
+tipada para compatibilidad de importación. Importarla solo crea el directorio
+configurado y no carga modelos de embeddings. Sin embeddings, las lecturas son
+vacías y las escrituras fallan explícitamente; la memoria personal canónica
+sigue en el servicio SQLite gobernado y acotado del dominio Agent.
 
 ## Contexto y memoria
 

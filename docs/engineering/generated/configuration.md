@@ -95,7 +95,7 @@ Discovered **106 variables** across **168 source references**.
 | `ONEDRIVE_WARMUP_MODE` | Python | unset | [`backend/domains/graph/scanning.py:125`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/scanning.py#L125) |
 | `ONEDRIVE_WARMUP_PORT` | Python | '5009' | [`scripts/runtime/onedrive_warmup_daemon.py:67`](https://github.com/ismigar/Gnosi/blob/main/scripts/runtime/onedrive_warmup_daemon.py#L67) |
 | `ONEDRIVE_WARMUP_TIMEOUT` | Python | '90' | [`scripts/runtime/onedrive_warmup_daemon.py:75`](https://github.com/ismigar/Gnosi/blob/main/scripts/runtime/onedrive_warmup_daemon.py#L75) |
-| `OPENAI_API_KEY` | Python | redacted | [`backend/agent/graph.py:26`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/graph.py#L26)<br>[`backend/agent/memory.py:57`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py#L57) |
+| `OPENAI_API_KEY` | Python | redacted | [`backend/agent/graph.py:26`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/graph.py#L26)<br>[`backend/agent/memory.py:68`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py#L68) |
 | `OPUS_IDLE_TIMEOUT_S` | Python | '300' | [`pipeline/skills/translate_row/scripts/translate_text.py:65`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L65) |
 | `PANDOC_PATH` | Python | '' | [`backend/domains/vault/citations/formatting.py:133`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/formatting.py#L133) |
 | `PATH` | Python | '' | [`backend/agent/generated_tools/sandbox_runner.py:93`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/sandbox_runner.py#L93) |

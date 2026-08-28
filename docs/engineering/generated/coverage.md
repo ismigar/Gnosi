@@ -13,7 +13,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 43 | 19 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 10 | 12 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 26 | 15 | 0 |
-| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 67 | 23 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 67 | 24 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 15 | 7 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 11 | 7 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 9 | 2 | 0 |
