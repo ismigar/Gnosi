@@ -175,14 +175,17 @@
     "source_globs": [
       "backend/api/integrations_routes.py",
       "backend/domains/plugins/*.py",
+      "backend/api/notion_routes.py",
+      "backend/domains/notion/**/*.py",
       "backend/services/integration*.py",
+      "backend/services/notion_*.py",
       "backend/services/plugin*.py",
       "backend/services/academic_connectors.py",
       "extensions/**/*",
       "extensions/examples/**/*",
       "extensions/mcp/**/*"
     ],
-    "test_globs": ["backend/tests/test_integration*.py", "backend/tests/test_plugin*.py", "extensions/**/tests/**/*"],
+    "test_globs": ["backend/tests/test_integration*.py", "backend/tests/test_notion*.py", "backend/tests/test_plugin*.py", "extensions/**/tests/**/*"],
     "directives": ["academic_literature_search_and_review.md", "plugin_system.md", "integrations_persistence.md", "skill_vs_tool_architecture.md"]
   },
   {

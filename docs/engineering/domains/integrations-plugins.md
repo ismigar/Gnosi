@@ -3,7 +3,9 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
+  - backend/api/notion_routes.py
   - backend/api/vault_routes.py
+  - backend/domains/notion
   - backend/domains/configuration/api/plugin_lifecycle.py
   - backend/domains/configuration/api/plugin_models.py
   - backend/domains/configuration/api/plugins.py
@@ -16,6 +18,9 @@ source_paths:
   - backend/services/plugin_sandbox.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
+  - backend/services/notion_clone.py
+  - backend/services/notion_importer.py
+  - backend/services/notion_view_recreator.py
   - extensions/examples
   - frontend/src/plugins
   - extensions/mcp
@@ -29,6 +34,11 @@ tests:
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
+  - backend/tests/test_notion_clone.py
+  - backend/tests/test_notion_domain_facades.py
+  - backend/tests/test_notion_importer.py
+  - backend/tests/test_notion_view_recreator.py
+  - backend/tests/test_openapi_contract.py
   - frontend/src/plugins/host.test.js
   - frontend/src/plugins/registry.test.js
   - extensions/office/libreoffice-cite/tests
@@ -70,6 +80,17 @@ grant normalization, and the newline-JSON Node sandbox. Historical
 facades. They own the compatibility constants, injected host-handler registry,
 runner path, and late-bound seams; lifecycle and sandbox state is not duplicated
 across the boundary.
+
+The Notion integration is owned by `backend/domains/notion`. Its typed modules
+separate REST import conversion, embedded-view recreation, exact-clone phases,
+workspace discovery, route-level filesystem/registry persistence, and
+read-only clone verification. `backend/api/notion_routes.py` remains the HTTP
+translation and clone-progress state boundary. The three historical
+`backend/services/notion_{importer,clone,view_recreator}.py` paths are explicit
+compatibility facades; imports, globals and late-bound monkeypatch seams remain
+available while the canonical implementation lives in the domain package.
+Notion route order, methods, paths, payload schemas, descriptions and the
+deterministic OpenAPI document remain byte-stable.
 
 `backend/api/vault_routes.py` remains a temporary composition facade for
 legacy imports. It injects path, persistence, runtime, model-selection, and

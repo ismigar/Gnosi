@@ -1,28 +1,8 @@
 {
   "allowlist": {
-    "backend/api/notion_routes.py": {
-      "max_complexity": 39,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/api/vault_routes.py": {
       "max_complexity": 16,
       "max_lines": 9846,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/notion_clone.py": {
-      "max_complexity": 67,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/notion_importer.py": {
-      "max_complexity": 20,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/notion_view_recreator.py": {
-      "max_complexity": 20,
-      "max_lines": 800,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/services/vault_templates.py": {

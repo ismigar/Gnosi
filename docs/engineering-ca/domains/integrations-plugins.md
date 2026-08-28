@@ -3,7 +3,9 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
+  - backend/api/notion_routes.py
   - backend/api/vault_routes.py
+  - backend/domains/notion
   - backend/domains/configuration/api/plugin_lifecycle.py
   - backend/domains/configuration/api/plugin_models.py
   - backend/domains/configuration/api/plugins.py
@@ -16,6 +18,9 @@ source_paths:
   - backend/services/plugin_sandbox.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
+  - backend/services/notion_clone.py
+  - backend/services/notion_importer.py
+  - backend/services/notion_view_recreator.py
   - extensions/examples
   - frontend/src/plugins
   - extensions/mcp
@@ -29,6 +34,11 @@ tests:
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
+  - backend/tests/test_notion_clone.py
+  - backend/tests/test_notion_domain_facades.py
+  - backend/tests/test_notion_importer.py
+  - backend/tests/test_notion_view_recreator.py
+  - backend/tests/test_openapi_contract.py
   - frontend/src/plugins/host.test.js
   - frontend/src/plugins/registry.test.js
   - extensions/office/libreoffice-cite/tests
@@ -47,6 +57,18 @@ El gestor d' integració desa la configuració de comptes no secret i referènci
 Google i Microsoft OAuth Callbacks crea o actualitza registres de proveïdors. IMAP, SMTP, CalDAV, Drupal, Noion, i els adaptadors similars s' apliquen les seves pròpies opcions en el registre d' integració comú on és possible.
 
 ## El propietari del dorsal i la compatibilitat
+
+La integració de Notion és propietat de `backend/domains/notion`. Els mòduls
+tipats separen la conversió de la importació REST, la recreació de vistes
+incrustades, les fases del clon exacte, la descoberta del workspace, la
+persistència de fitxers i registre de la ruta i la verificació de només lectura.
+`backend/api/notion_routes.py` conserva la traducció HTTP i l'estat de progrés
+del clon. Els tres camins històrics
+`backend/services/notion_{importer,clone,view_recreator}.py` són façanes de
+compatibilitat explícites: imports, globals i costures `monkeypatch` resoltes
+tardanament continuen disponibles. L'ordre, els mètodes, els paths, els
+payloads, les descripcions i el document OpenAPI de Notion es mantenen
+byte-a-byte.
 
 El domini de configuració té les operacions HTTP de 23 en grup i tercera part. `backend/domains/configuration/api/plugins.py` tradueix peticions HTTP, `plugin_lifecycle.py` El propietari d'activació i transitacions en temps d'execució, `plugin_models.py` Té els contractes pidantics, i `plugin_state.py` és l' únic propietari dels panys per procés i normalitzat per l' estat de per a la sortida.
 

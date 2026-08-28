@@ -3,12 +3,14 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
+  - backend/api/notion_routes.py
   - backend/api/vault_routes.py
   - backend/domains/configuration/api/plugin_lifecycle.py
   - backend/domains/configuration/api/plugin_models.py
   - backend/domains/configuration/api/plugins.py
   - backend/domains/configuration/plugin_state.py
   - backend/domains/plugins
+  - backend/domains/notion
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
@@ -16,11 +18,19 @@ source_paths:
   - backend/services/plugin_sandbox.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
+  - backend/services/notion_clone.py
+  - backend/services/notion_importer.py
+  - backend/services/notion_view_recreator.py
   - extensions/examples
   - frontend/src/plugins
   - extensions/mcp
   - extensions/office
 tests:
+  - backend/tests/test_notion_clone.py
+  - backend/tests/test_notion_domain_facades.py
+  - backend/tests/test_notion_importer.py
+  - backend/tests/test_notion_view_recreator.py
+  - backend/tests/test_openapi_contract.py
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_configuration_plugins_route_contract.py
   - backend/tests/test_plugin_domain_contract.py
@@ -61,6 +71,17 @@ de sustitución tardía; el estado del ciclo de vida y del sandbox no se duplica
 entre las capas.
 
 `backend/api/vault_routes.py` Sigue siendo una fachada de composición temporal para las importaciones heredadas. Inyecta trayectoria, persistencia, tiempo de ejecución, selección de modelos y colaboradores de bloqueo de mutaciones y reexporta los modelos y manipuladores históricos. Las costuras de carga, ahorro, ciclo de vida, modelo resumen y bloqueo de mutaciones permanecen remplazadas dinámicamente para plugins y pruebas. Los módulos de dominio nunca importan la fachada. El orden de ruta, rutas, métodos, códigos de estado, esquemas de carga útil, identificadores de operación y el contrato OpenAPI generado permanecen congelados durante esta migración estructural.
+
+La integración de Notion pertenece a `backend/domains/notion`. Sus módulos
+tipados separan la conversión de la importación REST, la recreación de vistas
+incrustadas, las fases del clon exacto, el descubrimiento del workspace, la
+persistencia de archivos y del registro de rutas, y la verificación de solo
+lectura. `backend/api/notion_routes.py` conserva la traducción HTTP y el estado
+de progreso del clon. Las tres rutas históricas
+`backend/services/notion_{importer,clone,view_recreator}.py` son fachadas de
+compatibilidad explícitas: los imports, globals y puntos de `monkeypatch` con
+resolución tardía siguen disponibles. El orden, métodos, paths, payloads,
+descripciones y documento OpenAPI de Notion permanecen idénticos byte a byte.
 
 ## Ciclo de vida del complemento
 

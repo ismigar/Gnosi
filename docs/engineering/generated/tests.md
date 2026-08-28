@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 260 | 1953 |
+| pytest | 261 | 1958 |
 
 ## Files
 
@@ -262,6 +262,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_notion_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_clone.py) | 22 | Python AST |
 | pytest | [`backend/tests/test_notion_clone_dedupe.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_clone_dedupe.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_notion_clone_verify.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_clone_verify.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_notion_domain_facades.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_domain_facades.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_notion_importer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_importer.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_notion_mcp_md.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_mcp_md.py) | 19 | Python AST |
 | pytest | [`backend/tests/test_notion_pagination_guard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notion_pagination_guard.py) | 4 | Python AST |
