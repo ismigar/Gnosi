@@ -10,7 +10,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 46 | 8514 |
+| `agent` | 46 | 8515 |
 | `api` | 38 | 11438 |
 | `app` | 6 | 603 |
 | `application root` | 4 | 107 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146719 source lines**.
+Total: **699 modules** and **146720 source lines**.
 
 ## agent
 
@@ -39,7 +39,7 @@ Total: **699 modules** and **146719 source lines**.
 | [`backend/agent/action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/action_confirmations.py) | 755 | 0 | 28 | 0 | 22 | Persistent, scope-bound confirmations for consequential agent actions. |
 | [`backend/agent/agent_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/agent_context.py) | 199 | 1 | 1 | 0 | 2 | Attached context sources for a Cognition agent. |
 | [`backend/agent/calendar_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/calendar_tools.py) | 125 | 0 | 6 | 5 | 5 | Governed adapters for exact calendar reads and external mutations. |
-| [`backend/agent/contact_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/contact_tools.py) | 157 | 0 | 6 | 0 | 4 | Governed adapters for local contact maintenance. |
+| [`backend/agent/contact_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/contact_tools.py) | 158 | 0 | 6 | 0 | 4 | Governed adapters for local contact maintenance. |
 | [`backend/agent/context_safety.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/context_safety.py) | 47 | 0 | 2 | 0 | 2 | Boundaries for untrusted evidence supplied to the agent. |
 | [`backend/agent/context_sources/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/context_sources/__init__.py) | 32 | 0 | 2 | 0 | 1 | Catalogue of large searchable sources an agent can attach (phase 3). |
 | [`backend/agent/context_sources/boe.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/context_sources/boe.py) | 174 | 0 | 6 | 0 | 4 | BOE adapter: search the Spanish official gazette through its open API. |
