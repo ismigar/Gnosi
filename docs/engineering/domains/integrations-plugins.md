@@ -14,6 +14,7 @@ source_paths:
   - backend/domains/configuration/plugin_state.py
   - backend/domains/plugins
   - backend/services/integration_manager.py
+  - backend/services/google_contacts_service.py
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
@@ -32,6 +33,7 @@ source_paths:
 tests:
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
+  - backend/tests/test_google_contacts_service.py
   - backend/tests/test_keychain_manager.py
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_configuration_plugins_route_contract.py
@@ -86,6 +88,12 @@ configuration and account payloads are typed at the adapter boundary; typing
 exceptions are limited to the untyped Google SDK calls and the four historical
 route return annotations whose absence is required to preserve the byte-stable
 OpenAPI response schemas.
+
+The Google People adapter narrows discovery responses to Gnosi contact records,
+refreshes and persists access tokens through the integration manager, preserves
+ETag-aware updates, and normalizes primary names, addresses, organizations,
+photos and provider timestamps. Untyped SDK objects remain confined to this
+adapter and do not cross its typed service functions.
 
 Hosted Notion MCP uses OAuth 2.1 dynamic client registration and PKCE. Its typed
 boundary validates discovery and registration objects, requires a returned

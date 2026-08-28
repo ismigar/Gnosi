@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 271 | 1993 |
+| pytest | 272 | 1997 |
 
 ## Files
 
@@ -213,6 +213,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_gnosi_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_gnosi_agent_tools.py) | 27 | Python AST |
 | pytest | [`backend/tests/test_google_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_google_auth_routes.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_google_calendar_event_updates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_google_calendar_event_updates.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_google_contacts_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_google_contacts_service.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_graph_cluster_legend.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_cluster_legend.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_graph_frontmatter_fallback.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_frontmatter_fallback.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_graph_similarity_suggestions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_similarity_suggestions.py) | 2 | Python AST |
