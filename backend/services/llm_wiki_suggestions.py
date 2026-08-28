@@ -7,14 +7,17 @@ dismissed; this service never creates or edits a permanent note.
 Storage: `<vault>/.gnosi/llm_wiki_suggestions.json` (per-vault, travels with
 the vault). The graph reads this canonical queue directly.
 """
+
 from __future__ import annotations
 
 import json
 import threading
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from backend.config.logger_config import get_logger
+from backend.domains.llm_wiki import legacy_ports
 
 logger = get_logger(__name__)
 
@@ -30,10 +33,9 @@ MAX_SUGGESTIONS_PER_PASS = 8
 # Queue persistence
 # ---------------------------------------------------------------------------
 
-def _queue_path():
-    from backend.api.vault_routes import get_p
 
-    return get_p("GNOSI_CONFIG") / QUEUE_FILENAME
+def _queue_path() -> Path:
+    return legacy_ports.path_for("GNOSI_CONFIG") / QUEUE_FILENAME
 
 
 def load_queue() -> List[Dict[str, Any]]:
@@ -41,7 +43,11 @@ def load_queue() -> List[Dict[str, Any]]:
     try:
         data = json.loads(_queue_path().read_text(encoding="utf-8"))
         items = data.get("suggestions") if isinstance(data, dict) else None
-        return [s for s in items if isinstance(s, dict) and s.get("id")] if isinstance(items, list) else []
+        return (
+            [s for s in items if isinstance(s, dict) and s.get("id")]
+            if isinstance(items, list)
+            else []
+        )
     except Exception:  # noqa: BLE001
         return []
 
@@ -116,19 +122,22 @@ def list_graph_edges() -> List[Dict[str, Any]]:
             continue
         source = members[0]
         for target in members[1:]:
-            edges.append({
-                "source": source,
-                "target": target,
-                "kind": "suggestion",
-                "reason": str(suggestion.get("question") or suggestion.get("title") or ""),
-                "suggestion_id": str(suggestion.get("id") or ""),
-            })
+            edges.append(
+                {
+                    "source": source,
+                    "target": target,
+                    "kind": "suggestion",
+                    "reason": str(suggestion.get("question") or suggestion.get("title") or ""),
+                    "suggestion_id": str(suggestion.get("id") or ""),
+                }
+            )
     return edges
 
 
 # ---------------------------------------------------------------------------
 # LLM pass — propose permanent notes from cross-source reading notes
 # ---------------------------------------------------------------------------
+
 
 def _suggest_prompt(reading_notes: List[Dict[str, str]], language: str) -> str:
     listing = "\n".join(
@@ -157,8 +166,9 @@ Return only JSON: {{"suggestions": [{{"kind": "connection", "title": "…",
 "member_ids": ["…"], "why": "…", "evidence": ["…"]}}]}}"""
 
 
-def generate_suggestions(brain_table_id: str, language: str = "English",
-                         focus_ids: Optional[List[str]] = None) -> int:
+def generate_suggestions(
+    brain_table_id: str, language: str = "English", focus_ids: Optional[List[str]] = None
+) -> int:
     """Run the LLM pass over the Brain's reading notes and queue proposals.
 
     ``focus_ids`` (post-ingest mode) limits proposals to groups touching at
@@ -185,14 +195,11 @@ def generate_suggestions(brain_table_id: str, language: str = "English",
 
 def _reading_notes_digest(brain_table_id: str) -> List[Dict[str, str]]:
     """Compact digest of readings and existing manual permanent notes."""
-    from pathlib import Path
-
-    from backend.api.vault_routes import _get_pages_for_table
     from backend.services import llm_wiki_config, llm_wiki_storage
     from backend.services.llm_wiki import _fonts_ids
 
     out: List[Dict[str, str]] = []
-    for p in _get_pages_for_table(brain_table_id) or []:
+    for p in legacy_ports.table_pages(brain_table_id):
         meta = llm_wiki_storage.page_metadata(p)
         if meta.get("is_template"):
             continue
@@ -210,17 +217,23 @@ def _reading_notes_digest(brain_table_id: str) -> List[Dict[str, str]]:
             except Exception:  # noqa: BLE001
                 body = ""
         fonts = _fonts_ids(meta)
-        out.append({
-            "id": str(getattr(p, "id", "") or meta.get("id") or ""),
-            "title": str(getattr(p, "title", "") or ""),
-            "source": fonts[0] if fonts else "?",
-            "excerpt": " ".join(body.split())[:280],
-            "note_type": note_type,
-        })
+        out.append(
+            {
+                "id": str(getattr(p, "id", "") or meta.get("id") or ""),
+                "title": str(getattr(p, "title", "") or ""),
+                "source": fonts[0] if fonts else "?",
+                "excerpt": " ".join(body.split())[:280],
+                "note_type": note_type,
+            }
+        )
     return out[:150]
 
 
-def _parse_suggestions(raw: str, valid_ids: set, notes_by_id: Dict[str, Dict[str, str]]) -> List[Dict[str, Any]]:
+def _parse_suggestions(
+    raw: str,
+    valid_ids: set[str],
+    notes_by_id: Dict[str, Dict[str, str]],
+) -> List[Dict[str, Any]]:
     """Tolerant parse + validation: members must exist, be ≥2, and span ≥2
     DIFFERENT sources (the whole point of a permanent note)."""
     import re
@@ -228,7 +241,7 @@ def _parse_suggestions(raw: str, valid_ids: set, notes_by_id: Dict[str, Dict[str
     cleaned = re.sub(r"^```(?:json)?|```$", "", (raw or "").strip(), flags=re.MULTILINE).strip()
     start, end = cleaned.find("{"), cleaned.rfind("}")
     try:
-        data = json.loads(cleaned[start:end + 1] if (start != -1 and end > start) else cleaned)
+        data = json.loads(cleaned[start : end + 1] if (start != -1 and end > start) else cleaned)
     except Exception:  # noqa: BLE001
         logger.warning("llm_wiki: could not parse suggestions JSON")
         return []
@@ -237,7 +250,9 @@ def _parse_suggestions(raw: str, valid_ids: set, notes_by_id: Dict[str, Dict[str
     for s in items if isinstance(items, list) else []:
         if not isinstance(s, dict):
             continue
-        members = [str(m).strip() for m in (s.get("member_ids") or []) if str(m).strip() in valid_ids]
+        members = [
+            str(m).strip() for m in (s.get("member_ids") or []) if str(m).strip() in valid_ids
+        ]
         members = list(dict.fromkeys(members))
         sources = {notes_by_id[m]["source"] for m in members if notes_by_id[m]["source"] != "?"}
         has_manual_permanent = any(notes_by_id[m].get("note_type") == "permanent" for m in members)
@@ -246,19 +261,19 @@ def _parse_suggestions(raw: str, valid_ids: set, notes_by_id: Dict[str, Dict[str
         title = str(s.get("title") or "").strip()
         if not title:
             continue
-        out.append({
-            "id": str(uuid.uuid4()),
-            "title": title,
-            "kind": str(s.get("kind") or "connection").strip().lower(),
-            "why": str(s.get("why") or "").strip(),
-            "evidence": [
-                str(item).strip()
-                for item in (s.get("evidence") or [])
-                if str(item).strip()
-            ][:3],
-            "member_ids": members,
-            "member_titles": [notes_by_id[m]["title"] for m in members],
-        })
+        out.append(
+            {
+                "id": str(uuid.uuid4()),
+                "title": title,
+                "kind": str(s.get("kind") or "connection").strip().lower(),
+                "why": str(s.get("why") or "").strip(),
+                "evidence": [
+                    str(item).strip() for item in (s.get("evidence") or []) if str(item).strip()
+                ][:3],
+                "member_ids": members,
+                "member_titles": [notes_by_id[m]["title"] for m in members],
+            }
+        )
         if len(out) >= MAX_SUGGESTIONS_PER_PASS:
             break
     return out
@@ -267,6 +282,7 @@ def _parse_suggestions(raw: str, valid_ids: set, notes_by_id: Dict[str, Dict[str
 # ---------------------------------------------------------------------------
 # Compatibility guard — permanent-note writes are forbidden
 # ---------------------------------------------------------------------------
+
 
 def accept_suggestion(
     suggestion_id: str,

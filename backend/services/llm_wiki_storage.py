@@ -1,4 +1,5 @@
 """Durable jobs, provenance manifests, and evidence snapshots for LLM Wiki."""
+
 from __future__ import annotations
 
 import hashlib
@@ -10,6 +11,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional
 
+from backend.domains.llm_wiki import legacy_ports
 from backend.utils.safe_io import safe_write_json
 
 _LOCK = threading.RLock()
@@ -28,23 +30,17 @@ def _safe_component(value: Any) -> str:
 
 
 def _vault_key() -> str:
-    from backend.api.vault_routes import get_p
-
-    return hashlib.sha256(str(get_p("VAULT")).encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(str(legacy_ports.path_for("VAULT")).encode("utf-8")).hexdigest()[:16]
 
 
 def local_root() -> Path:
-    from backend.api.vault_routes import get_p
-
-    root = get_p("LOCAL_DATA") / "llm_wiki" / _vault_key()
+    root = legacy_ports.path_for("LOCAL_DATA") / "llm_wiki" / _vault_key()
     root.mkdir(parents=True, exist_ok=True)
     return root
 
 
 def synced_root() -> Path:
-    from backend.api.vault_routes import get_p
-
-    root = get_p("GNOSI_CONFIG") / "llm_wiki"
+    root = legacy_ports.path_for("GNOSI_CONFIG") / "llm_wiki"
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -78,11 +74,8 @@ def _read_page_state(path: Path) -> dict[str, Any]:
     if cached and cached[:2] == signature:
         return deepcopy(cached[2])
     payload = _read_json(path)
-    state = (
-        payload.get("metadata")
-        if isinstance(payload, dict) and isinstance(payload.get("metadata"), dict)
-        else {}
-    )
+    raw_state = payload.get("metadata") if isinstance(payload, dict) else None
+    state: dict[str, Any] = raw_state if isinstance(raw_state, dict) else {}
     clean_state = {str(key): deepcopy(value) for key, value in state.items()}
     _PAGE_STATE_CACHE[cache_key] = (*signature, clean_state)
     return deepcopy(clean_state)
@@ -115,15 +108,11 @@ def merge_page_metadata(
 def page_metadata(page: Any) -> dict[str, Any]:
     """Return one page's visible metadata plus its managed sidecar state."""
     raw = (
-        page.get("metadata")
-        if isinstance(page, dict)
-        else getattr(page, "metadata", None)
+        page.get("metadata") if isinstance(page, dict) else getattr(page, "metadata", None)
     ) or {}
-    page_id = (
-        page.get("id")
-        if isinstance(page, dict)
-        else getattr(page, "id", "")
-    ) or raw.get("id")
+    page_id = (page.get("id") if isinstance(page, dict) else getattr(page, "id", "")) or raw.get(
+        "id"
+    )
     return merge_page_metadata(raw, str(page_id or ""))
 
 
@@ -189,7 +178,7 @@ def create_job(source_table_id: str, resource_id: str) -> dict[str, Any]:
         if running_id:
             return deepcopy(_JOBS[running_id])
         now = time.time()
-        job = {
+        job: dict[str, Any] = {
             "job_id": str(uuid.uuid4()),
             "source_table_id": key[0],
             "resource_id": key[1],
@@ -242,14 +231,18 @@ def update_job(job_id: str, **fields: Any) -> dict[str, Any]:
         return deepcopy(job)
 
 
-def finish_job(job_id: str, *, phase: str, error: Optional[str] = None, **fields: Any) -> dict[str, Any]:
-    fields.update({
-        "running": False,
-        "phase": phase,
-        "error": error,
-        "finished_at": time.time(),
-        "progress": 100 if phase == "done" else fields.get("progress", 100),
-    })
+def finish_job(
+    job_id: str, *, phase: str, error: Optional[str] = None, **fields: Any
+) -> dict[str, Any]:
+    fields.update(
+        {
+            "running": False,
+            "phase": phase,
+            "error": error,
+            "finished_at": time.time(),
+            "progress": 100 if phase == "done" else fields.get("progress", 100),
+        }
+    )
     job = update_job(job_id, **fields)
     key = (str(job.get("source_table_id")), str(job.get("resource_id")))
     with _LOCK:
@@ -286,7 +279,8 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, Any]
                     candidate_job = _read_json(_job_path(job_id))
                     if candidate_job and (
                         job is None
-                        or float(candidate_job.get("updated_at") or 0) > float(job.get("updated_at") or 0)
+                        or float(candidate_job.get("updated_at") or 0)
+                        > float(job.get("updated_at") or 0)
                     ):
                         job = candidate_job
         if not job:
@@ -297,7 +291,8 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, Any]
                 **job,
                 "running": False,
                 "phase": "partial",
-                "error": job.get("error") or "The previous backend process stopped before the job finished.",
+                "error": job.get("error")
+                or "The previous backend process stopped before the job finished.",
             }
         return deepcopy(job)
 

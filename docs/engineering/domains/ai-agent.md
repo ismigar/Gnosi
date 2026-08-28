@@ -8,6 +8,9 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_assist.py
+  - backend/services/llm_wiki_suggestions.py
+  - backend/services/llm_wiki_storage.py
   - backend/services/llm_wiki_pdf_annotations.py
   - backend/domains/agent
   - backend/domains/configuration/agent
@@ -577,6 +580,11 @@ existing imports and monkeypatch/plugin seams continue to resolve at call time.
 and persistence collaborators without introducing eager route imports. The JSON
 writer remains exposed by the facade because it is a historical replaceable seam;
 rebuild and incremental upsert paths retain their cache invalidation behaviour.
+The same late-bound path port owns Vault, `.gnosi` and local-data resolution for
+the personal dictation glossary, connection queue and durable Brain jobs,
+snapshots, manifests and synchronized page sidecars. Queue and lint scans use
+the typed table-page port, preserving existing runtime replacements while
+preventing dynamic facade values from escaping into persistence logic.
 The ingestion facade also consumes these typed late-bound ports for Brain page
 enumeration, table lookup and processed-state updates, preserving runtime plugin
 replacement while keeping domain dependency contracts statically checked.

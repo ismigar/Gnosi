@@ -24,6 +24,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from backend.config.logger_config import get_logger
+from backend.domains.llm_wiki import legacy_ports
 
 logger = get_logger(__name__)
 
@@ -72,11 +73,10 @@ def _read_body(path: Optional[str]) -> str:
 
 
 def _load_notes(brain_table_id: str) -> List[Dict[str, Any]]:
-    from backend.api.vault_routes import _get_pages_for_table
     from backend.services import llm_wiki_config, llm_wiki_storage
 
     notes: List[Dict[str, Any]] = []
-    for p in _get_pages_for_table(brain_table_id) or []:
+    for p in legacy_ports.table_pages(brain_table_id):
         meta = llm_wiki_storage.page_metadata(p)
         if meta.get("is_template"):
             continue
@@ -282,10 +282,10 @@ def _reprocess_candidates(reference_table_id: str) -> List[Dict[str, Any]]:
     import datetime
     from pathlib import Path
 
-    from backend.api.vault_routes import _get_pages_for_table, LLM_WIKI_PROCESSED_COL
+    from backend.api.vault_routes import LLM_WIKI_PROCESSED_COL
 
     out: List[Dict[str, Any]] = []
-    for p in _get_pages_for_table(reference_table_id) or []:
+    for p in legacy_ports.table_pages(reference_table_id):
         meta = getattr(p, "metadata", None) or {}
         processed = str(meta.get(LLM_WIKI_PROCESSED_COL) or "").strip()
         if not processed:

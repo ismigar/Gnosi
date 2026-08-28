@@ -7,11 +7,16 @@ from pathlib import Path
 from typing import Any, cast
 
 
-def local_data_path() -> Path:
+def path_for(key: str) -> Path:
+    """Resolve one historical Vault path through its late-bound facade seam."""
     from backend.api import vault_routes
 
     get_path = cast(Callable[[str], Path], vault_routes.get_p)
-    return get_path("LOCAL_DATA")
+    return get_path(key)
+
+
+def local_data_path() -> Path:
+    return path_for("LOCAL_DATA")
 
 
 def resolve_table_folder(metadata: dict[str, Any]) -> Path | None:
