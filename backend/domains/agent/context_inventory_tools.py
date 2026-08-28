@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Iterable, Optional, cast
 
 from langchain_core.tools import StructuredTool
 
@@ -85,8 +85,22 @@ class InventoryContextTool:
                 get_link_index_terms,
             )
 
-            documents = get_cached_document_texts(record["path"] for record in records)
-            terms, built_at = get_link_index_terms(record["id"] for record in records)
+            read_documents = cast(
+                Callable[[Iterable[str]], dict[str, str]],
+                get_cached_document_texts,
+            )
+            read_terms = cast(
+                Callable[
+                    [Iterable[str]],
+                    tuple[
+                        dict[str, tuple[frozenset[str], frozenset[str]]],
+                        float,
+                    ],
+                ],
+                get_link_index_terms,
+            )
+            documents = read_documents(record["path"] for record in records)
+            terms, built_at = read_terms(record["id"] for record in records)
             return documents, terms, built_at
         except Exception as exc:  # noqa: BLE001
             log.warning("Could not read the cached Vault text index: %s", exc)
@@ -212,8 +226,12 @@ class InventoryContextTool:
         try:
             from backend.api.vault_routes import get_agent_index_freshness
 
+            read_freshness = cast(
+                Callable[..., dict[str, Any]],
+                get_agent_index_freshness,
+            )
             return dict(
-                get_agent_index_freshness(
+                read_freshness(
                     requested_count=requested,
                     covered_count=covered,
                     direct_reads=direct_reads,

@@ -708,6 +708,9 @@ published catalog schema and ordering remain unchanged.
 Attached-context readers now preserve the concrete string contracts of URL,
 external-source, and internal-record wrappers directly. No dynamic cast masks a
 provider mismatch at these untrusted-content boundaries.
+Inventory cache readers retain the legacy Vault monkeypatch seams through a
+narrow typed adapter. This preserves plugin and test compatibility without
+allowing dynamically re-exported callables to spread into the agent domain.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
