@@ -10163,6 +10163,16 @@ export interface components {
             /** Working Weekdays */
             working_weekdays?: number[] | null;
         };
+        /** CancelScheduledPostResponse */
+        CancelScheduledPostResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "cancelled";
+        };
         /** CandidateRequest */
         CandidateRequest: {
             /**
@@ -10311,6 +10321,19 @@ export interface components {
              */
             keep_messages: number;
         };
+        /**
+         * ClearTaskHistoryResponse
+         * @description Result of clearing scheduler execution history.
+         */
+        ClearTaskHistoryResponse: {
+            /** Message */
+            message: string;
+            /**
+             * Success
+             * @constant
+             */
+            success: true;
+        };
         /** ClipRequest */
         ClipRequest: {
             /**
@@ -10384,6 +10407,19 @@ export interface components {
             /** Resolved */
             resolved?: boolean | null;
         };
+        /** ComposeProposal */
+        ComposeProposal: {
+            /** Char Count */
+            char_count: number;
+            /** Hashtags */
+            hashtags: string[];
+            /** Over Limit */
+            over_limit: boolean;
+            /** Provider */
+            provider: string;
+            /** Text */
+            text: string;
+        };
         /** ComposeRequest */
         ComposeRequest: {
             /**
@@ -10417,6 +10453,17 @@ export interface components {
              * @default 0
              */
             variation: number;
+        };
+        /** ComposeResponse */
+        ComposeResponse: {
+            /** Proposals */
+            proposals: {
+                [key: string]: components["schemas"]["ComposeProposal"];
+            };
+            /** Provider */
+            provider: string | null;
+            /** Source Lang */
+            source_lang: string;
         };
         /** ConfigurationPatch */
         ConfigurationPatch: {
@@ -10758,6 +10805,18 @@ export interface components {
             /** Post Id */
             post_id: string;
         };
+        /** InteractionResponse */
+        InteractionResponse: {
+            /** Action */
+            action: string;
+            /** Post Id */
+            post_id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
         /** LinkMentionsRequest */
         LinkMentionsRequest: {
             /** Source Id */
@@ -11013,7 +11072,10 @@ export interface components {
         /** NetworkPost */
         NetworkPost: {
             /** Media */
-            media?: unknown[] | null;
+            media?: (string | [
+                string,
+                string
+            ])[] | null;
             /** Text */
             text: string;
         };
@@ -11353,6 +11415,37 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** PostHistoryResponse */
+        PostHistoryResponse: {
+            /** Content */
+            content: string;
+            /** Id */
+            id: string;
+            /** Networks */
+            networks: string[];
+            /** Published At */
+            published_at: string;
+            /** Status */
+            status: string;
+        };
+        /** ProcessedPublicationResponse */
+        ProcessedPublicationResponse: {
+            /** Id */
+            id: string;
+            /** Results */
+            results: {
+                [key: string]: components["schemas"]["PublicationNetworkResult"];
+            };
+            /** Status */
+            status: string;
+        };
+        /** ProcessScheduledResponse */
+        ProcessScheduledResponse: {
+            /** Details */
+            details: components["schemas"]["ProcessedPublicationResponse"][];
+            /** Processed */
+            processed: number;
+        };
         /** ProposalApplyPayload */
         ProposalApplyPayload: {
             /**
@@ -11379,6 +11472,28 @@ export interface components {
         ProviderStatusPayload: {
             /** Enabled */
             enabled: boolean;
+        };
+        /** PublicationNetworkResult */
+        PublicationNetworkResult: {
+            /** Error */
+            error?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Status */
+            status: string;
+            /** Url */
+            url?: string | null;
+        };
+        /** PublicationResponse */
+        PublicationResponse: {
+            /** Record Id */
+            record_id: string | null;
+            /** Results */
+            results: {
+                [key: string]: components["schemas"]["PublicationNetworkResult"];
+            };
+            /** Status */
+            status: string;
         };
         /** PublicPageRequest */
         PublicPageRequest: {
@@ -11763,6 +11878,56 @@ export interface components {
             } | null;
             role?: components["schemas"]["UserRole"] | null;
         };
+        /** ScheduledPostResponse */
+        ScheduledPostResponse: {
+            /** Content */
+            content: string;
+            /** Id */
+            id: string;
+            /** Networks */
+            networks: string[];
+            /** Scheduled Time */
+            scheduled_time: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "pending";
+        };
+        /** ScheduledPublicationResponse */
+        ScheduledPublicationResponse: {
+            /** Id */
+            id: string;
+            /** Networks */
+            networks: string[];
+            /** Scheduled Time */
+            scheduled_time: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "scheduled";
+        };
+        /**
+         * ScheduledTaskResponse
+         * @description Public scheduler task state.
+         */
+        ScheduledTaskResponse: {
+            /** Description */
+            description: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Interval Minutes */
+            interval_minutes: number;
+            /** Last Run */
+            last_run?: string | null;
+            /** Name */
+            name: string;
+            /** Next Run */
+            next_run?: string | null;
+            /** Status */
+            status: string;
+        };
         /** SchedulePublishRequest */
         SchedulePublishRequest: {
             /** Posts */
@@ -11862,6 +12027,92 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /**
+         * SocialNetwork
+         * @description Configured network plus live publisher capabilities.
+         */
+        SocialNetwork: {
+            /** Char Limit */
+            char_limit?: number | null;
+            /** Configured */
+            configured?: boolean | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Icon */
+            icon: string;
+            /** Id */
+            id: string;
+            /** Implemented */
+            implemented?: boolean | null;
+            /** Name */
+            name: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * SocialPost
+         * @description Normalized post rendered in a social stream.
+         */
+        SocialPost: {
+            /** Author */
+            author: string;
+            /** Avatar */
+            avatar?: string | null;
+            /** Cid */
+            cid?: string | null;
+            /** Content */
+            content: string;
+            /**
+             * Favourited
+             * @default false
+             */
+            favourited: boolean;
+            /**
+             * Favourites Count
+             * @default 0
+             */
+            favourites_count: number;
+            /** Handle */
+            handle: string;
+            /** Id */
+            id: string;
+            /**
+             * Is Reblog
+             * @default false
+             */
+            is_reblog: boolean;
+            /** Network */
+            network: string;
+            /** Reblog By */
+            reblog_by?: string | null;
+            /**
+             * Reblogged
+             * @default false
+             */
+            reblogged: boolean;
+            /**
+             * Reblogs Count
+             * @default 0
+             */
+            reblogs_count: number;
+            /**
+             * Replies Count
+             * @default 0
+             */
+            replies_count: number;
+            /** Timestamp */
+            timestamp: string;
+            /** Url */
+            url?: string | null;
+        };
+        /** SocialSettingsUpdateResponse */
+        SocialSettingsUpdateResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+        };
         /** Stream */
         Stream: {
             /** Icon */
@@ -11908,12 +12159,77 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /**
+         * TaskHistoryPageResponse
+         * @description Paginated scheduler execution history.
+         */
+        TaskHistoryPageResponse: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["TaskHistoryResponse"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** TaskHistoryResponse */
+        TaskHistoryResponse: {
+            /** Description */
+            description: string | null;
+            /** Duration Seconds */
+            duration_seconds: number | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Id */
+            id: string;
+            /** Message */
+            message: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Status */
+            status: string;
+            /** Task Name */
+            task_name: string;
+        };
+        /**
+         * TaskRunResponse
+         * @description Acknowledgement for a manually queued scheduler task.
+         */
+        TaskRunResponse: {
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "running";
+            /**
+             * Success
+             * @constant
+             */
+            success: true;
+        };
         /** TaskUpdate */
         TaskUpdate: {
             /** Enabled */
             enabled: boolean;
             /** Interval Minutes */
             interval_minutes: number;
+        };
+        /**
+         * TaskUpdateResponse
+         * @description Result of updating a scheduler task.
+         */
+        TaskUpdateResponse: {
+            /**
+             * Success
+             * @constant
+             */
+            success: true;
+            task: components["schemas"]["ScheduledTaskResponse"];
         };
         /**
          * TemplateExportPayload
@@ -22381,9 +22697,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ScheduledTaskResponse"][];
                 };
             };
         };
@@ -22405,9 +22719,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ScheduledTaskResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22449,9 +22761,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TaskUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22489,9 +22799,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TaskRunResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22524,9 +22832,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TaskHistoryPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22562,9 +22868,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ClearTaskHistoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22635,7 +22939,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ComposeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22668,7 +22972,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SocialPost"][];
                 };
             };
             /** @description Validation Error */
@@ -22697,7 +23001,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PostHistoryResponse"][];
                 };
             };
         };
@@ -22728,7 +23032,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InteractionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22757,7 +23061,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SocialNetwork"][];
                 };
             };
         };
@@ -22778,9 +23082,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                }[];
+                "application/json": components["schemas"]["SocialNetwork"][];
             };
         };
         responses: {
@@ -22790,7 +23092,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SocialSettingsUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22830,7 +23132,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PublicationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22866,7 +23168,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProcessScheduledResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22906,7 +23208,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PublicationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22946,7 +23248,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ScheduledPublicationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22975,7 +23277,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ScheduledPostResponse"][];
                 };
             };
         };
@@ -23004,7 +23306,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CancelScheduledPostResponse"];
                 };
             };
             /** @description Validation Error */
@@ -23054,9 +23356,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                }[];
+                "application/json": components["schemas"]["Stream"][];
             };
         };
         responses: {
@@ -23066,7 +23366,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SocialSettingsUpdateResponse"];
                 };
             };
             /** @description Validation Error */

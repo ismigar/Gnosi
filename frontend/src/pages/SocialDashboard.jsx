@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, LayoutDashboard, Calendar, History, Sparkles, Share2 } from 'lucide-react';
 import Column from '../components/social/Column';
@@ -8,7 +8,11 @@ import ContentCalendar from './ContentCalendar';
 import PostHistory from './PostHistory';
 import { PublishSocialModal } from '../components/Vault/PublishSocialModal';
 import { AppHeader } from '../components/AppHeader';
-import { transportFetch } from '../shared/api/transports';
+import {
+    useSocialFeeds,
+    useSocialStreams,
+    useUpdateSocialStreams,
+} from '../shared/api/useSocialData';
 
 const DEFAULT_STREAMS = [
     { id: "mastodon-home", title: "Mastodon Home", icon: "🐘", network: "mastodon" },
@@ -28,68 +32,36 @@ const SocialDashboard = () => {
     const [showComposer, setShowComposer] = useState(false);
     const [showAIComposer, setShowAIComposer] = useState(false);
     const [showAddStream, setShowAddStream] = useState(false);
-    const [columns, setColumns] = useState(DEFAULT_STREAMS);
-    const [streamData, setStreamData] = useState({});
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        transportFetch('/api/social/streams')
-            .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data) setColumns(data); })
-            .catch(() => {});
-    }, []);
+    const streamsQuery = useSocialStreams();
+    const columns = streamsQuery.data || DEFAULT_STREAMS;
+    const feedQueries = useSocialFeeds(columns);
+    const updateStreams = useUpdateSocialStreams();
+    const streamData = Object.fromEntries(
+        columns.map((column, index) => [column.id, feedQueries[index]?.data || []]),
+    );
+    const loading = streamsQuery.isLoading || feedQueries.some(query => query.isLoading);
 
     const saveStreams = async (newColumns) => {
         try {
-            await transportFetch('/api/social/streams', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newColumns),
-            });
+            await updateStreams.mutateAsync(newColumns);
         } catch (e) {
             console.error('Error saving streams:', e);
         }
     };
 
-    const fetchStreamFeed = async (stream) => {
-        try {
-            const res = await transportFetch(`/api/social/feed/${stream.id}`);
-            const data = res.ok ? await res.json() : [];
-            setStreamData(prev => ({ ...prev, [stream.id]: data }));
-        } catch {
-            /* silent */
-        }
-    };
-
-    useEffect(() => {
-        const fetchAll = async () => {
-            setLoading(true);
-            await Promise.all(columns.map(col => fetchStreamFeed(col)));
-            setLoading(false);
-        };
-        fetchAll();
-    }, [columns]);
-
     const handleAddStream = (newStream) => {
         const updated = [...columns, newStream];
-        setColumns(updated);
         saveStreams(updated);
     };
 
     const handleDeleteStream = (streamId) => {
         const updated = columns.filter(col => col.id !== streamId);
-        setColumns(updated);
         saveStreams(updated);
-        setStreamData(prev => {
-            const next = { ...prev };
-            delete next[streamId];
-            return next;
-        });
     };
 
     const handleRefreshStream = (streamId) => {
-        const stream = columns.find(c => c.id === streamId);
-        if (stream) fetchStreamFeed(stream);
+        const index = columns.findIndex(column => column.id === streamId);
+        if (index >= 0) feedQueries[index]?.refetch();
     };
 
     return (
@@ -194,7 +166,10 @@ const SocialDashboard = () => {
             <PublishSocialModal
                 isOpen={showAIComposer}
                 onClose={() => setShowAIComposer(false)}
-                onPublished={() => { setShowAIComposer(false); columns.forEach(fetchStreamFeed); }}
+                onPublished={() => {
+                    setShowAIComposer(false);
+                    feedQueries.forEach(query => query.refetch());
+                }}
             />
         </div>
     );

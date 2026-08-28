@@ -10,11 +10,11 @@ afterEach(() => {
 
 describe('legacyHttp', () => {
   it('preserves Axios-style params, interceptors and response data', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () =>
-      new Response(JSON.stringify({ value: 3 }), {
-        headers: { 'Content-Type': 'application/json', ETag: 'rev-3' },
-        status: 200,
-      }),
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(JSON.stringify({ value: 3 }), {
+          headers: { 'Content-Type': 'application/json', ETag: 'rev-3' },
+          status: 200,
+        })),
     );
     vi.stubGlobal('fetch', fetchMock);
     const requestId = legacyHttp.interceptors.request.use((config) => ({
@@ -45,14 +45,14 @@ describe('legacyHttp', () => {
   });
 
   it('serializes JSON bodies and exposes Axios-compatible errors', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => {
       expect(init?.body).toBe(JSON.stringify({ title: 'Page' }));
       expect(new Headers(init?.headers).get('Content-Type')).toBe('application/json');
-      return new Response(JSON.stringify({ detail: 'No access' }), {
+      return Promise.resolve(new Response(JSON.stringify({ detail: 'No access' }), {
         headers: { 'Content-Type': 'application/json' },
         status: 403,
         statusText: 'Forbidden',
-      });
+      }));
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -68,9 +68,12 @@ describe('legacyHttp', () => {
   it('retains cancellation detection', async () => {
     const controller = new AbortController();
     controller.abort();
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => {
-      throw new DOMException('aborted', 'AbortError');
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(() =>
+        Promise.reject(new DOMException('aborted', 'AbortError')),
+      ),
+    );
 
     try {
       await legacyHttp.get('/api/slow', { signal: controller.signal });

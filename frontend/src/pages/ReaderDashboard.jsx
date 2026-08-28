@@ -6,6 +6,7 @@ import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, Externa
 import { AppHeader } from '../components/AppHeader';
 import { getIntlLocale } from '../locales/registry';
 import { usePlugins } from '../plugins/usePlugins';
+import { runScheduledTask } from '../shared/api/scheduler';
 
 const API_BASE = '/api';
 // Google's favicon service: covers all public domains, returns a 32px PNG
@@ -330,8 +331,8 @@ const ReaderDashboard = () => {
         setSyncing(true);
         try {
             await Promise.all([
-                axios.post(`${API_BASE}/schedulers/fetch_feeds/run`),
-                axios.post(`${API_BASE}/schedulers/fetch_newsletters/run`)
+                runScheduledTask('fetch_feeds'),
+                runScheduledTask('fetch_newsletters'),
             ]);
             await Promise.all([fetchDisplayArticles(), fetchUnreadCounts()]);
         } catch (error) {

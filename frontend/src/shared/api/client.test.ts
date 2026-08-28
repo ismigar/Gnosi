@@ -16,11 +16,11 @@ describe('apiClient', () => {
     localStorage.setItem('gnosi_user_id', 'user-1');
     localStorage.setItem('gnosi_user_email', 'user@example.test');
     localStorage.setItem('gnosi_active_vault', 'vault-1');
-    const fetchMock = vi.fn<typeof fetch>(async () =>
-      new Response(JSON.stringify({ status: 'healthy' }), {
-        headers: { 'Content-Type': 'application/json' },
-        status: 200,
-      }),
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(JSON.stringify({ status: 'healthy' }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        })),
     );
     vi.stubGlobal('fetch', fetchMock);
 

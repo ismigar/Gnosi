@@ -11,6 +11,13 @@ import { DashboardPaginationControls } from '../components/DashboardPaginationCo
 import { SettingsSectionTabs } from '../components/SettingsSectionTabs';
 import { ReleaseNotesDialog } from '../components/ReleaseNotesDialog';
 import { usePlugins } from '../plugins/usePlugins';
+import {
+    clearSchedulerHistory,
+    fetchScheduledTasks,
+    fetchSchedulerHistory,
+    runScheduledTask,
+    updateScheduledTask,
+} from '../shared/api/scheduler';
 
 const ROLE_CAPABILITIES = {
     viewer: ['read'],
@@ -131,14 +138,13 @@ function Dashboard() {
     const fetchSchedulers = useCallback(async (silent = false) => {
         if (!silent) setSchedulerLoading(true);
         try {
-            const data = await apiFetch('/api/schedulers');
-            setSchedulers(Array.isArray(data) ? data : []);
+            setSchedulers(await fetchScheduledTasks());
         } catch (error) {
             console.error("Error fetching schedulers", error);
         } finally {
             if (!silent) setSchedulerLoading(false);
         }
-    }, [apiFetch]);
+    }, []);
 
     const fetchApprovedTools = useCallback(async () => {
         setApprovedLoading(true);
@@ -176,12 +182,10 @@ function Dashboard() {
         setTaskHistoryLoading(true);
         try {
             const offset = page * HISTORY_LIMIT;
-            const data = await apiFetch(`/api/schedulers/history?limit=${HISTORY_LIMIT}&offset=${offset}`);
-            if (data && data.items) {
-                setTaskHistory(data.items);
-                setTaskHistoryTotal(data.total);
-                setTaskHistoryPage(page);
-            }
+            const data = await fetchSchedulerHistory({ limit: HISTORY_LIMIT, offset });
+            setTaskHistory(data.items);
+            setTaskHistoryTotal(data.total);
+            setTaskHistoryPage(page);
         } catch (error) {
             console.error('Error fetching task history:', error);
         } finally {
@@ -283,7 +287,7 @@ function Dashboard() {
     const doPurgeHistory = async () => {
         setConfirmPurgeHistory(false);
         try {
-            await apiFetch('/api/schedulers/history', { method: 'DELETE' });
+            await clearSchedulerHistory();
             toast.success(t('dashboard.history_purged'));
             fetchTaskHistory(0);
         } catch (_error) {
@@ -473,10 +477,12 @@ function Dashboard() {
 
     const updateScheduler = async (task, overrides) => {
         try {
-            const payload = { ...task, ...overrides };
-            await apiFetch(`/api/schedulers/${task.name}`, {
-                method: 'PUT',
-                body: JSON.stringify(payload)
+            await updateScheduledTask({
+                name: task.name,
+                update: {
+                    interval_minutes: overrides.interval_minutes ?? task.interval_minutes,
+                    enabled: overrides.enabled ?? task.enabled,
+                },
             });
             fetchSchedulers(true);
         } catch (e) {
@@ -491,12 +497,8 @@ function Dashboard() {
         const t_id = toast.loading(`${t('dashboard.running_task', "Running task")} ${taskName.replace(/_/g, ' ')}...`);
         
         try {
-            const data = await apiFetch(`/api/schedulers/${taskName}/run`, { method: 'POST' });
-            if (data.success) {
-                toast.success(t('dashboard.task_started', "Task started successfully"), { id: t_id });
-            } else {
-                toast.error(data.error || t('dashboard.unknown_error'), { id: t_id });
-            }
+            await runScheduledTask(taskName);
+            toast.success(t('dashboard.task_started', "Task started successfully"), { id: t_id });
             // We refresh after a short delay so the backend has processed the state change to "running"
             setTimeout(() => fetchSchedulers(true), 500);
         } catch (e) {

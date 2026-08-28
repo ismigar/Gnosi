@@ -52,6 +52,12 @@ import { SocialNetworkIcon, isKnownSocialNetwork } from './social/SocialNetworkI
 import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
 import { transportFetch } from '../shared/api/transports';
+import {
+    fetchSocialNetworks,
+    fetchSocialStreams,
+    updateSocialNetworks,
+    updateSocialStreams,
+} from '../shared/api/social';
 
 const formatCost = (value, symbol, decimals = 2) => {
     const num = Number(value);
@@ -942,12 +948,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadSocialSettings = async () => {
         try {
-            const [nRes, sRes] = await Promise.all([
-                transportFetch('/api/social/networks'),
-                transportFetch('/api/social/streams'),
+            const [networks, streams] = await Promise.all([
+                fetchSocialNetworks(),
+                fetchSocialStreams(),
             ]);
-            if (nRes.ok) setSocialNetworks(await nRes.json());
-            if (sRes.ok) setSocialStreams(await sRes.json());
+            setSocialNetworks(networks);
+            setSocialStreams(streams);
         } catch { /* silent */ }
     };
 
@@ -956,12 +962,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         const previous = socialNetworks;
         setSocialNetworks(updated);
         try {
-            const res = await transportFetch('/api/social/networks', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updated),
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            await updateSocialNetworks(updated);
         } catch (err) {
             // Without this restoration, the UI showed the changes as if
             // would have been saved even though the backend had the old state.
@@ -975,12 +976,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         const previous = socialStreams;
         setSocialStreams(updated);
         try {
-            const res = await transportFetch('/api/social/streams', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updated),
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            await updateSocialStreams(updated);
         } catch (err) {
             setSocialStreams(previous);
             toast.error(tn('social.save_streams_error'));

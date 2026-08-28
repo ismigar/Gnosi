@@ -3,9 +3,16 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
+import tseslint from 'typescript-eslint'
 
 export default defineConfig([
-  globalIgnores(['dist', '.vite', 'vendor', 'public/zotero-reader']),
+  globalIgnores([
+    'dist',
+    '.vite',
+    'vendor',
+    'public/zotero-reader',
+    'src/generated',
+  ]),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -52,6 +59,38 @@ export default defineConfig([
       // are migrated. Core Hooks correctness rules stay at their recommended
       // error severity; these advisory optimization/HMR findings do not block
       // release builds.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-refresh/only-export-components': 'warn',
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.strictTypeChecked,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      globals: { ...globals.browser, __APP_VERSION__: 'readonly' },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        argsIgnorePattern: '^[A-Z_]',
+        caughtErrors: 'all',
+        caughtErrorsIgnorePattern: '^_',
+        ignoreRestSiblings: true,
+      }],
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/refs': 'warn',
       'react-hooks/immutability': 'warn',

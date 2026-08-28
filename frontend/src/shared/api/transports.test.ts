@@ -24,7 +24,9 @@ afterEach(() => {
 
 describe('transportFetch', () => {
   it('canonicalizes same-origin Vault APIs and carries request context', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(null, { status: 204 })),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     await transportFetch('/api/vault/pages/page-1?full=true');
@@ -40,7 +42,9 @@ describe('transportFetch', () => {
 
 
   it('keeps an explicit unknown Vault on the legacy URL', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(null, { status: 204 })),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     await transportFetch('/api/vault/pages/page-1', {
@@ -54,7 +58,9 @@ describe('transportFetch', () => {
 
 
   it('does not leak Gnosi context to third-party URLs', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(null, { status: 204 })),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     await transportFetch('https://example.test/catalog.json');
@@ -64,7 +70,9 @@ describe('transportFetch', () => {
 
 
   it('preserves Request instances without cloning one-shot bodies', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(null, { status: 204 })),
+    );
     vi.stubGlobal('fetch', fetchMock);
     const request = new Request(`${location.origin}/api/health`);
 

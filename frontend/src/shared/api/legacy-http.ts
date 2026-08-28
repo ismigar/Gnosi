@@ -118,8 +118,18 @@ function responseHeaders(headers: Headers): LegacyResponseHeaders {
 
 function queryValue(value: unknown): string {
   if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'object' && value !== null) return JSON.stringify(value);
-  return String(value ?? '');
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (
+    typeof value === 'boolean'
+    || typeof value === 'bigint'
+    || typeof value === 'number'
+  ) {
+    return String(value);
+  }
+  if (typeof value === 'symbol') return value.description ?? '';
+  if (typeof value === 'function') return value.name;
+  return JSON.stringify(value);
 }
 
 
@@ -182,16 +192,30 @@ function cancellationError(config: LegacyRequestConfig, cause?: unknown): Legacy
 }
 
 
+function timeoutMessage(timeout: number): string {
+  return `timeout of ${String(timeout)}ms exceeded`;
+}
+
+
+function statusCodeMessage(status: number): string {
+  return `Request failed with status code ${String(status)}`;
+}
+
+
 function timeoutSignal(
   config: LegacyRequestConfig,
 ): { readonly cleanup: () => void; readonly signal?: AbortSignal } {
   const timeout = config.timeout ?? legacyHttpDefaults.timeout;
   if (!config.signal && !timeout) return { cleanup: () => undefined };
   const controller = new AbortController();
-  const abortFromCaller = () => controller.abort(config.signal?.reason);
+  const abortFromCaller = () => {
+    controller.abort(config.signal?.reason);
+  };
   config.signal?.addEventListener('abort', abortFromCaller, { once: true });
   const timer = timeout && timeout > 0
-    ? setTimeout(() => controller.abort(new Error(`timeout of ${timeout}ms exceeded`)), timeout)
+    ? setTimeout(() => {
+        controller.abort(new Error(timeoutMessage(timeout)));
+      }, timeout)
     : undefined;
   return {
     cleanup: () => {
@@ -204,8 +228,8 @@ function timeoutSignal(
 
 
 async function executeFetch(config: LegacyRequestConfig): Promise<LegacyHttpResponse> {
-  const method = String(config.method || 'GET').toUpperCase();
-  const url = withQuery(String(config.url || ''), config.params);
+  const method = (config.method || 'GET').toUpperCase();
+  const url = withQuery(config.url || '', config.params);
   const headers = new Headers(normalizeHeaders(config.headers));
   const body = requestBody(method, config.data, headers);
   const combined = timeoutSignal(config);
@@ -228,7 +252,7 @@ async function executeFetch(config: LegacyRequestConfig): Promise<LegacyHttpResp
     };
     if (!raw.ok) {
       throw new LegacyHttpError(
-        `Request failed with status code ${raw.status}`,
+        statusCodeMessage(raw.status),
         config,
         { response },
       );
@@ -239,7 +263,7 @@ async function executeFetch(config: LegacyRequestConfig): Promise<LegacyHttpResp
     if (config.signal?.aborted) throw cancellationError(config, error);
     if (combined.signal?.aborted) {
       throw new LegacyHttpError(
-        `timeout of ${config.timeout ?? legacyHttpDefaults.timeout}ms exceeded`,
+        timeoutMessage(config.timeout ?? legacyHttpDefaults.timeout),
         config,
         { cause: error, code: 'ECONNABORTED' },
       );
@@ -253,15 +277,17 @@ async function executeFetch(config: LegacyRequestConfig): Promise<LegacyHttpResp
 
 function executeUpload(config: LegacyRequestConfig): Promise<LegacyHttpResponse> {
   return new Promise((resolve, reject) => {
-    const method = String(config.method || 'POST').toUpperCase();
+    const method = (config.method || 'POST').toUpperCase();
     const xhr = new XMLHttpRequest();
-    xhr.open(method, withQuery(String(config.url || ''), config.params));
+    xhr.open(method, withQuery(config.url || '', config.params));
     xhr.withCredentials = true;
     const timeout = config.timeout ?? legacyHttpDefaults.timeout;
     if (timeout > 0) xhr.timeout = timeout;
     const headers = new Headers(normalizeHeaders(config.headers));
     const body = requestBody(method, config.data, headers);
-    headers.forEach((value, name) => xhr.setRequestHeader(name, value));
+    headers.forEach((value, name) => {
+      xhr.setRequestHeader(name, value);
+    });
     if (config.responseType === 'blob' || config.responseType === 'arraybuffer') {
       xhr.responseType = config.responseType;
     }
@@ -273,16 +299,20 @@ function executeUpload(config: LegacyRequestConfig): Promise<LegacyHttpResponse>
           : {}),
       });
     };
-    config.signal?.addEventListener('abort', () => xhr.abort(), { once: true });
-    xhr.onerror = () => reject(
-      new LegacyHttpError('Network Error', config, { code: 'ERR_NETWORK' }),
-    );
-    xhr.onabort = () => reject(cancellationError(config));
-    xhr.ontimeout = () => reject(
-      new LegacyHttpError(`timeout of ${timeout}ms exceeded`, config, {
+    config.signal?.addEventListener('abort', () => {
+      xhr.abort();
+    }, { once: true });
+    xhr.onerror = () => {
+      reject(new LegacyHttpError('Network Error', config, { code: 'ERR_NETWORK' }));
+    };
+    xhr.onabort = () => {
+      reject(cancellationError(config));
+    };
+    xhr.ontimeout = () => {
+      reject(new LegacyHttpError(timeoutMessage(timeout), config, {
         code: 'ECONNABORTED',
-      }),
-    );
+      }));
+    };
     xhr.onload = () => {
       const headerValues = new Headers();
       for (const line of xhr.getAllResponseHeaders().trim().split(/[\r\n]+/)) {
@@ -311,7 +341,7 @@ function executeUpload(config: LegacyRequestConfig): Promise<LegacyHttpResponse>
         statusText: xhr.statusText,
       };
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new LegacyHttpError(`Request failed with status code ${xhr.status}`, config, {
+        reject(new LegacyHttpError(statusCodeMessage(xhr.status), config, {
           response,
         }));
         return;

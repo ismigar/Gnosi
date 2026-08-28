@@ -4,6 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '../lib/toast';
 import { ConfirmModal } from './ConfirmModal';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
+import {
+    fetchScheduledTasks,
+    runScheduledTask,
+    updateScheduledTask,
+} from '../shared/api/scheduler';
 import { transportFetch } from '../shared/api/transports';
 
 const API_BASE = '/api';
@@ -57,14 +62,11 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
 
     async function fetchScheduler() {
         try {
-            const res = await transportFetch(`${API_BASE}/schedulers`);
-            if (res.ok) {
-                const all = await res.json();
-                // Only show reader-related tasks
-                setSchedulerTasks(all.filter(t =>
-                    ['fetch_feeds', 'fetch_newsletters', 'generate_podcast'].includes(t.name)
-                ));
-            }
+            const all = await fetchScheduledTasks();
+            // Only show reader-related tasks
+            setSchedulerTasks(all.filter(t =>
+                ['fetch_feeds', 'fetch_newsletters', 'generate_podcast'].includes(t.name)
+            ));
         } catch (e) {
             console.error('Error fetching scheduler:', e);
         }
@@ -144,10 +146,9 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
 
     async function handleToggleTask(name, enabled, interval) {
         try {
-            await transportFetch(`${API_BASE}/schedulers/${name}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interval_minutes: interval, enabled: !enabled }),
+            await updateScheduledTask({
+                name,
+                update: { interval_minutes: interval, enabled: !enabled },
             });
             fetchScheduler();
         } catch (e) {
@@ -158,16 +159,10 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     async function handleRunTask(name) {
         setRunningTask(name);
         try {
-            const res = await transportFetch(`${API_BASE}/schedulers/${name}/run`, { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                fetchSources();
-                fetchScheduler();
-                if (onRefresh) onRefresh();
-            } else {
-                toast.error(data.error || t('errors.unknown'));
-                fetchScheduler();
-            }
+            await runScheduledTask(name);
+            fetchSources();
+            fetchScheduler();
+            if (onRefresh) onRefresh();
         } catch (e) {
             toast.error(t('feed_manager.error_run_task', "Could not run"));
             console.error('Error running task:', e);

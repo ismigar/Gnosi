@@ -4,6 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { X, Send, Loader2, RefreshCw, AlertTriangle, Sparkles, ArrowLeft } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import {
+    composeSocialPosts,
+    fetchSocialNetworks,
+    publishSocialPosts,
+    scheduleSocialPosts,
+} from '../../shared/api/social';
 
 // "Post to social media" modal: pick networks → the AI proposes adapted text for
 // each one (in the SAME language as the original) → you edit/regenerate → you publish or
@@ -53,8 +59,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
 
         (async () => {
             try {
-                const res = await axios.get('/api/social/networks');
-                const list = (res.data || []).filter((n) => n.enabled !== false);
+                const list = (await fetchSocialNetworks()).filter((n) => n.enabled !== false);
                 setNetworks(list);
                 // Preselects the configured ones.
                 setSelected(new Set(list.filter((n) => n.configured).map((n) => n.id)));
@@ -109,14 +114,14 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
         }
         setComposing(true);
         try {
-            const res = await axios.post('/api/social/compose', {
+            const result = await composeSocialPosts({
                 networks: selectedList,
                 content: sourceContent,
                 title: sourceTitle,
                 source_page_id: noteId || null,
                 hint,
-            }, { timeout: 120000 });
-            const props = res.data?.proposals || {};
+            });
+            const props = result.proposals || {};
             setProposals(props);
             setDrafts(Object.fromEntries(Object.entries(props).map(([net, p]) => [net, p.text || ''])));
             setStep('compose');
@@ -133,7 +138,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
         const v = (variationByNet[net] || 0) + 1;
         setRegeneratingNet(net);
         try {
-            const res = await axios.post('/api/social/compose', {
+            const result = await composeSocialPosts({
                 networks: selectedList,
                 content: sourceContent,
                 title: sourceTitle,
@@ -141,8 +146,8 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                 hint,
                 regenerate_only: [net],
                 variation: v,
-            }, { timeout: 120000 });
-            const p = res.data?.proposals?.[net];
+            });
+            const p = result.proposals?.[net];
             if (p) {
                 setProposals((prev) => ({ ...prev, [net]: p }));
                 setDrafts((prev) => ({ ...prev, [net]: p.text || '' }));
@@ -177,13 +182,13 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
         }
         setPublishing(true);
         try {
-            const res = await axios.post('/api/social/publish', {
+            const result = await publishSocialPosts({
                 posts,
                 source_page_id: noteId || null,
                 source_title: sourceTitle,
-            }, { timeout: 120000 });
-            reportResults(res.data?.results || {});
-            if (onPublished) onPublished(res.data);
+            });
+            reportResults(result.results || {});
+            if (onPublished) onPublished(result);
             onClose();
         } catch (err) {
             const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");
@@ -209,14 +214,14 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
         }
         setPublishing(true);
         try {
-            const res = await axios.post('/api/social/schedule', {
+            const result = await scheduleSocialPosts({
                 posts,
                 scheduled_time: new Date(scheduledAt).toISOString(),
                 source_page_id: noteId || null,
                 source_title: sourceTitle,
             });
             toast.success(t('social.scheduled_ok', "Post scheduled."));
-            if (onPublished) onPublished(res.data);
+            if (onPublished) onPublished(result);
             onClose();
         } catch (err) {
             const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");

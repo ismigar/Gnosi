@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Repeat, MessageCircle, Share } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { transportFetch } from '../../shared/api/transports';
+import { interactSocialPost } from '../../shared/api/social';
 
 const PostCard = ({ post }) => {
     const { t } = useTranslation();
@@ -32,16 +32,14 @@ const PostCard = ({ post }) => {
 
         try {
             const action = liked ? 'unlike' : 'like';
-            const res = await transportFetch('/api/social/interact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ post_id: id, network, action, cid })
+            await interactSocialPost({
+                post_id: id,
+                network,
+                action,
+                cid,
             });
-
-            if (res.ok) {
-                setLiked(!liked);
-                setLikeCount(prev => liked ? prev - 1 : prev + 1);
-            }
+            setLiked(!liked);
+            setLikeCount(prev => liked ? prev - 1 : prev + 1);
         } catch (e) {
             console.error('Like failed:', e);
         } finally {
@@ -56,16 +54,14 @@ const PostCard = ({ post }) => {
 
         try {
             const action = reposted ? 'unreblog' : 'reblog';
-            const res = await transportFetch('/api/social/interact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ post_id: id, network, action, cid })
+            await interactSocialPost({
+                post_id: id,
+                network,
+                action,
+                cid,
             });
-
-            if (res.ok) {
-                setReposted(!reposted);
-                setRepostCount(prev => reposted ? prev - 1 : prev + 1);
-            }
+            setReposted(!reposted);
+            setRepostCount(prev => reposted ? prev - 1 : prev + 1);
         } catch (e) {
             console.error('Repost failed:', e);
         } finally {

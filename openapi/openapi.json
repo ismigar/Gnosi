@@ -1168,6 +1168,25 @@
         "title": "CalendarPayload",
         "type": "object"
       },
+      "CancelScheduledPostResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "cancelled",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id"
+        ],
+        "title": "CancelScheduledPostResponse",
+        "type": "object"
+      },
       "CandidateRequest": {
         "properties": {
           "activity_id": {
@@ -1532,6 +1551,26 @@
         "title": "ChatRewindRequest",
         "type": "object"
       },
+      "ClearTaskHistoryResponse": {
+        "description": "Result of clearing scheduler execution history.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "success": {
+            "const": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "ClearTaskHistoryResponse",
+        "type": "object"
+      },
       "ClipRequest": {
         "properties": {
           "content": {
@@ -1724,6 +1763,42 @@
         "title": "CommentUpdateRequest",
         "type": "object"
       },
+      "ComposeProposal": {
+        "properties": {
+          "char_count": {
+            "title": "Char Count",
+            "type": "integer"
+          },
+          "hashtags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Hashtags",
+            "type": "array"
+          },
+          "over_limit": {
+            "title": "Over Limit",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "hashtags",
+          "char_count",
+          "over_limit",
+          "provider"
+        ],
+        "title": "ComposeProposal",
+        "type": "object"
+      },
       "ComposeRequest": {
         "properties": {
           "content": {
@@ -1788,6 +1863,39 @@
           "networks"
         ],
         "title": "ComposeRequest",
+        "type": "object"
+      },
+      "ComposeResponse": {
+        "properties": {
+          "proposals": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ComposeProposal"
+            },
+            "title": "Proposals",
+            "type": "object"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "source_lang": {
+            "title": "Source Lang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposals",
+          "source_lang",
+          "provider"
+        ],
+        "title": "ComposeResponse",
         "type": "object"
       },
       "ConfigurationPatch": {
@@ -2614,6 +2722,30 @@
         "title": "InteractionRequest",
         "type": "object"
       },
+      "InteractionResponse": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "post_id": {
+            "title": "Post Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "action",
+          "post_id"
+        ],
+        "title": "InteractionResponse",
+        "type": "object"
+      },
       "LinkMentionsRequest": {
         "properties": {
           "source_id": {
@@ -3108,7 +3240,26 @@
           "media": {
             "anyOf": [
               {
-                "items": {},
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "type": "array"
+                    }
+                  ]
+                },
                 "type": "array"
               },
               {
@@ -3874,6 +4025,89 @@
         "title": "PluginsUpdateRequest",
         "type": "object"
       },
+      "PostHistoryResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Networks",
+            "type": "array"
+          },
+          "published_at": {
+            "title": "Published At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "networks",
+          "published_at",
+          "status"
+        ],
+        "title": "PostHistoryResponse",
+        "type": "object"
+      },
+      "ProcessScheduledResponse": {
+        "properties": {
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessedPublicationResponse"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "processed",
+          "details"
+        ],
+        "title": "ProcessScheduledResponse",
+        "type": "object"
+      },
+      "ProcessedPublicationResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "results": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PublicationNetworkResult"
+            },
+            "title": "Results",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "results"
+        ],
+        "title": "ProcessedPublicationResponse",
+        "type": "object"
+      },
       "ProposalApplyPayload": {
         "properties": {
           "etags": {
@@ -3968,6 +4202,85 @@
           "title"
         ],
         "title": "PublicPageRequest",
+        "type": "object"
+      },
+      "PublicationNetworkResult": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PublicationNetworkResult",
+        "type": "object"
+      },
+      "PublicationResponse": {
+        "properties": {
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "results": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PublicationNetworkResult"
+            },
+            "title": "Results",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "status",
+          "results"
+        ],
+        "title": "PublicationResponse",
         "type": "object"
       },
       "PublishRequest": {
@@ -4715,6 +5028,131 @@
         "title": "SchedulePublishRequest",
         "type": "object"
       },
+      "ScheduledPostResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Networks",
+            "type": "array"
+          },
+          "scheduled_time": {
+            "title": "Scheduled Time",
+            "type": "string"
+          },
+          "status": {
+            "const": "pending",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "networks",
+          "scheduled_time",
+          "status"
+        ],
+        "title": "ScheduledPostResponse",
+        "type": "object"
+      },
+      "ScheduledPublicationResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Networks",
+            "type": "array"
+          },
+          "scheduled_time": {
+            "title": "Scheduled Time",
+            "type": "string"
+          },
+          "status": {
+            "const": "scheduled",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "scheduled_time",
+          "networks"
+        ],
+        "title": "ScheduledPublicationResponse",
+        "type": "object"
+      },
+      "ScheduledTaskResponse": {
+        "description": "Public scheduler task state.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "interval_minutes": {
+            "title": "Interval Minutes",
+            "type": "number"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "interval_minutes",
+          "enabled",
+          "status"
+        ],
+        "title": "ScheduledTaskResponse",
+        "type": "object"
+      },
       "SemanticAssociationPayload": {
         "additionalProperties": false,
         "description": "One explicit, reversible personal vocabulary correction.",
@@ -4882,6 +5320,196 @@
         "title": "SnowballRequest",
         "type": "object"
       },
+      "SocialNetwork": {
+        "additionalProperties": true,
+        "description": "Configured network plus live publisher capabilities.",
+        "properties": {
+          "char_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Limit"
+          },
+          "configured": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "icon": {
+            "title": "Icon",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "implemented": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implemented"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "icon",
+          "enabled"
+        ],
+        "title": "SocialNetwork",
+        "type": "object"
+      },
+      "SocialPost": {
+        "description": "Normalized post rendered in a social stream.",
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "cid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cid"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "favourited": {
+            "default": false,
+            "title": "Favourited",
+            "type": "boolean"
+          },
+          "favourites_count": {
+            "default": 0,
+            "title": "Favourites Count",
+            "type": "integer"
+          },
+          "handle": {
+            "title": "Handle",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_reblog": {
+            "default": false,
+            "title": "Is Reblog",
+            "type": "boolean"
+          },
+          "network": {
+            "title": "Network",
+            "type": "string"
+          },
+          "reblog_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reblog By"
+          },
+          "reblogged": {
+            "default": false,
+            "title": "Reblogged",
+            "type": "boolean"
+          },
+          "reblogs_count": {
+            "default": 0,
+            "title": "Reblogs Count",
+            "type": "integer"
+          },
+          "replies_count": {
+            "default": 0,
+            "title": "Replies Count",
+            "type": "integer"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "id",
+          "network",
+          "author",
+          "handle",
+          "content",
+          "timestamp"
+        ],
+        "title": "SocialPost",
+        "type": "object"
+      },
+      "SocialSettingsUpdateResponse": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SocialSettingsUpdateResponse",
+        "type": "object"
+      },
       "Stream": {
         "properties": {
           "icon": {
@@ -4993,6 +5621,152 @@
         "title": "TaskFactPayload",
         "type": "object"
       },
+      "TaskHistoryPageResponse": {
+        "description": "Paginated scheduler execution history.",
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskHistoryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "TaskHistoryPageResponse",
+        "type": "object"
+      },
+      "TaskHistoryResponse": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_name": {
+            "title": "Task Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "task_name",
+          "description",
+          "status",
+          "message",
+          "started_at",
+          "finished_at",
+          "duration_seconds"
+        ],
+        "title": "TaskHistoryResponse",
+        "type": "object"
+      },
+      "TaskRunResponse": {
+        "description": "Acknowledgement for a manually queued scheduler task.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "const": "running",
+            "title": "Status",
+            "type": "string"
+          },
+          "success": {
+            "const": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "status"
+        ],
+        "title": "TaskRunResponse",
+        "type": "object"
+      },
       "TaskUpdate": {
         "properties": {
           "enabled": {
@@ -5009,6 +5783,25 @@
           "enabled"
         ],
         "title": "TaskUpdate",
+        "type": "object"
+      },
+      "TaskUpdateResponse": {
+        "description": "Result of updating a scheduler task.",
+        "properties": {
+          "success": {
+            "const": true,
+            "title": "Success",
+            "type": "boolean"
+          },
+          "task": {
+            "$ref": "#/components/schemas/ScheduledTaskResponse"
+          }
+        },
+        "required": [
+          "success",
+          "task"
+        ],
+        "title": "TaskUpdateResponse",
         "type": "object"
       },
       "TemplateExportPayload": {
@@ -36705,8 +37498,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/ScheduledTaskResponse"
                   },
                   "title": "Response List Tasks Api Schedulers Get",
                   "type": "array"
@@ -36814,9 +37606,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Clear History Api Schedulers History Delete",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ClearTaskHistoryResponse"
                 }
               }
             },
@@ -36887,9 +37677,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get History Api Schedulers History Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/TaskHistoryPageResponse"
                 }
               }
             },
@@ -36933,9 +37721,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Task Api Schedulers  Name  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ScheduledTaskResponse"
                 }
               }
             },
@@ -37067,9 +37853,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Update Task Api Schedulers  Name  Put",
-                  "type": "object"
+                  "$ref": "#/components/schemas/TaskUpdateResponse"
                 }
               }
             },
@@ -37193,9 +37977,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Run Task Api Schedulers  Name  Run Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/TaskRunResponse"
                 }
               }
             },
@@ -37360,7 +38142,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -37411,7 +38195,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SocialPost"
+                  },
+                  "title": "Response Get Feed Api Social Feed  Stream Id  Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -37441,7 +38231,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PostHistoryResponse"
+                  },
+                  "title": "Response Get Post History Api Social History Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -37553,7 +38349,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -37583,7 +38381,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SocialNetwork"
+                  },
+                  "title": "Response Get Networks Api Social Networks Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -37684,8 +38488,7 @@
             "application/json": {
               "schema": {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/SocialNetwork"
                 },
                 "title": "Payload",
                 "type": "array"
@@ -37698,7 +38501,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SocialSettingsUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -37820,7 +38625,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -37932,7 +38739,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessScheduledResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -38054,7 +38863,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -38176,7 +38987,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledPublicationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -38206,7 +39019,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduledPostResponse"
+                  },
+                  "title": "Response Get Scheduled Posts Api Social Scheduled Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -38317,7 +39136,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CancelScheduledPostResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -38454,8 +39275,7 @@
             "application/json": {
               "schema": {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/Stream"
                 },
                 "title": "Payload",
                 "type": "array"
@@ -38468,7 +39288,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SocialSettingsUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"

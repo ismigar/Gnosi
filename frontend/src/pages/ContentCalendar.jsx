@@ -1,35 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../lib/toast';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Trash2 } from 'lucide-react';
 import i18n from '../i18n';
 import ConfirmModal from '../components/ConfirmModal';
-import { transportFetch } from '../shared/api/transports';
+import {
+    useCancelScheduledSocialPost,
+    useScheduledSocialPosts,
+} from '../shared/api/useSocialData';
 
 const ContentCalendar = () => {
-    const [scheduledPosts, setScheduledPosts] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [confirmTarget, setConfirmTarget] = useState(null);
     const { t } = useTranslation();
-
-    useEffect(() => {
-        fetchScheduledPosts();
-    }, []);
-
-    const fetchScheduledPosts = async () => {
-        try {
-            const res = await transportFetch('/api/social/scheduled');
-            if (res.ok) {
-                const data = await res.json();
-                setScheduledPosts(data);
-            }
-        } catch (error) {
-            console.error('Error fetching scheduled posts:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: scheduledPosts = [], isLoading: loading } = useScheduledSocialPosts();
+    const cancelScheduledPost = useCancelScheduledSocialPost();
 
     const cancelPost = (postId) => setConfirmTarget(postId);
 
@@ -38,14 +23,7 @@ const ContentCalendar = () => {
         setConfirmTarget(null);
 
         try {
-            const res = await transportFetch(`/api/social/scheduled/${postId}`, { method: 'DELETE' });
-            if (!res.ok) {
-                // Without this else, a 4xx/5xx response caused the post
-                // to keep appearing even though the user thought it had already been
-                // cancelled (the confirm dialog had closed). Now we warn.
-                throw new Error(`HTTP ${res.status}`);
-            }
-            setScheduledPosts(prev => prev.filter(p => p.id !== postId));
+            await cancelScheduledPost.mutateAsync(postId);
             toast.success(t('content_calendar.post_cancelled', "Post canceled"));
         } catch (error) {
             console.error('cancelPost failed', error);
