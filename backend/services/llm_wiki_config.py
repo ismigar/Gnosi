@@ -16,7 +16,7 @@ import threading
 import unicodedata
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, cast
 
 cfg_lock = threading.RLock()
 
@@ -71,20 +71,21 @@ NOTE_TYPE_LABELS = {
 
 def config_path() -> Path:
     """Return ``<active vault>/.gnosi/llm_wiki.json``."""
-    from backend.api.vault_routes import get_p
+    from backend.api import vault_routes
 
-    return get_p("GNOSI_CONFIG") / CONFIG_FILENAME
+    get_p = cast(Callable[[str], Path], vault_routes.get_p)
+    return Path(get_p("GNOSI_CONFIG")) / CONFIG_FILENAME
 
 
 def _norm(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
 
 
-def _property_id(prop: dict) -> str:
+def _property_id(prop: dict[str, Any]) -> str:
     return str(prop.get("id") or "").strip()
 
 
-def _property_type(prop: dict) -> str:
+def _property_type(prop: dict[str, Any]) -> str:
     return str(prop.get("type") or "").strip().lower()
 
 
@@ -97,7 +98,7 @@ def _semantic_token(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", ascii_text)
 
 
-def _property_options(prop: Optional[dict]) -> list[str]:
+def _property_options(prop: Optional[dict[str, Any]]) -> list[str]:
     raw_options = (
         (prop or {}).get("options")
         or ((prop or {}).get("config") or {}).get("options")
@@ -111,7 +112,11 @@ def _property_options(prop: Optional[dict]) -> list[str]:
     ]
 
 
-def note_type_value(kind: str, config: dict, prop: Optional[dict]) -> str:
+def note_type_value(
+    kind: str,
+    config: dict[str, Any],
+    prop: Optional[dict[str, Any]],
+) -> str:
     """Return the existing visible option for one semantic note kind."""
     resolved_kind = note_type_kind(kind)
     semantic_kind = "reading" if resolved_kind == "lectura" else (resolved_kind or "reading")
@@ -165,15 +170,23 @@ def _revision(value: Any) -> int:
         return 0
 
 
-def _properties(table: Optional[dict]) -> list[dict]:
-    return [p for p in ((table or {}).get("properties") or []) if isinstance(p, dict)]
+def _properties(table: Optional[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        cast(dict[str, Any], prop)
+        for prop in ((table or {}).get("properties") or [])
+        if isinstance(prop, dict)
+    ]
 
 
 def _legacy_reference_table_id() -> str:
     """Best-effort v1 migration source without making config reads fail."""
     try:
-        from backend.api.vault_routes import get_reference_table_id
+        from backend.api import vault_routes
 
+        get_reference_table_id = cast(
+            Callable[[], str | None],
+            vault_routes.get_reference_table_id,
+        )
         return str(get_reference_table_id() or "").strip()
     except Exception:
         return ""
@@ -345,7 +358,7 @@ def get_source_config(table_id: str) -> Optional[dict[str, Any]]:
     wanted = str(table_id or "").strip()
     for source in load_config().get("source_tables") or []:
         if source.get("table_id") == wanted:
-            return deepcopy(source)
+            return cast(dict[str, Any], deepcopy(source))
     return None
 
 
@@ -354,10 +367,10 @@ def is_source_table(table_id: str) -> bool:
 
 
 def auto_detect_source(
-    table: dict,
-    brain_table: Optional[dict] = None,
+    table: dict[str, Any],
+    brain_table: Optional[dict[str, Any]] = None,
     index_field_ids: Optional[Iterable[str]] = None,
-    current: Optional[dict] = None,
+    current: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """Fill missing source roles from property types and semantic names.
 
@@ -441,16 +454,19 @@ def _compatible_dimension_types(source_type: str, brain_type: str) -> bool:
     return source_type in option_types and brain_type in option_types
 
 
-def property_by_id(table: Optional[dict], property_id: str) -> Optional[dict]:
+def property_by_id(
+    table: Optional[dict[str, Any]],
+    property_id: str,
+) -> Optional[dict[str, Any]]:
     wanted = str(property_id or "").strip()
     return next((p for p in _properties(table) if _property_id(p) == wanted), None)
 
 
 def eligible_index_properties(
-    brain_table: Optional[dict],
+    brain_table: Optional[dict[str, Any]],
     *,
     excluded_ids: Optional[Iterable[str]] = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Categorical Brain properties that can produce deterministic indexes."""
     excluded = set(_unique_strings(list(excluded_ids or [])))
     return [

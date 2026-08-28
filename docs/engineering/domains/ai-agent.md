@@ -503,6 +503,11 @@ tables, categorical dimensions, file/URL fields, fixed values and relation
 targets before any schema mutation. It then provisions the canonical roles and
 source relations, revalidates eligible index fields, persists atomically and
 refreshes the system pages through late-bound facade ports.
+The per-Vault configuration facade narrows property, source and dimension
+mappings to typed objects while deliberately retaining late-bound path and
+reference-table callables from `vault_routes`; disposable-Vault tests and
+existing integrations can therefore replace those historical seams without
+duplicating their mutable state.
 `backend/domains/configuration/llm_wiki_schema.py` separately owns idempotent
 Brain-field repair and consolidation of one canonical source relation, including
 legacy aliases, page metadata and contextual embedded views.
