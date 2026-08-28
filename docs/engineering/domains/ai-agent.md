@@ -660,6 +660,10 @@ First-party Gnosi tool support similarly narrows the remaining legacy facade
 ports for frontmatter parsing, page versioning, index refresh and table-view
 revisions. These adapters keep confirmation snapshots and optimistic
 concurrency checks typed without changing their persisted formats.
+Vault-administration tools consume those ports through explicit registry,
+table-row, metadata-refresh and page-index call signatures. Table discovery,
+saved authorship views, deterministic filtering and contained page relocation
+therefore retain their existing JSON tool contract under strict typing.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
