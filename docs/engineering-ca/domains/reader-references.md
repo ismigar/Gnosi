@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
+  - backend/domains/literature/review_logic.py
   - backend/domains/literature/connectors
   - backend/api/reader.py
   - backend/models/reader.py
@@ -49,6 +50,11 @@ Les rutes, l'emmagatzematge, l'anàlisi i les fonts del Reader viuen ara a
 `backend/domains/reader/`; els repositoris, la cerca, la sincronització i
 l'emmagatzematge bibliogràfic, a `backend/domains/literature/`. Els mòduls antics
 es mantenen com a façanes compatibles.
+
+Les rutes HTTP, els models canònics i els serveis de revisió sistemàtica estan
+tipats estrictament. El recompte PRISMA, les transicions de cribratge,
+l'evidència d'accés obert i les exportacions CSV/JSON/Markdown/SVG viuen al
+domini pur `review_logic.py`; les funcions històriques continuen com a façanes.
 
 ## Reversió
 

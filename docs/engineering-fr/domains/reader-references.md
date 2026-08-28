@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
+  - backend/domains/literature/review_logic.py
   - backend/domains/literature/connectors
   - backend/api/reader.py
   - backend/models/reader.py
@@ -11,6 +12,10 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/domains/vault/citations/exporting.py
   - backend/domains/vault/citations/normalizers
+  - backend/api/literature_routes.py
+  - backend/services/literature_models.py
+  - backend/services/literature_service.py
+  - backend/services/literature_review_service.py
   - backend/services/academic_connectors.py
   - backend/services/references_io.py
   - backend/services/lookup_normalizers.py
@@ -24,6 +29,9 @@ tests:
   - backend/tests/test_references_io.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_e2e_import_references_item_type.py
+  - backend/tests/test_literature_models.py
+  - backend/tests/test_literature_service.py
+  - backend/tests/test_literature_review_service.py
   - backend/tests/test_academic_connectors.py
   - backend/tests/test_academic_connectors_domain_contract.py
   - backend/tests/test_lookup_normalizers.py
@@ -36,6 +44,11 @@ Les routes, le stockage, l'analyse et les sources du Reader résident désormais
 dans `backend/domains/reader/`; les dépôts, la recherche, la synchronisation et
 le stockage bibliographique dans `backend/domains/literature/`. Les anciens
 modules restent des façades compatibles.
+
+Les routes HTTP, les modèles canoniques et les services de revue systématique
+sont strictement typés. Le comptage PRISMA, les transitions de sélection, les
+preuves d'accès ouvert et les exports CSV/JSON/Markdown/SVG résident dans le
+domaine pur `review_logic.py` ; les fonctions historiques restent des façades.
 
 ## Responsabilité
 

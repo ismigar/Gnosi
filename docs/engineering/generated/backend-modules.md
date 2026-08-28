@@ -11,12 +11,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 46 | 8452 |
-| `api` | 38 | 10909 |
+| `api` | 38 | 11133 |
 | `app` | 6 | 603 |
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 203 |
-| `domains` | 362 | 82405 |
+| `domains` | 363 | 82694 |
 | `mcp` | 3 | 394 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 5 | 1184 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 809 |
-| `services` | 148 | 33738 |
+| `services` | 148 | 34009 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **693 modules** and **144744 source lines**.
+Total: **694 modules** and **145528 source lines**.
 
 ## agent
 
@@ -102,7 +102,7 @@ Total: **693 modules** and **144744 source lines**.
 | [`backend/api/handwriting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py) | 77 | 0 | 3 | 3 | 3 | LOCAL handwriting recognition endpoint (ink → text) using TrOCR. |
 | [`backend/api/identity_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/identity_routes.py) | 60 | 1 | 3 | 2 | 0 | No module docstring |
 | [`backend/api/integrations_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/integrations_routes.py) | 545 | 0 | 17 | 12 | 16 | No module docstring |
-| [`backend/api/literature_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/literature_routes.py) | 377 | 15 | 33 | 15 | 0 | HTTP contracts for academic search and systematic literature review. |
+| [`backend/api/literature_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/literature_routes.py) | 601 | 15 | 33 | 15 | 0 | HTTP contracts for academic search and systematic literature review. |
 | [`backend/api/mail_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/mail_routes.py) | 234 | 0 | 1 | 1 | 0 | Compatibility facade and composition boundary for the mail domain. |
 | [`backend/api/meeting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/meeting_routes.py) | 58 | 0 | 3 | 2 | 2 | Endpoints for the AI meeting notetaker. |
 | [`backend/api/microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py) | 160 | 0 | 4 | 3 | 0 | Microsoft OAuth2 authentication routes. |
@@ -270,6 +270,7 @@ Total: **693 modules** and **144744 source lines**.
 | [`backend/domains/literature/connectors/transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/transport.py) | 239 | 1 | 9 | 2 | 6 | Bounded transport, SSRF protection, and request auditing. |
 | [`backend/domains/literature/connectors/xml.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/xml.py) | 215 | 0 | 6 | 2 | 3 | XML, arXiv, and OAI-PMH provider adapters. |
 | [`backend/domains/literature/repositories.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/repositories.py) | 740 | 0 | 14 | 1 | 4 | Academic repository catalog and configuration. |
+| [`backend/domains/literature/review_logic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/review_logic.py) | 289 | 0 | 10 | 0 | 4 | Pure systematic-review workflow, PRISMA, and export logic. |
 | [`backend/domains/literature/search.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/search.py) | 655 | 0 | 17 | 3 | 3 | Federated and indexed academic search orchestration. |
 | [`backend/domains/literature/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/state.py) | 33 | 0 | 0 | 0 | 0 | Shared mutable state for federated literature workflows. |
 | [`backend/domains/literature/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/storage.py) | 107 | 0 | 8 | 0 | 0 | Vault-native files and local SQLite storage for literature workflows. |
@@ -713,8 +714,8 @@ Total: **693 modules** and **144744 source lines**.
 | [`backend/services/library_paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/library_paths.py) | 25 | 0 | 2 | 0 | 2 | SINGLE resolution of the attachments folder: ALWAYS `<vault>/Library`. |
 | [`backend/services/literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_ai_service.py) | 186 | 0 | 8 | 0 | 2 | Explicit, audited AI assistance for literature workflows. |
 | [`backend/services/literature_import_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_import_service.py) | 250 | 0 | 7 | 1 | 5 | Atomic AcademicWork import into the designated Resources table. |
-| [`backend/services/literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_models.py) | 351 | 0 | 21 | 0 | 10 | Canonical academic-work normalization and deterministic deduplication. |
-| [`backend/services/literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_review_service.py) | 593 | 0 | 32 | 10 | 4 | Vault-native systematic-review records, blind decisions, and exports. |
+| [`backend/services/literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_models.py) | 428 | 0 | 21 | 0 | 10 | Canonical academic-work normalization and deterministic deduplication. |
+| [`backend/services/literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_review_service.py) | 787 | 0 | 24 | 10 | 3 | Vault-native systematic-review records, blind decisions, and exports. |
 | [`backend/services/literature_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_service.py) | 144 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical literature domain. |
 | [`backend/services/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki.py) | 696 | 0 | 29 | 0 | 11 | Incremental Zettelkasten ingestion for Gnosi's built-in LLM Wiki. |
 | [`backend/services/llm_wiki_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_actions.py) | 185 | 1 | 4 | 1 | 5 | Application actions shared by LLM Wiki HTTP routes and agent tools. |
