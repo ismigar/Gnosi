@@ -1,13 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
+  - backend/app/lifespan.py
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - frontend/src/App.jsx
 tests:
+  - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
   - tests/e2e/tests/anon/smoke.spec.ts
@@ -24,6 +26,10 @@ La fundación ensambla cada dominio en un proceso, resuelve la configuración y 
 `backend/server.py` construye la instancia FastAPI, middleware, manejo de excepciones, montaje del lector estático, vida útil y routers. El orden del router es explícito porque el contexto del espacio de trabajo y los prefijos amplios pueden superponerse. [Catálogo API](../generated/api-catalog.md) registra cada montaje y ruta estática.
 
 Lifespan startup realiza estas clases de trabajo:
+
+El módulo de ciclo de vida mantiene `lifespan` como orquestador lineal. Funciones
+acotadas gestionan plugins, agente, índices, reparación de tablas, correo y
+apagado sin alterar el orden ni el aislamiento de errores.
 
 1. Afirmar que un despliegue expuesto no está utilizando un desarrollo público JWT
 secreto.

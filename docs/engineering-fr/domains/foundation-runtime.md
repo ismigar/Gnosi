@@ -1,13 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-19
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
+  - backend/app/lifespan.py
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - frontend/src/App.jsx
 tests:
+  - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
   - tests/e2e/tests/anon/smoke.spec.ts
@@ -24,6 +26,10 @@ La fondation assemble chaque domaine en un seul processus, résout la configurat
 `backend/server.py` construit l'instance FastAPI, middleware, gestion d'exception, montage de lecteur statique, durée de vie, et routeurs. L'ordre du routeur est explicite parce que le contexte de l'espace de travail et les préfixes larges peuvent se chevaucher. [Catalogue API](../generated/api-catalog.md) enregistre chaque montage et itinéraire statique.
 
 Le démarrage Lifespan effectue ces classes de travail:
+
+Le module de cycle de vie conserve `lifespan` comme orchestrateur linéaire. Des
+fonctions bornées gèrent les plugins, l'agent, les index, la réparation des
+tables, le courrier et l'arrêt sans modifier l'ordre ni l'isolation des erreurs.
 
 1. Assertion qu'un déploiement exposé n'utilise pas un JWT de développement public
 secret.

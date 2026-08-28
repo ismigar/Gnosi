@@ -1,13 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-19
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
+  - backend/app/lifespan.py
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - frontend/src/App.jsx
 tests:
+  - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
   - tests/e2e/tests/anon/smoke.spec.ts
@@ -30,6 +32,11 @@ because workspace context and broad prefixes can overlap. The generated
 [API catalog](../generated/api-catalog.md) records every static mount and route.
 
 Lifespan startup performs these classes of work:
+
+The lifecycle module keeps the public `lifespan` context manager as a linear
+orchestrator. Focused helpers own plugin reconciliation, agent startup, index
+warmup, table repair, mail workers, and bounded shutdown while preserving their
+documented order and failure isolation.
 
 1. Assert that an exposed deployment is not using a public development JWT
    secret.

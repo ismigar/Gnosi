@@ -1,13 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
+  - backend/app/lifespan.py
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - frontend/src/App.jsx
 tests:
+  - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
   - tests/e2e/tests/anon/smoke.spec.ts
@@ -24,6 +26,10 @@ La fundació es reuneix tots els dominis en un procés, resol la configuració i
 `backend/server.py` Es mou la instància ràpidaAPI, gestió de l' excepció, muntatge de lectors estàtics, vida i encaminadors. L' ordre enrutador és explícit perquè el context de l' espai de treball i els prefixos amplis es poden sobreposen. L' ordre generat [Catàleg d' API](../generated/api-catalog.md) registren cada muntatge i ruta estàtica.
 
 L'startup de vida és la que fa aquestes classes de treball:
+
+El mòdul de cicle de vida manté `lifespan` com un orquestrador lineal. Funcions
+acotades gestionen connectors, agent, índexs, reparació de taules, correu i
+aturada, sense alterar l'ordre ni l'aïllament d'errors.
 
 1. Asert que un desplegament exposat no usa un desenvolupament públic JWT
 secret.
