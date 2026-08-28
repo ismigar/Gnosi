@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-26
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
   - backend/services/active_vault_middleware.py
@@ -67,6 +67,10 @@ slug before normal FastAPI dispatch, binds the immutable vault id and path, and
 then reuses the existing endpoint implementation. The canonical path wins over
 a conflicting legacy header, query parameter, or cookie, but workspace and
 vault-access dependencies still make the authorization decision.
+
+Signal parsing is isolated into typed header, query and cookie helpers. The
+middleware call only rewrites canonical scope, installs the context token,
+dispatches, and resets it, so HTTP and WebSocket share one propagation boundary.
 
 The frontend installs one route builder and one API rewriter before rendering.
 This covers Axios, `fetch`, server-sent events, collaboration WebSockets, and

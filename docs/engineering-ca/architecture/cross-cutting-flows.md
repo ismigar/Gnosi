@@ -1,8 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
+  - backend/services/active_vault_middleware.py
   - backend/services/context_vars.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
@@ -11,6 +12,7 @@ source_paths:
   - frontend/src/index.css
 tests:
   - backend/tests/test_auth_central_gate.py
+  - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -39,6 +41,12 @@ sequenceDiagram
 El mode personal pot resoldre un usuari efectiu local sense accés. El mode d' organització requereix un mecanisme vàlid o acceptat. El dorsal té la decisió; la porta de la interfície millora l' UX però no és un límit de seguretat.
 
 Les variables de context porten la volta activa a través de les crides de servei niats sense convertir el camí en un arranjament de taula global. Codi fora d' una sol· licitud ha de proporcionar una volta explícita o usar el camí per omissió documentat.
+
+## Encaminament per Vault
+
+`ActiveVaultMiddleware` resol primer la ruta canònica i després aplica la
+prioritat capçalera → consulta → galeta. Helpers tipats comparteixen aquesta
+resolució entre HTTP i WebSocket, i el context sempre es restaura en acabar.
 
 ## Flux de configuració
 

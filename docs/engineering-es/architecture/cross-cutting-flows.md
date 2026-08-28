@@ -1,8 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
+  - backend/services/active_vault_middleware.py
   - backend/services/context_vars.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
@@ -11,6 +12,7 @@ source_paths:
   - frontend/src/index.css
 tests:
   - backend/tests/test_auth_central_gate.py
+  - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -39,6 +41,12 @@ sequenceDiagram
 El modo personal puede resolver un usuario local efectivo sin un inicio de sesión. El modo organización requiere una sesión válida o un mecanismo de portador aceptado. El motor es el propietario de la decisión; la puerta de autenticación de frontend mejora UX pero no es un límite de seguridad.
 
 Las variables de contexto llevan la bóveda activa a través de llamadas de servicio anidadas sin convertir la ruta en una configuración mutable global. Codificar fuera de una solicitud debe proporcionar una bóveda explícita o utilizar la ruta de resolución predeterminada documentada.
+
+## Enrutamiento por Vault
+
+`ActiveVaultMiddleware` resuelve primero la ruta canónica y después aplica la
+prioridad cabecera → consulta → cookie. Helpers tipados comparten la resolución
+entre HTTP y WebSocket, y el contexto siempre se restaura al finalizar.
 
 ## Flujo de configuración
 

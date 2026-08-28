@@ -65,11 +65,6 @@
       "max_lines": 1199,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
-    "backend/services/active_vault_middleware.py": {
-      "max_complexity": 17,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/services/agent_stream_protocol.py": {
       "max_complexity": 23,
       "max_lines": 800,

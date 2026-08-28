@@ -15,10 +15,12 @@ def test_vault_slugs_are_stable_and_globally_unique():
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine)()
-    session.add_all([
-        Workspace(id="workspace-a", name="A"),
-        Workspace(id="workspace-b", name="B"),
-    ])
+    session.add_all(
+        [
+            Workspace(id="workspace-a", name="A"),
+            Workspace(id="workspace-b", name="B"),
+        ]
+    )
     first = Vault(id="vault-a", workspace_id="workspace-a", name="Història Contemporània")
     second = Vault(id="vault-b", workspace_id="workspace-b", name="Història Contemporània")
     session.add_all([first, second])
@@ -95,3 +97,32 @@ def test_unknown_canonical_vault_returns_404(monkeypatch):
 
     asyncio.run(middleware(scope, receive, send))
     assert sent[0]["status"] == 404
+
+
+def test_legacy_vault_signal_priority_is_header_query_cookie():
+    base = {
+        "type": "http",
+        "path": "/api/vault/pages",
+        "query_string": b"vault=query-id",
+        "headers": [
+            (b"x-vault-id", b"header-id"),
+            (b"cookie", b"gnosi_active_vault=cookie-id"),
+        ],
+    }
+    assert routing_middleware._requested_vault_id(base) == "header-id"
+
+    without_header = {**base, "headers": [(b"cookie", b"gnosi_active_vault=cookie-id")]}
+    assert routing_middleware._requested_vault_id(without_header) == "query-id"
+
+    cookie_only = {**without_header, "query_string": b""}
+    assert routing_middleware._requested_vault_id(cookie_only) == "cookie-id"
+
+
+def test_websocket_vault_signal_skips_query_but_accepts_cookie():
+    scope = {
+        "type": "websocket",
+        "path": "/api/chat",
+        "query_string": b"vault=query-id",
+        "headers": [(b"cookie", b"gnosi_active_vault=cookie%20id")],
+    }
+    assert routing_middleware._requested_vault_id(scope) == "cookie id"
