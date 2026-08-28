@@ -49,6 +49,7 @@ source_paths:
   - backend/agent/context_safety.py
   - backend/mcp/client.py
   - pipeline/ai_client.py
+  - pipeline/skills/translate_row
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
@@ -64,6 +65,7 @@ tests:
   - backend/tests/test_artificial_analysis.py
   - backend/tests/test_fx_rates.py
   - backend/tests/test_transcription_service.py
+  - backend/tests/test_translate_row_skill.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_chat_safety.py
@@ -225,6 +227,13 @@ validated into a catalog while preserving origin, activation, compatibility,
 and managed-versus-user-owned fields. Plugin reconciliation is idempotent:
 disabling a plugin suspends its managed contribution without deleting user
 overrides.
+
+The row-translation skill keeps provider routing and local OPUS-MT lifecycle in
+its own consolidated package. External JSON envelopes are narrowed before use,
+language scoring has deterministic typed ordering, and the lazy OPUS cache
+stores only minimal tokenizer/model protocols. Transformers' concrete generic
+types do not leak into the routing contract or alter the established
+Softcatalà, Apertium, OPUS, DeepL and placeholder fallback order.
 
 Plugin reconciliation can also run before FastAPI route composition. It derives
 the `.gnosi` directory from the canonical active-Vault context and reads state

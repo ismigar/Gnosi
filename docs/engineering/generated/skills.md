@@ -30,7 +30,7 @@ Discovered **25 documented runtime skills**.
 | `team_manager` | SKILL: Team Manager (Multi-Agent Architecture) | 46 | 0 | [`pipeline/skills/team_manager/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/team_manager/SKILL.md) |
 | `technical_documentation` | SKILL: Technical documentation | 125 | 5 | [`pipeline/skills/technical_documentation/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/SKILL.md) |
 | `translate_page` | Skill: translate_page | 106 | 3 | [`pipeline/skills/translate_page/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_page/SKILL.md) |
-| `translate_row` | Skill: translate_row | 153 | 2 | [`pipeline/skills/translate_row/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/SKILL.md) |
+| `translate_row` | Skill: translate_row | 161 | 2 | [`pipeline/skills/translate_row/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/SKILL.md) |
 | `ui_stability` | Directive: GraphPage field-filter TypeError fix | 33 | 0 | [`pipeline/skills/ui_stability/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/ui_stability/SKILL.md) |
 | `vault_ai_assistant` | SKILL: Vault AI Assistant | 59 | 0 | [`pipeline/skills/vault_ai_assistant/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/vault_ai_assistant/SKILL.md) |
 | `vault_core` | SKILL: Vault Core Management | 48 | 0 | [`pipeline/skills/vault_core/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/vault_core/SKILL.md) |
