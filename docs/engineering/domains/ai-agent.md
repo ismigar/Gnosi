@@ -29,6 +29,7 @@ source_paths:
   - backend/services/agent_model_evaluations.py
   - backend/services/agent_personal_memory.py
   - backend/services/agent_capability_contract.py
+  - backend/services/capability_automations.py
   - backend/agent/provider_resilience.py
   - backend/agent/recovery.py
   - backend/agent/conversation_memory.py
@@ -37,6 +38,7 @@ source_paths:
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_capability_automations.py
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
@@ -326,6 +328,13 @@ whether a limit was reached. A zero tool budget is a mode declaration, not an
 authorization bypass: mandatory server-authored context reads still follow
 their explicit path. Dynamic context tools are not selected for a general
 question unless the user actually supplied a context source.
+
+Capability automations persist scope, revision, schedule and per-run budgets in
+their own migrated SQLite database under the canonical local data directory.
+Run reservation is transactional, rejects overlapping or over-budget work,
+recovers stale leases, and records terminal status even when agent execution
+fails. Missing data configuration or a failed persistence round-trip aborts
+explicitly instead of reporting an automation that was not stored.
 
 The ToolNode retains the complete active-skill runtime for execution and policy
 checks, while each model invocation binds only passive read tools plus guarded
