@@ -11,6 +11,7 @@ source_paths:
   - frontend/src/components/Contacts
 tests:
   - backend/tests/test_contacts_sync_merge.py
+  - backend/tests/test_google_contacts_service.py
   - backend/tests/test_carddav_vcard_unfold.py
   - backend/tests/test_vcard_escaping.py
   - tests/e2e/tests/e2e/contacts.spec.ts
@@ -35,6 +36,10 @@ A contact has stable local identity, workspace, type, display name, primary
 email and phone, organization fields, notes, structured multi-value emails,
 phones and addresses, provider identifiers, source, photo, tags, timestamps,
 and synchronization state.
+The SQLAlchemy model uses `Mapped[]` declarations for every column and its
+workspace relationship, so service, route and synchronization assignments are
+checked against the persisted schema. Pydantic request/response models retain
+their historical defaults and byte-stable OpenAPI representation.
 
 Provider-specific payloads are normalized before merge. vCard processing
 unfolds continuation lines, decodes values, and escapes separators without

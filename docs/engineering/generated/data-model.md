@@ -6,7 +6,7 @@ Static SQLAlchemy table and column catalog. Runtime SQLite inspection remains au
 
 Regenerate with `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **19 mapped tables** and **160 mapped columns**.
+Discovered **19 mapped tables** and **139 mapped columns**.
 
 ## Table summary
 
@@ -14,7 +14,7 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 | --- | --- | ---: | --- |
 | `api_tokens` | `ApiToken` | 10 | [`backend/models/management.py:94`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L94) |
 | `articles` | `Article` | 9 | [`backend/models/reader.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L23) |
-| `contacts` | `Contact` | 21 | [`backend/models/contact.py:31`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L31) |
+| `contacts` | `Contact` | 0 | [`backend/models/contact.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L28) |
 | `feed_sources` | `FeedSource` | 6 | [`backend/models/reader.py:11`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L11) |
 | `hidden_events` | `HiddenEvent` | 3 | [`backend/models/calendar.py:5`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L5) |
 | `mail_message_tags` | `MailMessageTag` | 6 | [`backend/models/mail.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L42) |
@@ -65,27 +65,6 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/contact.py:34`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L34) |
-| `workspace_id` | `String` | — | no | — | yes | `workspaces.id` | — | [`backend/models/contact.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L35) |
-| `type` | `String` | — | no | — | — | — | ContactType.PERSONAL.value | [`backend/models/contact.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L38) |
-| `name` | `String` | — | no | — | — | — | — | [`backend/models/contact.py:40`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L40) |
-| `email` | `String` | — | no | — | yes | — | — | [`backend/models/contact.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L41) |
-| `phone` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L42) |
-| `company` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L44) |
-| `job_title` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:45`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L45) |
-| `address` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:46`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L46) |
-| `notes` | `Text` | — | yes | — | — | — | — | [`backend/models/contact.py:47`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L47) |
-| `emails` | `Text` | — | — | — | — | — | '[]' | [`backend/models/contact.py:49`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L49) |
-| `phones` | `Text` | — | — | — | — | — | '[]' | [`backend/models/contact.py:50`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L50) |
-| `addresses` | `Text` | — | — | — | — | — | '[]' | [`backend/models/contact.py:51`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L51) |
-| `google_resource_name` | `String` | — | yes | — | yes | — | — | [`backend/models/contact.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L53) |
-| `apple_resource_id` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L54) |
-| `last_synced_at` | `DateTime(timezone=True)` | — | yes | — | — | — | — | [`backend/models/contact.py:56`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L56) |
-| `source` | `String` | — | no | — | — | — | ContactSource.LOCAL.value | [`backend/models/contact.py:57`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L57) |
-| `photo_url` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:58`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L58) |
-| `tags` | `String` | — | — | — | — | — | '[]' | [`backend/models/contact.py:60`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L60) |
-| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/contact.py:62`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L62) |
-| `updated_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/contact.py:63`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L63) |
 
 ## `feed_sources` — `FeedSource`
 

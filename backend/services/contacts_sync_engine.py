@@ -48,7 +48,7 @@ class GoogleContactsProvider(BaseContactsProvider):
         self.email = email
 
     def list_contacts(self) -> list[dict[str, Any]]:
-        return cast(list[dict[str, Any]], list_google_contacts(self.email))
+        return list_google_contacts(self.email)
 
     def create_contact(self, contact_data: dict[str, Any]) -> dict[str, Any] | None:
         return cast(dict[str, Any] | None, create_google_contact(self.email, contact_data))
@@ -63,7 +63,7 @@ class GoogleContactsProvider(BaseContactsProvider):
         return delete_google_contact(self.email, remote_id)
 
     def parse_to_internal(self, remote_contact: dict[str, Any]) -> dict[str, Any]:
-        parsed = cast(dict[str, Any], parse_google_contact_to_dict(remote_contact))
+        parsed = parse_google_contact_to_dict(remote_contact)
         parsed["remote_id"] = parsed.get("resource_name")
         return parsed
 
@@ -480,13 +480,13 @@ class ContactsSyncEngine:
 
                 if remote_id:
                     # Update existing remote contact
-                    updated = self.provider.update_contact(cast(str, remote_id), contact_data)
+                    updated = self.provider.update_contact(remote_id, contact_data)
                     if updated:
-                        contact.last_synced_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                        contact.last_synced_at = datetime.now(timezone.utc)
                         # Flush ensures the change is staged for the final commit
                         # without persisting yet (allows atomic rollback on error).
                         self.db.flush()
-                        synced_ids.add(cast(str, contact.id))
+                        synced_ids.add(contact.id)
                         results["updated"] += 1
                 elif contact.source == "local" or contact.source == integration_email:
                     # Case contact.source == integration_email and not remote_id should be skipped above,
@@ -496,12 +496,15 @@ class ContactsSyncEngine:
                     created = self.provider.create_contact(contact_data)
                     if created:
                         parsed = self.provider.parse_to_internal(created)
-                        contact.google_resource_name = parsed.get("remote_id")  # type: ignore[assignment]
-                        contact.last_synced_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                        remote_id_value = parsed.get("remote_id")
+                        contact.google_resource_name = (
+                            str(remote_id_value) if remote_id_value else None
+                        )
+                        contact.last_synced_at = datetime.now(timezone.utc)
                         # Store the specific account email as source
-                        contact.source = integration_email or provider_name  # type: ignore[assignment]
+                        contact.source = str(integration_email or provider_name)
                         self.db.flush()
-                        synced_ids.add(cast(str, contact.id))
+                        synced_ids.add(contact.id)
                         results["created"] += 1
 
             except Exception as e:
@@ -611,8 +614,8 @@ class ContactsSyncEngine:
                         "notes": parsed.get("notes") or existing.notes,
                         "photo_url": parsed.get("photo_url") or existing.photo_url,
                     }
-                    self.contacts_service.update_contact(cast(str, existing.id), updated_data)
-                    existing.last_synced_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                    self.contacts_service.update_contact(existing.id, updated_data)
+                    existing.last_synced_at = datetime.now(timezone.utc)
                     pending_updated += 1
                 else:
                     self.contacts_service.create_contact(
@@ -685,7 +688,7 @@ class ContactsSyncEngine:
             for contact in local_contacts:
                 try:
                     # Filename: Name.contact.md (sanitize name)
-                    contact_name = cast(str, contact.name)
+                    contact_name = contact.name
                     clean_name = "".join(
                         [c for c in contact_name if c.isalnum() or c in (" ", "-", "_")]
                     ).strip()
@@ -733,10 +736,10 @@ class ContactsSyncEngine:
             return False
 
         if contact.google_resource_name:
-            success = self.provider.delete_contact(cast(str, contact.google_resource_name))
+            success = self.provider.delete_contact(contact.google_resource_name)
             if success:
-                contact.google_resource_name = None  # type: ignore[assignment]
-                contact.source = ContactSource.LOCAL.value  # type: ignore[assignment]
+                contact.google_resource_name = None
+                contact.source = ContactSource.LOCAL.value
                 try:
                     self.db.commit()
                 except Exception as e:

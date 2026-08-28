@@ -1,17 +1,11 @@
-import logging
 import json
+import logging
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Any, List, Optional
+
 from sqlalchemy.orm import Session
 
 from backend.models.contact import Contact, ContactType, ContactSource
-from backend.services.google_contacts_service import (
-    list_google_contacts,
-    create_google_contact,
-    update_google_contact,
-    delete_google_contact,
-    parse_google_contact_to_dict,
-)
 
 log = logging.getLogger(__name__)
 
@@ -110,7 +104,7 @@ class ContactsService:
             .first()
         )
 
-    def create_contact(self, data: dict) -> Contact:
+    def create_contact(self, data: dict[str, Any]) -> Contact:
         contact = Contact(
             id=data.get("id"),
             workspace_id=self.workspace_id,
@@ -135,7 +129,11 @@ class ContactsService:
         self.db.refresh(contact)
         return contact
 
-    def update_contact(self, contact_id: str, data: dict) -> Optional[Contact]:
+    def update_contact(
+        self,
+        contact_id: str,
+        data: dict[str, Any],
+    ) -> Optional[Contact]:
         contact = self.get_contact(contact_id)
         if not contact:
             return None
@@ -181,7 +179,7 @@ class ContactsService:
         self.db.commit()
         return True
 
-    def get_sync_status(self) -> dict:
+    def get_sync_status(self) -> dict[str, Any]:
         total = (
             self.db.query(Contact)
             .filter(Contact.workspace_id == self.workspace_id)

@@ -159,7 +159,7 @@ async def create_contact(
 
         if contact.source and contact.source != "local":
             background_tasks.add_task(
-                background_sync_contact, x_workspace_id, cast(str, contact.source)
+                background_sync_contact, x_workspace_id, contact.source
             )
 
         return contacts_response(contact)
@@ -191,7 +191,7 @@ async def update_contact(
 
         if contact.source and contact.source != "local":
             background_tasks.add_task(
-                background_sync_contact, x_workspace_id, cast(str, contact.source)
+                background_sync_contact, x_workspace_id, contact.source
             )
 
         return contacts_response(contact)
