@@ -1,15 +1,17 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
   - backend/services/literature_service.py
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_literature_service.py
@@ -43,6 +45,11 @@ sequenceDiagram
 ```
 
 Las funciones de tareas deben ser idempotentes cuando sea posible la repetición. El administrador protege las instancias superpuestas de acuerdo a la política de tareas y utiliza nuevos contextos de base de datos o proveedores.
+
+El gestor conserva el ciclo de vida del planificador, la persistencia, el
+control de solapamientos y el historial. `task_handlers.py` contiene la política
+de despacho y las tareas operativas grandes, incluido el mantenimiento acotado.
+Así la ejecución es reutilizable y tipada sin acoplarla al hilo planificador.
 
 ## Sincronización académica y actualizaciones de revisión
 

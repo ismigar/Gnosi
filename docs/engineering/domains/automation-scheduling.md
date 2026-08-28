@@ -1,15 +1,17 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
   - backend/services/literature_service.py
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_literature_service.py
@@ -52,6 +54,11 @@ Task functions must be idempotent where repetition is possible. The manager
 guards overlapping instances according to task policy and uses fresh database
 or provider contexts. A process restart reconciles schedules from persisted
 configuration instead of trusting only in-memory state.
+
+The manager owns scheduling lifecycle, persistence, overlap control, and task
+history. `task_handlers.py` owns dispatch policy and the larger operational task
+bodies, including bounded maintenance. This keeps task execution reusable and
+strictly typed without coupling it back to the scheduler thread lifecycle.
 
 ## Academic synchronization and review updates
 

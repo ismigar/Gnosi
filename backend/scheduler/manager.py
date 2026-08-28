@@ -12,6 +12,7 @@ import threading
 from backend.config.app_config import load_params
 from backend.data.management_db import get_mgmt_session
 from backend.models.scheduler import TaskExecutionHistory
+from backend.scheduler import task_handlers as scheduler_task_handlers
 
 # Try to import notification service from skills
 try:
@@ -150,8 +151,7 @@ class SchedulerManager:
         # local_data, like management.sqlite (see paths_config.py).
         local_data = cfg.paths.get("LOCAL_DATA")
         self.local_mirror_path = (
-            local_data / "system" / "scheduler_config.local.json"
-            if local_data else None
+            local_data / "system" / "scheduler_config.local.json" if local_data else None
         )
 
         for p in (self.config_path, self.local_mirror_path):
@@ -177,11 +177,12 @@ class SchedulerManager:
         contains tasks; None in any other case (nonexistent, empty,
         dataless/online-only, corrupt JSON). Retries a few times
         because OneDrive often serves an online-only file only on the 2nd attempt.
-        
+
         """
         if not path or not path.exists():
             return None
         import time as _time
+
         for attempt in range(3):
             try:
                 with open(path) as f:
@@ -225,9 +226,10 @@ class SchedulerManager:
         overwrite it. This way the user's config is never lost due to a
         transient OneDrive issue — previously, this was the path that used to empty the
         scheduler (see directive scheduler_config_resilience).
-        
+
         """
         from backend.config.logger_config import get_logger
+
         log = get_logger(__name__)
 
         tasks = self._try_read_tasks(self.config_path)
@@ -243,10 +245,7 @@ class SchedulerManager:
                 except Exception:
                     pass  # ignores unknown keys / old formats
             self._reconcile_available_tasks()
-            log.info(
-                f"⏰ Scheduler: configuration loaded from {source} "
-                f"({len(self._tasks)} tasks)"
-            )
+            log.info(f"⏰ Scheduler: configuration loaded from {source} ({len(self._tasks)} tasks)")
             # We don't rewrite the vault at startup (avoids churn/conflicts from
             # OneDrive); we only refresh the local mirror with what we read.
             self._save_mirror()
@@ -275,7 +274,7 @@ class SchedulerManager:
 
         `persist=False` leaves the defaults in memory only — used in degraded
         mode to avoid overwriting an existing but unreadable file.
-        
+
         """
         for name, config in self.AVAILABLE_TASKS.items():
             self._tasks[name] = ScheduledTask(
@@ -293,7 +292,7 @@ class SchedulerManager:
         In degraded mode we do NOT write to the vault (we preserve the existing file
         that we currently cannot read), but we do write the local mirror so the current
         session doesn't lose the changes.
-        
+
         """
         from backend.utils.safe_io import safe_write_json
 
@@ -306,6 +305,7 @@ class SchedulerManager:
                 safe_write_json(self.config_path, data, indent=2)
             except Exception as e:
                 from backend.config.logger_config import get_logger
+
                 get_logger(__name__).error(
                     f"Failed to save scheduler config to {self.config_path}: {e}"
                 )
@@ -320,9 +320,11 @@ class SchedulerManager:
             data = {"tasks": {name: asdict(task) for name, task in self._tasks.items()}}
         try:
             from backend.utils.safe_io import safe_write_json
+
             safe_write_json(self.local_mirror_path, data, indent=2)
         except Exception as e:
             from backend.config.logger_config import get_logger
+
             get_logger(__name__).warning(
                 f"Failed to save scheduler mirror to {self.local_mirror_path}: {e}"
             )
@@ -339,6 +341,7 @@ class SchedulerManager:
     def start(self):
         """Start the background scheduler thread."""
         from backend.config.logger_config import get_logger
+
         log = get_logger(__name__)
 
         if self._running:
@@ -359,7 +362,8 @@ class SchedulerManager:
         # and every --reload left a phantom lock behind -> the loop would
         # NEVER start ("Another scheduler already holds..."). On local disk it works fine.
         lock_dir = (
-            self.local_mirror_path.parent if self.local_mirror_path
+            self.local_mirror_path.parent
+            if self.local_mirror_path
             else (self.config_path.parent if self.config_path else None)
         )
         if fcntl and lock_dir:
@@ -391,6 +395,7 @@ class SchedulerManager:
         """Main scheduler loop."""
         import time
         from backend.config.logger_config import get_logger
+
         log = get_logger(__name__)
 
         while self._running:
@@ -418,9 +423,7 @@ class SchedulerManager:
 
             time.sleep(60)  # Check every minute
 
-    def update_task(
-        self, name: str, interval_minutes: float, enabled: bool
-    ) -> Dict[str, Any]:
+    def update_task(self, name: str, interval_minutes: float, enabled: bool) -> Dict[str, Any]:
         """Update a task's configuration."""
         if name not in self._tasks:
             raise ValueError(f"Task '{name}' not found")
@@ -438,9 +441,9 @@ class SchedulerManager:
         for task in self._tasks.values():
             task.last_run = None
             task.status = "idle"
-        
+
         self._save_config()
-        
+
         # Also clear DB history
         try:
             with get_mgmt_session() as db:
@@ -448,6 +451,7 @@ class SchedulerManager:
                 db.commit()
         except Exception as _e:
             from backend.config.logger_config import get_logger
+
             get_logger(__name__).warning(f"Could not clear task history: {_e}")
 
         return {"success": True, "message": "Scheduler history cleared"}
@@ -471,7 +475,7 @@ class SchedulerManager:
             notify(
                 f"Task started: {name.replace('_', ' ').title()}",
                 f"Started the {task.description.lower()} process.",
-                level="INFO"
+                level="INFO",
             )
 
         # Save state immediately so UI sees "running"
@@ -482,9 +486,7 @@ class SchedulerManager:
         try:
             with get_mgmt_session() as db:
                 history = TaskExecutionHistory(
-                    task_name=name,
-                    description=task.description,
-                    status="running"
+                    task_name=name, description=task.description, status="running"
                 )
                 db.add(history)
                 db.commit()
@@ -492,6 +494,7 @@ class SchedulerManager:
                 execution_id = history.id
         except Exception as e:
             from backend.config.logger_config import get_logger
+
             get_logger(__name__).error(f"Failed to create task history record: {e}")
 
         try:
@@ -501,9 +504,9 @@ class SchedulerManager:
             self._raise_for_task_failure(result)
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
-            
+
             task.status = "success"
-            
+
             # Extract meaningful message from result if possible
             msg = result.get("message") or f"Task {name} completed successfully."
             if "details" in result and isinstance(result["details"], list):
@@ -517,7 +520,11 @@ class SchedulerManager:
             if execution_id:
                 try:
                     with get_mgmt_session() as db:
-                        history = db.query(TaskExecutionHistory).filter(TaskExecutionHistory.id == execution_id).first()
+                        history = (
+                            db.query(TaskExecutionHistory)
+                            .filter(TaskExecutionHistory.id == execution_id)
+                            .first()
+                        )
                         if history:
                             history.status = "success"
                             history.message = msg
@@ -528,30 +535,30 @@ class SchedulerManager:
                     # Don't crash the scheduler over a bookkeeping error,
                     # but log so a corrupt task_history DB shows up in logs.
                     from backend.config.logger_config import get_logger
-                    get_logger(__name__).warning(
-                        f"Could not persist task history for {name}: {_e}"
-                    )
+
+                    get_logger(__name__).warning(f"Could not persist task history for {name}: {_e}")
 
             if not quiet:
-                notify(
-                    f"Tasca Finalitzada: {name.replace('_', ' ').title()}",
-                    msg,
-                    level="SUCCESS"
-                )
+                notify(f"Tasca Finalitzada: {name.replace('_', ' ').title()}", msg, level="SUCCESS")
 
             self._save_config()
             return {"success": True, "result": result}
         except Exception as e:
             from backend.config.logger_config import get_logger
+
             log = get_logger(__name__)
             error_msg = str(e)
             log.error(f"❌ Error executing task {name}: {error_msg}")
-            
+
             # Update DB history on error
             if execution_id:
                 try:
                     with get_mgmt_session() as db:
-                        history = db.query(TaskExecutionHistory).filter(TaskExecutionHistory.id == execution_id).first()
+                        history = (
+                            db.query(TaskExecutionHistory)
+                            .filter(TaskExecutionHistory.id == execution_id)
+                            .first()
+                        )
                         if history:
                             history.status = "error"
                             history.message = error_msg
@@ -561,15 +568,14 @@ class SchedulerManager:
                     # Don't crash the scheduler over a bookkeeping error,
                     # but log so a corrupt task_history DB shows up in logs.
                     from backend.config.logger_config import get_logger
-                    get_logger(__name__).warning(
-                        f"Could not persist task history for {name}: {_e}"
-                    )
+
+                    get_logger(__name__).warning(f"Could not persist task history for {name}: {_e}")
 
             if not quiet:
                 notify(
                     f"Task error: {name.replace('_', ' ').title()}",
                     f"An execution error occurred: {error_msg}",
-                    level="ERROR"
+                    level="ERROR",
                 )
 
             task.status = "error"
@@ -594,7 +600,7 @@ class SchedulerManager:
         Reuses the async endpoint `process_scheduled_posts`. The job runs in a
         scheduler thread without an event loop, so `asyncio.run` is safe; if
         one were exceptionally already running, we execute it in its own thread.
-        
+
         """
         import asyncio
         from fastapi import BackgroundTasks
@@ -607,6 +613,7 @@ class SchedulerManager:
             return _runner()
         except RuntimeError:
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
                 return ex.submit(_runner).result()
 
@@ -620,76 +627,22 @@ class SchedulerManager:
 
     def _execute_task(self, name: str) -> Dict[str, Any]:
         """Execute a specific task."""
-        required_plugins = self.TASK_PLUGIN_REQUIREMENTS.get(name, ())
-        if required_plugins:
-            from backend.api.vault_routes import _load_plugins_state
-            from backend.services import builtin_plugins
+        from backend.api.vault_routes import _load_plugins_state
+        from backend.services import builtin_plugins
 
-            try:
-                state = _load_plugins_state()
-            except Exception as exc:  # noqa: BLE001
-                return {
-                    "success": True,
-                    "skipped": True,
-                    "message": f"Task paused because plugin state is unavailable: {exc}",
-                }
-            missing = [
-                plugin_id
-                for plugin_id in required_plugins
-                if not builtin_plugins.is_enabled(state, plugin_id)
-            ]
-            if missing:
-                return {
-                    "success": True,
-                    "skipped": True,
-                    "message": "Task paused while plugins are disabled: "
-                    + ", ".join(missing),
-                }
-        if name == "fetch_feeds":
-            return self._task_fetch_feeds()
-        elif name == "fetch_newsletters":
-            return self._task_fetch_newsletters()
-        elif name == "generate_podcast":
-            return self._task_generate_podcast()
-        elif name == "system_maintenance":
-            return self._task_system_maintenance()
-        elif name == "llm_wiki_maintenance":
-            return self._task_llm_wiki_maintenance()
-        elif name == "academic_repository_sync":
-            return self._task_academic_repository_sync()
-        elif name == "academic_review_updates":
-            return self._task_academic_review_updates()
-        elif name == "update_analytics":
-            return self._task_update_analytics()
-        elif name == "suggest_connections":
-            return self._task_suggest_connections()
-        elif name == "fetch_calendar":
-            return self._task_fetch_calendar()
-        elif name == "fetch_mail":
-            return self._task_fetch_mail()
-        elif name == "fetch_contacts":
-            return self._task_fetch_contacts()
-        elif name == "update_memories":
-            return self._task_update_memories()
-        elif name == "purge_trash":
-            return self._task_purge_trash()
-        elif name == "publish_scheduled_social":
-            return self._task_publish_scheduled_social()
-        elif name == "materialize_view_snapshots":
-            return self._task_materialize_view_snapshots()
-        elif name == "meeting_reminders":
-            return self._task_meeting_reminders()
-        elif name == "run_capability_automations":
-            return self._task_run_capability_automations()
-
-        return {"error": f"Unknown task: {name}"}
+        return scheduler_task_handlers.execute_task(
+            self,
+            name,
+            _load_plugins_state,
+            builtin_plugins.is_enabled,
+        )
 
     def _task_purge_trash(self) -> Dict[str, Any]:
         """Purges Vault trash entries older than 90 days.
 
         The logic lives in `backend/api/vault_routes.py::purge_expired_trash`
         because it shares helpers with the HTTP endpoints.
-        
+
         """
         from backend.api.vault_routes import purge_expired_trash
 
@@ -702,7 +655,7 @@ class SchedulerManager:
 
         The logic lives in `backend/api/vault_routes.py::refresh_view_snapshots`
         because it shares the snapshot helpers.
-        
+
         """
         from backend.api.vault_routes import refresh_view_snapshots
 
@@ -713,7 +666,7 @@ class SchedulerManager:
 
         The logic lives in `backend/services/meeting_reminders.py`. "quiet" task:
         runs every minute and does NOT emit start/finish notifications.
-        
+
         """
         from backend.services.meeting_reminders import scan_and_notify
 
@@ -721,61 +674,11 @@ class SchedulerManager:
 
     def _task_fetch_mail(self) -> Dict[str, Any]:
         """Sync mail from all configured accounts (Gmail + IMAP)."""
-        from backend.services.integration_manager import integration_manager
-        from backend.services.vault_mail_sync_service import sync_service
-        from backend.services.imap_mail_sync_service import imap_sync_service
-
-        total = 0
-        details = []
-        seen: set = set()
-        for acc in integration_manager.get_all_mail_accounts(only_enabled=True):
-            email = acc.get("email") or acc.get("username")
-            if not email or email in seen:
-                continue
-            seen.add(email)
-            try:
-                if integration_manager.is_imap_account(acc):
-                    count = imap_sync_service.sync_account(email, limit=50)
-                elif integration_manager.is_microsoft_account(acc):
-                    count = 0  # Microsoft Graph is live — no need to sync to the vault
-                else:
-                    count = sync_service.sync_emails(email, limit=50)
-                total += count or 0
-                details.append({"account": email, "success": True, "count": count or 0})
-            except Exception as ex:
-                details.append({"account": email, "success": False, "error": str(ex)})
-        return {"new_emails": total, "details": details}
+        return scheduler_task_handlers.fetch_mail()
 
     def _task_fetch_contacts(self) -> Dict[str, Any]:
         """Fetch Contacts from all configured accounts."""
-        from backend.data.management_db import get_mgmt_session
-        from backend.services.integration_manager import integration_manager
-        from backend.services.contacts_sync_engine import ContactsSyncEngine
-        
-        results = {"success": True, "details": []}
-        integrations = integration_manager.get_all_safe()
-        contact_accounts = integrations.get("contacts", [])
-        
-        if not contact_accounts:
-            return {"success": True, "message": "No contact accounts configured"}
-
-        for account in contact_accounts:
-            try:
-                with get_mgmt_session() as db:
-                    engine = ContactsSyncEngine(db, account, workspace_id="personal") # Defaulting to personal for background sync
-                    sync_res = engine.sync_full_bidirectional()
-                    results["details"].append({
-                        "id": account.get("id"),
-                        "email": account.get("email"),
-                        "result": sync_res
-                    })
-            except Exception as e:
-                results["details"].append({
-                    "id": account.get("id"),
-                    "error": str(e)
-                })
-        
-        return results
+        return scheduler_task_handlers.fetch_contacts()
 
     def _task_fetch_feeds(self) -> Dict[str, Any]:
         """Fetch RSS/YouTube feeds and store new articles."""
@@ -824,7 +727,10 @@ class SchedulerManager:
         from backend.services.literature_service import enqueue_due_syncs
 
         queued = enqueue_due_syncs()
-        return {"queued": queued, "message": f"Queued {queued} academic repository synchronizations."}
+        return {
+            "queued": queued,
+            "message": f"Queued {queued} academic repository synchronizations.",
+        }
 
     def _task_academic_review_updates(self) -> Dict[str, Any]:
         """Queue due saved review strategies without blocking the scheduler."""
@@ -833,120 +739,9 @@ class SchedulerManager:
         queued = enqueue_due_review_updates()
         return {"queued": queued, "message": f"Queued {queued} literature review updates."}
 
-
     def _task_system_maintenance(self) -> Dict[str, Any]:
         """Comprehensive system cleanup: logs, mailbox, sandbox, and caches."""
-        import glob
-        import os
-        import shutil
-        from backend.config.logger_config import get_logger
-        
-        log = get_logger(__name__)
-        purged_count = 0
-        freed_bytes = 0
-        details = {}
-        
-        cfg = load_params(strict_env=False)
-
-        # Gnosi app root derived from this file (backend/scheduler/manager.py):
-        # parents[2] = .../Gnosi on the host and /app inside the container.
-        # It used to use cfg.paths["PROJECT_DIR"] /
-        # "Gnosi/pipeline", but inside Docker PROJECT_DIR is /app and this
-        # resolved to /app/Gnosi/pipeline (nonexistent; the real pipeline is
-        # /app/pipeline) → the logs, sandbox, and .tmp cleanups were silent no-ops.
-        gnosi_root = Path(__file__).resolve().parents[2]
-        pipeline_base = gnosi_root / "pipeline"
-
-        # 1. Purge Logs
-        log_dir = cfg.paths.get("LOG_DIR")
-        if log_dir and log_dir.exists():
-            log_patterns = [str(log_dir / "*.log"), str(log_dir.parent / "*.log")]
-            log_patterns.append(str(pipeline_base / "sandbox" / "*.log"))
-            log_patterns.append(str(pipeline_base / ".tmp" / "*.log"))
-
-            for pattern in log_patterns:
-                for filepath in glob.glob(pattern):
-                    try:
-                        size = os.path.getsize(filepath)
-                        if size > 0:
-                            with open(filepath, 'w') as f:
-                                f.write(f"# Log purged at {datetime.now().isoformat()}\n")
-                            purged_count += 1
-                            freed_bytes += size
-                    except Exception as e:
-                        log.warning(f"Failed to purge log {filepath}: {e}")
-        details["logs_cleared"] = purged_count
-
-        # 2. Clear Agent Mailbox Archive
-        # The team mailbox archive lives at `{arrel_repo}/.antigravity/team/mailbox/archive`
-        # (see pipeline/brain/orchestrator.py and the private WorkspaceTools agent instructions). The docker-compose
-        # mounts at the SAME absolute host↔container path via `${REPO_ROOT:-$HOME/Projectes}`,
-        # so we derive the base from REPO_ROOT (fallback: HOME_HOST_PATH/Projectes) to match
-        # the mount. We do NOT use PROJECT_DIR: inside the container it's `/app`, where the mount doesn't exist.
-        repo_root_env = os.environ.get("REPO_ROOT")
-        if repo_root_env:
-            repo_root = Path(repo_root_env)
-        else:
-            host_home = os.environ.get("HOME_HOST_PATH") or str(Path.home())
-            repo_root = Path(host_home) / "Projectes"
-        mailbox_archive = repo_root / ".antigravity" / "team" / "mailbox" / "archive"
-        msg_purged = 0
-        if mailbox_archive.exists():
-            for msg_file in glob.glob(str(mailbox_archive / "*")):
-                try:
-                    freed_bytes += os.path.getsize(msg_file)
-                    os.remove(msg_file)
-                    msg_purged += 1
-                except Exception as e:
-                    log.warning(f"Failed to delete message {msg_file}: {e}")
-        details["mailbox_archive_purged"] = msg_purged
-
-        # 3. Cleanup Pipeline Sandbox & .tmp
-        pipeline_dirs = [pipeline_base / "sandbox", pipeline_base / ".tmp"]
-
-        sandbox_deleted = 0
-        for d in pipeline_dirs:
-            if d.exists():
-                for item in d.iterdir():
-                    if item.name == "__init__.py": continue
-                    try:
-                        if item.is_file():
-                            freed_bytes += os.path.getsize(item)
-                            os.remove(item)
-                            sandbox_deleted += 1
-                        elif item.is_dir():
-                            shutil.rmtree(item)
-                            sandbox_deleted += 1
-                    except Exception as e:
-                        log.warning(f"Failed to delete {item}: {e}")
-        details["temporary_files_deleted"] = sandbox_deleted
-
-        # 4. Cleanup Pycache (code dirs only: backend and pipeline; we avoid walking
-        # over /app/data, the local data volume with SQLite/indexes).
-        pycache_count = 0
-        for code_dir in (gnosi_root / "backend", pipeline_base):
-            if not code_dir.exists():
-                continue
-            for root, dirs, files in os.walk(code_dir):
-                for d in dirs:
-                    if d == "__pycache__":
-                        try:
-                            shutil.rmtree(os.path.join(root, d))
-                            pycache_count += 1
-                        except Exception:
-                            pass
-        details["pycache_dirs_removed"] = pycache_count
-                    
-        # 5. Cleanup In-Memory Cache
-        from backend.utils.cache import global_cache
-        global_cache.clear()
-        details["global_cache_cleared"] = True
-                    
-        return {
-            "message": "System maintenance completed successfully",
-            "freed_bytes": freed_bytes,
-            "details": details
-        }
+        return scheduler_task_handlers.system_maintenance()
 
     def _task_suggest_connections(self) -> Dict[str, Any]:
         """Generate proposals in the canonical Brain connection queue."""
@@ -967,10 +762,6 @@ class SchedulerManager:
             **report,
         }
 
-
-
-
-
     def _task_fetch_calendar(self) -> Dict[str, Any]:
         """No-op: hybrid architecture queries the API directly, without syncing to the vault."""
         return {"new_events": 0, "message": "hybrid mode — no vault sync"}
@@ -984,34 +775,7 @@ class SchedulerManager:
 
     def _task_update_memories(self) -> Dict[str, Any]:
         """Refresh the graph response and analytics without invoking an LLM."""
-        from backend.services.graph_service import GraphService
-        from backend.services import llm_wiki_suggestions
-        from backend.config.logger_config import get_logger
-        log = get_logger(__name__)
-        
-        results = {"success": True, "steps": []}
-        
-        try:
-            # 1. Clear the response cache and warm the current graph snapshot.
-            log.info("⏰ Scheduler: Force rebuilding Unified Graph...")
-            GraphService.invalidate_response_cache()
-            service = GraphService()
-            graph = service.build_unified_graph()
-            results["steps"].append(f"Graph rebuilt with {len(graph.get('nodes', []))} nodes")
-            results["steps"].append({
-                "connections_pending": len(llm_wiki_suggestions.load_queue()),
-            })
-            
-            # 2. Update analytics to reflect the rebuilt graph.
-            self._task_update_analytics()
-            results["steps"].append("Analytics updated")
-            
-        except Exception as e:
-            log.error(f"❌ Error in update_memories task: {e}")
-            return {"success": False, "error": str(e)}
-            
-        return results
-
+        return scheduler_task_handlers.update_memories(self._task_update_analytics)
 
 
 # Singleton

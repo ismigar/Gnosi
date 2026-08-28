@@ -1,15 +1,17 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
   - backend/services/literature_service.py
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_literature_service.py
@@ -43,6 +45,11 @@ sequenceDiagram
 ```
 
 Les funcions de tasques han de ser impotents on es pot fer la repetició. Els guàrdies de gestió s' sobreposen d' instàncies d' acord amb la política de tasques i usen contexts de bases de dades o proveïdors. Un procés es torna a iniciar les planificacions des de la configuració persisteixda en lloc de confiança només en estat d' amamictor.
+
+El gestor conserva el cicle de vida del planificador, la persistència, el control
+de solapaments i l'historial. `task_handlers.py` conté la política de despatx i
+les tasques operatives grans, inclòs el manteniment acotat. Això permet tipar i
+reutilitzar l'execució sense acoblar-la al fil del planificador.
 
 ## Sincronització de l'Adecamic i les actualitzacions de revisió
 

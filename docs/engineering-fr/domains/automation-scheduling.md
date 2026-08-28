@@ -1,13 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
   - tests/e2e/tests/e2e/automation-scout.spec.ts
@@ -40,6 +42,11 @@ sequenceDiagram
 ```
 
 Les fonctions de la tâche doivent être idempotentes lorsque la répétition est possible. Le gestionnaire protège les instances qui se chevauchent selon la politique de la tâche et utilise des contextes de base de données ou de fournisseur nouveaux. Un redémarrage du processus concilie les horaires de configuration persistante au lieu de ne faire confiance qu'à l'état de mémoire.
+
+Le gestionnaire conserve le cycle de vie du planificateur, la persistance, le
+contrôle des chevauchements et l'historique. `task_handlers.py` contient la
+politique de répartition et les tâches opérationnelles importantes, y compris
+la maintenance bornée, sans les coupler au fil du planificateur.
 
 ## Automatisations des vannes
 
