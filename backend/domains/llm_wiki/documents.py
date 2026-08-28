@@ -37,7 +37,7 @@ def extract_pdf(
         if len(re.sub(r"\s+", "", text)) < 30 and shutil.which("tesseract"):
             try:
                 if pdfium is None:
-                    import pypdfium2
+                    import pypdfium2  # type: ignore[import-untyped]  # Third-party adapter lacks py.typed.
 
                     pdfium = pypdfium2.PdfDocument(str(path))
                 with tempfile.NamedTemporaryFile(suffix=".png", dir=temporary_root()) as tmp:
@@ -85,7 +85,7 @@ def extract_docx(path: Path) -> list[Segment]:
 def extract_epub(path: Path) -> list[Segment]:
     """Extract ordered paragraph locators from EPUB document items."""
     from bs4 import BeautifulSoup
-    from ebooklib import ITEM_DOCUMENT, epub
+    from ebooklib import ITEM_DOCUMENT, epub  # type: ignore[import-untyped]  # Third-party adapter lacks py.typed.
 
     book = epub.read_epub(str(path))
     segments: list[Segment] = []

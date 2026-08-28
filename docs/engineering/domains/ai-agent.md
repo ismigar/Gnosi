@@ -29,6 +29,8 @@ source_paths:
   - backend/services/agent_cancellation.py
   - backend/services/provider_health.py
   - backend/services/artificial_analysis.py
+  - backend/services/fx_rates.py
+  - backend/services/transcription.py
   - backend/services/agent_capability_health.py
   - backend/services/agent_stream_protocol.py
   - backend/services/agent_stream_journal.py
@@ -60,6 +62,8 @@ tests:
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_plugins_state_race.py
   - backend/tests/test_artificial_analysis.py
+  - backend/tests/test_fx_rates.py
+  - backend/tests/test_transcription_service.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_chat_safety.py
@@ -154,6 +158,13 @@ narrows dynamic YAML provider maps, requires a concrete provider URL before any
 network call, validates OpenAI-compatible response envelopes, writes its
 prompt-hash cache atomically below the per-device data directory, and preserves
 the established primary-then-fallback behavior without exposing credentials.
+
+Local Whisper transcription exposes a typed model protocol and result shape;
+audio remains on-device and its lazily downloaded model cache lives below the
+provider-neutral `GNOSI_DATA_DIR`. The optional untyped `faster-whisper` import
+is confined to this adapter. Currency conversion similarly narrows remote and
+cached JSON before budget arithmetic, retains stale-real and static fallbacks,
+and always returns a positive typed units-per-USD rate.
 
 The router normalizes unknown registry metadata before iteration, compares
 token quotas and context windows as integers, and keeps its usage ledger behind

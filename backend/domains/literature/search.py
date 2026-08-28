@@ -99,7 +99,7 @@ def search_oai_index(
     filtered = academic_connectors.filter_works(
         [json.loads(row["work_json"]) for row in rows], filters
     )
-    return cast(list[dict[str, Any]], filtered)[:requested_limit]
+    return filtered[:requested_limit]
 
 
 def _oai_fts_expression(query: str) -> str:

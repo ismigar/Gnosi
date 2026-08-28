@@ -170,6 +170,10 @@ OAI indexes and temporary search state are reconstructible and live below
 `LOCAL_DATA`; protocols, histories, candidates, decisions, and audit artifacts
 remain in the principal vault. Repository credentials use the native Keychain
 or deployment environment and are never written to the vault or plugin state.
+Filtered OAI rows retain the connector's canonical typed work list without a
+post-hoc cast. Optional PDF OCR and EPUB parsing keep their only typing
+exceptions on the exact `pypdfium2` and `ebooklib` imports, whose packages do
+not publish `py.typed`; dynamic objects do not escape the document adapter.
 
 ## Citation path
 

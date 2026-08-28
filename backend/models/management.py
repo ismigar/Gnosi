@@ -1,5 +1,5 @@
 from sqlalchemy import Boolean, Column, String, Integer, DateTime, ForeignKey, Enum as SqlEnum
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, timezone
 import enum
 import uuid
@@ -8,11 +8,13 @@ from backend.models._datetime_utils import normalize_utc
 from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer
 from typing import Any, Optional
 
+
 class UserRole(str, enum.Enum):
     OWNER = "owner"
     ADMIN = "admin"
     EDITOR = "editor"
     VIEWER = "viewer"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -37,6 +39,7 @@ class User(Base):
 
     memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
 
+
 class Workspace(Base):
     __tablename__ = "workspaces"
 
@@ -48,33 +51,38 @@ class Workspace(Base):
     members = relationship("Membership", back_populates="workspace", cascade="all, delete-orphan")
     vaults = relationship("Vault", back_populates="workspace", cascade="all, delete-orphan")
 
+
 class Membership(Base):
     __tablename__ = "memberships"
 
     user_id = Column(String, ForeignKey("users.id"), primary_key=True)
     workspace_id = Column(String, ForeignKey("workspaces.id"), primary_key=True)
     role = Column(String, default=UserRole.VIEWER)
-    permissions = Column(String, default='{"capabilities": ["read"]}') # JSON string for SQLite
+    permissions = Column(String, default='{"capabilities": ["read"]}')  # JSON string for SQLite
     joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="memberships")
     workspace = relationship("Workspace", back_populates="members")
 
+
 class Vault(Base):
     __tablename__ = "vaults"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    workspace_id = Column(String, ForeignKey("workspaces.id"))
-    name = Column(String, nullable=False)
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    workspace_id: Mapped[str | None] = mapped_column(String, ForeignKey("workspaces.id"))
+    name: Mapped[str] = mapped_column(String, nullable=False)
     # Stable URL identity. Display-name changes deliberately do not mutate it.
     # Uniqueness is enforced by vault_routing.assign_vault_slug so existing
     # SQLite installations can adopt the column without rebuilding the table.
-    slug = Column(String, index=True)
-    path_override = Column(String) # For custom storage paths
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    slug: Mapped[str | None] = mapped_column(String, index=True)
+    path_override: Mapped[str | None] = mapped_column(String)  # For custom storage paths
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
 
     workspace = relationship("Workspace", back_populates="vaults")
     access = relationship("VaultAccess", back_populates="vault", cascade="all, delete-orphan")
+
 
 class VaultAccess(Base):
     __tablename__ = "vault_access"
@@ -84,20 +92,22 @@ class VaultAccess(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     workspace_id = Column(String, ForeignKey("workspaces.id"), nullable=False)
     # JSON string: {"capabilities": ["read", "write", "delete"]}
-    permissions = Column(String, default='{"capabilities": ["read"]}') 
+    permissions = Column(String, default='{"capabilities": ["read"]}')
     granted_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     vault = relationship("Vault", back_populates="access")
     user = relationship("User")
     workspace = relationship("Workspace")
 
+
 class ApiToken(Base):
     """Personal Access Token (PAT) for Gnosi's public API.
 
     ONLY the SHA-256 hash of the token is stored (never the plaintext). The
     visible prefix (`gnosi_pat_xxxx…`) allows identifying it in the UI without decrypting.
-    
+
     """
+
     __tablename__ = "api_tokens"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -106,10 +116,12 @@ class ApiToken(Base):
     name = Column(String, nullable=False)
     token_hash = Column(String, unique=True, index=True, nullable=False)
     token_prefix = Column(String, nullable=False)  # for example, "gnosi_pat_a1b2"
-    scopes = Column(String, default="read,write")    # CSV of scopes
+    scopes = Column(String, default="read,write")  # CSV of scopes
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     last_used_at = Column(DateTime(timezone=True), nullable=True)
     revoked = Column(Integer, default=0)  # soft-delete (0/1)
+
+
 class ShareLink(Base):
     """Public/external share link for a single vault page (Notion-style).
 
@@ -118,6 +130,7 @@ class ShareLink(Base):
     `expires_at` and `revoked`. We never hard-delete on revoke — keeping the
     row preserves an audit trail of who shared what.
     """
+
     __tablename__ = "share_links"
 
     id = Column(String, primary_key=True, default=lambda: uuid.uuid4().hex)
@@ -138,14 +151,17 @@ class ShareLink(Base):
 
 # --- Pydantic Schemas for API ---
 
+
 class UserBase(BaseModel):
     email: EmailStr
     name: Optional[str] = None
     avatar_url: Optional[str] = None
 
+
 class WorkspaceBase(BaseModel):
     name: str
     slug: Optional[str] = None
+
 
 class WorkspaceResponse(WorkspaceBase):
     id: str
@@ -159,6 +175,7 @@ class WorkspaceResponse(WorkspaceBase):
     def _ser_created_at(self, v: datetime) -> str:
         return normalize_utc(v) or ""
 
+
 class UserResponse(UserBase):
     id: str
     created_at: datetime
@@ -169,6 +186,7 @@ class UserResponse(UserBase):
     @field_serializer("created_at")
     def _ser_created_at(self, v: datetime) -> str:
         return normalize_utc(v) or ""
+
 
 class MemberResponse(BaseModel):
     user_id: str
@@ -185,19 +203,23 @@ class MemberResponse(BaseModel):
     def _ser_joined_at(self, v: datetime) -> str:
         return normalize_utc(v) or ""
 
+
 class RoleUpdateRequest(BaseModel):
     role: Optional[UserRole] = None
     permissions: Optional[dict[str, Any]] = None
+
 
 class AddMemberRequest(BaseModel):
     email: EmailStr
     role: UserRole = UserRole.VIEWER
     permissions: Optional[dict[str, Any]] = None
 
+
 class VaultAccessRequest(BaseModel):
     vault_id: str
     user_id: str
     permissions: dict[str, Any] = {"capabilities": ["read"]}
+
 
 class VaultAccessResponse(BaseModel):
     vault_id: str

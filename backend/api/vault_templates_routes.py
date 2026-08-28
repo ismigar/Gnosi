@@ -1,4 +1,5 @@
 """Vault template catalog, creation, export, and moderated submission routes."""
+
 from __future__ import annotations
 
 import hashlib
@@ -51,13 +52,24 @@ class TemplateExportPayload(BaseModel):
 
 
 def _vault_row(db: Session, ctx: WorkspaceContext, vault_id: str) -> Vault:
-    row = db.query(Vault).filter(
-        Vault.id == vault_id,
-        Vault.workspace_id == ctx.workspace_id,
-    ).first()
+    row = (
+        db.query(Vault)
+        .filter(
+            Vault.id == vault_id,
+            Vault.workspace_id == ctx.workspace_id,
+        )
+        .first()
+    )
     if not row or not row.path_override:
         raise HTTPException(status_code=404, detail="Vault not found")
     return row
+
+
+def _vault_path(row: Vault) -> Path:
+    """Return a validated filesystem path for a legacy nullable Vault row."""
+    if not row.path_override:
+        raise HTTPException(status_code=404, detail="Vault not found")
+    return Path(row.path_override)
 
 
 def _manifest_payload(payload: TemplateExportPayload) -> dict[str, object]:
@@ -113,7 +125,8 @@ def create_vault_from_template(  # type: ignore[no-untyped-def]
     try:
         catalog = vault_templates.load_catalog(_config_dir(ctx))
         matches = [
-            item for item in catalog["templates"]
+            item
+            for item in catalog["templates"]
             if item["id"] == payload.template_id
             and (not payload.version or item["version"] == payload.version)
         ]
@@ -149,6 +162,7 @@ def create_vault_from_template(  # type: ignore[no-untyped-def]
         raise HTTPException(status_code=500, detail="Could not register the new Vault") from exc
     try:
         from backend.services.active_vault_middleware import reset_vault_path_cache
+
         reset_vault_path_cache()
     except Exception:  # noqa: BLE001
         pass
@@ -174,14 +188,14 @@ def preview_template_export(  # type: ignore[no-untyped-def]
 
     row = _vault_row(db, ctx, vault_id)
     try:
-        return vault_templates.export_preview(Path(row.path_override))
+        return vault_templates.export_preview(_vault_path(row))
     except vault_templates.VaultTemplateError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _template_response(row: Vault, payload: TemplateExportPayload) -> Response:
     package, _preview = vault_templates.build_package(
-        Path(row.path_override),
+        _vault_path(row),
         _manifest_payload(payload),
         acknowledge_findings=payload.acknowledgeFindings,
     )
@@ -230,7 +244,7 @@ def submit_vault_template(  # type: ignore[no-untyped-def]
     row = _vault_row(db, ctx, vault_id)
     try:
         package, preview = vault_templates.build_package(
-            Path(row.path_override),
+            _vault_path(row),
             _manifest_payload(payload),
             acknowledge_findings=payload.acknowledgeFindings,
         )
@@ -238,11 +252,17 @@ def submit_vault_template(  # type: ignore[no-untyped-def]
             kind="vault-template",
             filename=f"{payload.id}-{payload.version}.gnosi-vault.zip",
             package=package,
-            metadata={**_manifest_payload(payload), "previewSummary": {
-                "files": len(preview["included"]),
-                "excluded": len(preview["excluded"]),
-                "findings": len(preview["findings"]),
-            }},
+            metadata={
+                **_manifest_payload(payload),
+                "previewSummary": {
+                    "files": len(preview["included"]),
+                    "excluded": len(preview["excluded"]),
+                    "findings": len(preview["findings"]),
+                },
+            },
         )
-    except (vault_templates.VaultTemplateError, marketplace_submission.MarketplaceSubmissionError) as exc:
+    except (
+        vault_templates.VaultTemplateError,
+        marketplace_submission.MarketplaceSubmissionError,
+    ) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

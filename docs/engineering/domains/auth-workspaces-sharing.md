@@ -5,11 +5,14 @@ source_paths:
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
   - backend/api/vaults_routes.py
+  - backend/api/vault_templates_routes.py
   - backend/api/share_routes.py
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
   - backend/services/workspace_service.py
+  - backend/services/vault_routing.py
+  - backend/services/active_vault_middleware.py
   - frontend/src/context/AuthContext.jsx
 tests:
   - backend/tests/test_auth_central_gate.py
@@ -17,6 +20,8 @@ tests:
   - backend/tests/test_pat_authentication.py
   - backend/tests/test_workspace_bootstrap_race.py
   - backend/tests/test_workspace_invite_email_case.py
+  - backend/tests/test_vault_canonical_routing.py
+  - backend/tests/test_vault_templates.py
   - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
   - backend/tests/test_auth_account_settings.py
@@ -99,6 +104,13 @@ Workspace context resolution keeps its public FastAPI dependency stable while
 separate helpers own membership selection, accessible-vault filtering, storage
 path resolution, and capability decoding. This keeps authorization decisions
 explicit without changing headers, status codes, or active-vault behavior.
+
+Vault identity, slug, optional legacy path and creation timestamp use typed
+SQLAlchemy mappings while retaining the existing columns and migrations.
+Canonical middleware narrows an id or slug to concrete string identity before
+publishing request context. Template export revalidates the nullable legacy
+path at its filesystem boundary and returns the established not-found response
+instead of constructing a `Path` from missing configuration.
 
 The workspace administration API converts legacy membership roles and JSON
 permission descriptors to concrete response values at the ORM boundary. Role
