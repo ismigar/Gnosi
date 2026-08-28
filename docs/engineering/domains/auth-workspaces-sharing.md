@@ -100,6 +100,11 @@ separate helpers own membership selection, accessible-vault filtering, storage
 path resolution, and capability decoding. This keeps authorization decisions
 explicit without changing headers, status codes, or active-vault behavior.
 
+The workspace administration API converts legacy membership roles and JSON
+permission descriptors to concrete response values at the ORM boundary. Role
+and vault-access mutations use localized descriptor-safe assignment, retaining
+membership checks, invitation normalization and existing payload schemas.
+
 ## Public sharing
 
 A share link is an opaque row that binds page, workspace, vault, creator,

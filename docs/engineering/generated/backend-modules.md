@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 210 |
-| `domains` | 368 | 83131 |
+| `domains` | 368 | 83135 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1220 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146638 source lines**.
+Total: **699 modules** and **146642 source lines**.
 
 ## agent
 
@@ -537,7 +537,7 @@ Total: **699 modules** and **146638 source lines**.
 | [`backend/domains/vault/views/sorting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/sorting.py) | 116 | 0 | 6 | 0 | 3 | Frontend-compatible saved-view row sorting. |
 | [`backend/domains/workspace/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/__init__.py) | 1 | 0 | 0 | 0 | 0 | Workspace domain. |
 | [`backend/domains/workspace/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | Workspace HTTP API. |
-| [`backend/domains/workspace/api/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/api/routes.py) | 426 | 0 | 11 | 11 | 0 | No module docstring |
+| [`backend/domains/workspace/api/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/api/routes.py) | 430 | 0 | 11 | 11 | 0 | No module docstring |
 
 ## mcp
 
