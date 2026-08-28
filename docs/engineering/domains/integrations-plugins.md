@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/notion_routes.py
+  - backend/api/notion_oauth_routes.py
   - backend/api/vault_routes.py
   - backend/domains/notion
   - backend/domains/configuration/api/plugin_lifecycle.py
@@ -40,6 +41,7 @@ tests:
   - backend/tests/test_mcp_tool_contributions.py
   - backend/tests/test_notion_clone.py
   - backend/tests/test_notion_domain_facades.py
+  - backend/tests/test_notion_oauth_routes.py
   - backend/tests/test_notion_importer.py
   - backend/tests/test_notion_view_recreator.py
   - backend/tests/test_openapi_contract.py
@@ -73,6 +75,12 @@ tokens.
 Google and Microsoft OAuth callbacks create or update provider records. IMAP,
 SMTP, CalDAV, Drupal, Notion, and similar adapters normalize their own settings
 into the common integration registry where possible.
+
+Hosted Notion MCP uses OAuth 2.1 dynamic client registration and PKCE. Its typed
+boundary validates discovery and registration objects, requires a returned
+client id, preserves the initiating frontend origin, and stores access,
+refresh, client and pending-state values only through IntegrationManager's
+secret-aware operations. Disconnect clears all three Notion OAuth records.
 
 ## Backend ownership and compatibility
 

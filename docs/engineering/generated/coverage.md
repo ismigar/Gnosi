@@ -18,7 +18,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 11 | 7 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 9 | 2 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 6 | 1 | 0 |
-| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 78 | 20 | 0 |
+| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 78 | 21 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 12 | 10 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 11 | 3 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 50 | 5 | 0 |
