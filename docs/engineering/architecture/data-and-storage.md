@@ -66,6 +66,11 @@ erDiagram
     USER ||--o{ SHARE_LINK : creates
 ```
 
+All management-database models inherit one typed SQLAlchemy `DeclarativeBase`.
+Engine and session factories are initialized atomically and return concrete
+`Engine` and `Session` types; the same metadata and table names remain
+authoritative for Alembic and existing SQLite installations.
+
 Before workers start, the schema coordinator resolves the management database,
 every dynamic vault and each durable first-party auxiliary store. Independent
 Alembic revision lines recognize exact reviewed 2.x structural fingerprints,

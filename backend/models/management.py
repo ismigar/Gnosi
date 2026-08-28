@@ -5,8 +5,8 @@ import enum
 import uuid
 from backend.data.management_db import Base
 from backend.models._datetime_utils import normalize_utc
-from pydantic import BaseModel, EmailStr, ConfigDict, field_serializer
-from typing import Optional, List
+from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer
+from typing import Any, Optional
 
 class UserRole(str, enum.Enum):
     OWNER = "owner"
@@ -157,7 +157,7 @@ class WorkspaceResponse(WorkspaceBase):
 
     @field_serializer("created_at")
     def _ser_created_at(self, v: datetime) -> str:
-        return normalize_utc(v)
+        return normalize_utc(v) or ""
 
 class UserResponse(UserBase):
     id: str
@@ -168,14 +168,14 @@ class UserResponse(UserBase):
 
     @field_serializer("created_at")
     def _ser_created_at(self, v: datetime) -> str:
-        return normalize_utc(v)
+        return normalize_utc(v) or ""
 
 class MemberResponse(BaseModel):
     user_id: str
     email: str
     name: Optional[str] = None
     role: str
-    permissions: Optional[dict] = None
+    permissions: Optional[dict[str, Any]] = None
     joined_at: datetime
 
     # Pydantic v2: ConfigDict instead of class Config
@@ -183,26 +183,26 @@ class MemberResponse(BaseModel):
 
     @field_serializer("joined_at")
     def _ser_joined_at(self, v: datetime) -> str:
-        return normalize_utc(v)
+        return normalize_utc(v) or ""
 
 class RoleUpdateRequest(BaseModel):
     role: Optional[UserRole] = None
-    permissions: Optional[dict] = None
+    permissions: Optional[dict[str, Any]] = None
 
 class AddMemberRequest(BaseModel):
     email: EmailStr
     role: UserRole = UserRole.VIEWER
-    permissions: Optional[dict] = None
+    permissions: Optional[dict[str, Any]] = None
 
 class VaultAccessRequest(BaseModel):
     vault_id: str
     user_id: str
-    permissions: dict = {"capabilities": ["read"]}
+    permissions: dict[str, Any] = {"capabilities": ["read"]}
 
 class VaultAccessResponse(BaseModel):
     vault_id: str
     vault_name: str
-    permissions: dict
+    permissions: dict[str, Any]
 
     # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)

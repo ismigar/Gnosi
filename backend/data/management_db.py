@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session, declarative_base
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 import threading
 from pathlib import Path
 from typing import Generator
@@ -21,12 +22,16 @@ def _get_mgmt_db_path() -> Path:
     return db_path
 
 # Globals for lazy init
-_engine = None
-_SessionLocal = None
+_engine: Engine | None = None
+_SessionLocal: sessionmaker[Session] | None = None
 _engine_lock = threading.Lock()
-Base = declarative_base()
 
-def _get_or_init_mgmt_engine():
+
+class Base(DeclarativeBase):
+    """Typed declarative base shared by the management database models."""
+
+
+def _get_or_init_mgmt_engine() -> tuple[Engine, sessionmaker[Session]]:
     global _engine, _SessionLocal
     # Double-checked locking: the fast check without a lock avoids acquiring the lock
     # once the engine is already created (common case). The second check inside
@@ -51,12 +56,14 @@ def _get_or_init_mgmt_engine():
                 )
                 _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
                 _engine = engine  # publish at the end to guarantee visibility
+    if _engine is None or _SessionLocal is None:
+        raise RuntimeError("Management database initialization did not complete")
     return _engine, _SessionLocal
 
 def get_mgmt_db() -> Generator[Session, None, None]:
     """Dependency for FastAPI or internal use."""
-    _, SessionLocal = _get_or_init_mgmt_engine()
-    db = SessionLocal()
+    _, session_factory = _get_or_init_mgmt_engine()
+    db = session_factory()
     try:
         yield db
     except Exception:
@@ -71,5 +78,5 @@ def get_mgmt_db() -> Generator[Session, None, None]:
 
 # For use outside the dependency context (e.g. initialization scripts)
 def get_mgmt_session() -> Session:
-    _, SessionLocal = _get_or_init_mgmt_engine()
-    return SessionLocal()
+    _, session_factory = _get_or_init_mgmt_engine()
+    return session_factory()

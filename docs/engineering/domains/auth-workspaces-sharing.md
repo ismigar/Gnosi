@@ -49,9 +49,11 @@ to start with the public development fallback when the effective deployment
 requires protection.
 
 The authentication route boundary is strictly typed while preserving its
-frozen response schemas. Legacy SQLAlchemy column descriptors are narrowed only
-at the ORM boundary; account claims, password rotation, profile updates and
-session cookies retain their existing validation and transaction behavior.
+frozen response schemas. Management models share a typed SQLAlchemy
+`DeclarativeBase`; column descriptors are narrowed only at the ORM boundary,
+and account claims, password rotation, profile updates and session cookies
+retain their existing validation and transaction behavior. Pydantic permission
+objects preserve their historical defaults and exact OpenAPI representation.
 
 ## Authorization model
 
