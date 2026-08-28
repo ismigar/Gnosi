@@ -672,6 +672,10 @@ Provider-neutral job tools resolve a concrete active Vault before listing,
 estimating, reading, resuming or cancelling durable work. Missing request
 context fails at this adapter boundary, while namespaced job identifiers and
 all persisted result payloads remain unchanged.
+MCP tool construction narrows each third-party descriptor and JSON schema
+before creating its dynamic Pydantic argument model. Required and optional
+fields preserve their prior call semantics, malformed entries remain isolated,
+and server-qualified routing continues through the existing MCP client.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

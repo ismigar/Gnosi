@@ -10,7 +10,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 46 | 8519 |
+| `agent` | 46 | 8527 |
 | `api` | 38 | 11438 |
 | `app` | 6 | 603 |
 | `application root` | 4 | 107 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146724 source lines**.
+Total: **699 modules** and **146732 source lines**.
 
 ## agent
 
@@ -75,7 +75,7 @@ Total: **699 modules** and **146724 source lines**.
 | [`backend/agent/semantic_interpreter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/semantic_interpreter.py) | 113 | 0 | 5 | 0 | 3 | Bounded, multilingual interpretation before capability routing. |
 | [`backend/agent/social_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/social_tools.py) | 142 | 0 | 8 | 7 | 7 | Governed adapters for Gnosi social reading, composition, and publishing. |
 | [`backend/agent/system_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/system_tools.py) | 430 | 0 | 13 | 0 | 13 | No module docstring |
-| [`backend/agent/tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/tools.py) | 75 | 0 | 2 | 0 | 2 | No module docstring |
+| [`backend/agent/tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/tools.py) | 83 | 0 | 2 | 0 | 2 | No module docstring |
 | [`backend/agent/translation_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/translation_tools.py) | 70 | 0 | 3 | 3 | 3 | Governed adapters for the existing idempotent translation workflows. |
 | [`backend/agent/turn_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/turn_contract.py) | 72 | 0 | 0 | 0 | 0 | Compatibility exports for governed turn planning and verification. |
 | [`backend/agent/vault_admin_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/vault_admin_tools.py) | 345 | 0 | 11 | 0 | 10 | Governed adapters for Vault schema discovery and page organization. |
