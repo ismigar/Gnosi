@@ -726,6 +726,9 @@ Reference evidence requires a concrete active Vault before resolving or reading
 paths, and its table-page seam is narrowed locally. Notebook evidence wrappers
 return their typed untrusted-content strings directly across search, exact-read,
 and whole-analysis operations.
+Built-in catalog registration keeps tool and skill descriptor variables
+separate, so static validation cannot carry a tool type into the subsequent
+skill loop; registration order and resulting catalog revision remain stable.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
