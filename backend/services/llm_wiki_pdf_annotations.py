@@ -1,4 +1,5 @@
 """Persistent PDF highlights generated from grounded LLM Wiki citations."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -42,11 +43,13 @@ def _search_queries(quote: str) -> list[str]:
 
 
 def _managed_key(resource_id: str, citation: dict[str, Any]) -> str:
-    stable_value = "|".join((
-        str(citation.get("origin_id") or ""),
-        str(citation.get("segment_id") or ""),
-        _normalized_text(citation.get("quote")).casefold(),
-    ))
+    stable_value = "|".join(
+        (
+            str(citation.get("origin_id") or ""),
+            str(citation.get("segment_id") or ""),
+            _normalized_text(citation.get("quote")).casefold(),
+        )
+    )
     digest = hashlib.sha256(stable_value.encode("utf-8")).hexdigest()[:32]
     return f"{_MANAGED_PREFIX}:{resource_id}:{digest}"
 
@@ -76,19 +79,18 @@ def _find_quote_position_in_document(
                 [round(float(value), 3) for value in text_page.get_rect(index)]
                 for index in range(rect_count)
             ]
-            rects = [
-                rect for rect in rects
-                if rect[2] > rect[0] and rect[3] > rect[1]
-            ]
+            rects = [rect for rect in rects if rect[2] > rect[0] and rect[3] > rect[1]]
             if not rects:
                 continue
             page_height = float(page.get_height())
             top = max(0, int(page_height - max(rect[3] for rect in rects)))
-            sort_index = "|".join((
-                str(page_index)[:5].zfill(5),
-                str(start)[:6].zfill(6),
-                str(top)[:5].zfill(5),
-            ))
+            sort_index = "|".join(
+                (
+                    str(page_index)[:5].zfill(5),
+                    str(start)[:6].zfill(6),
+                    str(top)[:5].zfill(5),
+                )
+            )
             return {
                 "page_index": page_index,
                 "rects": rects,
@@ -177,32 +179,29 @@ def _zotero_annotation(
     }
 
 
-def sync_generated_pdf_annotations(
-    notes: list[dict[str, Any]],
-    origins: list[dict[str, Any]],
-    resource_id: str,
-    *,
-    session: Optional[Session] = None,
-    position_resolver: Optional[
-        Callable[[Path, int, str], Optional[dict[str, Any]]]
-    ] = None,
-) -> dict[str, Any]:
-    """Upsert managed citation highlights and remove only obsolete managed ones."""
-    candidates = _citation_candidates(notes, origins, resource_id)
-    desired_keys = set(candidates)
+def _resolve_annotation_candidates(
+    candidates: dict[str, dict[str, Any]],
+    position_resolver: Optional[Callable[[Path, int, str], Optional[dict[str, Any]]]],
+) -> tuple[dict[str, tuple[dict[str, Any], dict[str, Any]]], list[str]]:
+    """Resolve PDF geometry while reusing opened documents per attachment."""
     resolved: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
     warnings: list[str] = []
     documents: dict[str, Any] = {}
+    resolver: Callable[[Path, int, str], Optional[dict[str, Any]]]
     if position_resolver is None:
         import pypdfium2
 
-        def resolver(pdf_path: Path, page_number: int, quote: str) -> Optional[dict[str, Any]]:
+        def cached_resolver(
+            pdf_path: Path, page_number: int, quote: str
+        ) -> Optional[dict[str, Any]]:
             path_key = str(pdf_path)
             document = documents.get(path_key)
             if document is None:
                 document = pypdfium2.PdfDocument(path_key)
                 documents[path_key] = document
             return _find_quote_position_in_document(document, page_number, quote)
+
+        resolver = cached_resolver
     else:
         resolver = position_resolver
 
@@ -210,9 +209,10 @@ def sync_generated_pdf_annotations(
         for key, candidate in candidates.items():
             pdf_path = candidate["pdf_path"]
             if not candidate["source_uri"] or not pdf_path.is_file():
+                unavailable = candidate["source_uri"] or pdf_path
                 warnings.append(
-                    f"PDF citation highlight skipped because the attachment is unavailable: "
-                    f"{candidate['source_uri'] or pdf_path}"
+                    "PDF citation highlight skipped because the attachment is "
+                    f"unavailable: {unavailable}"
                 )
                 continue
             try:
@@ -220,77 +220,116 @@ def sync_generated_pdf_annotations(
             except Exception as exc:  # noqa: BLE001
                 logger.warning("llm_wiki PDF citation geometry failed: %s", exc)
                 position = None
-            if not position:
+            if position:
+                resolved[key] = (candidate, position)
+            else:
                 warnings.append(
                     f"PDF citation highlight text was not found on page {candidate['page']}: "
                     f"{candidate['quote'][:80]}"
                 )
-                continue
-            resolved[key] = (candidate, position)
     finally:
         for document in documents.values():
             document.close()
+    return resolved, warnings
 
-    owns_session = session is None
-    if session is None:
-        _engine, session_factory = get_engine_for_path(get_active_vault_path())
-        session = session_factory()
 
-    prefix = f"{_MANAGED_PREFIX}:{resource_id}:"
+def _annotation_session(session: Optional[Session]) -> tuple[Session, bool]:
+    """Return the injected session or open one for the active vault."""
+    if session is not None:
+        return session, False
+    _engine, session_factory = get_engine_for_path(get_active_vault_path())
+    return session_factory(), True
+
+
+def _upsert_resolved_annotations(
+    session: Session,
+    resolved: dict[str, tuple[dict[str, Any], dict[str, Any]]],
+    existing_by_key: dict[str, PdfAnnotation],
+) -> tuple[int, int]:
+    """Create or update all resolved managed annotations."""
     created = 0
     updated = 0
-    removed = 0
-    try:
-        existing_items = (
-            session.query(PdfAnnotation)
-            .filter(PdfAnnotation.managed_key.like(f"{prefix}%"))
-            .all()
+    for key, (candidate, position) in resolved.items():
+        item = existing_by_key.get(key)
+        payload = _zotero_annotation(
+            candidate,
+            position,
+            created_at=item.created_at if item is not None else None,
         )
-        existing_by_key = {
-            str(item.managed_key): item
-            for item in existing_items
-            if item.managed_key
-        }
+        blob = _ZOTERO_BLOB_PREFIX + json.dumps(
+            payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        if item is None:
+            item = PdfAnnotation(managed_key=key)
+            session.add(item)
+            created += 1
+        else:
+            updated += 1
+        item.source_uri = candidate["source_uri"]
+        item.page = candidate["page"]
+        item.type = "highlight"
+        item.color = _ANNOTATION_COLOR
+        item.rects_json = None
+        item.text = candidate["quote"]
+        item.comment = blob
+        item.tags = "gnosi:llm-wiki"
+    return created, updated
 
-        for key, (candidate, position) in resolved.items():
-            item = existing_by_key.get(key)
-            payload = _zotero_annotation(
-                candidate,
-                position,
-                created_at=item.created_at if item is not None else None,
-            )
-            blob = _ZOTERO_BLOB_PREFIX + json.dumps(
-                payload,
-                ensure_ascii=False,
-                separators=(",", ":"),
-            )
-            if item is None:
-                item = PdfAnnotation(managed_key=key)
-                session.add(item)
-                created += 1
-            else:
-                updated += 1
-            item.source_uri = candidate["source_uri"]
-            item.page = candidate["page"]
-            item.type = "highlight"
-            item.color = _ANNOTATION_COLOR
-            item.rects_json = None
-            item.text = candidate["quote"]
-            item.comment = blob
-            item.tags = "gnosi:llm-wiki"
 
-        for item in existing_items:
-            if item.managed_key not in desired_keys:
-                session.delete(item)
-                removed += 1
+def _persist_managed_annotations(
+    session: Session,
+    resource_id: str,
+    desired_keys: set[str],
+    resolved: dict[str, tuple[dict[str, Any], dict[str, Any]]],
+) -> tuple[int, int, int]:
+    """Apply one transaction and return created, updated and removed counts."""
+    prefix = f"{_MANAGED_PREFIX}:{resource_id}:"
+    existing_items = (
+        session.query(PdfAnnotation).filter(PdfAnnotation.managed_key.like(f"{prefix}%")).all()
+    )
+    existing_by_key = {str(item.managed_key): item for item in existing_items if item.managed_key}
+    created, updated = _upsert_resolved_annotations(
+        session,
+        resolved,
+        existing_by_key,
+    )
+    removed = 0
+    for item in existing_items:
+        if item.managed_key not in desired_keys:
+            session.delete(item)
+            removed += 1
+    session.commit()
+    return created, updated, removed
 
-        session.commit()
+
+def sync_generated_pdf_annotations(
+    notes: list[dict[str, Any]],
+    origins: list[dict[str, Any]],
+    resource_id: str,
+    *,
+    session: Optional[Session] = None,
+    position_resolver: Optional[Callable[[Path, int, str], Optional[dict[str, Any]]]] = None,
+) -> dict[str, Any]:
+    """Upsert managed citation highlights and remove only obsolete managed ones."""
+    candidates = _citation_candidates(notes, origins, resource_id)
+    desired_keys = set(candidates)
+    resolved, warnings = _resolve_annotation_candidates(candidates, position_resolver)
+    active_session, owns_session = _annotation_session(session)
+    try:
+        created, updated, removed = _persist_managed_annotations(
+            active_session,
+            resource_id,
+            desired_keys,
+            resolved,
+        )
     except Exception:
-        session.rollback()
+        active_session.rollback()
         raise
     finally:
         if owns_session:
-            session.close()
+            active_session.close()
 
     return {
         "created": created,

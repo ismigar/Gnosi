@@ -5,6 +5,7 @@ source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_pdf_annotations.py
   - backend/domains/agent
   - backend/domains/configuration/agent
   - backend/agent
@@ -34,6 +35,7 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
+  - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_artificial_analysis.py
@@ -482,6 +484,11 @@ Deterministic Brain lint is split into bounded checks for orphan notes, stale
 reviews, missing cross-references, duplicate provenance keys, retained managed
 notes, broken evidence citations, reprocessing and resource-index drift. The
 report shape and finding limits remain stable and require no model provider.
+
+Grounded PDF citations use a separate deterministic persistence boundary. It
+resolves quote geometry with one cached document handle per attachment, upserts
+stable managed highlights in one transaction, preserves manual annotations and
+removes only obsolete Gnosi-managed entries.
 
 ## Failure and safety invariants
 

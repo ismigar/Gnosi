@@ -5,6 +5,7 @@ source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_pdf_annotations.py
   - backend/domains/agent
   - backend/domains/configuration/agent
   - backend/agent
@@ -29,6 +30,7 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
+  - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_artificial_analysis.py
@@ -202,6 +204,11 @@ Le lint déterministe du Brain sépare des contrôles bornés pour les notes
 orphelines, les révisions anciennes, les renvois manquants, les clés dupliquées,
 les citations cassées, le retraitement et la dérive des index. Le format du
 rapport reste stable sans dépendre d'un fournisseur de modèles.
+
+Les citations PDF fondées utilisent une frontière de persistance déterministe.
+La géométrie est résolue en réutilisant un document par pièce jointe, les
+surlignages gérés sont mis à jour dans une transaction, les annotations
+manuelles sont préservées et seules les entrées obsolètes de Gnosi sont retirées.
 
 ## Invariants de défaillance et de sécurité
 
