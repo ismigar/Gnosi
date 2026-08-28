@@ -243,7 +243,7 @@ class ScheduleDiagnosticResponse(StoredPlanningRecord):
     taskIds: list[str] | None = None
 
 
-class ScheduledTaskResponse(StoredPlanningRecord):
+class PlanningScheduledTaskResponse(StoredPlanningRecord):
     """One calculated task, accepting fields absent from older cached schedules."""
 
     id: str
@@ -267,7 +267,7 @@ class ProjectScheduleResponse(StoredPlanningRecord):
     """Cached project schedule or its intentional empty short variant."""
 
     projectId: str
-    tasks: list[ScheduledTaskResponse]
+    tasks: list[PlanningScheduledTaskResponse]
     diagnostics: list[ScheduleDiagnosticResponse]
     criticalTaskIds: list[str]
     scheduleRevision: int | None

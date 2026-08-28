@@ -185,6 +185,157 @@
         "title": "AiOperationRequest",
         "type": "object"
       },
+      "AllocationBucketResponse": {
+        "description": "One resource/day capacity bucket.",
+        "properties": {
+          "assigned_hours": {
+            "title": "Assigned Hours",
+            "type": "number"
+          },
+          "assignment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assignment Ids",
+            "type": "array"
+          },
+          "capacity_hours": {
+            "title": "Capacity Hours",
+            "type": "number"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "overallocated_hours": {
+            "title": "Overallocated Hours",
+            "type": "number"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_name": {
+            "title": "Resource Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_id",
+          "resource_name",
+          "date",
+          "assigned_hours",
+          "capacity_hours",
+          "assignment_ids",
+          "overallocated_hours"
+        ],
+        "title": "AllocationBucketResponse",
+        "type": "object"
+      },
+      "AllocationResponse": {
+        "description": "Rebuildable allocation and cost report.",
+        "properties": {
+          "assignment_summaries": {
+            "items": {
+              "$ref": "#/components/schemas/AssignmentSummaryResponse"
+            },
+            "title": "Assignment Summaries",
+            "type": "array"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationBucketResponse"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "total_estimated_cost": {
+            "title": "Total Estimated Cost",
+            "type": "number"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationWarningResponse"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision",
+          "assignment_summaries",
+          "buckets",
+          "warnings",
+          "total_estimated_cost"
+        ],
+        "title": "AllocationResponse",
+        "type": "object"
+      },
+      "AllocationWarningResponse": {
+        "description": "One derived resource-allocation warning.",
+        "properties": {
+          "assignment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assignment Ids",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "resource_id",
+          "date",
+          "message",
+          "assignment_ids"
+        ],
+        "title": "AllocationWarningResponse",
+        "type": "object"
+      },
+      "AppliedAssignmentChangeResponse": {
+        "description": "Assignment boundaries changed by an accepted proposal.",
+        "properties": {
+          "assignmentId": {
+            "title": "Assignmentid",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignmentId",
+          "start",
+          "end"
+        ],
+        "title": "AppliedAssignmentChangeResponse",
+        "type": "object"
+      },
       "ApproveRequest": {
         "properties": {
           "name": {
@@ -281,7 +432,26 @@
         "title": "ArticleResponse",
         "type": "object"
       },
+      "AssignmentMutationResponse": {
+        "description": "Assignment mutation result and planning-store revision.",
+        "properties": {
+          "assignment": {
+            "$ref": "#/components/schemas/AssignmentResponse"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assignment",
+          "revision"
+        ],
+        "title": "AssignmentMutationResponse",
+        "type": "object"
+      },
       "AssignmentPayload": {
+        "description": "Backward-compatible create/update payload for an assignment.",
         "properties": {
           "actual_work_hours": {
             "anyOf": [
@@ -452,6 +622,202 @@
         "title": "AssignmentPayload",
         "type": "object"
       },
+      "AssignmentResponse": {
+        "additionalProperties": true,
+        "description": "Task-to-resource assignment, compatible with the shorter v1 record.",
+        "properties": {
+          "actual_work_hours": {
+            "title": "Actual Work Hours",
+            "type": "number"
+          },
+          "effort_driven": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Driven"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "fixed_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Cost"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "material_quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Quantity"
+          },
+          "overtime_work_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overtime Work Hours"
+          },
+          "planned_work_hours": {
+            "title": "Planned Work Hours",
+            "type": "number"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "rate_override": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Override"
+          },
+          "remaining_work_hours": {
+            "title": "Remaining Work Hours",
+            "type": "number"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "task_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "fixed_duration",
+                  "fixed_work",
+                  "fixed_units"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Type"
+          },
+          "units": {
+            "title": "Units",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "task_id",
+          "resource_id",
+          "units",
+          "planned_work_hours",
+          "remaining_work_hours",
+          "actual_work_hours",
+          "rate_override",
+          "start",
+          "end"
+        ],
+        "title": "AssignmentResponse",
+        "type": "object"
+      },
+      "AssignmentSummaryResponse": {
+        "description": "Cost and work totals derived for one assignment.",
+        "properties": {
+          "actual_work_hours": {
+            "title": "Actual Work Hours",
+            "type": "number"
+          },
+          "estimated_cost": {
+            "title": "Estimated Cost",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "planned_work_hours": {
+            "title": "Planned Work Hours",
+            "type": "number"
+          },
+          "remaining_work_hours": {
+            "title": "Remaining Work Hours",
+            "type": "number"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "task_id",
+          "resource_id",
+          "planned_work_hours",
+          "remaining_work_hours",
+          "actual_work_hours",
+          "estimated_cost"
+        ],
+        "title": "AssignmentSummaryResponse",
+        "type": "object"
+      },
       "AttachmentDeleteRequest": {
         "properties": {
           "agent_id": {
@@ -591,7 +957,38 @@
         "title": "AutomationWritePayload",
         "type": "object"
       },
+      "BaselineCreateResponse": {
+        "description": "Envelope returned after capturing a baseline.",
+        "properties": {
+          "baseline": {
+            "$ref": "#/components/schemas/BaselineRecordResponse"
+          }
+        },
+        "required": [
+          "baseline"
+        ],
+        "title": "BaselineCreateResponse",
+        "type": "object"
+      },
+      "BaselineListResponse": {
+        "description": "Project baseline history.",
+        "properties": {
+          "baselines": {
+            "items": {
+              "$ref": "#/components/schemas/BaselineRecordResponse"
+            },
+            "title": "Baselines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "baselines"
+        ],
+        "title": "BaselineListResponse",
+        "type": "object"
+      },
       "BaselinePayload": {
+        "description": "Named baseline request with an optional revision precondition.",
         "properties": {
           "name": {
             "title": "Name",
@@ -613,6 +1010,189 @@
           "name"
         ],
         "title": "BaselinePayload",
+        "type": "object"
+      },
+      "BaselineRecordResponse": {
+        "additionalProperties": true,
+        "description": "Immutable schedule snapshot, including the pre-allocation legacy form.",
+        "properties": {
+          "allocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllocationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "projectId": {
+            "title": "Projectid",
+            "type": "string"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/ProjectScheduleResponse"
+          },
+          "scheduleRevision": {
+            "title": "Schedulerevision",
+            "type": "integer"
+          },
+          "type": {
+            "const": "baseline",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "projectId",
+          "name",
+          "createdAt",
+          "scheduleRevision",
+          "schedule"
+        ],
+        "title": "BaselineRecordResponse",
+        "type": "object"
+      },
+      "BaselineVarianceResponse": {
+        "description": "Schedule and cost variance against one immutable baseline.",
+        "properties": {
+          "baselineId": {
+            "title": "Baselineid",
+            "type": "string"
+          },
+          "baselineScheduleRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselineschedulerevision"
+          },
+          "currentScheduleRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentschedulerevision"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/BaselineVarianceTaskResponse"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "totalCostVariance": {
+            "title": "Totalcostvariance",
+            "type": "number"
+          }
+        },
+        "required": [
+          "baselineId",
+          "baselineScheduleRevision",
+          "currentScheduleRevision",
+          "totalCostVariance",
+          "tasks"
+        ],
+        "title": "BaselineVarianceResponse",
+        "type": "object"
+      },
+      "BaselineVarianceTaskResponse": {
+        "description": "Current-versus-baseline differences for one task.",
+        "properties": {
+          "baselineEnd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselineend"
+          },
+          "baselineStart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselinestart"
+          },
+          "costVariance": {
+            "title": "Costvariance",
+            "type": "number"
+          },
+          "currentEnd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentend"
+          },
+          "currentStart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentstart"
+          },
+          "durationDaysVariance": {
+            "title": "Durationdaysvariance",
+            "type": "number"
+          },
+          "taskId": {
+            "title": "Taskid",
+            "type": "string"
+          },
+          "workHoursVariance": {
+            "title": "Workhoursvariance",
+            "type": "number"
+          }
+        },
+        "required": [
+          "taskId",
+          "baselineStart",
+          "currentStart",
+          "baselineEnd",
+          "currentEnd",
+          "durationDaysVariance",
+          "workHoursVariance",
+          "costVariance"
+        ],
+        "title": "BaselineVarianceTaskResponse",
         "type": "object"
       },
       "Body_import_references_api_vault_import_references_post": {
@@ -1102,7 +1682,484 @@
         "title": "BrowseRequest",
         "type": "object"
       },
+      "CalendarAttendeeResponse": {
+        "additionalProperties": true,
+        "description": "Normalized attendee attached to a calendar event or reminder.",
+        "properties": {
+          "email": {
+            "default": "",
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "organizer": {
+            "default": false,
+            "title": "Organizer",
+            "type": "boolean"
+          },
+          "rsvp": {
+            "default": "needsAction",
+            "title": "Rsvp",
+            "type": "string"
+          },
+          "self": {
+            "default": false,
+            "title": "Self",
+            "type": "boolean"
+          }
+        },
+        "title": "CalendarAttendeeResponse",
+        "type": "object"
+      },
+      "CalendarAttendeeSearchResponse": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "name"
+        ],
+        "title": "CalendarAttendeeSearchResponse",
+        "type": "object"
+      },
+      "CalendarEventResponse": {
+        "additionalProperties": true,
+        "description": "Provider-neutral event returned by event queries.",
+        "properties": {
+          "account": {
+            "default": "",
+            "title": "Account",
+            "type": "string"
+          },
+          "all_day": {
+            "default": false,
+            "title": "All Day",
+            "type": "boolean"
+          },
+          "attendees": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CalendarAttendeeResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attendees"
+          },
+          "birthday_properties": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calendar_id": {
+            "title": "Calendar Id",
+            "type": "string"
+          },
+          "calendar_name": {
+            "default": "",
+            "title": "Calendar Name",
+            "type": "string"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "end": {
+            "default": "",
+            "title": "End",
+            "type": "string"
+          },
+          "event_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Type"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_read_only": {
+            "default": false,
+            "title": "Is Read Only",
+            "type": "boolean"
+          },
+          "link": {
+            "default": "",
+            "title": "Link",
+            "type": "string"
+          },
+          "location": {
+            "default": "",
+            "title": "Location",
+            "type": "string"
+          },
+          "organizer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organizer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recurring_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recurring Event Id"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "status": {
+            "default": "confirmed",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "vault_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Path"
+          }
+        },
+        "required": [
+          "id",
+          "calendar_id",
+          "title",
+          "start",
+          "provider"
+        ],
+        "title": "CalendarEventResponse",
+        "type": "object"
+      },
+      "CalendarGeocodeResponse": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lon": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Lon"
+          }
+        },
+        "required": [
+          "label",
+          "lat",
+          "lon"
+        ],
+        "title": "CalendarGeocodeResponse",
+        "type": "object"
+      },
+      "CalendarInviteAttendeeRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "email": {
+            "default": "",
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "title": "CalendarInviteAttendeeRequest",
+        "type": "object"
+      },
+      "CalendarInviteEventDataRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "date": {
+            "default": "",
+            "title": "Date",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "location": {
+            "default": "",
+            "title": "Location",
+            "type": "string"
+          },
+          "title": {
+            "default": "Cita",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "CalendarInviteEventDataRequest",
+        "type": "object"
+      },
+      "CalendarInviteRequest": {
+        "additionalProperties": true,
+        "description": "Invitation body shared by Google and local Vault events.",
+        "properties": {
+          "attendees": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarInviteAttendeeRequest"
+            },
+            "title": "Attendees",
+            "type": "array"
+          },
+          "calendar_id": {
+            "default": "primary",
+            "title": "Calendar Id",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "event_data": {
+            "$ref": "#/components/schemas/CalendarInviteEventDataRequest"
+          },
+          "is_vault": {
+            "default": false,
+            "title": "Is Vault",
+            "type": "boolean"
+          }
+        },
+        "title": "CalendarInviteRequest",
+        "type": "object"
+      },
+      "CalendarInviteResponse": {
+        "description": "Invitation result; Google keeps the short ``{\"ok\": true}`` variant.",
+        "properties": {
+          "failed": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "sent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "CalendarInviteResponse",
+        "type": "object"
+      },
+      "CalendarListItemResponse": {
+        "additionalProperties": true,
+        "description": "One Google Calendar or CalDAV calendar available to an account.",
+        "properties": {
+          "access_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Role"
+          },
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "primary": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "account",
+          "provider"
+        ],
+        "title": "CalendarListItemResponse",
+        "type": "object"
+      },
+      "CalendarMutationResponse": {
+        "description": "Calendar mutation result and planning-store revision.",
+        "properties": {
+          "calendar": {
+            "$ref": "#/components/schemas/CalendarResponse"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calendar",
+          "revision"
+        ],
+        "title": "CalendarMutationResponse",
+        "type": "object"
+      },
       "CalendarPayload": {
+        "description": "Backward-compatible create/update payload for a work calendar.",
         "properties": {
           "holidays": {
             "anyOf": [
@@ -1167,6 +2224,166 @@
           }
         },
         "title": "CalendarPayload",
+        "type": "object"
+      },
+      "CalendarResponse": {
+        "additionalProperties": true,
+        "description": "Normalized work calendar.",
+        "properties": {
+          "holidays": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Holidays",
+            "type": "array"
+          },
+          "hours_per_day": {
+            "title": "Hours Per Day",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "workday_start": {
+            "title": "Workday Start",
+            "type": "string"
+          },
+          "working_weekdays": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Working Weekdays",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "working_weekdays",
+          "holidays",
+          "hours_per_day",
+          "workday_start"
+        ],
+        "title": "CalendarResponse",
+        "type": "object"
+      },
+      "CalendarRsvpRequest": {
+        "additionalProperties": true,
+        "description": "RSVP body with optional fields so legacy validation remains HTTP 400.",
+        "properties": {
+          "calendar_id": {
+            "default": "primary",
+            "title": "Calendar Id",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "rsvp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rsvp"
+          }
+        },
+        "title": "CalendarRsvpRequest",
+        "type": "object"
+      },
+      "CalendarRsvpResponse": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "rsvp": {
+            "title": "Rsvp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "rsvp"
+        ],
+        "title": "CalendarRsvpResponse",
+        "type": "object"
+      },
+      "CalendarStatusMessageResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "CalendarStatusMessageResponse",
+        "type": "object"
+      },
+      "CalendarStatusResponse": {
+        "properties": {
+          "status": {
+            "enum": [
+              "success",
+              "not_found"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "CalendarStatusResponse",
+        "type": "object"
+      },
+      "CalendarSyncResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          },
+          "synced_count": {
+            "title": "Synced Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "synced_count",
+          "message"
+        ],
+        "title": "CalendarSyncResponse",
         "type": "object"
       },
       "CancelScheduledPostResponse": {
@@ -2563,6 +3780,164 @@
         "title": "FilesystemSearchResponse",
         "type": "object"
       },
+      "FreeBusyCalendarResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "busy": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FreeBusyPeriodResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Busy"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GoogleApiErrorResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errors"
+          }
+        },
+        "title": "FreeBusyCalendarResponse",
+        "type": "object"
+      },
+      "FreeBusyGroupResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "calendars": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendars"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GoogleApiErrorResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errors"
+          }
+        },
+        "title": "FreeBusyGroupResponse",
+        "type": "object"
+      },
+      "FreeBusyPeriodResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "FreeBusyPeriodResponse",
+        "type": "object"
+      },
+      "FreeBusyResponse": {
+        "additionalProperties": true,
+        "description": "Google free/busy response, including the legacy empty-object variant.",
+        "properties": {
+          "calendars": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/FreeBusyCalendarResponse"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendars"
+          },
+          "groups": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/FreeBusyGroupResponse"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groups"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "timeMax": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timemax"
+          },
+          "timeMin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timemin"
+          }
+        },
+        "title": "FreeBusyResponse",
+        "type": "object"
+      },
       "FullTextRequest": {
         "properties": {
           "license": {
@@ -2659,6 +4034,945 @@
           }
         },
         "title": "GeneratePayload",
+        "type": "object"
+      },
+      "GoogleApiErrorResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "GoogleApiErrorResponse",
+        "type": "object"
+      },
+      "GoogleEventAttendeeResponse": {
+        "additionalProperties": true,
+        "description": "Google event attendee with invitation state.",
+        "properties": {
+          "additionalGuests": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additionalguests"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "optional": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Optional"
+          },
+          "organizer": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organizer"
+          },
+          "resource": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource"
+          },
+          "responseStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsestatus"
+          },
+          "self": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Self"
+          }
+        },
+        "title": "GoogleEventAttendeeResponse",
+        "type": "object"
+      },
+      "GoogleEventPersonResponse": {
+        "additionalProperties": true,
+        "description": "Google event creator or organizer.",
+        "properties": {
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "self": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Self"
+          }
+        },
+        "title": "GoogleEventPersonResponse",
+        "type": "object"
+      },
+      "GoogleEventResourceResponse": {
+        "additionalProperties": true,
+        "description": "Google event resource returned after creation.\n\nGoogle can add feature-specific objects over time. Stable fields remain\ntyped while ``extra=\"allow\"`` preserves such provider additions verbatim.",
+        "properties": {
+          "attendees": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GoogleEventAttendeeResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attendees"
+          },
+          "attendeesOmitted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attendeesomitted"
+          },
+          "colorId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colorid"
+          },
+          "conferenceData": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "creator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoogleEventPersonResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoogleEventTimeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "endTimeUnspecified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endtimeunspecified"
+          },
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etag"
+          },
+          "eventType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eventtype"
+          },
+          "extendedProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hangoutLink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hangoutlink"
+          },
+          "htmlLink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Htmllink"
+          },
+          "iCalUID": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icaluid"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "organizer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoogleEventPersonResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "originalStartTime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoogleEventTimeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recurrence"
+          },
+          "recurringEventId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recurringeventid"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoogleEventTimeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "transparency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transparency"
+          },
+          "updated": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility"
+          }
+        },
+        "title": "GoogleEventResourceResponse",
+        "type": "object"
+      },
+      "GoogleEventTimeResponse": {
+        "additionalProperties": true,
+        "description": "Google event date or date-time envelope.",
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "dateTime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datetime"
+          },
+          "timeZone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "title": "GoogleEventTimeResponse",
+        "type": "object"
+      },
+      "GraphEdgeResponse": {
+        "additionalProperties": true,
+        "description": "One structural, relation, link, or suggestion graph edge.",
+        "properties": {
+          "body_link": {
+            "title": "Body Link",
+            "type": "boolean"
+          },
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "dashed": {
+            "title": "Dashed",
+            "type": "boolean"
+          },
+          "directed": {
+            "title": "Directed",
+            "type": "boolean"
+          },
+          "dst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Dst"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Size"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Source"
+          },
+          "src": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Src"
+          },
+          "suggestion_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion Id"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Target"
+          },
+          "unresolved": {
+            "title": "Unresolved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "target",
+          "src",
+          "dst",
+          "directed",
+          "color",
+          "size",
+          "dashed",
+          "kind",
+          "body_link",
+          "unresolved"
+        ],
+        "title": "GraphEdgeResponse",
+        "type": "object"
+      },
+      "GraphLegendItemResponse": {
+        "additionalProperties": true,
+        "description": "Count and display color for one node kind or cluster.",
+        "properties": {
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "color",
+          "count"
+        ],
+        "title": "GraphLegendItemResponse",
+        "type": "object"
+      },
+      "GraphLegendResponse": {
+        "additionalProperties": true,
+        "description": "Dynamic legends derived from the projected nodes.",
+        "properties": {
+          "clusters": {
+            "items": {
+              "$ref": "#/components/schemas/GraphLegendItemResponse"
+            },
+            "title": "Clusters",
+            "type": "array"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/GraphLegendItemResponse"
+            },
+            "title": "Kinds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kinds",
+          "clusters"
+        ],
+        "title": "GraphLegendResponse",
+        "type": "object"
+      },
+      "GraphNodeResponse": {
+        "additionalProperties": true,
+        "description": "One projected page, contact, or unresolved graph node.",
+        "properties": {
+          "cluster": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster"
+          },
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "database_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database Id"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Id"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Key"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Size"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "label",
+          "size",
+          "color",
+          "kind",
+          "metadata",
+          "cluster",
+          "path",
+          "table_id",
+          "database_id"
+        ],
+        "title": "GraphNodeResponse",
+        "type": "object"
+      },
+      "GraphResponse": {
+        "additionalProperties": true,
+        "description": "Complete graph, optionally marked as partial after skipped directories.",
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/GraphEdgeResponse"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "legend": {
+            "$ref": "#/components/schemas/GraphLegendResponse"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/GraphNodeResponse"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "partial": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partial"
+          },
+          "skipped_dirs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped Dirs"
+          }
+        },
+        "required": [
+          "nodes",
+          "edges",
+          "legend"
+        ],
+        "title": "GraphResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2944,6 +5258,197 @@
           "post_id"
         ],
         "title": "InteractionResponse",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "LevelingApplyResponse": {
+        "description": "Result of applying a current, ETag-validated proposal.",
+        "properties": {
+          "automaticWrites": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Automaticwrites",
+            "type": "array"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/LevelingDecisionRecordResponse"
+          },
+          "updatedAssignments": {
+            "items": {
+              "$ref": "#/components/schemas/AppliedAssignmentChangeResponse"
+            },
+            "title": "Updatedassignments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decision",
+          "automaticWrites",
+          "updatedAssignments"
+        ],
+        "title": "LevelingApplyResponse",
+        "type": "object"
+      },
+      "LevelingChangeResponse": {
+        "additionalProperties": true,
+        "description": "One review-only assignment shift proposed for an overload.",
+        "properties": {
+          "assignment_id": {
+            "title": "Assignment Id",
+            "type": "string"
+          },
+          "delay_working_days": {
+            "title": "Delay Working Days",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "requires_review": {
+            "title": "Requires Review",
+            "type": "boolean"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "source_date": {
+            "title": "Source Date",
+            "type": "string"
+          },
+          "source_end": {
+            "title": "Source End",
+            "type": "string"
+          },
+          "source_start": {
+            "title": "Source Start",
+            "type": "string"
+          },
+          "suggested_end": {
+            "title": "Suggested End",
+            "type": "string"
+          },
+          "suggested_start": {
+            "title": "Suggested Start",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "assignment_id",
+          "task_id",
+          "resource_id",
+          "reason",
+          "source_date",
+          "delay_working_days",
+          "source_start",
+          "source_end",
+          "suggested_start",
+          "suggested_end",
+          "requires_review"
+        ],
+        "title": "LevelingChangeResponse",
+        "type": "object"
+      },
+      "LevelingDecisionRecordResponse": {
+        "additionalProperties": true,
+        "description": "Append-only acceptance record for a leveling proposal.",
+        "properties": {
+          "acceptedAt": {
+            "title": "Acceptedat",
+            "type": "string"
+          },
+          "appliedChanges": {
+            "items": {
+              "$ref": "#/components/schemas/AppliedAssignmentChangeResponse"
+            },
+            "title": "Appliedchanges",
+            "type": "array"
+          },
+          "etags": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Etags",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "proposalId": {
+            "title": "Proposalid",
+            "type": "string"
+          },
+          "scheduleRevision": {
+            "title": "Schedulerevision",
+            "type": "integer"
+          },
+          "type": {
+            "const": "leveling_decision",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "proposalId",
+          "scheduleRevision",
+          "etags",
+          "acceptedAt",
+          "appliedChanges"
+        ],
+        "title": "LevelingDecisionRecordResponse",
+        "type": "object"
+      },
+      "LevelingProposalResponse": {
+        "additionalProperties": true,
+        "description": "Non-persisted resource-leveling preview.",
+        "properties": {
+          "automatic_apply_supported": {
+            "title": "Automatic Apply Supported",
+            "type": "boolean"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/LevelingChangeResponse"
+            },
+            "title": "Proposals",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationWarningResponse"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision",
+          "warnings",
+          "proposals",
+          "automatic_apply_supported"
+        ],
+        "title": "LevelingProposalResponse",
         "type": "object"
       },
       "LinkMentionsRequest": {
@@ -3303,6 +5808,219 @@
           "value"
         ],
         "title": "ManualCaptureRequest",
+        "type": "object"
+      },
+      "MaterializedTaskResponse": {
+        "description": "Stable task created for one recurrence occurrence.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "occurrence": {
+            "title": "Occurrence",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "occurrence",
+          "title"
+        ],
+        "title": "MaterializedTaskResponse",
+        "type": "object"
+      },
+      "MeetingReminderResponse": {
+        "additionalProperties": true,
+        "description": "Persisted reminder; every field is optional for legacy state files.",
+        "properties": {
+          "agenda": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agenda"
+          },
+          "attendees": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CalendarAttendeeResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attendees"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "dismissed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismissed"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "minutes_until": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes Until"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "vault_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Path"
+          }
+        },
+        "title": "MeetingReminderResponse",
+        "type": "object"
+      },
+      "MeetingReminderSettingsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "lead_minutes": {
+            "title": "Lead Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "lead_minutes"
+        ],
+        "title": "MeetingReminderSettingsResponse",
+        "type": "object"
+      },
+      "MeetingRemindersResponse": {
+        "properties": {
+          "reminders": {
+            "items": {
+              "$ref": "#/components/schemas/MeetingReminderResponse"
+            },
+            "title": "Reminders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reminders"
+        ],
+        "title": "MeetingRemindersResponse",
         "type": "object"
       },
       "MemberResponse": {
@@ -3738,7 +6456,269 @@
         "title": "NewsletterSyncResponse",
         "type": "object"
       },
+      "NotebookChatNotebookResponse": {
+        "description": "Another authorized notebook that can provide chat context.",
+        "properties": {
+          "active_revision": {
+            "title": "Active Revision",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source_count": {
+            "title": "Source Count",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "visibility",
+          "active_revision",
+          "source_count"
+        ],
+        "title": "NotebookChatNotebookResponse",
+        "type": "object"
+      },
+      "NotebookChatSourceResponse": {
+        "description": "One source that can be pinned into a future notebook chat turn.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "resource_id",
+          "kind",
+          "label",
+          "status"
+        ],
+        "title": "NotebookChatSourceResponse",
+        "type": "object"
+      },
+      "NotebookChatSourcesResponse": {
+        "description": "Authorized source and notebook choices for future chat turns.",
+        "properties": {
+          "active_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Revision"
+          },
+          "notebook_id": {
+            "title": "Notebook Id",
+            "type": "string"
+          },
+          "notebooks": {
+            "items": {
+              "$ref": "#/components/schemas/NotebookChatNotebookResponse"
+            },
+            "title": "Notebooks",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/NotebookChatSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "notebook_id",
+          "active_revision",
+          "sources",
+          "notebooks"
+        ],
+        "title": "NotebookChatSourcesResponse",
+        "type": "object"
+      },
+      "NotebookCitationResponse": {
+        "description": "Stable navigation metadata for one notebook evidence fragment.",
+        "properties": {
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "href",
+          "label",
+          "resource_id",
+          "revision",
+          "source_id",
+          "chunk_id"
+        ],
+        "title": "NotebookCitationResponse",
+        "type": "object"
+      },
+      "NotebookConversationMessageResponse": {
+        "additionalProperties": true,
+        "description": "One user-visible notebook transcript message and its public metadata.",
+        "properties": {
+          "author_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author User Id"
+          },
+          "citations": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "conflicts": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "evidence_security": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "explanation": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "timings": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "NotebookConversationMessageResponse",
+        "type": "object"
+      },
+      "NotebookConversationResponse": {
+        "description": "Canonical notebook transcript, including the empty legacy variant.",
+        "properties": {
+          "conversation_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Mode"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/NotebookConversationMessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "messages",
+          "session_id"
+        ],
+        "title": "NotebookConversationResponse",
+        "type": "object"
+      },
       "NotebookCreateRequest": {
+        "description": "Create a grounded notebook from one or more reference resources.",
         "properties": {
           "conversation_mode": {
             "default": "private_member",
@@ -3780,7 +6760,277 @@
         "title": "NotebookCreateRequest",
         "type": "object"
       },
+      "NotebookDetailResponse": {
+        "description": "Notebook summary enriched with permissions and chat identifiers.",
+        "properties": {
+          "active_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Revision"
+          },
+          "can_chat": {
+            "title": "Can Chat",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "chat_ready": {
+            "title": "Chat Ready",
+            "type": "boolean"
+          },
+          "conversation_mode": {
+            "title": "Conversation Mode",
+            "type": "string"
+          },
+          "conversation_principal": {
+            "title": "Conversation Principal",
+            "type": "string"
+          },
+          "conversation_session_id": {
+            "title": "Conversation Session Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/NotebookGroupResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "groups_json": {
+            "default": "[]",
+            "title": "Groups Json",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "owner_user_id": {
+            "title": "Owner User Id",
+            "type": "string"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotebookProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resource_count": {
+            "title": "Resource Count",
+            "type": "integer"
+          },
+          "source_counts": {
+            "$ref": "#/components/schemas/NotebookSourceCountsResponse"
+          },
+          "source_table_id": {
+            "title": "Source Table Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vault_scope": {
+            "title": "Vault Scope",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "workspace_id": {
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vault_scope",
+          "workspace_id",
+          "owner_user_id",
+          "source_table_id",
+          "title",
+          "visibility",
+          "conversation_mode",
+          "active_revision",
+          "status",
+          "last_error",
+          "created_at",
+          "updated_at",
+          "resource_count",
+          "source_counts",
+          "chat_ready",
+          "can_manage",
+          "can_chat",
+          "conversation_principal",
+          "conversation_session_id"
+        ],
+        "title": "NotebookDetailResponse",
+        "type": "object"
+      },
+      "NotebookEvidenceResponse": {
+        "description": "One complete evidence fragment from a pinned notebook revision.",
+        "properties": {
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "citation": {
+            "$ref": "#/components/schemas/NotebookCitationResponse"
+          },
+          "locator": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Locator",
+            "type": "object"
+          },
+          "notebook_id": {
+            "title": "Notebook Id",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_label": {
+            "title": "Source Label",
+            "type": "string"
+          },
+          "source_status": {
+            "title": "Source Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id",
+          "revision",
+          "chunk_id",
+          "source_id",
+          "resource_id",
+          "source_label",
+          "source_kind",
+          "source_status",
+          "text",
+          "locator",
+          "citation"
+        ],
+        "title": "NotebookEvidenceResponse",
+        "type": "object"
+      },
+      "NotebookGroupResponse": {
+        "description": "One named group of resources inside a notebook.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "resource_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Resource Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "resource_ids"
+        ],
+        "title": "NotebookGroupResponse",
+        "type": "object"
+      },
+      "NotebookPageResponse": {
+        "description": "One page of notebooks visible in the active workspace.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotebookSummaryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "NotebookPageResponse",
+        "type": "object"
+      },
       "NotebookPatchRequest": {
+        "description": "Mutable notebook metadata and resource groups.",
         "properties": {
           "conversation_mode": {
             "anyOf": [
@@ -3843,7 +7093,107 @@
         "title": "NotebookPatchRequest",
         "type": "object"
       },
+      "NotebookProgressResponse": {
+        "description": "Observable state of the latest notebook ingestion revision.",
+        "properties": {
+          "cancel_requested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Requested At"
+          },
+          "cancellable": {
+            "title": "Cancellable",
+            "type": "boolean"
+          },
+          "current_resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Resource Id"
+          },
+          "current_resource_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Resource Title"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "percent": {
+            "title": "Percent",
+            "type": "integer"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "state",
+          "processed",
+          "total",
+          "percent",
+          "job_id",
+          "error",
+          "current_resource_id",
+          "current_resource_title",
+          "cancel_requested_at",
+          "cancellable"
+        ],
+        "title": "NotebookProgressResponse",
+        "type": "object"
+      },
       "NotebookRefreshRequest": {
+        "description": "Options for a complete or targeted notebook refresh.",
         "properties": {
           "force": {
             "default": true,
@@ -3860,7 +7210,504 @@
         "title": "NotebookRefreshRequest",
         "type": "object"
       },
+      "NotebookRefreshResponse": {
+        "description": "Current, queued, or already-running notebook refresh state.",
+        "properties": {
+          "available_sources": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Sources"
+          },
+          "cancel_requested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Requested At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "current_resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Resource Id"
+          },
+          "current_resource_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Resource Title"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_sources": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Sources"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "notebook_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notebook Id"
+          },
+          "processed_resources": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processed Resources"
+          },
+          "retention_eligible": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Eligible"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "total_resources": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Resources"
+          }
+        },
+        "required": [
+          "state",
+          "revision"
+        ],
+        "title": "NotebookRefreshResponse",
+        "type": "object"
+      },
+      "NotebookResourceResponse": {
+        "description": "One notebook resource and its extracted sources.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/NotebookSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "url_checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url Checked At"
+          }
+        },
+        "required": [
+          "resource_id",
+          "title",
+          "state",
+          "error",
+          "updated_at",
+          "last_checked_at",
+          "url_checked_at",
+          "sources"
+        ],
+        "title": "NotebookResourceResponse",
+        "type": "object"
+      },
+      "NotebookSearchResponse": {
+        "description": "Hybrid retrieval results, including the no-active-revision variant.",
+        "properties": {
+          "notebook_id": {
+            "title": "Notebook Id",
+            "type": "string"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/NotebookSearchResultResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          }
+        },
+        "required": [
+          "notebook_id",
+          "revision",
+          "results"
+        ],
+        "title": "NotebookSearchResponse",
+        "type": "object"
+      },
+      "NotebookSearchResultResponse": {
+        "description": "One ranked evidence fragment returned by notebook retrieval.",
+        "properties": {
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "citation": {
+            "$ref": "#/components/schemas/NotebookCitationResponse"
+          },
+          "locator": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Locator",
+            "type": "object"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_label": {
+            "title": "Source Label",
+            "type": "string"
+          },
+          "source_status": {
+            "title": "Source Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chunk_id",
+          "source_id",
+          "resource_id",
+          "source_label",
+          "source_kind",
+          "source_status",
+          "text",
+          "locator",
+          "citation",
+          "score"
+        ],
+        "title": "NotebookSearchResultResponse",
+        "type": "object"
+      },
+      "NotebookSourceCountsResponse": {
+        "description": "Source availability totals for the active notebook revision.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "integer"
+          },
+          "error": {
+            "title": "Error",
+            "type": "integer"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "available",
+          "stale",
+          "error"
+        ],
+        "title": "NotebookSourceCountsResponse",
+        "type": "object"
+      },
+      "NotebookSourceResponse": {
+        "description": "One extracted source in an immutable notebook revision.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Id"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "resource_id",
+          "kind",
+          "label",
+          "source_url",
+          "fingerprint",
+          "snapshot_id",
+          "status",
+          "error"
+        ],
+        "title": "NotebookSourceResponse",
+        "type": "object"
+      },
+      "NotebookSourcesPageResponse": {
+        "description": "One page of resources and sources attached to a notebook.",
+        "properties": {
+          "active_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Revision"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotebookResourceResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "active_revision"
+        ],
+        "title": "NotebookSourcesPageResponse",
+        "type": "object"
+      },
       "NotebookSourcesRequest": {
+        "description": "Reference resources to attach to an existing notebook.",
         "properties": {
           "resource_ids": {
             "items": {
@@ -3876,6 +7723,130 @@
           "resource_ids"
         ],
         "title": "NotebookSourcesRequest",
+        "type": "object"
+      },
+      "NotebookSummaryResponse": {
+        "description": "Stable notebook inventory item shared by list and detail responses.",
+        "properties": {
+          "active_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Revision"
+          },
+          "chat_ready": {
+            "title": "Chat Ready",
+            "type": "boolean"
+          },
+          "conversation_mode": {
+            "title": "Conversation Mode",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/NotebookGroupResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "groups_json": {
+            "default": "[]",
+            "title": "Groups Json",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "owner_user_id": {
+            "title": "Owner User Id",
+            "type": "string"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotebookProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resource_count": {
+            "title": "Resource Count",
+            "type": "integer"
+          },
+          "source_counts": {
+            "$ref": "#/components/schemas/NotebookSourceCountsResponse"
+          },
+          "source_table_id": {
+            "title": "Source Table Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vault_scope": {
+            "title": "Vault Scope",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "workspace_id": {
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vault_scope",
+          "workspace_id",
+          "owner_user_id",
+          "source_table_id",
+          "title",
+          "visibility",
+          "conversation_mode",
+          "active_revision",
+          "status",
+          "last_error",
+          "created_at",
+          "updated_at",
+          "resource_count",
+          "source_counts",
+          "chat_ready"
+        ],
+        "title": "NotebookSummaryResponse",
         "type": "object"
       },
       "NotificationCreate": {
@@ -4316,6 +8287,271 @@
         "title": "PersonalMemoryPayload",
         "type": "object"
       },
+      "PlanningDefaultsResponse": {
+        "additionalProperties": true,
+        "description": "Vault-level planning defaults.",
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "project_relation_field_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Relation Field Id"
+          }
+        },
+        "required": [
+          "currency",
+          "project_relation_field_id"
+        ],
+        "title": "PlanningDefaultsResponse",
+        "type": "object"
+      },
+      "PlanningDeletionResponse": {
+        "description": "Stable identifier deleted from the planning store.",
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted",
+          "revision"
+        ],
+        "title": "PlanningDeletionResponse",
+        "type": "object"
+      },
+      "PlanningScheduledTaskResponse": {
+        "additionalProperties": true,
+        "description": "One calculated task, accepting fields absent from older cached schedules.",
+        "properties": {
+          "actualEnd": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "actualStart": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "critical": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Critical"
+          },
+          "durationDays": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationdays"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "freeSlackMinutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freeslackminutes"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lateEnd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lateend"
+          },
+          "lateStart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestart"
+          },
+          "percentComplete": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percentcomplete"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "sourceEtag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceetag"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "trace": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trace"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "PlanningScheduledTaskResponse",
+        "type": "object"
+      },
+      "PlanningStateResponse": {
+        "additionalProperties": true,
+        "description": "Vault planning state plus its derived allocation report.",
+        "properties": {
+          "allocation": {
+            "$ref": "#/components/schemas/AllocationResponse"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/AssignmentResponse"
+            },
+            "title": "Assignments",
+            "type": "array"
+          },
+          "calendars": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarResponse"
+            },
+            "title": "Calendars",
+            "type": "array"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/PlanningDefaultsResponse"
+          },
+          "recurrences": {
+            "items": {
+              "$ref": "#/components/schemas/RecurrenceResponse"
+            },
+            "title": "Recurrences",
+            "type": "array"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceResponse"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "revision",
+          "calendars",
+          "resources",
+          "assignments",
+          "recurrences",
+          "defaults",
+          "allocation"
+        ],
+        "title": "PlanningStateResponse",
+        "type": "object"
+      },
       "PluginLifecycleRequest": {
         "description": "Explicit lifecycle request for a built-in or installed plugin.",
         "properties": {
@@ -4484,7 +8720,98 @@
         "title": "ProcessedPublicationResponse",
         "type": "object"
       },
+      "ProjectScheduleResponse": {
+        "additionalProperties": true,
+        "description": "Cached project schedule or its intentional empty short variant.",
+        "properties": {
+          "criticalTaskIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Criticaltaskids",
+            "type": "array"
+          },
+          "cycles": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycles"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleDiagnosticResponse"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "generatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generatedat"
+          },
+          "planningRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planningrevision"
+          },
+          "projectId": {
+            "title": "Projectid",
+            "type": "string"
+          },
+          "scheduleRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schedulerevision"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/PlanningScheduledTaskResponse"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "projectId",
+          "tasks",
+          "diagnostics",
+          "criticalTaskIds",
+          "scheduleRevision"
+        ],
+        "title": "ProjectScheduleResponse",
+        "type": "object"
+      },
       "ProposalApplyPayload": {
+        "description": "Optimistic-concurrency inputs for accepting a leveling proposal.",
         "properties": {
           "etags": {
             "additionalProperties": {
@@ -4694,6 +9021,36 @@
           "posts"
         ],
         "title": "PublishRequest",
+        "type": "object"
+      },
+      "RateHistoryEntryResponse": {
+        "additionalProperties": true,
+        "description": "One optional effective resource rate retained in planning storage.",
+        "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "standard_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standard Rate"
+          }
+        },
+        "title": "RateHistoryEntryResponse",
         "type": "object"
       },
       "ReaderAnalysisJobResponse": {
@@ -5528,6 +9885,7 @@
         "type": "object"
       },
       "RecalculatePayload": {
+        "description": "Task snapshot used to rebuild one project schedule.",
         "properties": {
           "status_date": {
             "anyOf": [
@@ -5552,7 +9910,47 @@
         "title": "RecalculatePayload",
         "type": "object"
       },
+      "RecurrenceMaterializationResponse": {
+        "description": "Updated recurrence ledger plus newly created task pages.",
+        "properties": {
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/MaterializedTaskResponse"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "recurrence": {
+            "$ref": "#/components/schemas/RecurrenceResponse"
+          }
+        },
+        "required": [
+          "recurrence",
+          "created"
+        ],
+        "title": "RecurrenceMaterializationResponse",
+        "type": "object"
+      },
+      "RecurrenceMutationResponse": {
+        "description": "Stored recurrence and planning-store revision.",
+        "properties": {
+          "recurrence": {
+            "$ref": "#/components/schemas/RecurrenceResponse"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "recurrence",
+          "revision"
+        ],
+        "title": "RecurrenceMutationResponse",
+        "type": "object"
+      },
       "RecurrencePayload": {
+        "description": "RRULE declaration tied to one source task.",
         "properties": {
           "exdates": {
             "default": [],
@@ -5576,6 +9974,226 @@
           "rrule"
         ],
         "title": "RecurrencePayload",
+        "type": "object"
+      },
+      "RecurrenceResponse": {
+        "additionalProperties": true,
+        "description": "Stored RRULE declaration and its optional materialization ledger.",
+        "properties": {
+          "exdates": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exdates"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "materialized_occurrences": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Materialized Occurrences"
+          },
+          "rrule": {
+            "title": "Rrule",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "task_id",
+          "rrule"
+        ],
+        "title": "RecurrenceResponse",
+        "type": "object"
+      },
+      "ReferenceFacetOptionResponse": {
+        "description": "One value and count in a reference-resource facet.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "count"
+        ],
+        "title": "ReferenceFacetOptionResponse",
+        "type": "object"
+      },
+      "ReferenceResourceFacetsResponse": {
+        "description": "Available type, author and tag filters for reference resources.",
+        "properties": {
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceFacetOptionResponse"
+            },
+            "title": "Authors",
+            "type": "array"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceFacetOptionResponse"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceFacetOptionResponse"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "title": "ReferenceResourceFacetsResponse",
+        "type": "object"
+      },
+      "ReferenceResourcePageResponse": {
+        "description": "Paged reference-resource selector, including optional legacy facets.",
+        "properties": {
+          "facets": {
+            "$ref": "#/components/schemas/ReferenceResourceFacetsResponse"
+          },
+          "hidden_without_sources": {
+            "default": 0,
+            "title": "Hidden Without Sources",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceResourceResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "source_fields": {
+            "default": 0,
+            "title": "Source Fields",
+            "type": "integer"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "ReferenceResourcePageResponse",
+        "type": "object"
+      },
+      "ReferenceResourceResponse": {
+        "description": "One reference resource eligible for notebook ingestion.",
+        "properties": {
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Authors",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_modified": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Modified"
+          },
+          "resource_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Type"
+          },
+          "source_count": {
+            "title": "Source Count",
+            "type": "integer"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "last_modified",
+          "source_count",
+          "resource_type",
+          "authors",
+          "tags"
+        ],
+        "title": "ReferenceResourceResponse",
         "type": "object"
       },
       "RegisterPayload": {
@@ -5931,7 +10549,26 @@
         "title": "RepositoryTestPayload",
         "type": "object"
       },
+      "ResourceMutationResponse": {
+        "description": "Resource mutation result and planning-store revision.",
+        "properties": {
+          "resource": {
+            "$ref": "#/components/schemas/ResourceResponse"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "resource",
+          "revision"
+        ],
+        "title": "ResourceMutationResponse",
+        "type": "object"
+      },
       "ResourcePayload": {
+        "description": "Backward-compatible create/update payload for a planning resource.",
         "properties": {
           "active": {
             "anyOf": [
@@ -6040,6 +10677,93 @@
         "title": "ResourcePayload",
         "type": "object"
       },
+      "ResourceResponse": {
+        "additionalProperties": true,
+        "description": "Normalized planning resource, including optional Gnosi 2 additions.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "availability_units": {
+            "title": "Availability Units",
+            "type": "number"
+          },
+          "calendar_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Id"
+          },
+          "cost_per_use": {
+            "title": "Cost Per Use",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "overtime_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overtime Rate"
+          },
+          "rate_history": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RateHistoryEntryResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate History"
+          },
+          "standard_rate": {
+            "title": "Standard Rate",
+            "type": "number"
+          },
+          "type": {
+            "enum": [
+              "work",
+              "material",
+              "cost"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "calendar_id",
+          "availability_units",
+          "standard_rate",
+          "cost_per_use",
+          "active"
+        ],
+        "title": "ResourceResponse",
+        "type": "object"
+      },
       "ReviewCreateRequest": {
         "properties": {
           "configuration": {
@@ -6143,6 +10867,56 @@
           }
         },
         "title": "RoleUpdateRequest",
+        "type": "object"
+      },
+      "ScheduleDiagnosticResponse": {
+        "additionalProperties": true,
+        "description": "Scheduling diagnostic for one task, several tasks, or the project.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taskid"
+          },
+          "taskIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taskids"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "title": "ScheduleDiagnosticResponse",
         "type": "object"
       },
       "SchedulePublishRequest": {
@@ -6665,6 +11439,82 @@
         "title": "SocialSettingsUpdateResponse",
         "type": "object"
       },
+      "StoredLevelingProposalResponse": {
+        "additionalProperties": true,
+        "description": "Persisted proposal with optimistic-concurrency metadata.",
+        "properties": {
+          "automatic_apply_supported": {
+            "title": "Automatic Apply Supported",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "projectId": {
+            "title": "Projectid",
+            "type": "string"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/LevelingChangeResponse"
+            },
+            "title": "Proposals",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scheduleRevision": {
+            "title": "Schedulerevision",
+            "type": "integer"
+          },
+          "sourceEtags": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Sourceetags",
+            "type": "object"
+          },
+          "status": {
+            "const": "pending",
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "const": "leveling_proposal",
+            "title": "Type",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationWarningResponse"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision",
+          "warnings",
+          "proposals",
+          "automatic_apply_supported",
+          "id",
+          "projectId",
+          "scheduleRevision",
+          "createdAt",
+          "type",
+          "status",
+          "sourceEtags"
+        ],
+        "title": "StoredLevelingProposalResponse",
+        "type": "object"
+      },
       "Stream": {
         "properties": {
           "icon": {
@@ -6799,6 +11649,7 @@
         "type": "object"
       },
       "TaskFactPayload": {
+        "description": "Markdown-owned task facts accepted by schedule recalculation.",
         "properties": {
           "etag": {
             "anyOf": [
@@ -7749,7 +12600,46 @@
         "title": "ViewSection",
         "type": "object"
       },
+      "WorklogCreateResponse": {
+        "description": "Envelope returned after appending a worklog.",
+        "properties": {
+          "worklog": {
+            "$ref": "#/components/schemas/WorklogResponse"
+          }
+        },
+        "required": [
+          "worklog"
+        ],
+        "title": "WorklogCreateResponse",
+        "type": "object"
+      },
+      "WorklogListResponse": {
+        "description": "Worklog history plus derived actual-hours totals.",
+        "properties": {
+          "actualHoursByTask": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Actualhoursbytask",
+            "type": "object"
+          },
+          "worklogs": {
+            "items": {
+              "$ref": "#/components/schemas/WorklogResponse"
+            },
+            "title": "Worklogs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "worklogs",
+          "actualHoursByTask"
+        ],
+        "title": "WorklogListResponse",
+        "type": "object"
+      },
       "WorklogPayload": {
+        "description": "Append-only actual-work entry.",
         "properties": {
           "correction_of": {
             "anyOf": [
@@ -7792,6 +12682,71 @@
           "hours"
         ],
         "title": "WorklogPayload",
+        "type": "object"
+      },
+      "WorklogResponse": {
+        "additionalProperties": true,
+        "description": "Append-only actual-work record.",
+        "properties": {
+          "correctionOf": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correctionof"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "hours": {
+            "title": "Hours",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "resourceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resourceid"
+          },
+          "taskId": {
+            "title": "Taskid",
+            "type": "string"
+          },
+          "type": {
+            "const": "worklog",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "taskId",
+          "resourceId",
+          "date",
+          "hours",
+          "correctionOf",
+          "createdAt"
+        ],
+        "title": "WorklogResponse",
         "type": "object"
       },
       "WorkspaceBase": {
@@ -14982,7 +19937,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarAttendeeSearchResponse"
+                  },
+                  "title": "Response Search Attendees Api Calendar Attendees Search Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -15111,7 +20072,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarListItemResponse"
+                  },
+                  "title": "Response Get Calendars Api Calendar Calendars Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -15314,7 +20281,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarEventResponse"
+                  },
+                  "title": "Response Get Events Api Calendar Events Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -15456,7 +20429,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleEventResourceResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -15613,7 +20588,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -15758,7 +20735,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -15909,7 +20888,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16031,7 +21012,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarStatusMessageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16056,7 +21039,6 @@
     },
     "/api/calendar/events/{event_id}/invite": {
       "post": {
-        "description": "Adds guests to an event.\n- Google Calendar: patch + sendUpdates='all' (Google sends the invitations)\n- Vault: sends an HTML email via Gmail API",
         "operationId": "invite_to_event_api_calendar_events__event_id__invite_post",
         "parameters": [
           {
@@ -16153,9 +21135,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
+                "$ref": "#/components/schemas/CalendarInviteRequest"
               }
             }
           },
@@ -16165,7 +21145,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarInviteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16190,7 +21172,6 @@
     },
     "/api/calendar/events/{event_id}/rsvp": {
       "post": {
-        "description": "Accepts, declines, or marks as tentative a Google Calendar invitation.",
         "operationId": "rsvp_event_api_calendar_events__event_id__rsvp_post",
         "parameters": [
           {
@@ -16287,9 +21268,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
+                "$ref": "#/components/schemas/CalendarRsvpRequest"
               }
             }
           },
@@ -16299,7 +21278,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarRsvpResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16421,7 +21402,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarStatusMessageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16692,7 +21675,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FreeBusyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16815,7 +21800,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarGeocodeResponse"
+                  },
+                  "title": "Response Geocode Location Api Calendar Geocode Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -16928,7 +21919,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingRemindersResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -17040,7 +22033,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingReminderSettingsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -17163,7 +22158,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingReminderSettingsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -17284,7 +22281,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -17413,7 +22412,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSyncResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -21423,9 +26424,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Vault Graph Api Graph Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/GraphResponse"
                 }
               }
             },
@@ -28526,7 +33525,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookPageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28645,7 +33646,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28840,7 +33843,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceResourcePageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29083,7 +34088,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29211,7 +34218,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29331,7 +34340,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookChatSourcesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29452,7 +34463,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookConversationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29598,7 +34611,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEvidenceResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29728,7 +34743,9 @@
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookRefreshResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29848,7 +34865,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29991,7 +35010,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookSearchResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30134,7 +35155,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookSourcesPageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30262,7 +35285,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30391,7 +35416,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30530,7 +35557,9 @@
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookRefreshResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32536,7 +37565,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32657,7 +37688,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32777,7 +37810,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningDeletionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32905,7 +37940,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33026,7 +38063,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33146,7 +38185,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningDeletionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33274,7 +38315,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33386,7 +38429,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LevelingProposalResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33517,7 +38562,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LevelingApplyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33637,7 +38684,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BaselineListResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33766,7 +38815,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BaselineCreateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33896,7 +38947,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BaselineVarianceResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34016,7 +39069,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StoredLevelingProposalResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34147,7 +39202,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectScheduleResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34268,7 +39325,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectScheduleResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34390,7 +39449,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RecurrenceMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34521,7 +39582,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RecurrenceMaterializationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34642,7 +39705,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34762,7 +39827,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningDeletionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34890,7 +39957,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -35002,7 +40071,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningStateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -35129,7 +40200,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WorklogListResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -35248,7 +40321,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WorklogCreateResponse"
+                }
               }
             },
             "description": "Successful Response"

@@ -10,6 +10,17 @@ import ResourcesPluginConfig from './ResourcesPluginConfig';
 import { sortFieldItems } from '../utils/fieldOrdering';
 import { SettingsSectionTabs } from './SettingsSectionTabs';
 import { notifyError } from '../lib/notifyError';
+import {
+    createPlanningAssignment,
+    createPlanningCalendar,
+    createPlanningResource,
+    deletePlanningAssignment,
+    deletePlanningCalendar,
+    deletePlanningResource,
+    fetchPlanningLevelingPreview,
+    updatePlanningCalendar,
+} from '../shared/api/planning';
+import { usePlanningState } from '../shared/api/usePlanningData';
 
 const ICONS = {
     CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard,
@@ -40,6 +51,10 @@ const SELECT_STYLE = {
 };
 
 const LLM_WIKI_AUTOSAVE_DELAY_MS = 600;
+
+const apiErrorMessage = (error, fallback) => (
+    error instanceof Error && error.message ? error.message : fallback
+);
 
 const isNewerVersion = (candidate, current) => {
     const parse = (value) => String(value || '')
@@ -172,8 +187,6 @@ export function ProjectPlanningConfig() {
         Number(config.holiday_year) || defaultHolidayYear,
     ));
     const [hoursPerDayInput, setHoursPerDayInput] = useState(String(config.hours_per_day ?? 8));
-    const [planningState, setPlanningState] = useState(null);
-    const [planningLoading, setPlanningLoading] = useState(true);
     const [planningError, setPlanningError] = useState('');
     const [projectPages, setProjectPages] = useState([]);
     const [taskPages, setTaskPages] = useState([]);
@@ -185,20 +198,23 @@ export function ProjectPlanningConfig() {
         project_id: '', task_id: '', resource_id: '', planned_work_hours: 0, start: '', end: '',
     });
     const [levelingProposal, setLevelingProposal] = useState(null);
+    const {
+        data: planningState,
+        error: planningStateError,
+        isFetching: planningLoading,
+        refetch: refetchPlanning,
+    } = usePlanningState();
 
     const refreshPlanning = useCallback(async () => {
-        setPlanningLoading(true);
         try {
-            const response = await axios.get('/api/planning/state');
-            setPlanningState(response.data);
+            const result = await refetchPlanning();
+            if (result.error) throw result.error;
             setPlanningError('');
         } catch (error) {
             console.error('Project planning: could not load resources:', error);
             setPlanningError(tp('planning_resources_load_error', { defaultValue: 'Could not load planning resources.' }));
-        } finally {
-            setPlanningLoading(false);
         }
-    }, [tp]);
+    }, [refetchPlanning, tp]);
 
     useEffect(() => {
         let alive = true;
@@ -215,10 +231,6 @@ export function ProjectPlanningConfig() {
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, []);
-
-    useEffect(() => {
-        void refreshPlanning();
-    }, [refreshPlanning]);
 
     useEffect(() => {
         if (!config.task_table_id) {
@@ -274,7 +286,7 @@ export function ProjectPlanningConfig() {
         if (Object.hasOwn(patch, 'hours_per_day')) calendarPatch.hours_per_day = patch.hours_per_day;
         if (Object.hasOwn(patch, 'workday_start')) calendarPatch.workday_start = patch.workday_start;
         if (Object.keys(calendarPatch).length) {
-            axios.patch('/api/planning/calendars/project-default', calendarPatch)
+            updatePlanningCalendar({ calendarId: 'project-default', calendar: calendarPatch })
                 .then(() => refreshPlanning())
                 .catch((error) => console.error('Project planning: could not sync default calendar:', error));
         }
@@ -371,17 +383,17 @@ export function ProjectPlanningConfig() {
 
     const createResource = async () => {
         try {
-            await axios.post('/api/planning/resources', resourceDraft);
+            await createPlanningResource(resourceDraft);
             setResourceDraft({ name: '', type: 'work', calendar_id: 'project-default', availability_units: 100, standard_rate: 0 });
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_resource_save_error', { defaultValue: 'Could not save the resource.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_resource_save_error', { defaultValue: 'Could not save the resource.' })));
         }
     };
 
     const createCalendar = async () => {
         try {
-            await axios.post('/api/planning/calendars', {
+            await createPlanningCalendar({
                 name: calendarDraft,
                 working_weekdays: workingWeekdays,
                 holidays: Array.isArray(config.holidays) ? config.holidays : [],
@@ -391,31 +403,31 @@ export function ProjectPlanningConfig() {
             setCalendarDraft('');
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_calendar_save_error', { defaultValue: 'Could not save the calendar.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_calendar_save_error', { defaultValue: 'Could not save the calendar.' })));
         }
     };
 
     const deleteCalendar = async (calendarId) => {
         try {
-            await axios.delete(`/api/planning/calendars/${encodeURIComponent(calendarId)}`);
+            await deletePlanningCalendar(calendarId);
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_calendar_delete_error', { defaultValue: 'Could not delete the calendar.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_calendar_delete_error', { defaultValue: 'Could not delete the calendar.' })));
         }
     };
 
     const deleteResource = async (resourceId) => {
         try {
-            await axios.delete(`/api/planning/resources/${encodeURIComponent(resourceId)}`);
+            await deletePlanningResource(resourceId);
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_resource_delete_error', { defaultValue: 'Could not delete the resource.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_resource_delete_error', { defaultValue: 'Could not delete the resource.' })));
         }
     };
 
     const createAssignment = async () => {
         try {
-            await axios.post('/api/planning/assignments', {
+            await createPlanningAssignment({
                 ...assignmentDraft,
                 project_id: assignmentDraft.project_id || null,
                 planned_work_hours: Number(assignmentDraft.planned_work_hours) || 0,
@@ -425,26 +437,25 @@ export function ProjectPlanningConfig() {
             setAssignmentDraft({ project_id: '', task_id: '', resource_id: '', planned_work_hours: 0, start: '', end: '' });
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_assignment_save_error', { defaultValue: 'Could not save the assignment.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_assignment_save_error', { defaultValue: 'Could not save the assignment.' })));
         }
     };
 
     const deleteAssignment = async (assignmentId) => {
         try {
-            await axios.delete(`/api/planning/assignments/${encodeURIComponent(assignmentId)}`);
+            await deletePlanningAssignment(assignmentId);
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_assignment_delete_error', { defaultValue: 'Could not delete the assignment.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_assignment_delete_error', { defaultValue: 'Could not delete the assignment.' })));
         }
     };
 
     const previewLeveling = async () => {
         try {
-            const response = await axios.get('/api/planning/leveling/proposal');
-            setLevelingProposal(response.data);
+            setLevelingProposal(await fetchPlanningLevelingPreview());
             setPlanningError('');
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_leveling_load_error', { defaultValue: 'Could not generate the leveling proposal.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_leveling_load_error', { defaultValue: 'Could not generate the leveling proposal.' })));
         }
     };
 
@@ -732,7 +743,7 @@ export function ProjectPlanningConfig() {
                 ))}
                 {levelingProposal && !(levelingProposal.proposals || []).length && <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_no_leveling_proposal', { defaultValue: 'No dated assignment can be safely proposed for leveling.' })}</div>}
                 {!planningLoading && planningState && <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_estimated_cost', { defaultValue: 'Estimated assignment cost: {{cost}}', cost: planningState.allocation?.total_estimated_cost ?? 0 })}</div>}
-                {planningError && <div style={{ fontSize: 12, color: '#dc2626' }}>{planningError}</div>}
+                {(planningError || planningStateError) && <div style={{ fontSize: 12, color: '#dc2626' }}>{planningError || tp('planning_resources_load_error', { defaultValue: 'Could not load planning resources.' })}</div>}
             </div>
         </div>
     );

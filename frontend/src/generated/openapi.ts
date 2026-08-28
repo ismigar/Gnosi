@@ -1373,12 +1373,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Invite To Event
-         * @description Adds guests to an event.
-         *     - Google Calendar: patch + sendUpdates='all' (Google sends the invitations)
-         *     - Vault: sends an HTML email via Gmail API
-         */
+        /** Invite To Event */
         post: operations["invite_to_event_api_calendar_events__event_id__invite_post"];
         delete?: never;
         options?: never;
@@ -1395,10 +1390,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Rsvp Event
-         * @description Accepts, declines, or marks as tentative a Google Calendar invitation.
-         */
+        /** Rsvp Event */
         post: operations["rsvp_event_api_calendar_events__event_id__rsvp_post"];
         delete?: never;
         options?: never;
@@ -9751,6 +9743,70 @@ export interface components {
              */
             search_id: string;
         };
+        /**
+         * AllocationBucketResponse
+         * @description One resource/day capacity bucket.
+         */
+        AllocationBucketResponse: {
+            /** Assigned Hours */
+            assigned_hours: number;
+            /** Assignment Ids */
+            assignment_ids: string[];
+            /** Capacity Hours */
+            capacity_hours: number;
+            /** Date */
+            date: string;
+            /** Overallocated Hours */
+            overallocated_hours: number;
+            /** Resource Id */
+            resource_id: string;
+            /** Resource Name */
+            resource_name: string;
+        };
+        /**
+         * AllocationResponse
+         * @description Rebuildable allocation and cost report.
+         */
+        AllocationResponse: {
+            /** Assignment Summaries */
+            assignment_summaries: components["schemas"]["AssignmentSummaryResponse"][];
+            /** Buckets */
+            buckets: components["schemas"]["AllocationBucketResponse"][];
+            /** Revision */
+            revision: number;
+            /** Total Estimated Cost */
+            total_estimated_cost: number;
+            /** Warnings */
+            warnings: components["schemas"]["AllocationWarningResponse"][];
+        };
+        /**
+         * AllocationWarningResponse
+         * @description One derived resource-allocation warning.
+         */
+        AllocationWarningResponse: {
+            /** Assignment Ids */
+            assignment_ids: string[];
+            /** Code */
+            code: string;
+            /** Date */
+            date: string;
+            /** Message */
+            message: string;
+            /** Resource Id */
+            resource_id: string;
+        };
+        /**
+         * AppliedAssignmentChangeResponse
+         * @description Assignment boundaries changed by an accepted proposal.
+         */
+        AppliedAssignmentChangeResponse: {
+            /** Assignmentid */
+            assignmentId: string;
+            /** End */
+            end: string;
+            /** Start */
+            start: string;
+        };
         /** ApproveRequest */
         ApproveRequest: {
             /** Name */
@@ -9779,7 +9835,19 @@ export interface components {
             /** Url */
             url: string;
         };
-        /** AssignmentPayload */
+        /**
+         * AssignmentMutationResponse
+         * @description Assignment mutation result and planning-store revision.
+         */
+        AssignmentMutationResponse: {
+            assignment: components["schemas"]["AssignmentResponse"];
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * AssignmentPayload
+         * @description Backward-compatible create/update payload for an assignment.
+         */
         AssignmentPayload: {
             /** Actual Work Hours */
             actual_work_hours?: number | null;
@@ -9811,6 +9879,66 @@ export interface components {
             task_type?: string | null;
             /** Units */
             units?: number | null;
+        };
+        /**
+         * AssignmentResponse
+         * @description Task-to-resource assignment, compatible with the shorter v1 record.
+         */
+        AssignmentResponse: {
+            /** Actual Work Hours */
+            actual_work_hours: number;
+            /** Effort Driven */
+            effort_driven?: boolean | null;
+            /** End */
+            end: string | null;
+            /** Fixed Cost */
+            fixed_cost?: number | null;
+            /** Id */
+            id: string;
+            /** Material Quantity */
+            material_quantity?: number | null;
+            /** Overtime Work Hours */
+            overtime_work_hours?: number | null;
+            /** Planned Work Hours */
+            planned_work_hours: number;
+            /** Project Id */
+            project_id?: string | null;
+            /** Rate Override */
+            rate_override: number | null;
+            /** Remaining Work Hours */
+            remaining_work_hours: number;
+            /** Resource Id */
+            resource_id: string;
+            /** Start */
+            start: string | null;
+            /** Task Id */
+            task_id: string;
+            /** Task Type */
+            task_type?: ("fixed_duration" | "fixed_work" | "fixed_units") | null;
+            /** Units */
+            units: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * AssignmentSummaryResponse
+         * @description Cost and work totals derived for one assignment.
+         */
+        AssignmentSummaryResponse: {
+            /** Actual Work Hours */
+            actual_work_hours: number;
+            /** Estimated Cost */
+            estimated_cost: number;
+            /** Id */
+            id: string;
+            /** Planned Work Hours */
+            planned_work_hours: number;
+            /** Remaining Work Hours */
+            remaining_work_hours: number;
+            /** Resource Id */
+            resource_id: string;
+            /** Task Id */
+            task_id: string;
         };
         /** AttachmentDeleteRequest */
         AttachmentDeleteRequest: {
@@ -9943,12 +10071,93 @@ export interface components {
             /** Query */
             query: string;
         };
-        /** BaselinePayload */
+        /**
+         * BaselineCreateResponse
+         * @description Envelope returned after capturing a baseline.
+         */
+        BaselineCreateResponse: {
+            baseline: components["schemas"]["BaselineRecordResponse"];
+        };
+        /**
+         * BaselineListResponse
+         * @description Project baseline history.
+         */
+        BaselineListResponse: {
+            /** Baselines */
+            baselines: components["schemas"]["BaselineRecordResponse"][];
+        };
+        /**
+         * BaselinePayload
+         * @description Named baseline request with an optional revision precondition.
+         */
         BaselinePayload: {
             /** Name */
             name: string;
             /** Schedule Revision */
             schedule_revision?: number | null;
+        };
+        /**
+         * BaselineRecordResponse
+         * @description Immutable schedule snapshot, including the pre-allocation legacy form.
+         */
+        BaselineRecordResponse: {
+            allocation?: components["schemas"]["AllocationResponse"] | null;
+            /** Createdat */
+            createdAt: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Projectid */
+            projectId: string;
+            schedule: components["schemas"]["ProjectScheduleResponse"];
+            /** Schedulerevision */
+            scheduleRevision: number;
+            /**
+             * Type
+             * @constant
+             */
+            type: "baseline";
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * BaselineVarianceResponse
+         * @description Schedule and cost variance against one immutable baseline.
+         */
+        BaselineVarianceResponse: {
+            /** Baselineid */
+            baselineId: string;
+            /** Baselineschedulerevision */
+            baselineScheduleRevision: number | null;
+            /** Currentschedulerevision */
+            currentScheduleRevision: number | null;
+            /** Tasks */
+            tasks: components["schemas"]["BaselineVarianceTaskResponse"][];
+            /** Totalcostvariance */
+            totalCostVariance: number;
+        };
+        /**
+         * BaselineVarianceTaskResponse
+         * @description Current-versus-baseline differences for one task.
+         */
+        BaselineVarianceTaskResponse: {
+            /** Baselineend */
+            baselineEnd: string | null;
+            /** Baselinestart */
+            baselineStart: string | null;
+            /** Costvariance */
+            costVariance: number;
+            /** Currentend */
+            currentEnd: string | null;
+            /** Currentstart */
+            currentStart: string | null;
+            /** Durationdaysvariance */
+            durationDaysVariance: number;
+            /** Taskid */
+            taskId: string;
+            /** Workhoursvariance */
+            workHoursVariance: number;
         };
         /** Body_import_references_api_vault_import_references_post */
         Body_import_references_api_vault_import_references_post: {
@@ -10156,7 +10365,249 @@ export interface components {
              */
             path: string;
         };
-        /** CalendarPayload */
+        /**
+         * CalendarAttendeeResponse
+         * @description Normalized attendee attached to a calendar event or reminder.
+         */
+        CalendarAttendeeResponse: {
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Organizer
+             * @default false
+             */
+            organizer: boolean;
+            /**
+             * Rsvp
+             * @default needsAction
+             */
+            rsvp: string;
+            /**
+             * Self
+             * @default false
+             */
+            self: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CalendarAttendeeSearchResponse */
+        CalendarAttendeeSearchResponse: {
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * CalendarEventResponse
+         * @description Provider-neutral event returned by event queries.
+         */
+        CalendarEventResponse: {
+            /**
+             * Account
+             * @default
+             */
+            account: string;
+            /**
+             * All Day
+             * @default false
+             */
+            all_day: boolean;
+            /** Attendees */
+            attendees?: components["schemas"]["CalendarAttendeeResponse"][] | null;
+            birthday_properties?: components["schemas"]["JsonValue"] | null;
+            /** Calendar Id */
+            calendar_id: string;
+            /**
+             * Calendar Name
+             * @default
+             */
+            calendar_name: string;
+            /** Color */
+            color?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * End
+             * @default
+             */
+            end: string;
+            /** Event Type */
+            event_type?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Is Read Only
+             * @default false
+             */
+            is_read_only: boolean;
+            /**
+             * Link
+             * @default
+             */
+            link: string;
+            /**
+             * Location
+             * @default
+             */
+            location: string;
+            /** Organizer */
+            organizer?: string | null;
+            /** Provider */
+            provider: string;
+            recurrence?: components["schemas"]["JsonValue"] | null;
+            /** Recurring Event Id */
+            recurring_event_id?: string | null;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /** Start */
+            start: string;
+            /**
+             * Status
+             * @default confirmed
+             */
+            status: string;
+            /** Title */
+            title: string;
+            /** Vault Path */
+            vault_path?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CalendarGeocodeResponse */
+        CalendarGeocodeResponse: {
+            /** Label */
+            label: string;
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+        };
+        /** CalendarInviteAttendeeRequest */
+        CalendarInviteAttendeeRequest: {
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CalendarInviteEventDataRequest */
+        CalendarInviteEventDataRequest: {
+            /**
+             * Date
+             * @default
+             */
+            date: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Location
+             * @default
+             */
+            location: string;
+            /**
+             * Title
+             * @default Cita
+             */
+            title: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * CalendarInviteRequest
+         * @description Invitation body shared by Google and local Vault events.
+         */
+        CalendarInviteRequest: {
+            /** Attendees */
+            attendees?: components["schemas"]["CalendarInviteAttendeeRequest"][];
+            /**
+             * Calendar Id
+             * @default primary
+             */
+            calendar_id: string;
+            /** Email */
+            email?: string | null;
+            event_data?: components["schemas"]["CalendarInviteEventDataRequest"];
+            /**
+             * Is Vault
+             * @default false
+             */
+            is_vault: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * CalendarInviteResponse
+         * @description Invitation result; Google keeps the short ``{"ok": true}`` variant.
+         */
+        CalendarInviteResponse: {
+            /** Failed */
+            failed?: string[] | null;
+            /** Ok */
+            ok: boolean;
+            /** Sent */
+            sent?: number | null;
+        };
+        /**
+         * CalendarListItemResponse
+         * @description One Google Calendar or CalDAV calendar available to an account.
+         */
+        CalendarListItemResponse: {
+            /** Access Role */
+            access_role?: string | null;
+            /** Account */
+            account: string;
+            /** Color */
+            color?: string | null;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Primary */
+            primary?: boolean | null;
+            /** Provider */
+            provider: string;
+            /** Url */
+            url?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * CalendarMutationResponse
+         * @description Calendar mutation result and planning-store revision.
+         */
+        CalendarMutationResponse: {
+            calendar: components["schemas"]["CalendarResponse"];
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * CalendarPayload
+         * @description Backward-compatible create/update payload for a work calendar.
+         */
         CalendarPayload: {
             /** Holidays */
             holidays?: string[] | null;
@@ -10168,6 +10619,83 @@ export interface components {
             workday_start?: string | null;
             /** Working Weekdays */
             working_weekdays?: number[] | null;
+        };
+        /**
+         * CalendarResponse
+         * @description Normalized work calendar.
+         */
+        CalendarResponse: {
+            /** Holidays */
+            holidays: string[];
+            /** Hours Per Day */
+            hours_per_day: number;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Workday Start */
+            workday_start: string;
+            /** Working Weekdays */
+            working_weekdays: number[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * CalendarRsvpRequest
+         * @description RSVP body with optional fields so legacy validation remains HTTP 400.
+         */
+        CalendarRsvpRequest: {
+            /**
+             * Calendar Id
+             * @default primary
+             */
+            calendar_id: string;
+            /** Email */
+            email?: string | null;
+            /** Rsvp */
+            rsvp?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CalendarRsvpResponse */
+        CalendarRsvpResponse: {
+            /**
+             * Ok
+             * @constant
+             */
+            ok: true;
+            /** Rsvp */
+            rsvp: string;
+        };
+        /** CalendarStatusMessageResponse */
+        CalendarStatusMessageResponse: {
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
+        /** CalendarStatusResponse */
+        CalendarStatusResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "success" | "not_found";
+        };
+        /** CalendarSyncResponse */
+        CalendarSyncResponse: {
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+            /** Synced Count */
+            synced_count: number;
         };
         /** CancelScheduledPostResponse */
         CancelScheduledPostResponse: {
@@ -10733,6 +11261,55 @@ export interface components {
             /** Truncated */
             truncated: boolean;
         };
+        /** FreeBusyCalendarResponse */
+        FreeBusyCalendarResponse: {
+            /** Busy */
+            busy?: components["schemas"]["FreeBusyPeriodResponse"][] | null;
+            /** Errors */
+            errors?: components["schemas"]["GoogleApiErrorResponse"][] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** FreeBusyGroupResponse */
+        FreeBusyGroupResponse: {
+            /** Calendars */
+            calendars?: string[] | null;
+            /** Errors */
+            errors?: components["schemas"]["GoogleApiErrorResponse"][] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** FreeBusyPeriodResponse */
+        FreeBusyPeriodResponse: {
+            /** End */
+            end: string;
+            /** Start */
+            start: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * FreeBusyResponse
+         * @description Google free/busy response, including the legacy empty-object variant.
+         */
+        FreeBusyResponse: {
+            /** Calendars */
+            calendars?: {
+                [key: string]: components["schemas"]["FreeBusyCalendarResponse"];
+            } | null;
+            /** Groups */
+            groups?: {
+                [key: string]: components["schemas"]["FreeBusyGroupResponse"];
+            } | null;
+            /** Kind */
+            kind?: string | null;
+            /** Timemax */
+            timeMax?: string | null;
+            /** Timemin */
+            timeMin?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** FullTextRequest */
         FullTextRequest: {
             /**
@@ -10780,6 +11357,242 @@ export interface components {
              * @default
              */
             prompt: string | null;
+        };
+        /** GoogleApiErrorResponse */
+        GoogleApiErrorResponse: {
+            /** Domain */
+            domain?: string | null;
+            /** Reason */
+            reason?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GoogleEventAttendeeResponse
+         * @description Google event attendee with invitation state.
+         */
+        GoogleEventAttendeeResponse: {
+            /** Additionalguests */
+            additionalGuests?: number | null;
+            /** Comment */
+            comment?: string | null;
+            /** Displayname */
+            displayName?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Optional */
+            optional?: boolean | null;
+            /** Organizer */
+            organizer?: boolean | null;
+            /** Resource */
+            resource?: boolean | null;
+            /** Responsestatus */
+            responseStatus?: string | null;
+            /** Self */
+            self?: boolean | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GoogleEventPersonResponse
+         * @description Google event creator or organizer.
+         */
+        GoogleEventPersonResponse: {
+            /** Displayname */
+            displayName?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Self */
+            self?: boolean | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GoogleEventResourceResponse
+         * @description Google event resource returned after creation.
+         *
+         *     Google can add feature-specific objects over time. Stable fields remain
+         *     typed while ``extra="allow"`` preserves such provider additions verbatim.
+         */
+        GoogleEventResourceResponse: {
+            /** Attendees */
+            attendees?: components["schemas"]["GoogleEventAttendeeResponse"][] | null;
+            /** Attendeesomitted */
+            attendeesOmitted?: boolean | null;
+            /** Colorid */
+            colorId?: string | null;
+            conferenceData?: components["schemas"]["JsonValue"] | null;
+            /** Created */
+            created?: string | null;
+            creator?: components["schemas"]["GoogleEventPersonResponse"] | null;
+            /** Description */
+            description?: string | null;
+            end?: components["schemas"]["GoogleEventTimeResponse"] | null;
+            /** Endtimeunspecified */
+            endTimeUnspecified?: boolean | null;
+            /** Etag */
+            etag?: string | null;
+            /** Eventtype */
+            eventType?: string | null;
+            extendedProperties?: components["schemas"]["JsonValue"] | null;
+            /** Hangoutlink */
+            hangoutLink?: string | null;
+            /** Htmllink */
+            htmlLink?: string | null;
+            /** Icaluid */
+            iCalUID?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Kind */
+            kind?: string | null;
+            /** Location */
+            location?: string | null;
+            organizer?: components["schemas"]["GoogleEventPersonResponse"] | null;
+            originalStartTime?: components["schemas"]["GoogleEventTimeResponse"] | null;
+            /** Recurrence */
+            recurrence?: string[] | null;
+            /** Recurringeventid */
+            recurringEventId?: string | null;
+            /** Sequence */
+            sequence?: number | null;
+            start?: components["schemas"]["GoogleEventTimeResponse"] | null;
+            /** Status */
+            status?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Transparency */
+            transparency?: string | null;
+            /** Updated */
+            updated?: string | null;
+            /** Visibility */
+            visibility?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GoogleEventTimeResponse
+         * @description Google event date or date-time envelope.
+         */
+        GoogleEventTimeResponse: {
+            /** Date */
+            date?: string | null;
+            /** Datetime */
+            dateTime?: string | null;
+            /** Timezone */
+            timeZone?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GraphEdgeResponse
+         * @description One structural, relation, link, or suggestion graph edge.
+         */
+        GraphEdgeResponse: {
+            /** Body Link */
+            body_link: boolean;
+            /** Color */
+            color: string;
+            /** Dashed */
+            dashed: boolean;
+            /** Directed */
+            directed: boolean;
+            /** Dst */
+            dst: string | number | boolean;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Reason */
+            reason?: string | null;
+            /** Size */
+            size: number;
+            /** Source */
+            source: string | number | boolean;
+            /** Src */
+            src: string | number | boolean;
+            /** Suggestion Id */
+            suggestion_id?: string | null;
+            /** Target */
+            target: string | number | boolean;
+            /** Unresolved */
+            unresolved: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GraphLegendItemResponse
+         * @description Count and display color for one node kind or cluster.
+         */
+        GraphLegendItemResponse: {
+            /** Color */
+            color: string;
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GraphLegendResponse
+         * @description Dynamic legends derived from the projected nodes.
+         */
+        GraphLegendResponse: {
+            /** Clusters */
+            clusters: components["schemas"]["GraphLegendItemResponse"][];
+            /** Kinds */
+            kinds: components["schemas"]["GraphLegendItemResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GraphNodeResponse
+         * @description One projected page, contact, or unresolved graph node.
+         */
+        GraphNodeResponse: {
+            /** Cluster */
+            cluster: string | null;
+            /** Color */
+            color: string;
+            /** Database Id */
+            database_id: string | number | boolean | null;
+            /** Id */
+            id: string | number | boolean;
+            /** Key */
+            key: string | number | boolean;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** Path */
+            path: string;
+            /** Size */
+            size: number;
+            /** Table Id */
+            table_id: string | number | boolean | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GraphResponse
+         * @description Complete graph, optionally marked as partial after skipped directories.
+         */
+        GraphResponse: {
+            /** Edges */
+            edges: components["schemas"]["GraphEdgeResponse"][];
+            legend: components["schemas"]["GraphLegendResponse"];
+            /** Nodes */
+            nodes: components["schemas"]["GraphNodeResponse"][];
+            /** Partial */
+            partial?: boolean | null;
+            /** Skipped Dirs */
+            skipped_dirs?: string[] | null;
+        } & {
+            [key: string]: unknown;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -10892,6 +11705,95 @@ export interface components {
              * @constant
              */
             status: "success";
+        };
+        JsonValue: unknown;
+        /**
+         * LevelingApplyResponse
+         * @description Result of applying a current, ETag-validated proposal.
+         */
+        LevelingApplyResponse: {
+            /** Automaticwrites */
+            automaticWrites: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            decision: components["schemas"]["LevelingDecisionRecordResponse"];
+            /** Updatedassignments */
+            updatedAssignments: components["schemas"]["AppliedAssignmentChangeResponse"][];
+        };
+        /**
+         * LevelingChangeResponse
+         * @description One review-only assignment shift proposed for an overload.
+         */
+        LevelingChangeResponse: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Delay Working Days */
+            delay_working_days: number;
+            /** Id */
+            id: string;
+            /** Reason */
+            reason: string;
+            /** Requires Review */
+            requires_review: boolean;
+            /** Resource Id */
+            resource_id: string;
+            /** Source Date */
+            source_date: string;
+            /** Source End */
+            source_end: string;
+            /** Source Start */
+            source_start: string;
+            /** Suggested End */
+            suggested_end: string;
+            /** Suggested Start */
+            suggested_start: string;
+            /** Task Id */
+            task_id: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * LevelingDecisionRecordResponse
+         * @description Append-only acceptance record for a leveling proposal.
+         */
+        LevelingDecisionRecordResponse: {
+            /** Acceptedat */
+            acceptedAt: string;
+            /** Appliedchanges */
+            appliedChanges: components["schemas"]["AppliedAssignmentChangeResponse"][];
+            /** Etags */
+            etags: {
+                [key: string]: string;
+            };
+            /** Id */
+            id: string;
+            /** Proposalid */
+            proposalId: string;
+            /** Schedulerevision */
+            scheduleRevision: number;
+            /**
+             * Type
+             * @constant
+             */
+            type: "leveling_decision";
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * LevelingProposalResponse
+         * @description Non-persisted resource-leveling preview.
+         */
+        LevelingProposalResponse: {
+            /** Automatic Apply Supported */
+            automatic_apply_supported: boolean;
+            /** Proposals */
+            proposals: components["schemas"]["LevelingChangeResponse"][];
+            /** Revision */
+            revision: number;
+            /** Warnings */
+            warnings: components["schemas"]["AllocationWarningResponse"][];
+        } & {
+            [key: string]: unknown;
         };
         /** LinkMentionsRequest */
         LinkMentionsRequest: {
@@ -11092,6 +11994,66 @@ export interface components {
             /** Value */
             value: string;
         };
+        /**
+         * MaterializedTaskResponse
+         * @description Stable task created for one recurrence occurrence.
+         */
+        MaterializedTaskResponse: {
+            /** Id */
+            id: string;
+            /** Occurrence */
+            occurrence: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * MeetingReminderResponse
+         * @description Persisted reminder; every field is optional for legacy state files.
+         */
+        MeetingReminderResponse: {
+            /** Agenda */
+            agenda?: string | null;
+            /** Attendees */
+            attendees?: components["schemas"]["CalendarAttendeeResponse"][] | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Dismissed */
+            dismissed?: boolean | null;
+            /** End */
+            end?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Key */
+            key?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Minutes Until */
+            minutes_until?: number | null;
+            /** Provider */
+            provider?: string | null;
+            /** Start */
+            start?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Vault Path */
+            vault_path?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MeetingReminderSettingsResponse */
+        MeetingReminderSettingsResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Lead Minutes */
+            lead_minutes: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MeetingRemindersResponse */
+        MeetingRemindersResponse: {
+            /** Reminders */
+            reminders: components["schemas"]["MeetingReminderResponse"][];
+        };
         /** MemberResponse */
         MemberResponse: {
             /** Email */
@@ -11272,7 +12234,116 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
-        /** NotebookCreateRequest */
+        /**
+         * NotebookChatNotebookResponse
+         * @description Another authorized notebook that can provide chat context.
+         */
+        NotebookChatNotebookResponse: {
+            /** Active Revision */
+            active_revision: number;
+            /** Id */
+            id: string;
+            /** Source Count */
+            source_count: number;
+            /** Title */
+            title: string;
+            /** Visibility */
+            visibility: string;
+        };
+        /**
+         * NotebookChatSourceResponse
+         * @description One source that can be pinned into a future notebook chat turn.
+         */
+        NotebookChatSourceResponse: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Resource Id */
+            resource_id: string;
+            /** Source Id */
+            source_id: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * NotebookChatSourcesResponse
+         * @description Authorized source and notebook choices for future chat turns.
+         */
+        NotebookChatSourcesResponse: {
+            /** Active Revision */
+            active_revision: number | null;
+            /** Notebook Id */
+            notebook_id: string;
+            /** Notebooks */
+            notebooks: components["schemas"]["NotebookChatNotebookResponse"][];
+            /** Sources */
+            sources: components["schemas"]["NotebookChatSourceResponse"][];
+        };
+        /**
+         * NotebookCitationResponse
+         * @description Stable navigation metadata for one notebook evidence fragment.
+         */
+        NotebookCitationResponse: {
+            /** Chunk Id */
+            chunk_id: string;
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+            /** Resource Id */
+            resource_id: string;
+            /** Revision */
+            revision: number;
+            /** Source Id */
+            source_id: string;
+        };
+        /**
+         * NotebookConversationMessageResponse
+         * @description One user-visible notebook transcript message and its public metadata.
+         */
+        NotebookConversationMessageResponse: {
+            /** Author User Id */
+            author_user_id?: string | null;
+            citations?: components["schemas"]["JsonValue"];
+            conflicts?: components["schemas"]["JsonValue"];
+            /** Content */
+            content: string;
+            evidence_security?: components["schemas"]["JsonValue"];
+            explanation?: components["schemas"]["JsonValue"];
+            freshness?: components["schemas"]["JsonValue"];
+            job?: components["schemas"]["JsonValue"];
+            plan?: components["schemas"]["JsonValue"];
+            privacy?: components["schemas"]["JsonValue"];
+            quality?: components["schemas"]["JsonValue"];
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            timings?: components["schemas"]["JsonValue"];
+            /** Turn Id */
+            turn_id?: string | null;
+            verification?: components["schemas"]["JsonValue"];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * NotebookConversationResponse
+         * @description Canonical notebook transcript, including the empty legacy variant.
+         */
+        NotebookConversationResponse: {
+            /** Conversation Mode */
+            conversation_mode?: string | null;
+            /** Messages */
+            messages: components["schemas"]["NotebookConversationMessageResponse"][];
+            /** Session Id */
+            session_id: string;
+        };
+        /**
+         * NotebookCreateRequest
+         * @description Create a grounded notebook from one or more reference resources.
+         */
         NotebookCreateRequest: {
             /**
              * Conversation Mode
@@ -11294,7 +12365,118 @@ export interface components {
              */
             visibility: "private" | "workspace";
         };
-        /** NotebookPatchRequest */
+        /**
+         * NotebookDetailResponse
+         * @description Notebook summary enriched with permissions and chat identifiers.
+         */
+        NotebookDetailResponse: {
+            /** Active Revision */
+            active_revision: number | null;
+            /** Can Chat */
+            can_chat: boolean;
+            /** Can Manage */
+            can_manage: boolean;
+            /** Chat Ready */
+            chat_ready: boolean;
+            /** Conversation Mode */
+            conversation_mode: string;
+            /** Conversation Principal */
+            conversation_principal: string;
+            /** Conversation Session Id */
+            conversation_session_id: string;
+            /** Created At */
+            created_at: string;
+            /** Groups */
+            groups?: components["schemas"]["NotebookGroupResponse"][];
+            /**
+             * Groups Json
+             * @default []
+             */
+            groups_json: string;
+            /** Id */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Owner User Id */
+            owner_user_id: string;
+            progress?: components["schemas"]["NotebookProgressResponse"] | null;
+            /** Resource Count */
+            resource_count: number;
+            source_counts: components["schemas"]["NotebookSourceCountsResponse"];
+            /** Source Table Id */
+            source_table_id: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+            /** Vault Scope */
+            vault_scope: string;
+            /** Visibility */
+            visibility: string;
+            /** Workspace Id */
+            workspace_id: string;
+        };
+        /**
+         * NotebookEvidenceResponse
+         * @description One complete evidence fragment from a pinned notebook revision.
+         */
+        NotebookEvidenceResponse: {
+            /** Chunk Id */
+            chunk_id: string;
+            citation: components["schemas"]["NotebookCitationResponse"];
+            /** Locator */
+            locator: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Notebook Id */
+            notebook_id: string;
+            /** Resource Id */
+            resource_id: string;
+            /** Revision */
+            revision: number;
+            /** Source Id */
+            source_id: string;
+            /** Source Kind */
+            source_kind: string;
+            /** Source Label */
+            source_label: string;
+            /** Source Status */
+            source_status: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * NotebookGroupResponse
+         * @description One named group of resources inside a notebook.
+         */
+        NotebookGroupResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Resource Ids */
+            resource_ids: string[];
+        };
+        /**
+         * NotebookPageResponse
+         * @description One page of notebooks visible in the active workspace.
+         */
+        NotebookPageResponse: {
+            /** Items */
+            items: components["schemas"]["NotebookSummaryResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * NotebookPatchRequest
+         * @description Mutable notebook metadata and resource groups.
+         */
         NotebookPatchRequest: {
             /** Conversation Mode */
             conversation_mode?: ("shared" | "private_member") | null;
@@ -11307,7 +12489,38 @@ export interface components {
             /** Visibility */
             visibility?: ("private" | "workspace") | null;
         };
-        /** NotebookRefreshRequest */
+        /**
+         * NotebookProgressResponse
+         * @description Observable state of the latest notebook ingestion revision.
+         */
+        NotebookProgressResponse: {
+            /** Cancel Requested At */
+            cancel_requested_at: string | null;
+            /** Cancellable */
+            cancellable: boolean;
+            /** Current Resource Id */
+            current_resource_id: string | null;
+            /** Current Resource Title */
+            current_resource_title: string | null;
+            /** Error */
+            error: string | null;
+            /** Job Id */
+            job_id: string | null;
+            /** Percent */
+            percent: number;
+            /** Processed */
+            processed: number;
+            /** Revision */
+            revision: number;
+            /** State */
+            state: string;
+            /** Total */
+            total: number;
+        };
+        /**
+         * NotebookRefreshRequest
+         * @description Options for a complete or targeted notebook refresh.
+         */
         NotebookRefreshRequest: {
             /**
              * Force
@@ -11320,10 +12533,211 @@ export interface components {
              */
             reason: string;
         };
-        /** NotebookSourcesRequest */
+        /**
+         * NotebookRefreshResponse
+         * @description Current, queued, or already-running notebook refresh state.
+         */
+        NotebookRefreshResponse: {
+            /** Available Sources */
+            available_sources?: number | null;
+            /** Cancel Requested At */
+            cancel_requested_at?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Current Resource Id */
+            current_resource_id?: string | null;
+            /** Current Resource Title */
+            current_resource_title?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Error Sources */
+            error_sources?: number | null;
+            /** Job Id */
+            job_id?: string | null;
+            /** Notebook Id */
+            notebook_id?: string | null;
+            /** Processed Resources */
+            processed_resources?: number | null;
+            /** Retention Eligible */
+            retention_eligible?: number | null;
+            /** Revision */
+            revision: number | null;
+            /** State */
+            state: string;
+            /** Total Resources */
+            total_resources?: number | null;
+        };
+        /**
+         * NotebookResourceResponse
+         * @description One notebook resource and its extracted sources.
+         */
+        NotebookResourceResponse: {
+            /** Error */
+            error: string | null;
+            /** Last Checked At */
+            last_checked_at: string | null;
+            /** Resource Id */
+            resource_id: string;
+            /** Sources */
+            sources: components["schemas"]["NotebookSourceResponse"][];
+            /** State */
+            state: string;
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+            /** Url Checked At */
+            url_checked_at: string | null;
+        };
+        /**
+         * NotebookSearchResponse
+         * @description Hybrid retrieval results, including the no-active-revision variant.
+         */
+        NotebookSearchResponse: {
+            /** Notebook Id */
+            notebook_id: string;
+            /** Query */
+            query?: string | null;
+            /** Results */
+            results: components["schemas"]["NotebookSearchResultResponse"][];
+            /** Revision */
+            revision: number | null;
+        };
+        /**
+         * NotebookSearchResultResponse
+         * @description One ranked evidence fragment returned by notebook retrieval.
+         */
+        NotebookSearchResultResponse: {
+            /** Chunk Id */
+            chunk_id: string;
+            citation: components["schemas"]["NotebookCitationResponse"];
+            /** Locator */
+            locator: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Resource Id */
+            resource_id: string;
+            /** Score */
+            score: number;
+            /** Source Id */
+            source_id: string;
+            /** Source Kind */
+            source_kind: string;
+            /** Source Label */
+            source_label: string;
+            /** Source Status */
+            source_status: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * NotebookSourceCountsResponse
+         * @description Source availability totals for the active notebook revision.
+         */
+        NotebookSourceCountsResponse: {
+            /** Available */
+            available: number;
+            /** Error */
+            error: number;
+            /** Stale */
+            stale: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * NotebookSourceResponse
+         * @description One extracted source in an immutable notebook revision.
+         */
+        NotebookSourceResponse: {
+            /** Error */
+            error: string | null;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Resource Id */
+            resource_id: string;
+            /** Snapshot Id */
+            snapshot_id: string | null;
+            /** Source Id */
+            source_id: string;
+            /** Source Url */
+            source_url: string | null;
+            /** Status */
+            status: string;
+        };
+        /**
+         * NotebookSourcesPageResponse
+         * @description One page of resources and sources attached to a notebook.
+         */
+        NotebookSourcesPageResponse: {
+            /** Active Revision */
+            active_revision: number | null;
+            /** Items */
+            items: components["schemas"]["NotebookResourceResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * NotebookSourcesRequest
+         * @description Reference resources to attach to an existing notebook.
+         */
         NotebookSourcesRequest: {
             /** Resource Ids */
             resource_ids: string[];
+        };
+        /**
+         * NotebookSummaryResponse
+         * @description Stable notebook inventory item shared by list and detail responses.
+         */
+        NotebookSummaryResponse: {
+            /** Active Revision */
+            active_revision: number | null;
+            /** Chat Ready */
+            chat_ready: boolean;
+            /** Conversation Mode */
+            conversation_mode: string;
+            /** Created At */
+            created_at: string;
+            /** Groups */
+            groups?: components["schemas"]["NotebookGroupResponse"][];
+            /**
+             * Groups Json
+             * @default []
+             */
+            groups_json: string;
+            /** Id */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Owner User Id */
+            owner_user_id: string;
+            progress?: components["schemas"]["NotebookProgressResponse"] | null;
+            /** Resource Count */
+            resource_count: number;
+            source_counts: components["schemas"]["NotebookSourceCountsResponse"];
+            /** Source Table Id */
+            source_table_id: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+            /** Vault Scope */
+            vault_scope: string;
+            /** Visibility */
+            visibility: string;
+            /** Workspace Id */
+            workspace_id: string;
         };
         /**
          * NotificationCreate
@@ -11509,6 +12923,88 @@ export interface components {
             text: string;
         };
         /**
+         * PlanningDefaultsResponse
+         * @description Vault-level planning defaults.
+         */
+        PlanningDefaultsResponse: {
+            /** Currency */
+            currency: string;
+            /** Project Relation Field Id */
+            project_relation_field_id: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * PlanningDeletionResponse
+         * @description Stable identifier deleted from the planning store.
+         */
+        PlanningDeletionResponse: {
+            /** Deleted */
+            deleted: string;
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * PlanningScheduledTaskResponse
+         * @description One calculated task, accepting fields absent from older cached schedules.
+         */
+        PlanningScheduledTaskResponse: {
+            actualEnd?: components["schemas"]["JsonValue"];
+            actualStart?: components["schemas"]["JsonValue"];
+            /** Critical */
+            critical?: boolean | null;
+            /** Durationdays */
+            durationDays?: number | null;
+            /** End */
+            end?: string | null;
+            /** Freeslackminutes */
+            freeSlackMinutes?: number | null;
+            /** Id */
+            id: string;
+            /** Lateend */
+            lateEnd?: string | null;
+            /** Latestart */
+            lateStart?: string | null;
+            /** Percentcomplete */
+            percentComplete?: number | null;
+            /** Period */
+            period?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Sourceetag */
+            sourceEtag?: string | null;
+            /** Start */
+            start?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Trace */
+            trace?: string[] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * PlanningStateResponse
+         * @description Vault planning state plus its derived allocation report.
+         */
+        PlanningStateResponse: {
+            allocation: components["schemas"]["AllocationResponse"];
+            /** Assignments */
+            assignments: components["schemas"]["AssignmentResponse"][];
+            /** Calendars */
+            calendars: components["schemas"]["CalendarResponse"][];
+            defaults: components["schemas"]["PlanningDefaultsResponse"];
+            /** Recurrences */
+            recurrences: components["schemas"]["RecurrenceResponse"][];
+            /** Resources */
+            resources: components["schemas"]["ResourceResponse"][];
+            /** Revision */
+            revision: number;
+            /** Version */
+            version: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * PluginLifecycleRequest
          * @description Explicit lifecycle request for a built-in or installed plugin.
          */
@@ -11602,7 +13098,34 @@ export interface components {
             /** Processed */
             processed: number;
         };
-        /** ProposalApplyPayload */
+        /**
+         * ProjectScheduleResponse
+         * @description Cached project schedule or its intentional empty short variant.
+         */
+        ProjectScheduleResponse: {
+            /** Criticaltaskids */
+            criticalTaskIds: string[];
+            /** Cycles */
+            cycles?: string[][] | null;
+            /** Diagnostics */
+            diagnostics: components["schemas"]["ScheduleDiagnosticResponse"][];
+            /** Generatedat */
+            generatedAt?: string | null;
+            /** Planningrevision */
+            planningRevision?: number | null;
+            /** Projectid */
+            projectId: string;
+            /** Schedulerevision */
+            scheduleRevision: number | null;
+            /** Tasks */
+            tasks: components["schemas"]["PlanningScheduledTaskResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ProposalApplyPayload
+         * @description Optimistic-concurrency inputs for accepting a leveling proposal.
+         */
         ProposalApplyPayload: {
             /**
              * Etags
@@ -11686,6 +13209,18 @@ export interface components {
              * @default
              */
             source_title: string;
+        };
+        /**
+         * RateHistoryEntryResponse
+         * @description One optional effective resource rate retained in planning storage.
+         */
+        RateHistoryEntryResponse: {
+            /** Effective From */
+            effective_from?: string | null;
+            /** Standard Rate */
+            standard_rate?: number | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * ReaderAnalysisJobResponse
@@ -12156,7 +13691,10 @@ export interface components {
              */
             unread_only: boolean;
         };
-        /** RecalculatePayload */
+        /**
+         * RecalculatePayload
+         * @description Task snapshot used to rebuild one project schedule.
+         */
         RecalculatePayload: {
             /** Status Date */
             status_date?: string | null;
@@ -12166,7 +13704,28 @@ export interface components {
              */
             tasks: components["schemas"]["TaskFactPayload"][];
         };
-        /** RecurrencePayload */
+        /**
+         * RecurrenceMaterializationResponse
+         * @description Updated recurrence ledger plus newly created task pages.
+         */
+        RecurrenceMaterializationResponse: {
+            /** Created */
+            created: components["schemas"]["MaterializedTaskResponse"][];
+            recurrence: components["schemas"]["RecurrenceResponse"];
+        };
+        /**
+         * RecurrenceMutationResponse
+         * @description Stored recurrence and planning-store revision.
+         */
+        RecurrenceMutationResponse: {
+            recurrence: components["schemas"]["RecurrenceResponse"];
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * RecurrencePayload
+         * @description RRULE declaration tied to one source task.
+         */
         RecurrencePayload: {
             /**
              * Exdates
@@ -12177,6 +13736,93 @@ export interface components {
             rrule: string;
             /** Task Id */
             task_id: string;
+        };
+        /**
+         * RecurrenceResponse
+         * @description Stored RRULE declaration and its optional materialization ledger.
+         */
+        RecurrenceResponse: {
+            /** Exdates */
+            exdates?: string[] | null;
+            /** Id */
+            id: string;
+            /** Materialized Occurrences */
+            materialized_occurrences?: string[] | null;
+            /** Rrule */
+            rrule: string;
+            /** Task Id */
+            task_id: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ReferenceFacetOptionResponse
+         * @description One value and count in a reference-resource facet.
+         */
+        ReferenceFacetOptionResponse: {
+            /** Count */
+            count: number;
+            /** Value */
+            value: string;
+        };
+        /**
+         * ReferenceResourceFacetsResponse
+         * @description Available type, author and tag filters for reference resources.
+         */
+        ReferenceResourceFacetsResponse: {
+            /** Authors */
+            authors?: components["schemas"]["ReferenceFacetOptionResponse"][];
+            /** Tags */
+            tags?: components["schemas"]["ReferenceFacetOptionResponse"][];
+            /** Types */
+            types?: components["schemas"]["ReferenceFacetOptionResponse"][];
+        };
+        /**
+         * ReferenceResourcePageResponse
+         * @description Paged reference-resource selector, including optional legacy facets.
+         */
+        ReferenceResourcePageResponse: {
+            facets?: components["schemas"]["ReferenceResourceFacetsResponse"];
+            /**
+             * Hidden Without Sources
+             * @default 0
+             */
+            hidden_without_sources: number;
+            /** Items */
+            items: components["schemas"]["ReferenceResourceResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /**
+             * Source Fields
+             * @default 0
+             */
+            source_fields: number;
+            /** Table Id */
+            table_id?: string | null;
+            /** Total */
+            total: number;
+        };
+        /**
+         * ReferenceResourceResponse
+         * @description One reference resource eligible for notebook ingestion.
+         */
+        ReferenceResourceResponse: {
+            /** Authors */
+            authors: string[];
+            /** Id */
+            id: string;
+            /** Last Modified */
+            last_modified: string | null;
+            /** Resource Type */
+            resource_type: string | null;
+            /** Source Count */
+            source_count: number;
+            /** Tags */
+            tags: string[];
+            /** Title */
+            title: string;
         };
         /** RegisterPayload */
         RegisterPayload: {
@@ -12389,7 +14035,19 @@ export interface components {
              */
             tombstones: boolean;
         };
-        /** ResourcePayload */
+        /**
+         * ResourceMutationResponse
+         * @description Resource mutation result and planning-store revision.
+         */
+        ResourceMutationResponse: {
+            resource: components["schemas"]["ResourceResponse"];
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * ResourcePayload
+         * @description Backward-compatible create/update payload for a planning resource.
+         */
         ResourcePayload: {
             /** Active */
             active?: boolean | null;
@@ -12411,6 +14069,37 @@ export interface components {
             standard_rate?: number | null;
             /** Type */
             type?: string | null;
+        };
+        /**
+         * ResourceResponse
+         * @description Normalized planning resource, including optional Gnosi 2 additions.
+         */
+        ResourceResponse: {
+            /** Active */
+            active: boolean;
+            /** Availability Units */
+            availability_units: number;
+            /** Calendar Id */
+            calendar_id: string | null;
+            /** Cost Per Use */
+            cost_per_use: number;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Overtime Rate */
+            overtime_rate?: number | null;
+            /** Rate History */
+            rate_history?: components["schemas"]["RateHistoryEntryResponse"][] | null;
+            /** Standard Rate */
+            standard_rate: number;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "work" | "material" | "cost";
+        } & {
+            [key: string]: unknown;
         };
         /** ReviewCreateRequest */
         ReviewCreateRequest: {
@@ -12467,6 +14156,24 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             role?: components["schemas"]["UserRole"] | null;
+        };
+        /**
+         * ScheduleDiagnosticResponse
+         * @description Scheduling diagnostic for one task, several tasks, or the project.
+         */
+        ScheduleDiagnosticResponse: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Severity */
+            severity: string;
+            /** Taskid */
+            taskId?: string | null;
+            /** Taskids */
+            taskIds?: string[] | null;
+        } & {
+            [key: string]: unknown;
         };
         /** ScheduledPostResponse */
         ScheduledPostResponse: {
@@ -12703,6 +14410,44 @@ export interface components {
              */
             status: "ok";
         };
+        /**
+         * StoredLevelingProposalResponse
+         * @description Persisted proposal with optimistic-concurrency metadata.
+         */
+        StoredLevelingProposalResponse: {
+            /** Automatic Apply Supported */
+            automatic_apply_supported: boolean;
+            /** Createdat */
+            createdAt: string;
+            /** Id */
+            id: string;
+            /** Projectid */
+            projectId: string;
+            /** Proposals */
+            proposals: components["schemas"]["LevelingChangeResponse"][];
+            /** Revision */
+            revision: number;
+            /** Schedulerevision */
+            scheduleRevision: number;
+            /** Sourceetags */
+            sourceEtags: {
+                [key: string]: string;
+            };
+            /**
+             * Status
+             * @constant
+             */
+            status: "pending";
+            /**
+             * Type
+             * @constant
+             */
+            type: "leveling_proposal";
+            /** Warnings */
+            warnings: components["schemas"]["AllocationWarningResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
         /** Stream */
         Stream: {
             /** Icon */
@@ -12763,7 +14508,10 @@ export interface components {
             /** Visible Count */
             visible_count: number;
         };
-        /** TaskFactPayload */
+        /**
+         * TaskFactPayload
+         * @description Markdown-owned task facts accepted by schedule recalculation.
+         */
         TaskFactPayload: {
             /** Etag */
             etag?: string | null;
@@ -13155,7 +14903,29 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** WorklogPayload */
+        /**
+         * WorklogCreateResponse
+         * @description Envelope returned after appending a worklog.
+         */
+        WorklogCreateResponse: {
+            worklog: components["schemas"]["WorklogResponse"];
+        };
+        /**
+         * WorklogListResponse
+         * @description Worklog history plus derived actual-hours totals.
+         */
+        WorklogListResponse: {
+            /** Actualhoursbytask */
+            actualHoursByTask: {
+                [key: string]: number;
+            };
+            /** Worklogs */
+            worklogs: components["schemas"]["WorklogResponse"][];
+        };
+        /**
+         * WorklogPayload
+         * @description Append-only actual-work entry.
+         */
         WorklogPayload: {
             /** Correction Of */
             correction_of?: string | null;
@@ -13167,6 +14937,33 @@ export interface components {
             resource_id?: string | null;
             /** Task Id */
             task_id: string;
+        };
+        /**
+         * WorklogResponse
+         * @description Append-only actual-work record.
+         */
+        WorklogResponse: {
+            /** Correctionof */
+            correctionOf: string | null;
+            /** Createdat */
+            createdAt: string;
+            /** Date */
+            date: string;
+            /** Hours */
+            hours: number;
+            /** Id */
+            id: string;
+            /** Resourceid */
+            resourceId: string | null;
+            /** Taskid */
+            taskId: string;
+            /**
+             * Type
+             * @constant
+             */
+            type: "worklog";
+        } & {
+            [key: string]: unknown;
         };
         /** WorkspaceBase */
         WorkspaceBase: {
@@ -15759,7 +17556,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarAttendeeSearchResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -15797,7 +17594,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarListItemResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -15840,7 +17637,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarEventResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -15885,7 +17682,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GoogleEventResourceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15926,7 +17723,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarEventResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15968,7 +17765,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16015,7 +17812,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16053,7 +17850,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarStatusMessageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16085,9 +17882,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["CalendarInviteRequest"];
             };
         };
         responses: {
@@ -16097,7 +17892,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarInviteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16129,9 +17924,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["CalendarRsvpRequest"];
             };
         };
         responses: {
@@ -16141,7 +17934,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarRsvpResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16179,7 +17972,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarStatusMessageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16258,7 +18051,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FreeBusyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16296,7 +18089,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarGeocodeResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -16332,7 +18125,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MeetingRemindersResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16370,7 +18163,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16406,7 +18199,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MeetingReminderSettingsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16448,7 +18241,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MeetingReminderSettingsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16486,7 +18279,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarSyncResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17745,9 +19538,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GraphResponse"];
                 };
             };
         };
@@ -20006,7 +21797,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20046,7 +21837,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20086,7 +21877,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20164,7 +21955,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20202,7 +21993,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookChatSourcesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20240,7 +22031,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookConversationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20281,7 +22072,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookEvidenceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20323,7 +22114,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookRefreshResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20361,7 +22152,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20402,7 +22193,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookSearchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20443,7 +22234,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookSourcesPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20485,7 +22276,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20524,7 +22315,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20567,7 +22358,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotebookRefreshResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20611,7 +22402,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReferenceResourcePageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21327,7 +23118,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AllocationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21367,7 +23158,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssignmentMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21405,7 +23196,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PlanningDeletionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21447,7 +23238,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssignmentMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21487,7 +23278,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21525,7 +23316,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PlanningDeletionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21567,7 +23358,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CalendarMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21603,7 +23394,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LevelingProposalResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21645,7 +23436,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LevelingApplyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21683,7 +23474,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BaselineListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21725,7 +23516,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BaselineCreateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21764,7 +23555,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BaselineVarianceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21802,7 +23593,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StoredLevelingProposalResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21844,7 +23635,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProjectScheduleResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21882,7 +23673,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProjectScheduleResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21922,7 +23713,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RecurrenceMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21962,7 +23753,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RecurrenceMaterializationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22002,7 +23793,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22040,7 +23831,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PlanningDeletionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22082,7 +23873,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22118,7 +23909,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PlanningStateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22156,7 +23947,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorklogListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22196,7 +23987,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorklogCreateResponse"];
                 };
             };
             /** @description Validation Error */
