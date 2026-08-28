@@ -1,10 +1,14 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
+from contextlib import contextmanager
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
+from fastapi import APIRouter
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 _registry_cache = _legacy.registry_state.cache
 _registry_cache_mtime = _legacy.registry_state.cache_mtime
 _registry_cache_ts = _legacy.registry_state.cache_timestamp
@@ -66,7 +70,7 @@ def _normalize_registry_table_view_names(registry: dict[_LegacyAny, _LegacyAny])
     return _strict_cast(bool, _legacy.registry_normalize_table_view_names(registry))
 
 
-@_legacy.contextmanager
+@contextmanager
 def registry_mutation() -> _LegacyAny:
     """Wrap an entire load, modify and save registry cycle."""
     with _legacy.registry_repository.mutation():
@@ -324,13 +328,13 @@ def _pick_existing_path(file_path: str | None, attachments: object | None) -> st
     return None
 
 
-@_legacy.router.get("/registry", response_model=None)
+@router.get("/registry", response_model=None)
 async def get_registry() -> _LegacyAny:
     """Returns the full registry of databases, tables, and views (sorted alphabetically)."""
     return await _legacy.registry_api.get_registry(_legacy.registry_api_dependencies)
 
 
-@_legacy.router.post(
+@router.post(
     "/registry", dependencies=[_legacy.Depends(_legacy.require_role("admin"))], response_model=None
 )
 async def update_registry(data: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
@@ -344,7 +348,7 @@ async def update_registry(data: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)
     return await _legacy.registry_api.update_registry(data, _legacy.registry_api_dependencies)
 
 
-@_legacy.router.post(
+@router.post(
     "/open-resource",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -442,7 +446,8 @@ def _attachment_cloud_root() -> _legacy.Path | None:
             return _legacy.Path(vault_host).parent.parent
         from backend.services.context_vars import get_active_vault_path
 
-        return get_active_vault_path().parent.parent
+        active_vault = get_active_vault_path()
+        return active_vault.parent.parent if active_vault else None
     except Exception:
         return None
 
@@ -545,7 +550,7 @@ def _resolve_stored_file_target(raw: str) -> _legacy.Path | None:
     return None
 
 
-@_legacy.router.post(
+@router.post(
     "/open-local-path",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -588,4 +593,4 @@ async def open_local_path(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(.
         raise _legacy.HTTPException(status_code=500, detail=f"Could not open: {e}")
 
 
-_legacy.table_routes.register_routes(_legacy.router)
+_legacy.table_routes.register_routes(router)

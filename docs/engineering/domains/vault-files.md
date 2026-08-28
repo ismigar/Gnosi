@@ -218,6 +218,11 @@ semantic table tags, including per-page deduplication. The
 compatibility router injects the active-vault, registry, calendar and cache
 ports, so none of these services imports the HTTP facade.
 
+The registry runtime narrows its late-bound router once, uses the typed standard
+context-manager decorator for mutation cycles and treats a missing active Vault
+as an absent cloud attachment root. Registry/table route order, locking, caches
+and provider-specific attachment candidates remain unchanged.
+
 ## File providers
 
 The provider abstraction selects local, generic macOS File Provider, OneDrive,
