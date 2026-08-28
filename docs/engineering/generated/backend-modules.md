@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 214 |
-| `domains` | 368 | 83135 |
+| `domains` | 368 | 83111 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1220 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146655 source lines**.
+Total: **699 modules** and **146631 source lines**.
 
 ## agent
 
@@ -500,7 +500,7 @@ Total: **699 modules** and **146655 source lines**.
 | [`backend/domains/vault/tables/legacy_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/legacy_composition.py) | 541 | 0 | 5 | 0 | 3 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/tables/lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/lifecycle.py) | 546 | 4 | 17 | 3 | 0 | Table creation, deletion and rename services. |
 | [`backend/domains/vault/tables/options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/options.py) | 582 | 2 | 22 | 8 | 4 | Shared option catalogs and row-value rewrites. |
-| [`backend/domains/vault/tables/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py) | 542 | 0 | 41 | 24 | 25 | FastAPI boundary for databases, table rows, views and folder schemas. |
+| [`backend/domains/vault/tables/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py) | 518 | 0 | 41 | 24 | 25 | FastAPI boundary for databases, table rows, views and folder schemas. |
 | [`backend/domains/vault/tables/rows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rows.py) | 421 | 2 | 17 | 0 | 11 | Table row discovery, context resolution and read enrichment. |
 | [`backend/domains/vault/tables/rules/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/__init__.py) | 6 | 0 | 0 | 0 | 0 | Typed database formulas, rollups, lookups and automations. |
 | [`backend/domains/vault/tables/rules/automations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/automations.py) | 117 | 0 | 7 | 0 | 2 | Property-change triggers and metadata automation actions. |

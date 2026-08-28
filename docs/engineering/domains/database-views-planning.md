@@ -143,6 +143,11 @@ filters, sorting and joins. The historical `rule_engine.py`,
 `option_catalogs.py` and `view_snapshot.py` imports remain thin compatibility
 facades, including the late-bound path and relation-decoration test seams.
 
+The table HTTP boundary consumes those strict collection, lifecycle, schema,
+option, view and contained-path contracts directly. It no longer recasts their
+results, so each domain module remains the sole owner of its return type while
+the flat historical route inventory and OpenAPI document stay unchanged.
+
 Cross-record changes are serialized per table by
 `tables/formula_recalculation.py`. Concurrent requests are coalesced into a
 pending pass; every visible row is recomputed, changed Markdown is written, and
