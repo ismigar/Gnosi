@@ -644,6 +644,12 @@ resistant pending identifiers and never invokes an external-write function
 before confirmation. Confirm and cancel consume only the addressed pending
 record; non-external operations retain normal execution.
 
+The generated-tool runtime also keeps typed boundaries from registry records
+through loader caches, dynamic JSON schemas, learning-loop results and sandbox
+resource callbacks. Untrusted schema payloads are narrowed before Pydantic
+model creation; these annotations document the existing subprocess contract
+without weakening validation or moving execution into the application process.
+
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
 incremental and carry an explicit stale marker. Approved generated tools are

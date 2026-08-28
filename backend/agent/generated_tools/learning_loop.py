@@ -12,7 +12,7 @@ This ensures the agent never makes the same mistake twice.
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple
+from typing import Any
 from dataclasses import dataclass
 
 from backend.agent.directive_tools import read_directive, update_directive, list_directives
@@ -35,18 +35,18 @@ class LearningLoop:
     
     TOOL_DIRECTIVE = "tool_development"
     
-    def __init__(self):
-        self.lessons_cache: List[LessonLearned] = []
+    def __init__(self) -> None:
+        self.lessons_cache: list[LessonLearned] = []
         self._load_existing_lessons()
     
-    def _load_existing_lessons(self):
+    def _load_existing_lessons(self) -> None:
         """Load existing lessons from the directive."""
         content = read_directive.invoke({"topic": self.TOOL_DIRECTIVE})
         if "Error:" not in content:
             # Parse existing traps table
             self.lessons_cache = self._parse_traps_table(content)
     
-    def _parse_traps_table(self, content: str) -> List[LessonLearned]:
+    def _parse_traps_table(self, content: str) -> list[LessonLearned]:
         """Extract lessons from the Trampes Descobertes table."""
         lessons = []
         # Match table rows: | date | trap | solution |
@@ -62,7 +62,7 @@ class LearningLoop:
                 ))
         return lessons
     
-    def consult_before_create(self, tool_description: str) -> Dict:
+    def consult_before_create(self, tool_description: str) -> dict[str, Any]:
         """
         Consult directive before creating a new tool.
         Returns relevant lessons and patterns.
@@ -111,8 +111,8 @@ class LearningLoop:
         error_message: str,
         error_type: str,
         solution: str,
-        topic: Optional[str] = None
-    ) -> Tuple[bool, str]:
+        topic: str | None = None
+    ) -> tuple[bool, str]:
         """
         Learn from an error and update the directive.
         
@@ -173,7 +173,7 @@ class LearningLoop:
         
         return (False, f"Error guardant lliçó: {result}")
     
-    def check_code_against_lessons(self, code: str) -> List[str]:
+    def check_code_against_lessons(self, code: str) -> list[str]:
         """
         Check if code violates any known lessons/traps.
         Returns list of warnings.
