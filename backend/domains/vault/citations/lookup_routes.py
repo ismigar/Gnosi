@@ -4,7 +4,10 @@ import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
+from fastapi import APIRouter
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 
 
 def _ensure_recursos_citation_key(
@@ -200,7 +203,7 @@ def _pubmed_to_recursos(doc: dict[_LegacyAny, _LegacyAny]) -> dict[_LegacyAny, _
     )
 
 
-@_legacy.router.post(
+@router.post(
     "/lookup-metadata",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -243,7 +246,7 @@ async def lookup_metadata(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(.
 
 
 generate_citation_key_endpoint = _legacy.citation_keys_api.register_route(
-    _legacy.router, lambda: _legacy._existing_citation_keys
+    router, lambda: _legacy._existing_citation_keys
 )
 
 
@@ -362,7 +365,7 @@ def _pdf_fallback_to_recursos(
     )
 
 
-@_legacy.router.post(
+@router.post(
     "/recognize-pdf",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -443,7 +446,7 @@ def _zotero_item_to_recursos(item: dict[_LegacyAny, _LegacyAny]) -> dict[_Legacy
     return _strict_cast(dict[_LegacyAny, _LegacyAny], zotero_item_to_recursos(item))
 
 
-@_legacy.router.post(
+@router.post(
     "/translate-url",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -479,7 +482,7 @@ def _build_dedup_indexes(v_str: str) -> dict[_LegacyAny, _LegacyAny]:
 
 
 import_references = _legacy.citation_io_api.register_import_route(
-    _legacy.router,
+    router,
     editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     dependencies=_legacy._REFERENCES_IO_DEPENDENCIES,
 )
@@ -518,7 +521,7 @@ def _metadata_mutation_dependencies() -> _legacy.metadata_mutations.MetadataMuta
     )
 
 
-@_legacy.router.post(
+@router.post(
     "/promote-zotero-extra",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -553,7 +556,7 @@ async def promote_zotero_extra(
     )
 
 
-@_legacy.router.post(
+@router.post(
     "/bulk-update-metadata",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -598,7 +601,7 @@ async def bulk_update_metadata(
     )
 
 
-@_legacy.router.post(
+@router.post(
     "/bulk-apply-template",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -614,14 +617,14 @@ async def bulk_apply_template(
 
 list_csl_styles, upload_csl_style, export_references = (
     _legacy.citation_io_api.register_catalog_export_routes(
-        _legacy.router,
+        router,
         upload_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
         export_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
         dependencies=_legacy._REFERENCES_IO_DEPENDENCIES,
     )
 )
 search_citations, resolve_by_citation_key = _legacy.citation_search.register_routes(
-    _legacy.router, _legacy._CITATION_SEARCH_DEPENDENCIES
+    router, _legacy._CITATION_SEARCH_DEPENDENCIES
 )
 
 

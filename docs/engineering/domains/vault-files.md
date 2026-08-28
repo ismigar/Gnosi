@@ -233,6 +233,11 @@ reference format detection, serialization and normalization return their native
 strict string contracts directly. Export formats, citation resolution and
 Pandoc error behavior remain stable.
 
+Metadata lookup, PDF recognition, URL translation, Zotero promotion, bulk
+updates and citation catalog/search registration share that same narrowed HTTP
+boundary. Provider fallbacks, editor permissions and citation-key uniqueness
+remain late-bound and behavior-compatible.
+
 ## File providers
 
 The provider abstraction selects local, generic macOS File Provider, OneDrive,
