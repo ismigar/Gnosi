@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 5 | 1184 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 809 |
-| `services` | 148 | 34539 |
+| `services` | 148 | 34547 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146990 source lines**.
+Total: **699 modules** and **146998 source lines**.
 
 ## agent
 
@@ -701,7 +701,7 @@ Total: **699 modules** and **146990 source lines**.
 | [`backend/services/files_provider/nextcloud.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/nextcloud.py) | 5 | 0 | 0 | 0 | 0 | Compatibility facade for :mod:`backend.platform.files.nextcloud`. |
 | [`backend/services/files_provider/on_demand.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/on_demand.py) | 15 | 0 | 0 | 0 | 0 | Compatibility facade for :mod:`backend.platform.files.on_demand`. |
 | [`backend/services/files_provider/onedrive.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/onedrive.py) | 15 | 0 | 0 | 0 | 0 | Compatibility facade for :mod:`backend.platform.files.onedrive`. |
-| [`backend/services/frontmatter_fallback.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/frontmatter_fallback.py) | 65 | 0 | 1 | 0 | 1 | Tolerant frontmatter parser for when `yaml.safe_load` fails. |
+| [`backend/services/frontmatter_fallback.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/frontmatter_fallback.py) | 66 | 0 | 1 | 0 | 1 | Tolerant frontmatter parser for when `yaml.safe_load` fails. |
 | [`backend/services/fx_rates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/fx_rates.py) | 188 | 0 | 9 | 0 | 5 | USD → user-currency conversion for the AI spend cap. |
 | [`backend/services/generated_tool_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/generated_tool_contributions.py) | 165 | 0 | 6 | 0 | 2 | Expose approved generated tools to skills without granting them globally. |
 | [`backend/services/gnosi_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/gnosi_ai_contributions.py) | 703 | 1 | 9 | 0 | 2 | Governed core skills and tools for first-party Gnosi operations. |
@@ -714,7 +714,7 @@ Total: **699 modules** and **146990 source lines**.
 | [`backend/services/hybrid_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_mail_service.py) | 89 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical hybrid mail provider adapters. |
 | [`backend/services/imap_idle_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_idle_service.py) | 17 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical IMAP IDLE service. |
 | [`backend/services/imap_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_mail_sync_service.py) | 35 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical IMAP synchronization service. |
-| [`backend/services/import_dedup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/import_dedup.py) | 134 | 0 | 5 | 0 | 3 | Deduplication in `POST /import-references`. |
+| [`backend/services/import_dedup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/import_dedup.py) | 140 | 0 | 5 | 0 | 3 | Deduplication in `POST /import-references`. |
 | [`backend/services/integration_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/integration_manager.py) | 460 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/library_paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/library_paths.py) | 25 | 0 | 2 | 0 | 2 | SINGLE resolution of the attachments folder: ALWAYS `<vault>/Library`. |
 | [`backend/services/literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_ai_service.py) | 186 | 0 | 8 | 0 | 2 | Explicit, audited AI assistance for literature workflows. |
@@ -756,7 +756,7 @@ Total: **699 modules** and **146990 source lines**.
 | [`backend/services/notion_view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_view_recreator.py) | 63 | 0 | 0 | 0 | 0 | Compatibility facade for the typed Notion view-recreation domain. |
 | [`backend/services/oauth2_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/oauth2_helpers.py) | 175 | 1 | 5 | 0 | 6 | OAuth2 helpers shared by IMAP+XOAUTH2 and SMTP+XOAUTH2. |
 | [`backend/services/option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/option_catalogs.py) | 77 | 0 | 0 | 0 | 0 | Compatibility facade for table option catalogs and semantic roles. |
-| [`backend/services/page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/page_sidecar.py) | 225 | 0 | 11 | 0 | 11 | Sidecar I/O for internal page metadata. |
+| [`backend/services/page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/page_sidecar.py) | 226 | 0 | 11 | 0 | 11 | Sidecar I/O for internal page metadata. |
 | [`backend/services/path_resolver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/path_resolver.py) | 93 | 1 | 0 | 0 | 1 | No module docstring |
 | [`backend/services/planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_engine.py) | 487 | 2 | 14 | 0 | 14 | Deterministic, rebuildable scheduling for Gnosi project planning. |
 | [`backend/services/planning_scheduler.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_scheduler.py) | 195 | 2 | 8 | 0 | 5 | Coalesced, ETag-safe project schedule refreshes triggered by page changes. |

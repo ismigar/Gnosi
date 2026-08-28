@@ -21,6 +21,7 @@ source_paths:
   - backend/services/literature_import_service.py
   - backend/services/literature_ai_service.py
   - backend/services/references_io.py
+  - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/pages/LiteraturePage.jsx
@@ -32,6 +33,7 @@ tests:
   - backend/tests/test_vault_export_domain_contract.py
   - backend/tests/test_citation_key_and_pubmed.py
   - backend/tests/test_references_io.py
+  - backend/tests/test_import_dedup.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_e2e_import_references_item_type.py
   - backend/tests/test_literature_models.py
@@ -88,6 +90,9 @@ stable citation key, deduplicate candidates, and write a Vault record.
 boundary. Small parser, normalization, field-mapping, and serialization helpers
 preserve field order, escaping, item-type resolution, and the public import/export
 contract without hidden persistence or network access.
+The pure import deduplicator uses explicit metadata and identifier-index shapes;
+its priority remains citation key, DOI, ISBN and normalized title, and an entry
+created earlier in the same import is added idempotently to those same indexes.
 
 The read-only lookup orchestration lives in the citations domain, preserves the
 DOI → arXiv → PMID → ISBN → URL priority, and routes user URLs through the

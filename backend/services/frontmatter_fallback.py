@@ -8,21 +8,22 @@ correctly in the Vault (via this rescue) but came out EMPTY in the graph (withou
 title, type, or color). Sharing it guarantees that both reads recover
 the same top-level metadata.
 """
+
 from __future__ import annotations
 
 import re
 
 
-def parse_frontmatter_fallback(yaml_content: str) -> dict:
+def parse_frontmatter_fallback(yaml_content: str) -> dict[str, object]:
     """Rescues the top-level scalar `key: value` pairs from a
     frontmatter that `yaml.safe_load` has rejected.
 
     Intentionally ignores nested blocks/objects/lists and only saves top-level
     scalars, so that listings can resolve id/title/
     table_id even if another key has corrupt YAML.
-    
+
     """
-    metadata: dict = {}
+    metadata: dict[str, object] = {}
     for raw_line in yaml_content.splitlines():
         line = raw_line.rstrip()
         if not line:

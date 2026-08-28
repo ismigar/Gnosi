@@ -11,6 +11,7 @@ source_paths:
   - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
+  - backend/services/frontmatter_fallback.py
   - backend/services/field_resolver.py
   - backend/services/translation_helpers.py
   - backend/services/relation_sync.py
@@ -25,6 +26,7 @@ tests:
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
+  - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
@@ -80,6 +82,12 @@ Page identity is separate from title and path. Front matter is normalized at
 write boundaries while user-authored keys are preserved. Internal-only state
 belongs in `.gnosi` sidecars when exposing it in front matter would pollute or
 destabilize portable content.
+
+Sidecar reads and writes use one explicit metadata mapping contract, including
+split, merge and portable-persistence results. The shared tolerant frontmatter
+fallback returns top-level scalar values as typed objects when YAML recovery is
+needed; nested malformed content remains deliberately ignored. These contracts
+do not coerce user values or change the existing cloud-file safeguards.
 
 `pages/markdown_writer.py` is the canonical serialization boundary: it recovers
 or creates a missing stable ID, maps schema keys to storage names, strips

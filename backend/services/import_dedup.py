@@ -11,11 +11,15 @@ BibTeX/RIS file against the vault using 4 criteria (in priority order):
 If an entry matches, the caller marks it as "skipped" and logs
 the reason for user feedback.
 """
+
 from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Optional
+from typing import Any, Optional
+
+Metadata = dict[str, Any]
+DedupIndex = dict[str, dict[str, str]]
 
 
 # ---------- Identifier normalizers (deliberate duplication) ----------
@@ -23,7 +27,7 @@ from typing import Optional
 # to keep the module pure (imported by tests without FastAPI). If in a
 # later iteration they get centralized, candidate: `backend/services/identifier_normalizers.py`.
 
-_DOI_RE = re.compile(r'10\.\d{4,9}/[-._;()/:A-Z0-9]+', re.IGNORECASE)
+_DOI_RE = re.compile(r"10\.\d{4,9}/[-._;()/:A-Z0-9]+", re.IGNORECASE)
 
 
 def _normalize_doi(raw: str) -> Optional[str]:
@@ -36,39 +40,41 @@ def _normalize_doi(raw: str) -> Optional[str]:
 def _normalize_isbn(raw: str) -> Optional[str]:
     if not raw:
         return None
-    cleaned = re.sub(r'[-\s]', '', raw)
-    m = re.search(r'97[89]\d{10}|\d{9}[\dX]', cleaned)
+    cleaned = re.sub(r"[-\s]", "", raw)
+    m = re.search(r"97[89]\d{10}|\d{9}[\dX]", cleaned)
     return m.group(0) if m else None
 
 
 # ---------- Title normalizer for deduplication ----------
 
-def normalize_title_for_dedup(title) -> str:
+
+def normalize_title_for_dedup(title: object) -> str:
     """Aggressive equivalence: lowercase, accents/punctuation stripped, spaces collapsed.
 
     More tolerant than strict equality; it can produce an occasional false positive
     with generic titles ("Introduction", "Editorial") but the risk of a
     duplicate import is costlier than an occasional skip. The user can always
     review `skipped_details` to decide whether to force the creation manually.
-    
+
     """
     if not title or not isinstance(title, str):
         return ""
-    t = unicodedata.normalize('NFKD', title)
-    t = ''.join(c for c in t if not unicodedata.combining(c))
+    t = unicodedata.normalize("NFKD", title)
+    t = "".join(c for c in t if not unicodedata.combining(c))
     t = t.lower()
-    t = re.sub(r'[^a-z0-9\s]', ' ', t)
-    t = re.sub(r'\s+', ' ', t).strip()
+    t = re.sub(r"[^a-z0-9\s]", " ", t)
+    t = re.sub(r"\s+", " ", t).strip()
     return t
 
 
 # ---------- Matcher principal ----------
 
+
 def find_existing_match(
-    entry: dict,
-    dedup: dict,
-    vault_keys: set,
-) -> Optional[tuple]:
+    entry: Metadata,
+    dedup: DedupIndex,
+    vault_keys: set[str],
+) -> Optional[tuple[str, str]]:
     """Returns `(reason, existing_key)` if the entry matches a
     page already existing in the vault; `None` if it's new.
 
@@ -79,56 +85,56 @@ def find_existing_match(
 
     Priority order: citation_key > DOI > ISBN > title. Goes from the most
     authoritative to the most tolerant to minimize false positives.
-    
-    """
-    ck = (entry.get('Citation Key') or '').strip()
-    if ck and ck in vault_keys:
-        return ('citation_key', ck)
 
-    doi = (entry.get('DOI') or '').strip()
+    """
+    ck = (entry.get("Citation Key") or "").strip()
+    if ck and ck in vault_keys:
+        return ("citation_key", ck)
+
+    doi = (entry.get("DOI") or "").strip()
     if doi:
         norm = _normalize_doi(doi)
         if norm:
-            existing = dedup.get('doi', {}).get(norm.lower())
+            existing = dedup.get("doi", {}).get(norm.lower())
             if existing:
-                return ('doi', existing)
+                return ("doi", existing)
 
-    isbn = (entry.get('ISBN') or '').strip()
+    isbn = (entry.get("ISBN") or "").strip()
     if isbn:
         norm = _normalize_isbn(isbn)
         if norm:
-            existing = dedup.get('isbn', {}).get(norm)
+            existing = dedup.get("isbn", {}).get(norm)
             if existing:
-                return ('isbn', existing)
+                return ("isbn", existing)
 
-    title = entry.get('Title') or ''
+    title = entry.get("Title") or ""
     tnorm = normalize_title_for_dedup(title)
     if tnorm:
-        existing = dedup.get('title', {}).get(tnorm)
+        existing = dedup.get("title", {}).get(tnorm)
         if existing:
-            return ('title', existing)
+            return ("title", existing)
 
     return None
 
 
-def add_to_indexes(entry: dict, ck: str, dedup: dict) -> None:
+def add_to_indexes(entry: Metadata, ck: str, dedup: DedupIndex) -> None:
     """After creating a page, add its identifiers to the
     auxiliary indexes so the **same import** doesn't create internal duplicates
     (two entries in the file with the same DOI/ISBN/title).
 
     Idempotent: `setdefault` doesn't overwrite if the key is already present.
-    
+
     """
-    doi = (entry.get('DOI') or '').strip()
+    doi = (entry.get("DOI") or "").strip()
     if doi:
         norm = _normalize_doi(doi)
         if norm:
-            dedup.setdefault('doi', {}).setdefault(norm.lower(), ck)
-    isbn = (entry.get('ISBN') or '').strip()
+            dedup.setdefault("doi", {}).setdefault(norm.lower(), ck)
+    isbn = (entry.get("ISBN") or "").strip()
     if isbn:
         norm = _normalize_isbn(isbn)
         if norm:
-            dedup.setdefault('isbn', {}).setdefault(norm, ck)
-    tnorm = normalize_title_for_dedup(entry.get('Title') or '')
+            dedup.setdefault("isbn", {}).setdefault(norm, ck)
+    tnorm = normalize_title_for_dedup(entry.get("Title") or "")
     if tnorm:
-        dedup.setdefault('title', {}).setdefault(tnorm, ck)
+        dedup.setdefault("title", {}).setdefault(tnorm, ck)
