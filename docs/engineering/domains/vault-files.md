@@ -4,14 +4,8 @@ last_verified: 2026-08-28
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
-  - backend/domains/vault/assets
-  - backend/domains/vault/files
-  - backend/domains/vault/pages
-  - backend/domains/vault/trash
-  - backend/domains/vault/translation
-  - backend/domains/vault/drupal
+  - backend/domains/vault
   - backend/domains/media
-  - backend/domains/vault/tables
   - backend/platform/files
   - backend/services/media_service.py
   - backend/services/graph_service.py
@@ -35,6 +29,7 @@ tests:
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - backend/tests/test_vault_table_routes_composition_contract.py
+  - backend/tests/test_vault_legacy_facade.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -124,13 +119,15 @@ from the table domain on the broad legacy authentication composition. The
 legacy router registers the domain routes flat for compatibility with route
 inventory consumers and re-exports the supported Python callables.
 
-`backend/api/vault_routes.py` remains a temporary compatibility and composition
-facade while the rest of the legacy router is split. It injects existing
-platform operations and re-exports supported Python symbols, but it does not own
-the extracted page handlers. The migration preserves HTTP paths, status codes,
-payloads, dependencies, background callbacks, and the deterministic OpenAPI
-document. Each extraction must reduce the facade's source guardrail allowance;
-it may never add a new exception for code under `backend/domains`.
+`backend/api/vault_routes.py` is now a 283-line compatibility bootstrap rather
+than an implementation owner. Typed modules under `backend/domains/vault`
+own the remaining API, annotation, citation, drawing, Drupal, file, knowledge,
+link, media, page, registry, table, and translation behavior. The bootstrap
+loads and registers those owners in historical source order, while
+`facade_bridge.py` preserves supported imports, mutable globals, and late-bound
+monkeypatch seams. The parent router still exposes the same flat `APIRoute`
+inventory and byte-identical deterministic OpenAPI. The facade therefore needs
+no source-guardrail allowance.
 
 Translation lifecycle behavior is owned by `backend/domains/vault/translation`:
 optional provider loading, cloud-file recovery, row and whole-page translation,

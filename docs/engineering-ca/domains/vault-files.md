@@ -27,6 +27,7 @@ tests:
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - backend/tests/test_vault_table_routes_composition_contract.py
+  - backend/tests/test_vault_legacy_facade.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -100,7 +101,16 @@ manera immutable les dependències de les rutes i de l'enriquiment de files.
 workspace. La façana històrica registra les rutes de domini en una llista plana
 i reexporta els callables Python compatibles.
 
-`backend/api/vault_routes.py` Encara hi ha una compatibilitat temporal i una constant façana mentre la resta de l' encaminador antic es divideix. Injecta operacions de plataforma existents i re- ports implementats en Python, però no és propietari dels gestors de pàgines extrets. La migració preserva les rutes HTTP, codis d' estat, dependències de fons, comentaris i el document OpenAPI determinant. Cada extracció ha de reduir les subsidis del codi de la interqual· lació de la safata de la safata d' interès; mai pot afegir una nova excepció per al codi sota `backend/domains`.
+`backend/api/vault_routes.py` és ara un bootstrap de compatibilitat de 283 línies,
+no un propietari d'implementació. Els mòduls tipats de
+`backend/domains/vault` són propietaris del comportament restant d'API,
+anotacions, citacions, dibuixos, Drupal, fitxers, coneixement, enllaços,
+multimèdia, pàgines, registre, taules i traducció. El bootstrap carrega i
+registra aquests propietaris en l'ordre històric del codi font, mentre
+`facade_bridge.py` preserva els imports compatibles, els globals mutables i els
+seams de `monkeypatch` resolts tard. El router pare continua exposant el mateix
+inventari pla d'`APIRoute` i un OpenAPI determinista idèntic byte a byte. Per
+això, la façana ja no necessita cap excepció al guardrail de codi font.
 
 El cicle de vida de les traduccions pertany a
 `backend/domains/vault/translation`: la càrrega opcional de proveïdors, la

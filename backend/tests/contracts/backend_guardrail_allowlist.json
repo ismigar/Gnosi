@@ -1,10 +1,5 @@
 {
   "allowlist": {
-    "backend/api/vault_routes.py": {
-      "max_complexity": 16,
-      "max_lines": 9846,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/services/vault_templates.py": {
       "max_complexity": 22,
       "max_lines": 800,

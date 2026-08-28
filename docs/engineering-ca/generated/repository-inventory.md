@@ -10,26 +10,25 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Superfície | Compte |
 | --- | ---: |
-| Dorsal de fitxers Python | 399 |
-| Dorsal de fitxers de proves en Python | 171 |
-| Frontal de fitxers de codi font JS/TS | 323 |
-| Fitxers de proves d' unitats per al Frontal | 55 |
-| Encaminadors d' API ràpids Registrat | 33 |
-| Executar contractes d' habilitat | 23 |
-| Directives del desenvolupament | 173 |
+| Dorsal de fitxers Python | 892 |
+| Dorsal de fitxers de proves en Python | 244 |
+| Frontal de fitxers de codi font JS/TS | 381 |
+| Fitxers de proves d' unitats per al Frontal | 86 |
+| Encaminadors d' API ràpids Registrat | 36 |
+| Executar contractes d' habilitat | 25 |
+| Directives del desenvolupament | 0 |
 
 ## Superfícies d' aplicació propis
 
 | Superfície | Fitxers | Límit dependència |
 | --- | ---: | --- |
-| `backend/` | 409 | RALLE, serveis, models, agents, planificació i adaptadors d' emmagatzematge |
-| `frontend/src/` | 343 | Una aplicació react, comportament de la IU, estat i integració del navegador |
-| `pipeline/` | 102 | habilitat de l' aplicació i eines de processament determinants |
-| `desktop/` | 18 | Un cicle vital de l'escriptori, empaquetament de paquets de paquets, IPC i actualitzacions |
-| `integrations/` | 12 | Adaptadors de l' oficina i de sistemes externs |
-| `web-clipper/` | 11 | Superfície de captura de l' extensió del navegador |
-| `tests/e2e/` | 26 | Comprovacions d' acceptació de la memòria intermèdia a nivell remot |
-| `sh/` | 22 | Scripts natius i operatius d' auto-ordinador |
+| `backend/` | 906 | RALLE, serveis, models, agents, planificació i adaptadors d' emmagatzematge |
+| `frontend/src/` | 405 | Una aplicació react, comportament de la IU, estat i integració del navegador |
+| `pipeline/` | 110 | habilitat de l' aplicació i eines de processament determinants |
+| `desktop/` | 27 | Un cicle vital de l'escriptori, empaquetament de paquets de paquets, IPC i actualitzacions |
+| `extensions/` | 44 | Oficina, navegador, connectors, mercat i adaptadors de sistemes externs |
+| `tests/e2e/` | 31 | Comprovacions d' acceptació de la memòria intermèdia a nivell remot |
+| `scripts/` | 35 | Nadiu, màquina, versió i scripts de manteniment |
 
 ## Límit d' lusions
 

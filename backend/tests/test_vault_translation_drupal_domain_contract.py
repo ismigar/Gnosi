@@ -12,13 +12,24 @@ import pytest
 from fastapi import BackgroundTasks
 
 from backend.api import vault_routes
-from backend.domains.vault.drupal import core, fields, languages, markdown, matching, media, service
+from backend.domains.vault.drupal import (
+    composition as drupal_composition,
+    core,
+    fields,
+    languages,
+    markdown,
+    matching,
+    media,
+    service,
+)
 from backend.domains.vault.schemas.pages import PageInfo, PageSaveRequest
 from backend.domains.vault.translation import (
     adapters,
+    lifecycle as translation_lifecycle,
     lookup,
     metadata_io,
     page_service,
+    routes as translation_routes,
     row_service,
     staleness,
 )
@@ -50,27 +61,27 @@ def test_domains_are_small_and_do_not_import_the_legacy_facade() -> None:
         assert "backend.api.vault_routes" not in source, source_path
 
 
-def test_named_legacy_facade_targets_are_thin_delegates() -> None:
-    source_path = Path(vault_routes.__file__ or "")
-    tree = ast.parse(source_path.read_text(encoding="utf-8"))
-    targets = {
-        "_propagate_translation_staleness",
-        "_do_translate_row",
-        "_drupal_shrink_image",
-        "_drupal_build_fields",
-        "_do_sync_drupal_row",
-        "match_drupal_rows",
-        "translate_page",
+def test_named_legacy_facade_targets_are_canonical_domain_reexports() -> None:
+    target_owners = {
+        "_propagate_translation_staleness": translation_lifecycle,
+        "_do_translate_row": translation_lifecycle,
+        "_drupal_shrink_image": drupal_composition,
+        "_drupal_build_fields": drupal_composition,
+        "_do_sync_drupal_row": drupal_composition,
+        "match_drupal_rows": translation_routes,
+        "translate_page": translation_routes,
     }
-    functions = {
-        node.name: node
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in targets
+    facade_source = Path(vault_routes.__file__ or "").read_text(encoding="utf-8")
+    facade_tree = ast.parse(facade_source)
+    facade_functions = {
+        node.name
+        for node in facade_tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
-    assert set(functions) == targets
-    for name, node in functions.items():
-        assert node.end_lineno is not None
-        assert node.end_lineno - node.lineno + 1 <= 35, name
+
+    for name, owner in target_owners.items():
+        assert name not in facade_functions
+        assert getattr(vault_routes, name) is getattr(owner, name)
 
 
 class FakeDrupalError(Exception):

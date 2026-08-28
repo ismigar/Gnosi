@@ -27,6 +27,7 @@ tests:
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - backend/tests/test_vault_table_routes_composition_contract.py
+  - backend/tests/test_vault_legacy_facade.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -102,7 +103,17 @@ fabriques typées d'autorisation du workspace. La façade historique enregistre
 les routes du domaine dans une liste plate et réexporte les callables Python
 compatibles.
 
-`backend/api/vault_routes.py` Il injecte les opérations de plate-forme existantes et les réexportations supportées par les symboles Python, mais il ne possède pas les gestionnaires de pages extraits. La migration préserve les chemins HTTP, les codes d'état, les charges utiles, les dépendances, les rappels d'arrière-plan et le document déterministe OpenAPI. Chaque extraction doit réduire l'allocation de garde-fonte de la façade; il ne peut jamais ajouter une nouvelle exception pour le code sous `backend/domains`.
+`backend/api/vault_routes.py` est désormais un bootstrap de compatibilité de
+283 lignes, et non un propriétaire d'implémentation. Les modules typés de
+`backend/domains/vault` possèdent le comportement restant des API, annotations,
+citations, dessins, Drupal, fichiers, connaissances, liens, médias, pages,
+registre, tables et traductions. Le bootstrap charge et enregistre ces
+propriétaires dans l'ordre historique du code source, tandis que
+`facade_bridge.py` préserve les imports compatibles, les globales mutables et
+les seams de `monkeypatch` résolus tardivement. Le routeur parent expose
+toujours le même inventaire plat d'`APIRoute` et un OpenAPI déterministe
+identique octet par octet. La façade n'a donc plus besoin d'une exception dans
+le garde-fou du code source.
 
 Le cycle de vie des traductions appartient à
 `backend/domains/vault/translation` : le chargement facultatif des
