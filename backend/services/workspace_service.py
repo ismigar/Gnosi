@@ -1,65 +1,81 @@
-from fastapi import Header, HTTPException, Depends
+import json
+import uuid
+from pathlib import Path
+from typing import Callable, Optional
+
+from fastapi import Depends, Header, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from backend.data.management_db import get_mgmt_db
-from backend.models.management import Workspace, Membership, User, Vault, VaultAccess
-from typing import Optional
-from pathlib import Path
+
 from backend.config.app_config import load_params
 from backend.config.logger_config import get_logger
-import uuid
-
-from backend.services.context_vars import active_vault_path
+from backend.data.management_db import get_mgmt_db
+from backend.models.management import Workspace, Membership, User, Vault, VaultAccess
 from backend.services.auth_service import get_current_user_id
+from backend.services.context_vars import active_vault_path
 
 logger = get_logger(__name__)
 
+
 class WorkspaceContext:
-    def __init__(self, workspace_id: str, user_id: str, role: str, vault_path: Path, capabilities: list = None):
-        self.workspace_id = workspace_id
-        self.user_id = user_id
-        self.role = role
-        self.vault_path = vault_path
-        self.capabilities = capabilities or ["read"]
+    def __init__(
+        self,
+        workspace_id: str,
+        user_id: str,
+        role: str,
+        vault_path: Path,
+        capabilities: list[str] | None = None,
+    ) -> None:
+        self.workspace_id: str = workspace_id
+        self.user_id: str = user_id
+        self.role: str = role
+        self.vault_path: Path = vault_path
+        self.capabilities: list[str] = capabilities or ["read"]
 
-ROLE_WEIGHTS = {
-    "owner": 3,
-    "admin": 2,
-    "editor": 1,
-    "viewer": 0
-}
 
-def require_role(min_role: str):
+ROLE_WEIGHTS = {"owner": 3, "admin": 2, "editor": 1, "viewer": 0}
+
+
+def require_role(min_role: str) -> Callable[[WorkspaceContext], WorkspaceContext]:
     """
-        Returns a dependency that validates whether the user has the minimum required role.
-    
+    Returns a dependency that validates whether the user has the minimum required role.
+
     """
-    def role_checker(context: WorkspaceContext = Depends(get_workspace_context)):
+
+    def role_checker(
+        context: WorkspaceContext = Depends(get_workspace_context),
+    ) -> WorkspaceContext:
         user_weight = ROLE_WEIGHTS.get(context.role.lower(), 0)
         required_weight = ROLE_WEIGHTS.get(min_role.lower(), 0)
-        
+
         if user_weight < required_weight:
             raise HTTPException(
                 status_code=403,
-                detail=f"Insufficient permission. Role {min_role} is required (you have {context.role})"
+                detail=f"Insufficient permission. Role {min_role} is required (you have {context.role})",
             )
         return context
-    
+
     return role_checker
 
-def require_capability(capability: str):
+
+def require_capability(capability: str) -> Callable[[WorkspaceContext], WorkspaceContext]:
     """
-        Validates whether the user has a specific capability in the permissions JSON.
-    
+    Validates whether the user has a specific capability in the permissions JSON.
+
     """
-    def capability_checker(context: WorkspaceContext = Depends(get_workspace_context)):
+
+    def capability_checker(
+        context: WorkspaceContext = Depends(get_workspace_context),
+    ) -> WorkspaceContext:
         if capability not in context.capabilities and context.role != "owner":
             raise HTTPException(
                 status_code=403,
-                detail=f"You lack the '{capability}' capability required for this operation."
+                detail=f"You lack the '{capability}' capability required for this operation.",
             )
         return context
+
     return capability_checker
+
 
 def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
     """Ensure a personal workspace exists for the user.
@@ -86,8 +102,7 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
             # accident. Freeing that address removes the accident, not the risk.
             raise HTTPException(status_code=401, detail="Authentication required")
 
-        user = User(id=user_id, name="User", email=PLACEHOLDER_EMAIL,
-                    auto_provisioned=True)
+        user = User(id=user_id, name="User", email=PLACEHOLDER_EMAIL, auto_provisioned=True)
         db.add(user)
         try:
             db.commit()
@@ -110,15 +125,19 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
     # could return that membership and _resolve_personal_vault would end up resolving the
     # vault from ANOTHER workspace in personal mode (data leak between workspaces).
     ws_id = "personal"
-    last_conflict = None
+    last_conflict: IntegrityError | None = None
     for _ in range(3):
-        membership = db.query(Membership).filter(
-            Membership.user_id == user_id,
-            Membership.workspace_id == ws_id,
-            Membership.role == "owner"
-        ).first()
+        membership = (
+            db.query(Membership)
+            .filter(
+                Membership.user_id == user_id,
+                Membership.workspace_id == ws_id,
+                Membership.role == "owner",
+            )
+            .first()
+        )
         if membership:
-            return membership.workspace_id
+            return str(membership.workspace_id)
 
         # Create workspace
         ws = db.query(Workspace).filter(Workspace.id == ws_id).first()
@@ -128,7 +147,9 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
 
         # Create Vault
         rel_vault = str(vault_path)
-        v = Vault(id=str(uuid.uuid4()), workspace_id=ws_id, name="Main Vault", path_override=rel_vault)
+        v = Vault(
+            id=str(uuid.uuid4()), workspace_id=ws_id, name="Main Vault", path_override=rel_vault
+        )
         db.add(v)
 
         # Create Membership
@@ -144,9 +165,7 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
             # rows without leaving a duplicate "Main Vault" behind.
             db.rollback()
             last_conflict = exc
-            logger.warning(
-                "Personal workspace bootstrap lost a concurrent create race; retrying"
-            )
+            logger.warning("Personal workspace bootstrap lost a concurrent create race; retrying")
         except Exception:
             # Without rollback the session stays "dirty" and any further
             # query on this session silently fails. Roll back and re-raise
@@ -159,10 +178,14 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
     # Repeated conflicts without the membership ever becoming readable: not a
     # bootstrap race (e.g. a same-key membership with a non-owner role).
     # Surface the constraint error instead of looping forever.
+    if last_conflict is None:
+        raise RuntimeError("Personal workspace bootstrap exhausted without a constraint error")
     raise last_conflict
 
-def _resolve_personal_vault(db: Session, ws_id: str, x_vault_id: Optional[str],
-                            default_vault_path: Path) -> Path:
+
+def _resolve_personal_vault(
+    db: Session, ws_id: str, x_vault_id: Optional[str], default_vault_path: Path
+) -> Path:
     """Personal multi-vault mode: if `X-Vault-Id` is given and it's a valid Vault of the
     personal workspace, returns its path; otherwise, the default vault (backward compatibility)."""
     if not x_vault_id:
@@ -183,10 +206,110 @@ def _resolve_personal_vault(db: Session, ws_id: str, x_vault_id: Optional[str],
             return p
         except Exception:
             return default_vault_path
-    logger.warning(
-        "Vault path parent missing (mount unavailable?); falling back to default: %s", p
-    )
+    logger.warning("Vault path parent missing (mount unavailable?); falling back to default: %s", p)
     return default_vault_path
+
+
+def _organization_membership(
+    db: Session,
+    user_id: str,
+    workspace_id: Optional[str],
+    default_vault_path: Path,
+) -> tuple[str, Membership]:
+    """Resolve or bootstrap the organization-mode workspace membership."""
+    if not workspace_id:
+        membership = db.query(Membership).filter(Membership.user_id == user_id).first()
+        if not membership:
+            workspace_id = _ensure_personal_exists(db, user_id, default_vault_path)
+            membership = db.query(Membership).filter(Membership.user_id == user_id).first()
+        else:
+            workspace_id = membership.workspace_id
+        return workspace_id, membership
+
+    membership = (
+        db.query(Membership)
+        .filter(
+            Membership.workspace_id == workspace_id,
+            Membership.user_id == user_id,
+        )
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Unauthorized access to this workspace")
+    return workspace_id, membership
+
+
+def _organization_vault(
+    db: Session,
+    workspace_id: str,
+    user_id: str,
+    requested_vault_id: Optional[str],
+) -> Vault:
+    """Select one requested and accessible Vault for an organization member."""
+    vault_access = (
+        db.query(VaultAccess)
+        .filter(
+            VaultAccess.workspace_id == workspace_id,
+            VaultAccess.user_id == user_id,
+        )
+        .all()
+    )
+    allowed_vault_ids = [access.vault_id for access in vault_access]
+
+    query = db.query(Vault).filter(Vault.workspace_id == workspace_id)
+    if requested_vault_id:
+        query = query.filter(Vault.id == requested_vault_id)
+    if allowed_vault_ids:
+        query = query.filter(Vault.id.in_(allowed_vault_ids))
+    vault = query.first()
+    if vault:
+        return vault
+    if allowed_vault_ids or requested_vault_id:
+        raise HTTPException(status_code=403, detail="No accessible vault in this workspace")
+    raise HTTPException(status_code=404, detail="No vault found for this workspace")
+
+
+def _organization_vault_path(
+    vault: Vault,
+    project_root: Path,
+    workspace_id: str,
+) -> Path:
+    """Resolve contained organization storage without fabricating a missing mount."""
+    if not vault.path_override:
+        vault_path = project_root / "workspaces" / workspace_id / "vault"
+        vault_path.mkdir(parents=True, exist_ok=True)
+        return vault_path
+
+    vault_path = Path(vault.path_override)
+    if not vault_path.is_absolute():
+        vault_path = project_root / vault_path
+    if vault_path.exists():
+        return vault_path
+    if not vault_path.parent.exists():
+        raise HTTPException(
+            status_code=503,
+            detail="Vault storage is temporarily unavailable",
+        )
+    vault_path.mkdir(exist_ok=True)
+    return vault_path
+
+
+def _membership_capabilities(membership: Membership) -> list[str]:
+    """Decode explicit capabilities and apply administrative defaults."""
+    capabilities = ["read"]
+    if membership.permissions:
+        try:
+            permissions = json.loads(membership.permissions)
+            capabilities = permissions.get("capabilities", ["read"])
+        except (ValueError, TypeError, AttributeError):
+            pass
+    if membership.role in ["admin", "owner"] and "admin" not in capabilities:
+        capabilities.append("admin")
+        if "write" not in capabilities:
+            capabilities.append("write")
+        if "delete" not in capabilities:
+            capabilities.append("delete")
+    return capabilities
 
 
 def get_workspace_context(
@@ -206,6 +329,7 @@ def get_workspace_context(
     # only so FastAPI keeps declaring the header — it is NOT an identity source;
     # see `resolve_effective_user_id`.
     from backend.services.auth_service import resolve_effective_user_id
+
     resolved_user_id = resolve_effective_user_id(auth_uid, db)
 
     # PERSONAL MODE: one workspace, but optional multi-vault (X-Vault-Id; defaults to the main one)
@@ -214,99 +338,27 @@ def get_workspace_context(
         vpath = _resolve_personal_vault(db, ws_id, x_vault_id, default_vault_path)
         active_vault_path.set(vpath)
         return WorkspaceContext(
-            workspace_id=ws_id,
-            user_id=resolved_user_id,
-            role="owner",
-            vault_path=vpath
+            workspace_id=ws_id, user_id=resolved_user_id, role="owner", vault_path=vpath
         )
 
-    # ORG MODE: replaces x_user_id with resolved_user_id from here on.
     x_user_id = resolved_user_id
-
-    # ORGANIZATION MODE: Multi-tenant logic
-    if not x_workspace_id:
-        membership = db.query(Membership).filter(Membership.user_id == x_user_id).first()
-        if not membership:
-            # If there's nothing, we create the default personal one to avoid blocking
-            x_workspace_id = _ensure_personal_exists(db, x_user_id, default_vault_path)
-            membership = db.query(Membership).filter(Membership.user_id == x_user_id).first()
-        else:
-            x_workspace_id = membership.workspace_id
-    else:
-        membership = db.query(Membership).filter(
-            Membership.workspace_id == x_workspace_id,
-            Membership.user_id == x_user_id
-        ).first()
-        if not membership:
-            raise HTTPException(status_code=403, detail="Unauthorized access to this workspace")
-
-    # Check whether there are VaultAccess restrictions
-    vault_access = db.query(VaultAccess).filter(
-        VaultAccess.workspace_id == x_workspace_id,
-        VaultAccess.user_id == x_user_id
-    ).all()
-    
-    allowed_vault_ids = [va.vault_id for va in vault_access]
-    
-    # If there are no explicit restrictions, and is owner/admin, can they see all? 
-    # For now, if there are any, we filter. If there aren't, we allow the first one (original behavior).
-    
-    query = db.query(Vault).filter(Vault.workspace_id == x_workspace_id)
-    if x_vault_id:
-        # Canonical vault routes inject this immutable id after resolving the
-        # human-readable slug. It must select the requested vault, not whichever
-        # accessible row happens to be returned first.
-        query = query.filter(Vault.id == x_vault_id)
-    if allowed_vault_ids:
-        query = query.filter(Vault.id.in_(allowed_vault_ids))
-    
-    vault = query.first()
-    
-    if not vault:
-        # If there were restrictions and none valid were found
-        if allowed_vault_ids or x_vault_id:
-             raise HTTPException(status_code=403, detail="No accessible vault in this workspace")
-        # Otherwise, if there's no vault in the workspace
-        raise HTTPException(status_code=404, detail="No vault found for this workspace")
-
-    if vault.path_override:
-        v_path = Path(vault.path_override)
-        if not v_path.is_absolute():
-            v_path = project_root / v_path
-        if not v_path.exists():
-            # Don't fabricate an empty shadow vault when the storage mount is
-            # unavailable (missing parent chain); fail loudly instead.
-            if not v_path.parent.exists():
-                raise HTTPException(
-                    status_code=503, detail="Vault storage is temporarily unavailable"
-                )
-            v_path.mkdir(exist_ok=True)
-    else:
-        v_path = project_root / "workspaces" / x_workspace_id / "vault"
-        v_path.mkdir(parents=True, exist_ok=True)
+    x_workspace_id, membership = _organization_membership(
+        db,
+        x_user_id,
+        x_workspace_id,
+        default_vault_path,
+    )
+    vault = _organization_vault(db, x_workspace_id, x_user_id, x_vault_id)
+    v_path = _organization_vault_path(vault, project_root, x_workspace_id)
 
     active_vault_path.set(v_path)
 
-    import json
-    capabilities = ["read"]
-    if membership.permissions:
-        try:
-            perms = json.loads(membership.permissions)
-            capabilities = perms.get("capabilities", ["read"])
-        except (ValueError, TypeError, AttributeError):
-            # Malformed permissions JSON — fall back to read-only.
-            pass
-    
-    # If they're admin or owner, they have all by default if not specified
-    if membership.role in ["admin", "owner"] and "admin" not in capabilities:
-        capabilities.append("admin")
-        if "write" not in capabilities: capabilities.append("write")
-        if "delete" not in capabilities: capabilities.append("delete")
+    capabilities = _membership_capabilities(membership)
 
     return WorkspaceContext(
         workspace_id=x_workspace_id,
         user_id=x_user_id,
         role=membership.role,
         vault_path=v_path,
-        capabilities=capabilities
+        capabilities=capabilities,
     )

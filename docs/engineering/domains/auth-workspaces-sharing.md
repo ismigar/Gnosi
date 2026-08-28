@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
@@ -9,12 +9,15 @@ source_paths:
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
+  - backend/services/workspace_service.py
   - frontend/src/context/AuthContext.jsx
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_auth_enforcement_flag.py
   - backend/tests/test_pat_authentication.py
   - backend/tests/test_workspace_bootstrap_race.py
+  - backend/tests/test_workspace_invite_email_case.py
+  - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
 ---
 
@@ -61,6 +64,11 @@ Workspace bootstrap is concurrency-safe so simultaneous first requests do not
 create duplicate default workspaces, users, or memberships. Placeholder and
 auto-provisioned accounts are explicitly marked; registration cannot claim them
 by email as a weak identity proof.
+
+Workspace context resolution keeps its public FastAPI dependency stable while
+separate helpers own membership selection, accessible-vault filtering, storage
+path resolution, and capability decoding. This keeps authorization decisions
+explicit without changing headers, status codes, or active-vault behavior.
 
 ## Public sharing
 

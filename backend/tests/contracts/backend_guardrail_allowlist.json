@@ -164,11 +164,6 @@
       "max_complexity": 23,
       "max_lines": 943,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/workspace_service.py": {
-      "max_complexity": 18,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     }
   },
   "format": "gnosi-backend-guardrails-v1",

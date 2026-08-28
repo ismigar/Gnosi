@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
@@ -9,12 +9,15 @@ source_paths:
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
+  - backend/services/workspace_service.py
   - frontend/src/context/AuthContext.jsx
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_auth_enforcement_flag.py
   - backend/tests/test_pat_authentication.py
   - backend/tests/test_workspace_bootstrap_race.py
+  - backend/tests/test_workspace_invite_email_case.py
+  - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
 ---
 
@@ -47,6 +50,12 @@ flowchart LR
 Les rôles fournissent des capacités de base ordonnées. VaultAccess réduit ou permet l'accès à un coffre-fort enregistré. Un espace de travail, utilisateur ou ID de coffre-fort fourni par la demande n'est jamais fiable sans résoudre l'identité authentifiée et les membres.
 
 Bootstrap est sûr de la concurrence, donc les premières demandes simultanées ne créent pas de doubles espaces de travail par défaut, utilisateurs ou membres. Les comptes Placeholder et auto-provisory sont explicitement marqués; l'enregistrement ne peut pas les revendiquer par courriel comme une preuve d'identité faible.
+
+La résolution du contexte d'espace de travail conserve la dépendance FastAPI
+publique, tandis que des fonctions distinctes gèrent l'appartenance, le filtrage
+des coffres accessibles, le chemin de stockage et les capacités. Les décisions
+d'autorisation restent ainsi explicites sans modifier les en-têtes, les codes
+d'état ni le comportement du coffre actif.
 
 ## Partage du public
 
