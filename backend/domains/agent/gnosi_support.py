@@ -46,16 +46,13 @@ def _confirmation(
     from backend.agent.action_confirmations import request_confirmation
 
     prefix = f"chat.confirmations.actions.{action}"
-    return cast(
-        str,
-        request_confirmation(
-            action,
-            arguments,
-            title_key=f"{prefix}.title",
-            summary_key=f"{prefix}.summary",
-            details=details,
-            destructive=destructive,
-        ),
+    return request_confirmation(
+        action,
+        arguments,
+        title_key=f"{prefix}.title",
+        summary_key=f"{prefix}.summary",
+        details=details,
+        destructive=destructive,
     )
 
 
@@ -72,7 +69,7 @@ def _confirmation_scope() -> Dict[str, str]:
     """Return the authenticated workspace bound to the current chat turn."""
     from backend.agent.action_confirmations import current_confirmation_scope
 
-    return cast(Dict[str, str], current_confirmation_scope())
+    return current_confirmation_scope()
 
 
 def _workspace_id() -> str:
@@ -309,10 +306,11 @@ def _page_files() -> Iterable[Path]:
 def _parse(path: Path) -> tuple[Dict[str, Any], str]:
     from backend.api.vault_routes import parse_frontmatter
 
-    return cast(
-        tuple[Dict[str, Any], str],
-        parse_frontmatter(path.read_text(encoding="utf-8"), path),
+    typed_parse = cast(
+        Callable[[str, Path], tuple[Dict[str, Any], str]],
+        parse_frontmatter,
     )
+    return typed_parse(path.read_text(encoding="utf-8"), path)
 
 
 def _resolve_page(identifier: str) -> Optional[Path]:
@@ -324,7 +322,7 @@ def _resolve_page(identifier: str) -> Optional[Path]:
     lowered = needle.casefold()
     indexed = path_resolver.find_path(needle, _vault())
     if indexed:
-        return cast(Path, indexed)
+        return indexed
     title_match = None
     for path in _page_files():
         try:
@@ -381,22 +379,25 @@ def _serialize_page(path: Path, *, include_body: bool = False) -> Dict[str, Any]
 def _write_page(path: Path, metadata: Dict[str, Any], body: str) -> None:
     from backend.api.vault_routes import _create_page_version, register_page_in_index
 
+    create_page_version = cast(Callable[[str, Path, bool], object], _create_page_version)
+    index_page = cast(Callable[[Path], None], register_page_in_index)
     if path.exists():
-        _create_page_version(str(metadata.get("id") or ""), path, force=True)
+        create_page_version(str(metadata.get("id") or ""), path, True)
     frontmatter = yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False).strip()
     safe_write_text(path, f"---\n{frontmatter}\n---\n\n{body.rstrip()}\n")
-    register_page_in_index(path)
+    index_page(path)
 
 
 def _rollback_page_items(items: Iterable[Dict[str, Any]]) -> List[str]:
     """Restore attempted page writes and return IDs that could not be restored."""
     from backend.api.vault_routes import register_page_in_index
 
+    index_page = cast(Callable[[Path], None], register_page_in_index)
     failed: List[str] = []
     for item in reversed(list(items)):
         try:
             safe_write_bytes(item["path"], item["original"])
-            register_page_in_index(item["path"])
+            index_page(item["path"])
         except Exception:
             failed.append(str(item["id"]))
     return failed
@@ -518,6 +519,10 @@ def _table_delete_snapshot(table: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     typed_load_registry = cast(Callable[[], Dict[str, Any]], load_registry)
+    typed_views_revision = cast(
+        Callable[[Dict[str, Any], str], str],
+        _table_views_revision,
+    )
     registry = typed_load_registry()
     table_id = str(table.get("id") or "")
     current_table = next(
@@ -540,7 +545,7 @@ def _table_delete_snapshot(table: Dict[str, Any]) -> Dict[str, Any]:
     ]
     return {
         "table_revision": _value_revision(current_table),
-        "views_revision": _table_views_revision(registry, table_id),
+        "views_revision": typed_views_revision(registry, table_id),
         "views_count": len(views),
         "rows": rows,
         "rows_revision": _value_revision(rows),

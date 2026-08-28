@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 214 |
-| `domains` | 368 | 83131 |
+| `domains` | 368 | 83136 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1220 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146702 source lines**.
+Total: **699 modules** and **146707 source lines**.
 
 ## agent
 
@@ -190,7 +190,7 @@ Total: **699 modules** and **146702 source lines**.
 | [`backend/domains/agent/gnosi_dispatch_tables.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_tables.py) | 269 | 0 | 8 | 5 | 0 | Confirmed handlers for table, history, trash and schema operations. |
 | [`backend/domains/agent/gnosi_integrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_integrations.py) | 390 | 0 | 12 | 8 | 11 | First-party calendar, mail and contacts tools. |
 | [`backend/domains/agent/gnosi_mutation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_mutation.py) | 64 | 0 | 2 | 0 | 2 | Cross-process page mutation lock. |
-| [`backend/domains/agent/gnosi_support.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_support.py) | 561 | 1 | 28 | 2 | 11 | Shared deterministic helpers for first-party Gnosi tools. |
+| [`backend/domains/agent/gnosi_support.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_support.py) | 566 | 1 | 28 | 2 | 11 | Shared deterministic helpers for first-party Gnosi tools. |
 | [`backend/domains/agent/gnosi_vault_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_vault_tools.py) | 388 | 0 | 15 | 0 | 14 | Vault read and explicit-write tools. |
 | [`backend/domains/agent/intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/intent.py) | 304 | 0 | 4 | 0 | 3 | Deterministic multilingual intent and authorization classification. |
 | [`backend/domains/agent/llm.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py) | 569 | 0 | 20 | 0 | 7 | Typed language-model selection and provider adapters. |

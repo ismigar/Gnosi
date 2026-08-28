@@ -656,6 +656,10 @@ Third-party plugin contributions use the same descriptor contract after
 narrowing manifest schemas and resolving the active Vault through the typed
 domain adapter. Their handlers remain Node-sandbox callables with exactly the
 declared permission subset; typing does not import plugin Python into FastAPI.
+First-party Gnosi tool support similarly narrows the remaining legacy facade
+ports for frontmatter parsing, page versioning, index refresh and table-view
+revisions. These adapters keep confirmation snapshots and optimistic
+concurrency checks typed without changing their persisted formats.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
