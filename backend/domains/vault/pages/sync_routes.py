@@ -4,22 +4,26 @@ import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
+from fastapi import APIRouter
+from pydantic import BaseModel
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 
 
-class ImportFile(_legacy.BaseModel):
+class ImportFile(BaseModel):
     __module__ = "backend.api.vault_routes"
     name: str
     content: str
 
 
-class ImportRequest(_legacy.BaseModel):
+class ImportRequest(BaseModel):
     __module__ = "backend.api.vault_routes"
     files: list[ImportFile]
     folder: str = "Importades"
 
 
-@_legacy.router.post(
+@router.post(
     "/import", dependencies=[_legacy.Depends(_legacy.require_role("editor"))], response_model=None
 )
 async def import_markdown(body: ImportRequest) -> _LegacyAny:
@@ -80,7 +84,7 @@ def _load_inline_comments(page_id: str) -> list[_LegacyAny]:
 
 list_inline_comments, create_inline_comment, update_inline_comment, delete_inline_comment = (
     _legacy.comments_api.register_inline_comment_routes(
-        _legacy.router,
+        router,
         post_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
         patch_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
         delete_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
@@ -114,7 +118,7 @@ def _synced_block_path(sync_id: str) -> _legacy.Path:
     return d / f"{safe}.md"
 
 
-@_legacy.router.get("/synced-events", response_model=None)
+@router.get("/synced-events", response_model=None)
 async def synced_events() -> _LegacyAny:
     """SSE: notifies REAL-TIME changes of synced blocks to all connected
     clients (any device). The frontend subscribes to it with EventSource
@@ -145,7 +149,7 @@ async def synced_events() -> _LegacyAny:
     )
 
 
-@_legacy.router.get("/synced/{sync_id}", response_model=None)
+@router.get("/synced/{sync_id}", response_model=None)
 async def get_synced_block(sync_id: str) -> _LegacyAny:
     """Content of a synced block (source shared across instances)."""
     p = _synced_block_path(sync_id)
@@ -153,12 +157,12 @@ async def get_synced_block(sync_id: str) -> _LegacyAny:
     return {"sync_id": sync_id, "content": content}
 
 
-class SyncedBlockSave(_legacy.BaseModel):
+class SyncedBlockSave(BaseModel):
     __module__ = "backend.api.vault_routes"
     content: str = ""
 
 
-@_legacy.router.put(
+@router.put(
     "/synced/{sync_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -174,7 +178,7 @@ async def save_synced_block(sync_id: str, body: SyncedBlockSave) -> _LegacyAny:
 
 get_link_index_stats, post_link_index_rebuild, get_backlinks, get_outlinks = (
     _legacy.link_navigation_api.register_routes(
-        _legacy.router,
+        router,
         admin_dependencies=[_legacy.Depends(_legacy.require_role("admin"))],
         dependencies=_legacy._LINK_API_DEPENDENCIES,
     )
@@ -211,7 +215,7 @@ def _link_mentions_in_plain_segments(
 
 
 get_unlinked_mentions, link_unlinked_mentions = _legacy.link_mentions_api.register_routes(
-    _legacy.router,
+    router,
     editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     dependencies=_legacy._LINK_API_DEPENDENCIES,
 )

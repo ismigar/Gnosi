@@ -238,6 +238,11 @@ updates and citation catalog/search registration share that same narrowed HTTP
 boundary. Provider fallbacks, editor permissions and citation-key uniqueness
 remain late-bound and behavior-compatible.
 
+Markdown import, inline comments, synchronized blocks, link navigation and
+unlinked mentions share a typed page-synchronization router. Request models use
+Pydantic directly while retaining their historical module identity, preserving
+schema names, SSE behavior and OpenAPI output.
+
 ## File providers
 
 The provider abstraction selects local, generic macOS File Provider, OneDrive,
