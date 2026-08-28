@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 269 | 1986 |
+| pytest | 270 | 1989 |
 
 ## Files
 
@@ -323,6 +323,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_set_user_password_script.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_set_user_password_script.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_snapshot_sort_accent_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_snapshot_sort_accent_parity.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_social_clients_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_clients_contract.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_social_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_store.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_ssrf_guard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ssrf_guard.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_system_filesystem_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_system_filesystem_routes.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_table_rename_collision.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_table_rename_collision.py) | 8 | Python AST |

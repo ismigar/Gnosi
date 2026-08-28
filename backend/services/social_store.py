@@ -13,11 +13,15 @@ about this module; this module does call it).
 Deliberately "safe" field types (title/text/date): the user can promote
 'Estat' or 'Xarxes' to select/multi-select from the UI without anything breaking.
 """
-import json
-import uuid
 import asyncio
+import json
 import logging
-from typing import Dict, List, Optional, Any
+import uuid
+from typing import Any
+
+from fastapi import BackgroundTasks
+
+from backend.domains.social import vault_ports
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +48,7 @@ COL_SCHEDULED = "Programada per"
 COL_PUBLISHED = "Publicada el"
 
 
-def _schema() -> List[Dict[str, Any]]:
+def _schema() -> list[dict[str, Any]]:
     """Fixed schema of the table. Networks are DATA, not columns."""
     return [
         {"id": str(uuid.uuid4()), "name": "Títol", "type": "title"},
@@ -59,9 +63,7 @@ def _schema() -> List[Dict[str, Any]]:
 
 async def ensure_social_table() -> str:
     """Create (idempotently) the history table in the registry and return its id."""
-    from backend.api.vault_routes import load_registry, create_table
-
-    registry = load_registry()
+    registry = vault_ports.load_registry()
     if any(t.get("id") == SOCIAL_TABLE_ID for t in registry.get("tables", [])):
         return SOCIAL_TABLE_ID
 
@@ -73,14 +75,14 @@ async def ensure_social_table() -> str:
         "properties": _schema(),
     }
     # create_table does upsert + creates assets folder + main view.
-    await create_table(table)
-    log.info(f"🆕 Table '{SOCIAL_TABLE_NAME}' created in the registry ({SOCIAL_TABLE_ID}).")
+    await vault_ports.create_table(table)
+    log.info("Table '%s' created in the registry (%s).", SOCIAL_TABLE_NAME, SOCIAL_TABLE_ID)
     return SOCIAL_TABLE_ID
 
 
-def _build_body(proposals: Dict[str, Any]) -> str:
+def _build_body(proposals: dict[str, Any]) -> str:
     """Readable Markdown body with the text for each network."""
-    lines: List[str] = []
+    lines: list[str] = []
     for net, data in (proposals or {}).items():
         text = data.get("text") if isinstance(data, dict) else str(data)
         lines.append(f"## {net}\n\n{text or ''}\n")
@@ -89,9 +91,9 @@ def _build_body(proposals: Dict[str, Any]) -> str:
 
 async def save_publication(
     *,
-    networks: List[str],
-    proposals: Dict[str, Any],
-    background_tasks,
+    networks: list[str],
+    proposals: dict[str, Any],
+    background_tasks: BackgroundTasks,
     status: str = STATUS_DRAFT,
     source_page_id: str = "",
     source_title: str = "",
@@ -102,14 +104,12 @@ async def save_publication(
     `proposals`: {network: {"text": str, ...}} — the final message per network.
     
     """
-    from backend.api.vault_routes import create_page, PageSaveRequest
-
     await ensure_social_table()
 
     # Readable title: the source's title, or a truncated snippet of the first text.
     title = (source_title or "").strip()
     if not title:
-        first = next(iter(proposals.values()), {})
+        first: Any = next(iter(proposals.values()), {})
         snippet = (first.get("text") if isinstance(first, dict) else str(first)) or "Publicació"
         title = snippet.strip().split("\n")[0][:60] or "Publicació"
 
@@ -119,7 +119,7 @@ async def save_publication(
         for net in networks
     }
 
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "database_table_id": SOCIAL_TABLE_ID,
         "table_id": SOCIAL_TABLE_ID,
         COL_STATUS: status,
@@ -130,18 +130,22 @@ async def save_publication(
         COL_PUBLISHED: "",
     }
 
-    req = PageSaveRequest(title=title, content=_build_body(proposals), metadata=metadata)
-    result = await create_page(req, background_tasks)
-    return result.get("id")
+    result = await vault_ports.create_page(
+        title=title,
+        content=_build_body(proposals),
+        metadata=metadata,
+        background_tasks=background_tasks,
+    )
+    return str(result.get("id") or "")
 
 
 async def update_publication(
     page_id: str,
     *,
-    background_tasks,
-    status: Optional[str] = None,
-    results: Optional[Dict[str, Any]] = None,
-    published_at: Optional[str] = None,
+    background_tasks: BackgroundTasks,
+    status: str | None = None,
+    results: dict[str, Any] | None = None,
+    published_at: str | None = None,
 ) -> None:
     """Updates the status and/or per-network results of a post.
 
@@ -149,11 +153,7 @@ async def update_publication(
     into the existing Missatges field (without losing the original text).
     
     """
-    from backend.api.vault_routes import (
-        find_page_path, parse_frontmatter, patch_page, PagePatchRequest,
-    )
-
-    patch_meta: Dict[str, Any] = {}
+    patch_meta: dict[str, Any] = {}
     if status is not None:
         patch_meta[COL_STATUS] = status
     if published_at is not None:
@@ -161,15 +161,16 @@ async def update_publication(
 
     if results:
         # We read the current messages to merge the results into them.
-        current: Dict[str, Any] = {}
+        current: dict[str, Any] = {}
         try:
-            file_path = await asyncio.to_thread(find_page_path, page_id)
+            file_path: Any = await asyncio.to_thread(vault_ports.find_page_path, page_id)
             if file_path and file_path.exists():
                 raw = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
-                meta, _ = parse_frontmatter(raw, file_path)
-                current = json.loads(meta.get(COL_MESSAGES) or "{}")
+                meta, _ = vault_ports.parse_frontmatter(raw, file_path)
+                payload: Any = json.loads(meta.get(COL_MESSAGES) or "{}")
+                current = dict(payload) if isinstance(payload, dict) else {}
         except Exception as exc:
-            log.warning(f"update_publication: could not read messages for {page_id}: {exc}")
+            log.warning("update_publication: could not read messages for %s: %s", page_id, exc)
         for net, res in results.items():
             entry = current.get(net) or {}
             entry.update(res or {})
@@ -178,22 +179,20 @@ async def update_publication(
 
     if not patch_meta:
         return
-    await patch_page(page_id, PagePatchRequest(metadata=patch_meta), background_tasks)
+    await vault_ports.patch_page(page_id, patch_meta, background_tasks)
 
 
-async def list_publications(status: Optional[str] = None) -> List[Dict[str, Any]]:
+async def list_publications(status: str | None = None) -> list[dict[str, Any]]:
     """Read the table's posts (optionally filtered by status)."""
-    from backend.api.vault_routes import _resolve_table_folder_from_metadata, parse_frontmatter
-
-    folder = _resolve_table_folder_from_metadata({"database_table_id": SOCIAL_TABLE_ID})
+    folder = vault_ports.resolve_table_folder({"database_table_id": SOCIAL_TABLE_ID})
     if not folder or not await asyncio.to_thread(folder.exists):
         return []
 
-    def _scan() -> List[Dict[str, Any]]:
-        out: List[Dict[str, Any]] = []
+    def _scan() -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
         for md in folder.glob("*.md"):
             try:
-                meta, _ = parse_frontmatter(md.read_text(encoding="utf-8"), md)
+                meta, _ = vault_ports.parse_frontmatter(md.read_text(encoding="utf-8"), md)
             except Exception:
                 continue
             if not meta or meta.get("database_table_id") != SOCIAL_TABLE_ID:

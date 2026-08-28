@@ -4,11 +4,14 @@ last_verified: 2026-08-28
 source_paths:
   - backend/api/social_routes.py
   - backend/services/social_clients.py
+  - backend/services/social_store.py
+  - backend/domains/social
   - frontend/src/pages/SocialDashboard.jsx
   - frontend/src/pages/MediaCenter.jsx
   - pipeline/skills/publisher
 tests:
   - backend/tests/test_social_clients_contract.py
+  - backend/tests/test_social_store.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_connection_scheduler_alignment.py
 ---
@@ -36,6 +39,13 @@ Provider JSON is validated and normalized at the adapter boundary. The HTTP
 routes are strictly typed while preserving the existing OpenAPI contract, and
 stored message JSON is decoded through typed helpers before previews, URLs, or
 scheduled publications are used.
+
+Publication history is stored as ordinary Markdown rows in the stable
+`Publicacions Socials` Vault table. The service preserves human-readable field
+names and merges per-network outcomes with the original text. Typed late-bound
+Vault ports isolate registry, page and frontmatter operations so circular
+compatibility imports remain replaceable without leaking dynamic types into the
+social domain.
 
 ## Publish flow
 
