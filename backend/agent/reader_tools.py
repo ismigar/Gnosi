@@ -4,19 +4,33 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING, Any, Callable, List
 
 try:
-    from langchain_core.tools import tool
+    import langchain_core.tools as _langchain_tools
 except Exception:  # pragma: no cover - keeps helpers importable in lean tests
-    def tool(fn=None, **_kwargs):
-        return fn if fn else (lambda function: function)
+    _langchain_tools = None  # type: ignore[assignment]
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from backend.models.reader import Article
 
 
-def _vault_path():
+def tool(fn: Callable[..., Any]) -> Any:
+    """Use LangChain's decorator, with an identity fallback for lean imports."""
+    if _langchain_tools is None:
+        return fn
+    return _langchain_tools.tool(fn)
+
+
+def _vault_path() -> Path:
     from backend.services.context_vars import get_active_vault_path
 
-    return get_active_vault_path()
+    vault_path = get_active_vault_path()
+    if vault_path is None:
+        raise RuntimeError("No active Vault is available for Reader tools")
+    return vault_path
 
 
 def _scope(
@@ -25,7 +39,7 @@ def _scope(
     categories: List[str],
     date_from: str,
     date_to: str,
-):
+) -> dict[str, object]:
     return {
         "unread_only": unread_only,
         "source_ids": source_ids,
@@ -151,7 +165,7 @@ def cancel_reader_topic_analysis(job_id: str) -> str:
     return json.dumps(cancel_analysis(_vault_path(), job_id), ensure_ascii=False, default=str)
 
 
-def _reader_article(article_id: int):
+def _reader_article(article_id: int) -> tuple[Session, Article | None]:
     from backend.data.db import get_engine_for_path
     from backend.models.reader import Article
 
@@ -168,7 +182,7 @@ def mark_reader_article_read(article_id: int, read: bool = True) -> str:
     try:
         if article is None:
             return json.dumps({"error": "Article not found."})
-        article.is_read = bool(read)
+        setattr(article, "is_read", bool(read))
         session.commit()
         return json.dumps({
             "status": "updated", "article_id": article.id, "is_read": article.is_read,
@@ -186,10 +200,10 @@ def extract_reader_article(article_id: int) -> str:
     try:
         if article is None:
             return json.dumps({"error": "Article not found."})
-        extracted = extract_full_content(article.url)
+        extracted = extract_full_content(str(article.url or ""))
         if not extracted:
             return json.dumps({"status": "unavailable", "article_id": article.id})
-        article.full_content = extracted
+        setattr(article, "full_content", extracted)
         session.commit()
         return json.dumps({
             "status": "updated", "article_id": article.id, "length": len(extracted),
@@ -223,7 +237,7 @@ def save_reader_article_to_vault(
                 })
         target_folder = Path(_vault_path()) / sanitize_rel_folder(folder)
         target_folder.mkdir(parents=True, exist_ok=True)
-        title = sanitize_vault_title(article.title or f"Reader article {article.id}")
+        title = sanitize_vault_title(str(article.title or f"Reader article {article.id}"))
         target = target_folder / f"{title}.md"
         suffix = 2
         while target.exists():
@@ -240,7 +254,7 @@ def save_reader_article_to_vault(
             "published_at": str(article.published_at or ""),
             "tags": ["reader"],
         }
-        content = article.full_content or article.content or ""
+        content = str(article.full_content or article.content or "")
         _write_page(target, metadata, content)
         return json.dumps({
             "status": "created", "article_id": article.id, "page_id": page_id,

@@ -299,6 +299,12 @@ status, result availability, resume after failure or interruption, and
 cooperative cancellation in message details. The same
 facade remains extensible to other source-owned durable providers; unsupported
 requests stay foreground and are never represented as durable work.
+
+Reader agent tools require a concrete active Vault before analysis or page
+persistence, expose typed scope payloads and retain an identity decorator only
+for lean environments without LangChain. Article reads and mutations narrow
+legacy ORM descriptors at one boundary while preserving tool names, effects and
+serialized responses.
 Providers and queue dispatchers register versioned contracts declaring job
 kind, idempotency, lease, attempt and model-call budgets, result, resume, and
 cancellation behavior. Unknown job types fail visibly instead of entering a

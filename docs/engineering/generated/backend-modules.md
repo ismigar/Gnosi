@@ -10,7 +10,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 46 | 8476 |
+| `agent` | 46 | 8490 |
 | `api` | 38 | 11438 |
 | `app` | 6 | 603 |
 | `application root` | 4 | 107 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146654 source lines**.
+Total: **699 modules** and **146668 source lines**.
 
 ## agent
 
@@ -70,7 +70,7 @@ Total: **699 modules** and **146654 source lines**.
 | [`backend/agent/notion_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/notion_tools.py) | 76 | 0 | 5 | 5 | 5 | Governed adapters for connected Notion discovery and exact cloning. |
 | [`backend/agent/planning_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/planning_tools.py) | 167 | 0 | 13 | 12 | 12 | Governed tools over Gnosi's authoritative project-planning services. |
 | [`backend/agent/provider_resilience.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/provider_resilience.py) | 175 | 1 | 3 | 0 | 3 | Provider failover that is safe for cached, request-independent workflows. |
-| [`backend/agent/reader_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/reader_tools.py) | 288 | 0 | 16 | 0 | 13 | Governed tools for inspecting and analysing Gnosi Reader content. |
+| [`backend/agent/reader_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/reader_tools.py) | 302 | 0 | 17 | 0 | 14 | Governed tools for inspecting and analysing Gnosi Reader content. |
 | [`backend/agent/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/recovery.py) | 39 | 0 | 2 | 0 | 2 | Safe, bounded recovery metadata for failed agent turns. |
 | [`backend/agent/semantic_interpreter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/semantic_interpreter.py) | 113 | 0 | 5 | 0 | 3 | Bounded, multilingual interpretation before capability routing. |
 | [`backend/agent/social_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/social_tools.py) | 142 | 0 | 8 | 7 | 7 | Governed adapters for Gnosi social reading, composition, and publishing. |
