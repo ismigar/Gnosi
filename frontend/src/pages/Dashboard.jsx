@@ -18,6 +18,12 @@ import {
     runScheduledTask,
     updateScheduledTask,
 } from '../shared/api/scheduler';
+import {
+    useClearSystemNotifications,
+    useSystemNotifications,
+} from '../shared/api/useSystemData';
+
+const NOTIF_LIMIT = 20;
 
 const ROLE_CAPABILITIES = {
     viewer: ['read'],
@@ -42,12 +48,19 @@ function Dashboard() {
     const [, setApprovedLoading] = useState(true);
     const [analytics, setAnalytics] = useState(null);
     const [schedulers, setSchedulers] = useState([]);
-    const [notifications, setNotifications] = useState([]);
     const [schedulerLoading, setSchedulerLoading] = useState(true);
-    const [notificationsLoading, setNotificationsLoading] = useState(false);
     const [notifPage, setNotifPage] = useState(0);
-    const [notifTotal, setNotifTotal] = useState(0);
-    const NOTIF_LIMIT = 20;
+    const {
+        data: notificationPage,
+        isFetching: notificationsLoading,
+        refetch: refetchNotifications,
+    } = useSystemNotifications({
+        limit: NOTIF_LIMIT,
+        offset: notifPage * NOTIF_LIMIT,
+    });
+    const clearNotifications = useClearSystemNotifications();
+    const notifications = notificationPage?.items || [];
+    const notifTotal = notificationPage?.total || 0;
 
     // Task Execution History (DB Persistent)
     const [taskHistory, setTaskHistory] = useState([]);
@@ -158,24 +171,6 @@ function Dashboard() {
             setApprovedLoading(false);
         }
     }, [apiFetch]);
-
-    const fetchNotifications = async (p = 0) => {
-        const page = typeof p === 'number' ? p : 0;
-        setNotificationsLoading(true);
-        try {
-            const offset = page * NOTIF_LIMIT;
-            const data = await apiFetch(`/api/system/notifications?limit=${NOTIF_LIMIT}&offset=${offset}`);
-            if (data && data.items) {
-                setNotifications(data.items);
-                setNotifTotal(data.total);
-                setNotifPage(page);
-            }
-        } catch (error) {
-            console.error('Error fetching notifications:', error);
-        } finally {
-            setNotificationsLoading(false);
-        }
-    };
 
     const fetchTaskHistory = async (p = 0) => {
         const page = typeof p === 'number' ? p : 0;
@@ -300,9 +295,9 @@ function Dashboard() {
     const doPurgeLogs = async () => {
         setConfirmPurgeLogs(false);
         try {
-            await apiFetch('/api/system/notifications', { method: 'DELETE' });
+            await clearNotifications.mutateAsync();
             toast.success(t('dashboard.logs_purged'));
-            fetchNotifications(0);
+            setNotifPage(0);
         } catch (_error) {
             toast.error(t('dashboard.logs_purge_error'));
         }
@@ -334,7 +329,6 @@ function Dashboard() {
         fetchTraps(0);
         fetchSystemStatus();
         if (automationsEnabled) fetchSchedulers();
-        fetchNotifications(0);
         if (automationsEnabled) fetchTaskHistory(0);
 
         const toolsInterval = aiEnabled ? setInterval(fetchPendingTools, 15000) : null;
@@ -353,11 +347,11 @@ function Dashboard() {
         if (automationsEnabled && selectedControlTab === 'history') {
             const historyInterval = setInterval(() => {
                 fetchTaskHistory(taskHistoryPage);
-                fetchNotifications(notifPage);
+                void refetchNotifications();
             }, 20000);
             return () => clearInterval(historyInterval);
         }
-    }, [selectedControlTab, taskHistoryPage, notifPage, automationsEnabled]);
+    }, [selectedControlTab, taskHistoryPage, automationsEnabled, refetchNotifications]);
 
     useEffect(() => {
         if (!automationsEnabled && ['schedulers', 'history'].includes(selectedControlTab)) {
@@ -820,7 +814,7 @@ function Dashboard() {
                                     </h3>
                                     <div className="flex items-center gap-2">
                                         <button 
-                                            onClick={() => fetchNotifications(notifPage)}
+                                            onClick={() => void refetchNotifications()}
                                             className="p-1 hover:bg-blue-500/10 text-blue-400 rounded transition-all"
                                             title={t('dashboard.refresh_logs')}
                                         >
@@ -887,7 +881,7 @@ function Dashboard() {
                                         total={notifTotal}
                                         limit={NOTIF_LIMIT}
                                         page={notifPage}
-                                        onPageChange={fetchNotifications}
+                                        onPageChange={setNotifPage}
                                         loading={notificationsLoading}
                                     />
                                 </>

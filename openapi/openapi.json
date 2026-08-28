@@ -1091,6 +1091,7 @@
         "type": "object"
       },
       "BrowseRequest": {
+        "description": "Directory requested by the in-app filesystem picker.",
         "properties": {
           "path": {
             "default": "/",
@@ -1549,6 +1550,25 @@
           }
         },
         "title": "ChatRewindRequest",
+        "type": "object"
+      },
+      "ClearNotificationsResponse": {
+        "description": "Acknowledgement after clearing the notification log.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "ClearNotificationsResponse",
         "type": "object"
       },
       "ClearTaskHistoryResponse": {
@@ -2361,6 +2381,186 @@
           "created_at"
         ],
         "title": "FeedSourceResponse",
+        "type": "object"
+      },
+      "FilesystemBrowseResponse": {
+        "description": "Directory listing or recoverable picker error.",
+        "properties": {
+          "current_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Path"
+          },
+          "directories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Directories",
+            "type": "array"
+          },
+          "display_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Path"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "roots": {
+            "$ref": "#/components/schemas/FilesystemRootsResponse"
+          }
+        },
+        "required": [
+          "roots"
+        ],
+        "title": "FilesystemBrowseResponse",
+        "type": "object"
+      },
+      "FilesystemRootsResponse": {
+        "description": "Resolved filesystem shortcuts visible to an admin picker.",
+        "properties": {
+          "home": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "/",
+            "title": "Root"
+          },
+          "vault": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault"
+          }
+        },
+        "title": "FilesystemRootsResponse",
+        "type": "object"
+      },
+      "FilesystemSearchEntryResponse": {
+        "description": "One file or directory matched by System search.",
+        "properties": {
+          "is_dir": {
+            "title": "Is Dir",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "is_dir"
+        ],
+        "title": "FilesystemSearchEntryResponse",
+        "type": "object"
+      },
+      "FilesystemSearchResponse": {
+        "description": "Bounded filename-search result from index, Spotlight, or fallback walk.",
+        "properties": {
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/FilesystemSearchEntryResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "results",
+          "truncated"
+        ],
+        "title": "FilesystemSearchResponse",
         "type": "object"
       },
       "FullTextRequest": {
@@ -3214,7 +3414,52 @@
         "title": "ModelsPayload",
         "type": "object"
       },
+      "NativePickAvailabilityResponse": {
+        "description": "Whether this caller can use the native host picker.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "NativePickAvailabilityResponse",
+        "type": "object"
+      },
+      "NativePickEntryResponse": {
+        "description": "One path returned by the native picker.",
+        "properties": {
+          "is_dir": {
+            "title": "Is Dir",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "is_dir"
+        ],
+        "title": "NativePickEntryResponse",
+        "type": "object"
+      },
       "NativePickRequest": {
+        "description": "Options for the host-native file and folder panel.",
         "properties": {
           "mode": {
             "default": "any",
@@ -3233,6 +3478,56 @@
           }
         },
         "title": "NativePickRequest",
+        "type": "object"
+      },
+      "NativePickResponse": {
+        "description": "Native picker result, including the normal cancelled variant.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/NativePickEntryResponse"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "is_dir": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Dir"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paths",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "NativePickResponse",
         "type": "object"
       },
       "NetworkPost": {
@@ -3584,6 +3879,7 @@
         "type": "object"
       },
       "NotificationCreate": {
+        "description": "Payload accepted by the durable system notification log.",
         "properties": {
           "level": {
             "default": "INFO",
@@ -3609,6 +3905,43 @@
           "title"
         ],
         "title": "NotificationCreate",
+        "type": "object"
+      },
+      "NotificationPageResponse": {
+        "description": "One stable page of system notifications.",
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "NotificationPageResponse",
         "type": "object"
       },
       "NotificationResponse": {
@@ -6371,6 +6704,69 @@
         "title": "SyncedBlockSave",
         "type": "object"
       },
+      "SystemGraphVisualizationResponse": {
+        "description": "Minimal graph visualization payload retained for compatibility.",
+        "properties": {
+          "edges": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "title": "SystemGraphVisualizationResponse",
+        "type": "object"
+      },
+      "SystemStatsResponse": {
+        "description": "Current host resource and graph-index statistics.",
+        "properties": {
+          "cpu": {
+            "title": "Cpu",
+            "type": "number"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "memory_items": {
+            "title": "Memory Items",
+            "type": "integer"
+          },
+          "ram_percent": {
+            "title": "Ram Percent",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cpu",
+          "ram_percent",
+          "memory_items",
+          "status"
+        ],
+        "title": "SystemStatsResponse",
+        "type": "object"
+      },
       "TablePagesSnapshot": {
         "properties": {
           "pages": {
@@ -7717,24 +8113,6 @@
         "title": "SearchRequest",
         "type": "object"
       },
-      "backend__api__system_routes__SearchRequest": {
-        "properties": {
-          "limit": {
-            "default": 100,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "query": {
-            "title": "Query",
-            "type": "string"
-          }
-        },
-        "required": [
-          "query"
-        ],
-        "title": "SearchRequest",
-        "type": "object"
-      },
       "backend__api__vault_routes__ImportRequest": {
         "properties": {
           "files": {
@@ -7754,6 +8132,25 @@
           "files"
         ],
         "title": "ImportRequest",
+        "type": "object"
+      },
+      "backend__domains__system__schemas__SearchRequest": {
+        "description": "Bounded whole-computer filename search.",
+        "properties": {
+          "limit": {
+            "default": 100,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchRequest",
         "type": "object"
       }
     }
@@ -40274,7 +40671,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FilesystemBrowseResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40300,7 +40699,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SystemGraphVisualizationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40409,7 +40810,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NativePickResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40518,7 +40921,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NativePickAvailabilityResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40627,7 +41032,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClearNotificationsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40675,9 +41082,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Notifications Api System Notifications Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/NotificationPageResponse"
                 }
               }
             },
@@ -40824,7 +41229,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/backend__api__system_routes__SearchRequest"
+                "$ref": "#/components/schemas/backend__domains__system__schemas__SearchRequest"
               }
             }
           },
@@ -40834,7 +41239,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FilesystemSearchResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40861,7 +41268,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatsResponse"
+                }
               }
             },
             "description": "Successful Response"

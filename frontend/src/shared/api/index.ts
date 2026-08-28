@@ -144,3 +144,34 @@ export type {
   VaultMutation,
   VaultSummary,
 } from './vaults';
+export {
+  browseFilesystem,
+  clearSystemNotifications,
+  createSystemNotification,
+  fetchNativePickAvailability,
+  fetchSystemGraphVisualization,
+  fetchSystemNotifications,
+  fetchSystemStats,
+  pickNativeFilesystemEntry,
+  searchFilesystem,
+} from './system';
+export type {
+  ClearSystemNotificationsResult,
+  FilesystemBrowseResult,
+  FilesystemSearchResult,
+  NativePickAvailability,
+  NativePickInput,
+  NativePickResult,
+  SearchFilesystemInput,
+  SystemGraphVisualization,
+  SystemNotification,
+  SystemNotificationInput,
+  SystemNotificationPage,
+  SystemNotificationsQuery,
+  SystemStats,
+} from './system';
+export {
+  systemQueryKeys,
+  useClearSystemNotifications,
+  useSystemNotifications,
+} from './useSystemData';

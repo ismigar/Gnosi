@@ -20,7 +20,7 @@
  *     catch (err) { notifyError('save-page', err, t('errors.save_page')); }
  */
 import { toast as hotToast } from 'react-hot-toast';
-import { transportFetch } from '../shared/api/transports';
+import { createSystemNotification } from '../shared/api/system';
 
 const DEFAULT_DEDUPE_MS = 4000;
 const _recent = new Map(); // message → timestamp
@@ -120,24 +120,15 @@ export function notifyInfo(scope, message) {
 // Exported so the toast wrapper can log `toast.error` /
 // `toast.success` as Control Center entries.
 export function _persistNotification({ title, message, level }) {
-    // useApi is a React hook and cannot be used outside a component. We do a
-    // direct fetch with the same headers that `useApi.apiFetch` applies.
+    // useApi is a React hook and cannot be used outside a component. The shared
+    // typed client still applies the same request context without a hook.
     try {
         const workspaceId = (typeof localStorage !== 'undefined'
             && localStorage.getItem('gnosi_workspace_id')) || 'personal';
-        const userEmail = (typeof localStorage !== 'undefined'
-            && localStorage.getItem('gnosi_user_email')) || '';
-        transportFetch('/api/system/notifications', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Workspace-ID': workspaceId,
-                'X-User-ID': 'ismael-legacy',
-                'X-User-Email': userEmail,
-            },
-            body: JSON.stringify({ title, message, level, workspace_id: workspaceId }),
-            keepalive: true,
-        }).catch(() => { /* fire-and-forget */ });
+        createSystemNotification(
+            { title, message, level, workspace_id: workspaceId },
+            true,
+        ).catch(() => { /* fire-and-forget */ });
     } catch {
         /* localStorage absent o fetch absent — silenciem */
     }

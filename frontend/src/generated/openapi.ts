@@ -9920,16 +9920,6 @@ export interface components {
                 [key: string]: string;
             };
         };
-        /** SearchRequest */
-        backend__api__system_routes__SearchRequest: {
-            /**
-             * Limit
-             * @default 100
-             */
-            limit: number;
-            /** Query */
-            query: string;
-        };
         /** ImportRequest */
         backend__api__vault_routes__ImportRequest: {
             /** Files */
@@ -9939,6 +9929,19 @@ export interface components {
              * @default Importades
              */
             folder: string;
+        };
+        /**
+         * SearchRequest
+         * @description Bounded whole-computer filename search.
+         */
+        backend__domains__system__schemas__SearchRequest: {
+            /**
+             * Limit
+             * @default 100
+             */
+            limit: number;
+            /** Query */
+            query: string;
         };
         /** BaselinePayload */
         BaselinePayload: {
@@ -10142,7 +10145,10 @@ export interface components {
             /** File */
             file: string;
         };
-        /** BrowseRequest */
+        /**
+         * BrowseRequest
+         * @description Directory requested by the in-app filesystem picker.
+         */
         BrowseRequest: {
             /**
              * Path
@@ -10320,6 +10326,16 @@ export interface components {
              * @default 0
              */
             keep_messages: number;
+        };
+        /**
+         * ClearNotificationsResponse
+         * @description Acknowledgement after clearing the notification log.
+         */
+        ClearNotificationsResponse: {
+            /** Message */
+            message: string;
+            /** Success */
+            success: boolean;
         };
         /**
          * ClearTaskHistoryResponse
@@ -10656,6 +10672,66 @@ export interface components {
             type: string | null;
             /** Url */
             url: string;
+        };
+        /**
+         * FilesystemBrowseResponse
+         * @description Directory listing or recoverable picker error.
+         */
+        FilesystemBrowseResponse: {
+            /** Current Path */
+            current_path?: string | null;
+            /** Directories */
+            directories?: string[];
+            /** Display Path */
+            display_path?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Files */
+            files?: string[];
+            roots: components["schemas"]["FilesystemRootsResponse"];
+        };
+        /**
+         * FilesystemRootsResponse
+         * @description Resolved filesystem shortcuts visible to an admin picker.
+         */
+        FilesystemRootsResponse: {
+            /** Home */
+            home?: string | null;
+            /**
+             * Root
+             * @default /
+             */
+            root: string | null;
+            /** Vault */
+            vault?: string | null;
+        };
+        /**
+         * FilesystemSearchEntryResponse
+         * @description One file or directory matched by System search.
+         */
+        FilesystemSearchEntryResponse: {
+            /** Is Dir */
+            is_dir: boolean;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+        };
+        /**
+         * FilesystemSearchResponse
+         * @description Bounded filename-search result from index, Spotlight, or fallback walk.
+         */
+        FilesystemSearchResponse: {
+            /** Engine */
+            engine?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Results */
+            results: components["schemas"]["FilesystemSearchEntryResponse"][];
+            /** Truncated */
+            truncated: boolean;
         };
         /** FullTextRequest */
         FullTextRequest: {
@@ -11051,7 +11127,30 @@ export interface components {
             /** Models */
             models: unknown[];
         };
-        /** NativePickRequest */
+        /**
+         * NativePickAvailabilityResponse
+         * @description Whether this caller can use the native host picker.
+         */
+        NativePickAvailabilityResponse: {
+            /** Available */
+            available: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * NativePickEntryResponse
+         * @description One path returned by the native picker.
+         */
+        NativePickEntryResponse: {
+            /** Is Dir */
+            is_dir: boolean;
+            /** Path */
+            path: string;
+        };
+        /**
+         * NativePickRequest
+         * @description Options for the host-native file and folder panel.
+         */
         NativePickRequest: {
             /**
              * Mode
@@ -11068,6 +11167,22 @@ export interface components {
              * @default
              */
             prompt: string;
+        };
+        /**
+         * NativePickResponse
+         * @description Native picker result, including the normal cancelled variant.
+         */
+        NativePickResponse: {
+            /** Entries */
+            entries?: components["schemas"]["NativePickEntryResponse"][];
+            /** Is Dir */
+            is_dir?: boolean | null;
+            /** Path */
+            path?: string | null;
+            /** Paths */
+            paths?: string[];
+            /** Status */
+            status: string;
         };
         /** NetworkPost */
         NetworkPost: {
@@ -11210,7 +11325,10 @@ export interface components {
             /** Resource Ids */
             resource_ids: string[];
         };
-        /** NotificationCreate */
+        /**
+         * NotificationCreate
+         * @description Payload accepted by the durable system notification log.
+         */
         NotificationCreate: {
             /**
              * Level
@@ -11229,6 +11347,22 @@ export interface components {
              * @default default
              */
             workspace_id: string;
+        };
+        /**
+         * NotificationPageResponse
+         * @description One stable page of system notifications.
+         */
+        NotificationPageResponse: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["NotificationResponse"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
         };
         /** NotificationResponse */
         NotificationResponse: {
@@ -12587,6 +12721,36 @@ export interface components {
              * @default
              */
             content: string;
+        };
+        /**
+         * SystemGraphVisualizationResponse
+         * @description Minimal graph visualization payload retained for compatibility.
+         */
+        SystemGraphVisualizationResponse: {
+            /** Edges */
+            edges?: {
+                [key: string]: unknown;
+            }[];
+            /** Nodes */
+            nodes?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * SystemStatsResponse
+         * @description Current host resource and graph-index statistics.
+         */
+        SystemStatsResponse: {
+            /** Cpu */
+            cpu: number;
+            /** Error */
+            error?: string | null;
+            /** Memory Items */
+            memory_items: number;
+            /** Ram Percent */
+            ram_percent: number;
+            /** Status */
+            status: string;
         };
         /** TablePagesSnapshot */
         TablePagesSnapshot: {
@@ -23862,7 +24026,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FilesystemBrowseResponse"];
                 };
             };
             /** @description Validation Error */
@@ -23891,7 +24055,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SystemGraphVisualizationResponse"];
                 };
             };
         };
@@ -23922,7 +24086,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NativePickResponse"];
                 };
             };
             /** @description Validation Error */
@@ -23958,7 +24122,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NativePickAvailabilityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -23990,9 +24154,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["NotificationPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -24061,7 +24223,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClearNotificationsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -24091,7 +24253,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["backend__api__system_routes__SearchRequest"];
+                "application/json": components["schemas"]["backend__domains__system__schemas__SearchRequest"];
             };
         };
         responses: {
@@ -24101,7 +24263,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FilesystemSearchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -24130,7 +24292,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SystemStatsResponse"];
                 };
             };
         };

@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { X, Folder, ChevronRight, ArrowLeft, Home, Search } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
-import { transportFetch } from '../shared/api/transports';
+import { browseFilesystem } from '../shared/api/system';
 
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
@@ -46,12 +46,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
         setLoading(true);
         setError('');
         try {
-            const res = await transportFetch('/api/system/browse', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path })
-            });
-            const data = await res.json();
+            const data = await browseFilesystem(path);
             // The backend returns `roots` on every response (success or error),
             // so the shortcuts stay populated even when the initial path is bad.
             if (data.roots) setRoots(data.roots);

@@ -9,12 +9,25 @@ from pathlib import Path
 from typing import Any, cast
 
 import psutil
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from backend.config.env_config import default_host_helper_url
 from backend.data.management_db import get_mgmt_db
+from backend.domains.system.schemas import (
+    BrowseRequest,
+    ClearNotificationsResponse,
+    FilesystemBrowseResponse,
+    FilesystemSearchResponse,
+    NativePickAvailabilityResponse,
+    NativePickRequest,
+    NativePickResponse,
+    NotificationCreate,
+    NotificationPageResponse,
+    SearchRequest,
+    SystemGraphVisualizationResponse,
+    SystemStatsResponse,
+)
 from backend.models.notification import Notification, NotificationResponse
 from backend.services.graph_service import GraphService
 from backend.services.workspace_service import require_role
@@ -23,7 +36,7 @@ from backend.utils.errors import safe_error_detail
 router = APIRouter()
 
 
-@router.get("/notifications", response_model=dict[str, Any])
+@router.get("/notifications", response_model=NotificationPageResponse)
 async def get_notifications(
     limit: int = 50, offset: int = 0, db: Session = Depends(get_mgmt_db)
 ) -> dict[str, Any]:
@@ -39,13 +52,6 @@ async def get_notifications(
         "offset": offset,
         "has_more": total > offset + limit,
     }
-
-
-class NotificationCreate(BaseModel):
-    title: str
-    message: str = ""
-    level: str = "INFO"  # INFO | SUCCESS | WARNING | ERROR
-    workspace_id: str = "default"
 
 
 @router.post("/notifications", response_model=NotificationResponse)
@@ -85,7 +91,7 @@ async def create_notification(
 
 @router.delete(
     "/notifications",
-    response_model=None,
+    response_model=ClearNotificationsResponse,
     dependencies=[Depends(require_role("admin"))],
 )
 async def clear_notifications(db: Session = Depends(get_mgmt_db)) -> Any:
@@ -103,21 +109,6 @@ async def clear_notifications(db: Session = Depends(get_mgmt_db)) -> Any:
             status_code=500,
             detail=safe_error_detail(e, "DELETE /notifications"),
         )
-
-
-class BrowseRequest(BaseModel):
-    path: str = "/"
-
-
-class SearchRequest(BaseModel):
-    query: str
-    limit: int = 100
-
-
-class NativePickRequest(BaseModel):
-    mode: str = "any"  # "file" | "folder" | "any"
-    prompt: str = ""
-    multiple: bool = False  # files only: allow picking several at once
 
 
 def _browser_roots() -> tuple[str, str, dict[str, str | None], list[Path]]:
@@ -242,7 +233,11 @@ def _scan_browse_directory(
     }
 
 
-@router.get("/stats", response_model=None)
+@router.get(
+    "/stats",
+    response_model=SystemStatsResponse,
+    response_model_exclude_unset=True,
+)
 async def get_system_stats() -> Any:
     """Returns real system statistics."""
     try:
@@ -265,14 +260,18 @@ async def get_system_stats() -> Any:
         }
 
 
-@router.get("/graph/visualization", response_model=None)
+@router.get(
+    "/graph/visualization",
+    response_model=SystemGraphVisualizationResponse,
+)
 async def get_graph_viz() -> Any:
     return {"nodes": [], "edges": []}
 
 
 @router.post(
     "/browse",
-    response_model=None,
+    response_model=FilesystemBrowseResponse,
+    response_model_exclude_unset=True,
     dependencies=[Depends(require_role("admin"))],
 )
 async def browse_directory(body: BrowseRequest = Body(...)) -> Any:
@@ -375,7 +374,7 @@ def _is_loopback_request(request: Request) -> bool:
 
 @router.get(
     "/native-pick/available",
-    response_model=None,
+    response_model=NativePickAvailabilityResponse,
     dependencies=[Depends(require_role("admin"))],
 )
 async def native_pick_available(request: Request) -> Any:
@@ -393,7 +392,8 @@ async def native_pick_available(request: Request) -> Any:
 
 @router.post(
     "/native-pick",
-    response_model=None,
+    response_model=NativePickResponse,
+    response_model_exclude_unset=True,
     dependencies=[Depends(require_role("admin"))],
 )
 async def native_pick(request: Request, body: NativePickRequest = Body(...)) -> Any:
@@ -641,7 +641,8 @@ def _walk_filesystem(query: str, limit: int) -> _FilesystemSearchState:
 
 @router.post(
     "/search",
-    response_model=None,
+    response_model=FilesystemSearchResponse,
+    response_model_exclude_unset=True,
     dependencies=[Depends(require_role("admin"))],
 )
 async def search_filesystem(body: SearchRequest = Body(...)) -> dict[str, Any]:

@@ -3,7 +3,12 @@ import ReactDOM from 'react-dom';
 import { X, Folder, ChevronRight, ArrowLeft, Home, Search, File as FileIcon, FolderOpen } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { useTranslation } from 'react-i18next';
-import { transportFetch } from '../shared/api/transports';
+import {
+    browseFilesystem,
+    fetchNativePickAvailability,
+    pickNativeFilesystemEntry,
+    searchFilesystem,
+} from '../shared/api/system';
 
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
@@ -126,8 +131,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         let cancelled = false;
         void (async () => {
             try {
-                const res = await transportFetch('/api/system/native-pick/available');
-                const data = await res.json();
+                const data = await fetchNativePickAvailability();
                 if (!cancelled) setNativeAvailable(!!data.available);
             } catch {
                 if (!cancelled) setNativeAvailable(false);
@@ -191,12 +195,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         const handle = setTimeout(async () => {
             setLoading(true);
             try {
-                const res = await transportFetch('/api/system/search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: q, limit: 200 }),
-                });
-                const data = await res.json();
+                const data = await searchFilesystem({ query: q, limit: 200 });
                 if (data.error) {
                     setError(localizeError(data));
                 }
@@ -236,12 +235,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         setLoading(true);
         setError('');
         try {
-            const res = await transportFetch('/api/system/browse', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path }),
-            });
-            const data = await res.json();
+            const data = await browseFilesystem(path);
             // The backend returns `roots` on every response (success or error),
             // so keep the shortcuts populated even when the initial path is bad.
             if (data.roots) setRoots(data.roots);
@@ -325,13 +319,11 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         setNativeError('');
         setNativePicking(true);
         try {
-            const res = await transportFetch('/api/system/native-pick', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode, prompt: titleText, multiple: canMulti }),
+            const data = await pickNativeFilesystemEntry({
+                mode,
+                prompt: titleText,
+                multiple: canMulti,
             });
-            if (!res.ok) { setNativeError(tn('native_error')); return; }
-            const data = await res.json();
             if (data.status !== 'ok' || !data.path) return; // cancelled → stay open
             // Keep the in-app picker's remembered folder in sync with the choice.
             saveLastPath(data.is_dir ? data.path : data.path.slice(0, data.path.lastIndexOf('/')));
