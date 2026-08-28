@@ -12,7 +12,7 @@ from backend.agent.factory import build_agent_turn_plan
 
 
 CASES_PATH = Path(__file__).with_name("universal_turns.json")
-DEFAULT_TOOL_METADATA = [
+DEFAULT_TOOL_METADATA: list[dict[str, Any]] = [
     {"name": "inventory_context", "effects": ["read"], "confirmation": "none", "dynamic_context": True},
     {"name": "read_context_source", "effects": ["read"], "confirmation": "none", "dynamic_context": True},
     {"name": "inspect_reader_context", "effects": ["read", "personal_data"], "confirmation": "none", "dynamic_context": True},

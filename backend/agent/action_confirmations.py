@@ -9,7 +9,7 @@ import sqlite3
 import time
 import uuid
 from contextlib import contextmanager
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, Optional
 
@@ -91,7 +91,10 @@ _context: ContextVar[Optional[Dict[str, str]]] = ContextVar(
 
 def _database_path() -> Path:
     cfg = load_params(strict_env=False)
-    root = Path(cfg.paths["LOCAL_DATA"])
+    configured_root = cfg.paths.get("LOCAL_DATA")
+    if configured_root is None:
+        raise RuntimeError("GNOSI local data directory is not configured.")
+    root = Path(configured_root)
     root.mkdir(parents=True, exist_ok=True)
     return root / "agent_action_confirmations.sqlite"
 
@@ -211,12 +214,16 @@ def current_confirmation_scope() -> Dict[str, str]:
     return dict(scope)
 
 
-def bind_confirmation_context(**scope: str):
+def bind_confirmation_context(
+    **scope: str,
+) -> Token[Optional[Dict[str, str]]]:
     """Bind request scope for a streaming turn and return its reset token."""
     return _context.set(_normalized_scope(scope))
 
 
-def reset_confirmation_context(token) -> None:
+def reset_confirmation_context(
+    token: Token[Optional[Dict[str, str]]],
+) -> None:
     """Reset a token created by :func:`bind_confirmation_context`."""
     _context.reset(token)
 

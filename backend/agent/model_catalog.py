@@ -241,7 +241,8 @@ def _read_json(path: Optional[Path]) -> Optional[Dict[str, Any]]:
     if not path or not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else None
     except Exception:
         return None
 
@@ -316,7 +317,8 @@ def pick_ping_model(catalog: Dict[str, Any], provider_id: str) -> Optional[str]:
             return None
         best = min(models, key=lambda m: (float(m.get("cost_in") or 0)
                                           + float(m.get("cost_out") or 0)) / 2)
-        return best.get("id")
+        model_id = best.get("id")
+        return str(model_id) if model_id else None
     return None
 
 
@@ -416,7 +418,7 @@ def catalog_provider(provider_id: str) -> Optional[Dict[str, Any]]:
         return None
     try:
         for provider in load_catalog().get("providers", []):
-            if provider.get("id") == wanted:
+            if isinstance(provider, dict) and provider.get("id") == wanted:
                 return provider
     except Exception:
         pass

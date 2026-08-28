@@ -691,6 +691,11 @@ and require concrete active-Vault paths before opening Reader or planning
 state. Plugin state is read through the canonical Vault configuration domain,
 while the small LangGraph compatibility graph uses a secret-bearing API-key
 type without changing its fallback responses.
+Runtime support now types confirmation context tokens and requires the
+configured local-data directory before opening its audit database. Memory and
+Vault search use their explicit lazy-store accessors, while model-catalog JSON,
+model identifiers, reliability ranking and evaluation metadata are narrowed at
+their input boundaries without altering routing evidence.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
