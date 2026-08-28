@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/vault_routes.py
@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/configuration/api/plugin_models.py
   - backend/domains/configuration/api/plugins.py
   - backend/domains/configuration/plugin_state.py
+  - backend/domains/plugins
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
@@ -22,6 +23,7 @@ source_paths:
 tests:
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_configuration_plugins_route_contract.py
+  - backend/tests/test_plugin_domain_contract.py
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
@@ -47,6 +49,15 @@ Google i Microsoft OAuth Callbacks crea o actualitza registres de proveïdors. I
 ## El propietari del dorsal i la compatibilitat
 
 El domini de configuració té les operacions HTTP de 23 en grup i tercera part. `backend/domains/configuration/api/plugins.py` tradueix peticions HTTP, `plugin_lifecycle.py` El propietari d'activació i transitacions en temps d'execució, `plugin_models.py` Té els contractes pidantics, i `plugin_state.py` és l' únic propietari dels panys per procés i normalitzat per l' estat de per a la sortida.
+
+El paquet tipat `backend/domains/plugins/` és responsable de validar els
+manifests, contenir les rutes d'instal·lació, preparar i revertir els ZIP,
+exportar paquets de manera determinista, normalitzar permisos i executar el
+sandbox Node amb JSON per línies. Els mòduls històrics
+`backend/services/plugin_system.py` i `plugin_sandbox.py` continuen sent façanes
+primes. Són els únics propietaris de les constants compatibles, el registre de
+gestors del host injectats, la ruta del runner i els punts de substitució
+tardana; l'estat del lifecycle i del sandbox no es duplica entre les capes.
 
 `backend/api/vault_routes.py` Encara hi ha una façana temporal per a les importacions heretats. Injecta el camí, persisteix, l' hora, la combinació de models i els col· mutacions en cadena de bloqueig i els re- ports dels models històrics i els gestors històrics. La càrrega, desa, el cicle vital, el resum i els línies de substitució de la mutació segueixen sent substituïts dinàmicament per als connectors i proves. Els mòduls de domini mai importa la façana. L' ordre de la ruta, els mètodes d' estat, els codis d' execució, els esquemes, l' identificador, l' operació i el contracte OpenAPI generats durant aquesta migració estructural.
 

@@ -166,6 +166,7 @@
     "guide": "docs/engineering/domains/integrations-plugins.md",
     "source_globs": [
       "backend/api/integrations_routes.py",
+      "backend/domains/plugins/*.py",
       "backend/services/integration*.py",
       "backend/services/plugin*.py",
       "backend/services/academic_connectors.py",

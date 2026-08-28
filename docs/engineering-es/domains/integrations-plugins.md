@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/vault_routes.py
@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/configuration/api/plugin_models.py
   - backend/domains/configuration/api/plugins.py
   - backend/domains/configuration/plugin_state.py
+  - backend/domains/plugins
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
@@ -22,6 +23,7 @@ source_paths:
 tests:
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_configuration_plugins_route_contract.py
+  - backend/tests/test_plugin_domain_contract.py
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
@@ -47,6 +49,16 @@ Los callbacks de Google y Microsoft OAuth crean o actualizan registros de provee
 ## Propiedad y compatibilidad del motor
 
 El dominio de configuración posee las 23 operaciones HTTP de plugins incorporados y de terceros. `backend/domains/configuration/api/plugins.py` traduce peticiones HTTP, `plugin_lifecycle.py` posee una activación con conocimiento de dependencia y transiciones en tiempo de ejecución, `plugin_models.py` es propietario de los contratos Pydantic, y `plugin_state.py` es el único propietario de los bloqueos por proceso y la tienda estatal por vault normalizado.
+
+El paquete tipado `backend/domains/plugins/` es responsable de validar los
+manifiestos, contener las rutas de instalación, preparar y revertir los ZIP,
+exportar paquetes de forma determinista, normalizar permisos y ejecutar el
+sandbox de Node con JSON por líneas. Los módulos históricos
+`backend/services/plugin_system.py` y `plugin_sandbox.py` siguen siendo fachadas
+delgadas. Son los únicos propietarios de las constantes compatibles, el
+registro de controladores del host inyectados, la ruta del runner y los puntos
+de sustitución tardía; el estado del ciclo de vida y del sandbox no se duplica
+entre las capas.
 
 `backend/api/vault_routes.py` Sigue siendo una fachada de composición temporal para las importaciones heredadas. Inyecta trayectoria, persistencia, tiempo de ejecución, selección de modelos y colaboradores de bloqueo de mutaciones y reexporta los modelos y manipuladores históricos. Las costuras de carga, ahorro, ciclo de vida, modelo resumen y bloqueo de mutaciones permanecen remplazadas dinámicamente para plugins y pruebas. Los módulos de dominio nunca importan la fachada. El orden de ruta, rutas, métodos, códigos de estado, esquemas de carga útil, identificadores de operación y el contrato OpenAPI generado permanecen congelados durante esta migración estructural.
 

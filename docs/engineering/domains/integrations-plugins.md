@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/vault_routes.py
@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/configuration/api/plugin_models.py
   - backend/domains/configuration/api/plugins.py
   - backend/domains/configuration/plugin_state.py
+  - backend/domains/plugins
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
@@ -22,6 +23,7 @@ source_paths:
 tests:
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_configuration_plugins_route_contract.py
+  - backend/tests/test_plugin_domain_contract.py
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
@@ -60,6 +62,14 @@ requests, `plugin_lifecycle.py` owns dependency-aware activation and runtime
 transitions, `plugin_models.py` owns the Pydantic contracts, and
 `plugin_state.py` is the single owner of the per-process locks and normalized
 per-Vault state store.
+
+The typed `backend/domains/plugins/` package owns manifest validation,
+contained installation paths, ZIP staging and rollback, deterministic export,
+grant normalization, and the newline-JSON Node sandbox. Historical
+`backend/services/plugin_system.py` and `plugin_sandbox.py` remain thin
+facades. They own the compatibility constants, injected host-handler registry,
+runner path, and late-bound seams; lifecycle and sandbox state is not duplicated
+across the boundary.
 
 `backend/api/vault_routes.py` remains a temporary composition facade for
 legacy imports. It injects path, persistence, runtime, model-selection, and

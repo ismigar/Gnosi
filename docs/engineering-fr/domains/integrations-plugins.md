@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/vault_routes.py
@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/configuration/api/plugin_models.py
   - backend/domains/configuration/api/plugins.py
   - backend/domains/configuration/plugin_state.py
+  - backend/domains/plugins
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
@@ -22,6 +23,7 @@ source_paths:
 tests:
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_configuration_plugins_route_contract.py
+  - backend/tests/test_plugin_domain_contract.py
   - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
@@ -47,6 +49,16 @@ Les callbacks Google et Microsoft OAuth créent ou mettent à jour des enregistr
 ## Propriété et compatibilité des backends
 
 Le domaine de configuration possède les 23 opérations HTTP intégrées et de plugins tiers. `backend/domains/configuration/api/plugins.py` traduit les requêtes HTTP, `plugin_lifecycle.py` possède une activation et des transitions d'exécution conscientes de la dépendance, `plugin_models.py` est propriétaire des contrats Pydantic, et `plugin_state.py` est le propriétaire unique des serrures par process et du magasin d'état normalisé par vault.
+
+Le paquet typé `backend/domains/plugins/` prend en charge la validation des
+manifestes, le confinement des chemins d'installation, la préparation et la
+restauration des ZIP, l'export déterministe, la normalisation des autorisations
+et le sandbox Node en JSON délimité par lignes. Les modules historiques
+`backend/services/plugin_system.py` et `plugin_sandbox.py` restent des façades
+minces. Ils sont les seuls propriétaires des constantes de compatibilité, du
+registre injecté des gestionnaires hôte, du chemin du runner et des points de
+substitution tardive ; l'état du cycle de vie et du sandbox n'est pas dupliqué
+entre les couches.
 
 `backend/api/vault_routes.py` Il injecte des chemins, des persistances, des durées d'exécution, des modèles de sélection et des mutations-blocs collaborateurs et réexporte les modèles et les manutentionnaires historiques. Les coutures de charge, d'enregistrement, de cycle de vie, de résumé et de mutation-bloc restent dynamiquement remplaçables pour les plugins et les tests. Les modules de domaine n'importent jamais la façade. Ordonnance d'itinéraire, chemins, méthodes, codes d'état, schémas de charge utile, identificateurs d'opération et le contrat généré OpenAPI restent gelés pendant cette migration structurelle.
 
