@@ -12,7 +12,7 @@ from typing import Any, Mapping
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 
 
 RETENTION_SECONDS = 3_600
@@ -26,10 +26,8 @@ def scope_digest(scope: Mapping[str, Any]) -> str:
 
 
 def _paths() -> tuple[Path, Path]:
-    cfg = load_params(strict_env=False)
-    local = Path(cfg.paths["LOCAL_DATA"])
-    secrets = Path(cfg.paths.get("SECRETS") or (local / "secrets"))
-    local.mkdir(parents=True, exist_ok=True)
+    local = resolve_data_dir(create=True)
+    secrets = local / "secrets"
     secrets.mkdir(parents=True, exist_ok=True)
     return local / "agent_stream_journal.sqlite", secrets / "agent_stream_journal.key"
 

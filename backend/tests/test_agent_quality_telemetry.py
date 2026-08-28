@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import sqlite3
-from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -49,10 +48,8 @@ def test_negative_feedback_creates_deduplicated_runnable_candidate(
 ):
     monkeypatch.setattr(
         telemetry,
-        "load_params",
-        lambda strict_env=False: SimpleNamespace(
-            paths={"LOCAL_DATA": tmp_path / "local-data"}
-        ),
+        "resolve_data_dir",
+        lambda **kwargs: tmp_path / "local-data",
     )
 
     first_event = _record_inventory_feedback("turn-1")
@@ -84,10 +81,8 @@ def test_negative_feedback_creates_deduplicated_runnable_candidate(
 def test_feedback_clear_rebuilds_pending_candidates(tmp_path, monkeypatch):
     monkeypatch.setattr(
         telemetry,
-        "load_params",
-        lambda strict_env=False: SimpleNamespace(
-            paths={"LOCAL_DATA": tmp_path / "local-data"}
-        ),
+        "resolve_data_dir",
+        lambda **kwargs: tmp_path / "local-data",
     )
 
     _record_inventory_feedback("turn-1")
@@ -99,10 +94,8 @@ def test_feedback_clear_rebuilds_pending_candidates(tmp_path, monkeypatch):
 def test_quality_dashboard_aggregates_turns_without_content(tmp_path, monkeypatch):
     monkeypatch.setattr(
         telemetry,
-        "load_params",
-        lambda strict_env=False: SimpleNamespace(
-            paths={"LOCAL_DATA": tmp_path / "local-data"}
-        ),
+        "resolve_data_dir",
+        lambda **kwargs: tmp_path / "local-data",
     )
     telemetry.record_quality_signal(
         _scope(),
@@ -127,8 +120,8 @@ def test_error_candidate_and_database_are_metadata_only(tmp_path, monkeypatch):
     local_data = tmp_path / "local-data"
     monkeypatch.setattr(
         telemetry,
-        "load_params",
-        lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
+        "resolve_data_dir",
+        lambda **kwargs: local_data,
     )
 
     telemetry.record_quality_signal(

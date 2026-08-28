@@ -32,6 +32,10 @@ source_paths:
   - backend/services/agent_capability_health.py
   - backend/services/agent_stream_protocol.py
   - backend/services/agent_stream_journal.py
+  - backend/services/agent_observability.py
+  - backend/services/agent_replay.py
+  - backend/services/turn_idempotency.py
+  - backend/services/capability_audit.py
   - backend/services/agent_model_strategy.py
   - backend/services/agent_model_evaluations.py
   - backend/services/agent_personal_memory.py
@@ -69,6 +73,9 @@ tests:
   - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
+  - backend/tests/test_agent_adaptive_quality.py
+  - backend/tests/test_capability_audit.py
+  - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_agent_resilience.py
   - backend/tests/test_agent_legacy_memory.py
   - backend/tests/test_vault_tools.py
@@ -153,6 +160,13 @@ token quotas and context windows as integers, and keeps its usage ledger behind
 typed atomic path/load/save boundaries. Monetary caps distinguish an absent cap
 from zero explicitly, preserving the existing near-cap and free-model fallback
 policy while making malformed persisted data recover to an empty ledger.
+
+Agent observability, replay, stream journals, turn claims, reviewed quality,
+personal and semantic memory, model evaluations, capability audit and health
+are operational per-device state. Their SQLite/JSON stores resolve directly
+through `GNOSI_DATA_DIR`; they never derive a location from a Vault or cloud
+provider. Tests inject that same canonical resolver, and encrypted stream keys
+remain in the `secrets` child of the local data directory.
 
 Runtime model selection belongs to the agent profile. `pinned` uses only the
 assigned provider/model, `resilient` starts there and permits failover only on a

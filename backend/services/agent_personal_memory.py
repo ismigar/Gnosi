@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 
 
 MAX_MEMORY_TEXT = 4_000
@@ -42,8 +42,7 @@ def _scope(vault_path: Any, agent_id: str, user_id: str) -> str:
 
 
 def _path() -> Path:
-    root = Path(load_params(strict_env=False).paths["LOCAL_DATA"])
-    root.mkdir(parents=True, exist_ok=True)
+    root = resolve_data_dir(create=True)
     return root / "agent_personal_memory.sqlite"
 
 

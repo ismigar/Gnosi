@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 
 
 _LOCK = threading.RLock()
@@ -23,8 +23,7 @@ _cache_rows: dict[str, dict[str, Any]] = {}
 
 
 def _database_path() -> Path:
-    root = Path(load_params(strict_env=False).paths["LOCAL_DATA"])
-    root.mkdir(parents=True, exist_ok=True)
+    root = resolve_data_dir(create=True)
     return root / "agent_capability_health.sqlite"
 
 
@@ -175,13 +174,15 @@ def record_capability_failure(
             "SELECT * FROM capability_health WHERE capability_key = ?",
             (key,),
         ).fetchone()
-    return _health_from_row(row, now)
+    if row is None:
+        raise RuntimeError("Capability health insert did not return a row")
+    return _health_from_row(dict(row), now)
 
 
-def _health_from_row(row: sqlite3.Row, now: float) -> dict[str, Any]:
+def _health_from_row(row: dict[str, Any], now: float) -> dict[str, Any]:
     quarantined_until = float(row["quarantined_until"] or 0.0)
     samples = int(row["latency_samples"] or 0)
-    result = {
+    result: dict[str, Any] = {
         "status": "quarantined" if quarantined_until > now else "healthy",
         "reason": "repeated_runtime_failures" if quarantined_until > now else "ready",
         "successes": int(row["successes"] or 0),

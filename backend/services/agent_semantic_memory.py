@@ -13,7 +13,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Iterable
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 
 
 MAX_ASSOCIATIONS_PER_VAULT = 500
@@ -22,8 +22,7 @@ _LOCK = threading.RLock()
 
 
 def _database_path() -> Path:
-    root = Path(load_params(strict_env=False).paths["LOCAL_DATA"])
-    root.mkdir(parents=True, exist_ok=True)
+    root = resolve_data_dir(create=True)
     return root / "agent_semantic_memory.sqlite"
 
 

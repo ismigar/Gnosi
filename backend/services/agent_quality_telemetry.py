@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, Optional
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 
 
 RETENTION_SECONDS = 180 * 24 * 60 * 60
@@ -19,8 +19,7 @@ REVIEW_STATES = {"pending_review", "accepted", "rejected"}
 
 
 def _database_path() -> Path:
-    root = Path(load_params(strict_env=False).paths["LOCAL_DATA"])
-    root.mkdir(parents=True, exist_ok=True)
+    root = resolve_data_dir(create=True)
     return root / "agent_quality.sqlite"
 
 

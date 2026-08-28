@@ -13,16 +13,11 @@ from backend.agent.turn_contract import build_turn_plan
 from backend.services import agent_capability_health as capability_health
 from backend.services import agent_semantic_memory as semantic_memory
 
-
-def _local_config(tmp_path):
-    return SimpleNamespace(paths={"LOCAL_DATA": tmp_path / "local-data"})
-
-
 def test_capability_health_persists_latency_and_quarantine(tmp_path, monkeypatch):
     monkeypatch.setattr(
         capability_health,
-        "load_params",
-        lambda strict_env=False: _local_config(tmp_path),
+        "resolve_data_dir",
+        lambda **kwargs: tmp_path / "local-data",
     )
     descriptor = SimpleNamespace(id="tool.persistent", name="persistent")
 
@@ -53,8 +48,8 @@ def test_reviewed_vocabulary_is_reversible_and_expands_inventory(
 ):
     monkeypatch.setattr(
         semantic_memory,
-        "load_params",
-        lambda strict_env=False: _local_config(tmp_path),
+        "resolve_data_dir",
+        lambda **kwargs: tmp_path / "local-data",
     )
     vault = tmp_path / "vault"
 
