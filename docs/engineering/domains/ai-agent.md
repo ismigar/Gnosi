@@ -639,6 +639,10 @@ The generated-tool registry declares its local SQLite path only through an
 idempotent initialization boundary; migrations and parent-directory creation
 complete before any search, approval, rejection or statistics query can open
 the database. Cloud-synced source files remain separate from this local state.
+Dry-run protection preserves wrapped callable signatures, generates collision-
+resistant pending identifiers and never invokes an external-write function
+before confirmation. Confirm and cancel consume only the addressed pending
+record; non-external operations retain normal execution.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

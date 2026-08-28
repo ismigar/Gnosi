@@ -6,7 +6,7 @@ For EXTERNAL_WRITE tools, this wrapper:
 2. Shows what WOULD happen (preview)
 3. Requires confirmation before actual execution
 """
-from typing import Callable, Any, Dict, Optional
+from typing import Any, Callable, Optional, ParamSpec, TypeVar
 from functools import wraps
 from dataclasses import dataclass
 import json
@@ -19,7 +19,7 @@ from .validator import RiskLevel
 class DryRunResult:
     """Result of a dry-run preview."""
     tool_name: str
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
     preview: str
     risk_level: str
     requires_confirmation: bool
@@ -31,13 +31,13 @@ class DryRunManager:
     Stores pending confirmations and executes after user approval.
     """
     
-    def __init__(self):
-        self._pending_executions: Dict[str, Dict] = {}
+    def __init__(self) -> None:
+        self._pending_executions: dict[str, dict[str, Any]] = {}
     
     def create_preview(
         self,
         tool_name: str,
-        arguments: Dict[str, Any],
+        arguments: dict[str, Any],
         risk_level: RiskLevel
     ) -> DryRunResult:
         """
@@ -68,7 +68,7 @@ class DryRunManager:
             requires_confirmation=requires_confirmation
         )
     
-    def _generate_preview(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+    def _generate_preview(self, tool_name: str, arguments: dict[str, Any]) -> str:
         """Generate a human-readable preview of the operation."""
         
         # Common patterns for Notion operations
@@ -85,7 +85,7 @@ class DryRunManager:
         # Generic fallback
         return f"⚠️ Will run '{tool_name}' with arguments: {json.dumps(arguments, default=str)[:150]}..."
     
-    def get_pending(self, execution_id: str) -> Optional[Dict]:
+    def get_pending(self, execution_id: str) -> Optional[dict[str, Any]]:
         """Get a pending execution by ID."""
         return self._pending_executions.get(execution_id)
     
@@ -103,24 +103,30 @@ class DryRunManager:
         """Cancel a pending execution."""
         return self.confirm_execution(execution_id)  # Same action: remove from pending
     
-    def list_pending(self) -> Dict[str, Dict]:
+    def list_pending(self) -> dict[str, dict[str, Any]]:
         """List all pending executions."""
         return self._pending_executions.copy()
 
 
-def dry_run_protect(risk_level: RiskLevel):
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def dry_run_protect(
+    risk_level: RiskLevel,
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R | str]]:
     """
     Decorator that wraps a tool function with dry-run protection.
     For EXTERNAL_WRITE tools, returns a preview instead of executing.
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[_P, _R]) -> Callable[_P, _R | str]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R | str:
             if risk_level == RiskLevel.EXTERNAL_WRITE:
                 # Return preview instead of executing
                 preview = dry_run_manager.create_preview(
                     tool_name=func.__name__,
-                    arguments=kwargs,
+                    arguments=dict(kwargs),
                     risk_level=risk_level
                 )
                 return (

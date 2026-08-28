@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 273 | 2001 |
+| pytest | 274 | 2005 |
 
 ## Files
 
@@ -208,6 +208,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_feed_ingester_savepoint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_feed_ingester_savepoint.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_files_provider.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_files_provider.py) | 46 | Python AST |
 | pytest | [`backend/tests/test_fx_rates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_fx_rates.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_generated_tool_dry_run.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_generated_tool_dry_run.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_generated_tool_registry_separation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_generated_tool_registry_separation.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_generated_tool_validator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_generated_tool_validator.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_gnosi_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_gnosi_agent_tools.py) | 27 | Python AST |
