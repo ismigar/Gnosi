@@ -13,10 +13,12 @@ whole wikilink. See docs/dev_memory/directives/relation_wikilinks_frontmatter.md
 Deliberately lightweight module (only re + typing): imported by vault_routes,
 graph_service, and pipeline scripts without pulling in any dependency.
 """
+
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Optional, Set
+from collections.abc import Callable
+from typing import Any
 
 # Whole value = a single wikilink with alias. The alias (id) has no imposed
 # form (there are legacy ids that aren't uuids); it only excludes `|` and `]`.
@@ -32,26 +34,26 @@ TITLE_ONLY_WIKILINK_RE = re.compile(r"^\s*\[\[\s*(?P<title>[^\]\|]+?)\s*\]\]\s*$
 _UNSAFE_TITLE_RE = re.compile(r"[\[\]\|#^\r\n]")
 
 
-def is_relation_key(key: Any, relation_keys: Optional[Set[str]] = None) -> bool:
+def is_relation_key(key: Any, relation_keys: set[str] | None = None) -> bool:
     """A key is a relation key if it's in the schema's ``relation_keys`` set
     (names + aliases of the ``type=="relation"`` properties). Detection is
     always schema-based; field names don't carry any decorative prefix.
     See docs/dev_memory/directives/vault_relation_inverse_sync.md"""
-    return isinstance(key, str) and bool(relation_keys) and key in relation_keys
+    return isinstance(key, str) and relation_keys is not None and key in relation_keys
 
 
-def relation_keys_from_table(table: Optional[dict]) -> Set[str]:
+def relation_keys_from_table(table: dict[str, Any] | None) -> set[str]:
     """Names (and aliases) of the ``type=="relation"`` properties of a table in the
     registry. It's the (single) source of truth for knowing which fields are
     relation fields, whatever name they have after a rename."""
-    keys: Set[str] = set()
+    keys: set[str] = set()
     if isinstance(table, dict):
         for p in table.get("properties") or []:
             if isinstance(p, dict) and p.get("type") == "relation":
                 name = p.get("name")
                 if isinstance(name, str) and name:
                     keys.add(name)
-                for a in (p.get("aliases") or []):
+                for a in p.get("aliases") or []:
                     if isinstance(a, str) and a:
                         keys.add(a)
     return keys
@@ -66,7 +68,7 @@ def strip_item(value: Any) -> Any:
     return value
 
 
-def strip_relation_wikilinks(metadata: Any, relation_keys: Optional[Set[str]] = None) -> Any:
+def strip_relation_wikilinks(metadata: Any, relation_keys: set[str] | None = None) -> Any:
     """Frontmatter → domain: relation fields become clean ids again.
 
     This is the single READ boundary: from here on, the whole app (table,
@@ -74,7 +76,7 @@ def strip_relation_wikilinks(metadata: Any, relation_keys: Optional[Set[str]] = 
     ``relation_keys`` (from the schema) identifies which fields are relation fields; without
     a schema NOTHING is stripped, so as not to touch a wikilink that might live in a
     text field. Mutates and returns ``metadata``.
-    
+
     """
     if not isinstance(metadata, dict):
         return metadata
@@ -91,8 +93,8 @@ def strip_relation_wikilinks(metadata: Any, relation_keys: Optional[Set[str]] = 
 
 def _decorate_item(
     value: Any,
-    id_to_title: Optional[Callable[[str], Optional[str]]],
-    title_to_id: Optional[Callable[[str], Optional[str]]],
+    id_to_title: Callable[[str], str | None] | None,
+    title_to_id: Callable[[str], str | None] | None,
 ) -> Any:
     if not isinstance(value, str) or not value.strip():
         return value
@@ -122,9 +124,9 @@ def _decorate_item(
 
 def decorate_relation_wikilinks(
     metadata: Any,
-    relation_keys: Optional[Set[str]] = None,
-    id_to_title: Optional[Callable[[str], Optional[str]]] = None,
-    title_to_id: Optional[Callable[[str], Optional[str]]] = None,
+    relation_keys: set[str] | None = None,
+    id_to_title: Callable[[str], str | None] | None = None,
+    title_to_id: Callable[[str], str | None] | None = None,
 ) -> Any:
     """Domain → frontmatter: ``id`` → ``[[Title|id]]`` in relation fields.
 
@@ -133,7 +135,7 @@ def decorate_relation_wikilinks(
     Idempotent and self-healing: every save re-resolves the CURRENT title. If the
     title doesn't resolve (cold index), it degrades to a bare id and never blocks
     the write. Mutates and returns ``metadata``.
-    
+
     """
     if not isinstance(metadata, dict):
         return metadata
@@ -143,9 +145,7 @@ def decorate_relation_wikilinks(
             continue
         value = metadata[key]
         if isinstance(value, list):
-            metadata[key] = [
-                _decorate_item(v, id_to_title, title_to_id) for v in value
-            ]
+            metadata[key] = [_decorate_item(v, id_to_title, title_to_id) for v in value]
         else:
             metadata[key] = _decorate_item(value, id_to_title, title_to_id)
     return metadata

@@ -3,10 +3,19 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/api/vault_routes.py
+  - backend/domains/vault/tables/catalogs
   - backend/domains/vault/tables/formula_recalculation.py
+  - backend/domains/vault/tables/rules
+  - backend/domains/vault/views/filters.py
+  - backend/domains/vault/views/row_resolution.py
+  - backend/domains/vault/views/snapshot_markup.py
+  - backend/domains/vault/views/snapshot_materialization.py
+  - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/table_system_dates.py
+  - backend/services/option_catalogs.py
+  - backend/services/rule_engine.py
   - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
@@ -20,11 +29,16 @@ source_paths:
   - frontend/src/utils/projectPlanning.js
   - frontend/src/utils/vaultFilters.js
 tests:
+  - backend/tests/test_database_rules_views_domain_contract.py
+  - backend/tests/test_rule_engine_derived_order.py
+  - backend/tests/test_rollup_percent_checked_parity.py
+  - backend/tests/test_option_catalogs.py
   - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_table_system_dates.py
   - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_view_filter_rename.py
   - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
@@ -79,6 +93,14 @@ cache des réponses ne sont actualisés qu'après une écriture réussie.
 Les critères de tri de la vue enregistrée sont appliqués en ordre de tableau avec une comparaison stable multi-clés. Les valeurs des propriétés vides suivent toujours les valeurs poolées dans les directions ascendante et décroissante, en correspondant à la sémantique de la vue de notion importée. Les vues de front et les instantanés de pointage de l'arrière utilisent la même règle pour que leur ordre d'enregistrement ne puisse pas dériver.
 
 Quand `VaultDashboard` rend un onglet table, il passe les fonctionnalités activées du registre de table à travers `VaultViewBody` à `VaultTable`. L'onglet table, table autonome, panneau divisé et vue intégrée exposent donc les mêmes actions de rangées configurées. Omettre cette chaîne de prop masque une action même lorsque le registre et l'API la signalent correctement comme activée.
+
+Le comportement canonique des bases de données est séparé par responsabilité.
+`tables/rules/` gère les formules, rollups, recherches et automatisations ;
+`tables/catalogs/` gère les options, rôles sémantiques et le catalogue global
+des statuts ; les petits modules de `vault/views/` gèrent les snapshots,
+filtres, tris et jointures. `rule_engine.py`, `option_catalogs.py` et
+`view_snapshot.py` restent des façades compatibles avec des coutures de test
+résolues tardivement.
 
 ## Évolution du schéma et concurrence
 

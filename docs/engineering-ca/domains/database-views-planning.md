@@ -2,16 +2,31 @@
 status: implemented
 last_verified: 2026-08-28
 source_paths:
+  - backend/domains/vault/tables/catalogs
   - backend/domains/vault/tables/formula_recalculation.py
+  - backend/domains/vault/tables/rules
+  - backend/domains/vault/views/filters.py
+  - backend/domains/vault/views/row_resolution.py
+  - backend/domains/vault/views/snapshot_markup.py
+  - backend/domains/vault/views/snapshot_materialization.py
+  - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/services/option_catalogs.py
+  - backend/services/rule_engine.py
+  - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_database_rules_views_domain_contract.py
+  - backend/tests/test_rule_engine_derived_order.py
+  - backend/tests/test_rollup_percent_checked_parity.py
+  - backend/tests/test_option_catalogs.py
   - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_view_filter_rename.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
   - tests/e2e/tests/e2e/dashboards.spec.ts
@@ -46,6 +61,13 @@ L' avaluació derivada del camp té una ordre explícita. Les fórmules que depe
 registres. Les peticions concurrents es fusionen en una passada pendent; es
 recalculen totes les files visibles i només després d'una escriptura correcta
 s'actualitzen l'índex de pàgines i la memòria cau de respostes.
+
+El comportament canònic de les bases de dades es divideix per responsabilitat.
+`tables/rules/` gestiona fórmules, rollups, consultes i automatitzacions;
+`tables/catalogs/` gestiona opcions, rols semàntics i el catàleg global
+d'estats; i els mòduls petits de `vault/views/` gestionen snapshots, filtres,
+ordenació i joins. `rule_engine.py`, `option_catalogs.py` i `view_snapshot.py`
+continuen sent façanes compatibles i conserven les costures de prova tardanes.
 
 ## Evolucionació d' esquemes i d'acordència
 

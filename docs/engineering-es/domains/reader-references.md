@@ -10,9 +10,11 @@ source_paths:
   - backend/models/pdf_annotation.py
   - backend/api/vault_routes.py
   - backend/domains/vault/citations/exporting.py
+  - backend/domains/vault/citations/normalizers
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
+  - backend/services/lookup_normalizers.py
   - backend/services/literature_service.py
   - backend/services/literature_review_service.py
   - backend/services/literature_import_service.py
@@ -33,6 +35,8 @@ tests:
   - backend/tests/test_literature_models.py
   - backend/tests/test_academic_connectors.py
   - backend/tests/test_academic_connectors_domain_contract.py
+  - backend/tests/test_lookup_normalizers.py
+  - backend/tests/test_html_meta_attr_order.py
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
@@ -51,6 +55,11 @@ anteriores permanecen como fachadas compatibles.
 Este dominio combina la lectura de feed/newsletter con un gestor de referencia compatible con Zotero, renderizado de citas CSL, identificador e importación web, lectura PDF/EPUB y anotaciones que pueden convertirse en evidencia citable.
 
 ## Ingestión de referencia
+
+Crossref, Open Library, arXiv, PubMed y los metadatos HTML tienen normalizadores
+tipados separados en `backend/domains/vault/citations/normalizers/`. Conservan
+los payloads canónicos de Zotero y el comportamiento de función pura, mientras
+`backend/services/lookup_normalizers.py` sigue siendo la fachada compatible.
 
 Las referencias ingresan a través de DOI, ISBN, arXiv, PMID, BibTeX, RIS, archivos o URLs web. Los solucionadores de identificadores y el servidor de traducción Zotero producen metadatos específicos del proveedor. Normalizadores lo asignan al esquema de referencia configurado, generan una clave de cita estable, deduplican candidatos y escriben un registro de Vault.
 

@@ -10,9 +10,11 @@ source_paths:
   - backend/models/pdf_annotation.py
   - backend/api/vault_routes.py
   - backend/domains/vault/citations/exporting.py
+  - backend/domains/vault/citations/normalizers
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
+  - backend/services/lookup_normalizers.py
   - backend/services/literature_service.py
   - backend/services/literature_review_service.py
   - backend/services/literature_import_service.py
@@ -33,6 +35,8 @@ tests:
   - backend/tests/test_literature_models.py
   - backend/tests/test_academic_connectors.py
   - backend/tests/test_academic_connectors_domain_contract.py
+  - backend/tests/test_lookup_normalizers.py
+  - backend/tests/test_html_meta_attr_order.py
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
@@ -53,6 +57,11 @@ manager, CSL citation rendering, identifier and web import, PDF/EPUB reading,
 and annotations that can become citable evidence.
 
 ## Reference ingestion
+
+Crossref, Open Library, arXiv, PubMed and HTML metadata have separate typed
+normalizers under `backend/domains/vault/citations/normalizers/`. They preserve
+canonical Zotero payloads and pure-function behavior, while
+`backend/services/lookup_normalizers.py` remains the import-compatible facade.
 
 References enter through DOI, ISBN, arXiv, PMID, BibTeX, RIS, files, or web URLs.
 Identifier resolvers and Zotero translation-server produce provider-specific

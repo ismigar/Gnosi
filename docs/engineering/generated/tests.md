@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 259 | 1948 |
+| pytest | 260 | 1953 |
 
 ## Files
 
@@ -192,6 +192,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_daily_note_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_daily_note_race.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_data_dir.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_data_dir.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_data_dir_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_data_dir_migration.py) | 10 | Python AST |
+| pytest | [`backend/tests/test_database_rules_views_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_database_rules_views_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_drawing_soft_delete.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_soft_delete.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_duplicate_page_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_duplicate_page_index.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_e2e_etag_concurrency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_etag_concurrency.py) | 5 | Python AST |

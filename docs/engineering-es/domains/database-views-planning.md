@@ -2,16 +2,31 @@
 status: implemented
 last_verified: 2026-08-28
 source_paths:
+  - backend/domains/vault/tables/catalogs
   - backend/domains/vault/tables/formula_recalculation.py
+  - backend/domains/vault/tables/rules
+  - backend/domains/vault/views/filters.py
+  - backend/domains/vault/views/row_resolution.py
+  - backend/domains/vault/views/snapshot_markup.py
+  - backend/domains/vault/views/snapshot_materialization.py
+  - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/services/option_catalogs.py
+  - backend/services/rule_engine.py
+  - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_database_rules_views_domain_contract.py
+  - backend/tests/test_rule_engine_derived_order.py
+  - backend/tests/test_rollup_percent_checked_parity.py
+  - backend/tests/test_option_catalogs.py
   - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_view_filter_rename.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
   - tests/e2e/tests/e2e/dashboards.spec.ts
@@ -46,6 +61,13 @@ La evaluación de campo derivado tiene un orden explícito. Fórmulas que depend
 registros. Las solicitudes concurrentes se fusionan en una pasada pendiente; se
 recalculan todas las filas visibles y sólo tras una escritura correcta se
 actualizan el índice de páginas y la caché de respuestas.
+
+El comportamiento canónico de las bases de datos se divide por responsabilidad.
+`tables/rules/` gestiona fórmulas, rollups, consultas y automatizaciones;
+`tables/catalogs/` gestiona opciones, roles semánticos y el catálogo global de
+estados; y los módulos pequeños de `vault/views/` gestionan snapshots, filtros,
+ordenación y joins. `rule_engine.py`, `option_catalogs.py` y `view_snapshot.py`
+siguen siendo fachadas compatibles y conservan las costuras de prueba tardías.
 
 ## Evolución del esquema y condición
 

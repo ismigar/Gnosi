@@ -3,10 +3,19 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/api/vault_routes.py
+  - backend/domains/vault/tables/catalogs
   - backend/domains/vault/tables/formula_recalculation.py
+  - backend/domains/vault/tables/rules
+  - backend/domains/vault/views/filters.py
+  - backend/domains/vault/views/row_resolution.py
+  - backend/domains/vault/views/snapshot_markup.py
+  - backend/domains/vault/views/snapshot_materialization.py
+  - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/table_system_dates.py
+  - backend/services/option_catalogs.py
+  - backend/services/rule_engine.py
   - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
@@ -20,11 +29,16 @@ source_paths:
   - frontend/src/utils/projectPlanning.js
   - frontend/src/utils/vaultFilters.js
 tests:
+  - backend/tests/test_database_rules_views_domain_contract.py
+  - backend/tests/test_rule_engine_derived_order.py
+  - backend/tests/test_rollup_percent_checked_parity.py
+  - backend/tests/test_option_catalogs.py
   - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_table_system_dates.py
   - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_view_filter_rename.py
   - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
@@ -100,6 +114,14 @@ values run before rollups that aggregate relations, and dependent formulas are
 resolved without allowing cycles to recurse indefinitely. Backend and frontend
 representations must agree on checkbox truthiness, percentages, empty values,
 and option identifiers.
+
+Canonical database behavior is split by responsibility. `tables/rules/` owns
+formula, rollup, lookup and automation evaluation; `tables/catalogs/` owns
+option normalization, semantic roles and the global status catalog; and the
+small modules under `vault/views/` own snapshot syntax, materialization,
+filters, sorting and joins. The historical `rule_engine.py`,
+`option_catalogs.py` and `view_snapshot.py` imports remain thin compatibility
+facades, including the late-bound path and relation-decoration test seams.
 
 Cross-record changes are serialized per table by
 `tables/formula_recalculation.py`. Concurrent requests are coalesced into a

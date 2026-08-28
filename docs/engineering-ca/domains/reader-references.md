@@ -10,9 +10,11 @@ source_paths:
   - backend/models/pdf_annotation.py
   - backend/api/vault_routes.py
   - backend/domains/vault/citations/exporting.py
+  - backend/domains/vault/citations/normalizers
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
+  - backend/services/lookup_normalizers.py
   - backend/services/literature_service.py
   - backend/services/literature_review_service.py
   - backend/services/literature_import_service.py
@@ -33,6 +35,8 @@ tests:
   - backend/tests/test_literature_models.py
   - backend/tests/test_academic_connectors.py
   - backend/tests/test_academic_connectors_domain_contract.py
+  - backend/tests/test_lookup_normalizers.py
+  - backend/tests/test_html_meta_attr_order.py
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
@@ -51,6 +55,11 @@ es mantenen com a façanes compatibles.
 Aquest domini combina la lectura de fonts/news lletres amb un gestor de referències compatible amb el Zotero, renderitzat de citació CSL, identificador i importació web, lectura PDF/EPUB i anotacions que poden convertir-se en proves citables.
 
 ## Referència d' ingestió
+
+Crossref, Open Library, arXiv, PubMed i les metadades HTML tenen normalitzadors
+tipats separats a `backend/domains/vault/citations/normalizers/`. Conserven els
+payloads canònics de Zotero i el comportament de funció pura, mentre que
+`backend/services/lookup_normalizers.py` continua sent la façana compatible.
 
 Les referències entren a través del DOI, ISBN, arXiv, PMID, BibTeX, RIS, fitxers o URL web. Els identificadors i el servidor de traducció Zo- servidor produeixen metadades específiques del proveïdor. Normalitza els mapes a l' esquema de referència configurat, genera una clau de citació estable, candidats de desuplicats, i escriu un registre de continguts.
 
