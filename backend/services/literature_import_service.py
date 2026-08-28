@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, cast
 
 from fastapi import BackgroundTasks, HTTPException
 
@@ -25,11 +25,16 @@ from backend.services.workspace_service import WorkspaceContext
 _IMPORT_LOCK = threading.RLock()
 
 
+def _object(value: object) -> dict[str, Any]:
+    """Narrow one dynamic academic/provider object to a mapping."""
+    return cast(dict[str, Any], value) if isinstance(value, dict) else {}
+
+
 def suggested_resource_to_work(
     suggested: dict[str, Any], *, provider: str, provider_id: str,
 ) -> dict[str, Any]:
     """Convert the existing identifier-lookup suggestion into AcademicWork."""
-    extras = suggested.get("Zotero Extras") if isinstance(suggested.get("Zotero Extras"), dict) else {}
+    extras = _object(suggested.get("Zotero Extras"))
     authors_value = suggested.get("Authors") or []
     authors = [part.strip() for part in str(authors_value).split(";") if part.strip()] if isinstance(authors_value, str) else authors_value
     item_type = str(suggested.get("Item Type") or "").casefold()
@@ -82,9 +87,13 @@ def suggested_resource_to_work(
 
 def work_to_zotero(work: dict[str, Any]) -> dict[str, Any]:
     """Translate the canonical academic contract to the shared Zotero mapper."""
-    publication = work.get("publication") if isinstance(work.get("publication"), dict) else {}
-    identifiers = work.get("identifiers") if isinstance(work.get("identifiers"), dict) else {}
-    location = (work.get("open_access") or {}).get("best_location") or ((work.get("locations") or [{}])[0])
+    publication = _object(work.get("publication"))
+    identifiers = _object(work.get("identifiers"))
+    open_access = _object(work.get("open_access"))
+    locations = work.get("locations")
+    first_location = locations[0] if isinstance(locations, list) and locations else {}
+    location = _object(open_access.get("best_location") or first_location)
+    dates = _object(work.get("dates"))
     type_map = {
         "journal-article": "journalArticle", "article": "journalArticle", "book": "book",
         "book-chapter": "bookSection", "chapter": "bookSection", "conference-paper": "conferencePaper",
@@ -96,7 +105,7 @@ def work_to_zotero(work: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(author, dict):
             creators.append({"creatorType": "author", "name": str(author)})
             continue
-        entry = {"creatorType": "author"}
+        entry: dict[str, Any] = {"creatorType": "author"}
         if author.get("family"):
             entry.update({"lastName": author.get("family"), "firstName": author.get("given") or ""})
         else:
@@ -107,7 +116,7 @@ def work_to_zotero(work: dict[str, Any]) -> dict[str, Any]:
         "itemType": type_map.get(str(work.get("type") or "").lower(), "document"),
         "title": work.get("title") or "",
         "creators": creators,
-        "date": (work.get("dates") or {}).get("issued") or work.get("year") or "",
+        "date": dates.get("issued") or work.get("year") or "",
         "abstractNote": work.get("abstract") or "",
         "publicationTitle": publication.get("container_title") or "",
         "publisher": publication.get("publisher") or "",
@@ -116,9 +125,9 @@ def work_to_zotero(work: dict[str, Any]) -> dict[str, Any]:
         "pages": publication.get("pages") or "",
         "DOI": normalize_doi(identifiers.get("doi")),
         "ISBN": "; ".join(value for value in isbn_values if value),
-        "url": (location or {}).get("landing_page_url") or (location or {}).get("url") or "",
+        "url": location.get("landing_page_url") or location.get("url") or "",
         "language": work.get("language") or "",
-        "rights": (work.get("open_access") or {}).get("license") or "",
+        "rights": open_access.get("license") or "",
     }
     return {key: value for key, value in item.items() if value not in (None, "", [])}
 
@@ -128,17 +137,23 @@ def work_to_resources(work: dict[str, Any]) -> dict[str, Any]:
     from backend.api.vault_routes import _inject_citation_key, _normalize_suggested_item_type
     from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
 
-    identifiers = work.get("identifiers") if isinstance(work.get("identifiers"), dict) else {}
+    identifiers = _object(work.get("identifiers"))
+    open_access = _object(work.get("open_access"))
     suggested = zotero_item_to_recursos(work_to_zotero(work))
     suggested.update({
         "PMID": normalize_pmid(identifiers.get("pmid")),
         "PMCID": normalize_pmcid(identifiers.get("pmcid")),
         "arXiv": normalize_arxiv(identifiers.get("arxiv")),
-        "Open Access": bool((work.get("open_access") or {}).get("is_oa")),
+        "Open Access": bool(open_access.get("is_oa")),
         "Literature Sources": json.dumps(work.get("sources") or [], ensure_ascii=False, separators=(",", ":")),
         "Literature Work Key": deterministic_key(work),
     })
-    return _normalize_suggested_item_type(_inject_citation_key({key: value for key, value in suggested.items() if value not in (None, "", [])}))
+    normalized = _normalize_suggested_item_type(
+        _inject_citation_key(
+            {key: value for key, value in suggested.items() if value not in (None, "", [])}
+        )
+    )
+    return cast(dict[str, Any], normalized)
 
 
 def _resource_key(metadata: dict[str, Any]) -> str:

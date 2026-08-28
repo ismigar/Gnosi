@@ -39,6 +39,7 @@ tests:
   - backend/tests/test_lookup_normalizers.py
   - backend/tests/test_html_meta_attr_order.py
   - backend/tests/test_literature_service.py
+  - backend/tests/test_literature_import_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
   - frontend/src/components/ResourcesPluginConfig.test.jsx
@@ -122,6 +123,12 @@ offered only for a verified open location. Import maps the merged work through
 the shared Zotero-compatible Resources mapper and repeats identity matching
 inside an atomic lock. When a matching Resources record exists, the API returns
 that record instead of creating a duplicate.
+
+The import adapter narrows all provider-owned nested objects—publication,
+identifiers, dates, open-access locations and Zotero extras—through one mapping
+boundary before conversion. Creator payloads remain intentionally heterogeneous
+only at the Zotero seam; deterministic work keys, citation-key injection,
+notebook membership and duplicate reuse keep their existing behavior.
 
 ## Literature reviews
 
