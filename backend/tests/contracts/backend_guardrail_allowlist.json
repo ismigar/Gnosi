@@ -95,16 +95,6 @@
       "max_lines": 800,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
-    "backend/services/graph_service.py": {
-      "max_complexity": 27,
-      "max_lines": 958,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/literature_service.py": {
-      "max_complexity": 15,
-      "max_lines": 1036,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/services/llm_wiki.py": {
       "max_complexity": 24,
       "max_lines": 1160,
@@ -128,11 +118,6 @@
     "backend/services/lookup_normalizers.py": {
       "max_complexity": 32,
       "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/notebook_service.py": {
-      "max_complexity": 27,
-      "max_lines": 2873,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/services/notion_clone.py": {
@@ -168,11 +153,6 @@
     "backend/services/plugin_system.py": {
       "max_complexity": 29,
       "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/reader_analysis.py": {
-      "max_complexity": 20,
-      "max_lines": 1057,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/services/references_io.py": {

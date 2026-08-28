@@ -5,6 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from backend.domains.literature import repositories as literature_repositories
+from backend.domains.literature import search as literature_search
+from backend.domains.literature import storage as literature_storage
+from backend.domains.literature import sync as literature_sync
 from backend.services import academic_connectors, literature_import_service, literature_service
 from backend.services.literature_models import canonical_work
 from backend.services.workspace_service import WorkspaceContext
@@ -16,9 +20,11 @@ def literature_env(tmp_path, monkeypatch):
     local_data = tmp_path / "local-data"
     vault.mkdir()
     params = SimpleNamespace(paths={"VAULT": vault, "LOCAL_DATA": local_data})
-    monkeypatch.setattr(literature_service, "load_params", lambda strict_env=False: params)
-    monkeypatch.setattr(literature_service, "get_primary_vault_path", lambda: vault)
-    monkeypatch.setattr(literature_service, "_credential_value", lambda _key: "")
+    monkeypatch.setattr(literature_storage, "load_params", lambda strict_env=False: params)
+    monkeypatch.setattr(literature_storage, "get_primary_vault_path", lambda: vault)
+    monkeypatch.setattr(literature_repositories, "load_params", lambda strict_env=False: params)
+    monkeypatch.setattr(literature_repositories, "_credential_value", lambda _key: "")
+    monkeypatch.setattr(literature_search, "_credential_value", lambda _key: "")
     return vault
 
 
@@ -37,7 +43,7 @@ def test_configuration_is_vault_native_and_credentials_are_not_persisted(literat
 
 def test_catalog_loads_plugin_repositories_from_the_requested_vault(literature_env, monkeypatch):
     captured = []
-    monkeypatch.setattr(literature_service, "_plugin_repositories", lambda vault_path: captured.append(vault_path) or [])
+    monkeypatch.setattr(literature_repositories, "_plugin_repositories", lambda vault_path: captured.append(vault_path) or [])
 
     literature_service.catalog(literature_env)
 
@@ -128,7 +134,7 @@ def test_citation_discovery_deduplicates_neighbors_and_preserves_query_audit(lit
     async def fake_neighbors(*_args, **_kwargs):
         return [neighbor, neighbor]
 
-    monkeypatch.setattr(literature_service, "_credential_value", lambda key: "configured" if key == "semantic_scholar_api_key" else "")
+    monkeypatch.setattr(literature_search, "_credential_value", lambda key: "configured" if key == "semantic_scholar_api_key" else "")
     monkeypatch.setattr(academic_connectors, "semantic_scholar_neighbors", fake_neighbors)
     result = asyncio.run(literature_service.discover_citation_neighbors(literature_env, [seed], direction="both", limit_per_seed=5))
     assert result["provider"] == "semantic-scholar"
@@ -166,7 +172,7 @@ def test_due_review_updates_are_durable_and_require_a_saved_strategy(literature_
 
 def test_daily_oai_sync_skips_first_harvest_and_queues_initialized_due_source(literature_env, monkeypatch):
     queued = []
-    monkeypatch.setattr(literature_service, "enqueue_sync", lambda _vault, source_id, full=False: queued.append((source_id, full)))
+    monkeypatch.setattr(literature_sync, "enqueue_sync", lambda _vault, source_id, full=False: queued.append((source_id, full)))
 
     assert literature_service.enqueue_due_syncs(literature_env) == 0
 

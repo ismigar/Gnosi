@@ -19,6 +19,8 @@ from backend.agent.agent_context import (
 )
 from backend.api.agent_routes import ChatRequest
 from backend.data.db import Base
+from backend.domains.reader import service as reader_analysis_service
+from backend.domains.reader import storage as reader_analysis_storage
 from backend.models.reader import Article, FeedSource
 from backend.models.agent_skills import ConfirmationPolicy, ToolEffect
 from backend.services import reader_analysis
@@ -680,7 +682,7 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
     monkeypatch.setattr(
-        reader_analysis,
+        reader_analysis_storage,
         "load_params",
         lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
     )
@@ -698,7 +700,7 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
         }
         for index in range(1, 5)
     ]
-    monkeypatch.setattr(reader_analysis, "_snapshot_articles", lambda _vault, _scope: rows)
+    monkeypatch.setattr(reader_analysis_service, "_snapshot_articles", lambda _vault, _scope: rows)
 
     prompts = []
 
@@ -794,7 +796,7 @@ def test_reader_analysis_recovers_when_interrupted_before_snapshot(
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
     monkeypatch.setattr(
-        reader_analysis,
+        reader_analysis_storage,
         "load_params",
         lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
     )
@@ -807,7 +809,7 @@ def test_reader_analysis_recovers_when_interrupted_before_snapshot(
         "url": "https://example.test/1",
         "content": "Evidence",
     }]
-    monkeypatch.setattr(reader_analysis, "_snapshot_articles", lambda _vault, _scope: rows)
+    monkeypatch.setattr(reader_analysis_service, "_snapshot_articles", lambda _vault, _scope: rows)
     job = reader_analysis.start_analysis(
         vault_path,
         {"unread_only": True},
@@ -817,7 +819,7 @@ def test_reader_analysis_recovers_when_interrupted_before_snapshot(
     interrupted = reader_analysis.get_status(vault_path, job["job_id"])
     assert interrupted["state"] == "interrupted"
     monkeypatch.setattr(
-        reader_analysis,
+        reader_analysis_service,
         "_launch",
         lambda target_vault, target_job, model_call: reader_analysis._run_job(
             target_vault,
@@ -846,11 +848,11 @@ def test_reader_analysis_retries_transient_failure_with_persisted_budget(
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
     monkeypatch.setattr(
-        reader_analysis,
+        reader_analysis_storage,
         "load_params",
         lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
     )
-    monkeypatch.setattr(reader_analysis, "_snapshot_articles", lambda _vault, _scope: [{
+    monkeypatch.setattr(reader_analysis_service, "_snapshot_articles", lambda _vault, _scope: [{
         "id": "1",
         "title": "Recoverable article",
         "source": "Example",
@@ -861,7 +863,7 @@ def test_reader_analysis_retries_transient_failure_with_persisted_budget(
     }])
     scheduled = []
     monkeypatch.setattr(
-        reader_analysis,
+        reader_analysis_service,
         "_schedule_retry",
         lambda _vault, _job, *, delay_seconds, model_call: scheduled.append(
             (delay_seconds, model_call)
@@ -924,17 +926,17 @@ def test_reader_analysis_does_not_retry_past_attempt_budget(tmp_path, monkeypatc
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
     monkeypatch.setattr(
-        reader_analysis,
+        reader_analysis_storage,
         "load_params",
         lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
     )
-    monkeypatch.setattr(reader_analysis, "_snapshot_articles", lambda _vault, _scope: [{
+    monkeypatch.setattr(reader_analysis_service, "_snapshot_articles", lambda _vault, _scope: [{
         "id": "1", "title": "Article", "source": "Example",
         "category": "Research", "published_at": None, "url": "", "content": "Evidence",
     }])
     scheduled = []
     monkeypatch.setattr(
-        reader_analysis,
+        reader_analysis_service,
         "_schedule_retry",
         lambda *_args, **_kwargs: scheduled.append(True),
     )
