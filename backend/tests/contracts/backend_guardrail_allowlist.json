@@ -55,11 +55,6 @@
       "max_lines": 18912,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
-    "backend/config/app_config.py": {
-      "max_complexity": 19,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/domains/configuration/api/settings.py": {
       "max_complexity": 17,
       "max_lines": 800,

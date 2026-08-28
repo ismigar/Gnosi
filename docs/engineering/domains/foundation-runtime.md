@@ -10,6 +10,7 @@ source_paths:
   - frontend/src/App.jsx
 tests:
   - backend/tests/test_app_lifespan.py
+  - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
   - tests/e2e/tests/anon/smoke.spec.ts
