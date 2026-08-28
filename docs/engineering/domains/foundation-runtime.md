@@ -9,6 +9,7 @@ source_paths:
   - backend/config/paths_config.py
   - backend/domains/configuration/api/settings.py
   - backend/services/data_dir_migration.py
+  - backend/api/system_routes.py
   - frontend/src/App.jsx
 tests:
   - backend/tests/test_app_lifespan.py
@@ -17,6 +18,7 @@ tests:
   - backend/tests/test_config_language_locale.py
   - backend/tests/test_host_helper_url.py
   - backend/tests/test_data_dir_migration.py
+  - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -78,6 +80,12 @@ same-volume atomic rename, cross-volume staging, destination verification, and
 automatic rollback are separate phases. Every SQLite database is checkpointed
 and integrity-checked, and a copied tree is compared against a hashed inventory
 before the destination replaces an empty scaffold.
+
+System filesystem routes keep HTTP orchestration separate from bounded browsing
+and search helpers. Search prioritizes the active vault and standard user
+folders, including the provider-neutral `Library/CloudStorage` root used by
+OneDrive, Google Drive, Dropbox, Box and other macOS file providers. Local and
+Docker paths are mapped without making any cloud vendor part of the data model.
 
 ## Frontend shell
 

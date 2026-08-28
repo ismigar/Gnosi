@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
-from typing import List, Dict, Any
-from sqlalchemy.orm import Session
+"""HTTP routes for system notifications, status and filesystem access."""
+
 import asyncio
 import json
 import os
 import unicodedata
-import psutil
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, cast
+
+import psutil
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 from backend.config.env_config import default_host_helper_url
 from backend.data.management_db import get_mgmt_db
 from backend.models.notification import Notification, NotificationResponse
@@ -18,23 +23,21 @@ from backend.utils.errors import safe_error_detail
 router = APIRouter()
 
 
-@router.get("/notifications", response_model=Dict[str, Any])
+@router.get("/notifications", response_model=dict[str, Any])
 async def get_notifications(
-    limit: int = 50, 
-    offset: int = 0,
-    db: Session = Depends(get_mgmt_db)
-):
+    limit: int = 50, offset: int = 0, db: Session = Depends(get_mgmt_db)
+) -> dict[str, Any]:
     """Returns system notifications with pagination."""
     query = db.query(Notification)
     total = query.count()
     items = query.order_by(Notification.created_at.desc()).offset(offset).limit(limit).all()
-    
+
     return {
         "items": [NotificationResponse.from_orm(i) for i in items],
         "total": total,
         "limit": limit,
         "offset": offset,
-        "has_more": total > offset + limit
+        "has_more": total > offset + limit,
     }
 
 
@@ -49,14 +52,14 @@ class NotificationCreate(BaseModel):
 async def create_notification(
     payload: NotificationCreate,
     db: Session = Depends(get_mgmt_db),
-):
+) -> NotificationResponse:
     """Persist a notification to the central log.
 
     Clients (frontend, scripts) write here so that errors,
     successes, and warnings end up in the Control Center and not only as ephemeral
     toasts. No role protection: any authenticated caller can
     log entries here (it's a log, not a destructive action).
-    
+
     """
     try:
         level = (payload.level or "INFO").strip().upper()
@@ -80,8 +83,12 @@ async def create_notification(
         )
 
 
-@router.delete("/notifications", dependencies=[Depends(require_role("admin"))])
-async def clear_notifications(db: Session = Depends(get_mgmt_db)):
+@router.delete(
+    "/notifications",
+    response_model=None,
+    dependencies=[Depends(require_role("admin"))],
+)
+async def clear_notifications(db: Session = Depends(get_mgmt_db)) -> Any:
     """Deletes all system notifications."""
     try:
         db.query(Notification).delete()
@@ -113,23 +120,140 @@ class NativePickRequest(BaseModel):
     multiple: bool = False  # files only: allow picking several at once
 
 
-@router.get("/stats")
-async def get_system_stats():
+def _browser_roots() -> tuple[str, str, dict[str, str | None], list[Path]]:
+    """Resolve active-vault, home and root shortcuts for the admin picker."""
+    from backend.services.context_vars import get_active_vault_path
+
+    try:
+        active_vault = get_active_vault_path()
+        vault_internal = str(active_vault) if active_vault else ""
+    except Exception:
+        vault_internal = ""
+    if not vault_internal:
+        vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
+    home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
+    roots = {
+        "vault": vault_internal or None,
+        "home": home_internal or None,
+        "root": "/",
+    }
+    allowed_roots: list[Path] = []
+    for raw_root in (vault_internal, home_internal, "/"):
+        if not raw_root:
+            continue
+        try:
+            allowed_roots.append(Path(raw_root).resolve())
+        except Exception:
+            continue
+    return vault_internal, home_internal, roots, allowed_roots
+
+
+def _browse_target(
+    requested_path: str,
+    vault_internal: str,
+    home_internal: str,
+    roots: dict[str, str | None],
+    allowed_roots: list[Path],
+) -> tuple[Path | None, dict[str, Any] | None]:
+    """Resolve and validate one requested picker directory."""
+    target_path = requested_path or vault_internal or home_internal or "/"
+    try:
+        target = Path(target_path).resolve()
+    except Exception:
+        return None, {"error": "Invalid path", "error_code": "invalid_path", "roots": roots}
+    if not allowed_roots:
+        return None, {
+            "error": "Server misconfigured: no allowed roots resolved",
+            "error_code": "no_roots",
+            "roots": roots,
+        }
+    if not any(target == root or target.is_relative_to(root) for root in allowed_roots):
+        return None, {
+            "error": "Path is outside of allowed roots",
+            "error_code": "outside_roots",
+            "roots": roots,
+        }
+    if not target.exists():
+        return None, {"error": "Path does not exist", "error_code": "not_found", "roots": roots}
+    if not target.is_dir():
+        return None, {
+            "error": "Not a directory",
+            "error_code": "not_a_directory",
+            "roots": roots,
+        }
+    return target, None
+
+
+def _browse_display_path(target: Path, vault_internal: str) -> str:
+    """Map an internal Docker Vault path back to its host display path."""
+    vault_host = os.getenv("VAULT_HOST_PATH") or ""
+    target_text = str(target)
+    if vault_host and vault_internal and target_text.startswith(vault_internal):
+        return target_text.replace(vault_internal, vault_host, 1)
+    return target_text
+
+
+def _scan_browse_directory(
+    target: Path,
+    display_path: str,
+    roots: dict[str, str | None],
+) -> dict[str, Any]:
+    """Read one bounded directory listing without following entries."""
+    directories: list[str] = []
+    files: list[str] = []
+    try:
+        with os.scandir(target) as entries:
+            for entry in entries:
+                try:
+                    if entry.name.startswith("."):
+                        continue
+                    if entry.is_dir():
+                        directories.append(entry.name)
+                    elif entry.is_file():
+                        files.append(entry.name)
+                except (PermissionError, OSError):
+                    continue
+                if len(directories) + len(files) >= 400:
+                    break
+    except PermissionError:
+        return {
+            "error": f"Permission denied at {target}. Check the folder permissions.",
+            "error_code": "permission_denied",
+            "current_path": str(target),
+            "display_path": display_path,
+            "roots": roots,
+        }
+    except Exception as exc:
+        return {
+            "error": safe_error_detail(exc, "POST /browse access path"),
+            "error_code": "access_error",
+            "current_path": str(target),
+            "display_path": display_path,
+            "roots": roots,
+        }
+    directories.sort(key=str.lower)
+    files.sort(key=str.lower)
+    return {
+        "current_path": str(target),
+        "display_path": display_path,
+        "directories": directories,
+        "files": files,
+        "roots": roots,
+    }
+
+
+@router.get("/stats", response_model=None)
+async def get_system_stats() -> Any:
     """Returns real system statistics."""
     try:
         cpu = psutil.cpu_percent(interval=None)
         ram = psutil.virtual_memory().percent
-        
+
         # Get real node count from GraphService
         service = GraphService()
         memory_items = service.get_node_count()
-        
-        return {
-            "cpu": cpu,
-            "ram_percent": ram,
-            "memory_items": memory_items,
-            "status": "online"
-        }
+
+        return {"cpu": cpu, "ram_percent": ram, "memory_items": memory_items, "status": "online"}
     except Exception as e:
         # Fallback to defaults or partial data if psutil fails
         return {
@@ -141,13 +265,17 @@ async def get_system_stats():
         }
 
 
-@router.get("/graph/visualization")
-async def get_graph_viz():
+@router.get("/graph/visualization", response_model=None)
+async def get_graph_viz() -> Any:
     return {"nodes": [], "edges": []}
 
 
-@router.post("/browse", dependencies=[Depends(require_role("admin"))])
-async def browse_directory(body: BrowseRequest = Body(...)):
+@router.post(
+    "/browse",
+    response_model=None,
+    dependencies=[Depends(require_role("admin"))],
+)
+async def browse_directory(body: BrowseRequest = Body(...)) -> Any:
     """Browse directory contents for the folder/file picker.
 
     Security: admin-only. The picker is meant to let the operator pick ANY
@@ -156,130 +284,23 @@ async def browse_directory(body: BrowseRequest = Body(...)):
     ACTIVE vault, the current user's home, and "/" — with the admin gate as
     the trust boundary. Non-existent / non-directory targets are still rejected.
     """
-    from backend.services.context_vars import get_active_vault_path
-
-    target_path = body.path
-
-    # ── Navigable roots ──
-    # These three are ALSO returned (in `roots`) so the frontend shortcut
-    # buttons point at exactly what this endpoint accepts.
-    #   • Vault → the ACTIVE vault, resolved per-request (X-Vault-Id / cookie),
-    #     so switching vaults moves the shortcut with it. NOT a static env path
-    #     (that would pin the shortcut to Principal regardless of the active vault).
-    #   • Home  → the current user's home (host mount in Docker, real $HOME natively).
-    #   • Root  → "/", so the picker can reach any file on the machine.
-    try:
-        _vp = get_active_vault_path()
-        vault_internal = str(_vp) if _vp else ""
-    except Exception:
-        vault_internal = ""
-    if not vault_internal:
-        # Fallback if there's no active-vault context (e.g. no cookie yet).
-        vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
-    home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
-
-    # Shortcut targets for the frontend. Internal paths (what `browse` accepts);
-    # Docker maps them to host paths for display via the mapping block below.
-    # Returned on EVERY response — including errors — so the shortcuts are always
-    # available to recover from a bad/stale initial path.
-    roots = {
-        "vault": vault_internal or None,
-        "home": home_internal or None,
-        "root": "/",
-    }
-
-    allowed_roots = []
-    for raw in (vault_internal, home_internal, "/"):
-        if raw:
-            try:
-                allowed_roots.append(Path(raw).resolve())
-            except Exception:
-                pass
-
-    if not target_path:
-        # Default to the active vault root, not "/"
-        target_path = vault_internal or home_internal or "/"
-
-    try:
-        target = Path(target_path).resolve()
-    except Exception:
-        return {"error": "Invalid path", "error_code": "invalid_path", "roots": roots}
-
-    # Containment check. "/" is an allowed root (admin-only endpoint, picker is
-    # meant to browse the whole host), so in practice this validates that the
-    # target is an absolute, existing path rather than caging it — the admin gate
-    # is the boundary. Fail-closed if no roots resolved.
-    if not allowed_roots:
-        return {"error": "Server misconfigured: no allowed roots resolved", "error_code": "no_roots", "roots": roots}
-
-    if not any(
-        target == root or target.is_relative_to(root) for root in allowed_roots
-    ):
-        return {"error": "Path is outside of allowed roots", "error_code": "outside_roots", "roots": roots}
-
-    if not target.exists():
-        return {"error": "Path does not exist", "error_code": "not_found", "roots": roots}
-
-    if not target.is_dir():
-        return {"error": "Not a directory", "error_code": "not_a_directory", "roots": roots}
-
-    # ── Friendly Routes (Host Mapping) ──
-    # In Docker the vault is mounted at an internal path (/vault) that differs
-    # from what Finder shows (VAULT_HOST_PATH); map it back for display. Natively
-    # internal == host, so this is a no-op.
-    vault_host = os.getenv("VAULT_HOST_PATH") or ""
-    home_host = os.getenv("HOME_HOST_PATH")
-
-    display_path = str(target)
-    if vault_host and vault_internal and str(target).startswith(vault_internal):
-        display_path = str(target).replace(vault_internal, vault_host, 1)
-    elif home_host and str(target).startswith(home_host):
-        # If the internal path matches the host's (like HOME)
-        display_path = str(target)
-
-    directories: list = []
-    files: list = []
-    try:
-        import os as native_os
-        # os.scandir is much faster than Path.iterdir() because it already reads the node-type
-        with native_os.scandir(target) as it:
-            for entry in it:
-                try:
-                    if entry.name.startswith("."):
-                        continue
-                    if entry.is_dir():
-                        directories.append(entry.name)
-                    elif entry.is_file():
-                        files.append(entry.name)
-                except (PermissionError, OSError):
-                    continue
-
-                # Preventive limit to avoid bloat in the frontend
-                if len(directories) + len(files) >= 400:
-                    break
-    except PermissionError:
-        # If the directory lacks permission. `error` is an English fallback; the
-        # frontend shows the localized `error_code` message (OS-neutral).
-        return {"error": f"Permission denied at {target}. Check the folder permissions.", "error_code": "permission_denied", "current_path": str(target), "display_path": display_path, "roots": roots}
-    except Exception as e:
-        return {
-            "error": safe_error_detail(e, "POST /browse access path"),
-            "error_code": "access_error",
-            "current_path": str(target),
-            "display_path": display_path,
-            "roots": roots,
-        }
-
-    directories.sort(key=lambda s: s.lower())
-    files.sort(key=lambda s: s.lower())
-
-    return {
-        "current_path": str(target),
-        "display_path": display_path,
-        "directories": directories,
-        "files": files,
-        "roots": roots,
-    }
+    vault_internal, home_internal, roots, allowed_roots = _browser_roots()
+    target, error = _browse_target(
+        body.path,
+        vault_internal,
+        home_internal,
+        roots,
+        allowed_roots,
+    )
+    if error is not None:
+        return error
+    if target is None:
+        raise RuntimeError("Validated browse target is missing")
+    return _scan_browse_directory(
+        target,
+        _browse_display_path(target, vault_internal),
+        roots,
+    )
 
 
 # ── Native OS open dialog (progressive enhancement over the in-app picker) ──
@@ -287,17 +308,15 @@ async def browse_directory(body: BrowseRequest = Body(...)):
 # runs in the user's Aqua session with Full Disk Access); the backend only
 # proxies to it, on loopback (native) or host.docker.internal (Docker) — see
 # default_host_helper_url(). Per-endpoint env overrides mirror the search helper.
-_HOST_PICK_HELPER_URL = (
-    os.getenv("GNOSI_HOST_PICK_HELPER_URL")
-    or default_host_helper_url("/pick")
-)
-_HOST_HEALTH_HELPER_URL = (
-    os.getenv("GNOSI_HOST_HEALTH_HELPER_URL")
-    or default_host_helper_url("/healthz")
+_HOST_PICK_HELPER_URL = os.getenv("GNOSI_HOST_PICK_HELPER_URL") or default_host_helper_url("/pick")
+_HOST_HEALTH_HELPER_URL = os.getenv("GNOSI_HOST_HEALTH_HELPER_URL") or default_host_helper_url(
+    "/healthz"
 )
 
 
-def _native_pick_via_helper(mode: str, prompt: str, multiple: bool = False, timeout: float = 3600.0):
+def _native_pick_via_helper(
+    mode: str, prompt: str, multiple: bool = False, timeout: float = 3600.0
+) -> dict[str, Any] | None:
     """Ask the host helper to show the native dialog. Returns its response dict
     ({"status": "ok"|"cancelled", ...}), or None if the helper is unavailable.
 
@@ -326,7 +345,7 @@ def _native_pick_via_helper(mode: str, prompt: str, multiple: bool = False, time
             data = json.loads(resp.read() or b"{}")
     except Exception:
         return None
-    return data if isinstance(data, dict) else None
+    return cast(dict[str, Any], data) if isinstance(data, dict) else None
 
 
 def _host_helper_healthy(timeout: float = 1.5) -> bool:
@@ -336,7 +355,7 @@ def _host_helper_healthy(timeout: float = 1.5) -> bool:
 
     try:
         with urllib.request.urlopen(_HOST_HEALTH_HELPER_URL, timeout=timeout) as resp:
-            return 200 <= resp.status < 300
+            return bool(200 <= resp.status < 300)
     except Exception:
         return False
 
@@ -354,8 +373,12 @@ def _is_loopback_request(request: Request) -> bool:
     return host in ("127.0.0.1", "::1", "localhost")
 
 
-@router.get("/native-pick/available", dependencies=[Depends(require_role("admin"))])
-async def native_pick_available(request: Request):
+@router.get(
+    "/native-pick/available",
+    response_model=None,
+    dependencies=[Depends(require_role("admin"))],
+)
+async def native_pick_available(request: Request) -> Any:
     """Whether the native OS file/folder dialog can be offered from here.
 
     Available only when the caller is loopback AND the host_open_helper answers
@@ -368,8 +391,12 @@ async def native_pick_available(request: Request):
     return {"available": bool(healthy), "reason": None if healthy else "helper_unreachable"}
 
 
-@router.post("/native-pick", dependencies=[Depends(require_role("admin"))])
-async def native_pick(request: Request, body: NativePickRequest = Body(...)):
+@router.post(
+    "/native-pick",
+    response_model=None,
+    dependencies=[Depends(require_role("admin"))],
+)
+async def native_pick(request: Request, body: NativePickRequest = Body(...)) -> Any:
     """Open the host's native file/folder dialog and return the chosen path.
 
     A browser can never read the absolute host path of a file picked through
@@ -399,20 +426,35 @@ async def native_pick(request: Request, body: NativePickRequest = Body(...)):
 # CloudStorage have too much content and often contain synced replicas
 # of every kind that would blow up the search; caches/git/node_modules are noise.
 _SEARCH_SKIP_DIR_NAMES = {
-    "node_modules", ".git", "__pycache__", "Library",
-    ".cache", ".local", ".npm", ".docker", ".android",
-    ".gradle", ".nuget", ".vscode", ".idea", ".Trash",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    "Library",
+    ".cache",
+    ".local",
+    ".npm",
+    ".docker",
+    ".android",
+    ".gradle",
+    ".nuget",
+    ".vscode",
+    ".idea",
+    ".Trash",
     "Trash",
 }
 
 
-_HOST_SEARCH_HELPER_URL = (
-    os.getenv("GNOSI_HOST_SEARCH_HELPER_URL")
-    or default_host_helper_url("/search")
+_HOST_SEARCH_HELPER_URL = os.getenv("GNOSI_HOST_SEARCH_HELPER_URL") or default_host_helper_url(
+    "/search"
 )
 
 
-def _search_via_host_helper(query: str, limit: int, roots: list, timeout: float = 10.0):
+def _search_via_host_helper(
+    query: str,
+    limit: int,
+    roots: list[str],
+    timeout: float = 10.0,
+) -> dict[str, Any] | None:
     """Delegate the search to Spotlight (`mdfind`) via the host helper.
 
     The `host_open_helper` (pipeline/skills/host_open_helper/) listens on
@@ -425,7 +467,7 @@ def _search_via_host_helper(query: str, limit: int, roots: list, timeout: float 
     Returns the helper's response dict (`results`/`truncated` keys), or
     `None` if the helper is unavailable or fails — so the caller can
     fall back to the local walk.
-    
+
     """
     import urllib.request
 
@@ -446,14 +488,18 @@ def _search_via_host_helper(query: str, limit: int, roots: list, timeout: float 
 
     if not isinstance(data, dict) or not isinstance(data.get("results"), list):
         return None
-    return data
+    return cast(dict[str, Any], data)
 
 
-def _dedup_by_path(primary: list, secondary: list, limit: int) -> list:
+def _dedup_by_path(
+    primary: list[dict[str, Any]],
+    secondary: list[dict[str, Any]],
+    limit: int,
+) -> list[dict[str, Any]]:
     """Merges two result lists {name,path,is_dir} without duplicates by
     `path`, keeping the order (primary first). Cuts off at `limit`."""
-    seen: set = set()
-    out: list = []
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
     for item in list(primary) + list(secondary):
         p = item.get("path")
         if not p or p in seen:
@@ -465,8 +511,140 @@ def _dedup_by_path(primary: list, secondary: list, limit: int) -> list:
     return out
 
 
-@router.post("/search", dependencies=[Depends(require_role("admin"))])
-async def search_filesystem(body: SearchRequest = Body(...)):
+_SEARCH_PRIORITY_SUBDIRS = (
+    "Documents",
+    "Desktop",
+    "Downloads",
+    "Pictures",
+    "Movies",
+    "Music",
+    "Library/CloudStorage",
+    "Library/Mobile Documents",
+)
+
+
+@dataclass
+class _FilesystemSearchState:
+    """Mutable state shared by the bounded fallback walk."""
+
+    limit: int
+    vault_internal: str
+    vault_host: str
+    results: list[dict[str, Any]] = field(default_factory=list)
+    seen_paths: set[str] = field(default_factory=set)
+    truncated: bool = False
+    error: str | None = None
+
+    def record(self, internal: str, name: str, is_dir: bool) -> bool:
+        """Record one unique match and report whether the global cap was met."""
+        if internal in self.seen_paths:
+            return False
+        self.seen_paths.add(internal)
+        path = internal
+        if self.vault_host and self.vault_internal and path.startswith(self.vault_internal):
+            path = path.replace(self.vault_internal, self.vault_host, 1)
+        self.results.append({"name": name, "path": path, "is_dir": is_dir})
+        return len(self.results) >= self.limit
+
+
+def _add_search_root(raw: str, roots: list[Path], seen: set[str]) -> None:
+    """Add one existing directory to the fallback search roots."""
+    if not raw:
+        return
+    try:
+        path = Path(raw).resolve()
+        key = str(path)
+        if key not in seen and path.exists() and path.is_dir():
+            roots.append(path)
+            seen.add(key)
+    except Exception:
+        return
+
+
+def _priority_search_roots(vault_internal: str, home_internal: str) -> tuple[list[Path], set[str]]:
+    """Build ordered, unique roots covering local and cloud-synced files."""
+    roots: list[Path] = []
+    seen: set[str] = set()
+    _add_search_root(vault_internal, roots, seen)
+    for name in _SEARCH_PRIORITY_SUBDIRS:
+        _add_search_root(os.path.join(home_internal, name), roots, seen)
+    _add_search_root(home_internal, roots, seen)
+    return roots, seen
+
+
+def _prune_search_dirs(current_dir: str, dirs: list[str], seen_roots: set[str]) -> None:
+    """Prune noise and roots already scheduled as independent passes."""
+    dirs[:] = [
+        name
+        for name in dirs
+        if not name.startswith(".")
+        and name not in _SEARCH_SKIP_DIR_NAMES
+        and not name.endswith((".app", ".photoslibrary", ".musiclibrary"))
+        and os.path.join(current_dir, name) not in seen_roots
+    ]
+
+
+def _walk_search_root(
+    root: Path,
+    query: str,
+    result_cap: int,
+    seen_roots: set[str],
+    state: _FilesystemSearchState,
+) -> bool:
+    """Walk one bounded root and report whether all further walking should stop."""
+    visited = 0
+    hits = 0
+    for current_dir, dirs, files in os.walk(str(root), followlinks=False):
+        _prune_search_dirs(current_dir, dirs, seen_roots)
+        entries = [(True, name) for name in dirs]
+        entries.extend((False, name) for name in files)
+        for is_dir, name in entries:
+            if not is_dir and name.startswith("."):
+                continue
+            visited += 1
+            if visited > 30_000:
+                state.truncated = True
+                return False
+            if query not in unicodedata.normalize("NFC", name).lower():
+                continue
+            internal = os.path.join(current_dir, name)
+            if state.record(internal, name, is_dir):
+                state.truncated = True
+                return True
+            hits += 1
+            if hits >= result_cap:
+                state.truncated = True
+                return False
+    return False
+
+
+def _walk_filesystem(query: str, limit: int) -> _FilesystemSearchState:
+    """Run the provider-neutral local fallback search synchronously."""
+    vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
+    home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
+    roots, seen_roots = _priority_search_roots(vault_internal, home_internal)
+    state = _FilesystemSearchState(
+        limit=limit,
+        vault_internal=vault_internal,
+        vault_host=os.getenv("VAULT_HOST_PATH") or "",
+    )
+    result_cap = max(15, limit // max(1, len(roots)))
+    normalized_query = unicodedata.normalize("NFC", query)
+    try:
+        for root in roots:
+            if _walk_search_root(root, normalized_query, result_cap, seen_roots, state):
+                break
+    except Exception as exc:
+        state.error = safe_error_detail(exc, "POST /search filesystem")
+    return state
+
+
+@router.post(
+    "/search",
+    response_model=None,
+    dependencies=[Depends(require_role("admin"))],
+)
+async def search_filesystem(body: SearchRequest = Body(...)) -> dict[str, Any]:
     """Search by name across the whole system (Vault + Library + host home).
 
     Strategy:
@@ -477,40 +655,28 @@ async def search_filesystem(body: SearchRequest = Body(...)):
          Downloads…) where the helper does work. Merged with (1), deduped by path.
       3. Fallback (ONLY if the index isn't ready yet, e.g. right at
          startup): `os.walk` inside the container, with per-root caps.
-    
     """
-    q = (body.query or "").strip().lower()
-    if len(q) < 2:
+    query = (body.query or "").strip().lower()
+    if len(query) < 2:
         return {"results": [], "truncated": False}
 
     limit = max(1, min(500, body.limit or 100))
-
-    # Helper (Spotlight) — fast, for HOME/non-CloudStorage. Can be None (helper
-    # gone down) or return empty for the Vault (stale OneDrive File Provider): to
-    # so we do NOT rely on it alone for the Vault; the index (below) covers it.
     helper_roots = [
-        p for p in (os.getenv("VAULT_HOST_PATH"), os.getenv("HOME_HOST_PATH"))
-        if p
+        path for path in (os.getenv("VAULT_HOST_PATH"), os.getenv("HOME_HOST_PATH")) if path
     ]
-    helper_data = await asyncio.to_thread(
-        _search_via_host_helper, q, limit, helper_roots
-    )
+    helper_data = await asyncio.to_thread(_search_via_host_helper, query, limit, helper_roots)
     helper_results = helper_data.get("results", []) if helper_data else []
 
-    # ── Layer 1+2: Vault index (reliable) merged with the helper (rest of HOME) ──
     from backend.services import vault_file_index
+
     if vault_file_index.is_ready():
-        index_results = await asyncio.to_thread(
-            vault_file_index.query, body.query or "", limit
-        )
+        index_results = await asyncio.to_thread(vault_file_index.query, body.query or "", limit)
         merged = _dedup_by_path(index_results, helper_results, limit)
         return {
             "results": merged,
             "truncated": bool(helper_data and helper_data.get("truncated")) or len(merged) >= limit,
             "engine": "index+spotlight",
         }
-
-    # Index not ready yet (short window at startup): previous behavior.
     if helper_data is not None:
         return {
             "results": helper_results,
@@ -518,156 +684,11 @@ async def search_filesystem(body: SearchRequest = Body(...)):
             "engine": "spotlight",
         }
 
-    # ── Layer 3: fallback walk inside the container ──
-    vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
-    home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
-    vault_host = os.getenv("VAULT_HOST_PATH") or ""
-
-    # We walk in priority passes: first the Vault, then the
-    # common user folders (Documents, Desktop, Downloads, …) and
-    # finally the rest of HOME. This way we guarantee that the files
-    # relevant ones show up even if HOME contains many files
-    # of little interest (Library is on the skip-list but other folders
-    # such as large Movies can exhaust the limit).
-    #
-    # Library is normally skipped because it contains caches, plists, and app data
-    # that add nothing to the search. But cloud sync folders
-    # (OneDrive, Dropbox, Google Drive, Box → Library/CloudStorage; iCloud
-    # Drive → Library/Mobile Documents) do contain real files from
-    # the user and must be covered. We add them as priority roots
-    # explicit: the skip of "Library" is only checked during the walks,
-    # not at the initial roots, so entering it directly is allowed.
-    priority_subdirs = [
-        "Documents", "Desktop", "Downloads", "Pictures", "Movies", "Music",
-        "Library/CloudStorage", "Library/Mobile Documents",
-    ]
-    priority_roots: list[Path] = []
-    seen_resolved: set[str] = set()
-
-    def _add_root(raw: str) -> None:
-        if not raw:
-            return
-        try:
-            p = Path(raw).resolve()
-            key = str(p)
-            if key in seen_resolved:
-                return
-            if p.exists() and p.is_dir():
-                priority_roots.append(p)
-                seen_resolved.add(key)
-        except Exception:
-            return
-
-    _add_root(vault_internal)
-    if home_internal:
-        for name in priority_subdirs:
-            _add_root(os.path.join(home_internal, name))
-    _add_root(home_internal)
-
-    if not priority_roots:
-        return {"results": [], "truncated": False}
-
-    def to_host(internal: str) -> str:
-        if vault_host and vault_internal and internal.startswith(vault_internal):
-            return internal.replace(vault_internal, vault_host, 1)
-        return internal
-
-    import os as native_os
-
-    # Node budget PER root: no single folder can hog the entire search.
-    # Previously there was a single global `max_visited` of 250k; since the Vault
-    # and, above all, Library/CloudStorage (OneDrive) are huge, a single
-    # previous pass would get stuck there and the call would take many seconds without reaching
-    # never got to Documents/Downloads. With a per-root cap, each relevant folder
-    # gets visited even if the previous ones are huge.
-    per_root_max_visited = 30000
-    # A cap on results PER root: without this the Vault (all .md) would fill up the
-    # `limit` results before any other root contributed anything, and the search
-    # seemed to find "only .md" files. By splitting the limit, the results are
-    # a mix of all sources.
-    per_root_result_cap = max(15, limit // max(1, len(priority_roots)))
-
-    results: list = []
-    truncated = False
-    # Deduplicate results when a file is found from more than one
-    # priority root (e.g. Vault + generic HOME walk).
-    seen_result_paths: set[str] = set()
-
-    def _record_hit(internal: str, name: str, is_dir: bool) -> bool:
-        """Add a match if it hasn't been found yet. Returns True if
-        the GLOBAL results limit has been reached."""
-        if internal in seen_result_paths:
-            return False
-        seen_result_paths.add(internal)
-        results.append({
-            "name": name,
-            "path": to_host(internal),
-            "is_dir": is_dir,
-        })
-        return len(results) >= limit
-
-    # Normalize the query to NFC once: macOS stores names in NFD, so a query
-    # "ética" (NFC, 1 codepoint) matches the decomposed name on disk (e + accent).
-    q_norm = unicodedata.normalize("NFC", q)
-
-    def _walk_all() -> None:
-        """Walk the priority roots, filling `results`.
-
-        It's synchronous and blocking — an `os.walk` over slow mounts like
-        OneDrive can take seconds —, so the handler calls it inside
-        a separate thread to avoid freezing FastAPI's event loop.
-        
-        """
-        nonlocal truncated
-        for root in priority_roots:
-            if len(results) >= limit:
-                break
-            root_visited = 0
-            root_hits = 0
-            stop_root = False
-            for current_dir, dirs, files in native_os.walk(str(root), followlinks=False):
-                # Prune in-place. In addition to the usual noise, we skip the
-                # priority roots that we already walk separately: this way the
-                # generic HOME walk doesn't traverse Documents again,
-                # Desktop, Downloads… (previously visited twice).
-                dirs[:] = [
-                    d for d in dirs
-                    if not d.startswith(".")
-                    and d not in _SEARCH_SKIP_DIR_NAMES
-                    and not d.endswith((".app", ".photoslibrary", ".musiclibrary"))
-                    and native_os.path.join(current_dir, d) not in seen_resolved
-                ]
-
-                entries = [(True, d) for d in dirs] + [(False, f) for f in files]
-                for is_dir, name in entries:
-                    if not is_dir and name.startswith("."):
-                        continue
-                    root_visited += 1
-                    if root_visited > per_root_max_visited:
-                        truncated = True
-                        stop_root = True
-                        break
-                    if q_norm in unicodedata.normalize("NFC", name).lower():
-                        internal = native_os.path.join(current_dir, name)
-                        if _record_hit(internal, name, is_dir):
-                            truncated = True
-                            return
-                        root_hits += 1
-                        if root_hits >= per_root_result_cap:
-                            truncated = True
-                            stop_root = True
-                            break
-
-                if stop_root:
-                    break
-
-    try:
-        await asyncio.to_thread(_walk_all)
-    except Exception as e:
-        return {
-            "results": results,
-            "truncated": truncated,
-            "error": safe_error_detail(e, "POST /search filesystem"),
-        }
-
-    return {"results": results, "truncated": truncated}
+    state = await asyncio.to_thread(_walk_filesystem, query, limit)
+    response: dict[str, Any] = {
+        "results": state.results,
+        "truncated": state.truncated,
+    }
+    if state.error is not None:
+        response["error"] = state.error
+    return response

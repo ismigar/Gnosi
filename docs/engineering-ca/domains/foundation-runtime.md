@@ -9,6 +9,7 @@ source_paths:
   - backend/config/paths_config.py
   - backend/domains/configuration/api/settings.py
   - backend/services/data_dir_migration.py
+  - backend/api/system_routes.py
   - frontend/src/App.jsx
 tests:
   - backend/tests/test_app_lifespan.py
@@ -17,6 +18,7 @@ tests:
   - backend/tests/test_config_language_locale.py
   - backend/tests/test_host_helper_url.py
   - backend/tests/test_data_dir_migration.py
+  - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -64,6 +66,12 @@ de l'origen, el moviment atòmic al mateix volum, l'staging entre volums, la
 verificació del destí i el rollback automàtic són fases separades. Cada base
 SQLite passa checkpoint i `integrity_check`, i les còpies es comparen amb un
 inventari amb hash abans de substituir una estructura buida.
+
+Les rutes del sistema separen l'orquestració HTTP dels ajudants acotats de
+navegació i cerca. La cerca prioritza el vault actiu i les carpetes habituals,
+inclosa l'arrel neutral `Library/CloudStorage` que fan servir OneDrive, Google
+Drive, Dropbox, Box i altres proveïdors de fitxers de macOS. Els camins locals i
+Docker es mapen sense incorporar cap proveïdor al model de dades.
 
 ## Àrea de treball per a la interfície
 

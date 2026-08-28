@@ -9,6 +9,7 @@ source_paths:
   - backend/config/paths_config.py
   - backend/domains/configuration/api/settings.py
   - backend/services/data_dir_migration.py
+  - backend/api/system_routes.py
   - frontend/src/App.jsx
 tests:
   - backend/tests/test_app_lifespan.py
@@ -17,6 +18,7 @@ tests:
   - backend/tests/test_config_language_locale.py
   - backend/tests/test_host_helper_url.py
   - backend/tests/test_data_dir_migration.py
+  - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -64,6 +66,12 @@ verificación del origen, el movimiento atómico en el mismo volumen, el staging
 entre volúmenes, la verificación del destino y el rollback automático son fases
 separadas. Cada base SQLite pasa checkpoint e `integrity_check`, y las copias
 se comparan con un inventario con hash antes de sustituir una estructura vacía.
+
+Las rutas del sistema separan la orquestación HTTP de los ayudantes acotados de
+navegación y búsqueda. La búsqueda prioriza el vault activo y las carpetas
+habituales, incluida la raíz neutral `Library/CloudStorage` que usan OneDrive,
+Google Drive, Dropbox, Box y otros proveedores de archivos de macOS. Las rutas
+locales y Docker se mapean sin incorporar ningún proveedor al modelo de datos.
 
 ## Carcasa de la interfaz
 
