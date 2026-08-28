@@ -21,7 +21,7 @@ import logging
 import threading
 import time
 from collections import defaultdict
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, cast
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def _structural_page_ids(graph: Dict[str, Any]) -> set[str]:
     }
 
 
-def _iter_structural_edges(graph: Dict[str, Any]):
+def _iter_structural_edges(graph: Dict[str, Any]) -> Iterator[tuple[str, str]]:
     """Yield resolved, non-semantic edges with their semantic direction."""
 
     page_ids = _structural_page_ids(graph)
@@ -92,7 +92,7 @@ def _ensure_nx_cache_fresh(graph: Dict[str, Any]) -> None:
         _nx_cache_graph_id = gid
 
 
-def _get_nx_graph(graph: Dict[str, Any]):
+def _get_nx_graph(graph: Dict[str, Any]) -> Any:
     """Return an undirected NetworkX view of the structural page topology.
 
     Cached based on the graph dict identity (rebuilt only if the underlying graph
@@ -102,7 +102,7 @@ def _get_nx_graph(graph: Dict[str, Any]):
     _ensure_nx_cache_fresh(graph)
     if _nx_cache.get("nx") is not None:
         return _nx_cache["nx"]
-    G = nx.Graph()
+    G: Any = nx.Graph()
     G.add_nodes_from(_structural_page_ids(graph))
     G.add_edges_from(_iter_structural_edges(graph))
     _nx_cache["nx"] = G
@@ -112,7 +112,7 @@ def _get_nx_graph(graph: Dict[str, Any]):
 def _get_betweenness(graph: Dict[str, Any]) -> Dict[str, float]:
     _ensure_nx_cache_fresh(graph)
     if "betweenness" in _nx_cache:
-        return _nx_cache["betweenness"]
+        return cast(Dict[str, float], _nx_cache["betweenness"])
     import networkx as nx
     try:
         G = _get_nx_graph(graph)
@@ -122,13 +122,13 @@ def _get_betweenness(graph: Dict[str, Any]) -> Dict[str, float]:
         log.warning(f"betweenness failed: {e}")
         bc = {}
     _nx_cache["betweenness"] = bc
-    return bc
+    return cast(Dict[str, float], bc)
 
 
 def _get_pagerank(graph: Dict[str, Any]) -> Dict[str, float]:
     _ensure_nx_cache_fresh(graph)
     if "pagerank" in _nx_cache:
-        return _nx_cache["pagerank"]
+        return cast(Dict[str, float], _nx_cache["pagerank"])
     import networkx as nx
     try:
         G = _get_nx_graph(graph)
@@ -137,13 +137,13 @@ def _get_pagerank(graph: Dict[str, Any]) -> Dict[str, float]:
         log.warning(f"pagerank failed: {e}")
         pr = {}
     _nx_cache["pagerank"] = pr
-    return pr
+    return cast(Dict[str, float], pr)
 
 
 def _get_eigenvector(graph: Dict[str, Any]) -> Dict[str, float]:
     _ensure_nx_cache_fresh(graph)
     if "eigenvector" in _nx_cache:
-        return _nx_cache["eigenvector"]
+        return cast(Dict[str, float], _nx_cache["eigenvector"])
     import networkx as nx
     try:
         G = _get_nx_graph(graph)
@@ -156,13 +156,13 @@ def _get_eigenvector(graph: Dict[str, Any]) -> Dict[str, float]:
             log.warning(f"eigenvector failed: {e}; fallback failed: {e2}")
             ec = {}
     _nx_cache["eigenvector"] = ec
-    return ec
+    return cast(Dict[str, float], ec)
 
 
 def _get_closeness(graph: Dict[str, Any]) -> Dict[str, float]:
     _ensure_nx_cache_fresh(graph)
     if "closeness" in _nx_cache:
-        return _nx_cache["closeness"]
+        return cast(Dict[str, float], _nx_cache["closeness"])
     import networkx as nx
     try:
         G = _get_nx_graph(graph)
@@ -171,13 +171,13 @@ def _get_closeness(graph: Dict[str, Any]) -> Dict[str, float]:
         log.warning(f"closeness failed: {e}")
         cc = {}
     _nx_cache["closeness"] = cc
-    return cc
+    return cast(Dict[str, float], cc)
 
 
 def _get_clustering(graph: Dict[str, Any]) -> Dict[str, float]:
     _ensure_nx_cache_fresh(graph)
     if "clustering" in _nx_cache:
-        return _nx_cache["clustering"]
+        return cast(Dict[str, float], _nx_cache["clustering"])
     import networkx as nx
     try:
         G = _get_nx_graph(graph)
@@ -186,24 +186,24 @@ def _get_clustering(graph: Dict[str, Any]) -> Dict[str, float]:
         log.warning(f"clustering failed: {e}")
         cl = {}
     _nx_cache["clustering"] = cl
-    return cl
+    return cast(Dict[str, float], cl)
 
 
 # ── Computers ────────────────────────────────────────────────────────────────
 
 def _compute_degree_centrality(page_id: str, ctx: Dict[str, Any]) -> int:
     """Total connections (in + out edges) involving this page."""
-    return ctx["degrees"].get(page_id, {}).get("total", 0)
+    return int(ctx["degrees"].get(page_id, {}).get("total", 0))
 
 
 def _compute_in_degree(page_id: str, ctx: Dict[str, Any]) -> int:
     """Number of pages linking TO this page."""
-    return ctx["degrees"].get(page_id, {}).get("in", 0)
+    return int(ctx["degrees"].get(page_id, {}).get("in", 0))
 
 
 def _compute_out_degree(page_id: str, ctx: Dict[str, Any]) -> int:
     """Number of pages linked FROM this page."""
-    return ctx["degrees"].get(page_id, {}).get("out", 0)
+    return int(ctx["degrees"].get(page_id, {}).get("out", 0))
 
 
 def _round4(x: float) -> float:
@@ -242,12 +242,12 @@ def _compute_is_hub(page_id: str, ctx: Dict[str, Any]) -> bool:
     """Boolean: whether this page sits in the top decile of degree centrality."""
     threshold = ctx.get("hub_threshold", 0)
     deg = ctx["degrees"].get(page_id, {}).get("total", 0)
-    return deg >= threshold and deg > 0
+    return bool(deg >= threshold and deg > 0)
 
 
 def _compute_is_orphan(page_id: str, ctx: Dict[str, Any]) -> bool:
     """Boolean: whether this page has zero connections in the graph."""
-    return ctx["degrees"].get(page_id, {}).get("total", 0) == 0
+    return bool(ctx["degrees"].get(page_id, {}).get("total", 0) == 0)
 
 
 # ── Inverse rollup: task progress ────────────────────────────────────────
@@ -589,7 +589,7 @@ def inject_for_table(
     if not vprops:
         return
 
-    needs: set = set()
+    needs: set[str] = set()
     for p in vprops:
         comp_key = p.get("compute") or ""
         meta = VIRTUAL_COMPUTERS.get(comp_key)
@@ -652,7 +652,7 @@ def inject_for_single_page(
     if not vprops:
         return
 
-    needs: set = set()
+    needs: set[str] = set()
     for p in vprops:
         comp_key = p.get("compute") or ""
         meta = VIRTUAL_COMPUTERS.get(comp_key)

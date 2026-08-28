@@ -13,6 +13,7 @@ source_paths:
   - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/api/virtual_fields.py
   - backend/services/table_system_dates.py
   - backend/services/option_catalogs.py
   - backend/services/rule_engine.py
@@ -44,6 +45,8 @@ tests:
   - backend/tests/test_planning_agent_tools.py
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_project_planning.py
+  - backend/tests/test_virtual_fields_graph_projection.py
+  - backend/tests/test_pipeline_naming.py
   - frontend/src/utils/projectPlanning.test.js
   - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
@@ -116,6 +119,12 @@ values run before rollups that aggregate relations, and dependent formulas are
 resolved without allowing cycles to recurse indefinitely. Backend and frontend
 representations must agree on checkbox truthiness, percentages, empty values,
 and option identifiers.
+
+Read-time virtual fields use typed graph projections and computation contexts.
+Structural edges exclude unresolved and semantic proposal nodes; NetworkX
+metrics are narrowed when they enter the shared cache, while degree, hub,
+orphan and inverse task-progress values expose stable primitive results. The
+canonical frontmatter key remains the registry property name without slugging.
 
 Canonical database behavior is split by responsibility. `tables/rules/` owns
 formula, rollup, lookup and automation evaluation; `tables/catalogs/` owns
