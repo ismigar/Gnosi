@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends
 
@@ -46,7 +46,10 @@ def register_routes(parent_router: APIRouter) -> None:
 
 @router.get("/databases", response_model=None)
 async def list_databases() -> list[RegistryData]:
-    return await table_collection_api.list_databases(_configured().collections)
+    return cast(
+        list[RegistryData],
+        await table_collection_api.list_databases(_configured().collections),
+    )
 
 
 @router.post(
@@ -72,9 +75,12 @@ async def delete_database(database_id: str) -> RegistryData:
 
 @router.get("/tables", response_model=None)
 async def list_tables(database_id: Optional[str] = None) -> list[RegistryData]:
-    return await table_collection_api.list_tables(
-        database_id,
-        _configured().collections,
+    return cast(
+        list[RegistryData],
+        await table_collection_api.list_tables(
+            database_id,
+            _configured().collections,
+        ),
     )
 
 
@@ -97,12 +103,12 @@ async def create_table(table: RegistryData = Body(...)) -> RegistryData:
 
 def _table_schema_signature(properties: object) -> str:
     """Return a deterministic signature for one ordered property schema."""
-    return table_schema.table_schema_signature(properties)
+    return cast(str, table_schema.table_schema_signature(properties))
 
 
 def _schema_revision(value: object) -> int:
     """Parse a non-negative schema revision without trusting client types."""
-    return table_schema.schema_revision(value)
+    return cast(int, table_schema.schema_revision(value))
 
 
 def _reconcile_table_schema_revision(
@@ -179,12 +185,12 @@ def _rename_table_locked(
 
 def _rename_field_in_filter_tree(node: Any, old: str, new: str) -> bool:
     """Recursively rewrite a field reference inside a filter tree."""
-    return table_schema.rename_field_in_filter_tree(node, old, new)
+    return cast(bool, table_schema.rename_field_in_filter_tree(node, old, new))
 
 
 def _rename_field_refs_in_view_like(container: Any, old: str, new: str) -> bool:
     """Rewrite field-name references in a view or embedded section."""
-    return table_schema.rename_field_refs_in_view_like(container, old, new)
+    return cast(bool, table_schema.rename_field_refs_in_view_like(container, old, new))
 
 
 def _propagate_property_rename(
@@ -194,11 +200,14 @@ def _propagate_property_rename(
     new_name: str,
 ) -> int:
     """Propagate a property rename through canonical view configuration."""
-    return table_schema.propagate_property_rename(
-        registry,
-        table_id,
-        old_name,
-        new_name,
+    return cast(
+        int,
+        table_schema.propagate_property_rename(
+            registry,
+            table_id,
+            old_name,
+            new_name,
+        ),
     )
 
 
@@ -255,19 +264,25 @@ def _find_table_and_prop(
     field_ref: str,
 ) -> tuple[RegistryData, RegistryData]:
     """Return a table and property by table ID and field ID or name."""
-    return table_options.find_table_and_property(registry, table_id, field_ref)
+    return cast(
+        tuple[RegistryData, RegistryData],
+        table_options.find_table_and_property(registry, table_id, field_ref),
+    )
 
 
 def _option_value_keys(prop: RegistryData) -> list[str]:
     """Candidate frontmatter keys for this field's value."""
-    return table_options.option_value_keys(prop)
+    return cast(list[str], table_options.option_value_keys(prop))
 
 
 def _global_status_members(
     registry: RegistryData,
 ) -> list[tuple[RegistryData, RegistryData]]:
     """Return every table/property pair backed by the global status catalog."""
-    return table_options.global_status_members(registry, _configured().options)
+    return cast(
+        list[tuple[RegistryData, RegistryData]],
+        table_options.global_status_members(registry, _configured().options),
+    )
 
 
 async def _rewrite_option_in_rows(
@@ -277,12 +292,15 @@ async def _rewrite_option_in_rows(
     new: Optional[str],
 ) -> int:
     """Rewrite one option value in all rows of a table."""
-    return await table_options.rewrite_option_in_rows(
-        table,
-        prop,
-        old,
-        new,
-        _configured().options,
+    return cast(
+        int,
+        await table_options.rewrite_option_in_rows(
+            table,
+            prop,
+            old,
+            new,
+            _configured().options,
+        ),
     )
 
 
@@ -378,7 +396,10 @@ async def delete_option_catalog(name: str) -> RegistryData:
 
 @router.get("/views", response_model=None)
 async def list_views(table_id: Optional[str] = None) -> list[RegistryData]:
-    return await vault_views.list_views(table_id, _configured().views)
+    return cast(
+        list[RegistryData],
+        await vault_views.list_views(table_id, _configured().views),
+    )
 
 
 @router.post(
@@ -441,10 +462,13 @@ async def update_view(
 
 def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
     """Resolve a subpath and reject traversal outside the active vault."""
-    return vault_view_schema.resolve_subpath_within_vault(
-        folder,
-        *segments,
-        dependencies=_configured().folder_schema,
+    return cast(
+        Path,
+        vault_view_schema.resolve_subpath_within_vault(
+            folder,
+            *segments,
+            dependencies=_configured().folder_schema,
+        ),
     )
 
 

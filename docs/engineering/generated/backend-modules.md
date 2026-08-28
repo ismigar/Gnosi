@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1031 |
 | `data` | 2 | 203 |
-| `domains` | 294 | 65598 |
+| `domains` | 294 | 65622 |
 | `mcp` | 3 | 394 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **623 modules** and **140918 source lines**.
+Total: **623 modules** and **140942 source lines**.
 
 ## agent
 
@@ -441,7 +441,7 @@ Total: **623 modules** and **140918 source lines**.
 | [`backend/domains/vault/tables/formula_recalculation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/formula_recalculation.py) | 210 | 2 | 10 | 0 | 2 | Serialized recomputation of formulas that depend on other table rows. |
 | [`backend/domains/vault/tables/lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/lifecycle.py) | 546 | 4 | 17 | 3 | 0 | Table creation, deletion and rename services. |
 | [`backend/domains/vault/tables/options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/options.py) | 582 | 2 | 22 | 8 | 4 | Shared option catalogs and row-value rewrites. |
-| [`backend/domains/vault/tables/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py) | 518 | 0 | 41 | 24 | 25 | FastAPI boundary for databases, table rows, views and folder schemas. |
+| [`backend/domains/vault/tables/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py) | 542 | 0 | 41 | 24 | 25 | FastAPI boundary for databases, table rows, views and folder schemas. |
 | [`backend/domains/vault/tables/rows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rows.py) | 421 | 2 | 17 | 0 | 11 | Table row discovery, context resolution and read enrichment. |
 | [`backend/domains/vault/tables/schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/schema.py) | 403 | 1 | 20 | 1 | 7 | Table schema revisions and property mutation rules. |
 | [`backend/domains/vault/tables/security.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/security.py) | 29 | 1 | 1 | 0 | 1 | Narrow typed access to the workspace authorization composition boundary. |
