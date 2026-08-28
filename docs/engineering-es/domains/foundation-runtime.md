@@ -7,12 +7,14 @@ source_paths:
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
+  - backend/domains/configuration/api/settings.py
   - backend/services/data_dir_migration.py
   - frontend/src/App.jsx
 tests:
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
+  - backend/tests/test_config_language_locale.py
   - backend/tests/test_host_helper_url.py
   - backend/tests/test_data_dir_migration.py
   - tests/e2e/tests/anon/smoke.spec.ts
@@ -51,6 +53,11 @@ Los fallos en el inicio opcional de IA o integración se registran y se aíslan.
 `load_params()` combina la aplicación YAML con el usuario actual o configuración de la válvula activa. Los valores del diccionario se fusionan recursivamente. `.gnosi/params.yaml` se convierte en el objetivo de persistencia para la configuración de bóvedas. La resolución de trayectoria aplica valores de entorno de implementación explícitos.
 
 Una credencial de entorno legado puede crear un proveedor una vez, pero una lápida de desconexión persistente impide que reaparezca después de la eliminación deliberada.
+
+La frontera de escritura de Configuración valida agentes gestionados y
+estrategias de modelo, guarda contraseñas y claves fuera del YAML, trata el mapa
+de proveedores como estado deseado para conservar eliminaciones, escribe de
+forma atómica e invalida agentes compilados solo tras un cambio de IA.
 
 La migración de datos locales es una máquina de estados con diario. La
 verificación del origen, el movimiento atómico en el mismo volumen, el staging

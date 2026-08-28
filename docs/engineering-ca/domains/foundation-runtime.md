@@ -7,12 +7,14 @@ source_paths:
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
+  - backend/domains/configuration/api/settings.py
   - backend/services/data_dir_migration.py
   - frontend/src/App.jsx
 tests:
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
+  - backend/tests/test_config_language_locale.py
   - backend/tests/test_host_helper_url.py
   - backend/tests/test_data_dir_migration.py
   - tests/e2e/tests/anon/smoke.spec.ts
@@ -51,6 +53,11 @@ Els errors en l' inici opcional de la IA o d'integració s' han registrat i aïl
 `load_params()` Combina l' aplicació YAL amb la configuració actual o activa de la sortida. Els valors del diccionari es fusionaran recursivament. La volta activa `.gnosi/params.yaml` Es converteix en l' objectiu persisteix per a les configuracions de la volta. La resolució del camí s' aplica després als valors de l' entorn de desplegament explícits.
 
 Reforçament de la configuració de l' IA. Un entorn antic credential pot crear un proveïdor una vegada, però una làpida persisteixda evita reaparèixer després de l' eliminació deliberació.
+
+La frontera d'escriptura de Configuració valida agents gestionats i estratègies
+de model, desa contrasenyes i claus fora del YAML, tracta el mapa de proveïdors
+com a estat desitjat perquè les eliminacions persisteixin, escriu de manera
+atòmica i invalida els agents compilats només després d'un canvi d'IA.
 
 La migració de dades locals és una màquina d'estats amb diari. La verificació
 de l'origen, el moviment atòmic al mateix volum, l'staging entre volums, la

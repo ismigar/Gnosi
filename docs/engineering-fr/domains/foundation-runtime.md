@@ -7,12 +7,14 @@ source_paths:
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
+  - backend/domains/configuration/api/settings.py
   - backend/services/data_dir_migration.py
   - frontend/src/App.jsx
 tests:
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
+  - backend/tests/test_config_language_locale.py
   - backend/tests/test_host_helper_url.py
   - backend/tests/test_data_dir_migration.py
   - tests/e2e/tests/anon/smoke.spec.ts
@@ -51,6 +53,12 @@ Les défaillances de l'IA ou du démarrage optionnel de l'intégration sont enre
 `load_params()` combine l'application version YAML avec la configuration utilisateur actuel ou active-vault. Les valeurs du dictionnaire se fusionnent récursivement. `.gnosi/params.yaml` devient la cible de persistance pour les réglages à spectromètre de voûte. La résolution du chemin applique ensuite des valeurs explicites d'environnement de déploiement.
 
 Une ancienne accréditation d'environnement peut créer un fournisseur une fois, mais une pierre tombale de déconnexion persistante empêche sa réapparition après suppression délibérée.
+
+La frontière d'écriture des paramètres valide les agents gérés et les
+stratégies de modèle, conserve mots de passe et clés hors du YAML, traite la
+carte des fournisseurs comme état souhaité afin de préserver les suppressions,
+écrit atomiquement et invalide les agents compilés uniquement après un
+changement d'IA.
 
 La migration des données locales est une machine à états journalisée. La
 vérification de la source, le renommage atomique sur un même volume, la zone de

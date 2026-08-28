@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1031 |
 | `data` | 2 | 203 |
-| `domains` | 294 | 65622 |
+| `domains` | 294 | 65694 |
 | `mcp` | 3 | 394 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **623 modules** and **141055 source lines**.
+Total: **623 modules** and **141127 source lines**.
 
 ## agent
 
@@ -244,7 +244,7 @@ Total: **623 modules** and **141055 source lines**.
 | [`backend/domains/configuration/api/plugin_lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_lifecycle.py) | 241 | 1 | 10 | 4 | 2 | Dependency-aware plugin lifecycle and runtime transitions. |
 | [`backend/domains/configuration/api/plugin_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_models.py) | 72 | 10 | 0 | 0 | 4 | Pydantic contracts for the plugin configuration API. |
 | [`backend/domains/configuration/api/plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugins.py) | 790 | 1 | 48 | 23 | 30 | HTTP adapters for built-in and third-party plugin configuration. |
-| [`backend/domains/configuration/api/settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 204 | 0 | 3 | 2 | 1 | No module docstring |
+| [`backend/domains/configuration/api/settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 276 | 0 | 12 | 3 | 10 | No module docstring |
 | [`backend/domains/configuration/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki.py) | 285 | 1 | 10 | 1 | 2 | Validation and persistence workflow for LLM Wiki configuration. |
 | [`backend/domains/configuration/llm_wiki_records.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki_records.py) | 271 | 1 | 12 | 0 | 3 | Normalization and migration of managed LLM Wiki page records. |
 | [`backend/domains/configuration/llm_wiki_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki_schema.py) | 360 | 1 | 11 | 0 | 3 | Idempotent Brain schema and source-relation consolidation. |
