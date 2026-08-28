@@ -93,6 +93,12 @@ packages separate strict request schemas, route adapters, application services,
 repositories, and the single owners of mutable locks, caches and token stores.
 New Vault behavior belongs in the corresponding domain boundary.
 
+The transitional `pages/runtime.py` boundary preserves the historical route
+module's dynamic state while requiring an active Vault before constructing
+filesystem paths or rule engines. Its request models now bind directly to
+Pydantic, avoiding runtime-dependent base classes without changing their
+public module identity or the generated HTTP contract.
+
 `backend/domains/media` owns media-root resolution, provider-conscious recursive
 scanning and its persistent derived cache, synchronized metadata and saved-view
 sidecars, filters, pagination, the lazy folder tree, contained uploads, EXIF

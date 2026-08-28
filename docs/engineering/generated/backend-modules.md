@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 203 |
-| `domains` | 365 | 82903 |
+| `domains` | 365 | 82912 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **696 modules** and **146087 source lines**.
+Total: **696 modules** and **146096 source lines**.
 
 ## agent
 
@@ -468,7 +468,7 @@ Total: **696 modules** and **146087 source lines**.
 | [`backend/domains/vault/pages/patch_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_service.py) | 222 | 1 | 1 | 1 | 1 | Application service for partial vault page updates. |
 | [`backend/domains/vault/pages/preview_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/preview_routes.py) | 476 | 0 | 13 | 4 | 5 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/resolver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/resolver.py) | 243 | 1 | 11 | 0 | 3 | Resolve stable page identifiers to current Vault file paths. |
-| [`backend/domains/vault/pages/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/runtime.py) | 535 | 3 | 29 | 0 | 12 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/pages/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/runtime.py) | 545 | 3 | 30 | 0 | 13 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/save_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/save_helpers.py) | 216 | 1 | 9 | 0 | 5 | Filesystem and metadata helpers for complete page saves. |
 | [`backend/domains/vault/pages/save_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/save_service.py) | 191 | 2 | 1 | 1 | 1 | Application service for complete vault page saves. |
 | [`backend/domains/vault/pages/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/state.py) | 45 | 1 | 0 | 0 | 1 | Single in-process state owner for vault page operations. |
@@ -503,7 +503,7 @@ Total: **696 modules** and **146087 source lines**.
 | [`backend/domains/vault/tables/rules/automations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/automations.py) | 117 | 0 | 7 | 0 | 2 | Property-change triggers and metadata automation actions. |
 | [`backend/domains/vault/tables/rules/definitions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/definitions.py) | 268 | 0 | 13 | 0 | 2 | Extraction and dependency ordering of formulas and rollups. |
 | [`backend/domains/vault/tables/rules/engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/engine.py) | 502 | 1 | 3 | 0 | 1 | Stateful facade over typed database-rule domain services. |
-| [`backend/domains/vault/tables/rules/records.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/records.py) | 312 | 0 | 16 | 0 | 4 | Registry, frontmatter and cross-record access for database rules. |
+| [`backend/domains/vault/tables/rules/records.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/records.py) | 311 | 0 | 16 | 0 | 4 | Registry, frontmatter and cross-record access for database rules. |
 | [`backend/domains/vault/tables/rules/rollups.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/rollups.py) | 205 | 0 | 12 | 0 | 2 | Related-row collection and rollup aggregation. |
 | [`backend/domains/vault/tables/rules/types.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/types.py) | 48 | 3 | 0 | 0 | 1 | Ports and shared value types for database rule evaluation. |
 | [`backend/domains/vault/tables/schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/schema.py) | 403 | 1 | 20 | 1 | 7 | Table schema revisions and property mutation rules. |

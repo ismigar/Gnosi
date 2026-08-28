@@ -1,16 +1,27 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
+from pathlib import Path
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
+
+from pydantic import BaseModel
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 
 
-def get_p(key: str) -> _legacy.Path:
+def _active_vault_path() -> Path:
+    """Return the active Vault for filesystem-bound legacy operations."""
     from backend.services.context_vars import get_active_vault_path
 
-    base = get_active_vault_path()
+    path = get_active_vault_path()
+    if path is None:
+        raise RuntimeError("No active vault is configured")
+    return path
+
+
+def get_p(key: str) -> _legacy.Path:
+    base = _active_vault_path()
     if key == "LIBRARY":
         return _legacy._resolve_library(base)
     local_data = _legacy.resolve_data_dir()
@@ -178,19 +189,19 @@ def sync_to_google_calendar_if_needed(
             background_tasks.add_task(update_google_event, email, event_uid, patch_data)
 
 
-class DrawingSaveRequest(_legacy.BaseModel):
+class DrawingSaveRequest(BaseModel):
     __module__ = "backend.api.vault_routes"
     title: str
     data: dict[_LegacyAny, _LegacyAny]
     metadata: dict[_LegacyAny, _LegacyAny] = {}
 
 
-class DailyNoteRequest(_legacy.BaseModel):
+class DailyNoteRequest(BaseModel):
     __module__ = "backend.api.vault_routes"
     date: str
 
 
-class OpenResourceRequest(_legacy.BaseModel):
+class OpenResourceRequest(BaseModel):
     __module__ = "backend.api.vault_routes"
     zotero_uri: str | None = None
     file_path: str | None = None
@@ -202,10 +213,9 @@ _rule_engine_lock = _legacy.threading.Lock()
 
 
 def get_rule_engine() -> _LegacyAny:
-    from backend.services.context_vars import get_active_vault_path
     from backend.services.rule_engine import RuleEngine
 
-    v_path = get_active_vault_path()
+    v_path = _active_vault_path()
     v_str = str(v_path)
     with _rule_engine_lock:
         if v_str not in _rule_engines:

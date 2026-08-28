@@ -19,7 +19,7 @@ from typing import Set as Set
 from typing import Tuple as Tuple
 from typing import cast
 
-import yaml as yaml  # type: ignore[import-untyped]  # Historical public seam.
+import yaml as yaml
 from simpleeval import (  # type: ignore[import-untyped]  # Historical public seam.
     NameNotDefined as NameNotDefined,
 )

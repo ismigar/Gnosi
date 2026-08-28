@@ -9,8 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
-# PyYAML does not ship type information; values are narrowed after this boundary.
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from backend.domains.vault.tables.rules.types import (
     FunctionMap,
