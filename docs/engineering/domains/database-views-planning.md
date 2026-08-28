@@ -151,6 +151,11 @@ dependencies, calendars, durations, constraints, resources, deadlines,
 progress, and scheduling direction. It then calculates dates, slack, critical
 tasks, warnings, and resource allocations.
 
+The deterministic engine now separates fact normalization, one-task forward
+scheduling, constraint diagnostics, successor indexing, the backward slack pass,
+ALAP placement and payload serialization. This keeps persisted facts immutable
+while preserving partial schedules and diagnostics for recoverable graph errors.
+
 Period durations retain both their numeric value and configured unit (`hours`,
 `days`, or `years`). Calendar years are added as calendar-year offsets, which
 keeps a start year plus eight years at the corresponding end year, including

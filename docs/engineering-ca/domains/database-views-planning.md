@@ -65,6 +65,11 @@ domini de taules. Un error del registre queda al log i no fa fallar l'acció ori
 
 Planificació consumeix camps de tasques estructurades i produeix una planificació autoritiva en comptes de duplicar la lògica de planificació a la IU. El motor normalitza les dependències, calendaris, restriccions, recursos, data, progrés i direcció de planificació. Calcula dates, puntuacions crítiques, avisos i assignacions de recursos.
 
+El motor determinista separa la normalització dels fets, el pas endavant per
+tasca, els diagnòstics de restriccions, l'índex de successors, el pas enrere de
+marges, la col·locació ALAP i la serialització. Els fets persistits no es muten i
+els errors recuperables conserven planificacions parcials amb diagnòstics.
+
 El frontal representa els resultats i els controls d' edició. No gestiona independentment les semàntices del camí crític. Les planificacions cronitzades són claus de l' estat d' entrada rellevant i viuen en dades locals, no els registres de codi font de la càmera.
 
 ## Comportament erroni

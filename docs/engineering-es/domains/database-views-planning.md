@@ -66,6 +66,11 @@ la acción original.
 
 La planificación consume campos de tareas estructurados y produce un horario autorizado en lugar de duplicar la lógica de programación en la interfaz de usuario. El motor normaliza dependencias, calendarios, duraciones, limitaciones, recursos, plazos, progreso y dirección de programación. Luego calcula fechas, holgura, tareas críticas, advertencias y asignaciones de recursos.
 
+El motor determinista separa la normalización de hechos, el paso hacia delante
+por tarea, los diagnósticos de restricciones, el índice de sucesores, el paso
+inverso de holguras, la colocación ALAP y la serialización. Los hechos persistidos
+no se mutan y los errores recuperables conservan horarios parciales con diagnósticos.
+
 La interfaz representa el resultado y los controles de edición. No recomputa de forma independiente la semántica de ruta crítica. Los horarios en cacheado están keyed por estado de entrada relevante y viven en datos locales, no en los registros de origen de la bóveda.
 
 ## Comportamiento de fallo

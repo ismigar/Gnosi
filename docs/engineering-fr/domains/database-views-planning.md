@@ -101,6 +101,12 @@ par le domaine des tables. Une erreur du registre est journalisée sans faire
 
 La planification consomme des champs de tâches structurés et produit un calendrier faisant autorité plutôt que de doubler la logique de planification dans l'interface utilisateur. Le moteur normalise les dépendances, les calendriers, les durées, les contraintes, les ressources, les échéances, les progrès et la direction de l'horaire.
 
+Le moteur déterministe sépare la normalisation des faits, le passage avant par
+tâche, les diagnostics de contraintes, l'index des successeurs, le passage
+arrière des marges, le placement ALAP et la sérialisation. Les faits persistés
+ne sont pas modifiés et les erreurs récupérables conservent un calendrier
+partiel avec ses diagnostics.
+
 Les durées de la période conservent à la fois leur valeur numérique et leur unité configurée (`hours`, `days`, ou `years`Les années civiles sont ajoutées sous forme de compensations pour l'année civile, qui conserve une année de début plus huit ans à la fin de l'année correspondante, y compris les années négatives. L'éditeur de propriété supprime les champs redondants à date réelle, recalcule la fin chaque fois que le début, la durée ou le prédécesseur change, et utilise un choix multiple pour les prédécesseurs. `durationDays` les valeurs restent disponibles pour la compatibilité avec les enregistrements et les instantanés de calendrier plus anciens.
 
 La fenêtre rend les commandes de résultat et d'édition. Elle ne récompense pas de façon indépendante la sémantique des chemins critiques. Les horaires cachés sont claqués par l'état d'entrée pertinent et vivent dans les données locales, pas les enregistrements source du coffre-fort.
