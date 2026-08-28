@@ -2,13 +2,8 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List
 
-try:
-    from langchain_core.tools import tool
-except Exception:  # pragma: no cover
-    def tool(fn=None, **_kwargs):
-        return fn if fn else (lambda function: function)
+from langchain_core.tools import tool
 
 
 @tool
@@ -47,9 +42,9 @@ async def list_notion_loose_pages() -> str:
 
 @tool
 async def clone_notion_content(
-    database_ids: List[str] | None = None,
+    database_ids: list[str] | None = None,
     target_folder: str = "Notion",
-    loose_page_types: Dict[str, str] | None = None,
+    loose_page_types: dict[str, str] | None = None,
     download_assets: bool = True,
 ) -> str:
     """Clone selected Notion content into the active Vault after explicit approval."""

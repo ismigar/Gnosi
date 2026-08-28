@@ -680,6 +680,12 @@ Mail tools use the installed LangChain tool contract directly and type the
 bounded serialization boundary for exact messages, threads and folders.
 Remote read/star/reply/batch behavior, account confinement and confirmation
 effects are unchanged.
+The remaining governed adapters for translation, public-web context,
+calendar, social publishing, Notion cloning and project planning use concrete
+tool signatures and canonical domain routes. Web fetches also make the
+otherwise unreachable no-response state explicit after bounded redirect
+handling; SSRF checks, payload limits, account policy and confirmation effects
+remain unchanged.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

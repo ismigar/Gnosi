@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, Optional
+from typing import Any
 
 from langchain_core.tools import tool
 
 
-def _json(value) -> str:
+def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
@@ -88,7 +88,7 @@ async def planning_create_worklog(
 async def planning_create_baseline(
     project_id: str,
     name: str,
-    schedule_revision: Optional[int] = None,
+    schedule_revision: int | None = None,
 ) -> str:
     """Capture one immutable project baseline after an explicit request."""
     from backend.api.planning_routes import BaselinePayload, create_baseline
@@ -111,7 +111,7 @@ async def planning_create_leveling_proposal(project_id: str) -> str:
 async def planning_apply_leveling_proposal(
     proposal_id: str,
     schedule_revision: int,
-    etags: Dict[str, str],
+    etags: dict[str, str],
 ) -> str:
     """Apply one exact reviewed leveling proposal with revision preconditions."""
     from backend.api.planning_routes import ProposalApplyPayload, apply_leveling_proposal

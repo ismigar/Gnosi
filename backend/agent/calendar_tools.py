@@ -2,13 +2,9 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List
+from typing import Any, cast
 
-try:
-    from langchain_core.tools import tool
-except Exception:  # pragma: no cover
-    def tool(fn=None, **_kwargs):
-        return fn if fn else (lambda function: function)
+from langchain_core.tools import tool
 
 
 def _account(account: str) -> str:
@@ -38,7 +34,7 @@ async def calendar_free_busy(
     account: str,
     time_min: str,
     time_max: str,
-    calendar_ids: List[str] | None = None,
+    calendar_ids: list[str] | None = None,
 ) -> str:
     """Read busy intervals in an exact ISO-8601 time range."""
     from backend.api.calendar_routes import post_freebusy
@@ -47,7 +43,7 @@ async def calendar_free_busy(
         email=_account(account),
         time_min=time_min,
         time_max=time_max,
-        calendar_ids=calendar_ids or None,
+        calendar_ids=cast(list[Any], calendar_ids or None),
     )
     return json.dumps(result, ensure_ascii=False, default=str)
 
@@ -56,7 +52,7 @@ async def calendar_free_busy(
 async def update_calendar_event(
     account: str,
     event_id: str,
-    changes: Dict[str, Any],
+    changes: dict[str, Any],
     calendar_id: str = "primary",
 ) -> str:
     """Update one external calendar event after interactive confirmation."""
