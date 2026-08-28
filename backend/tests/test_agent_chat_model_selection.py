@@ -4,8 +4,8 @@ import ast
 from pathlib import Path
 
 
-def test_chat_request_defaults_to_the_selected_agents_model():
-    source = Path(__file__).parents[1] / "api" / "agent_routes.py"
+def test_chat_request_defaults_to_the_selected_agents_model() -> None:
+    source = Path(__file__).parents[1] / "domains" / "agent" / "routes" / "contracts.py"
     module = ast.parse(source.read_text(encoding="utf-8"))
     request = next(
         node
@@ -24,7 +24,7 @@ def test_chat_request_defaults_to_the_selected_agents_model():
     assert field.value.value == "agent_default"
 
 
-def test_unknown_supervisor_decision_falls_back_to_general():
+def test_unknown_supervisor_decision_falls_back_to_general() -> None:
     """Every initial user turn must reach a response-producing node."""
     source = Path(__file__).parents[1] / "domains" / "agent" / "workflow_nodes.py"
     module = ast.parse(source.read_text(encoding="utf-8"))
@@ -41,7 +41,7 @@ def test_unknown_supervisor_decision_falls_back_to_general():
     )
 
 
-def test_completed_specialists_end_without_returning_to_supervisor():
+def test_completed_specialists_end_without_returning_to_supervisor() -> None:
     """A final assistant reply must not be used as another supervisor prompt."""
     source = Path(__file__).parents[1] / "domains" / "agent" / "workflow_nodes.py"
     module = ast.parse(source.read_text(encoding="utf-8"))

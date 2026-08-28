@@ -1,45 +1,5 @@
 {
   "allowlist": {
-    "backend/agent/agent_context.py": {
-      "max_complexity": 97,
-      "max_lines": 1905,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/agent/factory.py": {
-      "max_complexity": 88,
-      "max_lines": 4057,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/agent/generated_tools/validator.py": {
-      "max_complexity": 17,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/agent/gnosi_tools.py": {
-      "max_complexity": 71,
-      "max_lines": 2256,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/agent/internal_sources.py": {
-      "max_complexity": 21,
-      "max_lines": 1593,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/agent/turn_contract.py": {
-      "max_complexity": 24,
-      "max_lines": 980,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/api/agent_routes.py": {
-      "max_complexity": 68,
-      "max_lines": 2883,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/api/agent_skills_routes.py": {
-      "max_complexity": 15,
-      "max_lines": 1004,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/api/notion_routes.py": {
       "max_complexity": 39,
       "max_lines": 800,
@@ -52,7 +12,7 @@
     },
     "backend/api/vault_routes.py": {
       "max_complexity": 62,
-      "max_lines": 18912,
+      "max_lines": 10143,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/domains/configuration/api/settings.py": {
@@ -63,11 +23,6 @@
     "backend/services/academic_connectors.py": {
       "max_complexity": 19,
       "max_lines": 1199,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/agent_stream_protocol.py": {
-      "max_complexity": 23,
-      "max_lines": 800,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/services/artificial_analysis.py": {
@@ -148,11 +103,6 @@
     "backend/services/rule_engine.py": {
       "max_complexity": 26,
       "max_lines": 1001,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/tool_runtime.py": {
-      "max_complexity": 21,
-      "max_lines": 800,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/services/vault_templates.py": {
