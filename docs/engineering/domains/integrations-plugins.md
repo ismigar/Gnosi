@@ -3,6 +3,7 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
+  - backend/api/google_auth_routes.py
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
   - backend/api/vault_routes.py
@@ -30,6 +31,7 @@ source_paths:
   - extensions/office
 tests:
   - backend/tests/test_integration_secret_storage.py
+  - backend/tests/test_google_auth_routes.py
   - backend/tests/test_keychain_manager.py
   - backend/tests/test_configuration_plugins_facade.py
   - backend/tests/test_configuration_plugins_route_contract.py
@@ -77,6 +79,13 @@ tokens.
 Google and Microsoft OAuth callbacks create or update provider records. IMAP,
 SMTP, CalDAV, Drupal, Notion, and similar adapters normalize their own settings
 into the common integration registry where possible.
+
+Google OAuth keeps pending PKCE verifiers in a bounded, expiring state map and
+rejects callbacks whose state is absent or expired before token exchange. The
+configuration and account payloads are typed at the adapter boundary; typing
+exceptions are limited to the untyped Google SDK calls and the four historical
+route return annotations whose absence is required to preserve the byte-stable
+OpenAPI response schemas.
 
 Hosted Notion MCP uses OAuth 2.1 dynamic client registration and PKCE. Its typed
 boundary validates discovery and registration objects, requires a returned

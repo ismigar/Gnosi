@@ -1,21 +1,42 @@
+import logging
+import os
+import time
+from typing import Any, TypedDict, cast
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
-import os
-import logging
+
 os.environ.setdefault('OAUTHLIB_RELAX_TOKEN_SCOPE', '1')
-from google_auth_oauthlib.flow import Flow
+from google_auth_oauthlib.flow import Flow  # type: ignore[import-untyped]
+
+from backend.config.env_config import get_env
 from backend.services.integration_manager import integration_manager
-from pathlib import Path
 
 router = APIRouter(prefix="/api/auth/google", tags=["auth"])
 log = logging.getLogger(__name__)
 
-import time
+
+class GoogleWebConfig(TypedDict):
+    client_id: str
+    client_secret: str
+    auth_uri: str
+    token_uri: str
+    redirect_uris: list[str]
+
+
+class GoogleConfig(TypedDict):
+    web: GoogleWebConfig
+
+
+class PendingAuth(TypedDict):
+    code_verifier: Any
+    type: str
+    created_at: float
 
 # Temporary in-memory storage for the Code Verifier (PKCE).
 # Entries carry a created_at timestamp and are pruned on each login so that
 # abandoned flows (user closed the tab) don't grow the dict without bound.
-pending_auths = {}
+pending_auths: dict[str, PendingAuth] = {}
 _PENDING_AUTH_TTL_SECONDS = 600.0
 
 
@@ -34,17 +55,23 @@ SCOPES = [
     'https://www.googleapis.com/auth/userinfo.email'
 ]
 
-from backend.config.env_config import get_env
-
-def get_google_config():
+def get_google_config() -> GoogleConfig | None:
     client_id = get_env("GOOGLE_OAUTH_CLIENT_ID")
     client_secret = get_env("GOOGLE_OAUTH_CLIENT_SECRET")
     redirect_uri = get_env("GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:5002/api/auth/google/callback")
     
-    log.debug(f"Checking Google Config: ID={client_id[:5] if client_id else 'None'}, Secret={'Present' if client_secret else 'None'}")
+    log.debug(
+        "Checking Google Config: ID=%s, Secret=%s",
+        client_id[:5] if client_id else "None",
+        "Present" if client_secret else "None",
+    )
     
     if not client_id or not client_secret or client_id == "your_client_id_here":
-        log.warning(f"Google OAuth not fully configured: ID found? {bool(client_id)}, Secret found? {bool(client_secret)}")
+        log.warning(
+            "Google OAuth not fully configured: ID found? %s, Secret found? %s",
+            bool(client_id),
+            bool(client_secret),
+        )
         return None
         
     return {
@@ -58,7 +85,7 @@ def get_google_config():
     }
 
 @router.get("/status")
-async def status():
+async def status():  # type: ignore[no-untyped-def]
     config = get_google_config()
     return {
         "configured": config is not None,
@@ -67,7 +94,7 @@ async def status():
 
 
 @router.get("/health")
-async def health():
+async def health():  # type: ignore[no-untyped-def]
     """OAuth2 diagnostics for the UI: config status, connected accounts,
     and heuristics about whether the app is in Testing or Production mode.
 
@@ -79,7 +106,6 @@ async def health():
       - If there isn't enough data, we return `unknown`.
     
     """
-    from backend.services.integration_manager import integration_manager
     config = get_google_config()
     accounts = integration_manager.get_all_mail_accounts()
     google_accs = [a for a in accounts if integration_manager.is_google_account(a)]
@@ -118,7 +144,7 @@ async def health():
     }
 
 @router.get("/login")
-async def login(type: str = None):
+async def login(type: str = cast(str, None)):  # type: ignore[no-untyped-def]
     config = get_google_config()
     if not config:
         raise HTTPException(
@@ -132,13 +158,15 @@ async def login(type: str = None):
         redirect_uri=config["web"]["redirect_uris"][0]
     )
     
-    authorization_url, state = flow.authorization_url(
+    authorization_url_raw, state_raw = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
         prompt='consent'
     )
     
     # Save the generated code_verifier and context associated with the state
+    authorization_url = str(authorization_url_raw)
+    state = str(state_raw)
     if hasattr(flow, "code_verifier"):
         _prune_pending_auths()
         pending_auths[state] = {
@@ -150,7 +178,7 @@ async def login(type: str = None):
     return RedirectResponse(url=authorization_url)
 
 @router.get("/callback")
-async def callback(request: Request):
+async def callback(request: Request):  # type: ignore[no-untyped-def]
     code = request.query_params.get("code")
     state = request.query_params.get("state")
 
@@ -163,13 +191,18 @@ async def callback(request: Request):
     # mitigates part of the risk, but only if we have the code_verifier — and
     # that only exists if `state` matches.
     if not state or state not in pending_auths:
-        log.warning(f"OAuth callback amb state invàlid o expirat: {state!r}")
+        log.warning("OAuth callback amb state invàlid o expirat: %r", state)
         raise HTTPException(
             status_code=400,
             detail="Invalid or expired OAuth state. Please retry the login.",
         )
 
     config = get_google_config()
+    if config is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Google OAuth credentials are no longer configured",
+        )
     flow = Flow.from_client_config(
         config,
         scopes=SCOPES,
@@ -178,28 +211,23 @@ async def callback(request: Request):
 
     # Retrieve the code_verifier (state already validated above)
     auth_info = pending_auths.pop(state)
-    auth_type = "calendar"
-    if isinstance(auth_info, dict):
-        flow.code_verifier = auth_info.get("code_verifier")
-        auth_type = auth_info.get("type", "calendar")
-    else:
-        flow.code_verifier = auth_info
+    flow.code_verifier = auth_info.get("code_verifier")
+    auth_type = auth_info.get("type", "calendar")
 
     try:
         flow.fetch_token(code=code)
         credentials = flow.credentials
         
         # Get user info to identify the account
-        from googleapiclient.discovery import build
+        from googleapiclient.discovery import build  # type: ignore[import-untyped]
         service = build('oauth2', 'v2', credentials=credentials)
-        user_info = service.userinfo().get().execute()
+        user_info = cast(dict[str, Any], service.userinfo().get().execute())
         email = user_info.get("email")
-        log.info(f"Google OAuth successful for email: {email}")
+        log.info("Google OAuth successful for email: %s", email)
         
         # Format to be recognized by the frontend in general lists of emails and calendars.
         # IMAP/SMTP fields injected because mail goes via IMAP+XOAUTH2 (not the Gmail API).
-        import time as _time
-        account_data = {
+        account_data: dict[str, Any] = {
             "id": f"google_{email}",
             "email": email,
             "name": user_info.get('name', email),
@@ -215,7 +243,7 @@ async def callback(request: Request):
             "refresh_token_status": "connected",
             # Marks the callback's timestamp as the last successful refresh so that
             # `ensure_fresh_token` knows when to refresh again.
-            "last_refresh_success_at": int(_time.time()),
+            "last_refresh_success_at": int(time.time()),
             "imap_host": "imap.gmail.com",
             "imap_port": 993,
             "imap_encryption": "ssl",
@@ -229,13 +257,13 @@ async def callback(request: Request):
         
         # We save it as a calendar and email integration if applicable
         # We use bulk_update to ensure everything is saved at once and use consistent keys
-        log.info(f"Saving integration data for {email}...")
+        log.info("Saving integration data for %s...", email)
         integration_manager.bulk_update({
             "mail_accounts": [account_data],
             "calendars": [account_data],
             "contacts": [account_data]
         })
-        log.info(f"Integration data saved for {email}. Redirecting to frontend.")
+        log.info("Integration data saved for %s. Redirecting to frontend.", email)
         
         # Hybrid architecture: no need to sync to the vault, the API is queried directly
         
@@ -245,7 +273,7 @@ async def callback(request: Request):
         frontend_url = f"{base}/calendar?auth=success&tab={auth_type}"
         return RedirectResponse(url=frontend_url)
 
-    except Exception as e:
-        log.error(f"Error in Google OAuth callback: {e}")
+    except Exception as exc:
+        log.error("Error in Google OAuth callback: %s", exc)
         base = get_env("FRONTEND_URL", "http://localhost:5173")
         return RedirectResponse(url=f"{base}/calendar?auth=error")

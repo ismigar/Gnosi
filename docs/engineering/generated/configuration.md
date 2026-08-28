@@ -84,7 +84,7 @@ Discovered **106 variables** across **168 source references**.
 | `NOTION_DB_TASQUES` | Python | unset | [`pipeline/legacy/import/notion/notion_to_gnosi_full_import.py:94`](https://github.com/ismigar/Gnosi/blob/main/pipeline/legacy/import/notion/notion_to_gnosi_full_import.py#L94) |
 | `NOTION_DB_TITULACIONS` | Python | unset | [`pipeline/legacy/import/notion/notion_to_gnosi_full_import.py:95`](https://github.com/ismigar/Gnosi/blob/main/pipeline/legacy/import/notion/notion_to_gnosi_full_import.py#L95) |
 | `NOTION_DB_XXSS` | Python | unset | [`pipeline/legacy/import/notion/notion_to_gnosi_full_import.py:96`](https://github.com/ismigar/Gnosi/blob/main/pipeline/legacy/import/notion/notion_to_gnosi_full_import.py#L96) |
-| `OAUTHLIB_RELAX_TOKEN_SCOPE` | Python | redacted | [`backend/api/google_auth_routes.py:5`](https://github.com/ismigar/Gnosi/blob/main/backend/api/google_auth_routes.py#L5) |
+| `OAUTHLIB_RELAX_TOKEN_SCOPE` | Python | redacted | [`backend/api/google_auth_routes.py:9`](https://github.com/ismigar/Gnosi/blob/main/backend/api/google_auth_routes.py#L9) |
 | `OLLAMA_BASE_URL` | Python | unset | [`backend/config/env_config.py:161`](https://github.com/ismigar/Gnosi/blob/main/backend/config/env_config.py#L161) |
 | `ONEDRIVE_AUTO_RESTART` | Python | '1' | [`backend/platform/files/onedrive.py:50`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/onedrive.py#L50) |
 | `ONEDRIVE_RESTART_COOLDOWN` | Python | '300' | [`backend/platform/files/onedrive.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/onedrive.py#L54) |
