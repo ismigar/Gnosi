@@ -96,6 +96,9 @@ dashboards JSON i recorre el disc si l'índex del proveïdor encara no està dis
 i del frontmatter analitzat, invalidades per mtime. La façana només hi injecta
 les rutes actives, el parser i l'escriptor JSON segur; el comportament no depèn
 del proveïdor de fitxers.
+`links/relation_sync.py` gestiona les actualitzacions idempotents de fitxers i
+caches quan una relació directa canvia la inversa. Les regles pures d'esquema
+continuen separades i la façana hi injecta l'entrada/sortida de pàgines.
 
 Primer s' inicia un carrega les instantànies de disc vàlides, després comença a refrescar el treball. Es marca un escàner parcial de fitxer i no es pot reemplaçar un cau complet. Els errors de fitxer s' aïllaran de manera que un únic espai de substitució en línia o orfe no elimina la resta de la caixa volta d' una resposta.
 

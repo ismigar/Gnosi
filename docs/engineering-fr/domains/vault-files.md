@@ -98,6 +98,9 @@ tableaux de bord JSON et parcourt le disque si l'index fournisseur est indisponi
 frontmatter analysé, invalidés par mtime. La façade injecte uniquement les
 chemins actifs, le parseur et l'écriture JSON sûre ; le comportement reste
 indépendant du fournisseur de fichiers.
+`links/relation_sync.py` gère les mises à jour idempotentes des fichiers et des
+caches lorsqu'une relation directe modifie son inverse. Les règles de schéma
+pures restent séparées et la façade injecte les entrées-sorties des pages.
 
 Démarrer charge d'abord des instantanés de disque valides, puis démarre le travail de rafraîchissement. Un scan partiel du fournisseur de fichiers est marqué de manière partielle et ne peut remplacer un cache complet connu. Les défaillances par fichier sont isolées de sorte qu'un marqueur de place en ligne ou orphelin ne supprime pas le reste de la voûte d'une réponse.
 

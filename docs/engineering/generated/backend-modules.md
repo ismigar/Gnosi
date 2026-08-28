@@ -11,12 +11,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 46 | 14435 |
-| `api` | 38 | 25563 |
+| `api` | 38 | 25562 |
 | `app` | 6 | 617 |
 | `application root` | 4 | 107 |
 | `config` | 9 | 992 |
 | `data` | 2 | 203 |
-| `domains` | 175 | 35466 |
+| `domains` | 176 | 35651 |
 | `mcp` | 3 | 394 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **503 modules** and **129772 source lines**.
+Total: **504 modules** and **129956 source lines**.
 
 ## agent
 
@@ -118,7 +118,7 @@ Total: **503 modules** and **129772 source lines**.
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 673 | 4 | 14 | 9 | 13 | No module docstring |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py) | 164 | 3 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | No module docstring |
-| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 10862 | 8 | 519 | 111 | 318 | No module docstring |
+| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 10861 | 8 | 519 | 111 | 318 | No module docstring |
 | [`backend/api/vault_templates_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_templates_routes.py) | 246 | 2 | 9 | 0 | 7 | Vault template catalog, creation, export, and moderated submission routes. |
 | [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_views_routes.py) | 350 | 2 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
 | [`backend/api/vaults_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py) | 280 | 2 | 10 | 0 | 9 | Vaults API (personal multi-vault mode): list, create and choose vaults. |
@@ -294,6 +294,7 @@ Total: **503 modules** and **129772 source lines**.
 | [`backend/domains/vault/links/document_inventory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/document_inventory.py) | 139 | 1 | 6 | 0 | 2 | Cached inventory of Markdown pages and dashboards eligible for linking. |
 | [`backend/domains/vault/links/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/index_service.py) | 560 | 2 | 16 | 0 | 0 | Reverse-link index services and persistence. |
 | [`backend/domains/vault/links/parsing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/parsing.py) | 211 | 0 | 12 | 0 | 0 | Pure parsing operations for wikilinks and unlinked mentions. |
+| [`backend/domains/vault/links/relation_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/relation_sync.py) | 185 | 1 | 4 | 0 | 4 | Filesystem orchestration for bidirectional Vault relation synchronization. |
 | [`backend/domains/vault/links/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/schemas.py) | 13 | 1 | 0 | 0 | 0 | Public request contracts for vault links. |
 | [`backend/domains/vault/links/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/state.py) | 86 | 3 | 0 | 0 | 0 | Single process-wide owner for the reverse-link index. |
 | [`backend/domains/vault/pages/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/__init__.py) | 5 | 0 | 0 | 0 | 0 | Page catalog, persistence, preview and indexing boundaries. |

@@ -121,6 +121,9 @@ dashboards, and falls back to a disk walk while the provider index is unavailabl
 `links/document_cache.py` owns the persistent, mtime-keyed Markdown body and
 parsed-frontmatter caches. The router only supplies the active cache paths,
 parser and safe JSON writer, so cache behavior is independent of the file provider.
+`links/relation_sync.py` owns the idempotent filesystem and cache updates for
+direct-to-inverse relation changes. Pure schema matching remains a separate
+rule port, while the compatibility router supplies late-bound page IO.
 
 Startup first loads valid disk snapshots, then starts refresh work. A partial
 file-provider scan is marked partial and cannot replace a known complete cache.

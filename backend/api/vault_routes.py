@@ -123,6 +123,7 @@ from backend.services import translation_index
 from backend.services import action_rules as action_rules_service
 from backend.services import builtin_plugins
 from backend.services import option_catalogs as option_catalogs_service
+from backend.services import relation_sync as relation_rules
 from backend.services.table_system_dates import (
     ensure_system_date_properties,
     stamp_system_dates,
@@ -543,6 +544,7 @@ from backend.domains.vault.links.api.dependencies import LinkApiDependencies
 from backend.domains.vault.links import index_service as link_index_service
 from backend.domains.vault.links import document_cache as link_document_cache
 from backend.domains.vault.links import document_inventory as link_document_inventory
+from backend.domains.vault.links import relation_sync as relation_sync_domain
 from backend.domains.vault.links import parsing as link_parsing
 from backend.domains.vault.links.schemas import LinkMentionsRequest
 from backend.domains.vault.links.state import LinkIndexView, link_index_state
@@ -8011,19 +8013,64 @@ def update_link_index_for_page(file_path: Path) -> None:
 # empty. See docs/dev_memory/directives/vault_relation_inverse_sync.md
 # ---------------------------------------------------------------------------
 
+
+_RELATION_SYNC_DEPENDENCIES = relation_sync_domain.RelationSyncDependencies(
+    normalize_name=relation_rules._norm,
+    relation_ids=lambda value: relation_rules.to_ids(value),
+    relation_changes=lambda old, new, origin, get_table: cast(
+        list[relation_sync_domain.RelationChange],
+        relation_rules.relation_changes(
+            old,
+            new,
+            origin,
+            get_table,
+        ),
+    ),
+    table_by_id=lambda table_id: cast(
+        Optional[relation_sync_domain.Metadata],
+        _table_by_id(table_id),
+    ),
+    find_page=lambda page_id: find_page_path(page_id),
+    parse_frontmatter=lambda raw, path: cast(
+        tuple[relation_sync_domain.Metadata, str],
+        parse_frontmatter(raw, path),
+    ),
+    save_page=lambda path, metadata, body: save_page_md(
+        path,
+        cast(Dict[str, Any], metadata),
+        body,
+    ),
+    update_link_index=lambda path: update_link_index_for_page(path),
+    active_vault_path=lambda: get_active_vault_path(),
+    build_page_cache_entry=lambda path, stat_result: cast(
+        relation_sync_domain.Metadata,
+        _build_page_cache_entry(path, stat_result),
+    ),
+    page_index_lock=lambda: _page_index_lock,
+    page_index_entries=lambda: cast(
+        relation_sync_domain.PageCache,
+        _page_index_entries,
+    ),
+    page_id_to_path=lambda: cast(
+        relation_sync_domain.PagePaths,
+        _page_id_to_path,
+    ),
+    bump_page_index_version=lambda vault_key: _bump_page_index_version(vault_key),
+    invalidate_page_responses=lambda: _pages_cache_invalidate_all(),
+    logger=log,
+)
+
+
 def _inverse_relation_frontmatter_key(md: dict, inverse_name: str) -> str:
     """REAL frontmatter key for the inverse field: reuses the one that already exists
     (for normalization, e.g. an old variant of the name) or, if there is none,
     the registry name. Avoids creating a duplicate key that views would not
     see."""
-    from backend.services.relation_sync import _norm
-    if inverse_name in md:
-        return inverse_name
-    nk = _norm(inverse_name)
-    for k in list(md.keys()):
-        if isinstance(k, str) and _norm(k) == nk:
-            return k
-    return inverse_name
+    return relation_sync_domain.inverse_frontmatter_key(
+        cast(relation_sync_domain.Metadata, md),
+        inverse_name,
+        _RELATION_SYNC_DEPENDENCIES,
+    )
 
 
 def _apply_inverse_relation_change(
@@ -8033,44 +8080,13 @@ def _apply_inverse_relation_change(
     `save_page_md` (decorates `id→[[Title|id]]` and canonicalizes the key). Idempotent:
     does not write if it is already in the desired state. Writing directly (not via the endpoint)
     avoids re-triggering the propagation → no recursion. Returns True if it wrote."""
-    from backend.services.relation_sync import to_ids
-    fp = find_page_path(target_id)
-    if not fp or not fp.exists():
-        return False
-    raw = fp.read_text(encoding="utf-8")
-    md, body = parse_frontmatter(raw, fp)
-    key = _inverse_relation_frontmatter_key(md, inverse_name)
-    cur = to_ids(md.get(key))
-    if op == "add":
-        if host_id in cur:
-            return False
-        md[key] = cur + [host_id]
-    elif op == "remove":
-        if host_id not in cur:
-            return False
-        md[key] = [x for x in cur if x != host_id]
-    else:
-        return False
-    save_page_md(fp, md, body)
-    try:
-        update_link_index_for_page(fp)
-    except Exception as e:
-        log.debug(f"relation sync: link-index update failed for {target_id}: {e}")
-    try:
-        from backend.services.context_vars import get_active_vault_path
-        v_path = get_active_vault_path()
-        if v_path:
-            v_str = str(v_path)
-            entry = _build_page_cache_entry(fp, fp.stat())
-            with _page_index_lock:
-                _page_index_entries.setdefault(v_str, {})[str(fp)] = entry
-                eid = entry.get("id")
-                if eid:
-                    _page_id_to_path.setdefault(v_str, {})[eid] = str(fp)
-                _bump_page_index_version(v_str)
-    except Exception as e:
-        log.debug(f"relation sync: cache update failed for {target_id}: {e}")
-    return True
+    return relation_sync_domain.apply_inverse_change(
+        target_id,
+        inverse_name,
+        host_id,
+        op,
+        _RELATION_SYNC_DEPENDENCIES,
+    )
 
 
 def _propagate_relation_inverse(
@@ -8079,30 +8095,13 @@ def _propagate_relation_inverse(
     """Propagates a page's relation field changes to the INVERSE field of
     the pages on the other side. Defensive: never blocks the caller nor propagates in a
     loop. Meant to run as a background task from PATCH/POST."""
-    try:
-        if not table_id:
-            return
-        from backend.services.relation_sync import relation_changes
-        origin = _table_by_id(table_id)
-        if not origin:
-            return
-        changes = relation_changes(old_meta, new_meta, origin, _table_by_id)
-        if not changes:
-            return
-        wrote = False
-        for target_id, inverse_name, op in changes:
-            if not target_id or target_id == page_id:
-                continue  # defensive self-reference
-            try:
-                wrote = _apply_inverse_relation_change(
-                    target_id, inverse_name, page_id, op
-                ) or wrote
-            except Exception as e:
-                log.debug(f"relation sync target {target_id} ({op}) failed: {e}")
-        if wrote:
-            _pages_cache_invalidate_all()
-    except Exception as e:
-        log.debug(f"relation inverse propagation failed for {page_id}: {e}")
+    relation_sync_domain.propagate_inverse(
+        page_id,
+        table_id,
+        cast(relation_sync_domain.Metadata, old_meta),
+        cast(relation_sync_domain.Metadata, new_meta),
+        _RELATION_SYNC_DEPENDENCIES,
+    )
 
 
 def remove_from_link_index(page_id: str) -> None:

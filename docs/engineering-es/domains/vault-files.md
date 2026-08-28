@@ -96,6 +96,9 @@ dashboards JSON y recorre el disco si el índice del proveedor aún no está dis
 del frontmatter analizado, invalidadas por mtime. La fachada solo inyecta las
 rutas activas, el parser y el escritor JSON seguro; el comportamiento no depende
 del proveedor de archivos.
+`links/relation_sync.py` gestiona las actualizaciones idempotentes de archivos y
+cachés cuando una relación directa cambia la inversa. Las reglas puras de esquema
+siguen separadas y la fachada inyecta la entrada y salida de páginas.
 
 Iniciar primero carga instantáneas de disco válidas, luego comienza el trabajo de actualización. Un análisis parcial de proveedor de archivos está marcado parcial y no puede reemplazar una caché completa conocida. Los fallos por archivo están aislados de modo que un marcador de posición solo en línea o huérfano no elimina el resto del almacén de una respuesta.
 
