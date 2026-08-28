@@ -3,6 +3,7 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
+  - backend/domains/llm_wiki
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -11,6 +12,7 @@ source_paths:
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_skill_runtime.py
@@ -111,6 +113,10 @@ reparació idempotent dels camps Brain i la consolidació d'una relació canòni
 per font, incloent-hi àlies, metadades de pàgina i vistes contextuals.
 `backend/domains/configuration/llm_wiki_records.py` normalitza les notes
 gestionades existents, les etiquetes de font i els títols localitzats dels índexs.
+L'extracció es divideix entre `backend/domains/llm_wiki/documents.py`, que conté
+els adaptadors tipats de documents i multimèdia, i `origins.py`, que conserva la
+identitat, la deduplicació i els fragments deterministes. El servei històric es
+manté com una façana de compatibilitat compacta.
 
 ## Ha fallat i seguretat envaris
 

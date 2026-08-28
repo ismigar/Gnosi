@@ -4,26 +4,26 @@ Every adapter returns the same JSON-friendly shape: an origin contains ordered
 segments, and every segment has a stable id, text, and source-specific locator.
 No adapter truncates source content.  LLM-sized chunking happens afterwards.
 """
+
 from __future__ import annotations
 
 import asyncio
 import hashlib
-import html
 import json
 import mimetypes
 import os
-import re
 import shutil
-import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 from urllib.parse import unquote, urljoin, urlparse
 
 import requests
 
 from backend.config.logger_config import get_logger
+from backend.domains.llm_wiki import documents as document_domain
+from backend.domains.llm_wiki import origins as origin_domain
 from backend.services import llm_wiki_config
 
 logger = get_logger(__name__)
@@ -125,7 +125,9 @@ def extract_resource_sources(
             else:
                 path = _resolve_attachment_path(value, Path(vault_root))
                 if not path:
-                    raise ExtractionError(f"Attachment not found or outside configured roots: {value}")
+                    raise ExtractionError(
+                        f"Attachment not found or outside configured roots: {value}"
+                    )
                 _materialize(path)
                 extracted = _extract_path(path, input_order, label=Path(path).name)
                 # Keep the trusted resolved path only for this ingest process.
@@ -143,13 +145,17 @@ def extract_resource_sources(
     if not origins and source_config.get("include_body", False) and str(body or "").strip():
         segments = _paragraph_segments(str(body), locator_prefix="body")
         if segments:
-            origins.append(_finalize_origin({
-                "kind": "body",
-                "label": str(metadata.get("title") or "Resource body"),
-                "source_url": "",
-                "input_order": len(raw_inputs),
-                "segments": segments,
-            }))
+            origins.append(
+                _finalize_origin(
+                    {
+                        "kind": "body",
+                        "label": str(metadata.get("title") or "Resource body"),
+                        "source_url": "",
+                        "input_order": len(raw_inputs),
+                        "segments": segments,
+                    }
+                )
+            )
 
     return _deduplicate_origins(origins), warnings
 
@@ -160,52 +166,7 @@ def chunk_origins(
     max_chars: int = 12000,
 ) -> list[dict[str, Any]]:
     """Create complete ordered LLM chunks without dropping any segment."""
-    chunks: list[dict[str, Any]] = []
-    for origin in origins:
-        current: list[dict[str, Any]] = []
-        current_chars = 0
-        for segment in origin.get("segments") or []:
-            text = str(segment.get("text") or "")
-            if current and current_chars + len(text) > max_chars:
-                chunks.append(_chunk(origin, current, len(chunks)))
-                current = []
-                current_chars = 0
-            # A single very long paragraph is split with line-range continuity.
-            if len(text) > max_chars:
-                if current:
-                    chunks.append(_chunk(origin, current, len(chunks)))
-                    current = []
-                    current_chars = 0
-                for part_index, start in enumerate(range(0, len(text), max_chars)):
-                    part = dict(segment)
-                    # Keep the evidence id stable: the persisted snapshot stores
-                    # the complete paragraph under this id. The part number is a
-                    # processing locator only.
-                    part["id"] = segment["id"]
-                    part["text"] = text[start:start + max_chars]
-                    part["locator"] = {
-                        **(segment.get("locator") or {}),
-                        "part": part_index + 1,
-                    }
-                    chunks.append(_chunk(origin, [part], len(chunks)))
-                continue
-            current.append(segment)
-            current_chars += len(text)
-        if current:
-            chunks.append(_chunk(origin, current, len(chunks)))
-    return chunks
-
-
-def _chunk(origin: dict[str, Any], segments: list[dict[str, Any]], index: int) -> dict[str, Any]:
-    return {
-        "id": f"chunk-{index + 1}",
-        "origin_id": origin["origin_id"],
-        "origin_order": origin.get("input_order", 0),
-        "origin_label": origin.get("label") or origin.get("kind"),
-        "kind": origin.get("kind"),
-        "snapshot_id": origin.get("snapshot_id"),
-        "segments": segments,
-    }
+    return origin_domain.chunk_origins(origins, max_chars=max_chars)
 
 
 def _values_for_property(metadata: dict, prop: Optional[dict]) -> list[str]:
@@ -306,240 +267,71 @@ def _extract_path(path: Path, input_order: int, *, label: str = "") -> list[dict
             raise ExtractionError(f"Unsupported source format: {suffix or guessed or path.name}")
     if not segments:
         raise ExtractionError(f"No readable content found in {path.name}")
-    return [_finalize_origin({
-        "kind": kind,
-        "label": label or path.name,
-        "source_url": "",
-        "input_order": input_order,
-        "segments": segments,
-    })]
+    return [
+        _finalize_origin(
+            {
+                "kind": kind,
+                "label": label or path.name,
+                "source_url": "",
+                "input_order": input_order,
+                "segments": segments,
+            }
+        )
+    ]
 
 
 def _extract_pdf(path: Path) -> list[dict[str, Any]]:
-    from pypdf import PdfReader
-
-    reader = PdfReader(str(path))
-    segments: list[dict[str, Any]] = []
-    pdfium = None
-    for page_number, page in enumerate(reader.pages, start=1):
-        text = str(page.extract_text() or "").strip()
-        if len(re.sub(r"\s+", "", text)) < 30 and shutil.which("tesseract"):
-            try:
-                if pdfium is None:
-                    import pypdfium2
-
-                    pdfium = pypdfium2.PdfDocument(str(path))
-                with tempfile.NamedTemporaryFile(suffix=".png", dir=_temporary_root()) as tmp:
-                    image = pdfium[page_number - 1].render(scale=2.0).to_pil()
-                    image.save(tmp.name)
-                    text = _run_tesseract(Path(tmp.name))
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("llm_wiki PDF OCR failed on page %s: %s", page_number, exc)
-        paragraphs = _split_paragraphs(text)
-        for paragraph_number, paragraph in enumerate(paragraphs, start=1):
-            segments.append({
-                "text": paragraph,
-                "locator": {"page": page_number, "paragraph": paragraph_number},
-            })
-    return segments
+    return document_domain.extract_pdf(
+        path,
+        run_tesseract=_run_tesseract,
+        temporary_root=_temporary_root,
+        logger=logger,
+    )
 
 
 def _extract_docx(path: Path) -> list[dict[str, Any]]:
-    from docx import Document
-
-    doc = Document(str(path))
-    segments = []
-    heading = ""
-    paragraph_number = 0
-    for paragraph in doc.paragraphs:
-        text = str(paragraph.text or "").strip()
-        if not text:
-            continue
-        style_name = str(getattr(paragraph.style, "name", "") or "")
-        if style_name.lower().startswith("heading"):
-            heading = text
-            continue
-        paragraph_number += 1
-        segments.append({
-            "text": text,
-            "locator": {"section": heading, "paragraph": paragraph_number},
-        })
-    return segments
+    return document_domain.extract_docx(path)
 
 
 def _extract_epub(path: Path) -> list[dict[str, Any]]:
-    from bs4 import BeautifulSoup
-    from ebooklib import ITEM_DOCUMENT, epub
-
-    book = epub.read_epub(str(path))
-    segments = []
-    chapter_number = 0
-    for item in book.get_items_of_type(ITEM_DOCUMENT):
-        chapter_number += 1
-        soup = BeautifulSoup(item.get_content(), "html.parser")
-        title_node = soup.find(["h1", "h2", "title"])
-        chapter = title_node.get_text(" ", strip=True) if title_node else item.get_name()
-        for paragraph_number, node in enumerate(soup.find_all(["p", "li", "blockquote"]), start=1):
-            text = node.get_text(" ", strip=True)
-            if text:
-                segments.append({
-                    "text": text,
-                    "locator": {
-                        "chapter": chapter,
-                        "chapter_number": chapter_number,
-                        "paragraph": paragraph_number,
-                    },
-                })
-    return segments
+    return document_domain.extract_epub(path)
 
 
 def _extract_html(raw_html: str) -> list[dict[str, Any]]:
-    from bs4 import BeautifulSoup
-
-    soup = BeautifulSoup(raw_html, "html.parser")
-    for node in soup(["script", "style", "noscript", "svg"]):
-        node.decompose()
-    segments = []
-    heading = ""
-    paragraph_number = 0
-    for node in soup.find_all(["h1", "h2", "h3", "p", "li", "blockquote"]):
-        text = html.unescape(node.get_text(" ", strip=True))
-        if not text:
-            continue
-        if node.name in {"h1", "h2", "h3"}:
-            heading = text
-            continue
-        paragraph_number += 1
-        segments.append({
-            "text": text,
-            "locator": {"section": heading, "paragraph": paragraph_number},
-        })
-    return segments
+    return document_domain.extract_html(raw_html)
 
 
 def _extract_text_file(path: Path) -> list[dict[str, Any]]:
-    raw = path.read_text(encoding="utf-8", errors="replace")
-    return _paragraph_segments(raw, locator_prefix="lines")
+    return document_domain.extract_text_file(path)
 
 
 def _paragraph_segments(raw: str, *, locator_prefix: str) -> list[dict[str, Any]]:
-    segments = []
-    line_cursor = 1
-    for paragraph in re.split(r"\n\s*\n+", str(raw or "")):
-        text = paragraph.strip()
-        if not text:
-            line_cursor += paragraph.count("\n") + 1
-            continue
-        line_count = text.count("\n") + 1
-        segments.append({
-            "text": " ".join(line.strip() for line in text.splitlines() if line.strip()),
-            "locator": {
-                "kind": locator_prefix,
-                "line_start": line_cursor,
-                "line_end": line_cursor + line_count - 1,
-            },
-        })
-        line_cursor += line_count + 1
-    return segments
+    return document_domain.paragraph_segments(raw, locator_prefix=locator_prefix)
 
 
 def _extract_image(path: Path) -> list[dict[str, Any]]:
-    text = _run_tesseract(path)
-    return [
-        {"text": paragraph, "locator": {"image": path.name, "paragraph": index}}
-        for index, paragraph in enumerate(_split_paragraphs(text), start=1)
-    ]
+    return document_domain.extract_image(path, run_tesseract=_run_tesseract)
 
 
 def _run_tesseract(path: Path) -> str:
-    binary = shutil.which("tesseract")
-    if not binary:
-        raise ExtractionError("Tesseract is not installed")
-    languages = _available_tesseract_languages(binary)
-    requested = [lang for lang in ("cat", "spa", "eng", "fra") if lang in languages]
-    cmd = [binary, str(path), "stdout"]
-    if requested:
-        cmd.extend(["-l", "+".join(requested)])
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180, check=False)
-    if proc.returncode != 0:
-        raise ExtractionError(proc.stderr.strip() or "Tesseract failed")
-    return proc.stdout.strip()
+    return document_domain.run_tesseract(path, extraction_error=ExtractionError)
 
 
 def _available_tesseract_languages(binary: str) -> set[str]:
-    try:
-        proc = subprocess.run(
-            [binary, "--list-langs"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-        return {line.strip() for line in proc.stdout.splitlines()[1:] if line.strip()}
-    except Exception:
-        return set()
+    return document_domain.available_tesseract_languages(binary)
 
 
 def _extract_audio(path: Path) -> list[dict[str, Any]]:
-    from backend.services.transcription import transcribe
-
-    result = transcribe(str(path))
-    return [
-        {
-            "text": str(item.get("text") or "").strip(),
-            "locator": {
-                "start": float(item.get("start") or 0),
-                "end": float(item.get("end") or 0),
-            },
-        }
-        for item in result.get("segments") or []
-        if str(item.get("text") or "").strip()
-    ]
+    return document_domain.extract_audio(path)
 
 
 def _extract_video(path: Path) -> list[dict[str, Any]]:
-    segments = _extract_audio(path)
-    if not shutil.which("ffmpeg") or not shutil.which("tesseract"):
-        return segments
-    with tempfile.TemporaryDirectory(
-        prefix="gnosi-llm-wiki-frames-",
-        dir=_temporary_root(),
-    ) as tmp:
-        pattern = str(Path(tmp) / "frame-%04d.jpg")
-        cmd = [
-            shutil.which("ffmpeg") or "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-i",
-            str(path),
-            "-vf",
-            "fps=1/60,scale=1280:-2",
-            "-frames:v",
-            "40",
-            pattern,
-        ]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600, check=False)
-        if proc.returncode != 0:
-            logger.warning("llm_wiki keyframe extraction failed: %s", proc.stderr.strip())
-            return segments
-        for frame_index, frame in enumerate(sorted(Path(tmp).glob("frame-*.jpg")), start=1):
-            try:
-                text = _run_tesseract(frame)
-            except Exception:
-                continue
-            for paragraph in _split_paragraphs(text):
-                segments.append({
-                    "text": paragraph,
-                    "locator": {
-                        "start": float((frame_index - 1) * 60),
-                        "frame": frame_index,
-                        "visual": True,
-                    },
-                })
-    return sorted(
-        segments,
-        key=lambda item: float((item.get("locator") or {}).get("start") or 0),
+    return document_domain.extract_video(
+        path,
+        extract_audio_segments=_extract_audio,
+        run_tesseract=_run_tesseract,
+        temporary_root=_temporary_root,
+        logger=logger,
     )
 
 
@@ -565,14 +357,16 @@ def _attach_http_source(
 ) -> list[dict[str, Any]]:
     for origin in origins:
         if origin.get("requested_url") and origin.get("requested_url") != metadata["requested_url"]:
-            origin.setdefault("http_sources", []).append({
-                "requested_url": origin.get("requested_url"),
-                "final_url": origin.get("http_final_url"),
-                "etag": origin.get("http_etag"),
-                "last_modified": origin.get("http_last_modified"),
-                "content_hash": origin.get("http_content_hash"),
-                "checked_at": origin.get("http_checked_at"),
-            })
+            origin.setdefault("http_sources", []).append(
+                {
+                    "requested_url": origin.get("requested_url"),
+                    "final_url": origin.get("http_final_url"),
+                    "etag": origin.get("http_etag"),
+                    "last_modified": origin.get("http_last_modified"),
+                    "content_hash": origin.get("http_content_hash"),
+                    "checked_at": origin.get("http_checked_at"),
+                }
+            )
         origin["requested_url"] = metadata["requested_url"]
         origin["http_final_url"] = metadata["final_url"]
         origin["http_etag"] = metadata["etag"]
@@ -673,9 +467,7 @@ def probe_public_url(
             "requested_url": str(url),
             "final_url": final_url,
             "etag": str(response.headers.get("etag") or etag)[:1_000],
-            "last_modified": str(
-                response.headers.get("last-modified") or last_modified
-            )[:1_000],
+            "last_modified": str(response.headers.get("last-modified") or last_modified)[:1_000],
             "content_hash": str(content_hash),
             "checked_at": checked_at,
         }
@@ -701,9 +493,7 @@ def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
             origin["http_etag"] = ""
             origin["http_last_modified"] = ""
             origin["http_content_hash"] = str(origin.get("content_hash") or "")
-            origin["http_stream_fingerprint"] = str(
-                origin.get("stream_fingerprint") or ""
-            )
+            origin["http_stream_fingerprint"] = str(origin.get("stream_fingerprint") or "")
             origin["http_checked_at"] = checked_at
         return origins
 
@@ -726,12 +516,14 @@ def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
             raise ExtractionError("The feed did not contain a public media enclosure")
         origins = _extract_url(media_url, input_order)
         for origin in origins:
-            origin.setdefault("aliases", []).append({
-                "kind": "feed",
-                "label": final_url,
-                "source_url": final_url,
-                "input_order": input_order,
-            })
+            origin.setdefault("aliases", []).append(
+                {
+                    "kind": "feed",
+                    "label": final_url,
+                    "source_url": final_url,
+                    "input_order": input_order,
+                }
+            )
         return _attach_http_source(origins, http_metadata)
     if content_type in {"text/html", "application/xhtml+xml"} or suffix in HTML_EXTENSIONS:
         raw_html = response.content.decode(response.encoding or "utf-8", errors="replace")
@@ -746,13 +538,17 @@ def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
                 raise ExtractionError(
                     "The web page did not contain extractable article text or public media"
                 ) from exc
-        origins = [_finalize_origin({
-            "kind": "url",
-            "label": final_url,
-            "source_url": final_url,
-            "input_order": input_order,
-            "segments": segments,
-        })]
+        origins = [
+            _finalize_origin(
+                {
+                    "kind": "url",
+                    "label": final_url,
+                    "source_url": final_url,
+                    "input_order": input_order,
+                    "segments": segments,
+                }
+            )
+        ]
         media_url = _embedded_media_url(response.content, final_url)
         if media_url and media_url != final_url:
             try:
@@ -769,7 +565,9 @@ def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
         tmp.write(response.content)
         tmp_path = Path(tmp.name)
     try:
-        origins = _extract_path(tmp_path, input_order, label=Path(urlparse(final_url).path).name or final_url)
+        origins = _extract_path(
+            tmp_path, input_order, label=Path(urlparse(final_url).path).name or final_url
+        )
         for origin in origins:
             origin["source_url"] = final_url
             origin["origin_id"] = _origin_id(origin)
@@ -828,8 +626,7 @@ def _download_public_url(
 def _looks_like_streaming_page(url: str) -> bool:
     host = (urlparse(url).hostname or "").lower()
     return any(
-        marker in host
-        for marker in ("youtube.com", "youtu.be", "vimeo.com", "soundcloud.com")
+        marker in host for marker in ("youtube.com", "youtu.be", "vimeo.com", "soundcloud.com")
     )
 
 
@@ -868,14 +665,18 @@ def _extract_streaming_url(url: str, input_order: int) -> list[dict[str, Any]]:
         segments = _extract_audio(path)
         if not segments:
             raise ExtractionError("The streaming source did not produce a transcript")
-        return [_finalize_origin({
-            "kind": "stream",
-            "label": str(info.get("title") or url),
-            "source_url": str(info.get("webpage_url") or url),
-            "stream_fingerprint": _streaming_metadata_fingerprint(info),
-            "input_order": input_order,
-            "segments": segments,
-        })]
+        return [
+            _finalize_origin(
+                {
+                    "kind": "stream",
+                    "label": str(info.get("title") or url),
+                    "source_url": str(info.get("webpage_url") or url),
+                    "stream_fingerprint": _streaming_metadata_fingerprint(info),
+                    "input_order": input_order,
+                    "segments": segments,
+                }
+            )
+        ]
 
 
 def _embedded_media_url(content: bytes, base_url: str, *, xml: bool = False) -> str:
@@ -921,82 +722,18 @@ def _suffix_for_response(url: str, content_type: str) -> str:
 
 
 def _split_paragraphs(text: str) -> list[str]:
-    raw = str(text or "").strip()
-    if not raw:
-        return []
-    paragraphs = [
-        " ".join(piece.split())
-        for piece in re.split(r"\n\s*\n+|(?<=\.)\s*\n+", raw)
-        if " ".join(piece.split())
-    ]
-    return paragraphs
+    return document_domain.split_paragraphs(text)
 
 
 def _finalize_origin(origin: dict[str, Any]) -> dict[str, Any]:
-    segments = []
-    for order, segment in enumerate(origin.get("segments") or [], start=1):
-        text = " ".join(str(segment.get("text") or "").split()).strip()
-        if not text:
-            continue
-        segments.append({
-            "id": "",
-            "order": order,
-            "text": text,
-            "locator": segment.get("locator") or {},
-        })
-    content_hash = hashlib.sha256(
-        "\n".join(segment["text"] for segment in segments).encode("utf-8")
-    ).hexdigest()
-    origin = {
-        **origin,
-        "content_hash": content_hash,
-        "segments": segments,
-        "aliases": origin.get("aliases") or [],
-    }
-    origin["origin_id"] = _origin_id(origin)
-    for segment in origin["segments"]:
-        short = hashlib.sha256(segment["text"].encode("utf-8")).hexdigest()[:8]
-        segment["id"] = f"{origin['origin_id']}-s{segment['order']}-{short}"
-    return origin
+    return origin_domain.finalize_origin(origin)
 
 
 def _origin_id(origin: dict[str, Any]) -> str:
-    value = json.dumps(
-        {
-            "kind": origin.get("kind"),
-            "label": origin.get("label"),
-            "url": origin.get("source_url"),
-            "hash": origin.get("content_hash"),
-        },
-        sort_keys=True,
-        ensure_ascii=False,
-    )
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+    return origin_domain.origin_id(origin)
 
 
-def _deduplicate_origins(origins: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
-    unique: list[dict[str, Any]] = []
-    by_hash: dict[str, dict[str, Any]] = {}
-    for origin in origins:
-        content_hash = str(origin.get("content_hash") or "")
-        existing = by_hash.get(content_hash)
-        if existing is not None:
-            existing.setdefault("aliases", []).append({
-                "kind": origin.get("kind"),
-                "label": origin.get("label"),
-                "source_url": origin.get("source_url"),
-                "input_order": origin.get("input_order"),
-            })
-            if origin.get("requested_url"):
-                existing.setdefault("http_sources", []).append({
-                    "requested_url": origin.get("requested_url"),
-                    "final_url": origin.get("http_final_url"),
-                    "etag": origin.get("http_etag"),
-                    "last_modified": origin.get("http_last_modified"),
-                    "content_hash": origin.get("http_content_hash"),
-                    "checked_at": origin.get("http_checked_at"),
-                })
-            continue
-        by_hash[content_hash] = origin
-        unique.append(origin)
-    return unique
+def _deduplicate_origins(
+    origins: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return origin_domain.deduplicate_origins(origins)

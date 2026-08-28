@@ -3,6 +3,7 @@ status: implemented
 last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
+  - backend/domains/llm_wiki
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -27,6 +28,7 @@ source_paths:
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_agent_chat_safety.py
@@ -444,6 +446,10 @@ Brain-field repair and consolidation of one canonical source relation, including
 legacy aliases, page metadata and contextual embedded views.
 `backend/domains/configuration/llm_wiki_records.py` normalizes existing managed
 notes, source labels and localized resource-index titles without owning HTTP routes.
+Source extraction is split between `backend/domains/llm_wiki/documents.py` for
+typed document and media adapters and `origins.py` for deterministic evidence
+identity, deduplication and chunking. The historical service remains a compact
+compatibility facade so notebook and plugin contracts keep their current symbols.
 
 ## Failure and safety invariants
 

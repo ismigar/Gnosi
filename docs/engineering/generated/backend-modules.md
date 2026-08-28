@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 992 |
 | `data` | 2 | 203 |
-| `domains` | 176 | 35651 |
+| `domains` | 179 | 36152 |
 | `mcp` | 3 | 394 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 3 | 1126 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 804 |
-| `services` | 148 | 45313 |
+| `services` | 148 | 45050 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **505 modules** and **130063 source lines**.
+Total: **508 modules** and **130301 source lines**.
 
 ## agent
 
@@ -197,6 +197,9 @@ Total: **505 modules** and **130063 source lines**.
 | [`backend/domains/configuration/llm_wiki_records.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki_records.py) | 271 | 1 | 12 | 0 | 3 | Normalization and migration of managed LLM Wiki page records. |
 | [`backend/domains/configuration/llm_wiki_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki_schema.py) | 360 | 1 | 11 | 0 | 3 | Idempotent Brain schema and source-relation consolidation. |
 | [`backend/domains/configuration/plugin_state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/plugin_state.py) | 88 | 3 | 2 | 0 | 1 | Single owner for per-vault plugin state and mutation locks. |
+| [`backend/domains/llm_wiki/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/__init__.py) | 1 | 0 | 0 | 0 | 0 | Typed LLM Wiki extraction and provenance domains. |
+| [`backend/domains/llm_wiki/documents.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/documents.py) | 339 | 0 | 13 | 0 | 12 | Document and media adapters for LLM Wiki source extraction. |
+| [`backend/domains/llm_wiki/origins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/origins.py) | 161 | 0 | 5 | 0 | 4 | Stable origin identity, deduplication, and LLM chunking. |
 | [`backend/domains/mail/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail domain. |
 | [`backend/domains/mail/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/cache.py) | 33 | 0 | 4 | 0 | 0 | Bounded process-local mail caches. |
 | [`backend/domains/mail/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/composition.py) | 17 | 0 | 0 | 0 | 0 | Deterministic composition of the mail router. |
@@ -534,7 +537,7 @@ Total: **505 modules** and **130063 source lines**.
 | [`backend/services/llm_wiki_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_ai_contributions.py) | 263 | 0 | 4 | 0 | 2 | Declarative agent skills and governed tools contributed by LLM Wiki. |
 | [`backend/services/llm_wiki_assist.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_assist.py) | 185 | 0 | 7 | 0 | 4 | Accessible editing for the Brain Inbox (F6). |
 | [`backend/services/llm_wiki_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_config.py) | 462 | 0 | 29 | 0 | 12 | Per-vault configuration for the built-in LLM Wiki ("Brain") plugin. |
-| [`backend/services/llm_wiki_extractors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_extractors.py) | 1002 | 1 | 36 | 0 | 10 | Ordered, provenance-preserving source extraction for LLM Wiki. |
+| [`backend/services/llm_wiki_extractors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_extractors.py) | 739 | 1 | 35 | 0 | 10 | Ordered, provenance-preserving source extraction for LLM Wiki. |
 | [`backend/services/llm_wiki_indices.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_indices.py) | 923 | 0 | 44 | 0 | 17 | Deterministic managed indexes and logs for the LLM Wiki Brain table. |
 | [`backend/services/llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_lint.py) | 296 | 0 | 8 | 0 | 3 | LLM Wiki (Brain) lint — the "Lint" operation of Karpathy's pattern. |
 | [`backend/services/llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_pdf_annotations.py) | 302 | 0 | 9 | 0 | 2 | Persistent PDF highlights generated from grounded LLM Wiki citations. |
