@@ -31,6 +31,7 @@ source_paths:
   - frontend/src/components/AI
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
+  - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_pr6_agent_remaining_contract.py
@@ -460,6 +461,13 @@ Source extraction is split between `backend/domains/llm_wiki/documents.py` for
 typed document and media adapters and `origins.py` for deterministic evidence
 identity, deduplication and chunking. The historical service remains a compact
 compatibility facade so notebook and plugin contracts keep their current symbols.
+Processing is split further into `planning.py` for prompts, parsing and grounded
+plans, `dimensions.py` for fixed/source/AI field mapping, `ingestion.py` for the
+blocking workflow, and `writing.py` for idempotent persistence. `index_rendering.py` owns managed resource,
+dimension and general pages, while `search_index.py` owns rebuildable JSON, FTS5
+and vector indexes. `backend/services/llm_wiki.py` and
+`backend/services/llm_wiki_indices.py` remain late-bound compatibility facades so
+existing imports and monkeypatch/plugin seams continue to resolve at call time.
 
 ## Failure and safety invariants
 

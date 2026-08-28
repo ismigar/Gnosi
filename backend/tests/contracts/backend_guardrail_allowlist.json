@@ -30,16 +30,6 @@
       "max_lines": 800,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
-    "backend/services/llm_wiki.py": {
-      "max_complexity": 24,
-      "max_lines": 1160,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/llm_wiki_indices.py": {
-      "max_complexity": 15,
-      "max_lines": 923,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/services/llm_wiki_lint.py": {
       "max_complexity": 19,
       "max_lines": 800,

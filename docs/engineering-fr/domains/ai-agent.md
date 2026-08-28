@@ -26,6 +26,7 @@ source_paths:
   - frontend/src/components/AI
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
+  - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_pr6_agent_remaining_contract.py
@@ -178,6 +179,15 @@ L'extraction est répartie entre `backend/domains/llm_wiki/documents.py`, pour l
 adaptateurs typés de documents et de médias, et `origins.py`, pour l'identité, la
 déduplication et le découpage déterministes. Le service historique reste une
 façade de compatibilité compacte.
+Le traitement est aussi réparti entre `planning.py` pour les invites, l'analyse
+et les plans fondés, `dimensions.py` pour le mappage fixe/source/par IA,
+`ingestion.py` pour le flux bloquant, et `writing.py` pour la persistance
+idempotente des notes de lecture.
+`index_rendering.py` gère les pages d'index de ressource, de dimension et
+générales, tandis que `search_index.py` gère les index JSON, FTS5 et vectoriels
+reconstructibles. `backend/services/llm_wiki.py` et `llm_wiki_indices.py`
+restent des façades de compatibilité à résolution tardive afin de préserver les
+imports et les points de substitution des plugins et des tests.
 
 ## Invariants de défaillance et de sécurité
 

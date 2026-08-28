@@ -15,6 +15,7 @@ source_paths:
   - frontend/src/components/AI
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
+  - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_pr6_agent_remaining_contract.py
@@ -127,6 +128,15 @@ L'extracció es divideix entre `backend/domains/llm_wiki/documents.py`, que cont
 els adaptadors tipats de documents i multimèdia, i `origins.py`, que conserva la
 identitat, la deduplicació i els fragments deterministes. El servei històric es
 manté com una façana de compatibilitat compacta.
+El processament es divideix també en `planning.py` per als prompts, el parseig i
+els plans fonamentats, `dimensions.py` per al mapatge fix/de font/per IA,
+`ingestion.py` per al flux bloquejant, i `writing.py` per a la persistència
+idempotent de notes de lectura.
+`index_rendering.py` gestiona les pàgines d'índex de recurs, dimensió i general,
+mentre que `search_index.py` gestiona els índexs reconstruïbles JSON, FTS5 i
+vectorials. `backend/services/llm_wiki.py` i `llm_wiki_indices.py` continuen com
+façanes de compatibilitat amb resolució tardana per conservar imports i punts de
+substitució de plugins i proves.
 
 ## Ha fallat i seguretat envaris
 
