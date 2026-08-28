@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 250 | 1906 |
+| pytest | 251 | 1912 |
 
 ## Files
 
@@ -348,6 +348,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_vault_rename.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_rename.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_status_options_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_status_options_domain_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_summary_plugin.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_summary_plugin.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_vault_table_asset_lifecycle_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_table_asset_lifecycle_contract.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_vault_templates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_templates.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_vault_templates_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_templates_routes.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_tools.py) | 10 | Python AST |

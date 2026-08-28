@@ -1,7 +1,6 @@
 import os
 import time
 import logging
-import unicodedata
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
@@ -23,8 +22,6 @@ from typing import List, Optional, Dict, Any, Tuple, Iterable, cast
 from datetime import datetime, timezone, timedelta
 import logging
 import urllib.parse
-import mimetypes
-import base64
 import hashlib
 import yaml
 import re
@@ -45,6 +42,48 @@ from backend.config.data_dir import resolve_data_dir
 from backend.config.env_config import default_host_helper_url, default_thumb_daemon_url
 from backend.services.content_revision import path_collection_revision
 from backend.services.rule_engine import RuleEngine
+from backend.domains.vault.assets import persistence as table_asset_persistence
+from backend.domains.vault.assets import quarantine as table_asset_quarantine
+from backend.domains.vault.assets import table_paths as table_asset_paths
+from backend.domains.vault.assets.persistence import (
+    _copy_local_file_to_assets as _copy_local_file_to_assets,
+    _delete_asset_files_for_page as _delete_asset_files_for_page,
+    _persist_asset_value as _persist_asset_value,
+    _persist_metadata_assets as _persist_metadata_assets,
+    _save_data_url_image_to_assets as _save_data_url_image_to_assets,
+    _save_uploaded_file_to_assets as _save_uploaded_file_to_assets,
+)
+from backend.domains.vault.assets.quarantine import (
+    _cleanup_registry_table_ids as _cleanup_registry_table_ids,
+    _delete_table_asset_quarantine as _delete_table_asset_quarantine,
+    _mark_table_asset_quarantine_ready as _mark_table_asset_quarantine_ready,
+    _quarantine_table_asset_dirs as _quarantine_table_asset_dirs,
+    _quarantined_table_asset_revision as _quarantined_table_asset_revision,
+    _restore_abandoned_table_asset_quarantine as _restore_abandoned_table_asset_quarantine,
+    _restore_quarantined_table_assets as _restore_quarantined_table_assets,
+    _table_asset_cleanup_root as _table_asset_cleanup_root,
+    cleanup_pending_table_asset_quarantines as cleanup_pending_table_asset_quarantines,
+)
+from backend.domains.vault.assets.table_paths import (
+    _asset_segments_collide as _asset_segments_collide,
+    _delete_asset_property_dir as _delete_asset_property_dir,
+    _delete_asset_table_dir as _delete_asset_table_dir,
+    _ensure_asset_dirs_for_table_entry as _ensure_asset_dirs_for_table_entry,
+    _find_table_property as _find_table_property,
+    _move_loose_files as _move_loose_files,
+    _property_assets_dir as _property_assets_dir,
+    _property_config_value as _property_config_value,
+    _resolve_table_and_database_for_assets as _resolve_table_and_database_for_assets,
+    _rewrite_inline_asset_refs as _rewrite_inline_asset_refs,
+    _table_asset_paths as _table_asset_paths,
+    _table_asset_revision as _table_asset_revision,
+    _table_assets_dir as _table_assets_dir,
+)
+from backend.domains.vault.tables import folders as table_folders
+from backend.domains.vault.tables.folders import (
+    _ensure_table_vault_folder as _ensure_table_vault_folder,
+    _table_vault_dir as _table_vault_dir,
+)
 log = logging.getLogger(__name__)
 
 from backend.services.path_resolver import path_resolver
@@ -74,7 +113,7 @@ from backend.services.plugin_access import require_plugins
 from backend.services.vault_routing import canonical_vault_browser_path
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
 
-from backend.services.context_vars import get_active_vault_path
+from backend.services.context_vars import active_vault_path, get_active_vault_path
 from backend.services.relation_links import (
     RELATION_WIKILINK_RE,
     TITLE_ONLY_WIKILINK_RE,
@@ -1728,252 +1767,24 @@ def _is_asset_property(prop: Dict[str, Any]) -> bool:
     return p_type == "url" and bool(_ASSET_NAME_RE.search(p_name))
 
 
-def _resolve_table_and_database_for_assets(
-    table_id: str, registry: dict
-) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-    table = next(
-        (t for t in registry.get("tables", []) if str(t.get("id")) == str(table_id)),
-        None,
-    )
-    if not table:
-        return None, None
-    database_id = table.get("database_id")
-    database = next(
-        (
-            d
-            for d in registry.get("databases", [])
-            if str(d.get("id")) == str(database_id)
-        ),
-        None,
-    )
-    return table, database
 
 
-def _property_assets_dir(
-    table: Dict[str, Any], database: Optional[Dict[str, Any]], property_name: str
-) -> Path:
-    db_segment = _sanitize_asset_segment(
-        (database or {}).get("name") or (table or {}).get("database_id") or "General",
-        "General",
-    )
-    table_segment = _sanitize_asset_segment(
-        (table or {}).get("name") or (table or {}).get("id") or "Table", "Table"
-    )
-    prop_segment = _sanitize_asset_segment(property_name, "Property")
-    return get_p("ASSETS") / db_segment / table_segment / prop_segment
 
 
-def _find_table_property(
-    table: Optional[Dict[str, Any]], property_name: str
-) -> Optional[Dict[str, Any]]:
-    """Returns a table's property by its name (or alias), or None."""
-    name = str(property_name or "").strip()
-    if not table or not name:
-        return None
-    for prop in table.get("properties", []) or []:
-        if str(prop.get("name") or "").strip() == name:
-            return prop
-        if name in (prop.get("aliases") or []):
-            return prop
-    return None
 
 
-def _property_config_value(prop: Optional[Dict[str, Any]], key: str):
-    """Reads a config value from a property, whether flat or nested under `config`."""
-    if not prop:
-        return None
-    if prop.get(key) is not None:
-        return prop.get(key)
-    cfg = prop.get("config")
-    if isinstance(cfg, dict):
-        return cfg.get(key)
-    return None
 
 
-def _ensure_asset_dirs_for_table_entry(table: Dict[str, Any], registry: dict):
-    """Creates all the asset folders associated with a table:
-      • `Assets/<TableName>/` — flat destination for generic files (drag&drop on
-        notes not tied to any specific property).
-      • `Assets/<DB>/<Table>/<Property>/` — a sub-dir for each property of
-        asset type (files/file/image/...).
-
-    Idempotent: `mkdir(parents=True, exist_ok=True)` doesn't fail if it already exists.
-    
-    """
-    if not table:
-        return
-    database = next(
-        (
-            d
-            for d in registry.get("databases", [])
-            if str(d.get("id")) == str(table.get("database_id"))
-        ),
-        None,
-    )
-
-    # 1) Flat folder Assets/<TableName>/ — always, for any table
-    table_name = str(table.get("name") or "").strip()
-    if table_name:
-        try:
-            flat_segment = _sanitize_asset_segment(table_name, "Table")
-            (get_p("ASSETS") / flat_segment).mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            log.warning(f"Could not create Assets/{table_name}/: {e}")
-
-    # 2) Sub-dirs for each asset-type property
-    for prop in table.get("properties", []) or []:
-        if not _is_asset_property(prop):
-            continue
-        prop_name = str(prop.get("name") or "").strip()
-        if not prop_name:
-            continue
-        _property_assets_dir(table, database, prop_name).mkdir(
-            parents=True, exist_ok=True
-        )
 
 
-def _ensure_table_vault_folder(table: Dict[str, Any], registry_data: Dict[str, Any]):
-    """Creates the physical table folder inside BD/DBName/ (ex: Gnosi/BD/Gnosi/Articles/).
-    Includes migration logic: if the folder is in root or BD/, it moves it to the DB folder.
-    """
-    folder_rel = _normalize_rel_folder(table.get("folder"))
-    if not folder_rel:
-        log.warning(f"Table {table.get('id')} ({table.get('name')}) does not have a 'folder' property defined.")
-        return
-
-    # Seek the folder of the database the table belongs to
-    db_id = table.get("database_id")
-    db_folder = "BD" # Default if not found
-    
-    if registry_data and "databases" in registry_data:
-        for db in registry_data["databases"]:
-            if db.get("id") == db_id:
-                db_folder = _normalize_rel_folder(db.get("folder")) or f"BD/{db.get('name', 'General')}"
-                break
-
-    # Correct final path: Gnosi / BD / DB Name / folder_rel
-    target_path = get_p("VAULT") / db_folder / folder_rel
-    
-    # Migration routes (where the folder might be right now)
-    legacy_root_path = get_p("VAULT") / folder_rel
-    legacy_bd_path = get_p("DATABASES") / folder_rel
-
-    try:
-        # 1. MIGRATION from root (Gnosi/Articles)
-        if legacy_root_path.exists() and legacy_root_path.is_dir() and legacy_root_path != (get_p("VAULT") / db_folder):
-            if not target_path.exists():
-                log.info(f"📦 Migrating table folder from ROOT to {db_folder}: {folder_rel}")
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(legacy_root_path), str(target_path))
-        
-        # 2. MIGRATION from BD/ (Gnosi/BD/Articles)
-        if legacy_bd_path.exists() and legacy_bd_path.is_dir() and legacy_bd_path != target_path:
-            if not target_path.exists():
-                log.info(f"📦 Migrating table folder from BD to {db_folder}: {folder_rel}")
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(legacy_bd_path), str(target_path))
-            else:
-                # If it already exists at destination but also in BD/, try to merge or delete the old one if empty
-                log.warning(f"⚠️ Legacy folder in BD/ still exists for {folder_rel}. Considering cleanup.")
-                if not any(legacy_bd_path.iterdir()):
-                    legacy_bd_path.rmdir()
-
-        # 3. CREATION (if not migrated or didn't exist)
-        if not target_path.exists():
-            target_path.mkdir(parents=True, exist_ok=True)
-            log.info(f"✅ Table folder created at {db_folder}/: {target_path}")
-        # else:
-            # log.info(f"ℹ️ Table folder already exists correctly at {db_folder}/: {target_path}")
-            
-    except Exception as e:
-        log.error(f"❌ Error managing folder for table {folder_rel} at {db_folder}: {e}")
 
 
-def _table_assets_dir(
-    table: Dict[str, Any], database: Optional[Dict[str, Any]]
-) -> Path:
-    """Returns the Assets/[DB]/[Table] directory for a table."""
-    db_segment = _sanitize_asset_segment(
-        (database or {}).get("name") or (table or {}).get("database_id") or "General",
-        "General",
-    )
-    table_segment = _sanitize_asset_segment(
-        (table or {}).get("name") or (table or {}).get("id") or "Table", "Table"
-    )
-    return get_p("ASSETS") / db_segment / table_segment
 
 
-def _table_asset_paths(
-    table: Dict[str, Any],
-    database: Optional[Dict[str, Any]],
-) -> List[Path]:
-    """Return every active asset tree removed with one table."""
-    structured_path = _table_assets_dir(table, database)
-    paths = [structured_path]
-    table_name = str((table or {}).get("name") or "").strip()
-    if table_name:
-        table_segment = _sanitize_asset_segment(table_name, "Table")
-        database_segment = _sanitize_asset_segment(
-            (database or {}).get("name")
-            or (table or {}).get("database_id")
-            or "General",
-            "General",
-        )
-        flat_path = get_p("ASSETS") / table_segment
-        if _asset_segments_collide(table_segment, database_segment):
-            # The flat folder is also the database root. Only loose entries
-            # belong to this table; nested directories may belong to siblings.
-            if flat_path.is_dir() and not flat_path.is_symlink():
-                paths.extend(
-                    entry
-                    for entry in flat_path.iterdir()
-                    if not entry.is_dir() or entry.is_symlink()
-                )
-        else:
-            paths.append(flat_path)
-    unique: List[Path] = []
-    seen = set()
-    assets_root = get_p("ASSETS").resolve()
-    for candidate in paths:
-        # Resolve parents to reject traversal through a symlink, but preserve
-        # the final component itself so a table-owned symlink is hashed and
-        # quarantined instead of following or silently ignoring its target.
-        resolved = candidate.parent.resolve() / candidate.name
-        try:
-            resolved.relative_to(assets_root)
-        except ValueError:
-            log.warning("Unsafe table asset path ignored: %s", candidate)
-            continue
-        key = str(resolved)
-        if key not in seen:
-            seen.add(key)
-            unique.append(resolved)
-    # If a flat and structured path overlap, deleting the parent already
-    # covers the child. Keeping both would hash the child twice and make the
-    # quarantine revision differ after the first atomic move.
-    minimal: List[Path] = []
-    for candidate in sorted(unique, key=lambda path: len(path.parts)):
-        if any(
-            candidate == parent or parent in candidate.parents
-            for parent in minimal
-        ):
-            continue
-        minimal.append(candidate)
-    return minimal
 
 
-def _table_asset_revision(
-    table: Dict[str, Any],
-    database: Optional[Dict[str, Any]],
-) -> str:
-    assets_root = get_p("ASSETS").resolve()
-    return path_collection_revision(
-        (
-            path.relative_to(assets_root).as_posix(),
-            path,
-        )
-        for path in _table_asset_paths(table, database)
-    )
+
+
 
 
 def _stable_value_revision(value: Any) -> str:
@@ -2000,610 +1811,81 @@ def _table_views_revision(registry: Dict[str, Any], table_id: str) -> str:
     return _stable_value_revision(views)
 
 
-def _delete_asset_files_for_page(
-    page_metadata: dict, table: Dict[str, Any], registry: dict
-):
-    """Deletes asset files referenced in a record's metadata."""
-    database = next(
-        (
-            d
-            for d in registry.get("databases", [])
-            if str(d.get("id")) == str(table.get("database_id"))
+table_asset_paths.configure(
+    table_asset_paths.TableAssetPathDependencies(
+        get_path=lambda key: get_p(key),
+        sanitize_segment=lambda value, fallback: _sanitize_asset_segment(
+            value,
+            fallback,
         ),
-        None,
+        is_asset_property=lambda prop: _is_asset_property(prop),
+        property_assets_dir=lambda table, database, name: _property_assets_dir(
+            table,
+            database,
+            name,
+        ),
+        table_assets_dir=lambda table, database: _table_assets_dir(table, database),
+        table_asset_paths=lambda table, database: _table_asset_paths(table, database),
+        segments_collide=lambda first, second: _asset_segments_collide(first, second),
+        revision=path_collection_revision,
+        write_text=lambda path, content: safe_write_text(path, content),
+        logger=log,
     )
-    for prop in table.get("properties", []) or []:
-        if not _is_asset_property(prop):
-            continue
-        prop_name = str(prop.get("name") or "").strip()
-        if not prop_name:
-            continue
-        value = page_metadata.get(prop_name)
-        if not value:
-            continue
-        # Normalize to list to treat single and multiple values identically
-        paths = value if isinstance(value, list) else [value]
-        vault_root = get_p("VAULT").resolve()
-        assets_root = (vault_root / "Assets").resolve()
-        for raw_path in paths:
-            if not isinstance(raw_path, str):
-                continue
-            rel = raw_path.strip()
-            if not rel.startswith("Assets/"):
-                continue
-            # Defense against path traversal: if a legitimate note contains
-            # tampered frontmatter (`Assets/../../etc/passwd`), the
-            # `startswith("Assets/")` passes but `resolve()` would point outside
-            # of the Vault. `unlink()` would run as root in the container →
-            # we could delete arbitrary files from the host filesystem.
-            try:
-                abs_path = (vault_root / rel).resolve()
-                abs_path.relative_to(assets_root)  # raises ValueError if outside
-            except (ValueError, OSError):
-                log.warning(
-                    f"Asset path traversal blocked: {rel!r} is not under Assets/"
-                )
-                continue
-            if abs_path.is_file():
-                try:
-                    abs_path.unlink()
-                    log.info(f"Asset deleted: {abs_path}")
-                except Exception as exc:
-                    log.warning(f"Could not delete {abs_path}: {exc}")
-
-
-def _delete_asset_property_dir(
-    table: Dict[str, Any], database: Optional[Dict[str, Any]], prop_name: str
-):
-    """Remove an empty property asset folder without deleting user files.
-
-    Full-table schema updates can transiently omit properties when a client has
-    not finished hydrating. Asset files are user data, so a missing property in
-    one payload is never sufficient authorization to delete a non-empty folder.
-    """
-    prop_dir = _property_assets_dir(table, database, prop_name)
-    if prop_dir.is_dir():
-        try:
-            if next(prop_dir.iterdir(), None) is not None:
-                log.warning(
-                    "Preserving non-empty property asset folder after schema removal: %s",
-                    prop_dir,
-                )
-                return
-            prop_dir.rmdir()
-            log.info("Empty property folder deleted: %s", prop_dir)
-        except Exception as exc:
-            log.warning(f"Could not delete folder {prop_dir}: {exc}")
-
-
-def _delete_asset_table_dir(table: Dict[str, Any], database: Optional[Dict[str, Any]]):
-    """Recursively deletes the table's asset folders.
-
-    Symmetric with `_ensure_asset_dirs_for_table_entry`, which creates two:
-      • `Assets/<DB>/<Table>/`         (structured, per-property children)
-      • `Assets/<TableName>/`          (flat, for generic drag&drop)
-
-    Both are removed here. Empty-or-not, this is a destructive operation
-    consistent with the existing rmtree behaviour. The caller (delete_table
-    handler) is the only entry point and it requires admin role.
-    """
-    for table_dir in _table_asset_paths(table, database):
-        if not table_dir.exists() and not table_dir.is_symlink():
-            continue
-        try:
-            if table_dir.is_dir() and not table_dir.is_symlink():
-                shutil.rmtree(table_dir)
-            else:
-                table_dir.unlink()
-            log.info("Table asset entry deleted: %s", table_dir)
-        except Exception as exc:
-            log.warning("Could not delete table asset entry %s: %s", table_dir, exc)
-
-
-def _table_asset_cleanup_root(vault_root: Path) -> Path:
-    root = Path(vault_root).resolve()
-    cleanup_root = (
-        root / ".gnosi" / "pending-cleanup" / "table-assets"
-    ).resolve()
-    try:
-        cleanup_root.relative_to(root)
-    except ValueError as error:
-        raise RuntimeError(
-            "The table asset cleanup path escapes the active Vault."
-        ) from error
-    return cleanup_root
-
-
-def _quarantine_table_asset_dirs(
-    table: Dict[str, Any],
-    database: Optional[Dict[str, Any]],
-) -> tuple[Optional[Path], List[tuple[Path, Path]]]:
-    """Atomically detach active asset trees before asynchronous deletion."""
-    sources = [
-        path
-        for path in _table_asset_paths(table, database)
-        if path.exists() or path.is_symlink()
-    ]
-    if not sources:
-        return None, []
-    vault_root = get_p("VAULT").resolve()
-    quarantine = (
-        _table_asset_cleanup_root(vault_root)
-        / f"in-progress-{uuid.uuid4().hex}"
+)
+table_folders.configure(
+    table_folders.TableFolderDependencies(
+        get_path=lambda key: get_p(key),
+        normalize_folder=lambda value: _normalize_rel_folder(value),
+        move=lambda source, destination: shutil.move(source, destination),
+        logger=log,
     )
-    quarantine.mkdir(parents=True, exist_ok=False)
-    destinations = [
-        f"{index:02d}-{source.name}"
-        for index, source in enumerate(sources)
-    ]
-    moved: List[tuple[Path, Path]] = []
-    try:
-        safe_write_json(
-            quarantine / "_manifest.json",
-            {
-                "table_id": str((table or {}).get("id") or ""),
-                "entries": [
-                    {
-                        "source": source.relative_to(vault_root).as_posix(),
-                        "destination": destination,
-                    }
-                    for source, destination in zip(sources, destinations)
-                ],
-            },
-            indent=2,
-        )
-        for source, destination_name in zip(sources, destinations):
-            destination = quarantine / destination_name
-            os.replace(source, destination)
-            moved.append((source, destination))
-    except Exception:
-        for source, destination in reversed(moved):
-            source.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(destination, source)
-        shutil.rmtree(quarantine, ignore_errors=True)
-        raise
-    return quarantine, moved
-
-
-def _mark_table_asset_quarantine_ready(quarantine: Path) -> Path:
-    """Make a committed quarantine eligible for asynchronous cleanup."""
-    source = Path(quarantine)
-    if not source.name.startswith("in-progress-"):
-        raise ValueError("The table asset quarantine is not in progress.")
-    destination = source.with_name(
-        f"ready-{source.name.removeprefix('in-progress-')}"
+)
+table_asset_persistence.configure(
+    table_asset_persistence.TableAssetPersistenceDependencies(
+        get_path=lambda key: get_p(key),
+        is_asset_property=lambda prop: _is_asset_property(prop),
+        sanitize_segment=lambda value, fallback: _sanitize_asset_segment(
+            value,
+            fallback,
+        ),
+        sanitize_filename=lambda value: _sanitize_filename_base(value),
+        write_bytes=lambda path, payload: safe_write_bytes(path, payload),
+        load_registry=lambda: load_registry(),
+        resolve_table=lambda table_id, registry: _resolve_table_and_database_for_assets(
+            table_id,
+            registry,
+        ),
+        get_table_id=lambda metadata: get_table_id(metadata),
+        property_config_value=lambda prop, key: _property_config_value(prop, key),
+        normalize_schema_key=lambda value: _normalize_schema_key(value),
+        property_assets_dir=lambda table, database, name: _property_assets_dir(
+            table,
+            database,
+            name,
+        ),
+        copy_local_file=lambda source, target: _copy_local_file_to_assets(
+            source,
+            target,
+        ),
+        save_data_url=lambda value, target: _save_data_url_image_to_assets(
+            value,
+            target,
+        ),
+        persist_value=lambda value, target: _persist_asset_value(value, target),
+        logger=log,
     )
-    os.replace(source, destination)
-    return destination
-
-
-def _quarantined_table_asset_revision(
-    table: Dict[str, Any],
-    database: Optional[Dict[str, Any]],
-    moved: List[tuple[Path, Path]],
-) -> str:
-    """Hash the sealed trees using their original logical asset labels."""
-    assets_root = get_p("ASSETS").resolve()
-    destinations = {str(source): destination for source, destination in moved}
-    logical_paths = {
-        str(path): path
-        for path in (
-            [source for source, _destination in moved]
-            + _table_asset_paths(table, database)
-        )
-    }
-    return path_collection_revision(
-        (
-            source.relative_to(assets_root).as_posix(),
-            destinations.get(str(source), source),
-        )
-        for source in sorted(logical_paths.values(), key=lambda path: str(path))
+)
+table_asset_quarantine.configure(
+    table_asset_quarantine.TableAssetQuarantineDependencies(
+        get_path=lambda key: get_p(key),
+        table_asset_paths=lambda table, database: _table_asset_paths(table, database),
+        revision=path_collection_revision,
+        write_json=lambda path, value: safe_write_json(path, value, indent=2),
+        registry_mutation=lambda: registry_mutation(),
+        active_vault_path=active_vault_path,
+        logger=log,
     )
-
-
-def _restore_quarantined_table_assets(
-    quarantine: Optional[Path],
-    moved: List[tuple[Path, Path]],
-) -> None:
-    for source, destination in reversed(moved):
-        if not destination.exists():
-            continue
-        source.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(destination, source)
-    if quarantine:
-        shutil.rmtree(quarantine, ignore_errors=True)
-
-
-def _delete_table_asset_quarantine(
-    quarantine: Path,
-    vault_root: Path,
-) -> None:
-    """Purge one server-created quarantine after the response is sent."""
-    cleanup_root = _table_asset_cleanup_root(vault_root)
-    target = Path(quarantine).resolve()
-    try:
-        target.relative_to(cleanup_root)
-    except ValueError:
-        log.error("Refusing to purge an unsafe table cleanup path: %s", target)
-        return
-    if not target.name.startswith("ready-"):
-        log.error("Refusing to purge an uncommitted table quarantine: %s", target)
-        return
-    shutil.rmtree(target, ignore_errors=True)
-
-
-def _restore_abandoned_table_asset_quarantine(
-    quarantine: Path,
-    vault_root: Path,
-) -> bool:
-    """Restore a pre-commit quarantine from its path-contained manifest."""
-    manifest_path = quarantine / "_manifest.json"
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, TypeError):
-        log.error("Cannot recover table quarantine without a manifest: %s", quarantine)
-        return False
-
-    root = Path(vault_root).resolve()
-    planned: List[tuple[Path, Path]] = []
-    for entry in manifest.get("entries") or []:
-        try:
-            source = (root / str(entry["source"])).resolve()
-            source.relative_to(root)
-            destination = (quarantine / str(entry["destination"])).resolve()
-            if source == root or destination.parent != quarantine.resolve():
-                raise ValueError
-        except (KeyError, OSError, TypeError, ValueError):
-            log.error("Unsafe table quarantine manifest entry: %s", quarantine)
-            return False
-        if source.exists() and destination.exists():
-            log.error(
-                "Cannot restore table quarantine over an active path: %s",
-                source,
-            )
-            return False
-        planned.append((source, destination))
-
-    for source, destination in reversed(planned):
-        if not destination.exists():
-            continue
-        source.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(destination, source)
-    shutil.rmtree(quarantine, ignore_errors=True)
-    return not quarantine.exists()
-
-
-def _cleanup_registry_table_ids(vault_root: Path) -> Optional[set[str]]:
-    """Read durable table IDs, returning ``None`` when commit state is unknown."""
-    root = Path(vault_root).resolve()
-    try:
-        registry_path = get_p("REGISTRY").resolve()
-        registry_path.relative_to(root)
-        registry = json.loads(registry_path.read_text(encoding="utf-8"))
-        tables = registry["tables"]
-        if not isinstance(tables, list):
-            raise TypeError
-    except (KeyError, OSError, TypeError, ValueError):
-        log.error(
-            "Cannot verify table deletion commit; leaving in-progress "
-            "quarantines untouched in %s",
-            root,
-        )
-        return None
-    return {
-        str(table.get("id") or "")
-        for table in tables
-        if isinstance(table, dict)
-    }
-
-
-def cleanup_pending_table_asset_quarantines(vault_root: Path) -> int:
-    """Restore uncommitted quarantines and purge committed quarantines."""
-    vault_root = Path(vault_root).resolve()
-    cleanup_root = _table_asset_cleanup_root(vault_root)
-    if not cleanup_root.exists():
-        return 0
-    handled = 0
-    from backend.services.context_vars import active_vault_path
-
-    token = active_vault_path.set(vault_root)
-    try:
-        with registry_mutation():
-            active_table_ids: Optional[set[str]] = None
-            for candidate in list(cleanup_root.iterdir()):
-                if not candidate.is_dir() or candidate.is_symlink():
-                    continue
-                if candidate.name.startswith("in-progress-"):
-                    manifest_path = candidate / "_manifest.json"
-                    try:
-                        manifest = json.loads(
-                            manifest_path.read_text(encoding="utf-8")
-                        )
-                        table_id = str(manifest.get("table_id") or "")
-                        if not table_id:
-                            raise ValueError
-                    except (OSError, ValueError, TypeError):
-                        log.error(
-                            "Leaving an unreadable table quarantine untouched: %s",
-                            candidate,
-                        )
-                        continue
-                    if active_table_ids is None:
-                        active_table_ids = _cleanup_registry_table_ids(
-                            vault_root
-                        )
-                    if active_table_ids is None:
-                        continue
-                    if table_id in active_table_ids:
-                        if _restore_abandoned_table_asset_quarantine(
-                            candidate,
-                            vault_root,
-                        ):
-                            handled += 1
-                        continue
-                    shutil.rmtree(candidate, ignore_errors=True)
-                    if not candidate.exists():
-                        handled += 1
-                    continue
-                if candidate.name.startswith("ready-"):
-                    shutil.rmtree(candidate, ignore_errors=True)
-                    if not candidate.exists():
-                        handled += 1
-                    continue
-                log.warning(
-                    "Leaving an unknown table quarantine entry untouched: %s",
-                    candidate,
-                )
-    finally:
-        active_vault_path.reset(token)
-    return handled
-
-
-def _asset_segments_collide(a: str, b: str) -> bool:
-    """True if two Assets segments resolve to the same physical directory.
-
-    On macOS/APFS the filesystem is case-insensitive: "Cervell Digital" and
-    "Cervell digital" are the SAME folder. We compare with casefold to
-    detect this portably (see
-    `docs/dev_memory/directives/table_rename_flat_folder_collision.md`).
-    
-    """
-    return str(a or "").strip().casefold() == str(b or "").strip().casefold()
-
-
-def _move_loose_files(src_dir: Path, dst_dir: Path) -> int:
-    """Moves only loose FILES (not subdirectories) from src_dir to dst_dir.
-
-    Used when the flat folder `Assets/<Table>/` physically coincides with
-    the nesting root `Assets/<DB>/`: the subdirectories are structured
-    `<Table>/<Property>/` trees from other tables and must NOT be moved.
-    
-    """
-    moved = 0
-    dst_dir.mkdir(parents=True, exist_ok=True)
-    for entry in src_dir.iterdir():
-        if not entry.is_file():
-            continue
-        dest = dst_dir / entry.name
-        if dest.exists():
-            log.warning(f"Loose asset move skipped, destination exists: {dest}")
-            continue
-        try:
-            entry.rename(dest)
-            moved += 1
-        except Exception as e:
-            log.warning(f"Could not move loose asset {entry} → {dest}: {e}")
-    return moved
-
-
-def _table_vault_dir(table: Dict[str, Any], registry: dict) -> Optional[Path]:
-    """Returns the table's physical directory inside the Vault (BD/<DB>/<Table>/)."""
-    folder_rel = _normalize_rel_folder(table.get("folder"))
-    if not folder_rel:
-        return None
-    db_id = table.get("database_id")
-    db_folder = "BD"
-    for db in registry.get("databases", []) or []:
-        if db.get("id") == db_id:
-            db_folder = _normalize_rel_folder(db.get("folder")) or f"BD/{db.get('name', 'General')}"
-            break
-    return get_p("VAULT") / db_folder / folder_rel
-
-
-def _rewrite_inline_asset_refs(pages_dir: Path, old_seg: str, new_seg: str) -> int:
-    """Rewrites inline references to the renamed flat folder.
-
-    Page bodies reference loose files via
-    `/api/vault/assets/<seg>/file.png` (the segment is usually URL-encoded,
-    e.g. `Cervell%20digital`). When the flat folder is renamed these URLs
-    become broken; we rewrite them from <old_seg> to <new_seg>.
-
-    Deliberately case-SENSITIVE: in a collision (see
-    `docs/dev_memory/directives/table_rename_flat_folder_collision.md`) structured refs
-    carry the DB segment with different capitalization and must NOT be
-    touched. The new URL is always written URL-encoded.
-    
-    """
-    if not pages_dir or not pages_dir.is_dir() or old_seg == new_seg:
-        return 0
-    new_url = f"/api/vault/assets/{urllib.parse.quote(new_seg)}/"
-    old_urls = {
-        f"/api/vault/assets/{old_seg}/",
-        f"/api/vault/assets/{urllib.parse.quote(old_seg)}/",
-    }
-    old_urls = {u for u in old_urls if u != new_url}
-    if not old_urls:
-        return 0
-    changed = 0
-    for md in pages_dir.rglob("*.md"):
-        try:
-            text = md.read_text(encoding="utf-8")
-        except Exception:
-            continue
-        new_text = text
-        for old_url in old_urls:
-            if old_url in new_text:
-                new_text = new_text.replace(old_url, new_url)
-        if new_text != text:
-            try:
-                safe_write_text(md, new_text)
-                changed += 1
-            except Exception as e:
-                log.warning(f"Could not rewrite asset refs in {md}: {e}")
-    return changed
-
-
-def _copy_local_file_to_assets(local_path: Path, target_dir: Path) -> str:
-    target_dir.mkdir(parents=True, exist_ok=True)
-    filename = _sanitize_asset_segment(local_path.name, f"file-{uuid.uuid4().hex[:8]}")
-    destination = target_dir / filename
-    if destination.exists():
-        stem = _sanitize_asset_segment(local_path.stem, "file")
-        ext = local_path.suffix
-        destination = target_dir / f"{stem}-{uuid.uuid4().hex[:8]}{ext}"
-    shutil.copy2(local_path, destination)
-    return str(destination.relative_to(get_p("VAULT"))).replace("\\", "/")
-
-
-def _save_uploaded_file_to_assets(
-    upload: UploadFile, target_dir: Path, target_name: str = ""
-) -> str:
-    target_dir.mkdir(parents=True, exist_ok=True)
-    original_name = upload.filename or "upload.bin"
-    ext = Path(original_name).suffix
-    if target_name and target_name.strip():
-        stem = _sanitize_filename_base(target_name.strip())
-    else:
-        stem = _sanitize_asset_segment(Path(original_name).stem, "upload")
-    destination = target_dir / f"{stem}{ext}"
-    if destination.exists():
-        destination = target_dir / f"{stem}-{uuid.uuid4().hex[:8]}{ext}"
-
-    with open(destination, "wb") as buffer:
-        shutil.copyfileobj(upload.file, buffer)
-
-    return str(destination.relative_to(get_p("VAULT"))).replace("\\", "/")
-
-
-def _save_data_url_image_to_assets(value: str, target_dir: Path) -> Optional[str]:
-    match = re.match(
-        r"^data:(image/[^;]+);base64,(.+)$", value.strip(), re.IGNORECASE | re.DOTALL
-    )
-    if not match:
-        return None
-
-    mime_type = match.group(1).lower()
-    payload = match.group(2)
-    try:
-        decoded = base64.b64decode(payload, validate=True)
-    except Exception:
-        return None
-
-    ext = mimetypes.guess_extension(mime_type) or ".bin"
-    if ext == ".jpe":
-        ext = ".jpg"
-
-    target_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"image-{uuid.uuid4().hex[:12]}{ext}"
-    destination = target_dir / filename
-    # safe_write_bytes (write to .tmp + atomic rename): if the process crashes
-    # halfway through, the asset ends up complete or doesn't exist — never truncated.
-    safe_write_bytes(destination, decoded)
-    return str(destination.relative_to(get_p("VAULT"))).replace("\\", "/")
-
-
-def _persist_asset_value(value: Any, target_dir: Path) -> Any:
-    if value is None:
-        return value
-
-    if isinstance(value, list):
-        return [_persist_asset_value(item, target_dir) for item in value]
-
-    if isinstance(value, dict):
-        updated = dict(value)
-        for key in ["path", "file_path", "url", "src"]:
-            if key in updated:
-                updated[key] = _persist_asset_value(updated[key], target_dir)
-        return updated
-
-    if not isinstance(value, str):
-        return value
-
-    text = value.strip()
-    if not text:
-        return value
-
-    if text.startswith("/api/vault/assets/"):
-        return "Assets/" + text[len("/api/vault/assets/") :]
-    if text.startswith("Assets/"):
-        return text
-    if text.startswith("http://") or text.startswith("https://"):
-        return text
-
-    data_url_result = _save_data_url_image_to_assets(text, target_dir)
-    if data_url_result:
-        return data_url_result
-
-    candidate = text
-    if text.startswith("file://"):
-        candidate = urllib.parse.unquote(text[7:])
-
-    local_path = Path(candidate).expanduser()
-    try:
-        if local_path.exists() and local_path.is_file():
-            return _copy_local_file_to_assets(local_path, target_dir)
-    except Exception:
-        return value
-
-    return value
-
-
-def _persist_metadata_assets(metadata: dict) -> dict:
-    if not metadata:
-        return metadata
-
-    table_id = get_table_id(metadata)
-    if not table_id:
-        return metadata
-
-    registry = load_registry()
-    table, database = _resolve_table_and_database_for_assets(str(table_id), registry)
-    if not table:
-        return metadata
-
-    for prop in table.get("properties", []) or []:
-        if not _is_asset_property(prop):
-            continue
-
-        prop_name = str(prop.get("name") or "").strip()
-        if not prop_name:
-            continue
-
-        # Fields with a destination outside Assets (storage_folder 'library' or 'free') do NOT
-        # must be ingested into Assets: the file already lives in its place (e.g. the
-        # Library) and the value is an absolute path that must be preserved as-is.
-        # Without this guard, saving the page would copy the file to
-        # Assets/<DB>/<Table>/<Property>/ and the value was being rewritten — nullifying the
-        # the field's config (which is why a 'library' field always ended up in Assets).
-        configured_storage = str(_property_config_value(prop, "storage_folder") or "").strip()
-        if configured_storage and configured_storage != "assets":
-            continue
-
-        prop_key_norm = _normalize_schema_key(prop_name)
-        metadata_key = next(
-            (k for k in metadata.keys() if _normalize_schema_key(k) == prop_key_norm),
-            None,
-        )
-        if not metadata_key:
-            continue
-
-        target_dir = _property_assets_dir(table, database, prop_name)
-        target_dir.mkdir(parents=True, exist_ok=True)
-        metadata[metadata_key] = _persist_asset_value(
-            metadata.get(metadata_key), target_dir
-        )
-
-    return metadata
+)
 
 
 def _normalize_rel_folder(folder: Optional[str]) -> str:

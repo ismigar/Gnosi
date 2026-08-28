@@ -11,12 +11,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 46 | 14435 |
-| `api` | 38 | 24940 |
+| `api` | 38 | 24222 |
 | `app` | 6 | 603 |
 | `application root` | 4 | 107 |
 | `config` | 9 | 992 |
 | `data` | 2 | 203 |
-| `domains` | 218 | 46378 |
+| `domains` | 222 | 47644 |
 | `mcp` | 3 | 394 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **547 modules** and **134049 source lines**.
+Total: **551 modules** and **134597 source lines**.
 
 ## agent
 
@@ -118,7 +118,7 @@ Total: **547 modules** and **134049 source lines**.
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 673 | 4 | 14 | 9 | 13 | No module docstring |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py) | 164 | 3 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | No module docstring |
-| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 10861 | 8 | 519 | 111 | 318 | No module docstring |
+| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 10143 | 8 | 489 | 111 | 298 | No module docstring |
 | [`backend/api/vault_templates_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_templates_routes.py) | 246 | 2 | 9 | 0 | 7 | Vault template catalog, creation, export, and moderated submission routes. |
 | [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_views_routes.py) | 350 | 2 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
 | [`backend/api/vaults_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py) | 280 | 2 | 10 | 0 | 9 | Vaults API (personal multi-vault mode): list, create and choose vaults. |
@@ -281,9 +281,12 @@ Total: **547 modules** and **134049 source lines**.
 | [`backend/domains/vault/api/trash.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/trash.py) | 334 | 1 | 10 | 5 | 9 | HTTP adapter and retention job for soft-deleted vault pages. |
 | [`backend/domains/vault/assets/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault asset uploads, icon storage, and image-serving HTTP adapters. |
 | [`backend/domains/vault/assets/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/api.py) | 275 | 1 | 21 | 8 | 14 | HTTP adapters and route registration for vault assets. |
+| [`backend/domains/vault/assets/persistence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/persistence.py) | 337 | 2 | 20 | 0 | 3 | Persistence and cleanup of table property asset values. |
+| [`backend/domains/vault/assets/quarantine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/quarantine.py) | 362 | 1 | 19 | 0 | 9 | Crash-safe quarantine lifecycle for table-owned asset trees. |
 | [`backend/domains/vault/assets/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/schemas.py) | 16 | 2 | 0 | 0 | 0 | Frozen request schemas for vault asset routes. |
 | [`backend/domains/vault/assets/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/service.py) | 308 | 1 | 9 | 4 | 10 | Application services for vault assets and icons. |
 | [`backend/domains/vault/assets/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/state.py) | 74 | 1 | 1 | 0 | 2 | Single owners for mutable vault-asset state. |
+| [`backend/domains/vault/assets/table_paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/table_paths.py) | 410 | 2 | 24 | 0 | 12 | Table-scoped asset path and directory lifecycle. |
 | [`backend/domains/vault/citations/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault citations and bibliographic references domain. |
 | [`backend/domains/vault/citations/authors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/authors.py) | 155 | 0 | 5 | 0 | 0 | Author normalization and Recursos-to-CSL mapping. |
 | [`backend/domains/vault/citations/exporting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/exporting.py) | 230 | 2 | 8 | 2 | 5 | Pandoc-backed Vault page export with resolved CSL citations. |
@@ -364,6 +367,7 @@ Total: **547 modules** and **134049 source lines**.
 | [`backend/domains/vault/schemas/pages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/pages.py) | 72 | 6 | 0 | 0 | 0 | Page API schemas owned by the vault domain. |
 | [`backend/domains/vault/tables/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault databases, tables, properties and option catalogs. |
 | [`backend/domains/vault/tables/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/api.py) | 115 | 1 | 5 | 4 | 0 | Database and table collection operations. |
+| [`backend/domains/vault/tables/folders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/folders.py) | 157 | 1 | 8 | 0 | 4 | Physical Vault-folder lifecycle for tables. |
 | [`backend/domains/vault/tables/formula_recalculation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/formula_recalculation.py) | 210 | 2 | 10 | 0 | 2 | Serialized recomputation of formulas that depend on other table rows. |
 | [`backend/domains/vault/tables/lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/lifecycle.py) | 546 | 4 | 17 | 3 | 0 | Table creation, deletion and rename services. |
 | [`backend/domains/vault/tables/options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/options.py) | 582 | 2 | 22 | 8 | 4 | Shared option catalogs and row-value rewrites. |

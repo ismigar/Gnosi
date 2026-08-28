@@ -11,6 +11,7 @@ source_paths:
   - backend/domains/vault/translation
   - backend/domains/vault/drupal
   - backend/domains/media
+  - backend/domains/vault/tables
   - backend/platform/files
   - backend/services/media_service.py
   - backend/services/graph_service.py
@@ -32,6 +33,7 @@ tests:
   - backend/tests/test_vault_assets_files_containment.py
   - backend/tests/test_vault_assets_files_route_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_table_asset_lifecycle_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -101,6 +103,15 @@ remains the compatible Python facade: it preserves the historical class,
 singleton, signatures, descriptors, state and errors while resolving mutable
 state and replaceable collaborators late. Domain modules never import the HTTP
 router or the compatibility facade.
+
+Table-scoped storage has explicit owners. `assets/table_paths.py` owns contained
+asset paths, per-property directories, revisions and collision-safe rename
+helpers; `assets/persistence.py` owns recursive metadata ingestion and contained
+record-asset deletion; `assets/quarantine.py` owns crash-safe table deletion and
+startup recovery. `tables/folders.py` owns creation and migration of the table's
+physical `BD/<database>/<table>` directory. These modules receive narrow
+filesystem and registry ports from the compatibility facade and never import
+the HTTP router.
 
 `backend/api/vault_routes.py` remains a temporary compatibility and composition
 facade while the rest of the legacy router is split. It injects existing
@@ -196,6 +207,13 @@ second local-token mapping, custom-icon lock or file-stream semaphore. Repeated
 and every structural move must preserve streaming headers and the exact OpenAPI
 document.
 
+File-valued metadata is normalized recursively without changing its list or
+object shape. Existing `Assets/` paths and remote HTTP URLs remain references;
+data URLs and approved local files are copied atomically into the property's
+asset directory. Physical cleanup resolves every candidate below the active
+Vault's `Assets` root before unlinking it, so a front-matter traversal string
+cannot escape the Vault.
+
 ## Trash and destructive operations
 
 `drawings/service.py` owns Tldraw and legacy Excalidraw discovery, reads,
@@ -210,6 +228,14 @@ history, metadata-sidecar and comment cleanup behind late-bound facade ports.
 Vault registry deletion removes the logical registry row
 by default; physical folder deletion requires a separate explicit signal and
 stronger containment checks.
+
+Deleting a table first atomically moves every table-owned asset tree to
+`.gnosi/pending-cleanup/table-assets/in-progress-*` and writes a contained
+manifest. The registry commit then renames that directory to `ready-*` before a
+background purge. Startup recovery restores an in-progress quarantine when the
+table still exists, purges it when the durable registry proves deletion, and
+leaves unreadable or unknown entries untouched. Asset revisions cover symlinks
+without following their targets and prevent deletion after a stale preview.
 
 ## Vault templates
 
