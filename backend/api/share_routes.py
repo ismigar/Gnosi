@@ -9,6 +9,7 @@ without a session, and it returns page content bounded by the link's permission.
 """
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -52,7 +53,7 @@ class ShareCreateRequest(BaseModel):
     expires_in_days: Optional[int] = None
 
 
-def _serialize(link: ShareLink) -> dict:
+def _serialize(link: ShareLink) -> dict[str, object]:
     return {
         "token": link.id,
         "page_id": link.page_id,
@@ -81,7 +82,7 @@ def _is_active(link: ShareLink) -> bool:
     "/vault/pages/{page_id}/share",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("share-links"))],
 )
-async def create_share_link(
+async def create_share_link(  # type: ignore[no-untyped-def]
     page_id: str,
     request: ShareCreateRequest,
     http_request: Request,
@@ -119,7 +120,9 @@ async def create_share_link(
     "/vault/pages/{page_id}/shares",
     dependencies=[Depends(require_role("viewer")), Depends(require_plugins("share-links"))],
 )
-async def list_share_links(page_id: str, db: Session = Depends(get_mgmt_db)):
+async def list_share_links(  # type: ignore[no-untyped-def]
+    page_id: str, db: Session = Depends(get_mgmt_db)
+):
     """Lists the active (non-revoked, non-expired) share links for a page."""
     rows = (
         db.query(ShareLink)
@@ -133,18 +136,22 @@ async def list_share_links(page_id: str, db: Session = Depends(get_mgmt_db)):
     "/vault/share/{token}",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("share-links"))],
 )
-async def revoke_share_link(token: str, db: Session = Depends(get_mgmt_db)):
+async def revoke_share_link(  # type: ignore[no-untyped-def]
+    token: str, db: Session = Depends(get_mgmt_db)
+):
     """Revokes a share link (soft-delete: keeps the row for audit)."""
     link = db.query(ShareLink).filter(ShareLink.id == token).first()
     if not link:
         raise HTTPException(status_code=404, detail="Share link not found")
-    link.revoked = 1
+    setattr(link, "revoked", 1)
     db.commit()
     return {"status": "revoked", "token": token}
 
 
 @router.get("/share/{token}")
-async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
+async def read_shared_page(  # type: ignore[no-untyped-def]
+    token: str, db: Session = Depends(get_mgmt_db)
+):
     """Anonymous read of a shared page. The ONLY unauthenticated endpoint.
 
     Resolves the token, enforces revoked/expiry, then returns the page's title,
@@ -159,18 +166,19 @@ async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
     # it was created, multi-vault) if present and resolvable; otherwise, the Principal vault
     # (backward compat / single-vault / old links without vault_id). The visitor
     # anonymous doesn't provide any vault signal, so we remove it from the link.
-    from pathlib import Path
-    vault = None
+    vault: Path | None = None
     link_vault_id = getattr(link, "vault_id", None)
     if link_vault_id:
         try:
             from backend.services.active_vault_middleware import _resolve_vault_path
-            vault = _resolve_vault_path(link_vault_id)
+            resolved_vault = _resolve_vault_path(link_vault_id)
+            vault = Path(resolved_vault) if resolved_vault else None
         except Exception:
             vault = None
     if not vault:
         from backend.config.app_config import load_params
-        vault = load_params(strict_env=False).paths.get("VAULT")
+        configured_vault = load_params(strict_env=False).paths.get("VAULT")
+        vault = Path(configured_vault) if configured_vault else None
     # Fallback to the active vault if the main one doesn't exist (incomplete config).
     # Without this, `Path(None)` raised a TypeError in the public endpoint.
     if not vault:

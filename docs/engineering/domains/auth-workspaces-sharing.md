@@ -111,6 +111,12 @@ Revocation is soft so the system retains an audit record. Expired or revoked
 links reveal no page content. Public asset resolution inherits the same share
 scope rather than accepting an arbitrary path.
 
+The sharing route boundary types serialization, vault-path resolution and ORM
+mutation without adding response annotations to legacy handlers, preserving the
+frozen OpenAPI schemas. Stored multi-vault identifiers are resolved to concrete
+paths before activating page context, while missing configuration retains the
+existing recoverable fallback and service-unavailable response.
+
 ## Public API
 
 PAT-authenticated routes apply token scopes plus normal workspace/vault
