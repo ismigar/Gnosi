@@ -15,10 +15,11 @@ For the cooperative demo, the minimum viable flow is enough: each
 cooperative creates its workspace, invites members by email, the
 members register with the same email and can log in.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -41,9 +42,16 @@ from backend.services.auth_service import (
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+_LEGACY_JSON_200: dict[int | str, dict[str, Any]] = {
+    200: {"content": {"application/json": {"schema": {}}}}
+}
+_LEGACY_JSON_201: dict[int | str, dict[str, Any]] = {
+    201: {"content": {"application/json": {"schema": {}}}}
+}
 
 
 # ---------- Payloads ----------
+
 
 def _validate_password_bytes(value: str) -> str:
     """Reject passwords bcrypt cannot hash, as a field error instead of a 500.
@@ -62,7 +70,7 @@ def _validate_password_bytes(value: str) -> str:
 class RegisterPayload(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
-    name: Optional[str] = None
+    name: str | None = None
 
     _check_password = field_validator("password")(_validate_password_bytes)
 
@@ -80,21 +88,22 @@ class ChangePasswordPayload(BaseModel):
 
 
 class UpdateProfilePayload(BaseModel):
-    name: Optional[str] = Field(default=None, max_length=120)
-    email: Optional[EmailStr] = None
+    name: str | None = Field(default=None, max_length=120)
+    email: EmailStr | None = None
     # Required when `email` changes; ignored otherwise.
-    current_password: Optional[str] = None
+    current_password: str | None = None
 
 
 class UserInfo(BaseModel):
     id: str
     email: str
-    name: Optional[str] = None
-    avatar_url: Optional[str] = None
-    workspaces: list[dict] = []
+    name: str | None = None
+    avatar_url: str | None = None
+    workspaces: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # ---------- Helpers ----------
+
 
 def _set_session_cookie(response: Response, user_id: str) -> None:
     """Issues a token and stores it in an HttpOnly + SameSite=Lax cookie.
@@ -102,7 +111,7 @@ def _set_session_cookie(response: Response, user_id: str) -> None:
     In personal mode (local HTTP), we don't set `secure=True` by default
     because it would break with localhost. In production the reverse proxy must
     set `secure=True` explicitly, or we derive it from an env var.
-    
+
     """
     token = create_access_token(user_id)
     response.set_cookie(
@@ -116,7 +125,7 @@ def _set_session_cookie(response: Response, user_id: str) -> None:
     )
 
 
-def _find_user_by_email(db: Session, email: str) -> Optional[User]:
+def _find_user_by_email(db: Session, email: str) -> User | None:
     """Look a user up by email, case-insensitively.
 
     Email local-parts are technically case-sensitive but no real provider treats
@@ -131,32 +140,40 @@ def _find_user_by_email(db: Session, email: str) -> Optional[User]:
 def _user_to_info(user: User, db: Session) -> UserInfo:
     """Loads the workspaces the user belongs to."""
     memberships = db.query(Membership).filter(Membership.user_id == user.id).all()
-    ws_info = []
+    ws_info: list[dict[str, Any]] = []
     for m in memberships:
         ws = db.query(Workspace).filter(Workspace.id == m.workspace_id).first()
         if ws:
-            ws_info.append({
-                "id": ws.id,
-                "name": ws.name,
-                "role": m.role,
-            })
+            ws_info.append(
+                {
+                    "id": cast(str, ws.id),
+                    "name": cast(str, ws.name),
+                    "role": cast(str, m.role),
+                }
+            )
     return UserInfo(
-        id=user.id,
-        email=user.email,
-        name=user.name,
-        avatar_url=user.avatar_url,
+        id=cast(str, user.id),
+        email=cast(str, user.email),
+        name=cast(str | None, user.name),
+        avatar_url=cast(str | None, user.avatar_url),
         workspaces=ws_info,
     )
 
 
 # ---------- Endpoints ----------
 
-@router.post("/register", status_code=201)
+
+@router.post(
+    "/register",
+    status_code=201,
+    response_model=None,
+    responses=_LEGACY_JSON_201,
+)
 def register(
     payload: RegisterPayload,
     response: Response,
     db: Session = Depends(get_mgmt_db),
-):
+) -> Any:
     """Creates a new user with email + password.
 
     If a user with this email already exists **without a password** (legacy
@@ -164,7 +181,7 @@ def register(
     cooperative can create memberships by email before users
     have registered — when they register with the same email, they automatically
     inherit the workspaces.
-    
+
     """
     existing = _find_user_by_email(db, payload.email)
     if existing:
@@ -187,15 +204,15 @@ def register(
                 ),
             )
         # Claim: assign a password to the pre-existing user (their memberships).
-        existing.password_hash = hash_password(payload.password)
+        setattr(existing, "password_hash", hash_password(payload.password))
         if payload.name and not existing.name:
-            existing.name = payload.name
+            setattr(existing, "name", payload.name)
         try:
             db.commit()
         except Exception:
             db.rollback()
             raise HTTPException(status_code=500, detail="Error saving the password")
-        _set_session_cookie(response, existing.id)
+        _set_session_cookie(response, cast(str, existing.id))
         return _user_to_info(existing, db)
 
     # New case: create user
@@ -212,7 +229,7 @@ def register(
         db.rollback()
         raise HTTPException(status_code=500, detail="Error creating the user")
 
-    _set_session_cookie(response, user.id)
+    _set_session_cookie(response, cast(str, user.id))
     return _user_to_info(user, db)
 
 
@@ -230,37 +247,37 @@ def register(
 # management DB and therefore has no remote attack surface at all.
 
 
-@router.post("/login")
+@router.post("/login", response_model=None, responses=_LEGACY_JSON_200)
 def login(
     payload: LoginPayload,
     response: Response,
     db: Session = Depends(get_mgmt_db),
-):
+) -> Any:
     """Login via email + password. 401 if credentials are incorrect."""
     user = _find_user_by_email(db, payload.email)
     if not user or not user.password_hash:
         # Same message for "doesn't exist" and "has no password" to avoid
         # enumeration attacks (attack: trying emails to find out if they exist).
         raise HTTPException(status_code=401, detail="Email o contrasenya incorrectes")
-    if not verify_password(payload.password, user.password_hash):
+    if not verify_password(payload.password, cast(str, user.password_hash)):
         raise HTTPException(status_code=401, detail="Email o contrasenya incorrectes")
 
-    _set_session_cookie(response, user.id)
+    _set_session_cookie(response, cast(str, user.id))
     return _user_to_info(user, db)
 
 
-@router.post("/logout")
-def logout(response: Response):
+@router.post("/logout", response_model=None, responses=_LEGACY_JSON_200)
+def logout(response: Response) -> Any:
     """Deletes the session cookie. Idempotent."""
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"ok": True}
 
 
-@router.get("/me")
+@router.get("/me", response_model=None, responses=_LEGACY_JSON_200)
 def me(
-    uid: Optional[str] = Depends(get_current_user_id),
+    uid: str | None = Depends(get_current_user_id),
     db: Session = Depends(get_mgmt_db),
-):
+) -> Any:
     """Current authenticated user. 401 if there's no session.
 
     The frontend uses this at bootstrap to decide whether to render the
@@ -276,7 +293,7 @@ def me(
     return _user_to_info(user, db)
 
 
-def _require_credentialed_user(uid: Optional[str], db: Session) -> User:
+def _require_credentialed_user(uid: str | None, db: Session) -> User:
     """Resolves the authenticated user for the self-service account endpoints.
 
     Only accounts that ALREADY hold a password may use them: the NOTE above
@@ -302,12 +319,12 @@ def _require_credentialed_user(uid: Optional[str], db: Session) -> User:
     return user
 
 
-@router.post("/change-password")
+@router.post("/change-password", response_model=None, responses=_LEGACY_JSON_200)
 def change_password(
     payload: ChangePasswordPayload,
-    uid: Optional[str] = Depends(get_current_user_id),
+    uid: str | None = Depends(get_current_user_id),
     db: Session = Depends(get_mgmt_db),
-):
+) -> Any:
     """Rotates the authenticated user's password.
 
     Safe as an HTTP endpoint (unlike first credentials, see the NOTE above)
@@ -316,10 +333,10 @@ def change_password(
     frontend never mistakes it for an expired session.
     """
     user = _require_credentialed_user(uid, db)
-    if not verify_password(payload.current_password, user.password_hash):
+    if not verify_password(payload.current_password, cast(str, user.password_hash)):
         raise HTTPException(status_code=403, detail="La contrasenya actual no és correcta")
 
-    user.password_hash = hash_password(payload.new_password)
+    setattr(user, "password_hash", hash_password(payload.new_password))
     try:
         db.commit()
     except Exception:
@@ -328,12 +345,12 @@ def change_password(
     return {"ok": True}
 
 
-@router.patch("/me")
+@router.patch("/me", response_model=None, responses=_LEGACY_JSON_200)
 def update_me(
     payload: UpdateProfilePayload,
-    uid: Optional[str] = Depends(get_current_user_id),
+    uid: str | None = Depends(get_current_user_id),
     db: Session = Depends(get_mgmt_db),
-):
+) -> Any:
     """Updates the authenticated user's name and/or email.
 
     The email is the login identifier, so changing it requires the current
@@ -344,18 +361,19 @@ def update_me(
     user = _require_credentialed_user(uid, db)
 
     new_email = normalize_email(payload.email) if payload.email else None
-    if new_email and new_email != (user.email or "").lower():
+    current_email = cast(str, user.email)
+    if new_email and new_email != current_email.lower():
         if not payload.current_password or not verify_password(
-            payload.current_password, user.password_hash
+            payload.current_password, cast(str, user.password_hash)
         ):
             raise HTTPException(status_code=403, detail="The current password is incorrect")
         other = _find_user_by_email(db, new_email)
         if other and other.id != user.id:
             raise HTTPException(status_code=409, detail="This email is already registered")
-        user.email = new_email
+        setattr(user, "email", new_email)
 
     if payload.name is not None and payload.name.strip():
-        user.name = payload.name.strip()
+        setattr(user, "name", payload.name.strip())
 
     try:
         db.commit()

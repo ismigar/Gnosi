@@ -19,6 +19,10 @@ tests:
   - backend/tests/test_workspace_invite_email_case.py
   - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
+  - backend/tests/test_auth_account_settings.py
+  - backend/tests/test_auth_email_case.py
+  - backend/tests/test_auth_placeholder_account.py
+  - backend/tests/test_password_hashing.py
 ---
 
 # Authentication, workspaces, and sharing
@@ -43,6 +47,11 @@ format; only a SHA-256 hash and display prefix are stored.
 The signing secret must be strong on exposed deployments. The backend refuses
 to start with the public development fallback when the effective deployment
 requires protection.
+
+The authentication route boundary is strictly typed while preserving its
+frozen response schemas. Legacy SQLAlchemy column descriptors are narrowed only
+at the ORM boundary; account claims, password rotation, profile updates and
+session cookies retain their existing validation and transaction behavior.
 
 ## Authorization model
 

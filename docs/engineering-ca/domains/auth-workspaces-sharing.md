@@ -19,6 +19,10 @@ tests:
   - backend/tests/test_workspace_invite_email_case.py
   - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
+  - backend/tests/test_auth_account_settings.py
+  - backend/tests/test_auth_email_case.py
+  - backend/tests/test_auth_placeholder_account.py
+  - backend/tests/test_password_hashing.py
 ---
 
 # Autenticació, espais de treball i compartició
@@ -34,6 +38,11 @@ La porta del frontal selecciona la connexió o l'UI d' aplicació, però totes l
 L' accés per correu/ contrasenya aclareix una marca de contrasenya i emet un compte signat a JWT en un Htp Només, Sate=Lax. Accepta els clients API també poden enviar- ne una `Authorization` Testimoni d' adorador. L' accés personal Tokens usa un format opac diferent, només es desen les dades SHA- 256 i es desa el prefix en pantalla.
 
 El secret de signatura ha de ser fort en el desplegament. El dorsal refusa començar amb la alternativa del desenvolupament públic quan el desplegament requereix protecció.
+
+La frontera de rutes d'autenticació està estrictament tipada i conserva els
+esquemes de resposta congelats. Els descriptors Column de SQLAlchemy legacy
+només es restringeixen a la frontera ORM; la reclamació de comptes, la rotació
+de contrasenya, el perfil i les cookies mantenen validació i transaccions.
 
 ## Model d' autorització
 

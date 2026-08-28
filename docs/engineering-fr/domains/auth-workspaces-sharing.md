@@ -19,6 +19,10 @@ tests:
   - backend/tests/test_workspace_invite_email_case.py
   - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
+  - backend/tests/test_auth_account_settings.py
+  - backend/tests/test_auth_email_case.py
+  - backend/tests/test_auth_placeholder_account.py
+  - backend/tests/test_password_hashing.py
 ---
 
 # Authentification, espaces de travail et partage
@@ -34,6 +38,11 @@ La porte frontale sélectionne l'interface d'accès ou d'application, mais toute
 Le login email/password vérifie un hash de mot de passe et émet un JWT signé dans un cookie HttpOnly, SameSite=Lax. Les clients API acceptés peuvent également envoyer un `Authorization` Les jetons d'accès personnel utilisent un format opaque distinct; seul un hash SHA-256 et un préfixe d'affichage sont stockés.
 
 Le secret de signature doit être solide sur les déploiements exposés. Le moteur refuse de commencer par le recul du développement public lorsque le déploiement efficace nécessite une protection.
+
+La frontière des routes d'authentification est strictement typée et conserve les
+schémas de réponse gelés. Les descripteurs Column de SQLAlchemy legacy ne sont
+resserrés qu'à la frontière ORM ; la revendication de compte, la rotation du mot
+de passe, le profil et les cookies conservent validation et transactions.
 
 ## Modèle d'autorisation
 

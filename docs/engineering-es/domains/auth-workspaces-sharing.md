@@ -19,6 +19,10 @@ tests:
   - backend/tests/test_workspace_invite_email_case.py
   - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
+  - backend/tests/test_auth_account_settings.py
+  - backend/tests/test_auth_email_case.py
+  - backend/tests/test_auth_placeholder_account.py
+  - backend/tests/test_password_hashing.py
 ---
 
 # Autenticación, espacios de trabajo y compartir
@@ -34,6 +38,11 @@ La puerta de acceso selecciona el inicio de sesión o la aplicación de interfaz
 El acceso por correo electrónico/contraseña verifica un hash de contraseña y emite un JWT firmado en una cookie HttpOnly, SameSite=Lax. Los clientes de API aceptados también pueden enviar un `Authorization` token portador. Tokens de acceso personal usan un formato opaco separado; sólo se almacenan un prefijo de pantalla y hash SHA-256.
 
 El secreto de la firma debe ser fuerte en los despliegues expuestos. El motor se niega a comenzar con el retroceso del desarrollo público cuando el despliegue efectivo requiere protección.
+
+La frontera de rutas de autenticación está estrictamente tipada y conserva los
+esquemas de respuesta congelados. Los descriptores Column de SQLAlchemy legacy
+solo se restringen en la frontera ORM; la reclamación de cuentas, la rotación de
+contraseña, el perfil y las cookies mantienen su validación y transacciones.
 
 ## Modelo de autorización
 
