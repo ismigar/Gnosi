@@ -22,6 +22,13 @@ _MANAGED_PREFIX = "llm-wiki"
 _ZOTERO_BLOB_PREFIX = "__ZOTERO_JSON__"
 
 
+def _load_pdfium() -> Any:
+    """Load the optional PDF adapter at the one untyped vendor boundary."""
+    import pypdfium2  # type: ignore[import-untyped]
+
+    return pypdfium2
+
+
 def _normalized_text(value: Any) -> str:
     return " ".join(str(value or "").split()).strip()
 
@@ -105,8 +112,7 @@ def _find_quote_position_in_document(
 
 def _find_quote_position(pdf_path: Path, page_number: int, quote: str) -> Optional[dict[str, Any]]:
     """Resolve one citation to Zotero-compatible PDF coordinates."""
-    import pypdfium2
-
+    pypdfium2 = _load_pdfium()
     document = pypdfium2.PdfDocument(str(pdf_path))
     try:
         return _find_quote_position_in_document(document, page_number, quote)
@@ -189,7 +195,7 @@ def _resolve_annotation_candidates(
     documents: dict[str, Any] = {}
     resolver: Callable[[Path, int, str], Optional[dict[str, Any]]]
     if position_resolver is None:
-        import pypdfium2
+        pypdfium2 = _load_pdfium()
 
         def cached_resolver(
             pdf_path: Path, page_number: int, quote: str
@@ -237,7 +243,15 @@ def _annotation_session(session: Optional[Session]) -> tuple[Session, bool]:
     """Return the injected session or open one for the active vault."""
     if session is not None:
         return session, False
-    _engine, session_factory = get_engine_for_path(get_active_vault_path())
+    vault_path = get_active_vault_path()
+    if vault_path is None:
+        from backend.data.db import VaultNotConfiguredError
+
+        raise VaultNotConfiguredError(
+            "No vault configured. Please set DIGITAL_BRAIN_VAULT_PATH environment variable "
+            "or configure a vault path in the application settings."
+        )
+    _engine, session_factory = get_engine_for_path(vault_path)
     return session_factory(), True
 
 

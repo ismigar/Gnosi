@@ -6,7 +6,7 @@ Static SQLAlchemy table and column catalog. Runtime SQLite inspection remains au
 
 Regenerate with `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **19 mapped tables** and **139 mapped columns**.
+Discovered **19 mapped tables** and **160 mapped columns**.
 
 ## Table summary
 
@@ -14,7 +14,7 @@ Discovered **19 mapped tables** and **139 mapped columns**.
 | --- | --- | ---: | --- |
 | `api_tokens` | `ApiToken` | 10 | [`backend/models/management.py:94`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L94) |
 | `articles` | `Article` | 9 | [`backend/models/reader.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L23) |
-| `contacts` | `Contact` | 0 | [`backend/models/contact.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L28) |
+| `contacts` | `Contact` | 21 | [`backend/models/contact.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L28) |
 | `feed_sources` | `FeedSource` | 6 | [`backend/models/reader.py:11`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L11) |
 | `hidden_events` | `HiddenEvent` | 3 | [`backend/models/calendar.py:5`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L5) |
 | `mail_message_tags` | `MailMessageTag` | 6 | [`backend/models/mail.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L42) |
@@ -24,7 +24,7 @@ Discovered **19 mapped tables** and **139 mapped columns**.
 | `messages` | `MailMessage` | 18 | [`backend/models/mail.py:10`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L10) |
 | `newsletter_account` | `NewsletterAccount` | 8 | [`backend/models/reader.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L43) |
 | `notifications` | `Notification` | 7 | [`backend/models/notification.py:11`](https://github.com/ismigar/Gnosi/blob/main/backend/models/notification.py#L11) |
-| `pdf_annotations` | `PdfAnnotation` | 12 | [`backend/models/pdf_annotation.py:21`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L21) |
+| `pdf_annotations` | `PdfAnnotation` | 12 | [`backend/models/pdf_annotation.py:22`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L22) |
 | `share_links` | `ShareLink` | 9 | [`backend/models/management.py:113`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L113) |
 | `task_execution_history` | `TaskExecutionHistory` | 8 | [`backend/models/scheduler.py:9`](https://github.com/ismigar/Gnosi/blob/main/backend/models/scheduler.py#L9) |
 | `users` | `User` | 7 | [`backend/models/management.py:17`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L17) |
@@ -65,6 +65,27 @@ Discovered **19 mapped tables** and **139 mapped columns**.
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `id` | `String` | yes | no | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/contact.py:31`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L31) |
+| `workspace_id` | `String` | — | no | — | yes | `workspaces.id` | — | [`backend/models/contact.py:32`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L32) |
+| `type` | `String` | — | no | — | — | — | ContactType.PERSONAL.value | [`backend/models/contact.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L35) |
+| `name` | `String` | — | no | — | — | — | — | [`backend/models/contact.py:37`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L37) |
+| `email` | `String` | — | no | — | yes | — | — | [`backend/models/contact.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L38) |
+| `phone` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:39`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L39) |
+| `company` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L41) |
+| `job_title` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L42) |
+| `address` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L43) |
+| `notes` | `Text` | — | yes | — | — | — | — | [`backend/models/contact.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L44) |
+| `emails` | `Text` | — | no | — | — | — | '[]' | [`backend/models/contact.py:46`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L46) |
+| `phones` | `Text` | — | no | — | — | — | '[]' | [`backend/models/contact.py:47`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L47) |
+| `addresses` | `Text` | — | no | — | — | — | '[]' | [`backend/models/contact.py:48`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L48) |
+| `google_resource_name` | `String` | — | yes | — | yes | — | — | [`backend/models/contact.py:50`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L50) |
+| `apple_resource_id` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:51`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L51) |
+| `last_synced_at` | `DateTime(timezone=True)` | — | yes | — | — | — | — | [`backend/models/contact.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L53) |
+| `source` | `String` | — | no | — | — | — | ContactSource.LOCAL.value | [`backend/models/contact.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L54) |
+| `photo_url` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:55`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L55) |
+| `tags` | `String` | — | no | — | — | — | '[]' | [`backend/models/contact.py:57`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L57) |
+| `created_at` | `DateTime(timezone=True)` | — | no | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/contact.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L59) |
+| `updated_at` | `DateTime(timezone=True)` | — | no | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/contact.py:62`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L62) |
 
 ## `feed_sources` — `FeedSource`
 
@@ -183,18 +204,18 @@ Discovered **19 mapped tables** and **139 mapped columns**.
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `Integer` | yes | — | — | yes | — | — | [`backend/models/pdf_annotation.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L24) |
-| `source_uri` | `String` | — | no | — | yes | — | — | [`backend/models/pdf_annotation.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L28) |
-| `page` | `Integer` | — | no | — | — | — | — | [`backend/models/pdf_annotation.py:30`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L30) |
-| `type` | `String` | — | no | — | — | — | — | [`backend/models/pdf_annotation.py:34`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L34) |
-| `color` | `String` | — | — | — | — | — | '#ffeb3b' | [`backend/models/pdf_annotation.py:36`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L36) |
-| `rects_json` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:40`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L40) |
-| `text` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L42) |
-| `comment` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L44) |
-| `tags` | `String` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:47`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L47) |
-| `managed_key` | `String` | — | yes | yes | yes | — | — | [`backend/models/pdf_annotation.py:51`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L51) |
-| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L53) |
-| `updated_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:57`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L57) |
+| `id` | `Integer` | yes | no | — | yes | — | — | [`backend/models/pdf_annotation.py:25`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L25) |
+| `source_uri` | `String` | — | no | — | yes | — | — | [`backend/models/pdf_annotation.py:29`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L29) |
+| `page` | `Integer` | — | no | — | — | — | — | [`backend/models/pdf_annotation.py:31`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L31) |
+| `type` | `String` | — | no | — | — | — | — | [`backend/models/pdf_annotation.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L35) |
+| `color` | `String` | — | yes | — | — | — | '#ffeb3b' | [`backend/models/pdf_annotation.py:37`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L37) |
+| `rects_json` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L41) |
+| `text` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L43) |
+| `comment` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:45`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L45) |
+| `tags` | `String` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:48`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L48) |
+| `managed_key` | `String` | — | yes | yes | yes | — | — | [`backend/models/pdf_annotation.py:52`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L52) |
+| `created_at` | `DateTime(timezone=True)` | — | yes | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L59) |
+| `updated_at` | `DateTime(timezone=True)` | — | yes | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:64`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L64) |
 
 ## `share_links` — `ShareLink`
 

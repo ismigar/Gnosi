@@ -13,7 +13,8 @@ a child table with 1 row per rect.
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.data.db import Base
 
@@ -21,41 +22,48 @@ from backend.data.db import Base
 class PdfAnnotation(Base):
     __tablename__ = "pdf_annotations"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     # canonical URI of the PDF (file://… or /api/vault/local-file/{token}).
     # Indexed because the most frequent query is "all the highlights
     # of this specific PDF".
-    source_uri = Column(String, index=True, nullable=False)
+    source_uri: Mapped[str] = mapped_column(String, index=True, nullable=False)
     # Page number, 1-indexed.
-    page = Column(Integer, nullable=False)
+    page: Mapped[int] = mapped_column(Integer, nullable=False)
     # Annotation type. Expected values: 'highlight', 'underline',
     # 'strikeout', 'comment' (note anchored to a point), 'area' (rectangle
     # drawn on the page, e.g. to highlight an image).
-    type = Column(String, nullable=False)
+    type: Mapped[str] = mapped_column(String, nullable=False)
     # Hex color including '#'. Default yellow, Zotero-style.
-    color = Column(String, default="#ffeb3b")
+    color: Mapped[str | None] = mapped_column(String, default="#ffeb3b", nullable=True)
     # JSON-serialized list of rectangles. Format:
     #   [{"x": 0.1, "y": 0.2, "w": 0.5, "h": 0.03}, ...]
     # In normalized 0-1 coordinates relative to the PDF page.
-    rects_json = Column(Text, nullable=True)
+    rects_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Selected text (for highlights/underline/strikeout).
-    text = Column(Text, nullable=True)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Comment written by the user.
-    comment = Column(Text, nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Free-form tags separated by commas. For a future version with
     # filters in the sidebar.
-    tags = Column(String, nullable=True)
+    tags: Mapped[str | None] = mapped_column(String, nullable=True)
     # Stable key for annotations owned by a deterministic subsystem. Manual
     # reader annotations leave this null. LLM Wiki uses it to update or remove
     # its own highlights on reprocess without touching user annotations.
-    managed_key = Column(String, unique=True, index=True, nullable=True)
+    managed_key: Mapped[str | None] = mapped_column(
+        String,
+        unique=True,
+        index=True,
+        nullable=True,
+    )
 
-    created_at = Column(
+    created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
+        nullable=True,
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+        nullable=True,
     )

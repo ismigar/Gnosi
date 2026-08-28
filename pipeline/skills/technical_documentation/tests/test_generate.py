@@ -161,6 +161,28 @@ def test_data_model_catalog_redacts_sensitive_defaults() -> None:
     assert "redacted" in catalog
 
 
+def test_data_model_catalog_supports_sqlalchemy_2_mapped_columns(tmp_path: Path) -> None:
+    """Annotated ``mapped_column`` declarations retain type and nullability."""
+    app_root = tmp_path / "gnosi"
+    model_root = app_root / "backend" / "models"
+    model_root.mkdir(parents=True)
+    (model_root / "sample.py").write_text(
+        "class Sample:\n"
+        "    __tablename__ = 'samples'\n"
+        "    legacy = Column(Integer, primary_key=True)\n"
+        "    title: Mapped[str] = mapped_column(String, nullable=False)\n"
+        "    note: Mapped[str | None] = mapped_column()\n",
+        encoding="utf-8",
+    )
+
+    catalog = build_data_model_catalog(app_root)
+
+    assert "Discovered **1 mapped tables** and **3 mapped columns**." in catalog
+    assert "| `legacy` | `Integer` | yes | — |" in catalog
+    assert "| `title` | `String` | — | no |" in catalog
+    assert r"| `note` | `str \| None` | — | yes |" in catalog
+
+
 def test_coverage_globs_exclude_cache_artifacts(tmp_path: Path) -> None:
     """Broad domain patterns must ignore local bytecode and cache files."""
     source = tmp_path / "extensions" / "adapter.py"

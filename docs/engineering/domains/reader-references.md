@@ -93,6 +93,11 @@ contract without hidden persistence or network access.
 The pure import deduplicator uses explicit metadata and identifier-index shapes;
 its priority remains citation key, DOI, ISBN and normalized title, and an entry
 created earlier in the same import is added idempotently to those same indexes.
+CSL catalog entries and the declarative Zotero-to-Recursos mapper expose explicit
+serializable contracts while retaining arbitrary provider extras at the external
+JSON boundary. Managed Brain citation highlights use SQLAlchemy's typed mapping;
+the only untyped exception is localized to the optional `pypdfium2` adapter,
+which does not publish a `py.typed` marker.
 
 The read-only lookup orchestration lives in the citations domain, preserves the
 DOI → arXiv → PMID → ISBN → URL priority, and routes user URLs through the

@@ -54,6 +54,9 @@ without updating them.
 
 1. Inspect source only; never import `backend.server` or another runtime module.
 2. Use Python AST for routers, functions, docstrings, and environment access.
+   Relational-model discovery must support both legacy `Column(...)`
+   assignments and SQLAlchemy 2 `Mapped[...] = mapped_column(...)` annotated
+   assignments, including inferred type and nullability.
 3. Treat frontend route, export, and API-string discovery as conservative
    static signals rather than a complete call graph.
 4. Exclude dependencies, vendored code, local data, databases, caches, reports,
@@ -104,6 +107,9 @@ requires documentation evidence.
   or log contents.
 - Public source links target the canonical `ismigar/Gnosi` repository root;
   local source paths remain in page metadata for validation.
+- `mapped_column(...)` declarations are represented by `ast.AnnAssign`, not
+  `ast.Assign`. A passing portal build is insufficient evidence of a complete
+  model catalog; regression fixtures must assert mapped table and column counts.
 
 ## Verification
 
