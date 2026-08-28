@@ -133,6 +133,11 @@ Los escritos eligen un objetivo permitido bajo el almacén activo, normalizan lo
 
 ## Papelera y operaciones destructivas
 
+`drawings/service.py` gestiona el descubrimiento Tldraw y Excalidraw heredado,
+las lecturas, las versiones de historial con tiempo de enfriamiento, las
+escrituras atómicas y el borrado recuperable. El trabajo de archivos se ejecuta
+fuera del bucle de eventos y reutiliza el contrato de papelera de las páginas.
+
 La eliminación ordinaria es recuperable: las páginas y los activos relacionados se mueven a través del modelo de basura Vault. Purga es distinta y elimina el contenido más metadatos derivados y relaciones inversas. `trash/purge.py` gestiona el paso irreversible sobre archivos y la limpieza de historial, metadatos laterales y comentarios mediante puertos inyectados. La eliminación del registro de Vault elimina la fila de registro lógica por defecto; la eliminación de carpetas físicas requiere una señal explícita separada y comprobaciones de contención más fuertes.
 
 ## Plantillas de vault

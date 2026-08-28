@@ -135,6 +135,11 @@ Les écritures choisissent une cible autorisée sous le coffre-fort actif, norma
 
 ## Déchets et opérations de destruction
 
+`drawings/service.py` gère la découverte Tldraw et Excalidraw héritée, les
+lectures, les versions d'historique avec délai, les écritures atomiques et la
+suppression récupérable. Les accès aux fichiers s'exécutent hors de la boucle
+d'événements et réutilisent le contrat de corbeille des pages.
+
 Suppression ordinaire est récupérable : les pages et les actifs connexes passent par le modèle de corbeille de Vault. Purge est distinct et supprime le contenu ainsi que les métadonnées dérivées et les relations inverses. `trash/purge.py` gère le passage irréversible sur les fichiers et le nettoyage de l'historique, des métadonnées latérales et des commentaires via des ports injectés. Suppression du registre de Vault supprime la ligne de registre logique par défaut ; suppression physique du dossier nécessite un signal explicite séparé et des contrôles de confinement plus forts.
 
 ## Modèles de value

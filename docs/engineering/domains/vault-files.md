@@ -182,6 +182,11 @@ document.
 
 ## Trash and destructive operations
 
+`drawings/service.py` owns Tldraw and legacy Excalidraw discovery, reads,
+cooldown-limited history snapshots, atomic writes and recoverable deletion.
+Filesystem work runs outside the event loop, and deletion reuses the same Vault
+trash sidecar contract as pages.
+
 Ordinary deletion is recoverable: pages and related assets move through the
 Vault trash model. Purge is distinct and removes content plus derived metadata
 and inverse relations. `trash/purge.py` owns the irreversible filesystem pass,

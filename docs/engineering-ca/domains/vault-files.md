@@ -132,6 +132,11 @@ Escriu un objectiu permès sota la caixa de seguretat activa, normalitza els nom
 
 ## Operacions Paperera i destructiu
 
+`drawings/service.py` gestiona el descobriment Tldraw i Excalidraw heretat, les
+lectures, les versions d'historial amb temps de refredament, les escriptures
+atòmiques i l'eliminació recuperable. La feina de fitxers s'executa fora del
+bucle d'esdeveniments i reutilitza el mateix contracte de paperera que les pàgines.
+
 L' eliminació normal es recuperable: pàgines i actius relacionats es mouen a través del model de brossa Vulta. La freqüència és diferent i elimina contingut més metadades derivades i relacions inverses. `trash/purge.py` gestiona el pas irreversible sobre fitxers i la neteja d'historial, metadades laterals i comentaris mitjançant ports injectats. L' eliminació del registre elimina la fila de registre lògica per omissió; l' eliminació física requereix un senyal explícit i comprovacions de contenció més fortes.
 
 ## Plantilles d' anticipació

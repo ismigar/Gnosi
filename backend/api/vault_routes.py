@@ -143,6 +143,7 @@ from backend.domains.vault.pages import metadata_mutations
 from backend.domains.vault.pages import resolver as page_resolver
 from backend.domains.vault.pages import tags as tags_query
 from backend.domains.vault.daily import service as daily_notes_service
+from backend.domains.vault.drawings import service as drawing_service
 from backend.domains.vault.translation import adapters as translation_adapters
 from backend.domains.vault.translation import lookup as translation_lookup
 from backend.domains.vault.translation import metadata_io as translation_metadata_io
@@ -9385,94 +9386,43 @@ async def get_schema(folder: str):
 # --------------------------------------------------------------------------
 
 
+_DRAWING_DEPENDENCIES = drawing_service.DrawingDependencies(
+    drawings_directory=lambda: get_p("DIBUIXOS"),
+    vault_root=lambda: get_p("VAULT"),
+    move_to_trash=lambda drawing_id, path: cast(
+        drawing_service.JsonObject,
+        _move_page_to_trash(drawing_id, path),
+    ),
+    trash_entry_directory=lambda drawing_id: _trash_entry_dir(drawing_id),
+    write_drawing_json=lambda path, payload: safe_write_json(
+        path,
+        payload,
+        indent=2,
+        ensure_ascii=False,
+    ),
+    write_trash_json=lambda path, payload: safe_write_json(path, payload, indent=2),
+    copy_file=lambda source, target: shutil.copy2(source, target),
+    current_time=time.time,
+    timestamp_label=lambda: datetime.now().strftime("%Y%m%d_%H%M%S"),
+    modified_iso=lambda timestamp: datetime.fromtimestamp(timestamp).isoformat(),
+    logger=log,
+)
+
+
 @router.get("/drawings")
 async def list_drawings():
     """Lists all drawings in the vault (tldraw and excalidraw)."""
-    def _list() -> List[Dict[str, Any]]:
-        dib_path = get_p('DIBUIXOS')
-        dib_path.mkdir(parents=True, exist_ok=True)
-        drawings = []
-        seen_ids = set()
-
-        # First search for .tldraw.json files (new format)
-        for file_path in dib_path.glob("*.tldraw.json"):
-            drawing_id = file_path.stem.replace(".tldraw", "")
-            seen_ids.add(drawing_id)
-            try:
-                stat = file_path.stat()
-                data = json.loads(file_path.read_text(encoding="utf-8"))
-                # New format has { title, data, metadata }
-                title = data.get("title", drawing_id)
-                drawings.append(
-                    {
-                        "id": drawing_id,
-                        "title": title,
-                        "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                        "size": stat.st_size,
-                    }
-                )
-            except Exception as e:
-                log.warning(f"Error reading drawing {file_path.name}: {e}")
-
-        # Then search for .excalidraw.json files (old format)
-        for file_path in dib_path.glob("*.excalidraw.json"):
-            drawing_id = file_path.stem.replace(".excalidraw", "")
-            if drawing_id in seen_ids:
-                continue  # We already have the new format
-            try:
-                stat = file_path.stat()
-                data = json.loads(file_path.read_text(encoding="utf-8"))
-                drawings.append(
-                    {
-                        "id": drawing_id,
-                        "title": data.get("metadata", {}).get("title", drawing_id),
-                        "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                        "size": stat.st_size,
-                    }
-                )
-            except Exception as e:
-                log.warning(f"Error reading drawing {file_path.name}: {e}")
-
-        return drawings
-
-    # Drawings live in the cloud-backed vault. Keep filesystem latency out of
-    # FastAPI's event loop so one unavailable placeholder cannot freeze all
-    # drawing loads and saves.
-    return await asyncio.to_thread(_list)
+    return await drawing_service.list_drawings(_DRAWING_DEPENDENCIES)
 
 
 @router.get("/drawings/{drawing_id}")
 async def get_drawing(drawing_id: str):
     """Returns the data of a Tldraw drawing."""
-    def _read() -> dict:
-        # Search first in new format (.tldraw.json)
-        file_path = get_p("DIBUIXOS") / f"{drawing_id}.tldraw.json"
-        if not file_path.exists():
-            # Fallback to old format (.excalidraw.json)
-            file_path = get_p("DIBUIXOS") / f"{drawing_id}.excalidraw.json"
-            if not file_path.exists():
-                raise FileNotFoundError(drawing_id)
-
-        return json.loads(file_path.read_text(encoding="utf-8"))
-
     try:
-        # The vault can be backed by OneDrive; never perform its read on the
-        # event loop or a slow online-only file will block every drawing.
-        file_data = await asyncio.to_thread(_read)
-    except FileNotFoundError:
+        return await drawing_service.get_drawing(drawing_id, _DRAWING_DEPENDENCIES)
+    except drawing_service.DrawingNotFoundError:
         raise HTTPException(status_code=404, detail="Drawing not found")
-    except Exception as e:
-        log.error(f"Error reading drawing {drawing_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error reading target file")
-
-    try:
-        # New format has { title, data, metadata } - return data
-        if "data" in file_data:
-            return file_data["data"]
-        # Old format - return as-is
-        return file_data
-    except Exception as e:
-        log.error(f"Error reading drawing {drawing_id}: {e}")
+    except drawing_service.DrawingReadError:
         raise HTTPException(status_code=500, detail="Error reading target file")
 
 
@@ -9484,53 +9434,25 @@ def _backup_drawing_version(drawing_id: str, file_path: Path) -> None:
     client saving in a loop from clobbering the good backup with empty versions.
     
     """
-    if not file_path.exists():
-        return
-    history_base = get_p("VAULT") / ".history" / drawing_id
-    history_base.mkdir(parents=True, exist_ok=True)
-
-    COOLDOWN = 600
-    versions = sorted(history_base.glob("*.tldraw.json"))
-    if versions:
-        try:
-            if time.time() - versions[-1].stat().st_mtime < COOLDOWN:
-                return
-        except Exception:
-            pass
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    version_path = history_base / f"{timestamp}.tldraw.json"
-    try:
-        shutil.copy2(file_path, version_path)
-        log.info(f"Drawing version created: {version_path}")
-    except Exception as e:
-        log.warning(f"Could not create drawing version for {drawing_id}: {e}")
+    drawing_service.backup_drawing_version(
+        drawing_id,
+        file_path,
+        _DRAWING_DEPENDENCIES,
+    )
 
 
 @router.put("/drawings/{drawing_id}", dependencies=[Depends(require_role("editor"))])
 async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
     """Saves or updates a Tldraw drawing."""
-    file_path = get_p("DIBUIXOS") / f"{drawing_id}.tldraw.json"
-
-    # Save title and data together
-    payload = {
-        "title": request.title,
-        "data": request.data,
-        "metadata": request.metadata or {},
-    }
-
-    def _write() -> None:
-        # Vault IO (OneDrive may need to materialize files
-        # online-only) outside the event loop — see async_event_loop_vault_io.md
-        get_p("DIBUIXOS").mkdir(parents=True, exist_ok=True)
-        _backup_drawing_version(drawing_id, file_path)
-        safe_write_json(file_path, payload, indent=2, ensure_ascii=False)
-
     try:
-        await asyncio.to_thread(_write)
-        return {"status": "success", "id": drawing_id}
-    except Exception as e:
-        log.error(f"Error saving drawing {drawing_id}: {e}")
+        return await drawing_service.save_drawing(
+            drawing_id,
+            request.title,
+            cast(drawing_service.JsonObject, request.data),
+            cast(drawing_service.JsonObject, request.metadata or {}),
+            _DRAWING_DEPENDENCIES,
+        )
+    except drawing_service.DrawingWriteError:
         raise HTTPException(status_code=500, detail="Error writing target file")
 
 
@@ -9549,35 +9471,13 @@ async def delete_drawing(drawing_id: str):
     
     """
     drawing_id = _validate_safe_page_id(drawing_id)
-    dib_path = get_p('DIBUIXOS')
-    file_path = dib_path / f"{drawing_id}.tldraw.json"
-    if not file_path.exists():
-        file_path = dib_path / f"{drawing_id}.excalidraw.json"
-        if not file_path.exists():
-            raise HTTPException(status_code=404, detail="Drawing not found")
-
-    # Title for the trash: from the drawing's JSON payload (the helper reads
-    # frontmatter of .md; in a JSON it stays empty and the trash would show the id).
-    title = ""
     try:
-        title = str((json.loads(file_path.read_text(encoding="utf-8")) or {}).get("title") or "")
-    except Exception:
-        pass
-
-    def _move() -> Dict[str, Any]:
-        sidecar = _move_page_to_trash(drawing_id, file_path)
-        if title and not sidecar.get("title"):
-            sidecar["title"] = title
-            safe_write_json(_trash_entry_dir(drawing_id) / "_trash.json", sidecar, indent=2)
-        return sidecar
-
-    sidecar = await asyncio.to_thread(_move)
-    return {
-        "status": "soft_deleted",
-        "id": drawing_id,
-        "deleted_at": sidecar.get("deleted_at"),
-        "title": sidecar.get("title") or title,
-    }
+        return await drawing_service.delete_drawing(
+            drawing_id,
+            _DRAWING_DEPENDENCIES,
+        )
+    except drawing_service.DrawingNotFoundError:
+        raise HTTPException(status_code=404, detail="Drawing not found")
 
 
 def _create_page_version(page_id: str, file_path: Path, force: bool = False):
