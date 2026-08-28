@@ -156,9 +156,9 @@ def fetch_contacts() -> TaskResult:
         try:
             with get_mgmt_session() as database:
                 engine = ContactsSyncEngine(
-                    database,
-                    account,
+                    db=database,
                     workspace_id="personal",
+                    integration=account,
                 )
                 sync_result = engine.sync_full_bidirectional()
                 details.append(

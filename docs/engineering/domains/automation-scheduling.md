@@ -86,6 +86,9 @@ The queue requires an explicit `LOCAL_DATA` root and fails before opening
 SQLite when configuration is incomplete. Worker adapters narrow opaque queue
 payloads to concrete mappings before dispatch, and legacy dispatcher
 registration rejects a missing callable before constructing its typed contract.
+Scheduled contact synchronization constructs each engine with explicit database,
+workspace, and integration arguments, preventing account payloads from being
+misbound to workspace identity as service signatures evolve.
 
 ## Vault automations
 
