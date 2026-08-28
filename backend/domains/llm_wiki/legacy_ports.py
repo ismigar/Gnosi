@@ -6,11 +6,13 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, cast
 
+
 def local_data_path() -> Path:
     from backend.api import vault_routes
 
     get_path = cast(Callable[[str], Path], vault_routes.get_p)
     return get_path("LOCAL_DATA")
+
 
 def resolve_table_folder(metadata: dict[str, Any]) -> Path | None:
     from backend.api import vault_routes
@@ -74,3 +76,13 @@ def table_by_id(table_id: str) -> dict[str, Any] | None:
         vault_routes._table_by_id,
     )
     return get_table(table_id)
+
+
+def mark_resource_processed(page_id: str, processed_at: str) -> None:
+    from backend.api import vault_routes
+
+    mark = cast(
+        Callable[[str, str], None],
+        vault_routes.mark_resource_processed,
+    )
+    mark(page_id, processed_at)

@@ -529,6 +529,9 @@ existing imports and monkeypatch/plugin seams continue to resolve at call time.
 and persistence collaborators without introducing eager route imports. The JSON
 writer remains exposed by the facade because it is a historical replaceable seam;
 rebuild and incremental upsert paths retain their cache invalidation behaviour.
+The ingestion facade also consumes these typed late-bound ports for Brain page
+enumeration, table lookup and processed-state updates, preserving runtime plugin
+replacement while keeping domain dependency contracts statically checked.
 
 Deterministic Brain lint is split into bounded checks for orphan notes, stale
 reviews, missing cross-references, duplicate provenance keys, retained managed

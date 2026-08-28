@@ -21,6 +21,7 @@ from urllib.parse import urlencode
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import dimensions as llm_wiki_dimensions
 from backend.domains.llm_wiki import ingestion as llm_wiki_ingestion
+from backend.domains.llm_wiki import legacy_ports
 from backend.domains.llm_wiki import planning as llm_wiki_planning
 from backend.domains.llm_wiki import writing as llm_wiki_writing
 from backend.services import (
@@ -50,10 +51,7 @@ _MANAGED_NOTE_END = "<!-- gnosi:llm-wiki:end note:{key} -->"
 
 
 def get_job_status(identifier: str, source_table_id: str = "") -> Dict[str, Any]:
-    return cast(
-        Dict[str, Any],
-        llm_wiki_storage.get_job_status(identifier, source_table_id),
-    )
+    return llm_wiki_storage.get_job_status(identifier, source_table_id)
 
 
 def is_running(page_id: str, source_table_id: str = "") -> bool:
@@ -94,7 +92,7 @@ def read_source(
         "id": str(metadata.get("table_id") or "legacy"),
         "properties": properties,
     }
-    config = cast(dict[str, Any], llm_wiki_config.auto_detect_source(table))
+    config = llm_wiki_config.auto_detect_source(table)
     config["include_body"] = True
     origins, _warnings = llm_wiki_extractors.extract_resource_sources(
         metadata,
@@ -135,11 +133,9 @@ def _fonts_ids(meta: dict[str, Any]) -> List[str]:
 
 def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dict[str, Any]]:
     """Compact, bounded context packet for cross-links and connection proposals."""
-    from backend.api.vault_routes import _get_pages_for_table
-
     out = []
     try:
-        for page in _get_pages_for_table(brain_table_id) or []:
+        for page in legacy_ports.table_pages(brain_table_id):
             meta = llm_wiki_storage.page_metadata(page)
             if meta.get("is_template"):
                 continue
@@ -323,7 +319,9 @@ def _apply_plan(
         register_page_in_index=register_page_in_index,
         save_page_md=save_page_md,
         load_config=llm_wiki_config.load_config,
-        note_type_value=llm_wiki_config.note_type_value,
+        note_type_value=lambda kind, config, prop=None: llm_wiki_config.note_type_value(
+            kind, config, prop
+        ),
         page_metadata=llm_wiki_storage.page_metadata,
         merge_page_metadata=llm_wiki_storage.merge_page_metadata,
         prepare_managed_markdown=llm_wiki_storage.prepare_managed_markdown,
@@ -406,21 +404,10 @@ def process_resource(
 ) -> Dict[str, Any]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
     from backend.agent.factory import generate_text
-    from backend.api.vault_routes import _table_by_id
-
     dependencies = llm_wiki_ingestion.IngestionDependencies(
-        load_config=lambda: cast(
-            dict[str, Any],
-            llm_wiki_config.load_config(),
-        ),
-        source_config=lambda table_id: cast(
-            dict[str, Any] | None,
-            llm_wiki_config.get_source_config(table_id),
-        ),
-        table_by_id=lambda table_id: cast(
-            dict[str, Any] | None,
-            _table_by_id(table_id),
-        ),
+        load_config=llm_wiki_config.load_config,
+        source_config=llm_wiki_config.get_source_config,
+        table_by_id=legacy_ports.table_by_id,
         update_job=llm_wiki_storage.update_job,
         extract_sources=llm_wiki_extractors.extract_resource_sources,
         save_snapshot=llm_wiki_storage.save_snapshot,
@@ -428,26 +415,13 @@ def process_resource(
         load_brain_index=_load_brain_index,
         dimension_context=_dimension_context,
         build_prompt=_build_chunk_prompt,
-        generate_text=lambda prompt, **kwargs: cast(
-            tuple[str, str],
-            generate_text(prompt, **kwargs),
-        ),
+        generate_text=cast(Callable[..., tuple[str, str]], generate_text),
         parse_plan=_parse_plan,
         save_checkpoint=llm_wiki_storage.save_checkpoint,
         reduce_plans=_validate_and_reduce_plans,
         apply_plan=_apply_plan,
-        sync_annotations=lambda notes, origins, page_id: cast(
-            dict[str, Any],
-            llm_wiki_pdf_annotations.sync_generated_pdf_annotations(
-                notes,
-                origins,
-                page_id,
-            ),
-        ),
-        load_manifest=lambda table_id, page_id: cast(
-            dict[str, Any],
-            llm_wiki_storage.load_manifest(table_id, page_id),
-        ),
+        sync_annotations=llm_wiki_pdf_annotations.sync_generated_pdf_annotations,
+        load_manifest=llm_wiki_storage.load_manifest,
         save_manifest=llm_wiki_storage.save_manifest,
         clock=time.time,
         logger=logger,
@@ -492,31 +466,21 @@ def start_ingest(
     from backend.services import context_vars as cv
 
     source_table_id = source_table_id or str(metadata.get("table_id") or "")
-    existing = cast(
-        dict[str, Any] | None,
+    existing = (
         llm_wiki_storage.get_job_status(source_page_id, source_table_id)
         if llm_wiki_storage.is_running(source_table_id, source_page_id)
-        else None,
+        else None
     )
     if existing:
         return existing
-    previous = cast(
-        dict[str, Any],
-        llm_wiki_storage.get_job_status(source_page_id, source_table_id),
-    )
+    previous = llm_wiki_storage.get_job_status(source_page_id, source_table_id)
     resume_checkpoint: dict[str, Any] | None = None
     if not force and previous.get("phase") == PHASE_PARTIAL and previous.get("job_id"):
-        resume_checkpoint = cast(
-            dict[str, Any] | None,
-            llm_wiki_storage.load_checkpoint(
-                str(previous["job_id"]),
-                "reduced-plan",
-            ),
+        resume_checkpoint = llm_wiki_storage.load_checkpoint(
+            str(previous["job_id"]),
+            "reduced-plan",
         )
-    job = cast(
-        dict[str, Any],
-        llm_wiki_storage.create_job(source_table_id, source_page_id),
-    )
+    job = llm_wiki_storage.create_job(source_table_id, source_page_id)
     active_vault = cv.get_active_vault_path()
 
     def _worker() -> None:
@@ -585,9 +549,7 @@ def _on_ingest_success(
     report: Dict[str, Any],
 ) -> None:
     try:
-        from backend.api.vault_routes import mark_resource_processed
-
-        mark_resource_processed(source_page_id, _today())
+        legacy_ports.mark_resource_processed(source_page_id, _today())
     except Exception as exc:  # noqa: BLE001
         logger.warning("llm_wiki could not update the optional processed field: %s", exc)
     try:
