@@ -101,7 +101,7 @@ def _internal_source_enabled(source_id: str) -> bool:
     required = INTERNAL_SOURCE_PLUGINS.get(str(source_id or "").strip().lower(), ())
     if not required:
         return True
-    from backend.api.vault_routes import _load_plugins_state
+    from backend.domains.vault.api.configuration_routes import _load_plugins_state
     from backend.services import builtin_plugins
 
     state = _load_plugins_state()
@@ -118,7 +118,7 @@ def _request_scope() -> Dict[str, str]:
     """Resolve the authenticated chat execution scope or fail closed."""
     from backend.agent.action_confirmations import current_confirmation_scope
 
-    return cast(Dict[str, str], current_confirmation_scope())
+    return current_confirmation_scope()
 
 
 def _workspace_id() -> str:
@@ -172,7 +172,10 @@ def _reader_session() -> Any:
     from backend.data.db import get_engine_for_path
     from backend.services.context_vars import get_active_vault_path
 
-    _engine, session_factory = get_engine_for_path(get_active_vault_path())
+    vault_path = get_active_vault_path()
+    if vault_path is None:
+        raise RuntimeError("There is no active Vault.")
+    _engine, session_factory = get_engine_for_path(vault_path)
     return session_factory()
 
 
@@ -182,7 +185,10 @@ def _planning_snapshot() -> Dict[str, Any]:
     from backend.services.planning_engine import ScheduleIndex
     from backend.services.project_planning import PlanningStore, calculate_allocation
 
-    vault_path = Path(get_active_vault_path()).resolve()
+    active_vault_path = get_active_vault_path()
+    if active_vault_path is None:
+        raise RuntimeError("There is no active Vault.")
+    vault_path = active_vault_path.resolve()
     state = PlanningStore(vault_path / ".gnosi").load()
     schedule = ScheduleIndex(vault_path).load() or {"projects": {}}
     return {

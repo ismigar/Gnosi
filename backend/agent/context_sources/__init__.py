@@ -11,20 +11,30 @@ in `CATALOG` below.
 """
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Protocol
 
 from . import boe
 
-_MODULES = (boe,)
+class SourceModule(Protocol):
+    ID: str
+    LABEL: str
+    DESCRIPTION: str
 
-CATALOG: Dict[str, object] = {m.ID: m for m in _MODULES}
+    def search(self, query: str, limit: int = ...) -> str: ...
+
+    def read(self, reference: str) -> str: ...
 
 
-def get_source(source_id: str):
+_MODULES: tuple[SourceModule, ...] = (boe,)
+
+CATALOG: dict[str, SourceModule] = {module.ID: module for module in _MODULES}
+
+
+def get_source(source_id: str) -> SourceModule | None:
     return CATALOG.get((source_id or "").strip().lower())
 
 
-def list_sources() -> List[dict]:
+def list_sources() -> list[dict[str, str]]:
     """Serializable catalogue for the settings UI."""
     return [
         {"id": m.ID, "label": m.LABEL, "description": m.DESCRIPTION}

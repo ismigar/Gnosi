@@ -686,6 +686,11 @@ tool signatures and canonical domain routes. Web fetches also make the
 otherwise unreachable no-response state explicit after bounded redirect
 handling; SSRF checks, payload limits, account policy and confirmation effects
 remain unchanged.
+Agent context sources now expose a typed searchable-source protocol for BOE
+and require concrete active-Vault paths before opening Reader or planning
+state. Plugin state is read through the canonical Vault configuration domain,
+while the small LangGraph compatibility graph uses a secret-bearing API-key
+type without changing its fallback responses.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

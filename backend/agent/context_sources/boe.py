@@ -91,7 +91,7 @@ def build_query(user_query: str, *, operator: str = "and") -> str:
 
 
 def format_hits(data: Any, limit: int) -> str:
-    rows: List[dict] = data if isinstance(data, list) else []
+    rows: list[dict[str, Any]] = data if isinstance(data, list) else []
     if not rows:
         return ""
     out = []
