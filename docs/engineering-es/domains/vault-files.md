@@ -135,6 +135,11 @@ La presentación pública es independiente de la exportación y requiere acceso 
 
 ## Variantes de la moneda
 
+`daily/service.py` gestiona, sin depender del proveedor, el descubrimiento por
+carpeta o tabla, la normalización de fechas, las plantillas, el listado y la
+creación atómica de notas diarias. La fachada conserva los decoradores FastAPI
+públicos e inyecta los comandos de página resueltos en último momento.
+
 - Los Etags rancios rechazan sobrescrituras.
 - Registro y creación de notas diarias utilizan recheques de carrera-seguros.
 - Página, registro, índice de enlaces y actualizaciones de sidecar siguen siendo consistentes después de un

@@ -134,6 +134,11 @@ La submissió pública està separada d' exportació i requereix accés d' admin
 
 ## Conculència envaris
 
+`daily/service.py` gestiona, sense dependre del proveïdor, el descobriment per
+carpeta o taula, la normalització de dates, les plantilles, el llistat i la
+creació atòmica de notes diàries. La façana conserva els decoradors FastAPI
+públics i hi injecta les ordres de pàgina resoltes tard.
+
 - Modifica els sobreescriure de Stale ETag Type
 - Recepta i creació diària de notes utilitza les comprovacions de carreres.
 - Pàgina, registre, captura d' enllaços i actualitzacions del dipòsit lateral segueixen consistents després d'un

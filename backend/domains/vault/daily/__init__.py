@@ -1,0 +1,2 @@
+"""Daily-note domain services."""
+

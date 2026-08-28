@@ -136,6 +136,11 @@ La soumission publique est distincte de l'exportation et nécessite l'accès de 
 
 ## Invariants de monnaie
 
+`daily/service.py` gère, indépendamment du fournisseur, la découverte par
+dossier ou table, la normalisation des dates, les modèles, la liste et la
+création atomique des notes quotidiennes. La façade conserve les décorateurs
+FastAPI publics et injecte les commandes de page résolues tardivement.
+
 - Stale ETags rejette les écrasements.
 - Le registre et la création de notes quotidiennes utilisent des contrôles de sécurité de course.
 - Les mises à jour de page, de registre, d'index de lien et de sidecar demeurent cohérentes après une

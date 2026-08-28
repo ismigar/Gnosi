@@ -204,6 +204,12 @@ in Gnosi.
 
 ## Concurrency invariants
 
+`daily/service.py` owns provider-neutral folder/table discovery, date
+normalization, template seeding, listing and the atomic daily-note
+get-or-create workflow. The compatibility router keeps the public FastAPI
+decorators and injects late-bound page commands so existing plugins and tests
+retain their seams.
+
 - Stale ETags reject overwrites.
 - Registry and daily-note creation use race-safe rechecks.
 - Page, registry, link-index, and sidecar updates remain consistent after a

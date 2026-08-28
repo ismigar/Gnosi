@@ -142,6 +142,7 @@ from backend.domains.vault.pages import markdown_writer as page_markdown_writer
 from backend.domains.vault.pages import metadata_mutations
 from backend.domains.vault.pages import resolver as page_resolver
 from backend.domains.vault.pages import tags as tags_query
+from backend.domains.vault.daily import service as daily_notes_service
 from backend.domains.vault.translation import adapters as translation_adapters
 from backend.domains.vault.translation import lookup as translation_lookup
 from backend.domains.vault.translation import metadata_io as translation_metadata_io
@@ -2964,6 +2965,61 @@ create_page = page_commands_api.register_create_route(
 
 
 _DAILY_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_daily_note_lock = asyncio.Lock()
+
+
+def _daily_notes_dependencies() -> daily_notes_service.DailyNotesDependencies:
+    """Bind daily-note workflows to current compatibility seams."""
+    return daily_notes_service.DailyNotesDependencies(
+        templates_directory=lambda: get_p("PLANTILLES"),
+        daily_directory=lambda: get_p("DAILY"),
+        parse_frontmatter=lambda raw, path: cast(
+            tuple[daily_notes_service.Metadata, str],
+            parse_frontmatter(raw, path),
+        ),
+        plugin_state=lambda: cast(
+            daily_notes_service.Metadata,
+            _load_plugins_state(),
+        ),
+        table_by_id=lambda table_id: cast(
+            Optional[daily_notes_service.Metadata],
+            _table_by_id(table_id),
+        ),
+        pages_for_table=lambda table_id: cast(
+            list[object],
+            _get_pages_for_table(cast(str, table_id)),
+        ),
+        read_property=lambda metadata, prop: action_rules_service.read_prop_value(
+            metadata,
+            prop,
+        ),
+        effect_write_key=lambda metadata, prop: cast(
+            Optional[str],
+            action_rules_service.effect_write_key(metadata, prop),
+        ),
+        source_config=lambda: cast(
+            daily_notes_service.DailySource,
+            _daily_source_config(),
+        ),
+        find_in_table=lambda table, date_prop, date: _find_daily_note_in_table(
+            table,
+            date_prop,
+            date,
+        ),
+        find_in_folder=lambda date: _find_daily_note_id(date),
+        template_content=lambda: _load_daily_template_content(),
+        get_page=lambda page_id: get_page(page_id),
+        create_page=lambda title, content, metadata, background_tasks: create_page(
+            PageSaveRequest(
+                title=title,
+                content=content,
+                metadata=cast(Dict[str, Any], metadata),
+            ),
+            cast(BackgroundTasks, background_tasks),
+        ),
+        creation_lock=_daily_note_lock,
+        logger=log,
+    )
 
 
 def _load_daily_template_content() -> str:
@@ -2974,20 +3030,7 @@ def _load_daily_template_content() -> str:
     daily notes — mirroring Obsidian's "Daily note template" setting. Returns
     an empty string when none exists.
     """
-    try:
-        templates_dir = get_p("PLANTILLES")
-        if not templates_dir.exists():
-            return ""
-        for f in templates_dir.glob("*.md"):
-            try:
-                meta, body = parse_frontmatter(f.read_text(encoding="utf-8"), f)
-            except Exception:
-                continue
-            if meta.get("is_daily_template") is True:
-                return (body or "").strip()
-    except Exception as e:
-        log.warning(f"Could not load daily-note template: {e}")
-    return ""
+    return daily_notes_service.load_template_content(_daily_notes_dependencies())
 
 
 def _find_daily_note_id(date_str: str) -> Optional[str]:
@@ -2997,30 +3040,10 @@ def _find_daily_note_id(date_str: str) -> Optional[str]:
     O(1) path check. Falls back to scanning the folder by frontmatter `date`
     for notes created with a non-ISO title.
     """
-    daily_dir = get_p("DAILY")
-    if not daily_dir.exists():
-        return None
-    direct = daily_dir / f"{date_str}.md"
-    if direct.exists():
-        try:
-            meta, _ = parse_frontmatter(direct.read_text(encoding="utf-8"), direct)
-            pid = meta.get("id")
-            if pid:
-                return str(pid)
-        except Exception:
-            pass
-    for f in daily_dir.glob("*.md"):
-        try:
-            meta, _ = parse_frontmatter(f.read_text(encoding="utf-8"), f)
-        except Exception:
-            continue
-        if str(meta.get("note_type") or "").lower() == "daily" and str(
-            meta.get("date") or ""
-        ) == date_str:
-            pid = meta.get("id")
-            if pid:
-                return str(pid)
-    return None
+    return daily_notes_service.find_folder_note_id(
+        date_str,
+        _daily_notes_dependencies(),
+    )
 
 
 def _norm_date(value: Any) -> str:
@@ -3030,8 +3053,7 @@ def _norm_date(value: Any) -> str:
     day; we only key daily notes by the day, so trim to the first 10 chars when
     they form a valid ISO date.
     """
-    s = str(value or "").strip()
-    return s[:10] if _DAILY_DATE_RE.match(s[:10]) else s
+    return daily_notes_service.normalize_date(value)
 
 
 def _daily_source_config() -> Tuple[Optional[dict], Optional[dict]]:
@@ -3047,51 +3069,22 @@ def _daily_source_config() -> Tuple[Optional[dict], Optional[dict]]:
     stored `date_property` is missing or no longer matches.
     
     """
-    try:
-        state = _load_plugins_state()
-        cfg = (state.get("settings") or {}).get("daily-notes") or {}
-        table_id = str(cfg.get("source_table_id") or "").strip()
-        if not table_id:
-            return None, None
-        table = _table_by_id(table_id)
-        if not table:
-            return None, None
-        props = table.get("properties") or []
-        date_ref = str(cfg.get("date_property") or "").strip()
-        date_prop = None
-        if date_ref:
-            for p in props:
-                if p.get("id") == date_ref or p.get("name") == date_ref:
-                    date_prop = p
-                    break
-        if date_prop is None:
-            for p in props:
-                if p.get("type") == "date":
-                    date_prop = p
-                    break
-        return (table, date_prop) if date_prop else (None, None)
-    except Exception as e:
-        log.warning(f"Could not resolve daily-notes source table: {e}")
-        return None, None
+    return cast(
+        Tuple[Optional[dict], Optional[dict]],
+        daily_notes_service.resolve_source(_daily_notes_dependencies()),
+    )
 
 
 def _find_daily_note_in_table(
     table: dict, date_prop: dict, date_str: str
 ) -> Optional[str]:
     """Returns the page id of the BD row whose date column equals `date_str`."""
-    try:
-        pages = _get_pages_for_table(table.get("id"))
-    except Exception:
-        return None
-    for p in pages:
-        md = p.metadata or {}
-        if md.get("is_template"):
-            continue
-        if _norm_date(action_rules_service.read_prop_value(md, date_prop)) == date_str:
-            pid = md.get("id") or getattr(p, "id", None)
-            if pid:
-                return str(pid)
-    return None
+    return daily_notes_service.find_table_note_id(
+        cast(daily_notes_service.Metadata, table),
+        cast(daily_notes_service.Metadata, date_prop),
+        date_str,
+        _daily_notes_dependencies(),
+    )
 
 
 @router.get("/daily")
@@ -3105,59 +3098,7 @@ async def list_daily_notes():
     from that table's rows (keyed by the date column) instead of the
     `Daily Notes/` folder.
     """
-    table, date_prop = await asyncio.to_thread(_daily_source_config)
-    if table and date_prop:
-        notes = []
-        try:
-            pages = await asyncio.to_thread(_get_pages_for_table, table.get("id"))
-        except Exception:
-            pages = []
-        for p in pages:
-            md = p.metadata or {}
-            if md.get("is_template"):
-                continue
-            date_val = _norm_date(action_rules_service.read_prop_value(md, date_prop))
-            if not _DAILY_DATE_RE.match(date_val):
-                continue
-            notes.append(
-                {
-                    "id": str(md.get("id") or getattr(p, "id", "") or ""),
-                    "date": date_val,
-                    "title": md.get("title") or date_val,
-                }
-            )
-        notes.sort(key=lambda n: n["date"], reverse=True)
-        return notes
-
-    daily_dir = get_p("DAILY")
-    notes = []
-    if daily_dir.exists():
-        for f in daily_dir.glob("*.md"):
-            try:
-                meta, _ = parse_frontmatter(f.read_text(encoding="utf-8"), f)
-            except Exception:
-                continue
-            if str(meta.get("note_type") or "").lower() != "daily":
-                continue
-            date_val = str(meta.get("date") or f.stem)
-            notes.append(
-                {
-                    "id": str(meta.get("id") or ""),
-                    "date": date_val,
-                    "title": meta.get("title") or date_val,
-                }
-            )
-    notes.sort(key=lambda n: n["date"], reverse=True)
-    return notes
-
-
-# Serializes the get-or-create of the daily note: two SIMULTANEOUS requests for
-# the same date both passed the "find" (no result) and TWO were created
-# notes (reproduced with two concurrent POSTs: two rows in the DB for the same
-# day; e.g. double-clicking "Daily Note" or two windows at once). A lock
-# global is enough: creation is infrequent and the native backend runs in a
-# single process (the Docker fallback is also a single worker).
-_daily_note_lock = asyncio.Lock()
+    return await daily_notes_service.list_notes(_daily_notes_dependencies())
 
 
 @router.post(
@@ -3178,49 +3119,15 @@ async def get_or_create_daily_note(
     duplicates.
     """
     date_str = (request.date or "").strip()
-    if not _DAILY_DATE_RE.match(date_str):
+    if not daily_notes_service.valid_date(date_str):
         raise HTTPException(
             status_code=422, detail="date must be in YYYY-MM-DD format"
         )
-
-    async with _daily_note_lock:
-        # BD-backed mode: when a source table is configured, the daily note IS a
-        # row of that table (e.g. "Bitàcora"), found/created by its date column.
-        # The `Daily Notes/` folder is bypassed entirely while this is configured.
-        table, date_prop = await asyncio.to_thread(_daily_source_config)
-        if table and date_prop:
-            existing_id = await asyncio.to_thread(
-                _find_daily_note_in_table, table, date_prop, date_str
-            )
-            if existing_id:
-                return await get_page(existing_id)
-            content = await asyncio.to_thread(_load_daily_template_content)
-            write_key = (
-                action_rules_service.effect_write_key({}, date_prop)
-                or date_prop.get("name")
-                or date_prop.get("id")
-            )
-            save_req = PageSaveRequest(
-                title=date_str,
-                content=content,
-                metadata={
-                    "database_table_id": table.get("id"),
-                    write_key: date_str,
-                },
-            )
-            return await create_page(save_req, background_tasks)
-
-        existing_id = await asyncio.to_thread(_find_daily_note_id, date_str)
-        if existing_id:
-            return await get_page(existing_id)
-
-        content = await asyncio.to_thread(_load_daily_template_content)
-        save_req = PageSaveRequest(
-            title=date_str,
-            content=content,
-            metadata={"note_type": "daily", "date": date_str},
-        )
-        return await create_page(save_req, background_tasks)
+    return await daily_notes_service.get_or_create_note(
+        date_str,
+        background_tasks,
+        _daily_notes_dependencies(),
+    )
 
 
 def _extract_tags(raw) -> list:
