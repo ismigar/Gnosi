@@ -73,6 +73,13 @@ Les regles d' automulació combinades, les condicions i accions. Les fórmules d
 
 Els cicles de manteniment i qualitat estan lligats a tasques operatives. Poden diagnosticar, generar informes, aplicar canvis en el seu àmbit declarat. No guanyen un sistema de fitxers més ampli, secret, Git, o publicar l' autoritat perquè estan programats.
 
+## Generació diària d'àudio
+
+El servei de podcast del Reader utilitza selecció tipada de model i idioma,
+treballadors TTS acotats per frase i substitució atòmica de l'MP3. La generació
+en segon pla captura explícitament el Vault seleccionat i no s'inicia si no n'hi
+ha cap d'actiu, de manera que la sortida no pot acabar en un camí local ambigu.
+
 ## Invariants
 
 - Les tasques deshabilitades o no vàlides no s' executen.

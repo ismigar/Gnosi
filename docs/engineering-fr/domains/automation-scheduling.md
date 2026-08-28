@@ -64,6 +64,13 @@ Les règles d'automatisation des vaults combinent déclencheurs, conditions et a
 
 Les boucles de maintenance et de qualité sont des tâches opérationnelles limitées. Elles peuvent diagnostiquer, générer des rapports ou appliquer des modifications dans leur champ d'application déclaré. Elles ne gagnent pas de système de fichiers plus large, secret, Git, ou autorité de publication parce qu'elles sont programmées.
 
+## Génération audio quotidienne
+
+Le service de podcast du Reader utilise une sélection typée du modèle et de la
+langue, des travailleurs TTS bornés par phrase et un remplacement atomique du
+MP3. La génération en arrière-plan capture explicitement le Vault sélectionné et
+refuse de démarrer sans Vault actif, afin d'éviter tout chemin local ambigu.
+
 ## Invariants
 
 - Les tâches désactivées ou invalides ne sont pas exécutées.

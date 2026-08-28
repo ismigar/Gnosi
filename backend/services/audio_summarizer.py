@@ -1,12 +1,17 @@
+"""Generate the daily Reader podcast script and publish its audio atomically."""
+
 import io
 import os
 import re
 import threading
+from collections.abc import Callable, Generator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import TypedDict, cast
 
-from gtts import gTTS
+from gtts import gTTS  # type: ignore[import-untyped]
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from sqlalchemy.orm import Session
 
@@ -15,8 +20,18 @@ from backend.models.reader import Article
 
 log = get_logger(__name__)
 
+
 # --- Global generation status ---
-generation_status = {
+class GenerationStatus(TypedDict):
+    """Observable state for one background podcast generation."""
+
+    running: bool
+    progress: str
+    error: str | None
+    result_filename: str | None
+
+
+generation_status: GenerationStatus = {
     "running": False,
     "progress": "",
     "error": None,
@@ -57,10 +72,10 @@ PODCAST_LANGUAGES = {
 }
 
 
-def _build_batches(articles):
+def _build_batches(articles: Sequence[Article]) -> list[list[str]]:
     """Splits the articles into batches that respect Groq's token limit."""
-    batches = []
-    current_batch_texts = []
+    batches: list[list[str]] = []
+    current_batch_texts: list[str] = []
     current_size = 0
 
     for art in articles:
@@ -87,7 +102,7 @@ class PodcastModelError(RuntimeError):
     """Raised when the configured podcast model cannot be executed."""
 
 
-def _podcast_model_selection(settings):
+def _podcast_model_selection(settings: object) -> tuple[str, str]:
     """Return the normalized provider/model pair from application settings."""
     reader_settings = settings.get("reader") if isinstance(settings, dict) else {}
     reader_settings = reader_settings if isinstance(reader_settings, dict) else {}
@@ -103,7 +118,7 @@ def _podcast_model_selection(settings):
     return provider, model
 
 
-def _podcast_language_selection(settings):
+def _podcast_language_selection(settings: object) -> tuple[str, str]:
     """Return the supported interface language used for script and speech."""
     from backend.config.app_config import normalize_interface_language
 
@@ -113,7 +128,7 @@ def _podcast_language_selection(settings):
     return language_code, PODCAST_LANGUAGES[language_code]
 
 
-def _resolve_podcast_language():
+def _resolve_podcast_language() -> tuple[str, str]:
     """Resolve the current interface language for a new podcast generation."""
     from backend.config.app_config import load_params
 
@@ -121,7 +136,7 @@ def _resolve_podcast_language():
     return _podcast_language_selection(cfg.settings)
 
 
-def _resolve_podcast_llm():
+def _resolve_podcast_llm() -> tuple[BaseChatModel, str, str]:
     """Resolve the current podcast LLM and return it with provider metadata."""
     from backend.agent.factory import get_default_llm_with_meta, get_llm
     from backend.agent.model_router import strip_legacy_registry_rows
@@ -131,14 +146,14 @@ def _resolve_podcast_llm():
     cfg = load_params(strict_env=False)
     provider, model = _podcast_model_selection(cfg.settings)
     if not provider:
-        llm, provider, model = get_default_llm_with_meta(
+        default_llm, default_provider, default_model = get_default_llm_with_meta(
             user_message="Generate the daily news podcast script."
         )
-        if not llm:
+        if not default_llm:
             raise PodcastModelError(
                 "No default AI model is available. Configure one in Settings → AI."
             )
-        return llm, provider, model
+        return default_llm, default_provider or "", default_model or ""
 
     registry = strip_legacy_registry_rows((cfg.ai or {}).get("models"))
     route_enabled = any(
@@ -176,14 +191,14 @@ def _resolve_podcast_llm():
 
 
 def _summarize_batch(
-    llm,
-    batch_texts,
-    batch_num,
-    total_batches,
-    provider,
-    model,
-    language_name,
-):
+    llm: BaseChatModel,
+    batch_texts: list[str],
+    batch_num: int,
+    total_batches: int,
+    provider: str,
+    model: str,
+    language_name: str,
+) -> str:
     """Send one article batch to the configured LLM and return its script."""
     joined = "\n".join(batch_texts)
     num_articles = len(batch_texts)
@@ -225,13 +240,13 @@ def _summarize_batch(
     return content
 
 
-def _split_into_sentences(text):
+def _split_into_sentences(text: str) -> list[str]:
     """Split text into complete sentences for natural TTS pauses."""
     # Split at sentence-ending punctuation followed by space or newline
     # Handles: . ? ! … and combinations like .» or ."
     sentences = re.split(r'(?<=[.!?…»"])\s+', text)
     # Filter empty and merge very short fragments back
-    result = []
+    result: list[str] = []
     for s in sentences:
         s = s.strip()
         if not s:
@@ -244,7 +259,7 @@ def _split_into_sentences(text):
     return result
 
 
-def _synthesize_tts_sentence(payload):
+def _synthesize_tts_sentence(payload: tuple[int, str, str]) -> bytes:
     """Synthesize one indexed sentence and return its MP3 bytes."""
     index, sentence, language_code = payload
     try:
@@ -257,7 +272,7 @@ def _synthesize_tts_sentence(payload):
         return b""
 
 
-def _generate_tts_by_sentences(text, output_path, language_code):
+def _generate_tts_by_sentences(text: str, output_path: str | Path, language_code: str) -> None:
     """
     Generate TTS audio sentence by sentence to avoid mid-sentence pauses.
     """
@@ -279,7 +294,7 @@ def _generate_tts_by_sentences(text, output_path, language_code):
     log.info(f"TTS completed: {os.path.getsize(output_path)} bytes")
 
 
-def _generate_tts_atomically(text, output_path, language_code):
+def _generate_tts_atomically(text: str, output_path: str | Path, language_code: str) -> None:
     """Publish a complete MP3 without exposing an in-progress audio file."""
     partial_path = f"{output_path}.part"
     try:
@@ -292,12 +307,14 @@ def _generate_tts_atomically(text, output_path, language_code):
             os.remove(partial_path)
 
 
-def get_podcast_output_dir(vault_path=None):
+def get_podcast_output_dir(vault_path: str | Path | None = None) -> Path:
     """Return the shared output directory used to generate and serve podcasts."""
     if vault_path is None:
         from backend.services.context_vars import get_active_vault_path
 
         vault_path = get_active_vault_path()
+    if vault_path is None:
+        raise RuntimeError("No active vault is available for podcast generation.")
     return Path(vault_path) / "data" / "podcasts"
 
 
@@ -315,7 +332,8 @@ def generate_daily_podcast() -> str | None:
     # Get DB session dynamically
     from backend.data.db import get_db
 
-    db_gen = get_db()
+    typed_get_db = cast(Callable[[], Generator[Session, None, None]], get_db)
+    db_gen = typed_get_db()
     db: Session = next(db_gen)
 
     try:
@@ -348,7 +366,7 @@ def generate_daily_podcast() -> str | None:
         llm, provider, model = _resolve_podcast_llm()
         language_code, language_name = _resolve_podcast_language()
         model_label = f"{provider}/{model}"
-        all_summaries = []
+        all_summaries: list[str] = []
 
         for i, batch in enumerate(batches):
             batch_num = i + 1
@@ -422,7 +440,7 @@ def generate_daily_podcast() -> str | None:
         generation_status["running"] = False
 
 
-def start_generation_async(vault_path=None):
+def start_generation_async(vault_path: str | Path | None = None) -> bool:
     """Launches the generation in a background thread. Returns immediately."""
     from backend.services.context_vars import active_vault_path, get_active_vault_path
 
@@ -432,9 +450,13 @@ def start_generation_async(vault_path=None):
         # Sets the flag INSIDE the lock so no one else passes the check before
         # the thread starts. The thread itself will overwrite the progress.
         generation_status["running"] = True
-    selected_vault_path = Path(vault_path or get_active_vault_path())
+    selected_vault = vault_path or get_active_vault_path()
+    if selected_vault is None:
+        generation_status["running"] = False
+        return False
+    selected_vault_path = Path(selected_vault)
 
-    def run_for_selected_vault():
+    def run_for_selected_vault() -> None:
         token = active_vault_path.set(selected_vault_path)
         try:
             generate_daily_podcast()

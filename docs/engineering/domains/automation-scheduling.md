@@ -96,6 +96,13 @@ generate reports, or apply changes within their declared scope. They do not gain
 broader filesystem, secret, Git, or publishing authority because they are
 scheduled.
 
+## Daily audio generation
+
+The Reader podcast service uses typed model and language selection, bounded
+sentence-level TTS workers, and atomic MP3 replacement. Background generation
+captures the selected Vault explicitly and refuses to start when no Vault is
+active, so output cannot fall through to an ambiguous local path.
+
 ## Invariants
 
 - Disabled or invalid tasks do not execute.

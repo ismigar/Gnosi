@@ -73,6 +73,13 @@ Las reglas de automatización de saltos combinan disparadores, condiciones y acc
 
 Los bucles de mantenimiento y calidad son tareas operativas limitadas. Pueden diagnosticar, generar informes o aplicar cambios dentro de su ámbito declarado. No obtienen un sistema de archivos más amplio, secreto, Git o autoridad editorial porque están programados.
 
+## Generación diaria de audio
+
+El servicio de pódcast del Reader utiliza selección tipada de modelo e idioma,
+trabajadores TTS acotados por frase y sustitución atómica del MP3. La generación
+en segundo plano captura explícitamente el Vault seleccionado y no se inicia si
+no hay ninguno activo, evitando que la salida use una ruta local ambigua.
+
 ## Invariantes
 
 - Las tareas deshabilitadas o inválidas no se ejecutan.
