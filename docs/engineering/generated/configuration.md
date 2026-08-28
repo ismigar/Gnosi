@@ -101,13 +101,13 @@ Discovered **106 variables** across **168 source references**.
 | `PATH` | Python | '' | [`backend/agent/generated_tools/sandbox_runner.py:93`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/sandbox_runner.py#L93) |
 | `REPO_ROOT` | Python | required, unset | [`backend/scheduler/task_handlers.py:207`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/task_handlers.py#L207)<br>[`pipeline/brain/orchestrator.py:22`](https://github.com/ismigar/Gnosi/blob/main/pipeline/brain/orchestrator.py#L22)<br>[`pipeline/brain/orchestrator.py:22`](https://github.com/ismigar/Gnosi/blob/main/pipeline/brain/orchestrator.py#L22) |
 | `SOFTCATALA_API_URL` | Python | unset | [`pipeline/skills/translate_row/scripts/translate_text.py:296`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L296)<br>[`pipeline/skills/translate_row/scripts/translate_text.py:305`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L305) |
-| `TELEGRAM_BOT_TOKEN` | Python | redacted | [`backend/services/social_clients.py:527`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L527) |
-| `TELEGRAM_CHAT_ID` | Python | '' | [`backend/services/social_clients.py:531`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L531) |
-| `TEMENOS_BLUESKY_APP_PASSWORD` | Python | redacted | [`backend/services/social_clients.py:268`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L268) |
-| `TEMENOS_BLUESKY_HANDLE` | Python | '' | [`backend/services/social_clients.py:264`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L264) |
-| `TEMENOS_MASTODON_BEARER` | Python | redacted | [`backend/services/social_clients.py:31`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L31) |
-| `TEMENOS_MASTODON_HANDLE` | Python | '' | [`backend/services/social_clients.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L35) |
-| `TEMENOS_MASTODON_INSTANCE` | Python | 'https://mastodon.social' | [`backend/services/social_clients.py:21`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L21) |
+| `TELEGRAM_BOT_TOKEN` | Python | redacted | [`backend/services/social_clients.py:544`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L544) |
+| `TELEGRAM_CHAT_ID` | Python | '' | [`backend/services/social_clients.py:548`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L548) |
+| `TEMENOS_BLUESKY_APP_PASSWORD` | Python | redacted | [`backend/services/social_clients.py:278`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L278) |
+| `TEMENOS_BLUESKY_HANDLE` | Python | '' | [`backend/services/social_clients.py:274`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L274) |
+| `TEMENOS_MASTODON_BEARER` | Python | redacted | [`backend/services/social_clients.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L35) |
+| `TEMENOS_MASTODON_HANDLE` | Python | '' | [`backend/services/social_clients.py:39`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L39) |
+| `TEMENOS_MASTODON_INSTANCE` | Python | 'https://mastodon.social' | [`backend/services/social_clients.py:25`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L25) |
 | `THUMB_CACHE_DIR` | Python | str(Path.home() / '.cache' / 'gnosi' / 'thumbs') | [`scripts/runtime/onedrive_warmup_daemon.py:117`](https://github.com/ismigar/Gnosi/blob/main/scripts/runtime/onedrive_warmup_daemon.py#L117) |
 | `THUMB_DAEMON_URL` | Python | unset | [`backend/config/env_config.py:170`](https://github.com/ismigar/Gnosi/blob/main/backend/config/env_config.py#L170) |
 | `THUMB_QLMANAGE_TIMEOUT` | Python | '30' | [`scripts/runtime/onedrive_warmup_daemon.py:119`](https://github.com/ismigar/Gnosi/blob/main/scripts/runtime/onedrive_warmup_daemon.py#L119) |
