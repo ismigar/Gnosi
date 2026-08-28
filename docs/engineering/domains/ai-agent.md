@@ -305,6 +305,10 @@ persistence, expose typed scope payloads and retain an identity decorator only
 for lean environments without LangChain. Article reads and mutations narrow
 legacy ORM descriptors at one boundary while preserving tool names, effects and
 serialized responses.
+Attached-Reader context tools apply the same guard and reuse one resolved Vault
+for status authorization and result retrieval, preventing cross-Vault context
+drift within a tool call. Untrusted-content wrapping and output bounds remain
+unchanged.
 Providers and queue dispatchers register versioned contracts declaring job
 kind, idempotency, lease, attempt and model-call budgets, result, resume, and
 cancellation behavior. Unknown job types fail visibly instead of entering a
