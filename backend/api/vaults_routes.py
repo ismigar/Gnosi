@@ -51,7 +51,10 @@ class RenameVaultPayload(BaseModel):
 
 
 def _default_vault_path() -> Path:
-    return Path(load_params(strict_env=False).paths.get("VAULT"))
+    configured = load_params(strict_env=False).paths.get("VAULT")
+    if not configured:
+        raise HTTPException(status_code=503, detail="The primary Vault path is not configured")
+    return Path(configured)
 
 
 def _vaults_root() -> Path:
@@ -98,7 +101,7 @@ def _prune_container_rows(db: Session, ws_id: str, default_path: Path) -> None:
         pass
 
 
-def _ensure_main_vault(db: Session, ws_id: str, default_path: Path):
+def _ensure_main_vault(db: Session, ws_id: str, default_path: Path) -> Vault | None:
     """Ensures a 'Main Vault' row pointing to the default vault (for legacy users without a row)."""
     dp = str(default_path)
     exists = db.query(Vault).filter(Vault.workspace_id == ws_id, Vault.path_override == dp).first()
@@ -115,7 +118,8 @@ def _ensure_main_vault(db: Session, ws_id: str, default_path: Path):
 
 
 @router.get("")
-def list_vaults(ctx: WorkspaceContext = Depends(get_workspace_context),
+def list_vaults(  # type: ignore[no-untyped-def]
+                ctx: WorkspaceContext = Depends(get_workspace_context),
                 db: Session = Depends(get_mgmt_db)):
     """Workspace vaults + which one is active (the one resolved by X-Vault-Id or the main one)."""
     _ensure_main_vault(db, ctx.workspace_id, _default_vault_path())
@@ -129,7 +133,8 @@ def list_vaults(ctx: WorkspaceContext = Depends(get_workspace_context),
 
 
 @router.post("", dependencies=[Depends(require_role("editor"))])
-def create_vault(payload: CreateVaultPayload,
+def create_vault(  # type: ignore[no-untyped-def]
+                 payload: CreateVaultPayload,
                  ctx: WorkspaceContext = Depends(get_workspace_context),
                  db: Session = Depends(get_mgmt_db)):
     """Creates a new vault (folder + row). Defaults to a sibling of the main vault."""
@@ -172,7 +177,8 @@ def create_vault(payload: CreateVaultPayload,
 
 
 @router.patch("/{vault_id}", dependencies=[Depends(require_role("editor"))])
-def rename_vault(vault_id: str, payload: RenameVaultPayload,
+def rename_vault(  # type: ignore[no-untyped-def]
+                 vault_id: str, payload: RenameVaultPayload,
                  ctx: WorkspaceContext = Depends(get_workspace_context),
                  db: Session = Depends(get_mgmt_db)):
     """Change a vault's LOGICAL name (the DB row, not the disk folder).
@@ -184,7 +190,7 @@ def rename_vault(vault_id: str, payload: RenameVaultPayload,
     v = db.query(Vault).filter(Vault.id == vault_id, Vault.workspace_id == ctx.workspace_id).first()
     if not v:
         raise HTTPException(status_code=404, detail="Vault not found")
-    v.name = name
+    setattr(v, "name", name)
     try:
         db.commit()
     except Exception:
@@ -199,7 +205,8 @@ def rename_vault(vault_id: str, payload: RenameVaultPayload,
 
 
 @router.delete("/{vault_id}", dependencies=[Depends(require_role("editor"))])
-def delete_vault(vault_id: str,
+def delete_vault(  # type: ignore[no-untyped-def]
+                 vault_id: str,
                  delete_files: bool = Query(default=False),
                  ctx: WorkspaceContext = Depends(get_workspace_context),
                  db: Session = Depends(get_mgmt_db)):

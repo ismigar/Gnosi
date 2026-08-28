@@ -248,6 +248,12 @@ single typed router, with historical schema identity retained. Source URI
 filtering, page ordering, editor permissions and annotation serialization are
 unchanged.
 
+Vault administration now fails explicitly with a service-unavailable response
+when the primary Vault path is absent, rather than constructing a path from
+`None`. Legacy response annotations remain frozen, and logical rename crosses
+the old ORM descriptor boundary without changing disk folders, slugs, purge
+rules or path-containment checks.
+
 ## File providers
 
 The provider abstraction selects local, generic macOS File Provider, OneDrive,
