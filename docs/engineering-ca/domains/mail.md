@@ -14,6 +14,7 @@ tests:
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
   - backend/tests/test_mail_reply_cid.py
+  - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
 ---
@@ -48,6 +49,11 @@ flowchart LR
 ```
 
 HTML està salititzat abans de renderitzar. Les imatges CID inlinees es resolen contra la part MIME correcta i conservades quan el contingut citat s' inclou en respostes. Les imatges remotes i els adjunts romandran explícites en comptes d' accedir a les rutes locals.
+
+La frontera d'imatges inline utilitza descriptors MIME tipats i una arrel
+`Message` comuna per als arbres de text, related i mixed. Només accepta payloads
+descodificats en bytes, normalitza tipus de contingut opcionals i conserva els
+URL dels assets si no hi ha Vault actiu o el fitxer no està materialitzat.
 
 ## Compon i enviï
 

@@ -14,6 +14,7 @@ tests:
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
   - backend/tests/test_mail_reply_cid.py
+  - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
 ---
@@ -60,6 +61,11 @@ HTML is sanitized before rendering. Inline CID images are resolved against the
 correct MIME part and preserved when quoted content is included in replies.
 Remote images and attachments remain explicit resources rather than arbitrary
 HTML access to local paths.
+
+The inline-image boundary uses typed MIME asset descriptors and a common
+`Message` root for text, related and mixed trees. It accepts only decoded byte
+payloads, normalizes optional content types, and leaves asset URLs unchanged
+when no active Vault or materialized file is available.
 
 ## Compose and send
 
