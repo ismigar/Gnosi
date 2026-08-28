@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
+  - backend/domains/llm_wiki/legacy_ports.py
   - backend/services/llm_wiki_lint.py
   - backend/services/llm_wiki_pdf_annotations.py
   - backend/domains/agent
@@ -524,6 +525,10 @@ dimension and general pages, while `search_index.py` owns rebuildable JSON, FTS5
 and vector indexes. `backend/services/llm_wiki.py` and
 `backend/services/llm_wiki_indices.py` remain late-bound compatibility facades so
 existing imports and monkeypatch/plugin seams continue to resolve at call time.
+`backend/domains/llm_wiki/legacy_ports.py` narrows the path, table, page parsing
+and persistence collaborators without introducing eager route imports. The JSON
+writer remains exposed by the facade because it is a historical replaceable seam;
+rebuild and incremental upsert paths retain their cache invalidation behaviour.
 
 Deterministic Brain lint is split into bounded checks for orphan notes, stale
 reviews, missing cross-references, duplicate provenance keys, retained managed

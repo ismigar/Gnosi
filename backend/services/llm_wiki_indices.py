@@ -12,6 +12,7 @@ from typing import Any, Iterable, Optional, cast
 
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import index_rendering as llm_wiki_index_rendering
+from backend.domains.llm_wiki import legacy_ports as llm_wiki_legacy_ports
 from backend.domains.llm_wiki import search_index as llm_wiki_search_index
 from backend.services import llm_wiki_config, llm_wiki_storage
 from backend.utils.safe_io import safe_write_json
@@ -321,8 +322,6 @@ def append_log(
 
 def rebuild_search_cache(brain_table_id: str) -> int:
     """Write a rebuildable Brain-only lexical cache outside the synced vault."""
-    from backend.api.vault_routes import get_p
-
     def clear_search_cache(table_id: str) -> None:
         from backend.agent.vault_tools import clear_wiki_search_cache
 
@@ -338,8 +337,8 @@ def rebuild_search_cache(brain_table_id: str) -> int:
         safe_token=_safe_token,
         title=_title,
         vector=search_vector,
-        local_data=lambda: get_p("LOCAL_DATA"),
-        json_writer=safe_write_json,
+        local_data=llm_wiki_legacy_ports.local_data_path,
+        json_writer=_write_search_json,
         upsert_records=upsert_search_records,
         clear_search_cache=clear_search_cache,
     )
@@ -350,13 +349,22 @@ def rebuild_search_cache(brain_table_id: str) -> int:
 
 
 def _fts_path(brain_table_id: str) -> Path:
-    from backend.api.vault_routes import get_p
-
     return llm_wiki_search_index.fts_path(
         brain_table_id,
-        local_data=lambda: get_p("LOCAL_DATA"),
+        local_data=llm_wiki_legacy_ports.local_data_path,
         safe_token=_safe_token,
     )
+
+
+def _write_search_json(
+    path: Path,
+    payload: object,
+    *,
+    indent: int,
+    ensure_ascii: bool,
+) -> object:
+    safe_write_json(path, payload, indent=indent, ensure_ascii=ensure_ascii)
+    return None
 
 
 def upsert_search_records(
@@ -423,11 +431,9 @@ def search_index_status(brain_table_id: str) -> dict[str, Any]:
 
 
 def load_search_cache(brain_table_id: str) -> list[dict[str, Any]]:
-    from backend.api.vault_routes import get_p
-
     return llm_wiki_search_index.load_search_cache(
         brain_table_id,
-        local_data=lambda: get_p("LOCAL_DATA"),
+        local_data=llm_wiki_legacy_ports.local_data_path,
         safe_token=_safe_token,
     )
 
@@ -578,13 +584,6 @@ def _upsert_managed_page(
     extra_metadata: Optional[dict[str, Any]] = None,
     selector: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
-    from backend.api.vault_routes import (
-        _get_unique_filepath,
-        _resolve_table_folder_from_metadata,
-        register_page_in_index,
-        save_page_md,
-    )
-
     page = _find_managed_page(brain_table_id, role, selector=selector)
     metadata = {
         "title": title,
@@ -611,18 +610,20 @@ def _upsert_managed_page(
             "title": str(old_meta.get("title") or title),
         }
 
-    brain_dir = _resolve_table_folder_from_metadata({"table_id": brain_table_id})
+    brain_dir = llm_wiki_legacy_ports.resolve_table_folder(
+        {"table_id": brain_table_id}
+    )
     if not brain_dir:
         raise RuntimeError("Could not resolve the Brain table folder")
     brain_dir.mkdir(parents=True, exist_ok=True)
     metadata["id"] = str(uuid.uuid4())
-    path = _get_unique_filepath(brain_dir, title, ".md")
-    save_page_md(
+    path = llm_wiki_legacy_ports.unique_filepath(brain_dir, title, ".md")
+    llm_wiki_legacy_ports.save_page(
         path,
         llm_wiki_storage.prepare_managed_markdown(metadata),
         _replace_managed_block("", managed_key, content),
     )
-    register_page_in_index(path)
+    llm_wiki_legacy_ports.register_page(path)
     return {"id": metadata["id"], "title": title}
 
 
@@ -663,41 +664,32 @@ def _managed_content(body: str, key: str) -> str:
 
 
 def _save_existing_page(path: Path, metadata: dict[str, Any], body: str) -> None:
-    from backend.api.vault_routes import register_page_in_index, save_page_md
-
-    save_page_md(
+    llm_wiki_legacy_ports.save_page(
         path,
         llm_wiki_storage.prepare_managed_markdown(metadata),
         body.rstrip() + "\n",
     )
-    register_page_in_index(path)
+    llm_wiki_legacy_ports.register_page(path)
 
 
 def _read_page(path: Optional[Path]) -> tuple[dict[str, Any], str]:
     if not path or not path.exists():
         return {}, ""
-    from backend.api.vault_routes import parse_frontmatter
-
-    return cast(
-        tuple[dict[str, Any], str],
-        parse_frontmatter(path.read_text(encoding="utf-8"), path),
+    return llm_wiki_legacy_ports.parse_frontmatter(
+        path.read_text(encoding="utf-8"), path
     )
 
 
 def _brain_pages(brain_table_id: str) -> list[Any]:
-    from backend.api.vault_routes import _get_pages_for_table
-
-    return list(_get_pages_for_table(brain_table_id) or [])
+    return llm_wiki_legacy_ports.table_pages(brain_table_id)
 
 
 def _table(table_id: str) -> Optional[dict[str, Any]]:
-    from backend.api.vault_routes import _table_by_id
-
-    return cast(dict[str, Any] | None, _table_by_id(table_id))
+    return llm_wiki_legacy_ports.table_by_id(table_id)
 
 
 def _meta(page: Any) -> dict[str, Any]:
-    return cast(dict[str, Any], llm_wiki_storage.page_metadata(page))
+    return llm_wiki_storage.page_metadata(page)
 
 
 def _page_id(page: Any) -> str:
