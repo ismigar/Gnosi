@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 210 |
-| `domains` | 368 | 83088 |
+| `domains` | 368 | 83092 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1220 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146595 source lines**.
+Total: **699 modules** and **146599 source lines**.
 
 ## agent
 
@@ -414,7 +414,7 @@ Total: **699 modules** and **146595 source lines**.
 | [`backend/domains/vault/daily/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/daily/__init__.py) | 1 | 0 | 0 | 0 | 0 | Daily-note domain services. |
 | [`backend/domains/vault/daily/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/daily/service.py) | 306 | 1 | 10 | 2 | 9 | Provider-neutral daily-note discovery and atomic get-or-create workflows. |
 | [`backend/domains/vault/drawings/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drawings/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault drawing persistence services. |
-| [`backend/domains/vault/drawings/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drawings/routes.py) | 154 | 0 | 7 | 4 | 7 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/drawings/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drawings/routes.py) | 158 | 0 | 7 | 4 | 7 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/drawings/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drawings/service.py) | 247 | 4 | 9 | 4 | 9 | Provider-neutral persistence for Tldraw and legacy Excalidraw documents. |
 | [`backend/domains/vault/drupal/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/__init__.py) | 21 | 0 | 0 | 0 | 0 | Typed Vault-to-Drupal synchronization domain. |
 | [`backend/domains/vault/drupal/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/composition.py) | 397 | 0 | 27 | 8 | 25 | Typed Vault domain extracted from the historical route facade. |

@@ -2,8 +2,12 @@
 
 import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
+from typing import cast as _strict_cast
+
+from fastapi import APIRouter
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+router = _strict_cast(APIRouter, _legacy.router)
 
 _DRAWING_DEPENDENCIES = _legacy.drawing_service.DrawingDependencies(
     drawings_directory=lambda: _legacy.get_p("DIBUIXOS"),
@@ -24,13 +28,13 @@ _DRAWING_DEPENDENCIES = _legacy.drawing_service.DrawingDependencies(
 )
 
 
-@_legacy.router.get("/drawings", response_model=None)
+@router.get("/drawings", response_model=None)
 async def list_drawings() -> _LegacyAny:
     """Lists all drawings in the vault (tldraw and excalidraw)."""
     return await _legacy.drawing_service.list_drawings(_DRAWING_DEPENDENCIES)
 
 
-@_legacy.router.get("/drawings/{drawing_id}", response_model=None)
+@router.get("/drawings/{drawing_id}", response_model=None)
 async def get_drawing(drawing_id: str) -> _LegacyAny:
     """Returns the data of a Tldraw drawing."""
     try:
@@ -52,7 +56,7 @@ def _backup_drawing_version(drawing_id: str, file_path: _legacy.Path) -> None:
     _legacy.drawing_service.backup_drawing_version(drawing_id, file_path, _DRAWING_DEPENDENCIES)
 
 
-@_legacy.router.put(
+@router.put(
     "/drawings/{drawing_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -71,7 +75,7 @@ async def save_drawing(drawing_id: str, request: _legacy.DrawingSaveRequest) -> 
         raise _legacy.HTTPException(status_code=500, detail="Error writing target file")
 
 
-@_legacy.router.delete(
+@router.delete(
     "/drawings/{drawing_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
@@ -144,7 +148,7 @@ _legacy.history_api.configure(
     )
 )
 _legacy.history_api.register_routes(
-    _legacy.router,
+    router,
     editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     admin_dependencies=[_legacy.Depends(_legacy.require_role("admin"))],
 )

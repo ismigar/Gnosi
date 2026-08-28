@@ -127,6 +127,11 @@ file, icon and property registrations all use that same typed instance, keeping
 registration order and the OpenAPI contract stable without scattering type
 exceptions across individual handlers.
 
+The drawings boundary applies the same single-router narrowing to drawing CRUD
+and delegated history registration. Drawing backups, soft deletion, recovery
+windows, permissions and route ordering remain owned by their existing domain
+services while the HTTP composition surface is strict.
+
 Table-scoped storage has explicit owners. `assets/table_paths.py` owns contained
 asset paths, per-property directories, revisions and collision-safe rename
 helpers; `assets/persistence.py` owns recursive metadata ingestion and contained
