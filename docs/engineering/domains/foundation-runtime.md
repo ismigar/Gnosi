@@ -7,12 +7,14 @@ source_paths:
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
+  - backend/services/data_dir_migration.py
   - frontend/src/App.jsx
 tests:
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
+  - backend/tests/test_data_dir_migration.py
   - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -63,6 +65,12 @@ settings. Path resolution then applies explicit deployment environment values.
 Credential-bearing AI configuration stores references. A legacy environment
 credential may create a provider once, but a persisted disconnection tombstone
 prevents it from reappearing after deliberate deletion.
+
+Per-device data migration is a journaled state machine. Source verification,
+same-volume atomic rename, cross-volume staging, destination verification, and
+automatic rollback are separate phases. Every SQLite database is checkpointed
+and integrity-checked, and a copied tree is compared against a hashed inventory
+before the destination replaces an empty scaffold.
 
 ## Frontend shell
 

@@ -7,12 +7,14 @@ source_paths:
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
+  - backend/services/data_dir_migration.py
   - frontend/src/App.jsx
 tests:
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
+  - backend/tests/test_data_dir_migration.py
   - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -49,6 +51,13 @@ Les défaillances de l'IA ou du démarrage optionnel de l'intégration sont enre
 `load_params()` combine l'application version YAML avec la configuration utilisateur actuel ou active-vault. Les valeurs du dictionnaire se fusionnent récursivement. `.gnosi/params.yaml` devient la cible de persistance pour les réglages à spectromètre de voûte. La résolution du chemin applique ensuite des valeurs explicites d'environnement de déploiement.
 
 Une ancienne accréditation d'environnement peut créer un fournisseur une fois, mais une pierre tombale de déconnexion persistante empêche sa réapparition après suppression délibérée.
+
+La migration des données locales est une machine à états journalisée. La
+vérification de la source, le renommage atomique sur un même volume, la zone de
+transit entre volumes, la vérification de la destination et le retour arrière
+automatique sont des phases distinctes. Chaque base SQLite passe un checkpoint
+et `integrity_check`, et toute copie est comparée à un inventaire haché avant de
+remplacer une structure vide.
 
 ## Coquille de la façade
 

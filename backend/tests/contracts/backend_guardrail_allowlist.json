@@ -25,11 +25,6 @@
       "max_lines": 800,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
-    "backend/services/data_dir_migration.py": {
-      "max_complexity": 18,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/services/llm_wiki_lint.py": {
       "max_complexity": 19,
       "max_lines": 800,
