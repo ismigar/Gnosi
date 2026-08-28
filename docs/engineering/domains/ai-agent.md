@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
+  - backend/services/llm_wiki_lint.py
   - backend/domains/agent
   - backend/domains/configuration/agent
   - backend/agent
@@ -32,6 +33,7 @@ source_paths:
   - frontend/src/components/AI
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
+  - backend/tests/test_llm_wiki_lint.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_artificial_analysis.py
@@ -475,6 +477,11 @@ dimension and general pages, while `search_index.py` owns rebuildable JSON, FTS5
 and vector indexes. `backend/services/llm_wiki.py` and
 `backend/services/llm_wiki_indices.py` remain late-bound compatibility facades so
 existing imports and monkeypatch/plugin seams continue to resolve at call time.
+
+Deterministic Brain lint is split into bounded checks for orphan notes, stale
+reviews, missing cross-references, duplicate provenance keys, retained managed
+notes, broken evidence citations, reprocessing and resource-index drift. The
+report shape and finding limits remain stable and require no model provider.
 
 ## Failure and safety invariants
 

@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
+  - backend/services/llm_wiki_lint.py
   - backend/domains/agent
   - backend/domains/configuration/agent
   - backend/agent
@@ -16,6 +17,7 @@ source_paths:
   - frontend/src/components/AI
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
+  - backend/tests/test_llm_wiki_lint.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_artificial_analysis.py
@@ -144,6 +146,11 @@ mentre que `search_index.py` gestiona els índexs reconstruïbles JSON, FTS5 i
 vectorials. `backend/services/llm_wiki.py` i `llm_wiki_indices.py` continuen com
 façanes de compatibilitat amb resolució tardana per conservar imports i punts de
 substitució de plugins i proves.
+
+El lint determinista del Brain separa comprovacions acotades de notes òrfenes,
+revisions antigues, referències absents, claus duplicades, cites trencades,
+reprocessament i deriva d'índexs. Manté el format de l'informe sense necessitar
+cap proveïdor de models.
 
 ## Ha fallat i seguretat envaris
 

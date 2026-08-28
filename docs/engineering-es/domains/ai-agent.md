@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
+  - backend/services/llm_wiki_lint.py
   - backend/domains/agent
   - backend/domains/configuration/agent
   - backend/agent
@@ -16,6 +17,7 @@ source_paths:
   - frontend/src/components/AI
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
+  - backend/tests/test_llm_wiki_lint.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_artificial_analysis.py
@@ -146,7 +148,12 @@ idempotente de notas de lectura.
 general, mientras `search_index.py` gestiona los índices reconstruibles JSON,
 FTS5 y vectoriales. `backend/services/llm_wiki.py` y `llm_wiki_indices.py`
 siguen siendo fachadas de compatibilidad con resolución tardía para conservar
-imports y puntos de sustitución de plugins y pruebas.
+importaciones y puntos de sustitución de plugins y pruebas.
+
+El lint determinista del Brain separa comprobaciones acotadas de notas
+huérfanas, revisiones antiguas, referencias ausentes, claves duplicadas, citas
+rotas, reprocesamiento y deriva de índices. Mantiene el formato del informe sin
+necesitar un proveedor de modelos.
 
 ## Fallo y invariantes de seguridad
 
