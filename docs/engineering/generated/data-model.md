@@ -16,7 +16,7 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 | `articles` | `Article` | 9 | [`backend/models/reader.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L23) |
 | `contacts` | `Contact` | 21 | [`backend/models/contact.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L28) |
 | `feed_sources` | `FeedSource` | 6 | [`backend/models/reader.py:11`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L11) |
-| `hidden_events` | `HiddenEvent` | 3 | [`backend/models/calendar.py:5`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L5) |
+| `hidden_events` | `HiddenEvent` | 3 | [`backend/models/calendar.py:6`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L6) |
 | `mail_message_tags` | `MailMessageTag` | 6 | [`backend/models/mail.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L42) |
 | `mail_tags` | `MailTag` | 4 | [`backend/models/mail.py:33`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L33) |
 | `mail_views` | `MailView` | 11 | [`backend/models/mail.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L53) |
@@ -102,9 +102,9 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `event_id` | `String` | yes | — | — | yes | — | — | [`backend/models/calendar.py:13`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L13) |
-| `user_id` | `String` | — | yes | — | yes | — | — | [`backend/models/calendar.py:14`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L14) |
-| `hidden_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/calendar.py:15`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L15) |
+| `event_id` | `String` | yes | — | — | yes | — | — | [`backend/models/calendar.py:15`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L15) |
+| `user_id` | `String` | — | yes | — | yes | — | — | [`backend/models/calendar.py:16`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L16) |
+| `hidden_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/calendar.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L19) |
 
 ## `mail_message_tags` — `MailMessageTag`
 

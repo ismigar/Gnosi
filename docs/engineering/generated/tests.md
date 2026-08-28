@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 276 | 2019 |
+| pytest | 275 | 2018 |
 
 ## Files
 
@@ -127,7 +127,6 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/tests/web-clipper.test.js`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/web-clipper.test.js) | 18 | call-pattern estimate |
 | Vitest | [`frontend/tests/word-addin.test.js`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/word-addin.test.js) | 13 | call-pattern estimate |
 | pytest | [`backend/agent/generated_tools/test_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/test_sandbox.py) | 0 | Python AST |
-| pytest | [`backend/test_dedup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/test_dedup.py) | 1 | Python AST |
 | pytest | [`backend/tests/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/__init__.py) | 0 | Python AST |
 | pytest | [`backend/tests/conftest.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py) | 0 | Python AST |
 | pytest | [`backend/tests/test_academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_academic_connectors.py) | 14 | Python AST |

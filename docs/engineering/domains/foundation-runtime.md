@@ -9,7 +9,9 @@ source_paths:
   - backend/config/paths_config.py
   - backend/domains/configuration/api/settings.py
   - backend/domains/configuration/plugin_state.py
+  - backend/mcp/http_client.py
   - backend/services/data_dir_migration.py
+  - backend/utils/cache.py
   - backend/api/system_routes.py
   - frontend/src/App.jsx
 tests:
@@ -69,6 +71,11 @@ Failures in optional AI or integration startup are logged and isolated.
 Security and core data initialization failures are not silently converted into
 healthy behavior.
 
+Shared in-process caches use one bounded, locked TTL/LRU implementation and
+accept explicitly typed zero-argument value factories. Streamable MCP HTTP
+narrows each decoded SSE payload to a JSON object before returning it to the
+JSON-RPC client; malformed or non-object events never enter the typed runtime.
+
 ## Configuration merge
 
 `load_params()` combines versioned application YAML with the current user or
@@ -110,6 +117,9 @@ content. `/s/:token` renders outside the authenticated shell by design.
 - Application code uses the authoritative `Gnosi/` tree.
 - Frontend-visible strings use all locale catalogs.
 - Runtime imports must not be used by documentation generation.
+- Operational one-off commands live under `scripts/`; production packages do
+  not contain scratch synchronizers, data-mutating probes, or hard-coded
+  machine repair scripts.
 - An unavailable vault is represented explicitly; a temporary safe path may
   prevent import-time crashes but must not be presented as configured content.
 - Derived cache warmup cannot delay the first useful response when a safe disk

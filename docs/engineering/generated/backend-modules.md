@@ -13,23 +13,22 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `agent` | 46 | 8533 |
 | `api` | 38 | 11444 |
 | `app` | 6 | 597 |
-| `application root` | 4 | 107 |
-| `config` | 9 | 1083 |
+| `application root` | 2 | 41 |
+| `config` | 8 | 1008 |
 | `data` | 2 | 214 |
 | `domains` | 368 | 83205 |
-| `mcp` | 3 | 419 |
+| `mcp` | 3 | 429 |
 | `migrations` | 33 | 1949 |
-| `models` | 12 | 1237 |
+| `models` | 12 | 1241 |
 | `platform` | 12 | 1224 |
 | `scheduler` | 5 | 1164 |
-| `scripts` | 3 | 135 |
+| `scripts` | 2 | 69 |
 | `security` | 5 | 829 |
 | `services` | 148 | 34642 |
-| `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
-| `utils` | 4 | 444 |
+| `utils` | 4 | 450 |
 
-Total: **700 modules** and **147296 source lines**.
+Total: **695 modules** and **147040 source lines**.
 
 ## agent
 
@@ -141,8 +140,6 @@ Total: **700 modules** and **147296 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/patch_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/patch_sources.py) | 36 | 0 | 1 | 0 | 0 | No module docstring |
-| [`backend/scratch_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scratch_sync.py) | 30 | 0 | 1 | 0 | 0 | No module docstring |
 | [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 41 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
 
 ## config
@@ -157,7 +154,6 @@ Total: **700 modules** and **147296 source lines**.
 | [`backend/config/mcp_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/mcp_config.py) | 8 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/config/paths_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/paths_config.py) | 207 | 0 | 1 | 0 | 1 | No module docstring |
 | [`backend/config/schema_keys.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/schema_keys.py) | 139 | 0 | 2 | 0 | 2 | Candidate keys and aliases for data extraction from JSON and local Markdown. |
-| [`backend/config/text_normalization.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/text_normalization.py) | 75 | 0 | 3 | 0 | 1 | No module docstring |
 
 ## data
 
@@ -545,7 +541,7 @@ Total: **700 modules** and **147296 source lines**.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/mcp/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/mcp/client.py`](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/client.py) | 310 | 3 | 1 | 1 | 2 | Async JSON-RPC client and multi-server routing for stdio MCP connectors. |
-| [`backend/mcp/http_client.py`](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/http_client.py) | 109 | 1 | 2 | 0 | 3 | MCP client over HTTP (streamable) with Bearer OAuth. |
+| [`backend/mcp/http_client.py`](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/http_client.py) | 119 | 1 | 2 | 0 | 3 | MCP client over HTTP (streamable) with Bearer OAuth. |
 
 ## migrations
 
@@ -592,7 +588,7 @@ Total: **700 modules** and **147296 source lines**.
 | [`backend/models/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/__init__.py) | 15 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/models/_datetime_utils.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/_datetime_utils.py) | 41 | 0 | 3 | 0 | 1 | Helpers to ensure `datetime` fields always come out with timezone |
 | [`backend/models/agent_skills.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/agent_skills.py) | 323 | 11 | 2 | 0 | 11 | Typed contracts for agent skills and governed tools. |
-| [`backend/models/calendar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py) | 18 | 1 | 0 | 0 | 1 | No module docstring |
+| [`backend/models/calendar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py) | 22 | 1 | 0 | 0 | 1 | No module docstring |
 | [`backend/models/contact.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py) | 135 | 8 | 0 | 0 | 0 | No module docstring |
 | [`backend/models/mail.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py) | 182 | 15 | 0 | 0 | 0 | No module docstring |
 | [`backend/models/management.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py) | 208 | 17 | 0 | 0 | 2 | No module docstring |
@@ -634,7 +630,6 @@ Total: **700 modules** and **147296 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/scripts/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scripts/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/scripts/migrate_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scripts/migrate_config.py) | 66 | 0 | 1 | 0 | 0 | No module docstring |
 | [`backend/scripts/refresh_model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scripts/refresh_model_catalog.py) | 69 | 0 | 2 | 0 | 0 | Regenerate the vendored model catalog from models.dev. |
 
 ## security
@@ -800,12 +795,6 @@ Total: **700 modules** and **147296 source lines**.
 | [`backend/services/zotero_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/zotero_schema.py) | 558 | 0 | 0 | 0 | 0 | GENERATED — DO NOT EDIT. Source: pipeline/skills/zotero_schema/schema.json. Regenerate with `pipeline/skills/zotero_schema/scripts/build_constants.py`. |
 | [`backend/services/zotero_to_recursos_mapper.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/zotero_to_recursos_mapper.py) | 163 | 0 | 3 | 0 | 3 | Declarative Zotero item → Recursos columns dict mapper. |
 
-## sh
-
-| Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| [`backend/sh/init_management.py`](https://github.com/ismigar/Gnosi/blob/main/backend/sh/init_management.py) | 69 | 0 | 1 | 0 | 0 | No module docstring |
-
 ## sync
 
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
@@ -816,7 +805,7 @@ Total: **700 modules** and **147296 source lines**.
 
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| [`backend/utils/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/cache.py) | 98 | 1 | 0 | 0 | 1 | Thread-safe in-memory cache with TTL and bounded size. |
+| [`backend/utils/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/cache.py) | 104 | 1 | 0 | 0 | 1 | Thread-safe in-memory cache with TTL and bounded size. |
 | [`backend/utils/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/errors.py) | 49 | 0 | 1 | 0 | 1 | Safe error handling helpers for HTTP responses. |
 | [`backend/utils/http_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/http_retry.py) | 54 | 0 | 1 | 0 | 1 | Tolerant parsing of the HTTP `Retry-After` header (RFC 7231). |
 | [`backend/utils/safe_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/safe_io.py) | 243 | 0 | 11 | 0 | 11 | safe_io.py — Atomic and cloud-safe filesystem helpers. |
