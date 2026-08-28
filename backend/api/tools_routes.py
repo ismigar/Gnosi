@@ -49,7 +49,7 @@ class RejectRequest(BaseModel):
 
 
 @router.get("/pending", response_model=List[ToolResponse])
-async def get_pending_tools():
+async def get_pending_tools() -> List[ToolResponse]:
     """Get all tools pending approval."""
     pending = registry.list_pending()
     return [
@@ -70,7 +70,7 @@ async def get_pending_tools():
 
 
 @router.get("/approved", response_model=List[ToolResponse])
-async def get_approved_tools():
+async def get_approved_tools() -> List[ToolResponse]:
     """Get all approved tools."""
     approved = registry.list_approved()
     return [
@@ -91,7 +91,9 @@ async def get_approved_tools():
 
 
 @router.post("/approve", dependencies=[Depends(require_role("admin"))])
-async def approve_tool(request: ApproveRequest):
+async def approve_tool(  # type: ignore[no-untyped-def]
+    request: ApproveRequest,
+):
     """
     Approve a pending tool.
     Moves it from pending to approved status.
@@ -117,7 +119,9 @@ async def approve_tool(request: ApproveRequest):
 
 
 @router.post("/reject", dependencies=[Depends(require_role("admin"))])
-async def reject_tool(request: RejectRequest):
+async def reject_tool(  # type: ignore[no-untyped-def]
+    request: RejectRequest,
+):
     """
     Reject a pending tool.
     Moves it from pending to rejected status.
@@ -143,7 +147,7 @@ async def reject_tool(request: RejectRequest):
 
 
 @router.get("/{name}", response_model=ToolResponse)
-async def get_tool(name: str):
+async def get_tool(name: str) -> ToolResponse:
     """Get a specific tool by name."""
     tool = registry.get_by_name(name)
     

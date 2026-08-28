@@ -37,6 +37,10 @@ integrations are absent.
 handling, static reader mount, lifespan, and routers. Router order is explicit
 because workspace context and broad prefixes can overlap. The generated
 [API catalog](../generated/api-catalog.md) records every static mount and route.
+The composition registry imports each canonical domain router directly; legacy
+API facades remain available only for compatibility imports. Route annotations
+must preserve the frozen OpenAPI representation, so handlers without an
+explicit response model retain their inferred response contract.
 
 Lifespan startup performs these classes of work:
 

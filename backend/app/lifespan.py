@@ -151,7 +151,7 @@ def _warm_vault_indexes() -> None:
 
         from backend.services.vault_warmup import kickoff_critical_warmup
 
-        kickoff_critical_warmup(vault_path)
+        kickoff_critical_warmup(str(vault_path))
         log.info("☁️ Critical-vault warmup kicked off for %s", vault_path)
     except Exception as error:
         log.warning("⚠️ Could not launch indexer warmup: %s", error)

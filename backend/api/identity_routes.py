@@ -30,12 +30,14 @@ class IdentityProfile(BaseModel):
 def get_identity_path() -> Path:
     # Configs sincronitzats vault-first viuen a `.gnosi/`.
     base = get_active_vault_path()
+    if base is None:
+        raise RuntimeError("No active vault is available for identity storage")
     path = base / ".gnosi" / "identity.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
 @router.get("/api/identity")
-async def get_identity():
+async def get_identity():  # type: ignore[no-untyped-def]
     path = get_identity_path()
     if not path.exists():
         return IdentityProfile().dict()
@@ -48,7 +50,9 @@ async def get_identity():
         return IdentityProfile().dict()
 
 @router.post("/api/identity", dependencies=[Depends(require_role("editor"))])
-async def save_identity(profile: IdentityProfile):
+async def save_identity(  # type: ignore[no-untyped-def]
+    profile: IdentityProfile,
+):
     path = get_identity_path()
     try:
         # Atomic write — a crash halfway through json.dump would leave identity.json
