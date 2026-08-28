@@ -14,6 +14,7 @@ source_paths:
   - frontend/src/components/Vault
 tests:
   - backend/tests/test_vault_markdown_writer_domain_contract.py
+  - backend/tests/test_vault_page_write_helpers_domain_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -55,6 +56,15 @@ La identidad de página está separada del título y la ruta. La materia frontal
 crea el identificador estable, transforma las claves del esquema, elimina los
 campos virtuales, guarda el estado interno en el sidecar, decora relaciones
 portátiles y materializa las vistas antes de la escritura atómica.
+
+`pages/save_helpers.py` se encarga de preparar los metadatos de los guardados
+completos, seleccionar el destino, reutilizar archivos por ID y crear la versión
+antes de escribir. `pages/patch_helpers.py` se encarga de las lecturas con ETag,
+la preparación de metadatos PATCH, la reubicación de archivos y la actualización
+coordinada de las cachés de páginas, cuerpos, citas y documentos analizados. Los
+ocho nombres privados históricos siguen siendo fachadas finas de compatibilidad,
+y cada colaborador reemplazable o caché mutable se resuelve mediante un puerto
+tipado late-bound.
 
 ## Límite del motor
 

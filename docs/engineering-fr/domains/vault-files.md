@@ -14,6 +14,7 @@ source_paths:
   - frontend/src/components/Vault
 tests:
   - backend/tests/test_vault_markdown_writer_domain_contract.py
+  - backend/tests/test_vault_page_write_helpers_domain_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -55,6 +56,16 @@ L'identité de la page est séparée du titre et du chemin. La matière avant es
 récupère ou crée l'identifiant stable, transforme les clés de schéma, retire les
 champs virtuels, stocke l'état interne dans le sidecar, décore les relations
 portables et matérialise les vues avant l'écriture atomique.
+
+`pages/save_helpers.py` prend en charge la préparation des métadonnées des
+enregistrements complets, le choix de la destination, la réutilisation des
+fichiers par ID et la création d'une version avant écriture.
+`pages/patch_helpers.py` prend en charge les lectures avec ETag, la préparation
+des métadonnées PATCH, le déplacement des fichiers et la mise à jour coordonnée
+des caches de pages, de corps, de citations et de documents analysés. Les huit
+noms privés historiques restent des façades de compatibilité minces, et chaque
+collaborateur remplaçable ou cache mutable est résolu par un port typé
+late-bound.
 
 ## Limites de l'arrière-pays
 

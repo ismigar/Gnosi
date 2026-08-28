@@ -19,6 +19,7 @@ source_paths:
   - frontend/src/components/Vault
 tests:
   - backend/tests/test_vault_markdown_writer_domain_contract.py
+  - backend/tests/test_vault_page_write_helpers_domain_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -68,6 +69,14 @@ destabilize portable content.
 or creates a missing stable ID, maps schema keys to storage names, strips
 virtual fields, writes internal state to the sidecar, decorates portable
 relations and materializes view snapshots before the atomic file write.
+
+`pages/save_helpers.py` owns complete-save metadata preparation, destination
+selection, existing-ID reuse and version-before-write behavior.
+`pages/patch_helpers.py` owns ETag-aware reads, PATCH metadata preparation,
+file relocation and coordinated updates to page, body, citation and parsed
+document caches. The eight historical private helper names remain thin
+compatibility facades, and every replaceable collaborator or mutable cache is
+resolved through a late-bound typed port.
 
 ## Backend boundary
 

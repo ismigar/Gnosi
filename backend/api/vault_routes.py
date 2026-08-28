@@ -196,8 +196,10 @@ from backend.domains.vault.trash import purge as trash_purge
 from backend.domains.vault.api import pages_queries as page_queries_api
 from backend.domains.vault.pages import create_service as page_create_service
 from backend.domains.vault.api import pages_duplicate as page_duplicate_api
+from backend.domains.vault.pages import patch_helpers as page_patch_helpers
 from backend.domains.vault.pages import save_service as page_save_service
 from backend.domains.vault.pages import patch_service as page_patch_service
+from backend.domains.vault.pages import save_helpers as page_save_helpers
 from backend.domains.vault.api import pages_commands as page_commands_api
 from backend.domains.vault.trash.repository import TrashRepository
 from backend.domains.vault.registry import api as registry_api
@@ -6162,32 +6164,63 @@ get_page_preview = page_queries_api.get_page_preview
 bulk_warm_previews = page_queries_api.bulk_warm_previews
 
 
+_SAVE_HELPER_DEPENDENCIES = page_save_helpers.SaveHelperDependencies(
+    normalize_metadata_ids=lambda metadata: normalize_metadata_ids(metadata),
+    normalize_table_context=lambda metadata: normalize_table_context(metadata),
+    get_table_id=lambda metadata: get_table_id(metadata),
+    table_by_id=lambda table_id: _table_by_id(table_id),
+    to_storage_names=lambda metadata, table: to_storage_names(metadata, table),
+    created_iso=lambda timestamp: datetime.fromtimestamp(
+        timestamp,
+        tz=timezone.utc,
+    ).isoformat(),
+    stamp_system_dates=lambda metadata, table, is_create, created_fallback: (
+        stamp_system_dates(
+            metadata,
+            table,
+            is_create=is_create,
+            created_fallback=created_fallback,
+        )
+    ),
+    get_path=lambda name: get_p(name),
+    is_calendar_entry=lambda metadata: is_calendar_entry(metadata),
+    resolve_table_folder=lambda metadata: _resolve_table_folder_from_metadata(
+        metadata
+    ),
+    canonicalize_id=lambda value: _canonicalize_id(value),
+    parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+    active_vault_path=lambda: get_active_vault_path(),
+    index_lock=lambda: _page_index_lock,
+    id_to_path=lambda: _page_id_to_path,
+    safe_filename=lambda title, target_dir: _safe_filename(title, target_dir),
+    ensure_correct_location=lambda path, metadata: ensure_correct_page_location(
+        path,
+        metadata,
+    ),
+    rename_to_title=lambda path, title: _rename_page_file_to_match_title(
+        path,
+        title,
+    ),
+    remove_from_index=lambda page_id, path: _remove_page_from_index_cache(
+        page_id,
+        path,
+    ),
+    add_to_index=lambda path: _add_page_to_index_cache(path),
+    create_page_version=lambda page_id, path: _create_page_version(page_id, path),
+    save_page=lambda path, metadata, content: save_page_md(path, metadata, content),
+    logger=lambda: log,
+)
+
+
 def _prepare_save_metadata(
     metadata: Dict[str, Any],
     file_path: Optional[Path],
 ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
-    metadata = normalize_table_context(normalize_metadata_ids(metadata))
-    table = _table_by_id(get_table_id(metadata))
-    if not table:
-        return metadata, None
-    metadata, _ = to_storage_names(metadata, table)
-    created_fallback = None
-    try:
-        if file_path and file_path.exists():
-            stat_result = file_path.stat()
-            created_fallback = datetime.fromtimestamp(
-                getattr(stat_result, "st_birthtime", 0) or stat_result.st_ctime,
-                tz=timezone.utc,
-            ).isoformat()
-    except OSError:
-        pass
-    stamp_system_dates(
+    return page_save_helpers.prepare_save_metadata(
         metadata,
-        table,
-        is_create=not bool(file_path),
-        created_fallback=created_fallback,
+        file_path,
+        _SAVE_HELPER_DEPENDENCIES,
     )
-    return metadata, table
 
 
 def _locate_save_file(
@@ -6196,64 +6229,20 @@ def _locate_save_file(
     metadata: Dict[str, Any],
     file_path: Optional[Path],
 ) -> Path:
-    if file_path is None:
-        if metadata.get("is_template") is True:
-            target_dir = get_p("PLANTILLES")
-        elif is_calendar_entry(metadata):
-            target_dir = get_p("CALENDAR")
-        elif metadata.get("is_dashboard") is True:
-            target_dir = get_p("DASHBOARDS")
-        else:
-            target_dir = _resolve_table_folder_from_metadata(metadata) or get_p("WIKI")
-        target_dir.mkdir(parents=True, exist_ok=True)
-        canonical = _canonicalize_id(page_id)
-        try:
-            for candidate in target_dir.iterdir():
-                if not candidate.is_file() or candidate.suffix != ".md":
-                    continue
-                try:
-                    raw_existing = candidate.read_text(encoding="utf-8")
-                    existing_metadata, _ = parse_frontmatter(raw_existing, candidate)
-                    if (
-                        _canonicalize_id(str(existing_metadata.get("id", "")))
-                        == canonical
-                    ):
-                        with _page_index_lock:
-                            vault_root = get_active_vault_path()
-                            if vault_root:
-                                _page_id_to_path.setdefault(str(vault_root), {})[
-                                    page_id
-                                ] = str(candidate)
-                        log.info("Reusing existing file for %s: %s", page_id, candidate)
-                        return candidate
-                except Exception:
-                    continue
-        except OSError:
-            pass
-        return target_dir / f"{_safe_filename(title, target_dir)}.md"
-
-    original_path = file_path
-    file_path = ensure_correct_page_location(file_path, metadata)
-    file_path = _rename_page_file_to_match_title(file_path, title)
-    if file_path != original_path:
-        _remove_page_from_index_cache(page_id, original_path)
-        _add_page_to_index_cache(file_path)
-        with _page_index_lock:
-            vault_root = get_active_vault_path()
-            if vault_root:
-                _page_id_to_path.setdefault(str(vault_root), {})[page_id] = str(
-                    file_path
-                )
-    return file_path
+    return page_save_helpers.locate_save_file(
+        page_id,
+        title,
+        metadata,
+        file_path,
+        _SAVE_HELPER_DEPENDENCIES,
+    )
 
 
 def _read_save_page(file_path: Path) -> Tuple[Dict[str, Any], str]:
-    if not file_path.exists():
-        return {}, ""
-    try:
-        return parse_frontmatter(file_path.read_text(encoding="utf-8"), file_path)
-    except Exception:
-        return {}, ""
+    return page_save_helpers.read_save_page(
+        file_path,
+        _SAVE_HELPER_DEPENDENCIES,
+    )
 
 
 def _write_save_page_with_version(
@@ -6262,9 +6251,13 @@ def _write_save_page_with_version(
     metadata: Dict[str, Any],
     content: str,
 ) -> None:
-    if file_path.exists():
-        _create_page_version(page_id, file_path)
-    save_page_md(file_path, metadata, content)
+    page_save_helpers.write_save_page_with_version(
+        page_id,
+        file_path,
+        metadata,
+        content,
+        _SAVE_HELPER_DEPENDENCIES,
+    )
 
 
 _SAVE_PAGE_DEPENDENCIES = page_save_service.SavePageDependencies(
@@ -6274,9 +6267,14 @@ _SAVE_PAGE_DEPENDENCIES = page_save_service.SavePageDependencies(
     ),
     file_etag=file_etag,
     get_page_write_lock=lambda page_id: _get_page_write_lock(page_id),
-    prepare_metadata=_prepare_save_metadata,
-    locate_file=_locate_save_file,
-    read_page=_read_save_page,
+    prepare_metadata=lambda metadata, path: _prepare_save_metadata(metadata, path),
+    locate_file=lambda page_id, title, metadata, path: _locate_save_file(
+        page_id,
+        title,
+        metadata,
+        path,
+    ),
+    read_page=lambda path: _read_save_page(path),
     process_updates=lambda page_id, old, new: get_rule_engine().process_updates(
         page_id,
         old,
@@ -6296,7 +6294,9 @@ _SAVE_PAGE_DEPENDENCIES = page_save_service.SavePageDependencies(
         metadata,
         page_id,
     ),
-    write_with_version=_write_save_page_with_version,
+    write_with_version=lambda page_id, path, metadata, content: (
+        _write_save_page_with_version(page_id, path, metadata, content)
+    ),
     refresh_page_index=lambda path, metadata, content: _refresh_page_index_entry(
         path,
         metadata,
@@ -6319,53 +6319,88 @@ _SAVE_PAGE_DEPENDENCIES = page_save_service.SavePageDependencies(
 )
 
 
+_PATCH_HELPER_DEPENDENCIES = page_patch_helpers.PatchHelperDependencies(
+    find_page_for_write=lambda page_id: _find_page_path_for_write(page_id),
+    file_etag=lambda path: file_etag(path),
+    is_dashboard_file=lambda path: _is_dashboard_file_path(path),
+    read_dashboard_file=lambda path: _read_dashboard_file(path),
+    parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+    normalize_metadata_ids=lambda metadata: normalize_metadata_ids(metadata),
+    normalize_table_context=lambda metadata: normalize_table_context(metadata),
+    get_table_id=lambda metadata: get_table_id(metadata),
+    table_by_id=lambda table_id: _table_by_id(table_id),
+    to_storage_names=lambda metadata, table: to_storage_names(metadata, table),
+    created_iso=lambda timestamp: datetime.fromtimestamp(
+        timestamp,
+        tz=timezone.utc,
+    ).isoformat(),
+    stamp_system_dates=lambda metadata, table, is_create, created_fallback: (
+        stamp_system_dates(
+            metadata,
+            table,
+            is_create=is_create,
+            created_fallback=created_fallback,
+        )
+    ),
+    ensure_correct_location=lambda path, metadata: ensure_correct_page_location(
+        path,
+        metadata,
+    ),
+    rename_to_title=lambda path, title: _rename_page_file_to_match_title(
+        path,
+        title,
+    ),
+    remove_from_index=lambda page_id, path: _remove_page_from_index_cache(
+        page_id,
+        path,
+    ),
+    add_to_index=lambda path: _add_page_to_index_cache(path),
+    active_vault_path=lambda: get_active_vault_path(),
+    index_lock=lambda: _page_index_lock,
+    index_entries=lambda: _page_index_entries,
+    id_to_path=lambda: _page_id_to_path,
+    build_cache_entry=lambda path, stat_result, metadata, content: (
+        _build_cache_entry_from_memory(path, stat_result, metadata, content)
+    ),
+    bump_index_version=lambda vault_key: _bump_page_index_version(vault_key),
+    add_to_path_resolver=lambda vault_path, page_id, path: path_resolver.add_file(
+        vault_path,
+        page_id,
+        path,
+    ),
+    body_cache_lock=lambda: _body_cache_lock,
+    body_cache=lambda: _body_cache,
+    invalidate_page_responses=lambda: _pages_cache_invalidate_all(),
+    invalidate_citation_index=lambda: _invalidate_cite_key_index(),
+    iter_docs_lock=lambda: _iter_docs_lock,
+    iter_docs_cache=lambda: _iter_docs_cache,
+    path_factory=lambda value: Path(value),
+    logger=lambda: log,
+)
+
+
 def _find_and_read_patch_page(
     page_id: str,
     expected_etag: Optional[str],
     force: bool,
 ) -> page_patch_service.PatchReadResult:
-    file_path = _find_page_path_for_write(page_id)
-    if not file_path:
-        return None, None, None, None, None
-    current_etag = None
-    if expected_etag and not force:
-        current_etag = file_etag(file_path)
-        if current_etag and current_etag != expected_etag:
-            return file_path, None, None, None, current_etag
-    if _is_dashboard_file_path(file_path):
-        metadata, body = _read_dashboard_file(file_path)
-        return file_path, metadata, body, None, current_etag
-    raw_content = file_path.read_text(encoding="utf-8")
-    metadata, body = parse_frontmatter(raw_content, file_path)
-    return file_path, metadata, body, raw_content, current_etag
+    return page_patch_helpers.find_and_read_patch_page(
+        page_id,
+        expected_etag,
+        force,
+        _PATCH_HELPER_DEPENDENCIES,
+    )
 
 
 def _prepare_patch_metadata(
     metadata: Dict[str, Any],
     file_path: Path,
 ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
-    metadata = normalize_table_context(normalize_metadata_ids(metadata))
-    table = _table_by_id(get_table_id(metadata))
-    if table:
-        metadata, _ = to_storage_names(metadata, table)
-        created_fallback = None
-        try:
-            stat_result = file_path.stat()
-            created_fallback = datetime.fromtimestamp(
-                getattr(stat_result, "st_birthtime", 0) or stat_result.st_ctime,
-                tz=timezone.utc,
-            ).isoformat()
-        except OSError:
-            pass
-        stamp_system_dates(
-            metadata,
-            table,
-            is_create=False,
-            created_fallback=created_fallback,
-        )
-    if metadata.get("is_dashboard") is True:
-        metadata.pop("content_format", None)
-    return metadata, table
+    return page_patch_helpers.prepare_patch_metadata(
+        metadata,
+        file_path,
+        _PATCH_HELPER_DEPENDENCIES,
+    )
 
 
 def _relocate_patch_file(
@@ -6374,20 +6409,13 @@ def _relocate_patch_file(
     metadata: Dict[str, Any],
     title: Optional[str],
 ) -> Path:
-    original_path = file_path
-    file_path = ensure_correct_page_location(file_path, metadata)
-    if title is not None:
-        file_path = _rename_page_file_to_match_title(file_path, title)
-    if file_path != original_path:
-        _remove_page_from_index_cache(page_id, original_path)
-        _add_page_to_index_cache(file_path)
-        with _page_index_lock:
-            vault_root = get_active_vault_path()
-            if vault_root:
-                _page_id_to_path.setdefault(str(vault_root), {})[page_id] = str(
-                    file_path
-                )
-    return file_path
+    return page_patch_helpers.relocate_patch_file(
+        page_id,
+        file_path,
+        metadata,
+        title,
+        _PATCH_HELPER_DEPENDENCIES,
+    )
 
 
 def _update_patch_caches(
@@ -6397,68 +6425,30 @@ def _update_patch_caches(
     content: str,
     original_metadata: Dict[str, Any],
 ) -> None:
-    try:
-        vault_path = get_active_vault_path()
-        vault_key = str(vault_path) if vault_path else ""
-        if vault_path:
-            try:
-                new_entry = _build_cache_entry_from_memory(
-                    file_path,
-                    file_path.stat(),
-                    metadata,
-                    content,
-                )
-                with _page_index_lock:
-                    _page_index_entries.setdefault(vault_key, {})[
-                        str(file_path)
-                    ] = new_entry
-                    new_id = new_entry.get("id")
-                    if new_id:
-                        _page_id_to_path.setdefault(vault_key, {})[new_id] = str(
-                            file_path
-                        )
-                    _bump_page_index_version(vault_key)
-                path_resolver.add_file(
-                    vault_path,
-                    new_id or page_id,
-                    file_path,
-                )
-            except Exception as exc:
-                log.debug("Cache update after PATCH failed for %s: %s", page_id, exc)
-        with _body_cache_lock:
-            _body_cache.pop(str(file_path), None)
-        _pages_cache_invalidate_all()
-        if str(original_metadata.get("Citation Key") or "") != str(
-            metadata.get("Citation Key") or ""
-        ):
-            _invalidate_cite_key_index()
-        if vault_key:
-            with _iter_docs_lock:
-                cache_entry = _iter_docs_cache.get(vault_key)
-                docs = cache_entry.get("docs") if cache_entry else None
-                if docs is not None:
-                    path_str = str(file_path)
-                    new_doc = (
-                        Path(path_str),
-                        dict(metadata),
-                        content,
-                        _is_dashboard_file_path(file_path),
-                    )
-                    for index, document in enumerate(docs):
-                        if str(document[0]) == path_str:
-                            docs[index] = new_doc
-                            break
-                    else:
-                        docs.append(new_doc)
-    except Exception as exc:
-        log.debug("Cache invalidation after PATCH failed: %s", exc)
+    page_patch_helpers.update_patch_caches(
+        page_id,
+        file_path,
+        metadata,
+        content,
+        original_metadata,
+        _PATCH_HELPER_DEPENDENCIES,
+    )
 
 
 _PATCH_PAGE_DEPENDENCIES = page_patch_service.PatchPageDependencies(
-    find_and_read=_find_and_read_patch_page,
+    find_and_read=lambda page_id, expected_etag, force: _find_and_read_patch_page(
+        page_id,
+        expected_etag,
+        force,
+    ),
     get_page_write_lock=lambda page_id: _get_page_write_lock(page_id),
-    prepare_metadata=_prepare_patch_metadata,
-    relocate_file=_relocate_patch_file,
+    prepare_metadata=lambda metadata, path: _prepare_patch_metadata(metadata, path),
+    relocate_file=lambda page_id, path, metadata, title: _relocate_patch_file(
+        page_id,
+        path,
+        metadata,
+        title,
+    ),
     process_updates=lambda page_id, old, new: get_rule_engine().process_updates(
         page_id,
         old,
@@ -6476,7 +6466,15 @@ _PATCH_PAGE_DEPENDENCIES = page_patch_service.PatchPageDependencies(
         page_id,
     ),
     save_page=lambda path, metadata, content: save_page_md(path, metadata, content),
-    update_caches=_update_patch_caches,
+    update_caches=lambda page_id, path, metadata, content, original_metadata: (
+        _update_patch_caches(
+            page_id,
+            path,
+            metadata,
+            content,
+            original_metadata,
+        )
+    ),
     create_content_version=lambda: _create_page_version_from_content,
     create_file_version=lambda: _create_page_version,
     update_link_index=lambda: update_link_index_for_page,

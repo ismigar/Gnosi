@@ -14,6 +14,7 @@ source_paths:
   - frontend/src/components/Vault
 tests:
   - backend/tests/test_vault_markdown_writer_domain_contract.py
+  - backend/tests/test_vault_page_write_helpers_domain_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -55,6 +56,15 @@ La identitat de pàgina està separada del títol i del camí. La matèria front
 l'identificador estable, transforma les claus d'esquema, elimina camps virtuals,
 desa l'estat intern al sidecar, decora relacions portàtils i materialitza les
 vistes abans de l'escriptura atòmica.
+
+`pages/save_helpers.py` és responsable de preparar les metadades dels desats
+complets, seleccionar la destinació, reutilitzar fitxers per ID i crear la
+versió abans d'escriure. `pages/patch_helpers.py` és responsable de les lectures
+amb ETag, la preparació de metadades PATCH, la reubicació de fitxers i
+l'actualització coordinada de les memòries cau de pàgines, cossos, citacions i
+documents analitzats. Els vuit noms privats històrics continuen sent façanes
+primes de compatibilitat, i cada col·laborador substituïble o memòria cau mutable
+es resol mitjançant un port tipat late-bound.
 
 ## Límit del dorsal
 
