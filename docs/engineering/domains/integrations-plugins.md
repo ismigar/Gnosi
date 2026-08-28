@@ -20,6 +20,7 @@ source_paths:
   - backend/services/plugin_dispatcher.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
+  - backend/services/web_clipper.py
   - backend/services/notion_clone.py
   - backend/services/notion_importer.py
   - backend/services/notion_view_recreator.py
@@ -39,6 +40,7 @@ tests:
   - backend/tests/test_plugin_network_guard.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
+  - backend/tests/test_web_clipper.py
   - backend/tests/test_notion_clone.py
   - backend/tests/test_notion_domain_facades.py
   - backend/tests/test_notion_oauth_routes.py
@@ -123,6 +125,12 @@ The plugin dispatcher and sandbox facade share one typed two-argument host
 handler contract: bounded arguments plus the calling plugin id. Vault RPCs now
 import canonical page, registry and configuration owners lazily, preserving
 cycle avoidance while removing dynamic compatibility-facade calls.
+
+The built-in web clipper keeps its mapping logic pure. Destination columns are
+resolved by immutable id, current name or historical alias; explicit opt-outs
+remain distinct from automatic role detection. Only promptable stored fields
+are accepted, extension values are coerced by schema type, and stale or derived
+columns are discarded before the normal Vault write boundary.
 
 ## Plugin lifecycle
 
