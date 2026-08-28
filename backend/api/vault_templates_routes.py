@@ -60,7 +60,7 @@ def _vault_row(db: Session, ctx: WorkspaceContext, vault_id: str) -> Vault:
     return row
 
 
-def _manifest_payload(payload: TemplateExportPayload) -> dict:
+def _manifest_payload(payload: TemplateExportPayload) -> dict[str, object]:
     return {
         "id": payload.id,
         "version": payload.version,
@@ -81,7 +81,9 @@ def _config_dir(ctx: WorkspaceContext) -> Path:
 
 
 @router.get("/templates/catalog")
-def list_template_catalog(ctx: WorkspaceContext = Depends(get_workspace_context)):
+def list_template_catalog(  # type: ignore[no-untyped-def]
+    ctx: WorkspaceContext = Depends(get_workspace_context),
+):
     """Return the verified official template catalog without breaking offline use."""
 
     try:
@@ -98,7 +100,7 @@ def list_template_catalog(ctx: WorkspaceContext = Depends(get_workspace_context)
 
 
 @router.post("/from-template", dependencies=[Depends(require_role("editor"))])
-def create_vault_from_template(
+def create_vault_from_template(  # type: ignore[no-untyped-def]
     payload: CreateFromTemplatePayload,
     ctx: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
@@ -163,7 +165,7 @@ def create_vault_from_template(
     "/{vault_id}/template-export/preview",
     dependencies=[Depends(require_role("editor"))],
 )
-def preview_template_export(
+def preview_template_export(  # type: ignore[no-untyped-def]
     vault_id: str,
     ctx: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
@@ -198,7 +200,7 @@ def _template_response(row: Vault, payload: TemplateExportPayload) -> Response:
     "/{vault_id}/template-export",
     dependencies=[Depends(require_role("editor"))],
 )
-def export_vault_template(
+def export_vault_template(  # type: ignore[no-untyped-def]
     vault_id: str,
     payload: TemplateExportPayload,
     ctx: WorkspaceContext = Depends(get_workspace_context),
@@ -217,7 +219,7 @@ def export_vault_template(
     "/{vault_id}/template-submissions",
     dependencies=[Depends(require_role("admin"))],
 )
-def submit_vault_template(
+def submit_vault_template(  # type: ignore[no-untyped-def]
     vault_id: str,
     payload: TemplateExportPayload,
     ctx: WorkspaceContext = Depends(get_workspace_context),

@@ -254,6 +254,12 @@ when the primary Vault path is absent, rather than constructing a path from
 the old ORM descriptor boundary without changing disk folders, slugs, purge
 rules or path-containment checks.
 
+Vault template catalog, installation, export and moderated submission expose a
+typed manifest boundary while intentionally retaining unannotated legacy route
+returns so FastAPI's frozen response schemas do not drift. Signature checks,
+privacy findings, deterministic packages and rollback on registration failure
+remain unchanged.
+
 ## File providers
 
 The provider abstraction selects local, generic macOS File Provider, OneDrive,
