@@ -26,6 +26,7 @@ tests:
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
+  - backend/tests/test_vault_table_routes_composition_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -89,6 +90,16 @@ El almacenamiento de tablas tiene propietarios explícitos: `assets/table_paths.
 controla rutas y revisiones; `assets/persistence.py`, la ingestión y eliminación
 contenidas; `assets/quarantine.py`, la eliminación recuperable; y
 `tables/folders.py`, las carpetas físicas. Todos reciben puertos estrechos de la fachada.
+
+`tables/routes.py` es ahora el propietario de las 23 operaciones históricas de
+bases, tablas, catálogos de opciones, vistas guardadas y esquemas de carpeta,
+en el mismo orden. Los handlers estrictos delegan en los servicios existentes
+de filas, ciclo de vida, propiedades, opciones y vistas;
+`tables/composition.py` agrupa de forma inmutable las dependencias de las rutas
+y del enriquecimiento de filas. `tables/security.py` expone únicamente las dos
+fábricas tipadas de autorización del workspace. La fachada histórica registra
+las rutas del dominio en una lista plana y reexporta los callables Python
+compatibles.
 
 `backend/api/vault_routes.py` sigue siendo una fachada de compatibilidad y composición temporal mientras el resto del router heredado se divide. Inyecta operaciones de plataforma existentes y reexporta símbolos de Python compatibles, pero no es el propietario de los manejadores de páginas extraídos. La migración preserva rutas HTTP, códigos de estado, cargas útiles, dependencias, callbacks de fondo y el documento OpenAPI determinista. Cada extracción debe reducir la asignación de barandilla fuente de la fachada; nunca puede añadir una nueva excepción para el código bajo `backend/domains`.
 

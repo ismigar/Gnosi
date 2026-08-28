@@ -26,6 +26,7 @@ tests:
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
+  - backend/tests/test_vault_table_routes_composition_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -89,6 +90,15 @@ L'emmagatzematge de taules té propietaris explícits: `assets/table_paths.py`
 controla les rutes i revisions; `assets/persistence.py`, la ingestió i supressió
 contingudes; `assets/quarantine.py`, la supressió recuperable; i
 `tables/folders.py`, les carpetes físiques. Tots reben ports estrets de la façana.
+
+`tables/routes.py` és ara el propietari de les 23 operacions històriques de
+bases, taules, catàlegs d'opcions, vistes desades i esquemes de carpeta, en el
+mateix ordre. Els handlers estrictes deleguen als serveis existents de files,
+cicle de vida, propietats, opcions i vistes; `tables/composition.py` agrupa de
+manera immutable les dependències de les rutes i de l'enriquiment de files.
+`tables/security.py` exposa només les dues fàbriques tipades d'autorització de
+workspace. La façana històrica registra les rutes de domini en una llista plana
+i reexporta els callables Python compatibles.
 
 `backend/api/vault_routes.py` Encara hi ha una compatibilitat temporal i una constant façana mentre la resta de l' encaminador antic es divideix. Injecta operacions de plataforma existents i re- ports implementats en Python, però no és propietari dels gestors de pàgines extrets. La migració preserva les rutes HTTP, codis d' estat, dependències de fons, comentaris i el document OpenAPI determinant. Cada extracció ha de reduir les subsidis del codi de la interqual· lació de la safata de la safata d' interès; mai pot afegir una nova excepció per al codi sota `backend/domains`.
 

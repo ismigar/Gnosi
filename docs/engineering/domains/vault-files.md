@@ -34,6 +34,7 @@ tests:
   - backend/tests/test_vault_assets_files_route_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
+  - backend/tests/test_vault_table_routes_composition_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -112,6 +113,16 @@ startup recovery. `tables/folders.py` owns creation and migration of the table's
 physical `BD/<database>/<table>` directory. These modules receive narrow
 filesystem and registry ports from the compatibility facade and never import
 the HTTP router.
+
+`tables/routes.py` now owns the 23 historical database, table, option-catalog,
+saved-view and folder-schema operations in their original order. Its strict
+handlers delegate to the existing row, lifecycle, property, option and view
+services; `tables/composition.py` is the immutable dependency bundle for those
+routes and for row query/metadata enrichment. `tables/security.py` exposes only
+the two typed workspace authorization factories, avoiding a static dependency
+from the table domain on the broad legacy authentication composition. The
+legacy router registers the domain routes flat for compatibility with route
+inventory consumers and re-exports the supported Python callables.
 
 `backend/api/vault_routes.py` remains a temporary compatibility and composition
 facade while the rest of the legacy router is split. It injects existing

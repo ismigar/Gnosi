@@ -26,6 +26,7 @@ tests:
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
+  - backend/tests/test_vault_table_routes_composition_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -90,6 +91,16 @@ Le stockage des tables a des propriétaires explicites : `assets/table_paths.py`
 gère les chemins et révisions, `assets/persistence.py` l'ingestion et la
 suppression confinées, `assets/quarantine.py` la suppression récupérable, et
 `tables/folders.py` les dossiers physiques. Tous reçoivent des ports étroits.
+
+`tables/routes.py` possède désormais les 23 opérations historiques des bases,
+tables, catalogues d'options, vues enregistrées et schémas de dossier, dans le
+même ordre. Les handlers stricts délèguent aux services existants des lignes,
+du cycle de vie, des propriétés, des options et des vues ;
+`tables/composition.py` regroupe de manière immuable les dépendances des routes
+et de l'enrichissement des lignes. `tables/security.py` n'expose que les deux
+fabriques typées d'autorisation du workspace. La façade historique enregistre
+les routes du domaine dans une liste plate et réexporte les callables Python
+compatibles.
 
 `backend/api/vault_routes.py` Il injecte les opérations de plate-forme existantes et les réexportations supportées par les symboles Python, mais il ne possède pas les gestionnaires de pages extraits. La migration préserve les chemins HTTP, les codes d'état, les charges utiles, les dépendances, les rappels d'arrière-plan et le document déterministe OpenAPI. Chaque extraction doit réduire l'allocation de garde-fonte de la façade; il ne peut jamais ajouter une nouvelle exception pour le code sous `backend/domains`.
 

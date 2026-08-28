@@ -11,8 +11,8 @@
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/api/vault_routes.py": {
-      "max_complexity": 62,
-      "max_lines": 10143,
+      "max_complexity": 16,
+      "max_lines": 9846,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/domains/configuration/api/settings.py": {

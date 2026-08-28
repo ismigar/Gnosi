@@ -266,6 +266,48 @@ from backend.domains.vault.tables import options as table_options
 from backend.domains.vault.tables import rows as table_rows
 from backend.domains.vault.tables import schema as table_schema
 from backend.domains.vault.tables import status_options as table_status_options
+from backend.domains.vault.tables.composition import TableDomainDependencies
+from backend.domains.vault.tables import routes as table_routes
+from backend.domains.vault.tables.routes import (
+    _create_table_locked as _create_table_locked,
+    _ensure_main_view as _ensure_main_view,
+    _find_table_and_prop as _find_table_and_prop,
+    _global_status_members as _global_status_members,
+    _option_value_keys as _option_value_keys,
+    _patch_table_property_locked as _patch_table_property_locked,
+    _propagate_property_rename as _propagate_property_rename,
+    _reconcile_table_schema_revision as _reconcile_table_schema_revision,
+    _rename_field_in_filter_tree as _rename_field_in_filter_tree,
+    _rename_field_refs_in_view_like as _rename_field_refs_in_view_like,
+    _rename_table_locked as _rename_table_locked,
+    _resolve_subpath_within_vault as _resolve_subpath_within_vault,
+    _rewrite_option_in_rows as _rewrite_option_in_rows,
+    _schema_revision as _schema_revision,
+    _table_schema_signature as _table_schema_signature,
+    create_database as create_database,
+    create_table as create_table,
+    create_view as create_view,
+    delete_database as delete_database,
+    delete_option_catalog as delete_option_catalog,
+    delete_table as delete_table,
+    delete_view as delete_view,
+    get_schema as get_schema,
+    get_view as get_view,
+    get_view_usage as get_view_usage,
+    list_databases as list_databases,
+    list_option_catalogs as list_option_catalogs,
+    list_tables as list_tables,
+    list_views as list_views,
+    patch_table_property as patch_table_property,
+    put_option_catalog as put_option_catalog,
+    remove_table_option as remove_table_option,
+    rename_table as rename_table,
+    rename_table_option as rename_table_option,
+    reorder_views as reorder_views,
+    save_schema as save_schema,
+    table_option_usage as table_option_usage,
+    update_view as update_view,
+)
 from backend.domains.vault.views import api as vault_views
 from backend.domains.vault.views import schema as vault_view_schema
 from backend.domains.vault.views import snapshots as vault_view_snapshots
@@ -490,6 +532,19 @@ table_metadata_dependencies = table_rows.TableMetadataDependencies(
     read_prop_value=action_rules_service.read_prop_value,
     effect_write_key=action_rules_service.effect_write_key,
 )
+table_domain_dependencies = TableDomainDependencies(
+    collections=table_collection_dependencies,
+    properties=table_property_dependencies,
+    create_table=table_create_dependencies,
+    delete_table=table_delete_dependencies,
+    rename_table=table_rename_dependencies,
+    options=table_option_dependencies,
+    views=vault_view_dependencies,
+    folder_schema=vault_schema_dependencies,
+    row_queries=table_row_query_dependencies,
+    row_metadata=table_metadata_dependencies,
+)
+table_routes.configure(table_domain_dependencies)
 
 # Compatibility aliases. The mutable objects and lock are owned only by
 # ``backend.domains.vault.registry.state``.
@@ -8307,359 +8362,7 @@ async def open_local_path(payload: dict = Body(...)):
         raise HTTPException(status_code=500, detail=f"Could not open: {e}")
 
 
-@router.get("/databases")
-async def list_databases():
-    return await table_collection_api.list_databases(table_collection_dependencies)
-
-
-@router.post("/databases", dependencies=[Depends(require_role("editor"))])
-async def create_database(db: dict = Body(...)):
-    return await table_collection_api.create_database(db, table_collection_dependencies)
-
-
-@router.delete("/databases/{database_id}", dependencies=[Depends(require_role("admin"))])
-async def delete_database(database_id: str):
-    return await table_collection_api.delete_database(
-        database_id, table_collection_dependencies
-    )
-
-
-@router.get("/tables")
-async def list_tables(database_id: Optional[str] = None):
-    return await table_collection_api.list_tables(
-        database_id, table_collection_dependencies
-    )
-
-
-def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
-    """Guarantee that ``table_id`` owns one canonical main view."""
-    return table_schema.ensure_main_view(registry, table_id)
-
-
-@router.post("/tables", dependencies=[Depends(require_role("editor"))])
-async def create_table(table: dict = Body(...)):
-    return await table_lifecycle.create_table(table, table_create_dependencies)
-
-
-def _table_schema_signature(properties: object) -> str:
-    """Return a deterministic signature for one ordered property schema."""
-    return table_schema.table_schema_signature(properties)
-
-
-def _schema_revision(value: object) -> int:
-    """Parse a non-negative schema revision without trusting client types."""
-    return table_schema.schema_revision(value)
-
-
-def _reconcile_table_schema_revision(old_table: dict, incoming_table: dict) -> None:
-    """Reject stale schema writes through the canonical table domain."""
-    table_schema.reconcile_table_schema_revision(old_table, incoming_table)
-
-
-def _create_table_locked(table: dict):
-    return table_lifecycle.create_table_locked(table, table_create_dependencies)
-
-
-@router.delete("/tables/{table_id}", dependencies=[Depends(require_role("admin"))])
-async def delete_table(
-    table_id: str,
-    background_tasks: BackgroundTasks,
-    expected_table_revision: Optional[str] = None,
-    expected_views_revision: Optional[str] = None,
-    expected_asset_revision: Optional[str] = None,
-):
-    """Delete a table.
-
-    Why background_tasks for the rmtree:
-      The asset folders may live on cloud-synced storage (OneDrive FUSE)
-      where deleting hundreds of files can take seconds-to-minutes. Doing
-      it inline blocks the HTTP response → the frontend modal hangs in
-      `isSubmitting=true` state, looking like the operation is broken.
-      We update the registry synchronously (the user-visible source of
-      truth) and queue the disk cleanup as a background task.
-    """
-    return await table_lifecycle.delete_table(
-        table_id,
-        background_tasks,
-        expected_table_revision,
-        expected_views_revision,
-        expected_asset_revision,
-        table_delete_dependencies,
-    )
-
-
-@router.put("/tables/{table_id}", dependencies=[Depends(require_role("editor"))])
-async def rename_table(table_id: str, data: dict = Body(...)):
-    return await table_lifecycle.rename_table(
-        table_id,
-        data,
-        table_rename_dependencies,
-    )
-
-
-def _rename_table_locked(table_id: str, data: dict):
-    """Rename a table while the canonical registry mutation lock is held."""
-    return table_lifecycle.rename_table_locked(
-        table_id,
-        data,
-        table_rename_dependencies,
-    )
-
-
-# --- Propagate a property rename to every place that stores the field NAME ----
-# Renaming a property only records the old name as an `alias` so rows (which key
-# by name) keep resolving until they migrate on their own. But view/section
-# CONFIG stores the name as a plain string in several places, and those never
-# migrate on their own — they'd keep showing (and sorting/filtering by) the old
-# name. This walks every reference position and rewrites old→new so a rename
-# truly propagates everywhere. See `feedback_field_rename_orphan_view_refs`.
-_VIEW_REF_LIST_KEYS = ("visibleProperties", "visible_properties", "columns")
-_VIEW_REF_SCALAR_KEYS = ("groupBy", "dateField", "coverField", "groupSort")
-_VIEW_REF_FIELD_LIST_KEYS = ("sorts", "filters")
-_VIEW_REF_DICT_KEYS = ("columnWidths", "aggregations")
-# A filterTree (nested AND/OR groups, #868) can nest under any of these keys.
-_FILTER_TREE_CHILD_KEYS = ("rules", "conditions", "children", "groups", "filters")
-
-
-def _rename_field_in_filter_tree(node: Any, old: str, new: str) -> bool:
-    """Recursively rewrite a field reference inside a filter tree."""
-    return table_schema.rename_field_in_filter_tree(node, old, new)
-
-
-def _rename_field_refs_in_view_like(container: Any, old: str, new: str) -> bool:
-    """Rewrite field-name references in a view or embedded section."""
-    return table_schema.rename_field_refs_in_view_like(container, old, new)
-
-
-def _propagate_property_rename(
-    registry: dict, table_id: str, old_name: str, new_name: str
-) -> int:
-    """Propagate a property rename through canonical view configuration."""
-    return table_schema.propagate_property_rename(
-        registry, table_id, old_name, new_name
-    )
-
-
-@router.patch("/tables/{table_id}/properties/{field_id}",
-               dependencies=[Depends(require_role("editor"))])
-async def patch_table_property(table_id: str, field_id: str, data: dict = Body(...)):
-    """
-        Renames or updates non-structural attributes of a property identified
-    by its immutable 'id'. Never changes the id.
-
-    PERSISTENCE BY NAME: since pages store keys by the current name,
-    renaming records the old name as an `alias` of the property. Rows with
-    the old name keep resolving (via aliases) and migrate on their own to the new name on
-    the next save — without rewriting any file here (instant, robust
-    offline). See `vault_persist_by_name.md`.
-
-    Accepted body (all optional):
-      - name: new displayed name
-      - type: new type (only if data migration is safe)
-      - config: dict that gets merged with the existing config
-    
-    """
-    return await table_schema.patch_table_property(
-        table_id,
-        field_id,
-        data,
-        table_property_dependencies,
-    )
-
-
-def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
-    return table_schema.patch_table_property_locked(
-        table_id,
-        field_id,
-        data,
-        table_property_dependencies,
-    )
-
-
-# --- Option catalogs: usage, renaming and deletion everywhere ---------------------
-# Bulk operations ALWAYS on the server (1 endpoint, N atomic writes
-# of file), never N PATCH requests from the client (they exhaust the pool and hide
-# partial errors — see feedback_bulk_ops_server_side).
-
-
-def _find_table_and_prop(registry: dict, table_id: str, field_ref: str) -> tuple:
-    """Return a table and property by table ID and field ID or name."""
-    return table_options.find_table_and_property(registry, table_id, field_ref)
-
-
-def _option_value_keys(prop: dict) -> list:
-    """Candidate frontmatter keys for this field's value."""
-    return table_options.option_value_keys(prop)
-
-
-def _global_status_members(registry: dict) -> list[tuple[dict, dict]]:
-    """Return every table/property pair backed by the global status catalog."""
-    return table_options.global_status_members(registry, table_option_dependencies)
-
-
-async def _rewrite_option_in_rows(
-    table: dict, prop: dict, old: str, new: Optional[str]
-) -> int:
-    """Rewrite one option value in all rows of a table."""
-    return await table_options.rewrite_option_in_rows(
-        table,
-        prop,
-        old,
-        new,
-        table_option_dependencies,
-    )
-
-
-@router.get("/tables/{table_id}/options/usage")
-async def table_option_usage(table_id: str, field_id: str):
-    """Usage counter per option (how many rows use each value) — feeds
-    the option editor of the SchemaConfigModal."""
-    return await table_options.table_option_usage(
-        table_id,
-        field_id,
-        table_option_dependencies,
-    )
-
-
-@router.post(
-    "/tables/{table_id}/options/rename",
-    dependencies=[Depends(require_role("editor"))],
-)
-async def rename_table_option(table_id: str, payload: dict = Body(...)):
-    """Renames an option in the catalog AND in all rows that use it (the
-    values are persisted by name → eager rewrite of the affected .md files).
-
-    Body: ``{field_id, old, new}``. Returns the count of touched files.
-    
-    """
-    return await table_options.rename_table_option(
-        table_id,
-        payload,
-        table_option_dependencies,
-    )
-
-
-@router.post(
-    "/tables/{table_id}/options/remove",
-    dependencies=[Depends(require_role("editor"))],
-)
-async def remove_table_option(table_id: str, payload: dict = Body(...)):
-    """Deletes an option from the catalog and from ALL rows that use it, clearing
-    the value or REASSIGNING it to another option (Notion-style).
-
-    Body: ``{field_id, value, reassign_to?}``. Returns touched files.
-    
-    """
-    return await table_options.remove_table_option(
-        table_id,
-        payload,
-        table_option_dependencies,
-    )
-
-
-# --- Named shared catalogs (root registry `option_catalogs`) ---------
-# Several tables share the same list (e.g. tags) by referencing it
-# with `config.catalog_ref`; editing the catalog in one place updates it everywhere.
-
-
-@router.get("/option-catalogs")
-async def list_option_catalogs():
-    return await table_options.list_option_catalogs(table_option_dependencies)
-
-
-@router.put(
-    "/option-catalogs/{name}", dependencies=[Depends(require_role("editor"))]
-)
-async def put_option_catalog(name: str, payload: dict = Body(...)):
-    """Creates or replaces a shared catalog. Body: ``{options: [...]}``."""
-    return await table_options.put_option_catalog(
-        name,
-        payload,
-        table_option_dependencies,
-    )
-
-
-@router.delete(
-    "/option-catalogs/{name}", dependencies=[Depends(require_role("editor"))]
-)
-async def delete_option_catalog(name: str):
-    """Deletes a shared catalog. 409 if any field still references it."""
-    return await table_options.delete_option_catalog(
-        name,
-        table_option_dependencies,
-    )
-
-
-@router.get("/views")
-async def list_views(table_id: Optional[str] = None):
-    return await vault_views.list_views(table_id, vault_view_dependencies)
-
-
-@router.post("/views", dependencies=[Depends(require_role("editor"))])
-async def create_view(view: dict = Body(...)):
-    return await vault_views.create_view(view, vault_view_dependencies)
-
-
-@router.put("/views/order", dependencies=[Depends(require_role("editor"))])
-async def reorder_views(body: dict = Body(...)):
-    """Reorders a table's views according to the received order.
-
-    Body: {"table_id": "...", "ordered_ids": ["v1", "v2", "v3"]}.
-    Views from other tables keep their relative position. Views
-    of the referenced table are placed at the end of the registry following
-    the given order.
-    
-    """
-    return await vault_views.reorder_views(body, vault_view_dependencies)
-
-
-@router.get("/views/{view_id}")
-async def get_view(view_id: str):
-    return await vault_views.get_view(view_id, vault_view_dependencies)
-
-
-@router.get("/views/{view_id}/usage")
-async def get_view_usage(view_id: str):
-    """Find all pages/notes in the vault where this view_id is embedded or referenced."""
-    return await vault_views.get_view_usage(view_id, vault_view_dependencies)
-
-
-@router.delete("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
-async def delete_view(view_id: str):
-    return await vault_views.delete_view(view_id, vault_view_dependencies)
-
-
-@router.put("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
-async def update_view(view_id: str, data: dict = Body(...)):
-    return await vault_views.update_view(view_id, data, vault_view_dependencies)
-
-
-def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
-    """Resolve a subpath and reject traversal outside the active vault."""
-    return vault_view_schema.resolve_subpath_within_vault(
-        folder,
-        *segments,
-        dependencies=vault_schema_dependencies,
-    )
-
-
-# Route for backward compatibility with the existing frontend (SchemaConfigModal)
-@router.post("/schema", dependencies=[Depends(require_role("editor"))])
-async def save_schema(folder: str, schema: dict = Body(...)):
-    """
-    Legacy route to save schemas per folder.
-    Now we redirect it to table creation if needed, or save it as a local file.
-    """
-    return await vault_view_schema.save_schema(
-        folder,
-        schema,
-        vault_schema_dependencies,
-    )
-
-
-@router.get("/schema")
-async def get_schema(folder: str):
-    return await vault_view_schema.get_schema(folder, vault_schema_dependencies)
+table_routes.register_routes(router)
 
 
 # --------------------------------------------------------------------------
