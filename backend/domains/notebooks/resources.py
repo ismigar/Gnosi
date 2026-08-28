@@ -215,7 +215,8 @@ def _url_validators_from_origins(
 def _current_resource_snapshot(
     notebook: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], list[Any]]:
-    from backend.api.vault_routes import _get_pages_for_table, _table_by_id
+    from backend.domains.vault.pages.foundation import _get_pages_for_table
+    from backend.domains.vault.tables.legacy_composition import _table_by_id
 
     table_id = str(notebook["source_table_id"])
     table = _table_by_id(table_id)

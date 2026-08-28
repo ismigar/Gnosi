@@ -101,6 +101,9 @@ non-target evidence from the active revision.
 Removing a Resource deletes notebook membership immediately. Retrieval and
 whole-notebook analysis join against current membership, so removed evidence is
 excluded before a replacement revision is ready.
+Resource catalog and refresh adapters read the canonical Vault page, table, and
+reference owners directly. They do not call through the dynamic HTTP
+compatibility facade, keeping domain dependency direction explicit.
 
 ## Persistence and recovery
 

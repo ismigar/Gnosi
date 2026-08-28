@@ -22,7 +22,9 @@ from backend.services.workspace_service import WorkspaceContext
 
 
 def _reference_table() -> tuple[str, dict[str, Any], list[Any]]:
-    from backend.api.vault_routes import _get_pages_for_table, _table_by_id, get_reference_table_id
+    from backend.domains.vault.citations.export_routes import get_reference_table_id
+    from backend.domains.vault.pages.foundation import _get_pages_for_table
+    from backend.domains.vault.tables.legacy_composition import _table_by_id
 
     table_id = str(get_reference_table_id() or "").strip()
     if not table_id:

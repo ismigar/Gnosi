@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 214 |
-| `domains` | 368 | 83138 |
+| `domains` | 368 | 83141 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1220 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146795 source lines**.
+Total: **699 modules** and **146798 source lines**.
 
 ## agent
 
@@ -330,13 +330,13 @@ Total: **699 modules** and **146795 source lines**.
 | [`backend/domains/media/views.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/views.py) | 195 | 1 | 9 | 0 | 9 | Vault-synchronized saved filters and sort views for media browsing. |
 | [`backend/domains/notebooks/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/__init__.py) | 49 | 0 | 0 | 0 | 0 | Canonical grounded-notebook domain. |
 | [`backend/domains/notebooks/analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/analysis.py) | 345 | 0 | 7 | 0 | 1 | Durable whole-notebook analysis workers. |
-| [`backend/domains/notebooks/catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/catalog.py) | 326 | 0 | 12 | 0 | 3 | Vault Resource discovery and filtering for grounded notebooks. |
+| [`backend/domains/notebooks/catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/catalog.py) | 328 | 0 | 12 | 0 | 3 | Vault Resource discovery and filtering for grounded notebooks. |
 | [`backend/domains/notebooks/chat.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/chat.py) | 232 | 0 | 4 | 0 | 3 | Notebook conversation scope and agent context resolution. |
 | [`backend/domains/notebooks/evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/evidence.py) | 301 | 0 | 9 | 0 | 2 | Search and citation retrieval over pinned notebook evidence. |
 | [`backend/domains/notebooks/ingest_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/ingest_storage.py) | 268 | 0 | 4 | 0 | 1 | SQLite writes and revision copies for notebook ingestion. |
 | [`backend/domains/notebooks/ingestion.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/ingestion.py) | 680 | 2 | 14 | 0 | 1 | Durable ingestion workers for grounded notebook evidence. |
 | [`backend/domains/notebooks/repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/repository.py) | 226 | 0 | 14 | 0 | 5 | Persistence and authorization primitives for grounded notebooks. |
-| [`backend/domains/notebooks/resources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/resources.py) | 361 | 0 | 13 | 0 | 3 | Resource fingerprinting, refresh detection and revision retention. |
+| [`backend/domains/notebooks/resources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/resources.py) | 362 | 0 | 13 | 0 | 3 | Resource fingerprinting, refresh detection and revision retention. |
 | [`backend/domains/notebooks/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/service.py) | 569 | 0 | 14 | 0 | 2 | Notebook lifecycle and refresh orchestration. |
 | [`backend/domains/notebooks/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/state.py) | 62 | 1 | 0 | 0 | 1 | Shared process state for grounded notebook services. |
 | [`backend/domains/notion/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/__init__.py) | 1 | 0 | 0 | 0 | 0 | Typed Notion import, clone and embedded-view domain. |
