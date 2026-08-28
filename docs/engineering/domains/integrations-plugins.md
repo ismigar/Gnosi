@@ -88,10 +88,11 @@ into the common integration registry where possible.
 
 Google OAuth keeps pending PKCE verifiers in a bounded, expiring state map and
 rejects callbacks whose state is absent or expired before token exchange. The
-configuration and account payloads are typed at the adapter boundary; typing
-exceptions are limited to the untyped Google SDK calls and the four historical
-route return annotations whose absence is required to preserve the byte-stable
-OpenAPI response schemas.
+configuration and account payloads are typed at the adapter boundary. Status
+and health dictionaries are validated through Pydantic models before returning
+their historical mapping shape; redirect handlers expose explicit response
+types. `response_model=None` retains the byte-stable OpenAPI schemas, and typing
+exceptions remain confined to the untyped Google SDK calls.
 
 The Google People adapter narrows discovery responses to Gnosi contact records,
 refreshes and persists access tokens through the integration manager, preserves
@@ -101,9 +102,10 @@ adapter and do not cross its typed service functions.
 
 Microsoft OAuth applies the same bounded-state rule: generated authorization
 states expire after ten minutes and are consumed before token exchange. Token
-and Graph profile JSON are narrowed inside the route adapter, blocking stale
-configuration before network calls and persisting the historical mail-account
-shape without changing redirects or OpenAPI.
+and Graph profile JSON are narrowed inside the route adapter, while its status
+mapping is Pydantic-validated and redirect handlers are explicitly typed. This
+blocks stale configuration before network calls and persists the historical
+mail-account shape without changing redirects or OpenAPI.
 
 Hosted Notion MCP uses OAuth 2.1 dynamic client registration and PKCE. Its typed
 boundary validates discovery and registration objects, requires a returned
