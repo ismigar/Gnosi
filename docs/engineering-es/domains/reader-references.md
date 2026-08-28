@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
+  - backend/domains/literature/connectors
   - backend/api/reader.py
   - backend/models/reader.py
   - backend/models/pdf_annotation.py
@@ -30,6 +31,7 @@ tests:
   - backend/tests/test_e2e_import_references_item_type.py
   - backend/tests/test_literature_models.py
   - backend/tests/test_academic_connectors.py
+  - backend/tests/test_academic_connectors_domain_contract.py
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
@@ -67,6 +69,14 @@ mapea resultados Zotero, y `platform/translation_server.py` gestiona el transpor
 ## Descubrimiento académico federal
 
 El complemento de recursos incorporado posee configuración de repositorio mientras `/api/vault/reference-table` sigue siendo la única fuente de verdad para la tabla de recursos objetivo. `/literature` ejecuta cada conector seleccionado de forma independiente y emite resultados parciales; una cuota o fallo del proveedor se adjunta a esa fuente sin descartar resultados saludables.
+
+`backend/domains/literature/connectors/` gestiona el transporte HTTPS acotado,
+la auditoría de solicitudes, la normalización canónica, OAI-PMH y JSON
+personalizado, los grafos de citas y los adaptadores por familia de proveedores.
+`backend/services/academic_connectors.py` es solo una fachada de compatibilidad.
+El puerto tipado resuelve los colaboradores de la fachada en cada llamada para
+que pruebas e integraciones puedan sustituir transporte, validación, parsers y
+dispatch sin duplicar estado mutable.
 
 `AcademicWork` Las uniones deterministas utilizan, en orden, DOI normalizado, PMID o PMCID, identificador arXiv sin versión, ISBN-13, y título normalizado más año más apellido de primer autor. Un partido de título borroso es sólo una advertencia. Las obras fusionadas conservan cada ocurrencia de fuente, ubicación abierta, número de citas específico del proveedor, procedencia de campo y variante en conflicto.
 

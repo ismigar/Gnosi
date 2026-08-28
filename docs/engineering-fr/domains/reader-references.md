@@ -4,11 +4,13 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
+  - backend/domains/literature/connectors
   - backend/api/reader.py
   - backend/models/reader.py
   - backend/models/pdf_annotation.py
   - backend/api/vault_routes.py
   - backend/domains/vault/citations/exporting.py
+  - backend/services/academic_connectors.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/components/Vault/ZoteroReaderTab.jsx
 tests:
@@ -19,6 +21,8 @@ tests:
   - backend/tests/test_references_io.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_e2e_import_references_item_type.py
+  - backend/tests/test_academic_connectors.py
+  - backend/tests/test_academic_connectors_domain_contract.py
 ---
 
 # Lecteur, références et citations
@@ -48,6 +52,18 @@ Le serveur de traduction est un sidecar optionnel. L'opération native peut fonc
 `citations/pdf_fallback.py` dérive une référence citable des métadonnées PDF
 lorsque la résolution échoue. `citations/web_capture.py` sélectionne et mappe les
 résultats Zotero, tandis que `platform/translation_server.py` gère le transport HTTP.
+
+## Découverte académique fédérée
+
+`/literature` exécute chaque connecteur sélectionné indépendamment afin qu'une
+erreur de quota ou de fournisseur ne supprime pas les résultats déjà obtenus.
+`backend/domains/literature/connectors/` possède le transport HTTPS borné,
+l'audit des requêtes, la normalisation canonique, OAI-PMH et JSON personnalisé,
+les graphes de citations et les adaptateurs par famille de fournisseurs.
+`backend/services/academic_connectors.py` reste uniquement une façade de
+compatibilité. Le port typé résout ses collaborateurs à chaque appel afin que
+les tests et intégrations puissent remplacer le transport, la validation, les
+parseurs et le dispatch sans dupliquer l'état mutable.
 
 ## Parcours de citation
 

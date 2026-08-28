@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1031 |
 | `data` | 2 | 203 |
-| `domains` | 274 | 60401 |
+| `domains` | 285 | 62863 |
 | `mcp` | 3 | 394 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 3 | 1126 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 804 |
-| `services` | 148 | 38953 |
+| `services` | 148 | 37924 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **603 modules** and **137665 source lines**.
+Total: **614 modules** and **139098 source lines**.
 
 ## agent
 
@@ -257,6 +257,17 @@ Total: **603 modules** and **137665 source lines**.
 | [`backend/domains/graph/scanning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/scanning.py) | 300 | 0 | 10 | 0 | 8 | No module docstring |
 | [`backend/domains/graph/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/service.py) | 294 | 1 | 0 | 0 | 1 | Canonical graph service orchestration. |
 | [`backend/domains/literature/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/__init__.py) | 49 | 0 | 0 | 0 | 0 | Canonical academic literature domain. |
+| [`backend/domains/literature/connectors/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/__init__.py) | 1 | 0 | 0 | 0 | 0 | Typed academic connector adapters and orchestration. |
+| [`backend/domains/literature/connectors/commercial.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/commercial.py) | 313 | 0 | 4 | 4 | 0 | Credentialed commercial academic provider adapters. |
+| [`backend/domains/literature/connectors/crossref.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/crossref.py) | 216 | 0 | 4 | 3 | 1 | Crossref and DataCite provider adapters. |
+| [`backend/domains/literature/connectors/dispatcher.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/dispatcher.py) | 132 | 0 | 3 | 2 | 3 | Connector dispatch, enrichment, and worker bridging. |
+| [`backend/domains/literature/connectors/generic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/generic.py) | 207 | 1 | 8 | 2 | 1 | Declarative custom JSON repository adapter. |
+| [`backend/domains/literature/connectors/graphs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/graphs.py) | 263 | 0 | 8 | 4 | 2 | OpenAlex and Semantic Scholar graph adapters. |
+| [`backend/domains/literature/connectors/normalization.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/normalization.py) | 207 | 0 | 9 | 0 | 3 | Canonical normalization shared by academic provider adapters. |
+| [`backend/domains/literature/connectors/public.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/public.py) | 571 | 0 | 8 | 8 | 0 | Public and open academic repository adapters. |
+| [`backend/domains/literature/connectors/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/runtime.py) | 98 | 6 | 2 | 0 | 2 | Typed late-bound compatibility seam for academic connector adapters. |
+| [`backend/domains/literature/connectors/transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/transport.py) | 239 | 1 | 9 | 2 | 6 | Bounded transport, SSRF protection, and request auditing. |
+| [`backend/domains/literature/connectors/xml.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/xml.py) | 215 | 0 | 6 | 2 | 3 | XML, arXiv, and OAI-PMH provider adapters. |
 | [`backend/domains/literature/repositories.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/repositories.py) | 740 | 0 | 14 | 1 | 4 | Academic repository catalog and configuration. |
 | [`backend/domains/literature/search.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/search.py) | 655 | 0 | 17 | 3 | 3 | Federated and indexed academic search orchestration. |
 | [`backend/domains/literature/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/state.py) | 33 | 0 | 0 | 0 | 0 | Shared mutable state for federated literature workflows. |
@@ -555,7 +566,7 @@ Total: **603 modules** and **137665 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/services/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/services/academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/academic_connectors.py) | 1199 | 1 | 52 | 26 | 19 | Authorized academic APIs, safe custom HTTP, and OAI-PMH parsing. |
+| [`backend/services/academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/academic_connectors.py) | 170 | 0 | 1 | 0 | 1 | Compatibility facade for typed academic connector adapters. |
 | [`backend/services/action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/action_rules.py) | 279 | 0 | 10 | 0 | 7 | Declarative action rules per table (`table.action_rules` block). |
 | [`backend/services/active_vault_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/active_vault_middleware.py) | 235 | 1 | 10 | 2 | 7 | Resolve canonical vault API routes and propagate the active vault context. |
 | [`backend/services/agent_cancellation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_cancellation.py) | 195 | 1 | 11 | 1 | 10 | Cooperative cancellation for streamed agent turns. |

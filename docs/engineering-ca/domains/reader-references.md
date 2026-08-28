@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
+  - backend/domains/literature/connectors
   - backend/api/reader.py
   - backend/models/reader.py
   - backend/models/pdf_annotation.py
@@ -30,6 +31,7 @@ tests:
   - backend/tests/test_e2e_import_references_item_type.py
   - backend/tests/test_literature_models.py
   - backend/tests/test_academic_connectors.py
+  - backend/tests/test_academic_connectors_domain_contract.py
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
@@ -67,6 +69,14 @@ mapeja resultats Zotero, i `platform/translation_server.py` gestiona el transpor
 ## Un descobriment acadèmic Federed
 
 La configuració del repositori dels connectors de recursos integrats mentre que `/api/vault/reference-table` Encara queda l'única font de veritat per a la taula de recursos de destí. `/literature` Executa cada connector seleccionat de forma independent i els resultats parcials de fluxos; una fallada de quota o proveïdor està connectada a aquesta font sense descartar resultats sans.
+
+`backend/domains/literature/connectors/` gestiona el transport HTTPS acotat,
+l'auditoria de peticions, la normalització canònica, OAI-PMH i JSON personalitzat,
+els grafs de citacions i els adaptadors per família de proveïdors.
+`backend/services/academic_connectors.py` és només una façana de compatibilitat.
+El port tipat resol els col·laboradors de la façana en cada crida perquè les proves
+i integracions puguin substituir transport, validació, parsers i dispatch sense
+duplicar estat mutable.
 
 `AcademicWork` és el connector canònica. Les unió de connectors. Les unions de desterministes usen, per ordre, normalitzat DOI, PMID o PMCID, l' identificador arXiv, ISBN- 13, i el títol normalitzat més d' any i cognom del primer autor. Un títol bot només és un avís. Fusionat funciona mantenint totes les ocurrències de codi font, localització, subtitulació específica, nombre de paquets provat i variants contradicades.
 

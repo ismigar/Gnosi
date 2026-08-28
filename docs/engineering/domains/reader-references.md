@@ -4,6 +4,7 @@ last_verified: 2026-08-28
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
+  - backend/domains/literature/connectors
   - backend/api/reader.py
   - backend/models/reader.py
   - backend/models/pdf_annotation.py
@@ -30,6 +31,7 @@ tests:
   - backend/tests/test_e2e_import_references_item_type.py
   - backend/tests/test_literature_models.py
   - backend/tests/test_academic_connectors.py
+  - backend/tests/test_academic_connectors_domain_contract.py
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
@@ -79,6 +81,14 @@ The built-in Resources plugin owns repository configuration while
 Resources table. `/literature` runs each selected connector independently and
 streams partial results; a quota or provider failure is attached to that source
 without discarding healthy results.
+
+`backend/domains/literature/connectors/` owns bounded HTTPS transport, request
+auditing, canonical normalization, OAI-PMH/custom JSON support, citation graph
+lookups, and provider-family adapters. `backend/services/academic_connectors.py`
+is a compatibility facade only. Its typed runtime port resolves facade
+collaborators at call time so existing tests and integrations can still replace
+network, validation, parser, and dispatch seams without duplicating mutable
+state.
 
 `AcademicWork` is the canonical connector contract. Deterministic unions use,
 in order, normalized DOI, PMID or PMCID, versionless arXiv identifier, ISBN-13,

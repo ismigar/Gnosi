@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 253 | 1920 |
+| pytest | 254 | 1924 |
 
 ## Files
 
@@ -131,6 +131,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/__init__.py) | 0 | Python AST |
 | pytest | [`backend/tests/conftest.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py) | 0 | Python AST |
 | pytest | [`backend/tests/test_academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_academic_connectors.py) | 14 | Python AST |
+| pytest | [`backend/tests/test_academic_connectors_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_academic_connectors_domain_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_action_rules.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_agent_action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_action_confirmations.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_agent_adaptive_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_adaptive_quality.py) | 5 | Python AST |
