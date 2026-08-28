@@ -8,6 +8,7 @@ source_paths:
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
   - backend/services/hybrid_calendar_service.py
+  - backend/services/meeting_reminders.py
   - frontend/src/pages/CalendarPage.jsx
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
@@ -75,6 +76,12 @@ Reminder settings select lead time and behavior. Collection merges upcoming
 events and deduplicates concurrent requests so duplicate reminders are not
 created. The frontend watcher displays active reminders and can navigate to the
 calendar or dismiss them.
+
+Reminder persistence narrows its JSON state into explicit settings, notified
+keys and active reminder objects. Time parsing accepts provider values at one
+boundary, attendee labels are normalized to strings, and AI output is converted
+before storage. The existing whole-cycle lock and fresh-state merge remain the
+authority for scheduler/API races.
 
 Meeting recording uploads bounded audio to a background workflow. Status polling
 separates recording, transcription, summarization, note creation, completion,
