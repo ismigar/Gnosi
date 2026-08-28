@@ -17,6 +17,7 @@ source_paths:
   - backend/services/literature_review_service.py
   - backend/services/literature_import_service.py
   - backend/services/literature_ai_service.py
+  - backend/services/references_io.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/pages/LiteraturePage.jsx
   - frontend/src/components/ResourcesPluginConfig.jsx
@@ -52,6 +53,11 @@ Aquest domini combina la lectura de fonts/news lletres amb un gestor de referèn
 ## Referència d' ingestió
 
 Les referències entren a través del DOI, ISBN, arXiv, PMID, BibTeX, RIS, fitxers o URL web. Els identificadors i el servidor de traducció Zo- servidor produeixen metadades específiques del proveïdor. Normalitza els mapes a l' esquema de referència configurat, genera una clau de citació estable, candidats de desuplicats, i escriu un registre de continguts.
+
+`backend/services/references_io.py` és el límit tipat i determinista de BibTeX/RIS.
+Els seus ajudants petits d'anàlisi, normalització, mapatge de camps i serialització
+preserven l'ordre, l'escapat, la resolució del tipus i el contracte públic
+d'importació/exportació, sense persistència ni xarxa ocultes.
 
 L'orquestració de consulta, que és només de lectura, viu al domini de citacions,
 manté la prioritat DOI → arXiv → PMID → ISBN → URL i fa passar les URL aportades

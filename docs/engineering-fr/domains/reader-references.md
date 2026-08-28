@@ -11,6 +11,7 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/domains/vault/citations/exporting.py
   - backend/services/academic_connectors.py
+  - backend/services/references_io.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/components/Vault/ZoteroReaderTab.jsx
 tests:
@@ -39,6 +40,11 @@ Ce domaine combine lecture de flux/bulletins avec un gestionnaire de référence
 ## Ingestion de référence
 
 Les références entrent par DOI, ISBN, arXiv, PMID, BibTeX, RIS, fichiers ou URLs web. Les résolveurs d'identification et le serveur de traduction Zotero produisent des métadonnées spécifiques au fournisseur. Les normalisateurs les mapent dans le schéma de référence configuré, génèrent une clé de citation stable, dédouplient les candidats et écrivent un enregistrement de Vault.
+
+`backend/services/references_io.py` est la frontière typée et déterministe de
+BibTeX/RIS. Ses petits assistants d'analyse, de normalisation, de mappage des
+champs et de sérialisation préservent l'ordre, l'échappement, la résolution du
+type et le contrat public d'import/export, sans persistance ni réseau cachés.
 
 L'orchestration de recherche, strictement en lecture seule, réside dans le domaine
 des citations, conserve la priorité DOI → arXiv → PMID → ISBN → URL et fait passer

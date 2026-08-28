@@ -17,6 +17,7 @@ source_paths:
   - backend/services/literature_review_service.py
   - backend/services/literature_import_service.py
   - backend/services/literature_ai_service.py
+  - backend/services/references_io.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/pages/LiteraturePage.jsx
   - frontend/src/components/ResourcesPluginConfig.jsx
@@ -57,6 +58,11 @@ References enter through DOI, ISBN, arXiv, PMID, BibTeX, RIS, files, or web URLs
 Identifier resolvers and Zotero translation-server produce provider-specific
 metadata. Normalizers map it to the configured reference schema, generate a
 stable citation key, deduplicate candidates, and write a Vault record.
+
+`backend/services/references_io.py` is the typed, deterministic BibTeX/RIS
+boundary. Small parser, normalization, field-mapping, and serialization helpers
+preserve field order, escaping, item-type resolution, and the public import/export
+contract without hidden persistence or network access.
 
 The read-only lookup orchestration lives in the citations domain, preserves the
 DOI → arXiv → PMID → ISBN → URL priority, and routes user URLs through the

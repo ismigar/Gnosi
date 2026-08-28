@@ -24,12 +24,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 3 | 1126 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 804 |
-| `services` | 148 | 37396 |
+| `services` | 148 | 37474 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **629 modules** and **142134 source lines**.
+Total: **629 modules** and **142212 source lines**.
 
 ## agent
 
@@ -703,7 +703,7 @@ Total: **629 modules** and **142134 source lines**.
 | [`backend/services/reader_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reader_analysis.py) | 125 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical Reader analysis domain. |
 | [`backend/services/recursos_zotero_mapping.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/recursos_zotero_mapping.py) | 71 | 0 | 1 | 0 | 1 | Bidirectional mapping between Recursos columns and Zotero fields. |
 | [`backend/services/reference_table_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reference_table_config.py) | 63 | 0 | 2 | 0 | 2 | Storage for the Vault's "References Table" designation. |
-| [`backend/services/references_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/references_io.py) | 556 | 0 | 19 | 0 | 10 | Import/Export BibTeX and RIS ↔ Recursos fields (Gnosi). |
+| [`backend/services/references_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/references_io.py) | 634 | 0 | 24 | 0 | 15 | Import/Export BibTeX and RIS ↔ Recursos fields (Gnosi). |
 | [`backend/services/relation_links.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/relation_links.py) | 151 | 0 | 6 | 0 | 5 | Relation wikilinks in the frontmatter — shared helpers. |
 | [`backend/services/relation_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/relation_sync.py) | 129 | 0 | 5 | 0 | 4 | Bidirectional relation sync — pure logic. |
 | [`backend/services/rule_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/rule_engine.py) | 1001 | 1 | 1 | 0 | 1 | No module docstring |

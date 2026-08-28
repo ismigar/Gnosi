@@ -17,6 +17,7 @@ source_paths:
   - backend/services/literature_review_service.py
   - backend/services/literature_import_service.py
   - backend/services/literature_ai_service.py
+  - backend/services/references_io.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/pages/LiteraturePage.jsx
   - frontend/src/components/ResourcesPluginConfig.jsx
@@ -52,6 +53,11 @@ Este dominio combina la lectura de feed/newsletter con un gestor de referencia c
 ## Ingestión de referencia
 
 Las referencias ingresan a través de DOI, ISBN, arXiv, PMID, BibTeX, RIS, archivos o URLs web. Los solucionadores de identificadores y el servidor de traducción Zotero producen metadatos específicos del proveedor. Normalizadores lo asignan al esquema de referencia configurado, generan una clave de cita estable, deduplican candidatos y escriben un registro de Vault.
+
+`backend/services/references_io.py` es el límite tipado y determinista de
+BibTeX/RIS. Sus pequeños ayudantes de análisis, normalización, mapeo de campos y
+serialización preservan el orden, el escape, la resolución del tipo y el contrato
+público de importación/exportación, sin persistencia ni red ocultas.
 
 La orquestación de consulta, que es solo de lectura, reside en el dominio de citas,
 mantiene la prioridad DOI → arXiv → PMID → ISBN → URL y hace pasar las URL del
