@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from backend.domains.agent.sources.scopes import (
     MAX_EXCERPT_CHARS,
@@ -33,7 +34,10 @@ def _metadata_value(metadata: dict[str, Any], *names: str) -> Any:
 def _reference_page_body(page: Any) -> str:
     from backend.services.context_vars import get_active_vault_path
 
-    root = Path(get_active_vault_path()).resolve()
+    active_vault = get_active_vault_path()
+    if active_vault is None:
+        raise RuntimeError("An active Vault is required to read reference records")
+    root = active_vault.resolve()
     path_value = getattr(page, "path", None)
     if not path_value:
         return ""
@@ -82,7 +86,8 @@ def _reference_pages(scope: dict[str, Any]) -> list[Any]:
     table = _reference_table()
     if not table:
         return []
-    pages = _get_pages_for_table(str(table["id"]))
+    list_pages = cast(Callable[[str], list[Any]], _get_pages_for_table)
+    pages = list_pages(str(table["id"]))
     output = []
     for page in pages:
         metadata = dict(getattr(page, "metadata", {}) or {})

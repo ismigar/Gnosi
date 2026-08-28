@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 4 | 107 |
 | `config` | 9 | 1081 |
 | `data` | 2 | 214 |
-| `domains` | 368 | 83185 |
+| `domains` | 368 | 83181 |
 | `mcp` | 3 | 419 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1220 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **699 modules** and **146849 source lines**.
+Total: **699 modules** and **146845 source lines**.
 
 ## agent
 
@@ -176,7 +176,7 @@ Total: **699 modules** and **146849 source lines**.
 | [`backend/domains/agent/context_core_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_core_tools.py) | 310 | 1 | 1 | 0 | 1 | Core read and search tools for attached context references. |
 | [`backend/domains/agent/context_inventory_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_inventory_tools.py) | 348 | 1 | 1 | 0 | 1 | Exhaustive deterministic inventory tool for attached Vault context. |
 | [`backend/domains/agent/context_matching.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_matching.py) | 356 | 0 | 11 | 0 | 10 | Deterministic matching for attached Vault inventories. |
-| [`backend/domains/agent/context_notebook_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_notebook_tools.py) | 166 | 0 | 1 | 0 | 1 | Tools closed over grounded notebook context references. |
+| [`backend/domains/agent/context_notebook_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_notebook_tools.py) | 157 | 0 | 1 | 0 | 1 | Tools closed over grounded notebook context references. |
 | [`backend/domains/agent/context_reader_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_reader_tools.py) | 178 | 0 | 2 | 0 | 1 | Tools closed over one attached Reader scope. |
 | [`backend/domains/agent/context_refs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_refs.py) | 218 | 0 | 6 | 0 | 4 | Normalization and descriptions for attached context references. |
 | [`backend/domains/agent/context_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_storage.py) | 463 | 0 | 26 | 0 | 8 | Vault-backed readers for attached context references. |
@@ -219,7 +219,7 @@ Total: **699 modules** and **146849 source lines**.
 | [`backend/domains/agent/sources/optional.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/optional.py) | 267 | 0 | 17 | 0 | 3 | Social, meeting and Notion read adapters. |
 | [`backend/domains/agent/sources/planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/planning.py) | 190 | 0 | 9 | 0 | 1 | Project-planning read adapter. |
 | [`backend/domains/agent/sources/reader.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/reader.py) | 227 | 0 | 5 | 0 | 1 | Reader inventory, search and exact-read adapters. |
-| [`backend/domains/agent/sources/references.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/references.py) | 139 | 0 | 8 | 0 | 1 | Vault reference-library read adapter. |
+| [`backend/domains/agent/sources/references.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/references.py) | 144 | 0 | 8 | 0 | 1 | Vault reference-library read adapter. |
 | [`backend/domains/agent/sources/scopes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/scopes.py) | 375 | 0 | 14 | 0 | 6 | Normalization and containment for internal source scopes. |
 | [`backend/domains/agent/stream_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/stream_protocol.py) | 279 | 1 | 7 | 4 | 2 | Versioned, bounded protocol for streamed agent events. |
 | [`backend/domains/agent/tool_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/tool_runtime.py) | 239 | 0 | 12 | 0 | 5 | Runtime contract for bounded, observable agent tool calls. |

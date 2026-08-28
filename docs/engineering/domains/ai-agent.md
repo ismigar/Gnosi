@@ -722,6 +722,10 @@ Eligible MCP tools are materialized as validated `ToolDescriptor` instances at
 the contribution boundary, with an explicit MCP origin and normalized input
 schema. Read-only/destructive annotations still determine admission exactly as
 before.
+Reference evidence requires a concrete active Vault before resolving or reading
+paths, and its table-page seam is narrowed locally. Notebook evidence wrappers
+return their typed untrusted-content strings directly across search, exact-read,
+and whole-analysis operations.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are
