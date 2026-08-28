@@ -1,8 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/calendar_routes.py
+  - backend/domains/calendar/geocoding.py
   - backend/api/meeting_routes.py
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
@@ -10,6 +11,7 @@ source_paths:
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
 tests:
+  - backend/tests/test_calendar_geocoding_domain.py
   - backend/tests/test_calendar_path_containment.py
   - backend/tests/test_meeting_reminders_race.py
   - tests/e2e/tests/e2e/calendar.spec.ts
@@ -23,6 +25,11 @@ Calendar aggregates local Vault events with connected Google Calendar and
 CalDAV accounts. It supports calendar selection, event CRUD, invitations,
 RSVPs, free/busy queries, geocoding, reminders, hidden-event state, ICS export,
 meeting recording, transcription, and AI-generated notes.
+
+The HTTP boundary is strictly typed while preserving the existing response
+contract. Photon label normalization, URL rejection, result validation, and
+deduplication belong to the Calendar geocoding domain rather than the route
+module; provider payloads remain validated at that adapter boundary.
 
 ## Event aggregation
 

@@ -15,7 +15,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 26 | 15 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 67 | 22 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 15 | 7 | 0 |
-| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 11 | 5 | 0 |
+| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 11 | 6 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 9 | 2 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 6 | 0 | 0 |
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 78 | 20 | 0 |

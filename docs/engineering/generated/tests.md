@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 261 | 1958 |
+| pytest | 262 | 1961 |
 
 ## Files
 
@@ -175,6 +175,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_bulk_update_index_refresh.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_bulk_update_index_refresh.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_bulk_update_metadata.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_bulk_update_metadata.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_cache.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_calendar_geocoding_domain.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_calendar_geocoding_domain.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_calendar_path_containment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_calendar_path_containment.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_capability_audit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_capability_audit.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_capability_automations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_capability_automations.py) | 4 | Python AST |

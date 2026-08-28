@@ -1,8 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/calendar_routes.py
+  - backend/domains/calendar/geocoding.py
   - backend/api/meeting_routes.py
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
@@ -10,6 +11,7 @@ source_paths:
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
 tests:
+  - backend/tests/test_calendar_geocoding_domain.py
   - backend/tests/test_calendar_path_containment.py
   - backend/tests/test_meeting_reminders_race.py
   - tests/e2e/tests/e2e/calendar.spec.ts
@@ -20,6 +22,12 @@ tests:
 ## Responsabilidad
 
 El calendario agrega eventos locales de Vault con cuentas conectadas de Google Calendar y CalDAV. Soporta selección de calendario, CRUD de eventos, invitaciones, RSVPs, consultas libres/ocupadas, geocodificación, recordatorios, estado de evento oculto, exportación de ICS, grabación de reuniones, transcripción y notas generadas por IA.
+
+La frontera HTTP está tipada estrictamente y conserva el contrato de respuesta
+existente. La normalización de etiquetas de Photon, el rechazo de URL, la
+validación de resultados y la deduplicación pertenecen al dominio de
+geocodificación de Calendar, no al módulo de rutas; los payloads de proveedores
+se validan en esa frontera de adaptación.
 
 ## Agregación de eventos
 

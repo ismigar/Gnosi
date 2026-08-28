@@ -1,8 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/calendar_routes.py
+  - backend/domains/calendar/geocoding.py
   - backend/api/meeting_routes.py
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
@@ -10,6 +11,7 @@ source_paths:
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
 tests:
+  - backend/tests/test_calendar_geocoding_domain.py
   - backend/tests/test_calendar_path_containment.py
   - backend/tests/test_meeting_reminders_race.py
   - tests/e2e/tests/e2e/calendar.spec.ts
@@ -20,6 +22,12 @@ tests:
 ## Reversió
 
 Els esdeveniments de calendari agrega els esdeveniments locals amb contactes de Google Calendar i CalDAV. Permet la selecció de calendari, les invitacions de l' esdeveniment, les explondes, les consultes de lliure/buss, geocoding, recordatoris, estat ocult, exportació d' exportació, la reunió, la transcripció i les notes de l' IA- validades.
+
+La frontera HTTP està tipada estrictament i conserva el contracte de resposta
+existent. La normalització d'etiquetes de Photon, el rebuig d'URL, la validació
+de resultats i la deduplicació pertanyen al domini de geocodificació de
+Calendar, no al mòdul de rutes; els payloads dels proveïdors es validen en
+aquesta frontera d'adaptació.
 
 ## Esdeveniment agregregació
 
