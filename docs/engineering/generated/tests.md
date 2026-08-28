@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 274 | 2007 |
+| pytest | 275 | 2012 |
 
 ## Files
 
@@ -293,6 +293,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_planning_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_agent_tools.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_engine.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_planning_scheduler.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_scheduler.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_platform_notifications.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_platform_notifications.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_plugin_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_plugin_ai_contributions.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_plugin_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_plugin_domain_contract.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_plugin_network_guard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_plugin_network_guard.py) | 3 | Python AST |

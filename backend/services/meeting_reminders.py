@@ -186,7 +186,8 @@ def _dispatch_notification(reminder: JsonObject) -> None:
         parts.append("Tens una reunió a punt de començar.")
     message = "\n".join(parts)
     try:
-        from pipeline.skills.notification_service.scripts.notification_service import notify
+        from backend.platform.notifications import notify
+
         notify(title, message, level="INFO")
     except Exception as e:
         log.warning(f"meeting_reminders: notification failed: {e}")

@@ -6,6 +6,7 @@ source_paths:
   - backend/scheduler/manager.py
   - backend/scheduler/contracts.py
   - backend/scheduler/notifications.py
+  - backend/platform/notifications.py
   - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
@@ -16,6 +17,7 @@ tests:
   - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
+  - backend/tests/test_platform_notifications.py
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_literature_service.py
   - tests/e2e/tests/e2e/automation-scout.spec.ts
@@ -67,6 +69,13 @@ The manager owns scheduling lifecycle, persistence, overlap control, and task
 history. `task_handlers.py` owns dispatch policy and the larger operational task
 bodies, including bounded maintenance. This keeps task execution reusable and
 strictly typed without coupling it back to the scheduler thread lifecycle.
+
+Operational notifications are dispatched through a provider-neutral platform
+boundary. Database and per-device Markdown persistence remain available on
+every host; native macOS alerts are best effort. Markdown logs live below
+`GNOSI_DATA_DIR`, never inside a OneDrive-, Google Drive-, Nextcloud-, Dropbox-
+or other provider-specific Vault path, and one failed channel cannot block the
+others. The historical notification skill path is a compatibility facade only.
 
 ## Academic synchronization and review updates
 
