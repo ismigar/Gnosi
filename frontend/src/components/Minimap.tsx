@@ -1,41 +1,23 @@
-import React, { useEffect, useRef } from 'react';
-import type Graph from 'graphology';
-import type Sigma from 'sigma';
+import { useEffect, useRef } from 'react';
 
+import { subscribeWindowEvent } from '../shared/platform/browser-events';
 import {
     createMinimapTransform,
     getCameraGraphBounds,
     getCameraViewportRect,
-    getVisibleCameraRatio,
     getVisibleGraphBounds,
     mergeGraphBounds,
 } from '../utils/graphViewGeometry';
-
-interface GraphPoint {
-    x: number;
-    y: number;
-}
-
-interface MinimapNodeAttributes {
-    [key: string]: unknown;
-    hidden?: boolean;
-    x: number;
-    y: number;
-}
-
-type MinimapGraph = Graph<MinimapNodeAttributes>;
-type MinimapRenderer = Sigma<MinimapNodeAttributes>;
-type MinimapTransform = NonNullable<ReturnType<typeof createMinimapTransform>>;
-
-interface NormalizationFunction {
-    (point: GraphPoint): GraphPoint;
-    ratio?: unknown;
-}
-
-interface SigmaRuntimeAccess {
-    killed?: unknown;
-    normalizationFunction?: unknown;
-}
+import {
+    findClosestVisibleNode,
+    isRendererKilled,
+    normalizeGraphPoint,
+    visibleCameraRatio,
+    type GraphPoint,
+    type MinimapGraph,
+    type MinimapRenderer,
+    type MinimapTransform,
+} from './minimapRuntime';
 
 interface MinimapProps {
     graph: MinimapGraph | null;
@@ -44,63 +26,6 @@ interface MinimapProps {
     onCenter?: () => void;
     onPanToGraph?: (x: number, y: number, ratio: number) => void;
     onPanToNode?: (nodeId: string, ratio: number) => void;
-}
-
-function sigmaRuntime(renderer: MinimapRenderer): SigmaRuntimeAccess {
-    return renderer as unknown as SigmaRuntimeAccess;
-}
-
-function isNormalizationFunction(value: unknown): value is NormalizationFunction {
-    return typeof value === 'function';
-}
-
-function normalizeGraphPoint(
-    renderer: MinimapRenderer,
-    point: GraphPoint,
-): GraphPoint {
-    const normalizationFunction = sigmaRuntime(renderer).normalizationFunction;
-    if (!isNormalizationFunction(normalizationFunction)) {
-        throw new TypeError('Sigma normalization function is unavailable');
-    }
-    return normalizationFunction.call(renderer, point);
-}
-
-function isRendererKilled(renderer: MinimapRenderer): boolean {
-    return sigmaRuntime(renderer).killed === true;
-}
-
-function visibleCameraRatio(
-    renderer: MinimapRenderer,
-    bounds: Parameters<typeof getVisibleCameraRatio>[1],
-): number {
-    const normalizationFunction = sigmaRuntime(renderer).normalizationFunction;
-    return getVisibleCameraRatio({
-        getCamera: () => renderer.getCamera(),
-        getDimensions: () => renderer.getDimensions(),
-        getGraphToViewportRatio: () => renderer.getGraphToViewportRatio(),
-        normalizationFunction: isNormalizationFunction(normalizationFunction)
-            ? { ratio: normalizationFunction.ratio }
-            : undefined,
-    }, bounds);
-}
-
-function findClosestVisibleNode(
-    graph: MinimapGraph,
-    graphPosition: GraphPoint,
-): string | null {
-    let closestNode: string | null = null;
-    let minimumDistance = Infinity;
-    graph.forEachNode((node, attributes) => {
-        if (attributes.hidden) return;
-        const dx = attributes.x - graphPosition.x;
-        const dy = attributes.y - graphPosition.y;
-        const distance = dx * dx + dy * dy;
-        if (distance < minimumDistance) {
-            minimumDistance = distance;
-            closestNode = node;
-        }
-    });
-    return closestNode;
 }
 
 export const Minimap = ({
@@ -216,10 +141,7 @@ export const Minimap = ({
 
             // Ensure transform is up to date
             const t = updateTransform();
-            if (!t) {
-                console.warn('Minimap: Transform update failed (empty graph?)');
-                return;
-            }
+            if (!t) return;
 
             const rect = containerRef.current.getBoundingClientRect();
             const x = event.clientX - rect.left;
@@ -305,8 +227,8 @@ export const Minimap = ({
         container.addEventListener('click', handleMinimapClick);
         container.addEventListener('dblclick', handleMinimapDoubleClick);
         container.addEventListener('mousedown', handleMouseDown);
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        const unsubscribeMouseMove = subscribeWindowEvent('mousemove', handleMouseMove);
+        const unsubscribeMouseUp = subscribeWindowEvent('mouseup', handleMouseUp);
 
         return () => {
             if (!isRendererKilled(mainRenderer)) {
@@ -321,8 +243,8 @@ export const Minimap = ({
             container.removeEventListener('click', handleMinimapClick);
             container.removeEventListener('dblclick', handleMinimapDoubleClick);
             container.removeEventListener('mousedown', handleMouseDown);
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            unsubscribeMouseMove();
+            unsubscribeMouseUp();
         };
     }, [graph, mainRenderer, isDarkMode, onCenter, onPanToGraph, onPanToNode]);
 

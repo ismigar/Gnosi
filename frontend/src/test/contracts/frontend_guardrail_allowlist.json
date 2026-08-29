@@ -113,7 +113,6 @@
       "frontend/src/components/Mail/MailComposer.jsx": 2,
       "frontend/src/components/Mail/MailList.jsx": 2,
       "frontend/src/components/Mail/MailViewer.jsx": 6,
-      "frontend/src/components/Minimap.tsx": 4,
       "frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx": 1,
       "frontend/src/components/Vault/AICorrectLayer.jsx": 2,
       "frontend/src/components/Vault/BlockEditor.jsx": 20,
