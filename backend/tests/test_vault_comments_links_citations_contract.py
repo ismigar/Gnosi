@@ -247,7 +247,11 @@ def test_extracted_routes_preserve_order_contract_and_facade_identity() -> None:
         assert route.endpoint.__name__ == expected.endpoint
         assert route.endpoint.__module__ == expected.module
         assert route.endpoint is getattr(legacy_vault, expected.endpoint)
-        assert route.response_model is None
+        expected_response_model = {
+            "/global-index": link_schemas.GlobalIndexResponse,
+            "/alias-index": link_schemas.AliasIndexResponse,
+        }.get(route.path)
+        assert route.response_model is expected_response_model
         # APIRouter contributes get_workspace_context to every route; the
         # frozen count records only the route-local dependencies above it.
         assert len(route.dependencies) == expected.dependency_count + 1

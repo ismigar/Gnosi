@@ -13,6 +13,7 @@ from backend.domains.vault.tables import lifecycle as table_lifecycle
 from backend.domains.vault.tables import options as table_options
 from backend.domains.vault.tables import schema as table_schema
 from backend.domains.vault.tables.composition import TableDomainDependencies
+from backend.domains.vault.tables.contracts import RegistryRecord
 from backend.domains.vault.tables.security import get_workspace_context, require_role
 from backend.domains.vault.views import api as vault_views
 from backend.domains.vault.views import schema as vault_view_schema
@@ -70,7 +71,7 @@ async def delete_database(database_id: str) -> RegistryData:
     )
 
 
-@router.get("/tables", response_model=None)
+@router.get("/tables", response_model=list[RegistryRecord])
 async def list_tables(database_id: Optional[str] = None) -> list[RegistryData]:
     return await table_collection_api.list_tables(
         database_id,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 
 class LinkMentionsRequest(BaseModel):
@@ -10,4 +10,12 @@ class LinkMentionsRequest(BaseModel):
     source_id: str | None = None
 
 
-__all__ = ["LinkMentionsRequest"]
+class GlobalIndexResponse(RootModel[dict[str, str]]):
+    """Global page identifier to title lookup."""
+
+
+class AliasIndexResponse(RootModel[dict[str, list[str]]]):
+    """Global page identifier to declared aliases lookup."""
+
+
+__all__ = ["AliasIndexResponse", "GlobalIndexResponse", "LinkMentionsRequest"]

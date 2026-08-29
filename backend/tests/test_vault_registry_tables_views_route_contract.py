@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes
+from backend.domains.vault.tables.contracts import RegistryRecord
 
 
 RouteFingerprint = tuple[str, str, str, int]
@@ -90,3 +91,12 @@ def test_registry_table_view_routes_keep_legacy_facade_identity() -> None:
     assert tuple(routes) == tuple(item[2] for item in EXPECTED_ROUTE_FINGERPRINT)
     for handler_name, route in routes.items():
         assert route.endpoint is getattr(vault_routes, handler_name)
+
+
+def test_list_tables_exposes_the_typed_registry_contract() -> None:
+    route = next(
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute) and route.endpoint.__name__ == "list_tables"
+    )
+    assert route.response_model == list[RegistryRecord]

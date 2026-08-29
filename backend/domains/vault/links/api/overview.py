@@ -7,6 +7,7 @@ from collections.abc import Callable
 from fastapi import APIRouter
 
 from backend.domains.vault.links.api.dependencies import LinkApiDependencies
+from backend.domains.vault.links.schemas import AliasIndexResponse, GlobalIndexResponse
 
 
 def register_routes(
@@ -36,13 +37,13 @@ def register_routes(
         "/global-index",
         get_global_index,
         methods=["GET"],
-        response_model=None,
+        response_model=GlobalIndexResponse,
     )
     router.add_api_route(
         "/alias-index",
         get_alias_index,
         methods=["GET"],
-        response_model=None,
+        response_model=AliasIndexResponse,
     )
     return get_global_index, get_alias_index
 
