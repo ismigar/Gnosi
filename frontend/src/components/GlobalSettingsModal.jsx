@@ -14,7 +14,6 @@ import { useApi } from '../hooks/use-api';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import { IconRenderer } from './Vault/IconRenderer';
-import axios from '../shared/api/legacy-http';
 import { toast } from '../lib/toast';
 import { emitConfigChanged } from '../lib/configEvents';
 import { getEffectiveTableId, toValueStrings } from '../utils/graphFilters';
@@ -55,10 +54,16 @@ import { fetchGoogleOAuthStatus } from '../shared/api/google-auth';
 import {
     bulkUpdateIntegrations,
     fetchIntegrations,
+    testEmailIntegration,
     updateDefaultCalendar,
     updateDefaultContacts,
     updateDefaultMail,
 } from '../shared/api/integrations';
+import {
+    deleteCredential,
+    fetchCredentialStatus,
+    saveCredential,
+} from '../shared/api/credentials';
 import {
     fetchAiCatalog,
     fetchAiModelComparison,
@@ -1205,7 +1210,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         let cancelled = false;
         setTranslateState(s => ({ ...s, loading: true }));
         Promise.all([
-            axios.get('/api/credentials/deepl_api_key').then(r => r.data).catch(() => ({ has_value: false })),
+            fetchCredentialStatus('deepl_api_key').catch(() => ({ has_value: false })),
             fetchEnvironment().catch(() => ({})),
         ]).then(([cred, env]) => {
             if (cancelled) return;
@@ -1229,7 +1234,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
     const saveDeeplKey = useCallback(async (value) => {
         setTranslateState(s => ({ ...s, saving_deepl: true, saved_deepl: false }));
         try {
-            await axios.post('/api/credentials/', { key: 'deepl_api_key', value });
+            await saveCredential({ key: 'deepl_api_key', value });
             setTranslateState(s => (
                 s.deepl_input.trim() === value
                     ? { ...s, deepl_has_value: true, deepl_input: '', saving_deepl: false, saved_deepl: true }
@@ -1254,7 +1259,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
     const handleDeleteDeeplKey = async () => {
         setTranslateState(s => ({ ...s, saving_deepl: true }));
         try {
-            await axios.delete('/api/credentials/deepl_api_key');
+            await deleteCredential('deepl_api_key');
             setTranslateState(s => ({ ...s, deepl_has_value: false, deepl_input: '', saving_deepl: false }));
         } catch (error) {
             console.error('Error deleting DeepL API key:', error);
@@ -2934,7 +2939,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                 setMailTestStatus('testing');
                                                                 try {
                                                                     await bulkUpdateIntegrations({ ...integrations, [key]: newList });
-                                                                    const res = await axios.post('/api/integrations/test-email', {
+                                                                    const result = await testEmailIntegration({
                                                                         imap_server: mailImapHost,
                                                                         imap_port: mailImapPort,
                                                                         imap_encryption: mailImapEnc,
@@ -2944,9 +2949,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                         username: mailImapUser || addAccountEmail,
                                                                         password: mailImapPass,
                                                                     });
-                                                                    const ok = res.data?.success;
+                                                                    const ok = result.success;
                                                                     setMailTestStatus(ok ? 'ok' : 'error');
-                                                                    toast[ok ? 'success' : 'error'](ok ? tn('accounts.test_ok') : tn('accounts.test_error', { error: res.data?.error || tn('accounts.could_not_connect') }));
+                                                                    toast[ok ? 'success' : 'error'](ok ? tn('accounts.test_ok') : tn('accounts.test_error', { error: result.error || tn('accounts.could_not_connect') }));
                                                                     if (ok) loadIntegrations();
                                                                 } catch (err) {
                                                                     setMailTestStatus('error');

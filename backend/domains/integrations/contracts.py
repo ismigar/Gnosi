@@ -32,10 +32,39 @@ class IntegrationUpdateResponse(BaseModel):
     message: str | None = None
 
 
+class EmailConnectionTestRequest(BaseModel):
+    imap_server: str | None = None
+    imap_host: str | None = None
+    imap_port: int | str | None = None
+    imap_encryption: str = "ssl"
+    smtp_server: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int | str | None = None
+    smtp_encryption: str = "ssl"
+    username: str | None = None
+    password: str | None = None
+
+
+class DavConnectionTestRequest(BaseModel):
+    url: str | None = None
+    username: str | None = None
+    password: str | None = None
+
+
+class IntegrationConnectionTestResponse(BaseModel):
+    success: bool
+    error: str | None = None
+    imap: bool | None = None
+    smtp: bool | None = None
+
+
 __all__ = [
     "CalendarSelectionRequest",
+    "DavConnectionTestRequest",
     "DefaultAccountRequest",
     "DefaultCalendarRequest",
+    "EmailConnectionTestRequest",
+    "IntegrationConnectionTestResponse",
     "IntegrationsDocument",
     "IntegrationUpdateResponse",
     "IntegrationsUpdateRequest",

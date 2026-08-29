@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   bulkUpdateIntegrations,
   fetchIntegrations,
+  testCalendarIntegration,
+  testContactsIntegration,
+  testEmailIntegration,
   updateCalendarSelection,
   updateDefaultMail,
 } from './integrations';
@@ -68,5 +71,45 @@ describe('integrations API', () => {
     await expect(request.clone().json()).resolves.toEqual({
       email: 'mail@example.test',
     });
+  });
+
+  it('tests mail and DAV connections through typed request bodies', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(() => Promise.resolve(Response.json({ success: true })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await testEmailIntegration({
+      imap_server: 'imap.example.test',
+      password: 'secret',
+      smtp_server: 'smtp.example.test',
+      username: 'mail@example.test',
+    });
+    await testContactsIntegration({
+      password: 'secret',
+      url: 'https://cloud.example.test/contacts',
+      username: 'user',
+    });
+    await testCalendarIntegration({
+      password: 'secret',
+      url: 'https://cloud.example.test/calendar',
+      username: 'user',
+    });
+
+    expect(new URL(requestAt(fetchMock, 0).url).pathname).toBe(
+      '/api/integrations/test-email',
+    );
+    await expect(requestAt(fetchMock, 0).clone().json()).resolves.toMatchObject({
+      imap_encryption: 'ssl',
+      imap_server: 'imap.example.test',
+      smtp_encryption: 'ssl',
+      smtp_server: 'smtp.example.test',
+    });
+    expect(new URL(requestAt(fetchMock, 1).url).pathname).toBe(
+      '/api/integrations/test-contacts',
+    );
+    expect(new URL(requestAt(fetchMock, 2).url).pathname).toBe(
+      '/api/integrations/test-calendar',
+    );
   });
 });

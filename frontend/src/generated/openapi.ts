@@ -11470,6 +11470,37 @@ export interface components {
             /** Path */
             path?: string | null;
         };
+        /** CredentialMigrationResponse */
+        CredentialMigrationResponse: {
+            /** Failed */
+            failed: string[];
+            /** Migrated */
+            migrated: string[];
+            /**
+             * Source Modified
+             * @constant
+             */
+            source_modified: false;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+            /** Total */
+            total: number;
+        };
+        /** CredentialMutationResponse */
+        CredentialMutationResponse: {
+            /** Key */
+            key: string;
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
         /** CredentialSet */
         CredentialSet: {
             /** Key */
@@ -11516,6 +11547,15 @@ export interface components {
         DailyNoteRequest: {
             /** Date */
             date: string;
+        };
+        /** DavConnectionTestRequest */
+        DavConnectionTestRequest: {
+            /** Password */
+            password?: string | null;
+            /** Url */
+            url?: string | null;
+            /** Username */
+            username?: string | null;
         };
         /** DecisionRequest */
         DecisionRequest: {
@@ -11640,6 +11680,35 @@ export interface components {
             };
             /** Title */
             title: string;
+        };
+        /** EmailConnectionTestRequest */
+        EmailConnectionTestRequest: {
+            /**
+             * Imap Encryption
+             * @default ssl
+             */
+            imap_encryption: string;
+            /** Imap Host */
+            imap_host?: string | null;
+            /** Imap Port */
+            imap_port?: number | string | null;
+            /** Imap Server */
+            imap_server?: string | null;
+            /** Password */
+            password?: string | null;
+            /**
+             * Smtp Encryption
+             * @default ssl
+             */
+            smtp_encryption: string;
+            /** Smtp Host */
+            smtp_host?: string | null;
+            /** Smtp Port */
+            smtp_port?: number | string | null;
+            /** Smtp Server */
+            smtp_server?: string | null;
+            /** Username */
+            username?: string | null;
         };
         /**
          * EnvironmentResponse
@@ -12330,6 +12399,17 @@ export interface components {
              * @default
              */
             quote: string;
+        };
+        /** IntegrationConnectionTestResponse */
+        IntegrationConnectionTestResponse: {
+            /** Error */
+            error?: string | null;
+            /** Imap */
+            imap?: boolean | null;
+            /** Smtp */
+            smtp?: boolean | null;
+            /** Success */
+            success: boolean;
         };
         /**
          * IntegrationsDocument
@@ -20837,7 +20917,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CredentialMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20875,7 +20955,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CredentialStatus"];
                 };
             };
             /** @description Validation Error */
@@ -20913,7 +20993,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CredentialMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20949,7 +21029,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CredentialMigrationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21513,9 +21593,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["DavConnectionTestRequest"];
             };
         };
         responses: {
@@ -21525,7 +21603,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationConnectionTestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21555,9 +21633,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["DavConnectionTestRequest"];
             };
         };
         responses: {
@@ -21567,7 +21643,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationConnectionTestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21597,9 +21673,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["EmailConnectionTestRequest"];
             };
         };
         responses: {
@@ -21609,7 +21683,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationConnectionTestResponse"];
                 };
             };
             /** @description Validation Error */

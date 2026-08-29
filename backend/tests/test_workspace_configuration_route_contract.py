@@ -6,6 +6,7 @@ import hashlib
 import json
 
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 
 from backend.api import (
     config_routes as legacy_config,
@@ -14,11 +15,16 @@ from backend.api import (
     workspace_routes as legacy_workspace,
 )
 from backend.domains.configuration.api import credentials, environment, settings
+from backend.domains.configuration.credential_schemas import (
+    CredentialMigrationResponse,
+    CredentialMutationResponse,
+    CredentialStatus,
+)
 from backend.domains.workspace.api import routes as workspace
 
 
 EXPECTED_OPENAPI_SHA256 = (
-    "5a64c979718b136c9fb61521cac346d21f0e2a5f88ea900e39629aa3f0023202"
+    "cc74bd1fb888f3639b65334144e0e800ab4c8f723060812400f37e4f58abf029"
 )
 
 
@@ -58,3 +64,16 @@ def test_legacy_facades_preserve_historical_public_symbols() -> None:
     assert legacy_credentials.CredentialSet is credentials.CredentialSet
     assert legacy_credentials.CREDENTIAL_KEYS is credentials.CREDENTIAL_KEYS
     assert legacy_credentials.migrate_from_env is credentials.migrate_from_env
+
+
+def test_credential_routes_publish_secret_safe_response_contracts() -> None:
+    routes = {
+        route.endpoint.__name__: route
+        for route in credentials.router.routes
+        if isinstance(route, APIRoute)
+    }
+    assert routes["list_credentials"].response_model == list[CredentialStatus]
+    assert routes["get_credential_status"].response_model is CredentialStatus
+    assert routes["set_credential"].response_model is CredentialMutationResponse
+    assert routes["delete_credential"].response_model is CredentialMutationResponse
+    assert routes["migrate_from_env"].response_model is CredentialMigrationResponse

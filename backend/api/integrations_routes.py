@@ -1,11 +1,14 @@
-from fastapi import Depends, APIRouter, HTTPException, Body, Request
+from fastapi import Depends, APIRouter, HTTPException, Request
 import asyncio
 import logging
 from backend.services.integration_manager import integration_manager
 from backend.domains.integrations.contracts import (
     CalendarSelectionRequest,
+    DavConnectionTestRequest,
     DefaultAccountRequest,
     DefaultCalendarRequest,
+    EmailConnectionTestRequest,
+    IntegrationConnectionTestResponse,
     IntegrationsDocument,
     IntegrationUpdateResponse,
     IntegrationsUpdateRequest,
@@ -200,29 +203,31 @@ def _test_email_sync(
 @router.post(
     "/test-email",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("mail"))],
-    response_model=None,
+    response_model=IntegrationConnectionTestResponse,
 )
-async def test_email_connection(payload: dict[str, Any] = Body(...)) -> Any:
+async def test_email_connection(
+    payload: EmailConnectionTestRequest,
+) -> dict[str, object]:
     """Tests IMAP/SMTP connection for an email account."""
     try:
-        imap_host = payload.get("imap_server") or payload.get("imap_host")
-        imap_encryption = payload.get("imap_encryption", "ssl")
-        imap_port_raw = payload.get("imap_port")
+        imap_host = payload.imap_server or payload.imap_host
+        imap_encryption = payload.imap_encryption
+        imap_port_raw = payload.imap_port
         if imap_port_raw:
             imap_port = int(imap_port_raw)
         else:
             imap_port = 993 if imap_encryption.lower() == "ssl" else 143
 
-        smtp_host = payload.get("smtp_server") or payload.get("smtp_host")
-        smtp_encryption = payload.get("smtp_encryption", "ssl")
-        smtp_port_raw = payload.get("smtp_port")
+        smtp_host = payload.smtp_server or payload.smtp_host
+        smtp_encryption = payload.smtp_encryption
+        smtp_port_raw = payload.smtp_port
         if smtp_port_raw:
             smtp_port = int(smtp_port_raw)
         else:
             smtp_port = 465 if smtp_encryption.lower() == "ssl" else 587
 
-        username = payload.get("username")
-        password = payload.get("password")
+        username = payload.username
+        password = payload.password
 
         required = (imap_host, smtp_host, username, password)
         if not all(isinstance(value, str) and value for value in required):
@@ -289,14 +294,16 @@ def _validate_dav_url(url: str) -> None:
 @router.post(
     "/test-contacts",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("contacts"))],
-    response_model=None,
+    response_model=IntegrationConnectionTestResponse,
 )
-async def test_contacts_connection(payload: dict[str, Any] = Body(...)) -> Any:
+async def test_contacts_connection(
+    payload: DavConnectionTestRequest,
+) -> dict[str, object]:
     """Tests CardDAV connection for a contacts account."""
     try:
-        url = payload.get("url")
-        username = payload.get("username")
-        password = payload.get("password")
+        url = payload.url
+        username = payload.username
+        password = payload.password
 
         required = (url, username, password)
         if not all(isinstance(value, str) and value for value in required):
@@ -343,14 +350,16 @@ async def test_contacts_connection(payload: dict[str, Any] = Body(...)) -> Any:
 @router.post(
     "/test-calendar",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("calendar"))],
-    response_model=None,
+    response_model=IntegrationConnectionTestResponse,
 )
-async def test_calendar_connection(payload: dict[str, Any] = Body(...)) -> Any:
+async def test_calendar_connection(
+    payload: DavConnectionTestRequest,
+) -> dict[str, object]:
     """Tests CalDAV connection for a calendar account."""
     try:
-        url = payload.get("url")
-        username = payload.get("username")
-        password = payload.get("password")
+        url = payload.url
+        username = payload.username
+        password = payload.password
 
         required = (url, username, password)
         if not all(isinstance(value, str) and value for value in required):

@@ -23,6 +23,19 @@ export {
   fetchConfiguration,
   updateConfiguration,
 } from './configuration';
+export {
+  deleteCredential,
+  fetchCredentials,
+  fetchCredentialStatus,
+  migrateCredentials,
+  saveCredential,
+} from './credentials';
+export type {
+  CredentialInput,
+  CredentialMigration,
+  CredentialMutation,
+  CredentialStatus,
+} from './credentials';
 export type {
   ConfigurationDocument,
   ConfigurationUpdateInput,
@@ -37,6 +50,9 @@ export type { GoogleOAuthHealth, GoogleOAuthStatus } from './google-auth';
 export {
   bulkUpdateIntegrations,
   fetchIntegrations,
+  testCalendarIntegration,
+  testContactsIntegration,
+  testEmailIntegration,
   updateCalendarAliases,
   updateCalendarColors,
   updateCalendarSelection,
@@ -47,7 +63,10 @@ export {
 } from './integrations';
 export type {
   CalendarSelection,
+  DavConnectionTestInput,
+  EmailConnectionTestInput,
   IntegrationsDocument,
+  IntegrationConnectionTestResult,
   IntegrationsUpdate,
   IntegrationUpdateResponse,
 } from './integrations';
@@ -188,6 +207,7 @@ export {
   createVaultTable,
   createVault,
   deleteVaultDatabase,
+  deleteVaultPage,
   deleteVaultTable,
   deleteVault,
   fetchVaultAliasIndex,
@@ -216,6 +236,7 @@ export type {
   VaultLocalPathOpenResult,
   VaultMutation,
   VaultPage,
+  VaultPageDeletion,
   VaultPageMutation,
   VaultPagePatchInput,
   VaultPagePreview,

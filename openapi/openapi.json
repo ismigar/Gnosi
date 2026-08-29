@@ -4432,6 +4432,71 @@
         "title": "CreateVaultPayload",
         "type": "object"
       },
+      "CredentialMigrationResponse": {
+        "properties": {
+          "failed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed",
+            "type": "array"
+          },
+          "migrated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Migrated",
+            "type": "array"
+          },
+          "source_modified": {
+            "const": false,
+            "title": "Source Modified",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "migrated",
+          "failed",
+          "total",
+          "source_modified"
+        ],
+        "title": "CredentialMigrationResponse",
+        "type": "object"
+      },
+      "CredentialMutationResponse": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "key",
+          "message"
+        ],
+        "title": "CredentialMutationResponse",
+        "type": "object"
+      },
       "CredentialSet": {
         "properties": {
           "key": {
@@ -4537,6 +4602,45 @@
           "date"
         ],
         "title": "DailyNoteRequest",
+        "type": "object"
+      },
+      "DavConnectionTestRequest": {
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "DavConnectionTestRequest",
         "type": "object"
       },
       "DecisionRequest": {
@@ -4779,6 +4883,116 @@
           "data"
         ],
         "title": "DrawingSaveRequest",
+        "type": "object"
+      },
+      "EmailConnectionTestRequest": {
+        "properties": {
+          "imap_encryption": {
+            "default": "ssl",
+            "title": "Imap Encryption",
+            "type": "string"
+          },
+          "imap_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap Host"
+          },
+          "imap_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap Port"
+          },
+          "imap_server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap Server"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "smtp_encryption": {
+            "default": "ssl",
+            "title": "Smtp Encryption",
+            "type": "string"
+          },
+          "smtp_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Host"
+          },
+          "smtp_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Port"
+          },
+          "smtp_server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Server"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "EmailConnectionTestRequest",
         "type": "object"
       },
       "EnvironmentResponse": {
@@ -6816,6 +7030,52 @@
           "comment"
         ],
         "title": "InlineCommentRequest",
+        "type": "object"
+      },
+      "IntegrationConnectionTestResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "imap": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap"
+          },
+          "smtp": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "IntegrationConnectionTestResponse",
         "type": "object"
       },
       "IntegrationUpdateResponse": {
@@ -29879,7 +30139,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29992,7 +30254,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialMigrationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30114,7 +30378,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30234,7 +30500,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialStatus"
+                }
               }
             },
             "description": "Successful Response"
@@ -31755,9 +32023,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/DavConnectionTestRequest"
               }
             }
           },
@@ -31767,7 +32033,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationConnectionTestResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31880,9 +32148,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/DavConnectionTestRequest"
               }
             }
           },
@@ -31892,7 +32158,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationConnectionTestResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32005,9 +32273,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/EmailConnectionTestRequest"
               }
             }
           },
@@ -32017,7 +32283,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationConnectionTestResponse"
+                }
               }
             },
             "description": "Successful Response"

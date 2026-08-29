@@ -8,6 +8,19 @@ export type IntegrationsUpdate = components['schemas']['IntegrationsUpdateReques
 export type CalendarSelection = components['schemas']['CalendarSelectionRequest'];
 export type IntegrationUpdateResponse =
   components['schemas']['IntegrationUpdateResponse'];
+type EmailConnectionTestRequest =
+  components['schemas']['EmailConnectionTestRequest'];
+export type EmailConnectionTestInput = Omit<
+  EmailConnectionTestRequest,
+  'imap_encryption' | 'smtp_encryption'
+> & Partial<Pick<
+  EmailConnectionTestRequest,
+  'imap_encryption' | 'smtp_encryption'
+>>;
+export type DavConnectionTestInput =
+  components['schemas']['DavConnectionTestRequest'];
+export type IntegrationConnectionTestResult =
+  components['schemas']['IntegrationConnectionTestResponse'];
 
 
 export async function fetchIntegrations(
@@ -95,3 +108,36 @@ export async function bulkUpdateIntegrations(
     await apiClient.POST('/api/integrations/bulk', { body: input }),
   );
 }
+
+
+export async function testEmailIntegration(
+  input: EmailConnectionTestInput,
+): Promise<IntegrationConnectionTestResult> {
+  return unwrapApiResult<IntegrationConnectionTestResult, unknown>(
+    await apiClient.POST('/api/integrations/test-email', {
+      body: {
+        imap_encryption: 'ssl',
+        smtp_encryption: 'ssl',
+        ...input,
+      },
+    }),
+  );
+}
+
+
+async function testDavIntegration(
+  path: '/api/integrations/test-calendar' | '/api/integrations/test-contacts',
+  input: DavConnectionTestInput,
+): Promise<IntegrationConnectionTestResult> {
+  return unwrapApiResult<IntegrationConnectionTestResult, unknown>(
+    await apiClient.POST(path, { body: input }),
+  );
+}
+
+
+export const testCalendarIntegration = (input: DavConnectionTestInput) =>
+  testDavIntegration('/api/integrations/test-calendar', input);
+
+
+export const testContactsIntegration = (input: DavConnectionTestInput) =>
+  testDavIntegration('/api/integrations/test-contacts', input);
