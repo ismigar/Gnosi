@@ -6,9 +6,9 @@
  */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { BaseBoxShapeUtil, HTMLContainer, Rectangle2d, resizeBox, T } from 'tldraw';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { FileText, ExternalLink } from 'lucide-react';
+import { fetchVaultPage } from '../../shared/api/vaults';
 
 // Context to surface app callbacks (open a page) into the shape component, which
 // is instantiated by Tldraw. <Tldraw> is a descendant of this provider so the
@@ -24,18 +24,22 @@ function usePageData(pageId) {
     const [data, setData] = useState(() => _pageCache.get(pageId) || null);
     useEffect(() => {
         if (!pageId) return;
+        const controller = new AbortController();
         let cancelled = false;
         (async () => {
             try {
-                const res = await axios.get(`/api/vault/pages/${pageId}`);
-                const next = { title: res.data?.title || '', content: res.data?.content || '' };
+                const page = await fetchVaultPage(pageId, controller.signal);
+                const next = { title: page?.title || '', content: page?.content || '' };
                 _pageCache.set(pageId, next);
                 if (!cancelled) setData(next);
             } catch {
                 if (!cancelled) setData({ title: t('page_card.unavailable_title', "(not available)"), content: '' });
             }
         })();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
     }, [pageId, t]);
     return data;
 }
