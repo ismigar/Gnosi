@@ -13,4 +13,12 @@ class IconUrlImportRequest(BaseModel):
     url: str
 
 
-__all__ = ["CustomIconsRequest", "IconUrlImportRequest"]
+class AssetUploadResponse(BaseModel):
+    """Stored asset location returned to editors after a multipart upload."""
+
+    url: str
+    path: str
+    is_image: bool
+
+
+__all__ = ["AssetUploadResponse", "CustomIconsRequest", "IconUrlImportRequest"]

@@ -11,7 +11,11 @@ from fastapi.params import Depends as DependsParameter
 from fastapi.responses import FileResponse
 
 from backend.domains.vault.assets import service
-from backend.domains.vault.assets.schemas import CustomIconsRequest, IconUrlImportRequest
+from backend.domains.vault.assets.schemas import (
+    AssetUploadResponse,
+    CustomIconsRequest,
+    IconUrlImportRequest,
+)
 from backend.domains.vault.assets.state import CustomIconStore
 
 
@@ -209,7 +213,7 @@ def register_primary_routes(
         upload_asset,
         methods=["POST"],
         dependencies=protected,
-        response_model=None,
+        response_model=AssetUploadResponse,
     )
     router.add_api_route(
         "/assets/{asset_path:path}",
