@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, cast
 import uuid as uuid
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 import yaml as yaml
 
 from backend.api import vault_routes
@@ -53,10 +53,149 @@ class TokenPayload(BaseModel):
     token: str
 
 
+class NotionTokenResponse(BaseModel):
+    status: str
+    name: str
+
+
+class NotionStatusResponse(BaseModel):
+    connected: bool
+
+
+class NotionMutationResponse(BaseModel):
+    status: str
+
+
+class NotionImportConfigResponse(BaseModel):
+    config: Optional[JsonMap]
+
+
+class NotionDatabaseResponse(BaseModel):
+    id: str
+    title: str
+
+
+class NotionDatabasesResponse(BaseModel):
+    databases: List[NotionDatabaseResponse]
+
+
+class NotionDatabaseSchemaResponse(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    name: Optional[str] = None
+    schema_: JsonMap = Field(alias="schema")
+
+
+class NotionLinkedDatabaseResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    title: str
+    page_title: str
+    kind: str
+
+
+class NotionLinkedDatabasesResponse(BaseModel):
+    linked: List[NotionLinkedDatabaseResponse]
+    scanned: int
+    capped: bool
+
+
+class NotionLoosePageResponse(BaseModel):
+    id: str
+    title: str
+
+
+class NotionLoosePagesResponse(BaseModel):
+    pages: List[NotionLoosePageResponse]
+
+
+class NotionCloneProgressResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    running: bool
+    phase: str
+    done: int
+    total: int
+    pages: int
+    tables: int
+    views: int
+    attachments: int
+    collected: int
+    tables_total: int
+    pages_total: int
+    vault_id: Optional[str]
+    scan_done: Optional[int] = None
+    scan_total: Optional[int] = None
+
+
+class NotionCloneAbortResponse(BaseModel):
+    status: str
+    detail: Optional[str] = None
+
+
+class NotionCloneResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    status: str
+    tables: int
+    pages: int
+    views: int
+    attachments: int
+    errors: List[JsonMap]
+    warnings: List[str]
+    truncated: bool
+    collected: Optional[int] = None
+    tables_total: Optional[int] = None
+    pages_total: Optional[int] = None
+    scan_done: Optional[int] = None
+    scan_total: Optional[int] = None
+    orphan_rows_pruned: Optional[int] = None
+
+
+class NotionVerificationSummaryResponse(BaseModel):
+    healthy: bool
+    tables_ok: int
+    tables_total: int
+    pages: int
+    empty_bodies: int
+    views: int
+    orphan_relations: int
+    missing_assets: int
+
+
+class NotionVerificationTableResponse(BaseModel):
+    table_id: str
+    notion: int
+    clone: int
+    ok: bool
+    missing: int
+
+
+class NotionOrphanRelationResponse(BaseModel):
+    page: Optional[str] = None
+    rel: str
+
+
+class NotionMissingAssetResponse(BaseModel):
+    page: Optional[str] = None
+    asset: str
+
+
+class NotionVerificationResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    status: str
+    summary: NotionVerificationSummaryResponse
+    tables: List[NotionVerificationTableResponse]
+    empty_bodies: List[Optional[str]]
+    orphan_relations: List[NotionOrphanRelationResponse]
+    missing_assets: List[NotionMissingAssetResponse]
+
+
 @router.post(
     "/token",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=NotionTokenResponse,
 )
 async def set_token(payload: TokenPayload) -> JsonMap:
     """Saves and validates the Notion integration token (tests it with /users/me)."""
@@ -74,7 +213,7 @@ async def set_token(payload: TokenPayload) -> JsonMap:
     return {"status": "success", "name": name}
 
 
-@router.get("/status", response_model=None)
+@router.get("/status", response_model=NotionStatusResponse)
 async def notion_status() -> JsonMap:
     return {"connected": bool(_get_token())}
 
@@ -82,7 +221,7 @@ async def notion_status() -> JsonMap:
 @router.delete(
     "/token",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=NotionMutationResponse,
 )
 async def delete_token() -> JsonMap:
     integration_manager.replace_key("notion", {})
@@ -104,7 +243,7 @@ def _import_cfg_path() -> Path:
 @router.get(
     "/import-config",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionImportConfigResponse,
 )
 async def get_import_config() -> JsonMap:
     """Saved config of the import panel (databases, selected, schemaOverrides,
@@ -122,7 +261,7 @@ async def get_import_config() -> JsonMap:
 @router.put(
     "/import-config",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionMutationResponse,
 )
 async def put_import_config(payload: Dict[str, Any] = Body(...)) -> JsonMap:
     """Saves the import panel config (free-form JSON, same shape as the frontend's
@@ -139,7 +278,7 @@ async def put_import_config(payload: Dict[str, Any] = Body(...)) -> JsonMap:
 @router.get(
     "/databases",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionDatabasesResponse,
 )
 async def list_databases() -> JsonMap:
     """Lists the Notion DBs shared with the integration."""
@@ -164,7 +303,8 @@ async def list_databases() -> JsonMap:
 @router.get(
     "/databases/{db_id}/schema",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionDatabaseSchemaResponse,
+    response_model_exclude_unset=True,
 )
 async def database_schema(db_id: str) -> JsonMap:
     """Schema of a Notion DB in SchemaConfigModal format (to configure it before
@@ -204,7 +344,7 @@ def _find_linked_databases(token: str, max_pages: int = 400) -> Dict[str, object
 @router.get(
     "/linked-databases",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionLinkedDatabasesResponse,
 )
 async def list_linked_databases() -> Dict[str, object]:
     """Linked DBs (views) that show up in Notion but can't be imported via API."""
@@ -220,7 +360,7 @@ async def list_linked_databases() -> Dict[str, object]:
 @router.get(
     "/loose-pages",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionLoosePagesResponse,
 )
 async def list_loose_pages() -> JsonMap:
     """Notion pages OUTSIDE any DB → for choosing wiki/dashboard."""
@@ -327,7 +467,8 @@ def _clone_progress_cb(phase: str, done: int, total: int, report: JsonMap) -> No
 @router.get(
     "/clone/progress",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionCloneProgressResponse,
+    response_model_exclude_unset=True,
 )
 async def clone_progress() -> JsonMap:
     """Status of the ongoing clone (for the frontend's progress bar). Non-blocking."""
@@ -337,7 +478,8 @@ async def clone_progress() -> JsonMap:
 @router.post(
     "/clone/abort",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionCloneAbortResponse,
+    response_model_exclude_unset=True,
 )
 async def clone_abort() -> JsonMap:
     """Requests to abort the ongoing clone. Cooperative cancellation: it stops at the next
@@ -406,7 +548,8 @@ def _destination_vault_exists(vault_id: str) -> bool:
 @router.post(
     "/clone",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionCloneResponse,
+    response_model_exclude_unset=True,
 )
 async def run_clone(
     payload: ClonePayload,
@@ -519,7 +662,8 @@ def _run_verify_sync(
 @router.post(
     "/verify-clone",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=NotionVerificationResponse,
+    response_model_exclude_unset=True,
 )
 async def verify_clone_route(payload: VerifyPayload) -> JsonMap:
     """Checks the health of the clone (Notion ↔ clone): count parity per DB, empty bodies,

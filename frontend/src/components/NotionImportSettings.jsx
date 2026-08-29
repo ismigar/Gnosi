@@ -1,9 +1,25 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import axios from '../shared/api/legacy-http';
 import { Database, Link2, Check, Loader, Unlink, Settings, X, RotateCw } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
 import { ConfirmModal } from './ConfirmModal';
+import {
+    abortNotionClone,
+    connectNotionToken,
+    disconnectNotionToken,
+    fetchNotionCloneProgress,
+    fetchNotionDatabaseSchema,
+    fetchNotionDatabases,
+    fetchNotionImportConfig,
+    fetchNotionLinkedDatabases,
+    fetchNotionLoosePages,
+    fetchNotionOAuthStatus,
+    fetchNotionStatus,
+    fetchNotionVaultRegistry,
+    saveNotionImportConfig,
+    startNotionClone,
+    verifyNotionClone,
+} from '../shared/api/notion-import';
 import {
     createVault,
     deleteVault,
@@ -25,6 +41,7 @@ const loadCfg = () => {
 // Sorts databases and pages by title with the default English collation.
 const byTitle = (a, b) => (a?.title || '').localeCompare(b?.title || '', 'en', { sensitivity: 'base' });
 const sortByTitle = (list) => [...(list || [])].sort(byTitle);
+const errorMessage = (error) => error instanceof Error ? error.message : String(error);
 
 /**
  * Notion → Vault clone. Connects with an integration token + the hosted MCP (OAuth) and does an
@@ -91,14 +108,14 @@ export default function NotionImportSettings() {
         let alive = true;
         (async () => {
             try {
-                const { data } = await axios.get('/api/notion/import-config');
+                const data = await fetchNotionImportConfig();
                 if (!alive) return;
                 if (data?.config && Object.keys(data.config).length > 0) {
                     applyCfg(data.config);
                 } else {
                     const local = loadCfg();
                     if (Object.keys(local).length > 0) {
-                        await axios.put('/api/notion/import-config', local).catch(() => {});
+                        await saveNotionImportConfig(local).catch(() => {});
                     }
                 }
                 serverCfgOkRef.current = true;
@@ -119,16 +136,16 @@ export default function NotionImportSettings() {
         try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
         catch { /* quota full or private: ignore */ }
         if (!serverCfgOkRef.current) return undefined;
-        const tid = setTimeout(() => { axios.put('/api/notion/import-config', cfg).catch(() => {}); }, 800);
+        const tid = setTimeout(() => { saveNotionImportConfig(cfg).catch(() => {}); }, 800);
         return () => clearTimeout(tid);
     }, [databases, selected, schemaOverrides, loosePages, loosePageTypes, looseSelected, cloneVaultId, newVaultName]);
 
     const openSchemaConfig = async (d) => {
         setBusy('schema:' + d.id); setError('');
         try {
-            const { data } = await axios.get(`/api/notion/databases/${d.id}/schema`);
+            const data = await fetchNotionDatabaseSchema(d.id);
             setCfg({ db: d, schema: schemaOverrides[d.id] || data.schema || {} });
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setBusy(''); }
     };
 
@@ -155,19 +172,19 @@ export default function NotionImportSettings() {
         if (busy === 'clone' || !cloneVaultId || cloneVaultId === '__new__' || !vaults.some(v => v.id === cloneVaultId)) {
             setDestClone(null); return;
         }
-        axios.get('/api/vault/registry', { headers: { 'X-Vault-Id': cloneVaultId } })
-            .then(({ data }) => { if (alive) setDestClone((data.tables || []).length ? { tables: data.tables.length } : null); })
+        fetchNotionVaultRegistry(cloneVaultId)
+            .then((data) => { if (alive) setDestClone((data.tables || []).length ? { tables: data.tables.length } : null); })
             .catch(() => { if (alive) setDestClone(null); });
         return () => { alive = false; };
     }, [cloneVaultId, vaults, busy]);
 
     const loadStatus = useCallback(async () => {
         try {
-            const { data } = await axios.get('/api/notion/status');
+            const data = await fetchNotionStatus();
             setConnected(!!data.connected);
         } catch { setConnected(false); }
         try {
-            const { data } = await axios.get('/api/notion-oauth/status');
+            const data = await fetchNotionOAuthStatus();
             setMcpConnected(!!data.connected);
         } catch { setMcpConnected(false); }
         loadVaults();
@@ -202,16 +219,16 @@ export default function NotionImportSettings() {
     const connect = async () => {
         setBusy('token'); setError('');
         try {
-            const { data } = await axios.post('/api/notion/token', { token: token.trim() });
+            const data = await connectNotionToken(token.trim());
             setName(data.name || 'Notion'); setConnected(true); setToken('');
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setBusy(''); }
     };
 
     const disconnect = async () => {
         setBusy('token');
-        try { await axios.delete('/api/notion/token'); setConnected(false); setDatabases([]); setReport(null); }
-        catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        try { await disconnectNotionToken(); setConnected(false); setDatabases([]); setReport(null); }
+        catch (e) { setError(errorMessage(e)); }
         finally { setBusy(''); }
     };
 
@@ -220,16 +237,16 @@ export default function NotionImportSettings() {
     const checkLinked = async () => {
         setBusy('linked'); setError(''); setLinkedDbs(null);
         try {
-            const { data } = await axios.get('/api/notion/linked-databases', { timeout: 0 });
+            const data = await fetchNotionLinkedDatabases();
             setLinkedDbs(data);
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setBusy(''); }
     };
 
     const listDbs = async () => {
         setBusy('list'); setError(''); setReport(null);
         try {
-            const { data } = await axios.get('/api/notion/databases', { timeout: 120000 });
+            const data = await fetchNotionDatabases();
             const list = data.databases || [];
             // Preserves the selection: keeps the DBs you already had checked and checks the NEW ones
             // (the ones that weren't in the previous list, e.g. a DB that was just shared). On the
@@ -243,7 +260,7 @@ export default function NotionImportSettings() {
                 return next;
             });
             setDatabases(sortByTitle(list));
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setBusy(''); }
     };
 
@@ -253,13 +270,13 @@ export default function NotionImportSettings() {
     const fetchLoosePages = useCallback(async () => {
         setBusy('loose'); setError('');
         try {
-            const lp = await axios.get('/api/notion/loose-pages', { timeout: 120000 });
-            const pages = sortByTitle(lp.data.pages);
+            const data = await fetchNotionLoosePages();
+            const pages = sortByTitle(data.pages);
             const ids = new Set(pages.map(p => p.id));
             setLoosePagesList(pages);
             setLoosePageTypes(prev => Object.fromEntries(pages.map(p => [p.id, prev[p.id] || 'wiki'])));
             setLooseSelected(prev => new Set([...prev].filter(id => ids.has(id))));
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setBusy(''); }
     }, []);
 
@@ -298,7 +315,7 @@ export default function NotionImportSettings() {
         stopProgressPoll();
         pollRef.current = setInterval(async () => {
             try {
-                const { data } = await axios.get('/api/notion/clone/progress', { timeout: 8000 });
+                const data = await fetchNotionCloneProgress();
                 setProgress(data);
                 if (pollResumeRef.current && data?.vault_id) setUsedVaultId(data.vault_id);  // to verify in the right vault
                 if (pollResumeRef.current && data && data.running === false) {
@@ -315,7 +332,7 @@ export default function NotionImportSettings() {
     // recovers its state and resumes the bar instead of offering to trigger the clone again.
     useEffect(() => {
         let alive = true;
-        axios.get('/api/notion/clone/progress', { timeout: 8000 }).then(({ data }) => {
+        fetchNotionCloneProgress().then((data) => {
             if (alive && data?.vault_id) setUsedVaultId(data.vault_id);  // remembers the clone's vault to verify against
             if (alive && data && data.running) {
                 setBusy('clone'); setProgress(data); startProgressPoll(true);
@@ -332,25 +349,24 @@ export default function NotionImportSettings() {
         let vid;
         try { vid = await resolveCloneVault(); }
         catch (e) {
-            setError(t('settings.notion.err_prepare_vault', "Couldn't prepare the destination vault: {{detail}}", { detail: String(e?.response?.data?.detail || e.message) }));
+            setError(t('settings.notion.err_prepare_vault', "Couldn't prepare the destination vault: {{detail}}", { detail: errorMessage(e) }));
             setBusy(''); return;
         }
         setUsedVaultId(vid);
         setUsedVaultName(cloneVaultId === '__new__' ? (newVaultName.trim() || 'Notion')
             : (vaults.find(v => v.id === vid)?.name || ''));
-        const vaultHeader = { 'X-Vault-Id': vid };
         setProgress({ phase: 'starting', done: 0, total: 0, pages: 0 });
         // The clone is a single blocking request; meanwhile, we poll the progress every 1.5s.
         startProgressPoll(false);
         try {
-            const { data } = await axios.post('/api/notion/clone', {
+            const data = await startNotionClone({
                 database_ids: databases.length ? Array.from(selected) : null,
                 target_folder: '',   // root of the destination vault (no subfolder)
                 schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
                 loose_page_types: selectedLooseTypes(),
-            }, { timeout: 0, headers: vaultHeader });  // clone = many MCP calls: no timeout; on the destination vault
+            }, vid);  // clone = many MCP calls: no timeout; on the destination vault
             setReport(data);
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setBusy(''); stopProgressPoll(); setProgress(null); }
     };
 
@@ -359,9 +375,9 @@ export default function NotionImportSettings() {
     const doAbortClone = async () => {
         setConfirmAbort(false);
         try {
-            await axios.post('/api/notion/clone/abort');
+            await abortNotionClone();
             setProgress(p => p ? { ...p, phase: 'cancelled' } : p);
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        } catch (e) { setError(errorMessage(e)); }
     };
 
     const runVerify = async () => {
@@ -376,12 +392,12 @@ export default function NotionImportSettings() {
             setBusy(''); return;
         }
         try {
-            const { data } = await axios.post('/api/notion/verify-clone', {
+            const data = await verifyNotionClone({
                 database_ids: databases.length ? Array.from(selected) : null,
                 target_folder: '',   // root of the destination vault (no subfolder)
-            }, { timeout: 0, headers: { 'X-Vault-Id': verifyVault } });
+            }, verifyVault);
             setVerify(data);
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setBusy(''); }
     };
 
@@ -397,7 +413,7 @@ export default function NotionImportSettings() {
             setDestClone(null); setReport(null); setVerify(null); setUsedVaultId(null);
             setCloneVaultId('__new__');
             await loadVaults();
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        } catch (e) { setError(errorMessage(e)); }
         finally { setBusy(''); }
     };
 
