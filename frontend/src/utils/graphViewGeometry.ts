@@ -1,6 +1,84 @@
+import type Graph from 'graphology';
+
 const MIN_EXTENT = 1;
 
-function createBounds(minX, maxX, minY, maxY, count = 0) {
+interface GraphPoint {
+  x: number;
+  y: number;
+}
+
+interface GraphBounds {
+  centerX: number;
+  centerY: number;
+  count?: number;
+  height: number;
+  maxX: number;
+  maxY: number;
+  minX: number;
+  minY: number;
+  width: number;
+}
+
+interface GraphNodeAttributes {
+  [key: string]: unknown;
+  hidden?: unknown;
+  x?: unknown;
+  y?: unknown;
+}
+
+interface Dimensions {
+  height: number;
+  width: number;
+}
+
+interface ViewportRenderer {
+  getDimensions?: () => Dimensions;
+  viewportToGraph(point: GraphPoint): GraphPoint;
+}
+
+interface RequiredViewportRenderer extends ViewportRenderer {
+  getDimensions(): Dimensions;
+}
+
+interface CameraRatioRenderer {
+  getCamera?: () => { getState(): { ratio?: unknown } };
+  getDimensions?: () => Dimensions;
+  getGraphToViewportRatio?: () => unknown;
+  normalizationFunction?: { ratio?: unknown };
+}
+
+interface MinimapTransform {
+  graphToMinimap(x: number, y: number): GraphPoint;
+  height: number;
+  minimapToGraph(x: number, y: number): GraphPoint;
+  scale: number;
+  width: number;
+}
+
+interface MinimapProjector {
+  graphToMinimap(x: number, y: number): GraphPoint;
+}
+
+interface ViewportRect {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
+type VisibleGraph = Pick<Graph<GraphNodeAttributes>, 'forEachNode'>;
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function createBounds(
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number,
+  count = 0,
+): GraphBounds {
   return {
     minX,
     maxX,
@@ -14,7 +92,9 @@ function createBounds(minX, maxX, minY, maxY, count = 0) {
   };
 }
 
-export function getVisibleGraphBounds(graph) {
+export function getVisibleGraphBounds(
+  graph: VisibleGraph | null | undefined,
+): GraphBounds | null {
   if (!graph) return null;
 
   let minX = Infinity;
@@ -23,8 +103,14 @@ export function getVisibleGraphBounds(graph) {
   let maxY = -Infinity;
   let count = 0;
 
-  graph.forEachNode((_, attrs) => {
-    if (attrs.hidden || !Number.isFinite(attrs.x) || !Number.isFinite(attrs.y)) return;
+  graph.forEachNode((_node, attrs) => {
+    if (
+      attrs.hidden ||
+      !isFiniteNumber(attrs.x) ||
+      !isFiniteNumber(attrs.y)
+    ) {
+      return;
+    }
     minX = Math.min(minX, attrs.x);
     maxX = Math.max(maxX, attrs.x);
     minY = Math.min(minY, attrs.y);
@@ -33,13 +119,17 @@ export function getVisibleGraphBounds(graph) {
   });
 
   if (count === 0) return null;
-
   return createBounds(minX, maxX, minY, maxY, count);
 }
 
-export function getCameraGraphBounds(renderer) {
-  const dimensions = renderer?.getDimensions?.();
-  if (!dimensions || dimensions.width <= 0 || dimensions.height <= 0) return null;
+export function getCameraGraphBounds(
+  renderer: ViewportRenderer | null | undefined,
+): GraphBounds | null {
+  if (!renderer) return null;
+  const dimensions = renderer.getDimensions?.();
+  if (!dimensions || dimensions.width <= 0 || dimensions.height <= 0) {
+    return null;
+  }
 
   const corners = [
     renderer.viewportToGraph({ x: 0, y: 0 }),
@@ -47,7 +137,9 @@ export function getCameraGraphBounds(renderer) {
     renderer.viewportToGraph({ x: dimensions.width, y: dimensions.height }),
     renderer.viewportToGraph({ x: 0, y: dimensions.height }),
   ];
-  if (corners.some(({ x, y }) => !Number.isFinite(x) || !Number.isFinite(y))) return null;
+  if (corners.some(({ x, y }) => !Number.isFinite(x) || !Number.isFinite(y))) {
+    return null;
+  }
 
   const xs = corners.map(({ x }) => x);
   const ys = corners.map(({ y }) => y);
@@ -59,8 +151,12 @@ export function getCameraGraphBounds(renderer) {
   );
 }
 
-export function mergeGraphBounds(...bounds) {
-  const validBounds = bounds.filter(Boolean);
+export function mergeGraphBounds(
+  ...bounds: Array<GraphBounds | null | undefined>
+): GraphBounds | null {
+  const validBounds = bounds.filter(
+    (value): value is GraphBounds => Boolean(value),
+  );
   if (validBounds.length === 0) return null;
 
   return createBounds(
@@ -72,7 +168,12 @@ export function mergeGraphBounds(...bounds) {
   );
 }
 
-export function createMinimapTransform(bounds, width, height, padding = 1.1) {
+export function createMinimapTransform(
+  bounds: GraphBounds | null | undefined,
+  width: number,
+  height: number,
+  padding = 1.1,
+): MinimapTransform | null {
   if (!bounds || width <= 0 || height <= 0) return null;
 
   const scaleX = width / (bounds.width * padding);
@@ -98,17 +199,24 @@ export function createMinimapTransform(bounds, width, height, padding = 1.1) {
   };
 }
 
-export function getVisibleCameraRatio(renderer, bounds, padding = 1.18) {
+export function getVisibleCameraRatio(
+  renderer: CameraRatioRenderer | null | undefined,
+  bounds: Pick<GraphBounds, 'width' | 'height'> | null | undefined,
+  padding = 1.18,
+): number {
   const dimensions = renderer?.getDimensions?.();
   const currentRatio = renderer?.getCamera?.().getState().ratio;
   const graphToViewportRatio = renderer?.getGraphToViewportRatio?.();
+  const hasUsableDimensions =
+    dimensions !== undefined &&
+    dimensions.width > 0 &&
+    dimensions.height > 0;
   if (
-    bounds
-    && dimensions?.width > 0
-    && dimensions?.height > 0
-    && Number.isFinite(currentRatio)
-    && Number.isFinite(graphToViewportRatio)
-    && graphToViewportRatio > 0
+    bounds &&
+    hasUsableDimensions &&
+    isFiniteNumber(currentRatio) &&
+    isFiniteNumber(graphToViewportRatio) &&
+    graphToViewportRatio > 0
   ) {
     const targetGraphToViewportRatio = Math.min(
       dimensions.width / (bounds.width * padding),
@@ -116,12 +224,16 @@ export function getVisibleCameraRatio(renderer, bounds, padding = 1.18) {
     );
     return Math.max(
       0.02,
-      currentRatio * graphToViewportRatio / targetGraphToViewportRatio,
+      (currentRatio * graphToViewportRatio) / targetGraphToViewportRatio,
     );
   }
 
   const normalizationRatio = renderer?.normalizationFunction?.ratio;
-  if (!bounds || !Number.isFinite(normalizationRatio) || normalizationRatio <= 0) {
+  if (
+    !bounds ||
+    !isFiniteNumber(normalizationRatio) ||
+    normalizationRatio <= 0
+  ) {
     return 1;
   }
 
@@ -129,7 +241,10 @@ export function getVisibleCameraRatio(renderer, bounds, padding = 1.18) {
   return Math.max(0.02, (visibleExtent / normalizationRatio) * padding);
 }
 
-export function getCameraViewportRect(renderer, transform) {
+export function getCameraViewportRect(
+  renderer: RequiredViewportRenderer | null | undefined,
+  transform: MinimapProjector | null | undefined,
+): ViewportRect | null {
   if (!renderer || !transform) return null;
 
   const { width, height } = renderer.getDimensions();
