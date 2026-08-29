@@ -90,7 +90,7 @@ async def create_workspace(
     db.commit()
     db.refresh(new_ws)
 
-    ws_response = WorkspaceResponse.from_orm(new_ws)
+    ws_response = WorkspaceResponse.model_validate(new_ws)
     ws_response.role = UserRole.OWNER.value
     return ws_response
 
@@ -302,10 +302,10 @@ async def get_workspace(
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         # Corrupt case: the membership exists but the workspace has been
-        # deleted. `from_orm(None)` would crash with a 500. We return a 404
+        # deleted. `model_validate(None)` would crash with a 500. We return a 404
         # explicitly so the frontend can react (refresh the list, etc.).
         raise HTTPException(status_code=404, detail="Workspace not found (orphaned membership)")
-    ws_data = WorkspaceResponse.from_orm(workspace)
+    ws_data = WorkspaceResponse.model_validate(workspace)
     ws_data.role = str(membership.role)
     return ws_data
 

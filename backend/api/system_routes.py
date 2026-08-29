@@ -46,7 +46,7 @@ async def get_notifications(
     items = query.order_by(Notification.created_at.desc()).offset(offset).limit(limit).all()
 
     return {
-        "items": [NotificationResponse.from_orm(i) for i in items],
+        "items": [NotificationResponse.model_validate(i) for i in items],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -80,7 +80,7 @@ async def create_notification(
         db.add(notif)
         db.commit()
         db.refresh(notif)
-        return NotificationResponse.from_orm(notif)
+        return NotificationResponse.model_validate(notif)
     except Exception as e:
         db.rollback()
         raise HTTPException(
