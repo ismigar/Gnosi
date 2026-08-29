@@ -13,6 +13,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.params import Depends as DependsParameter
 
+from backend.domains.vault.schemas.pages import PageDeleteResponse
+
 PageWriteLock = Callable[[str], Awaitable[asyncio.Lock]]
 
 log = logging.getLogger(__name__)
@@ -289,7 +291,7 @@ def register_routes(
         delete_page,
         methods=["DELETE"],
         dependencies=list(editor_dependencies),
-        response_model=None,
+        response_model=PageDeleteResponse,
     )
     router.add_api_route(
         "/pages/{page_id}/restore",

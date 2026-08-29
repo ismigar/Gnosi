@@ -76,6 +76,18 @@ class PageMutationResponse(BaseModel):
     message: str
 
 
+class PageDeleteResponse(BaseModel):
+    """Soft-delete receipt returned when a page enters the vault trash."""
+
+    status: str
+    id: str
+    deleted_at: Optional[str] = None
+    title: Optional[str] = None
+    original_path: Optional[str] = None
+    retention_days: int
+    restorable_until: Optional[str] = None
+
+
 class PagePatchRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
@@ -114,6 +126,7 @@ __all__ = [
     "PageDetailResponse",
     "PagePreviewResponse",
     "BulkPreviewWarmResponse",
+    "PageDeleteResponse",
     "PageMutationResponse",
     "PagePatchRequest",
     "PageSaveRequest",

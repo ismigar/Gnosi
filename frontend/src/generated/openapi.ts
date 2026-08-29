@@ -14169,6 +14169,26 @@ export interface components {
             zotero_uri?: string | null;
         };
         /**
+         * PageDeleteResponse
+         * @description Soft-delete receipt returned when a page enters the vault trash.
+         */
+        PageDeleteResponse: {
+            /** Deleted At */
+            deleted_at?: string | null;
+            /** Id */
+            id: string;
+            /** Original Path */
+            original_path?: string | null;
+            /** Restorable Until */
+            restorable_until?: string | null;
+            /** Retention Days */
+            retention_days: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title?: string | null;
+        };
+        /**
          * PageDetailResponse
          * @description Full page document; metadata remains open for user-defined frontmatter.
          */
@@ -32519,7 +32539,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageDeleteResponse"];
                 };
             };
             /** @description Validation Error */

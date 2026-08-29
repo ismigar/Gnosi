@@ -11636,6 +11636,74 @@
         "title": "OpenResourceRequest",
         "type": "object"
       },
+      "PageDeleteResponse": {
+        "description": "Soft-delete receipt returned when a page enters the vault trash.",
+        "properties": {
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "original_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Path"
+          },
+          "restorable_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restorable Until"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "retention_days"
+        ],
+        "title": "PageDeleteResponse",
+        "type": "object"
+      },
       "PageDetailResponse": {
         "description": "Full page document; metadata remains open for user-defined frontmatter.",
         "properties": {
@@ -66070,7 +66138,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"

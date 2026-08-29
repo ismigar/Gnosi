@@ -5,6 +5,7 @@ import {
   createVaultPage,
   createVaultTable,
   deleteVaultDatabase,
+  deleteVaultPage,
   deleteVaultTable,
   fetchVaultAliasIndex,
   fetchVaultDatabases,
@@ -208,15 +209,21 @@ describe('vault pages API', () => {
   });
 
 
-  it('materializes page defaults for create, save and patch mutations', async () => {
+  it('materializes page defaults and sends typed page mutations', async () => {
     const created = { id: 'page-1', message: 'created', status: 'ok' };
     const saved = { id: 'page-1', message: 'saved', status: 'ok' };
     const patched = { id: 'page-1', message: 'patched', status: 'ok' };
+    const deleted = {
+      id: 'page-1',
+      retention_days: 90,
+      status: 'soft_deleted',
+    };
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json(created))
       .mockResolvedValueOnce(Response.json(saved))
-      .mockResolvedValueOnce(Response.json(patched));
+      .mockResolvedValueOnce(Response.json(patched))
+      .mockResolvedValueOnce(Response.json(deleted));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
@@ -233,6 +240,7 @@ describe('vault pages API', () => {
     await expect(
       patchVaultPage('page-1', { metadata: { archived: true } }),
     ).resolves.toEqual(patched);
+    await expect(deleteVaultPage('page-1')).resolves.toEqual(deleted);
 
     const createRequest = requestAt(fetchMock.mock.calls, 0);
     expect(createRequest.method).toBe('POST');
@@ -263,6 +271,10 @@ describe('vault pages API', () => {
       force: false,
       metadata: { archived: true },
     });
+
+    const deleteRequest = requestAt(fetchMock.mock.calls, 3);
+    expect(deleteRequest.method).toBe('DELETE');
+    expect(new URL(deleteRequest.url).pathname).toBe('/api/vault/pages/page-1');
   });
 });
 

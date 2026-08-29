@@ -10,6 +10,7 @@ from fastapi.routing import APIRoute
 from backend.api import vault_routes
 from backend.domains.vault.schemas.pages import (
     BulkPreviewWarmResponse,
+    PageDeleteResponse,
     PageDetailResponse,
     PageMutationResponse,
     PagePreviewResponse,
@@ -112,6 +113,15 @@ def test_page_mutation_routes_share_the_canonical_response_contract() -> None:
     ]
     assert len(routes) == 3
     assert all(route.response_model is PageMutationResponse for route in routes)
+
+
+def test_page_delete_route_exposes_its_typed_response_contract() -> None:
+    route = next(
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute) and route.endpoint.__name__ == "delete_page"
+    )
+    assert route.response_model is PageDeleteResponse
 
 
 def test_trash_purge_domain_does_not_import_http_facade() -> None:

@@ -27,6 +27,7 @@ export type VaultTableDeleteQuery = NonNullable<
 export type VaultPageSummary = components['schemas']['PageInfo'];
 export type VaultPage = components['schemas']['PageDetailResponse'];
 export type VaultPageMutation = components['schemas']['PageMutationResponse'];
+export type VaultPageDeletion = components['schemas']['PageDeleteResponse'];
 export type VaultPagePreview = components['schemas']['PagePreviewResponse'];
 export type VaultPagePreviewWarmRequest =
   components['schemas']['_BulkWarmPayload'];
@@ -242,6 +243,17 @@ export async function patchVaultPage(
   return unwrapApiResult<VaultPageMutation, unknown>(
     await apiClient.PATCH('/api/vault/pages/{page_id}', {
       body: materializeVaultPagePatchRequest(input),
+      params: { path: { page_id: pageId } },
+    }),
+  );
+}
+
+
+export async function deleteVaultPage(
+  pageId: string,
+): Promise<VaultPageDeletion> {
+  return unwrapApiResult<VaultPageDeletion, unknown>(
+    await apiClient.DELETE('/api/vault/pages/{page_id}', {
       params: { path: { page_id: pageId } },
     }),
   );

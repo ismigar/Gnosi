@@ -27,7 +27,14 @@ import {
     updateCalendarSelection,
     updateDefaultCalendar,
 } from '../shared/api/integrations';
-import { fetchVaultPages, fetchVaultTables } from '../shared/api/vaults';
+import {
+    createVaultPage,
+    deleteVaultPage,
+    fetchVaultPage,
+    fetchVaultPages,
+    fetchVaultTables,
+    patchVaultPage,
+} from '../shared/api/vaults';
 import {
     useCalendarList,
     useMeetingReminderSettings,
@@ -489,7 +496,7 @@ export default function CalendarPage() {
 
             // If it's not recurring, we apply the patch directly
             try {
-                await axios.patch(`/api/vault/pages/${pageId}`, { metadata: patchData });
+                await patchVaultPage(pageId, { metadata: patchData });
                 toast.success(t('calendar.event_updated', "Appointment updated!"));
                 fetchPages();
             } catch (err) {
@@ -525,12 +532,12 @@ export default function CalendarPage() {
 
         // Vault event → loads the full page for editing
         try {
-            const res = await axios.get(`/api/vault/pages/${pageId}`);
+            const event = await fetchVaultPage(pageId);
             setSelectedEventId(pageId);
-            setSelectedEvent(res.data);
+            setSelectedEvent(event);
             setIsEditingEvent(true);
             setShowRightSidebar(true);
-            setEventPanel({ mode: 'edit', data: res.data, date: '', isEditing: true });
+            setEventPanel({ mode: 'edit', data: event, date: '', isEditing: true });
         } catch (err) {
             console.error('Error loading event:', err);
             toast.error(t('calendar.error_loading_event_data'));
@@ -624,20 +631,20 @@ export default function CalendarPage() {
                     ...(eventData.metadata || {}),
                     exdates: [...new Set([...existingExdates, occurrenceKey])],
                 };
-                await axios.patch(`/api/vault/pages/${targetEventId}`, {
+                await patchVaultPage(targetEventId, {
                     metadata: patchedMetadata,
                 });
                 toast.success(t('calendar.instance_deleted'));
             } else if (isFollowing) {
                 // Split: Truncate the master's rrule so it ends before today
                 const newRrule = truncateRruleBefore(eventData.metadata?.rrule, contextMenu.instanceStart);
-                await axios.patch(`/api/vault/pages/${targetEventId}`, {
+                await patchVaultPage(targetEventId, {
                     metadata: { rrule: newRrule }
                 });
                 toast.success(t('calendar.following_deleted', "Series truncated from today."));
             } else {
                 // Delete full series
-                await axios.delete(`/api/vault/pages/${targetEventId}`);
+                await deleteVaultPage(targetEventId);
                 toast.success(isSeries ? t('calendar.series_deleted') : t('calendar.event_deleted'));
             }
 
@@ -677,7 +684,7 @@ export default function CalendarPage() {
                         ? eventData.metadata.exdates.split(',').filter(Boolean)
                         : []);
 
-                await axios.patch(`/api/vault/pages/${id}`, {
+                await patchVaultPage(id, {
                     metadata: {
                         exdates: [...new Set([...existingExdates, occurrenceKey])],
                     }
@@ -692,7 +699,7 @@ export default function CalendarPage() {
                 };
                 delete newMetadata.id;
 
-                await axios.post('/api/vault/pages', {
+                await createVaultPage({
                     title: eventData.title,
                     content: eventData.content || '',
                     metadata: newMetadata,
@@ -702,7 +709,7 @@ export default function CalendarPage() {
             } else if (isFollowing) {
                 // 1. Truncate the old master's rrule
                 const newRruleOldMaster = truncateRruleBefore(eventData.metadata?.rrule, instanceStart);
-                await axios.patch(`/api/vault/pages/${id}`, {
+                await patchVaultPage(id, {
                     metadata: { rrule: newRruleOldMaster }
                 });
 
@@ -715,7 +722,7 @@ export default function CalendarPage() {
                 };
                 delete newMetadata.id;
 
-                await axios.post('/api/vault/pages', {
+                await createVaultPage({
                     title: eventData.title,
                     content: eventData.content || '',
                     metadata: newMetadata,
@@ -724,7 +731,7 @@ export default function CalendarPage() {
                 toast.success(t('calendar.series_split_updated', "Series split and updated!"));
             } else {
                 // Modify the whole series (the master)
-                await axios.patch(`/api/vault/pages/${id}`, {
+                await patchVaultPage(id, {
                     metadata: patchData
                 });
                 toast.success(t('calendar.series_updated', "Series updated!"));
