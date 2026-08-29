@@ -11,7 +11,7 @@ import {
 import { useTranslation, Trans } from 'react-i18next';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { useApi } from '../hooks/use-api';
-import { FolderPickerModal } from './FolderPickerModal';
+import { FilesystemPickerModal } from './FilesystemPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import { IconRenderer } from './Vault/IconRenderer';
 import { toast } from '../lib/toast';
@@ -4751,12 +4751,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                 </div>
               )}
             </div>
-
-            {/* FOLDER PICKER MODAL */}
-            <FolderPickerModal
+            <FilesystemPickerModal
                 isOpen={pickerOpen}
                 onClose={() => setPickerOpen(false)}
                 initialPath={draft.paths[pickerField] || ''}
+                mode="folder"
                 onSelect={(path) => {
                     setDraft(prev => ({
                         ...prev,
@@ -4764,6 +4763,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                     }));
                     setPickerOpen(false);
                 }}
+                preferNative={false}
             />
 
 
