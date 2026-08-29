@@ -82,6 +82,24 @@ class LlmWikiProcessStartResponse(BaseModel):
     job: LlmWikiJobResponse
 
 
+class LlmWikiLintReportResponse(BaseModel):
+    """Deterministic Brain lint report with forward-compatible findings."""
+
+    model_config = ConfigDict(extra="allow")
+
+    note_count: int
+    counts: dict[str, int]
+
+
+class LlmWikiMaintenanceResponse(BaseModel):
+    """Index, lint and suggestion totals returned by Brain maintenance."""
+
+    indexes: dict[str, _LegacyAny]
+    lint: LlmWikiLintReportResponse
+    suggestions_queued: int
+    suggestions_pending: int
+
+
 def ensure_llm_wiki_column(reference_table_id: str) -> bool:
     """Add the `Processat pel Cervell` system date column when missing.
 
@@ -248,7 +266,8 @@ async def llm_wiki_evidence(resource_id: str, snapshot_id: str, segment_id: str)
 @router.post(
     "/llm-wiki/maintenance",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LlmWikiMaintenanceResponse,
+    response_model_exclude_unset=True,
 )
 async def llm_wiki_maintenance(semantic: bool = _legacy.Query(default=False)) -> _LegacyAny:
     """Rebuild managed indexes/cache and run deterministic lint.

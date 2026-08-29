@@ -15,7 +15,8 @@ from backend.domains.vault.knowledge.contracts import (
     BrainTableSelectionRequest,
     BrainTableSelectionResponse,
     BrainTableStatusResponse,
-    LlmWikiConfigResponse,
+    LlmWikiCreatedSettingsResponse,
+    LlmWikiSettingsResponse,
 )
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
@@ -249,7 +250,11 @@ def _llm_wiki_property_options(prop: dict[_LegacyAny, _LegacyAny]) -> list[dict[
     ]
 
 
-@router.get("/llm-wiki/config", response_model=LlmWikiConfigResponse)
+@router.get(
+    "/llm-wiki/config",
+    response_model=LlmWikiSettingsResponse,
+    response_model_exclude_unset=True,
+)
 async def get_llm_wiki_config() -> _LegacyAny:
     """Return the migrated v2 per-vault LLM Wiki configuration."""
     from backend.services import llm_wiki_config
@@ -279,7 +284,8 @@ _LLM_WIKI_CONFIG_DEPENDENCIES = _llm_wiki_configuration.LlmWikiConfigDependencie
 @router.put(
     "/llm-wiki/config",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=LlmWikiConfigResponse,
+    response_model=LlmWikiSettingsResponse,
+    response_model_exclude_unset=True,
 )
 async def put_llm_wiki_config(
     payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
@@ -291,7 +297,8 @@ async def put_llm_wiki_config(
 @router.post(
     "/llm-wiki/brain/create",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LlmWikiCreatedSettingsResponse,
+    response_model_exclude_unset=True,
 )
 async def create_standard_llm_wiki_brain(
     payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(default=None),

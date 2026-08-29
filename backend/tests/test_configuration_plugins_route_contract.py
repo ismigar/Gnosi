@@ -7,6 +7,7 @@ from fastapi.routing import APIRoute
 from backend.api import vault_routes
 from backend.domains.configuration.api import plugin_models
 from backend.domains.configuration.api import plugins as plugins_api
+from backend.services.workspace_service import get_workspace_context
 
 RouteFingerprint = tuple[str, str, str, str]
 
@@ -171,14 +172,24 @@ def _plugin_routes() -> list[APIRoute]:
 def test_plugin_route_fingerprint_and_order_are_unchanged() -> None:
     actual: list[RouteFingerprint] = []
     for route in _plugin_routes():
-        for method in sorted(route.methods):
+        for method in sorted(route.methods or set()):
             actual.append((method, route.path, route.name, route.unique_id))
     assert tuple(actual) == EXPECTED_ROUTES
 
 
 def test_plugin_route_status_models_and_dependencies_are_unchanged() -> None:
     response_models = {
+        "fetch_for_ui_plugin": plugin_models.ConfigurationPluginNetworkFetchResponse,
+        "get_installed_plugins": plugin_models.ConfigurationInstalledPluginsResponse,
+        "get_plugins_catalog": (
+            plugin_models.ConfigurationPluginPermissionsCatalogResponse
+        ),
+        "get_plugins_state": plugin_models.ConfigurationPluginStateResponse,
         "get_plugin_settings": plugin_models.PluginSettingsResponse,
+        "get_registry_url": plugin_models.ConfigurationPluginRegistryUrlResponse,
+        "list_plugin_catalog": plugin_models.ConfigurationPluginCatalogResponse,
+        "list_trusted_keys": plugin_models.ConfigurationPluginTrustedKeysResponse,
+        "set_plugin_lifecycle": plugin_models.ConfigurationPluginStateResponse,
         "set_plugin_settings": plugin_models.PluginSettingsResponse,
         "summarize_with_vault_plugin": plugin_models.VaultPluginSummaryResponse,
     }
@@ -188,14 +199,18 @@ def test_plugin_route_status_models_and_dependencies_are_unchanged() -> None:
         assert route.operation_id is None
         assert route.status_code is None
         assert route.response_model is response_models.get(route.endpoint.__name__)
-        assert len(route.methods) == 1
-        method = next(iter(route.methods))
+        assert route.response_model_exclude_unset is (
+            route.endpoint.__name__ in response_models
+        )
+        methods = route.methods or set()
+        assert len(methods) == 1
+        method = next(iter(methods))
         expected_count = PROTECTED_DEPENDENCY_COUNTS.get(
             (method, route.path),
             1,
         )
         assert len(route.dependencies) == expected_count
-        assert route.dependencies[0].dependency is vault_routes.get_workspace_context
+        assert route.dependencies[0].dependency is get_workspace_context
 
 
 def test_plugin_handlers_are_canonical_domain_exports() -> None:

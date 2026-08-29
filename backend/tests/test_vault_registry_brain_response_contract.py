@@ -69,11 +69,22 @@ def test_llm_wiki_config_contract_preserves_runtime_maps() -> None:
         "brain": {"table_id": "brain-1", "name": "Brain", "configured": True},
         "eligible_index_properties": [],
         "index_options": {},
-        "capabilities": {"pdf": True},
+        "capabilities": {
+            "modules": {},
+            "binaries": {},
+            "supported_extensions": [".pdf"],
+            "streaming": True,
+            "ocr": False,
+            "ocr_languages": [],
+            "ocr_missing_languages": [],
+            "transcription": False,
+        },
         "validation": {"valid": True, "missing": []},
         "processed_resources": {"sources": {"page-1": "2026-08-29"}},
         "resource_statuses": {"sources": {"page-1": {"phase": "done"}}},
         "enabled": True,
     }
 
-    assert LlmWikiConfigResponse.model_validate(payload).model_dump() == payload
+    assert LlmWikiConfigResponse.model_validate(payload).model_dump(
+        exclude_unset=True
+    ) == payload

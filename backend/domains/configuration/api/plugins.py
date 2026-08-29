@@ -16,6 +16,13 @@ from fastapi.responses import FileResponse, Response
 
 from backend.domains.configuration.api.plugin_models import (
     CatalogInstallRequest,
+    ConfigurationInstalledPluginsResponse,
+    ConfigurationPluginCatalogResponse,
+    ConfigurationPluginNetworkFetchResponse,
+    ConfigurationPluginPermissionsCatalogResponse,
+    ConfigurationPluginRegistryUrlResponse,
+    ConfigurationPluginStateResponse,
+    ConfigurationPluginTrustedKeysResponse,
     LlmWikiLifecycleRequest,
     PluginLifecycleRequest,
     PluginNetworkFetchRequest,
@@ -25,8 +32,8 @@ from backend.domains.configuration.api.plugin_models import (
     PluginsUpdateRequest,
     RegistryUrlRequest,
     TrustedKeyRequest,
-    VaultSummaryRequest,
     VaultPluginSummaryResponse,
+    VaultSummaryRequest,
 )
 from backend.services import builtin_plugins
 
@@ -783,7 +790,15 @@ def register_routes(
         ("PUT", "/plugins/registry-url", set_registry_url, admin),
     )
     response_models = {
+        fetch_for_ui_plugin: ConfigurationPluginNetworkFetchResponse,
+        get_installed_plugins: ConfigurationInstalledPluginsResponse,
+        get_plugins_catalog: ConfigurationPluginPermissionsCatalogResponse,
+        get_plugins_state: ConfigurationPluginStateResponse,
+        get_registry_url: ConfigurationPluginRegistryUrlResponse,
         get_plugin_settings: PluginSettingsResponse,
+        list_plugin_catalog: ConfigurationPluginCatalogResponse,
+        list_trusted_keys: ConfigurationPluginTrustedKeysResponse,
+        set_plugin_lifecycle: ConfigurationPluginStateResponse,
         set_plugin_settings: PluginSettingsResponse,
         summarize_with_vault_plugin: VaultPluginSummaryResponse,
     }
@@ -794,4 +809,5 @@ def register_routes(
             methods=[method],
             dependencies=list(dependencies),
             response_model=response_models.get(endpoint),
+            response_model_exclude_unset=endpoint in response_models,
         )
