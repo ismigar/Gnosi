@@ -12,7 +12,15 @@ import MailBlockEditor from './MailBlockEditor';
 import { AddressInput } from './MailAddressInput';
 import { DigitalBrainCalendar } from '../Vault/DigitalBrainCalendar';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
-import { transportFetch } from '../../shared/api/transports';
+import {
+    deleteMailDraft,
+    generateMailDraft,
+    saveMailDraft,
+} from '../../shared/api/mail';
+import {
+    replyMailMultipart,
+    sendMailMultipart,
+} from '../../shared/api/mail-specialized';
 
 // ─── AttachmentBadge ──────────────────────────────────────────────────────────
 function AttachmentBadge({ file, onRemove }) {
@@ -99,25 +107,15 @@ export default function MailComposer({
         const bodyText = currentBody?.replace(/<[^>]*>/g, '').trim() || '';
         if (!bodyText && !currentSubject) return;
         try {
-            const res = await transportFetch('/api/mail/drafts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    draft_id: draftIdRef.current || undefined,
-                    to: toRef.current,
-                    cc: ccRef.current,
-                    bcc: bccRef.current,
-                    subject: currentSubject,
-                    body: currentBody,
-                    account: fromAccount.email,
-                }),
+            const data = await saveMailDraft({
+                draft_id: draftIdRef.current || undefined,
+                to: toRef.current,
+                cc: ccRef.current,
+                bcc: bccRef.current,
+                subject: currentSubject,
+                body: currentBody,
+                account: fromAccount.email,
             });
-            // Without this check, a 5xx response (server down, drafts
-            // database full) made res.json() return the body
-            // of the error and everything continued as if nothing had happened, leaving the user with the
-            // feeling that drafts were being saved every 2s when none were.
-            if (!res.ok) throw new Error(`Draft save HTTP ${res.status}`);
-            const data = await res.json();
             const isFirstSave = !draftIdRef.current;
             if (data.draft_id) draftIdRef.current = data.draft_id;
             if (isFirstSave) {
@@ -198,25 +196,22 @@ export default function MailComposer({
             if (fromDisplayName) formData.append('from_name', fromDisplayName);
             attachments.forEach(f => formData.append('attachments', f));
 
-            let res;
+            let data;
             if (mode && replyToMessageId) {
                 // folder: the backend resolves the cid: of the quoted message against the
                 // original message (for IMAP we need to know its folder).
-                const folderQuery = sourceFolder ? `&folder=${encodeURIComponent(sourceFolder)}` : '';
-                res = await transportFetch(
-                    `/api/mail/messages/${replyToMessageId}/reply?email=${encodeURIComponent(smtpEmail)}${folderQuery}`,
-                    { method: 'POST', body: formData }
+                data = await replyMailMultipart(
+                    replyToMessageId,
+                    smtpEmail,
+                    sourceFolder,
+                    formData,
                 );
             } else {
-                res = await transportFetch(`/api/mail/send?email=${encodeURIComponent(smtpEmail)}`, {
-                    method: 'POST',
-                    body: formData,
-                });
+                data = await sendMailMultipart(smtpEmail, formData);
             }
-            const data = await res.json();
             if (data.status === 'success' || data.message_id) {
                 if (draftIdRef.current) {
-                    transportFetch(`/api/mail/drafts/${draftIdRef.current}`, { method: 'DELETE' }).catch(() => {});
+                    deleteMailDraft(draftIdRef.current).catch(() => {});
                     onDraftSaved?.();
                 }
                 toast.success(t('mail.sent_ok'));
@@ -307,12 +302,10 @@ export default function MailComposer({
         }
         setAiGenerating(true);
         try {
-            const res = await transportFetch('/api/mail/ai/generate_draft', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ context: body, prompt: `Create a professional draft about: ${subject}` }),
-            });
-            const data = await res.json();
+            const data = await generateMailDraft(
+                body,
+                `Create a professional draft about: ${subject}`,
+            );
             setBody(data.draft);
             toast.success(t('mail.ai_draft_ok'));
         } catch {
