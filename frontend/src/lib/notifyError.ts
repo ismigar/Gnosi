@@ -1,5 +1,5 @@
 /**
- * notifyError.js
+ * notifyError.ts
  *
  * Single entry point for non-fatal client-side errors. Replaces the
  * inconsistent mix of bare `console.error`, raw `toast.error`, and silent
@@ -11,7 +11,7 @@
  *     known-noisy paths (autosave background retries, prefetch failures).
  *   - Coalesces identical messages within `dedupeMs` so a misbehaving server
  *     can't drown the UI in 50 identical toasts.
- *   - Emits a CustomEvent('app-error') so future telemetry / a debug
+ *   - Emits the typed `app-error` application event so future telemetry / a debug
  *     console UI can subscribe without touching call sites.
  *
  * Usage:
@@ -20,12 +20,71 @@
  *     catch (err) { notifyError('save-page', err, t('errors.save_page')); }
  */
 import { toast as hotToast } from 'react-hot-toast';
+import { emitAppEvent } from '../shared/platform/app-events';
+import {
+    defineStorageKey,
+    readStorage,
+    stringStorageCodec,
+} from '../shared/platform/browser-storage';
 import { createSystemNotification } from '../shared/api/system';
 
-const DEFAULT_DEDUPE_MS = 4000;
-const _recent = new Map(); // message → timestamp
+export interface NotifyErrorOptions {
+    readonly persist?: boolean;
+    readonly silent?: boolean;
+    readonly toast?: boolean;
+}
 
-function _shouldShow(key) {
+export interface PersistNotificationInput {
+    readonly level: string;
+    readonly message: string;
+    readonly title: string;
+}
+
+const DEFAULT_DEDUPE_MS = 4000;
+const WORKSPACE_ID_KEY = defineStorageKey(
+    'gnosi_workspace_id',
+    stringStorageCodec,
+);
+const _recent = new Map<string, number>(); // message → timestamp
+
+function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function errorProperty(error: unknown, key: string): unknown {
+    return isUnknownRecord(error) ? error[key] : undefined;
+}
+
+function errorResponseProperty(error: unknown, key: string): unknown {
+    const response = errorProperty(error, 'response');
+    return isUnknownRecord(response) ? response[key] : undefined;
+}
+
+function errorDetail(error: unknown): unknown {
+    const data = errorResponseProperty(error, 'data');
+    return isUnknownRecord(data) ? data.detail : undefined;
+}
+
+function detailMessage(detail: unknown): string | null {
+    if (typeof detail === 'string') return detail;
+    if (!isUnknownRecord(detail)) return null;
+    return typeof detail.message === 'string' ? detail.message : null;
+}
+
+function messageFromUnknown(value: unknown): string | null {
+    return typeof value === 'string' && value ? value : null;
+}
+
+function stringifyNotificationMessage(value: unknown): string {
+    if (!value) return '';
+    try {
+        return Reflect.apply(String, undefined, [value]);
+    } catch {
+        return '';
+    }
+}
+
+function _shouldShow(key: string): boolean {
     const now = Date.now();
     const last = _recent.get(key) || 0;
     if (now - last < DEFAULT_DEDUPE_MS) return false;
@@ -33,7 +92,7 @@ function _shouldShow(key) {
     // Cap the map so it can't grow without bound on a long session.
     if (_recent.size > 64) {
         const oldest = _recent.keys().next().value;
-        _recent.delete(oldest);
+        if (oldest !== undefined) _recent.delete(oldest);
     }
     return true;
 }
@@ -47,18 +106,22 @@ function _shouldShow(key) {
  * @param {boolean} [options.toast=true]  - show a toast?
  * @param {boolean} [options.silent=false]- suppress everything but the event.
  */
-export function notifyError(scope, err, userMsg, options = {}) {
+export function notifyError(
+    scope: string,
+    err: unknown,
+    userMsg?: string | null,
+    options: NotifyErrorOptions = {},
+): void {
     const { toast = true, silent = false, persist = true } = options;
     const tag = `[${scope}]`;
-    const status = err?.response?.status;
-    const detail = err?.response?.data?.detail;
+    const status = errorResponseProperty(err, 'status');
+    const detail = errorDetail(err);
     const baseMsg = userMsg
-        || (typeof detail === 'string' ? detail : detail?.message)
-        || err?.message
+        || detailMessage(detail)
+        || messageFromUnknown(errorProperty(err, 'message'))
         || 'Hi ha hagut un error inesperat.';
 
     if (!silent) {
-        // eslint-disable-next-line no-console
         console.error(tag, baseMsg, err);
     }
 
@@ -83,16 +146,19 @@ export function notifyError(scope, err, userMsg, options = {}) {
     }
 
     try {
-        window.dispatchEvent(new CustomEvent('app-error', {
-            detail: { scope, status, message: baseMsg, error: err },
-        }));
+        emitAppEvent('app-error', {
+            scope,
+            status,
+            message: baseMsg,
+            error: err,
+        });
     } catch {
         /* no-op */
     }
 }
 
 /** Convenience for cases where we want the error logged but no toast. */
-export function logError(scope, err) {
+export function logError(scope: string, err: unknown): void {
     notifyError(scope, err, null, { toast: false });
 }
 
@@ -101,35 +167,38 @@ export function logError(scope, err) {
  * toast — that is left to the caller (toast.success when needed). Intended to
  * make the Control Center have a complete history, not just errors.
  */
-export function notifySuccess(scope, message) {
+export function notifySuccess(scope: string, message: unknown): void {
     _persistNotification({
         title: `[${scope}]`,
-        message: String(message || ''),
+        message: stringifyNotificationMessage(message),
         level: 'SUCCESS',
     });
 }
 
-export function notifyInfo(scope, message) {
+export function notifyInfo(scope: string, message: unknown): void {
     _persistNotification({
         title: `[${scope}]`,
-        message: String(message || ''),
+        message: stringifyNotificationMessage(message),
         level: 'INFO',
     });
 }
 
 // Exported so the toast wrapper can log `toast.error` /
 // `toast.success` as Control Center entries.
-export function _persistNotification({ title, message, level }) {
+export function _persistNotification({
+    title,
+    message,
+    level,
+}: PersistNotificationInput): void {
     // useApi is a React hook and cannot be used outside a component. The shared
     // typed client still applies the same request context without a hook.
     try {
-        const workspaceId = (typeof localStorage !== 'undefined'
-            && localStorage.getItem('gnosi_workspace_id')) || 'personal';
-        createSystemNotification(
+        const workspaceId = readStorage(WORKSPACE_ID_KEY) || 'personal';
+        void createSystemNotification(
             { title, message, level, workspace_id: workspaceId },
             true,
         ).catch(() => { /* fire-and-forget */ });
     } catch {
-        /* localStorage absent o fetch absent — silenciem */
+        /* Browser storage or network transport unavailable — ignore. */
     }
 }

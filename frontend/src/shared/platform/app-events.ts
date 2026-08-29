@@ -30,6 +30,13 @@ export interface RelationValueAppliedEventDetail {
   readonly value: unknown;
 }
 
+export interface AppErrorEventDetail {
+  readonly error: unknown;
+  readonly message: string;
+  readonly scope: string;
+  readonly status?: unknown;
+}
+
 export type OpenSettingsEventDetail =
   | null
   | string
@@ -40,6 +47,7 @@ export type OpenSettingsEventDetail =
 
 
 export interface AppEventMap {
+  readonly 'app-error': AppErrorEventDetail;
   readonly 'db-theme-changed': null;
   readonly 'gnosi:config-changed': null;
   readonly 'gnosi:floating-dock-change': { readonly isOpen: boolean };

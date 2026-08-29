@@ -1,5 +1,5 @@
 /**
- * toast.js
+ * toast.ts
  *
  * Wrapper around `react-hot-toast` that adds automatic persistence to the
  * Control Center for ALL toast variants: `error`, `success`,
@@ -25,22 +25,42 @@
  * credencials" and not as "[object Object]" (which would also dedupe all
  * calls with JSX into a single one).
  */
-import { toast as baseToast } from 'react-hot-toast';
+import { resolveValue, toast as baseToast } from 'react-hot-toast';
+import type {
+    DefaultToastOptions,
+    Renderable,
+    Toast,
+    ToastOptions,
+    ValueOrFunction,
+} from 'react-hot-toast';
 import { _persistNotification } from './notifyError';
 
 export * from 'react-hot-toast';
 
 const PERSIST_DEDUPE_MS = 4000;
-const _recentPersist = new Map();
+const _recentPersist = new Map<string, number>();
 
-function _shouldPersist(key) {
+type PersistPrefix = 'C' | 'E' | 'I' | 'L' | 'S';
+type ToastMessage = ValueOrFunction<Renderable, Toast>;
+
+interface PromiseToastMessages<T> {
+    readonly error?: ValueOrFunction<Renderable, unknown>;
+    readonly loading: Renderable;
+    readonly success?: ValueOrFunction<Renderable, T>;
+}
+
+function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function _shouldPersist(key: string): boolean {
     const now = Date.now();
     const last = _recentPersist.get(key) || 0;
     if (now - last < PERSIST_DEDUPE_MS) return false;
     _recentPersist.set(key, now);
     if (_recentPersist.size > 64) {
         const oldest = _recentPersist.keys().next().value;
-        _recentPersist.delete(oldest);
+        if (oldest !== undefined) _recentPersist.delete(oldest);
     }
     return true;
 }
@@ -53,7 +73,7 @@ function _shouldPersist(key) {
  * by type, not `[object Object]` — this way we avoid all structured
  * toasts being deduped as if they were the same.
  */
-function _msgString(msg) {
+function _msgString(msg: unknown): string {
     if (msg == null) return '';
     if (typeof msg === 'string') return msg;
     if (typeof msg === 'number' || typeof msg === 'boolean') return String(msg);
@@ -61,26 +81,35 @@ function _msgString(msg) {
     if (Array.isArray(msg)) {
         return msg.map(_msgString).filter(Boolean).join(' ').trim();
     }
-    if (typeof msg === 'object') {
+    if (isUnknownRecord(msg)) {
         // Element React: { props: { children: ... } }
-        if (msg.props && msg.props.children != null) {
-            const childText = _msgString(msg.props.children);
+        const props = isUnknownRecord(msg.props) ? msg.props : null;
+        if (props?.children != null) {
+            const childText = _msgString(props.children);
             if (childText) return childText;
         }
         // Typical "data" objects
         for (const key of ['message', 'title', 'text', 'description', 'detail']) {
-            if (typeof msg[key] === 'string' && msg[key]) return msg[key];
+            const value = msg[key];
+            if (typeof value === 'string' && value) return value;
         }
         // Fallback: identifier by React component type (not all
         // calls with JSX must collapse into the same dedup bucket).
-        const typeName = msg.type?.displayName || msg.type?.name
-            || (typeof msg.type === 'string' ? msg.type : '');
+        const type = msg.type;
+        const typeName = typeof type === 'string'
+            ? type
+            : typeof type === 'function'
+                ? type.name
+                : isUnknownRecord(type) && typeof type.displayName === 'string'
+                    ? type.displayName
+                    : '';
         return typeName ? `(${typeName})` : '(object)';
     }
-    try { return String(msg); } catch { return ''; }
+    if (typeof msg === 'bigint' || typeof msg === 'symbol') return msg.toString();
+    return '';
 }
 
-function _persist(level, message, prefix) {
+function _persist(level: string, message: unknown, prefix: PersistPrefix): void {
     const msg = _msgString(message);
     if (!msg) return;
     const key = `${prefix}|${msg}`;
@@ -97,31 +126,32 @@ function _persist(level, message, prefix) {
 
 // Callable function: `toast('text')` must keep working. Persists as
 // INFO because the caller decided not to qualify it as error/success.
-const wrapped = function toast(message, options) {
+const wrapped = Object.assign(function toast(
+    message: ToastMessage,
+    options?: ToastOptions,
+): string {
     _persist('INFO', message, 'I');
     return baseToast(message, options);
-};
+}, baseToast);
 
 // We copy all properties from baseToast (dismiss, remove, etc.) before
 // overwriting the ones we want to instrument.
-Object.assign(wrapped, baseToast);
-
-wrapped.error = (message, options) => {
+wrapped.error = (message: ToastMessage, options?: ToastOptions): string => {
     _persist('ERROR', message, 'E');
     return baseToast.error(message, options);
 };
 
-wrapped.success = (message, options) => {
+wrapped.success = (message: ToastMessage, options?: ToastOptions): string => {
     _persist('SUCCESS', message, 'S');
     return baseToast.success(message, options);
 };
 
-wrapped.loading = (message, options) => {
+wrapped.loading = (message: ToastMessage, options?: ToastOptions): string => {
     _persist('INFO', message, 'L');
     return baseToast.loading(message, options);
 };
 
-wrapped.custom = (message, options) => {
+wrapped.custom = (message: ToastMessage, options?: ToastOptions): string => {
     _persist('INFO', message, 'C');
     return baseToast.custom(message, options);
 };
@@ -132,21 +162,24 @@ wrapped.custom = (message, options) => {
 // internal `.then`/`.catch` callbacks of baseToast fire success/error,
 // that will also pass through our wrapper if the caller calls `toast.success(...)`
 // inside. For `msgs` objects, we log each one with its level.
-wrapped.promise = (promise, msgs, options) => {
-    if (msgs && typeof msgs === 'object') {
-        if (msgs.loading) _persist('INFO', msgs.loading, 'L');
-        promise
-            .then((value) => {
-                const m = typeof msgs.success === 'function' ? msgs.success(value) : msgs.success;
-                if (m) _persist('SUCCESS', m, 'S');
-            })
-            .catch((err) => {
-                const m = typeof msgs.error === 'function' ? msgs.error(err) : msgs.error;
-                if (m) _persist('ERROR', m, 'E');
-            });
-    }
-    return baseToast.promise(promise, msgs, options);
+wrapped.promise = <T>(
+    promise: Promise<T> | (() => Promise<T>),
+    msgs: PromiseToastMessages<T>,
+    options?: DefaultToastOptions,
+): Promise<T> => {
+    const pending = typeof promise === 'function' ? promise() : promise;
+    if (msgs.loading) _persist('INFO', msgs.loading, 'L');
+    void pending
+        .then((value) => {
+            const m = msgs.success ? resolveValue(msgs.success, value) : undefined;
+            if (m) _persist('SUCCESS', m, 'S');
+        })
+        .catch((err: unknown) => {
+            const m = msgs.error ? resolveValue(msgs.error, err) : undefined;
+            if (m) _persist('ERROR', m, 'E');
+        });
+    return baseToast.promise(pending, msgs, options);
 };
 
-export const toast = wrapped;
-export default wrapped;
+export const toast: typeof baseToast = wrapped;
+export default toast;
