@@ -140,7 +140,6 @@
       "frontend/src/components/Vault/DbViewEmbed.jsx": 2086,
       "frontend/src/components/Vault/DigitalBrainCalendar.jsx": 1045,
       "frontend/src/components/Vault/PageViewModal.jsx": 3203,
-      "frontend/src/components/Vault/PageViewModal.test.jsx": 174,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2976,
       "frontend/src/components/Vault/VaultFeed.jsx": 851,
       "frontend/src/components/Vault/VaultShell.jsx": 231,
