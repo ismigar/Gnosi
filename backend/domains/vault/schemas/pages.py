@@ -29,6 +29,18 @@ class PageInfo(BaseModel):
     resolved_table_id: Optional[str] = None
 
 
+class PageDetailResponse(BaseModel):
+    """Full page document; metadata remains open for user-defined frontmatter."""
+
+    id: str
+    title: Any
+    metadata: dict[str, Any]
+    content: str
+    folder: str
+    resolved_table_id: Optional[str] = None
+    etag: str
+
+
 class PagePatchRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
@@ -64,6 +76,7 @@ class _BulkWarmPayload(BaseModel):
 
 __all__ = [
     "PageInfo",
+    "PageDetailResponse",
     "PagePatchRequest",
     "PageSaveRequest",
     "SidebarPageInfo",

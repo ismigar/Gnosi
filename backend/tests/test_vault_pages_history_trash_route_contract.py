@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes
+from backend.domains.vault.schemas.pages import PageDetailResponse
 from backend.domains.vault.trash import purge as trash_purge
 
 
@@ -75,6 +76,15 @@ def test_pages_history_trash_route_fingerprint_is_unchanged() -> None:
         EXPECTED_ROUTE_FINGERPRINT,
         separators=(",", ":"),
     )
+
+
+def test_page_detail_route_exposes_its_typed_response_contract() -> None:
+    route = next(
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute) and route.endpoint.__name__ == "get_page"
+    )
+    assert route.response_model is PageDetailResponse
 
 
 def test_trash_purge_domain_does_not_import_http_facade() -> None:

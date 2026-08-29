@@ -14,6 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.params import Depends as DependsParameter
 
 from backend.domains.vault.schemas.pages import (
+    PageDetailResponse,
     PageInfo,
     SidebarPageInfo,
     TablePagesSnapshot,
@@ -418,7 +419,7 @@ def register_page_route(router: APIRouter) -> None:
         "/pages/{page_id}",
         get_page,
         methods=["GET"],
-        response_model=None,
+        response_model=PageDetailResponse,
     )
 
 
