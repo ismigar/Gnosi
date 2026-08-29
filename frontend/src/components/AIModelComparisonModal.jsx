@@ -12,6 +12,12 @@ import {
 } from '../lib/modelComparisonRegistry';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import './AIModelComparisonModal.css';
+import {
+    fetchAiModelCatalog,
+    fetchAiModelComparison,
+    fetchAiModels,
+    updateAiModels,
+} from '../shared/api/ai';
 import { transportFetch } from '../shared/api/transports';
 
 const PROFILE_KEYS = ['worker', 'administrative', 'documentalist', 'allrounder', 'expert', 'unrated'];
@@ -112,20 +118,12 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         setLoading(true);
         setErrorCode('');
         setFallbackNoticeDismissed(false);
-        transportFetch('/api/ai/model-comparison', { signal: controller.signal })
-            .then(async (response) => {
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    const error = new Error('Artificial Analysis request failed');
-                    error.code = payload?.detail?.code || 'upstream_error';
-                    throw error;
-                }
-                setFeed(payload);
-            })
+        fetchAiModelComparison(controller.signal)
+            .then((payload) => setFeed(payload))
             .catch((error) => {
                 if (error.name !== 'AbortError') {
                     setFeed(null);
-                    setErrorCode(error.code || 'network_error');
+                    setErrorCode(error.payload?.detail?.code || error.code || 'network_error');
                 }
             })
             .finally(() => {
@@ -169,17 +167,10 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         setConfigurationLoading(true);
         setConfigurationError('');
         Promise.all([
-            transportFetch('/api/ai/models', { signal: controller.signal }),
-            transportFetch('/api/ai/model-catalog', { signal: controller.signal }),
+            fetchAiModels(controller.signal),
+            fetchAiModelCatalog(undefined, controller.signal),
         ])
-            .then(async ([registryResponse, catalogResponse]) => {
-                if (!registryResponse.ok || !catalogResponse.ok) {
-                    throw new Error('Model configuration request failed');
-                }
-                const [registryPayload, catalogPayload] = await Promise.all([
-                    registryResponse.json(),
-                    catalogResponse.json(),
-                ]);
+            .then(([registryPayload, catalogPayload]) => {
                 setRegistry({
                     models: registryPayload.configured_models || [],
                     budget: registryPayload.budget || {},
@@ -408,12 +399,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         });
     };
     const saveRegistry = async (nextModels) => {
-        const response = await transportFetch('/api/ai/models', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ models: nextModels, budget: registry.budget || {} }),
-        });
-        if (!response.ok) throw new Error('Registry save failed');
+        await updateAiModels({ models: nextModels, budget: registry.budget || {} });
         setRegistry((current) => ({ ...current, models: nextModels }));
         window.dispatchEvent(new CustomEvent('gnosi-ai-models-changed', {
             detail: { source: 'model-comparison' },
