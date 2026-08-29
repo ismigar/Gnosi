@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactElement } from 'react';
 
 const BRAND_COLORS = {
     mastodon: '#6364ff',
@@ -8,7 +8,9 @@ const BRAND_COLORS = {
     telegram: '#27a7e7',
 };
 
-const iconPaths = {
+export type SocialNetwork = keyof typeof BRAND_COLORS;
+
+const iconPaths: Readonly<Record<SocialNetwork, ReactElement>> = {
     mastodon: (
         <path d="M20.92 14.36c0 4.54-.28 6.41-2.8 8.2-1.76 1.25-3.46 1.51-5.34 1.72l-.12-2.6c1.99-.1 3.72-.62 4.12-1.2.18-.28.28-.62.32-.98-1.8.44-3.74.66-5.7.66-2.38 0-4.72-.16-6.7-.65-1.07-.27-2.1-1.12-2.52-2.16C1.58 15.86 1.42 12.5 1.42 9.4c0-2.73.07-5.1.92-7.15C3.2.2 5.46.03 7.66.03c.06 0 .16 0 .25.01l.4.84c-2.55.6-3.72 1.7-4.2 2.73.1-.06 1.14-.68 2.55-.98 1.23-.27 2.68-.44 4.15-.46h.1c1.48.02 2.92.19 4.16.46 1.4.3 2.45.92 2.55.98-.48-1.03-1.65-2.13-4.2-2.73l.4-.84c.09-.01.19-.01.25-.01 2.2 0 4.46.17 5.32 2.22.85 2.05.92 4.42.92 7.15Zm-5.84-6.7c-1.1 0-1.99.82-2.06 2.36v2.67h1.68v-2.59c0-.78.33-1.18.99-1.18.73 0 1.1.47 1.1 1.4v1.42c0 2.01-.85 2.2-1.1 2.2v1.49c1.82-.13 2.78-1.16 2.78-3.69V10c0-1.55-.9-2.34-2.3-2.34-1.02 0-1.75.42-2.15 1.16-.4-.74-1.13-1.16-2.15-1.16-1.4 0-2.3.79-2.3 2.34v4.88h1.68v-4.91c0-.93.37-1.4 1.1-1.4.66 0 .99.4.99 1.18v5.13h1.68V9.75c0-.78.33-1.18.99-1.18.73 0 1.1.47 1.1 1.4v1.42Z" />
     ),
@@ -26,11 +28,23 @@ const iconPaths = {
     ),
 };
 
-export const isKnownSocialNetwork = (network) => Boolean(iconPaths[network]);
+export const isKnownSocialNetwork = (network: unknown): network is SocialNetwork => (
+    typeof network === 'string' && Object.hasOwn(iconPaths, network)
+);
 
-export const SocialNetworkIcon = ({ network, size = 24, title }) => {
+export interface SocialNetworkIconProps {
+    readonly network: string;
+    readonly size?: number;
+    readonly title?: string;
+}
+
+export const SocialNetworkIcon = ({
+    network,
+    size = 24,
+    title,
+}: SocialNetworkIconProps) => {
+    if (!isKnownSocialNetwork(network)) return null;
     const path = iconPaths[network];
-    if (!path) return null;
 
     return (
         <svg

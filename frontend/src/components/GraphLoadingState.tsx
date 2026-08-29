@@ -1,12 +1,15 @@
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-export function GraphLoadingState({ progress = null }) {
+export interface GraphLoadingStateProps {
+    readonly progress?: number | null;
+}
+
+export function GraphLoadingState({ progress = null }: GraphLoadingStateProps) {
     const { t } = useTranslation();
-    const isDeterminate = Number.isFinite(progress);
-    const normalizedProgress = isDeterminate
+    const normalizedProgress = typeof progress === 'number' && Number.isFinite(progress)
         ? Math.min(100, Math.max(0, progress))
         : null;
+    const isDeterminate = normalizedProgress !== null;
 
     return (
         <div
@@ -34,7 +37,7 @@ export function GraphLoadingState({ progress = null }) {
                     className={`h-full rounded-full ${isDeterminate ? 'transition-[width] duration-300' : 'animate-pulse'}`}
                     style={{
                         backgroundColor: 'var(--gnosi-blue)',
-                        width: isDeterminate ? `${normalizedProgress}%` : '35%',
+                        width: isDeterminate ? `${String(normalizedProgress)}%` : '35%',
                         height: '100%',
                     }}
                 />

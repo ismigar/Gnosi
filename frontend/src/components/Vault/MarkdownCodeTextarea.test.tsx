@@ -1,16 +1,18 @@
 /** @vitest-environment jsdom */
-import React from 'react';
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MarkdownCodeTextarea } from './MarkdownCodeTextarea';
 
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const reactTestGlobal = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT: boolean;
+};
+reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('MarkdownCodeTextarea', () => {
-    let container;
-    let root;
+    let container: HTMLDivElement;
+    let root: Root;
 
     beforeEach(() => {
         container = document.createElement('div');
@@ -18,13 +20,15 @@ describe('MarkdownCodeTextarea', () => {
         root = createRoot(container);
     });
 
-    afterEach(async () => {
-        await act(async () => root.unmount());
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
         container.remove();
     });
 
-    it('keeps an empty Markdown document visible and focusable', async () => {
-        await act(async () => {
+    it('keeps an empty Markdown document visible and focusable', () => {
+        act(() => {
             root.render(
                 <MarkdownCodeTextarea
                     value=""
@@ -39,6 +43,7 @@ describe('MarkdownCodeTextarea', () => {
         const textarea = container.querySelector('textarea');
 
         expect(textarea).not.toBeNull();
+        if (!textarea) throw new Error('Expected Markdown textarea');
         expect(textarea.style.minHeight).toBe('500px');
         expect(textarea.getAttribute('aria-label')).toBe('Markdown source');
         expect(textarea.getAttribute('placeholder')).toBe('Write Markdown…');

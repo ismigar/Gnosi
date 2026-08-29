@@ -1,17 +1,31 @@
-import React, { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+
+export interface CollapsibleSectionProps {
+    readonly badge?: number;
+    readonly children?: ReactNode;
+    readonly defaultOpen?: boolean;
+    readonly title: ReactNode;
+}
 
 /**
  * A collapsible section with a header that toggles visibility of its children.
  * Starts collapsed by default but can be controlled via defaultOpen prop.
  */
-export function CollapsibleSection({ title, children, defaultOpen = false, badge }) {
+export function CollapsibleSection({
+    title,
+    children,
+    defaultOpen = false,
+    badge,
+}: CollapsibleSectionProps) {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
         <div className="section collapsible-section">
             <div
                 className="collapsible-header"
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => {
+                    setIsOpen(!isOpen);
+                }}
                 style={{
                     display: 'flex',
                     justifyContent: 'space-between',

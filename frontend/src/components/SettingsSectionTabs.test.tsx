@@ -1,33 +1,40 @@
-import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { BookOpen, Radio } from 'lucide-react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { SettingsSectionTabs } from './SettingsSectionTabs';
 
-const mountedRoots = [];
+const mountedRoots: Array<{ container: HTMLDivElement; root: Root }> = [];
 
 beforeAll(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    const reactTestGlobal = globalThis as typeof globalThis & {
+        IS_REACT_ACT_ENVIRONMENT: boolean;
+    };
+    reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-afterEach(async () => {
+afterEach(() => {
     while (mountedRoots.length > 0) {
-        const { root, container } = mountedRoots.pop();
-        await act(async () => root.unmount());
+        const mounted = mountedRoots.pop();
+        if (!mounted) break;
+        const { root, container } = mounted;
+        act(() => {
+            root.unmount();
+        });
         container.remove();
     }
 });
 
 describe('SettingsSectionTabs', () => {
-    it('marks the active section and reports section changes', async () => {
+    it('marks the active section and reports section changes', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
         const root = createRoot(container);
         mountedRoots.push({ root, container });
         const onChange = vi.fn();
 
-        await act(async () => {
+        act(() => {
             root.render(
                 <SettingsSectionTabs
                     ariaLabel="Reader sections"
@@ -43,12 +50,17 @@ describe('SettingsSectionTabs', () => {
 
         const navigation = container.querySelector('nav');
         const buttons = [...container.querySelectorAll('button')];
+        const activeButton = buttons.at(0);
+        const nextButton = buttons.at(1);
+        if (!navigation || !activeButton || !nextButton) {
+            throw new Error('Expected settings navigation and two buttons');
+        }
         expect(navigation.getAttribute('aria-label')).toBe('Reader sections');
-        expect(buttons[0].getAttribute('aria-current')).toBe('page');
-        expect(buttons[1].hasAttribute('aria-current')).toBe(false);
+        expect(activeButton.getAttribute('aria-current')).toBe('page');
+        expect(nextButton.hasAttribute('aria-current')).toBe(false);
 
-        await act(async () => {
-            buttons[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        act(() => {
+            nextButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
         expect(onChange).toHaveBeenCalledWith('subscriptions');
     });

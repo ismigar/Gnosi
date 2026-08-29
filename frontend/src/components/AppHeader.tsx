@@ -1,8 +1,28 @@
-import React from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
 
-export function AppHeader({ icon: Icon, title, subtitle, children, showVault = true }) {
+interface AppHeaderIconProps {
+    readonly size?: number;
+    readonly strokeWidth?: number;
+}
+
+export interface AppHeaderProps {
+    readonly children?: ReactNode;
+    readonly icon?: ComponentType<AppHeaderIconProps>;
+    readonly showVault?: boolean;
+    readonly subtitle?: ReactNode;
+    readonly title: ReactNode;
+}
+
+export function AppHeader({
+    icon: Icon,
+    title,
+    subtitle,
+    children,
+    showVault = true,
+}: AppHeaderProps) {
     const { t } = useTranslation();
     const activeVaultName = useActiveVaultName();
 

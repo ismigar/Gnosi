@@ -1,4 +1,16 @@
-import React, { forwardRef } from 'react';
+import {
+    forwardRef,
+    type ChangeEventHandler,
+    type KeyboardEventHandler,
+} from 'react';
+
+export interface MarkdownCodeTextareaProps {
+    readonly ariaLabel: string;
+    readonly onChange: ChangeEventHandler<HTMLTextAreaElement>;
+    readonly onKeyDown: KeyboardEventHandler<HTMLTextAreaElement>;
+    readonly placeholder?: string;
+    readonly value: string;
+}
 
 /**
  * Visible editing surface used by the Vault Markdown source mode.
@@ -12,7 +24,7 @@ export const MarkdownCodeTextarea = forwardRef(function MarkdownCodeTextarea({
     onKeyDown,
     ariaLabel,
     placeholder,
-}, ref) {
+}: MarkdownCodeTextareaProps, ref: React.ForwardedRef<HTMLTextAreaElement>) {
     return (
         <textarea
             ref={ref}

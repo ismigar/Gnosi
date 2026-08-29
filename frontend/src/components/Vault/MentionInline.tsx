@@ -1,4 +1,15 @@
-import React from 'react';
+import type { MouseEvent } from 'react';
+
+type MentionScalar = string | number | boolean | null | undefined;
+
+export interface MentionInlineProps {
+    readonly inlineContent?: {
+        readonly props?: {
+            readonly id?: MentionScalar;
+            readonly name?: MentionScalar;
+        };
+    } | null;
+}
 
 /**
  * MentionInline
@@ -7,13 +18,13 @@ import React from 'react';
  * `@key` or wikilinks `[[…]]`). Shows a chip with the name; clicking it opens the
  * contact's card in the Contacts section.
  */
-export default function MentionInline({ inlineContent }) {
+export default function MentionInline({ inlineContent }: MentionInlineProps) {
     const name = String(inlineContent?.props?.name || '').trim() || 'Algú';
     const id = String(inlineContent?.props?.id || '').trim();
 
-    const open = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const open = (event: MouseEvent<HTMLSpanElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
         if (id) {
             // Smooth navigation to the contact's card (without reloading the SPA).
             try {
