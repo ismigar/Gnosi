@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   browseFilesystem,
   createSystemNotification,
+  fetchSystemHealth,
   searchFilesystem,
 } from './system';
 
@@ -14,6 +15,31 @@ afterEach(() => {
 
 
 describe('system API', () => {
+  it('loads public health through the generated client and forwards cancellation', async () => {
+    const payload = {
+      gnosi_mode: 'native',
+      mode: 'FastAPI',
+      require_auth: false,
+      status: 'ok',
+      vault_configured: true,
+    };
+    const controller = new AbortController();
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(Response.json(payload, { status: 200 })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchSystemHealth(controller.signal)).resolves.toEqual(payload);
+    const request = fetchMock.mock.calls[0]?.[0];
+    if (!(request instanceof Request)) throw new Error('Expected a Request instance');
+    expect(request.method).toBe('GET');
+    expect(new URL(request.url).pathname).toBe('/api/health');
+    expect(request.signal.aborted).toBe(false);
+    controller.abort();
+    expect(request.signal.aborted).toBe(true);
+  });
+
+
   it('browses through the generated client and preserves recoverable errors', async () => {
     const payload = {
       error: 'Path does not exist',

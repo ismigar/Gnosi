@@ -19,6 +19,7 @@ export type NativePickAvailability =
   components['schemas']['NativePickAvailabilityResponse'];
 export type NativePickResult = components['schemas']['NativePickResponse'];
 export type NativePickInput = components['schemas']['NativePickRequest'];
+export type SystemHealth = components['schemas']['HealthResponse'];
 export type SystemStats = components['schemas']['SystemStatsResponse'];
 export type SystemGraphVisualization =
   components['schemas']['SystemGraphVisualizationResponse'];
@@ -68,6 +69,15 @@ export async function createSystemNotification(
 export async function clearSystemNotifications(): Promise<ClearSystemNotificationsResult> {
   return unwrapApiResult<ClearSystemNotificationsResult, unknown>(
     await apiClient.DELETE('/api/system/notifications'),
+  );
+}
+
+
+export async function fetchSystemHealth(
+  signal?: AbortSignal,
+): Promise<SystemHealth> {
+  return unwrapApiResult<SystemHealth, unknown>(
+    await apiClient.GET('/api/health', { signal }),
   );
 }
 
