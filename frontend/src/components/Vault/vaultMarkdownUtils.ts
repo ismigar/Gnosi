@@ -1,5 +1,14 @@
 import { defaultUrlTransform } from 'react-markdown';
+import type { CSSProperties } from 'react';
 import { withActiveVault } from '../../lib/fileResource';
+
+interface RgbColor {
+    readonly b: number;
+    readonly g: number;
+    readonly r: number;
+}
+
+type InlineStyle = Pick<CSSProperties, 'backgroundColor' | 'color'>;
 
 /* -------------------------------------------------------------------------- */
 /*  Wikilinks: sentinel + conversion to clickable markdown (shared Vault)      */
@@ -29,9 +38,14 @@ export const STYLE_HREF_SENTINEL = 'gnosi-style:';
 export const CITE_HREF_SENTINEL = 'gnosi-cite:';
 const WIKILINK_RE = /\[\[([^\][|#]+)(?:#([^\][|]+))?(?:\|([^\][]+))?\]\]/g;
 
-export const convertWikilinksToMd = (md) => {
+export const convertWikilinksToMd = (md?: string | null): string | null | undefined => {
     if (!md || typeof md !== 'string') return md;
-    return md.replace(WIKILINK_RE, (_, target, section, alias) => {
+    return md.replace(WIKILINK_RE, (
+        _match: string,
+        target: string,
+        section?: string,
+        alias?: string,
+    ) => {
         const fullTarget = (target || '').trim() + (section ? `#${section.trim()}` : '');
         const displayTitle = (alias || (section ? `${target}#${section}` : target) || '').trim();
         // We avoid `[`/`]` in the link text and `(` `)` in the href so it doesn't
@@ -53,11 +67,10 @@ export const convertWikilinksToMd = (md) => {
 // recognizes (including our `gnosi-wikilink:` / `gnosi-style:`) by substituting it
 // `""`. This transform lets the sentinels pass through intact and delegates the rest
 // to the default.
-export const wikilinkUrlTransform = (url) => (
-    typeof url === 'string'
-        && (url.startsWith(WIKILINK_HREF_SENTINEL)
+export const wikilinkUrlTransform = (url: string): string => (
+    url.startsWith(WIKILINK_HREF_SENTINEL)
             || url.startsWith(STYLE_HREF_SENTINEL)
-            || url.startsWith(CITE_HREF_SENTINEL))
+            || url.startsWith(CITE_HREF_SENTINEL)
         ? url
         : defaultUrlTransform(url)
 );
@@ -84,19 +97,20 @@ const SAFE_COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\([\d.,\s%]+\)|[a-z]+)$/i;
 
 // Extracts the value of a color property from a `style` string. The boundary
 // `(?:^|;)` keeps `color` from matching the tail of `background-color`.
-function pickStyleColor(styleStr, prop) {
+function pickStyleColor(styleStr: string | undefined, prop: string): string | null {
     const re = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+?)\\s*(?:;|$)`, 'i');
     const m = re.exec(styleStr || '');
     if (!m) return null;
-    const val = m[1].trim();
+    const val = m[1]?.trim();
+    if (!val) return null;
     return SAFE_COLOR_RE.test(val) ? val : null;
 }
 
 // Encodes the style payload so it can travel inside a markdown link's href without
 // break it (no spaces or `(` `)`, which would close the link prematurely). Mirror
 // interfering with convertWikilinksToMd's encoding.
-function encodeStylePayload(color, bg) {
-    const parts = [];
+function encodeStylePayload(color: string | null, bg: string | null): string {
+    const parts: string[] = [];
     if (color) parts.push(`c=${color}`);
     if (bg) parts.push(`b=${bg}`);
     return encodeURIComponent(parts.join('&')).replace(/\(/g, '%28').replace(/\)/g, '%29');
@@ -104,15 +118,29 @@ function encodeStylePayload(color, bg) {
 
 // Converts a CSS color (hex #rgb/#rrggbb[aa] or rgb()/rgba()) to {r,g,b}. The
 // we don't know how to measure named colors → null (we leave the inherited text).
-function parseCssColorToRgb(v) {
+function parseCssColorToRgb(v: unknown): RgbColor | null {
     if (typeof v !== 'string') return null;
     const s = v.trim();
     let m = /^#([0-9a-f]{3})$/i.exec(s);
-    if (m) { const h = m[1]; return { r: parseInt(h[0] + h[0], 16), g: parseInt(h[1] + h[1], 16), b: parseInt(h[2] + h[2], 16) }; }
+    if (m?.[1]) {
+        const h = m[1];
+        return {
+            r: Number.parseInt(h.charAt(0).repeat(2), 16),
+            g: Number.parseInt(h.charAt(1).repeat(2), 16),
+            b: Number.parseInt(h.charAt(2).repeat(2), 16),
+        };
+    }
     m = /^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(s);
-    if (m) { const h = m[1]; return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) }; }
+    if (m?.[1]) {
+        const h = m[1];
+        return {
+            r: Number.parseInt(h.slice(0, 2), 16),
+            g: Number.parseInt(h.slice(2, 4), 16),
+            b: Number.parseInt(h.slice(4, 6), 16),
+        };
+    }
     m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(s);
-    if (m) return { r: +m[1], g: +m[2], b: +m[3] };
+    if (m) return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
     return null;
 }
 
@@ -120,7 +148,7 @@ function parseCssColorToRgb(v) {
 // a dark background (YIQ brightness). Highlights inherited from Notion are LIGHT tones
 // designed for light mode; in DARK mode the theme's light text became illegible
 // on top. We set the text based on the BACKGROUND (theme-independent), like Notion does.
-function readableTextForBg(bg) {
+function readableTextForBg(bg: unknown): string | null {
     const rgb = parseCssColorToRgb(bg);
     if (!rgb) return null;
     const yiq = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
@@ -130,11 +158,11 @@ function readableTextForBg(bg) {
 // Decodes the payload of a `gnosi-style:` href into a React style object.
 // Revalidates each color (defense in depth: we don't trust that the href hasn't been
 // manipulated).
-export function decodeStylePayload(href) {
+export function decodeStylePayload(href: unknown): InlineStyle {
     if (typeof href !== 'string') return {};
     let raw = href.slice(STYLE_HREF_SENTINEL.length);
     try { raw = decodeURIComponent(raw); } catch { /* we leave it raw */ }
-    const style = {};
+    const style: InlineStyle = {};
     for (const kv of raw.split('&')) {
         const [k, v] = kv.split('=');
         if (!v || !SAFE_COLOR_RE.test(v)) continue;
@@ -151,13 +179,17 @@ export function decodeStylePayload(href) {
     return style;
 }
 
-export const convertInlineHtmlToMd = (md) => {
+export const convertInlineHtmlToMd = (md?: string | null): string | null | undefined => {
     if (!md || typeof md !== 'string') return md;
     let out = md;
     // Soft breaks (`<br>` / `<br>\n`) → hard line break (two spaces + newline).
     out = out.replace(/<br\s*\/?>(?:\r?\n)?/gi, '  \n');
     // Color spans → link with a sentinel (preserves the color through the `a` render).
-    out = out.replace(/<span\b[^>]*?\sstyle="([^"]*)"[^>]*>([\s\S]*?)<\/span>/gi, (_m, style, text) => {
+    out = out.replace(/<span\b[^>]*?\sstyle="([^"]*)"[^>]*>([\s\S]*?)<\/span>/gi, (
+        _match: string,
+        style: string,
+        text: string,
+    ) => {
         const color = pickStyleColor(style, 'color');
         const bg = pickStyleColor(style, 'background-color');
         if (!color && !bg) return text; // no recognized color → just the inner text
@@ -173,10 +205,15 @@ export const convertInlineHtmlToMd = (md) => {
     return out;
 };
 
+function addActiveVault(url: string, vaultOverride?: string | null): string {
+    const result: unknown = withActiveVault(url, vaultOverride);
+    return typeof result === 'string' ? result : url;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Normalization of Vault asset URLs                                    */
 /* -------------------------------------------------------------------------- */
-export function normalizeAssetUrl(url, vaultOverride) {
+export function normalizeAssetUrl(url: unknown, vaultOverride?: string | null): string {
     if (typeof url !== 'string') return '';
     const v = url.trim();
     if (!v) return '';
@@ -192,7 +229,9 @@ export function normalizeAssetUrl(url, vaultOverride) {
     // broken image) and was also sending `data:`/`blob:` (pasted images
     // inline) in the vault fallback, corrupting them.
     if (/^[a-z][a-z0-9+.-]*:/i.test(v) || v.startsWith('//')) return v;
-    if (v.startsWith('/')) return withActiveVault(v, vaultOverride);
-    if (v.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${v.substring(7)}`, vaultOverride);
-    return withActiveVault(`/api/vault/assets/${v}`, vaultOverride);
+    if (v.startsWith('/')) return addActiveVault(v, vaultOverride);
+    if (v.startsWith('Assets/')) {
+        return addActiveVault(`/api/vault/assets/${v.substring(7)}`, vaultOverride);
+    }
+    return addActiveVault(`/api/vault/assets/${v}`, vaultOverride);
 }
