@@ -1,8 +1,51 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Eye, EyeOff, Edit2, Star, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Fragment, useState, type RefObject } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Eye, EyeOff, Edit2, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { dispatchWindowEvent } from '../../shared/platform/browser-events';
+import {
+    CALENDAR_COLORS,
+    buildCalendarGrid,
+    calendarSourceName,
+    groupCalendarSources,
+    type CalendarSourceConfig,
+} from './calendarSidebarModel';
 
-export const CalendarSidebarLeft = ({ 
+
+interface CalendarNavigationApi {
+    readonly gotoDate: (date: Date) => void;
+    readonly next: () => void;
+    readonly prev: () => void;
+}
+
+
+interface CalendarReference {
+    readonly getApi: () => CalendarNavigationApi;
+}
+
+
+interface UndatedCalendarNote {
+    readonly id: string;
+    readonly metadata?: { readonly title?: string | null } | null;
+    readonly title: string;
+}
+
+
+export interface CalendarSidebarLeftProps {
+    readonly availableCalendars: readonly string[];
+    readonly calendarConfigs: readonly CalendarSourceConfig[];
+    readonly calendarRef: RefObject<CalendarReference | null>;
+    readonly defaultCalendar?: string | null;
+    readonly onNoteClick: (noteId: string) => void;
+    readonly onRenameCalendar?: (source: string, name: string) => void;
+    readonly onSetDefaultCalendar?: (source: string) => void;
+    readonly onToggleCalendar?: (source: string) => void;
+    readonly onToggleSidebar?: () => void;
+    readonly onUpdateColor?: (source: string, color: string) => void;
+    readonly selectedCalendars: ReadonlySet<string>;
+    readonly undatedNotes?: readonly UndatedCalendarNote[];
+}
+
+export const CalendarSidebarLeft = ({
     calendarRef, 
     availableCalendars, 
     selectedCalendars, 
@@ -14,26 +57,13 @@ export const CalendarSidebarLeft = ({
     onToggleSidebar,
     calendarConfigs,
     undatedNotes = [],
-    onNoteClick
-}) => {
+    onNoteClick,
+}: CalendarSidebarLeftProps) => {
     const { t, i18n } = useTranslation();
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [editingSource, setEditingSource] = useState(null);
+    const [editingSource, setEditingSource] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
-    const [colorPickerSource, setColorPickerSource] = useState(null);
-
-    const CALENDAR_COLORS = [
-        '#3b82f6', // Gnosi Blue
-        '#ef4444', // Red
-        '#10b981', // green
-        '#f59e0b', // Yellow/Gold
-        '#8b5cf6', // Purple
-        '#ec4899', // Pink
-        '#06b6d4', // Cyan
-        '#f97316', // Orange
-        '#71717a', // Gray
-        '#1e293b', // Dark Slate
-    ];
+    const [colorPickerSource, setColorPickerSource] = useState<string | null>(null);
 
     const daysOfWeek = [
         t('day_mo', "Mo"), t('day_tu', "Tu"), t('day_we', "We"),
@@ -44,58 +74,28 @@ export const CalendarSidebarLeft = ({
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
-    const firstDay = new Date(year, month, 1).getDay(); // 0 is Sunday, 1 is Monday
-    const offset = firstDay === 0 ? 6 : firstDay - 1; // Adjust for Monday start
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    const gridDays = buildCalendarGrid(currentDate);
 
-    const gridDays = [];
-    // Prev month padding
-    for (let i = offset - 1; i >= 0; i--) {
-        gridDays.push({ num: daysInPrevMonth - i, isCurrent: false, date: new Date(year, month - 1, daysInPrevMonth - i) });
-    }
-    // Current month days
-    for (let i = 1; i <= daysInMonth; i++) {
-        const d = new Date(year, month, i);
-        gridDays.push({ num: i, isCurrent: true, isToday: new Date().toDateString() === d.toDateString(), date: d });
-    }
-    // Next month padding
-    const remaining = 42 - gridDays.length;
-    for (let i = 1; i <= remaining; i++) {
-        gridDays.push({ num: i, isCurrent: false, date: new Date(year, month + 1, i) });
-    }
-
-    const handlePrevMonth = () => {
+    const handlePrevMonth = (): void => {
         const newDate = new Date(year, month - 1, 1);
         setCurrentDate(newDate);
         calendarRef.current?.getApi().prev();
     };
 
-    const handleNextMonth = () => {
+    const handleNextMonth = (): void => {
         const newDate = new Date(year, month + 1, 1);
         setCurrentDate(newDate);
         calendarRef.current?.getApi().next();
     };
 
-    const handleDayClick = (date) => {
+    const handleDayClick = (date: Date): void => {
         calendarRef.current?.getApi().gotoDate(date);
     };
 
     const monthName = currentDate.toLocaleString(i18n.resolvedLanguage || i18n.language || 'en', { month: 'long', year: 'numeric' });
     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-    const getCalendarName = (source) => {
-        const config = calendarConfigs?.find(c => c.source === source);
-        if (config?.name) return config.name;
-
-        try {
-            const url = new URL(source);
-            const path = url.pathname.split('/').pop().replace('.ics', '');
-            return path || url.hostname;
-        } catch {
-            return source;
-        }
-    };
+    const sourceGroups = groupCalendarSources(availableCalendars, calendarConfigs);
 
     return (
         <div className="w-64 flex-shrink-0 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] flex flex-col h-full overflow-y-auto hidden md:flex text-sm text-[var(--text-secondary)]">
@@ -125,7 +125,9 @@ export const CalendarSidebarLeft = ({
                         <button
                             type="button"
                             key={dayObj.date.toISOString()}
-                            onClick={() => handleDayClick(dayObj.date)}
+                            onClick={() => {
+                                handleDayClick(dayObj.date);
+                            }}
                             aria-label={dayObj.date.toLocaleDateString(i18n.resolvedLanguage || i18n.language || 'en', { dateStyle: 'full' })}
                             className={`py-1 flex items-center justify-center w-6 h-6 mx-auto transition-colors ${dayObj.isToday
                                 ? 'bg-[var(--gnosi-action-bg)] text-white font-semibold rounded-full cursor-pointer shadow-sm'
@@ -148,7 +150,11 @@ export const CalendarSidebarLeft = ({
                     {t('calendars', "Calendars")}
                 </span>
                 <button
-                    onClick={() => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'integrations' }))}
+                    onClick={() => {
+                        dispatchWindowEvent(new CustomEvent('open-settings', {
+                            detail: 'integrations',
+                        }));
+                    }}
                     className="p-1 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors"
                     title={t('add_calendar', "Add calendar")}
                 >
@@ -158,16 +164,7 @@ export const CalendarSidebarLeft = ({
 
             {/* Sources */}
             <div className="mb-2 px-[11px]">
-                {(() => {
-                    const groups = {};
-                    availableCalendars.filter(s => s !== 'es_es').forEach(source => {
-                        const config = calendarConfigs.find(c => c.source === source);
-                        const account = config?.account || 'Other';
-                        if (!groups[account]) groups[account] = [];
-                        groups[account].push({ source, config });
-                    });
-
-                    return Object.entries(groups).map(([account, calendars]) => {
+                {sourceGroups.map(({ account, calendars }) => {
                         const isAccount = account.includes('@');
                         const hasMultiple = calendars.length > 1;
 
@@ -182,7 +179,10 @@ export const CalendarSidebarLeft = ({
                                     const isVisible = selectedCalendars.has(source);
                                     const color = config?.color || 'var(--gnosi-primary)';
                                     const isEditing = editingSource === source;
-                                    const displayName = config?.name || getCalendarName(source);
+                                    const displayName = calendarSourceName(
+                                        source,
+                                        calendarConfigs,
+                                    );
 
                                     return (
                                         <div key={source} className={`flex items-center justify-between group rounded transition-colors mb-0.5 px-2 py-1.5 -mx-2 hover:bg-[var(--bg-secondary)] border border-transparent ${isEditing ? '!bg-[var(--bg-primary)] border-[var(--border-primary)] shadow-sm' : ''}`}>
@@ -208,8 +208,12 @@ export const CalendarSidebarLeft = ({
 
                                                     {colorPickerSource === source && (
                                                         <div className="absolute top-[120%] left-0 z-[100] bg-[var(--bg-secondary)] border border-[var(--border-primary)] p-2 rounded-lg shadow-2xl grid grid-cols-5 gap-1.5 animate-in fade-in zoom-in-95 duration-200 min-w-[120px]"
-                                                             onClick={(e) => e.stopPropagation()}
-                                                             onMouseLeave={() => setColorPickerSource(null)}>
+                                                             onClick={(event) => {
+                                                                 event.stopPropagation();
+                                                             }}
+                                                             onMouseLeave={() => {
+                                                                 setColorPickerSource(null);
+                                                             }}>
                                                             {CALENDAR_COLORS.map(c => (
                                                                 <div 
                                                                     key={c}
@@ -230,7 +234,9 @@ export const CalendarSidebarLeft = ({
                                                         type="text"
                                                         className="text-[13px] text-[var(--text-primary)] font-medium bg-transparent border-none outline-none w-full mr-2"
                                                         value={editName}
-                                                        onChange={(e) => setEditName(e.target.value)}
+                                                        onChange={(event) => {
+                                                            setEditName(event.target.value);
+                                                        }}
                                                         onBlur={() => {
                                                             if (editName !== displayName) onRenameCalendar?.(source, editName);
                                                             setEditingSource(null);
@@ -244,7 +250,9 @@ export const CalendarSidebarLeft = ({
                                                             }
                                                         }}
                                                         autoFocus
-                                                        onClick={(e) => e.stopPropagation()}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                        }}
                                                     />
                                                 ) : (
                                                     <span className="text-[13px] text-[var(--text-primary)] font-medium truncate w-full cursor-pointer" title={displayName}>
@@ -276,7 +284,12 @@ export const CalendarSidebarLeft = ({
                                                     >
                                                         <Edit2 size={12} />
                                                     </button>
-                                                    <div className="cursor-pointer p-1" onClick={() => onToggleCalendar && onToggleCalendar(source)}>
+                                                    <div
+                                                        className="cursor-pointer p-1"
+                                                        onClick={() => {
+                                                            onToggleCalendar?.(source);
+                                                        }}
+                                                    >
                                                         {!isVisible ? <EyeOff size={14} className="text-[var(--text-tertiary)]" /> : <Eye size={14} className="text-[var(--text-tertiary)]" />}
                                                     </div>
                                                 </div>
@@ -286,12 +299,11 @@ export const CalendarSidebarLeft = ({
                                 })}
                             </div>
                         );
-                    });
-                })()}
+                    })}
             </div>
 
             {undatedNotes.length > 0 && (
-                <>
+                <Fragment>
                     <hr className="border-[var(--border-primary)] mx-4 my-2" />
                     <div className="px-[11px] pt-2 pb-2">
                         <span className="gnosi-sidebar-section-title">
@@ -301,7 +313,9 @@ export const CalendarSidebarLeft = ({
                             {undatedNotes.map(note => (
                                 <div 
                                     key={note.id}
-                                    onClick={() => onNoteClick(note.id)}
+                                    onClick={() => {
+                                        onNoteClick(note.id);
+                                    }}
                                     className="px-2 py-1.5 rounded hover:bg-[var(--bg-secondary)] cursor-pointer text-[13px] text-[var(--text-primary)] font-medium truncate transition-colors border border-transparent border-dashed hover:border-[var(--gnosi-primary)]/20"
                                     title={note.metadata?.title || note.title}
                                 >
@@ -310,7 +324,7 @@ export const CalendarSidebarLeft = ({
                             ))}
                         </div>
                     </div>
-                </>
+                </Fragment>
             )}
         </div>
     );
