@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
 import axios from '../shared/api/legacy-http';
-import { fetchBrainTableStatus } from '../shared/api/brain';
+import { fetchBrainTableStatus, fetchLlmWikiConfig } from '../shared/api/brain';
 import { openDailyNote } from '../shared/api/daily-notes';
+import { fetchResourceProcessingStatus } from '../shared/api/resource-processing';
 import {
     createVaultPage,
     fetchVaultPage,
@@ -265,16 +266,16 @@ export default function VaultDashboard() {
             setLlmWikiJobs({});
             return () => { alive = false; };
         }
-        axios.get('/api/vault/llm-wiki/config')
+        fetchLlmWikiConfig()
             .then((response) => {
                 if (!alive) return;
-                setLlmWikiConfig(response.data?.config
+                setLlmWikiConfig(response?.config
                     ? {
-                        ...response.data.config,
-                        processed_resources: response.data.processed_resources || {},
+                        ...response.config,
+                        processed_resources: response.processed_resources || {},
                     }
                     : null);
-                setLlmWikiJobs(response.data?.resource_statuses || {});
+                setLlmWikiJobs(response?.resource_statuses || {});
             })
             .catch((error) => {
                 if (alive) {
@@ -794,12 +795,11 @@ export default function VaultDashboard() {
         const pollBackgroundJobs = async () => {
             await Promise.all(jobs.map(async (job) => {
                 try {
-                    const response = await axios.get(
-                        `/api/vault/llm-wiki/status/${encodeURIComponent(job.job_id)}`,
-                        { params: { source_table_id: job.source_table_id } },
+                    const nextJob = await fetchResourceProcessingStatus(
+                        job.job_id,
+                        job.source_table_id,
                     );
                     if (!alive) return;
-                    const nextJob = response.data || {};
                     setLlmWikiJobs((current) => ({
                         ...current,
                         [job.source_table_id]: {
@@ -3328,15 +3328,13 @@ export default function VaultDashboard() {
         }
         // The configuration snapshot can predate a failed job. Load the durable
         // status for the open resource so interrupted work can always be resumed.
-        axios.get(`/api/vault/llm-wiki/status/${encodeURIComponent(currentOpenPage.id)}`, {
-            params: { source_table_id: openPageTableId },
-        }).then((response) => {
-            if (!alive || response.data?.phase === 'idle') return;
+        fetchResourceProcessingStatus(currentOpenPage.id, openPageTableId).then((job) => {
+            if (!alive || job?.phase === 'idle') return;
             setLlmWikiJobs((current) => ({
                 ...current,
                 [openPageTableId]: {
                     ...(current[openPageTableId] || {}),
-                    [currentOpenPage.id]: response.data,
+                    [currentOpenPage.id]: job,
                 },
             }));
         }).catch((error) => {

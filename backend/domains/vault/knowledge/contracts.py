@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 
 class BrainTableStatusResponse(BaseModel):
@@ -46,6 +46,33 @@ class BrainTableClearResponse(BaseModel):
     configured: Literal[False]
 
 
+class LlmWikiBrainResponse(BaseModel):
+    table_id: str | None
+    name: str | None
+    configured: bool
+
+
+class LlmWikiValidationResponse(BaseModel):
+    valid: bool
+    missing: list[dict[str, JsonValue]]
+
+
+class LlmWikiConfigResponse(BaseModel):
+    """Migrated configuration plus runtime status used by settings and pages."""
+
+    model_config = ConfigDict(extra="allow")
+
+    config: dict[str, JsonValue]
+    brain: LlmWikiBrainResponse
+    eligible_index_properties: list[dict[str, JsonValue]]
+    index_options: dict[str, list[dict[str, JsonValue]]]
+    capabilities: dict[str, JsonValue]
+    validation: LlmWikiValidationResponse
+    processed_resources: dict[str, JsonValue]
+    resource_statuses: dict[str, JsonValue]
+    enabled: bool
+
+
 __all__ = [
     "BrainTableClearResponse",
     "BrainTableCreateRequest",
@@ -53,4 +80,7 @@ __all__ = [
     "BrainTableSelectionRequest",
     "BrainTableSelectionResponse",
     "BrainTableStatusResponse",
+    "LlmWikiBrainResponse",
+    "LlmWikiConfigResponse",
+    "LlmWikiValidationResponse",
 ]

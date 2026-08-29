@@ -13014,6 +13014,53 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** LlmWikiBrainResponse */
+        LlmWikiBrainResponse: {
+            /** Configured */
+            configured: boolean;
+            /** Name */
+            name: string | null;
+            /** Table Id */
+            table_id: string | null;
+        };
+        /**
+         * LlmWikiConfigResponse
+         * @description Migrated configuration plus runtime status used by settings and pages.
+         */
+        LlmWikiConfigResponse: {
+            brain: components["schemas"]["LlmWikiBrainResponse"];
+            /** Capabilities */
+            capabilities: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Config */
+            config: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Eligible Index Properties */
+            eligible_index_properties: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Enabled */
+            enabled: boolean;
+            /** Index Options */
+            index_options: {
+                [key: string]: {
+                    [key: string]: components["schemas"]["JsonValue"];
+                }[];
+            };
+            /** Processed Resources */
+            processed_resources: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Resource Statuses */
+            resource_statuses: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            validation: components["schemas"]["LlmWikiValidationResponse"];
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * LlmWikiJobResponse
          * @description Durable Brain-ingest state returned while a resource is processed.
@@ -13131,6 +13178,15 @@ export interface components {
             source_table_id: string;
             /** Status */
             status: string;
+        };
+        /** LlmWikiValidationResponse */
+        LlmWikiValidationResponse: {
+            /** Missing */
+            missing: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Valid */
+            valid: boolean;
         };
         /**
          * LocalPathOpenRequest
@@ -32819,7 +32875,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LlmWikiConfigResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32861,7 +32917,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LlmWikiConfigResponse"];
                 };
             };
             /** @description Validation Error */

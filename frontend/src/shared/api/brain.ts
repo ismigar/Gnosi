@@ -9,6 +9,7 @@ export type BrainSuggestionList =
 export type BrainSuggestionRejection =
   components['schemas']['BrainSuggestionRejectedResponse'];
 export type BrainTableStatus = components['schemas']['BrainTableStatusResponse'];
+export type LlmWikiConfiguration = components['schemas']['LlmWikiConfigResponse'];
 
 
 export async function fetchBrainTableStatus(
@@ -16,6 +17,15 @@ export async function fetchBrainTableStatus(
 ): Promise<BrainTableStatus> {
   return unwrapApiResult<BrainTableStatus, unknown>(
     await apiClient.GET('/api/vault/brain-table', { signal }),
+  );
+}
+
+
+export async function fetchLlmWikiConfig(
+  signal?: AbortSignal,
+): Promise<LlmWikiConfiguration> {
+  return unwrapApiResult<LlmWikiConfiguration, unknown>(
+    await apiClient.GET('/api/vault/llm-wiki/config', { signal }),
   );
 }
 

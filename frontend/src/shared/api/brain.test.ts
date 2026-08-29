@@ -4,6 +4,7 @@ import {
   dismissBrainSuggestion,
   fetchBrainSuggestions,
   fetchBrainTableStatus,
+  fetchLlmWikiConfig,
 } from './brain';
 
 
@@ -14,6 +15,28 @@ afterEach(() => {
 
 
 describe('Brain inbox API', () => {
+  it('loads the migrated LLM Wiki configuration and runtime maps', async () => {
+    const response = {
+      config: { brain_table_id: 'brain-1', source_tables: [] },
+      brain: { table_id: 'brain-1', name: 'Brain', configured: true },
+      eligible_index_properties: [],
+      index_options: {},
+      capabilities: { pdf: true },
+      validation: { valid: true, missing: [] },
+      processed_resources: {},
+      resource_statuses: {},
+      enabled: true,
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchLlmWikiConfig()).resolves.toEqual(response);
+
+    const request = fetchMock.mock.calls[0]?.[0];
+    if (!(request instanceof Request)) throw new Error('Expected a Request');
+    expect(new URL(request.url).pathname).toBe('/api/vault/llm-wiki/config');
+  });
+
   it('loads the configured Brain table through the generated contract', async () => {
     const status = {
       table_id: 'brain-1',

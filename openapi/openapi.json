@@ -8692,6 +8692,123 @@
         "title": "LinkPreviewResponse",
         "type": "object"
       },
+      "LlmWikiBrainResponse": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          }
+        },
+        "required": [
+          "table_id",
+          "name",
+          "configured"
+        ],
+        "title": "LlmWikiBrainResponse",
+        "type": "object"
+      },
+      "LlmWikiConfigResponse": {
+        "additionalProperties": true,
+        "description": "Migrated configuration plus runtime status used by settings and pages.",
+        "properties": {
+          "brain": {
+            "$ref": "#/components/schemas/LlmWikiBrainResponse"
+          },
+          "capabilities": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Capabilities",
+            "type": "object"
+          },
+          "config": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Config",
+            "type": "object"
+          },
+          "eligible_index_properties": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Eligible Index Properties",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "index_options": {
+            "additionalProperties": {
+              "items": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "title": "Index Options",
+            "type": "object"
+          },
+          "processed_resources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Processed Resources",
+            "type": "object"
+          },
+          "resource_statuses": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Resource Statuses",
+            "type": "object"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/LlmWikiValidationResponse"
+          }
+        },
+        "required": [
+          "config",
+          "brain",
+          "eligible_index_properties",
+          "index_options",
+          "capabilities",
+          "validation",
+          "processed_resources",
+          "resource_statuses",
+          "enabled"
+        ],
+        "title": "LlmWikiConfigResponse",
+        "type": "object"
+      },
       "LlmWikiJobResponse": {
         "additionalProperties": true,
         "description": "Durable Brain-ingest state returned while a resource is processed.",
@@ -9030,6 +9147,30 @@
           "job"
         ],
         "title": "LlmWikiProcessStartResponse",
+        "type": "object"
+      },
+      "LlmWikiValidationResponse": {
+        "properties": {
+          "missing": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "missing"
+        ],
+        "title": "LlmWikiValidationResponse",
         "type": "object"
       },
       "LocalPathOpenRequest": {
@@ -66268,7 +66409,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiConfigResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -66390,7 +66533,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiConfigResponse"
+                }
               }
             },
             "description": "Successful Response"

@@ -43,6 +43,8 @@ def test_brain_table_routes_publish_typed_models() -> None:
     assert _route("set_brain_table").response_model is contracts.BrainTableSelectionResponse
     assert _route("create_brain_table").response_model is contracts.BrainTableCreateResponse
     assert _route("clear_brain_table").response_model is contracts.BrainTableClearResponse
+    assert _route("get_llm_wiki_config").response_model is contracts.LlmWikiConfigResponse
+    assert _route("put_llm_wiki_config").response_model is contracts.LlmWikiConfigResponse
 
 
 def test_brain_table_status_contract_preserves_dashboard_shape() -> None:
@@ -57,3 +59,21 @@ def test_brain_table_status_contract_preserves_dashboard_shape() -> None:
     }
 
     assert BrainTableStatusResponse.model_validate(payload).model_dump() == payload
+
+
+def test_llm_wiki_config_contract_preserves_runtime_maps() -> None:
+    from backend.domains.vault.knowledge.contracts import LlmWikiConfigResponse
+
+    payload = {
+        "config": {"brain_table_id": "brain-1", "source_tables": []},
+        "brain": {"table_id": "brain-1", "name": "Brain", "configured": True},
+        "eligible_index_properties": [],
+        "index_options": {},
+        "capabilities": {"pdf": True},
+        "validation": {"valid": True, "missing": []},
+        "processed_resources": {"sources": {"page-1": "2026-08-29"}},
+        "resource_statuses": {"sources": {"page-1": {"phase": "done"}}},
+        "enabled": True,
+    }
+
+    assert LlmWikiConfigResponse.model_validate(payload).model_dump() == payload
