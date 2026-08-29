@@ -15391,6 +15391,24 @@
         "title": "ReviewScheduleRequest",
         "type": "object"
       },
+      "RevokedShareResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "token"
+        ],
+        "title": "RevokedShareResponse",
+        "type": "object"
+      },
       "RoleUpdateRequest": {
         "properties": {
           "permissions": {
@@ -15679,6 +15697,175 @@
           }
         },
         "title": "ShareCreateRequest",
+        "type": "object"
+      },
+      "ShareLinkResponse": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          },
+          "permission": {
+            "title": "Permission",
+            "type": "string"
+          },
+          "revoked": {
+            "title": "Revoked",
+            "type": "boolean"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "page_id",
+          "permission",
+          "created_by",
+          "created_at",
+          "expires_at",
+          "revoked",
+          "url"
+        ],
+        "title": "ShareLinkResponse",
+        "type": "object"
+      },
+      "ShareListResponse": {
+        "properties": {
+          "shares": {
+            "items": {
+              "$ref": "#/components/schemas/ShareLinkResponse"
+            },
+            "title": "Shares",
+            "type": "array"
+          }
+        },
+        "required": [
+          "shares"
+        ],
+        "title": "ShareListResponse",
+        "type": "object"
+      },
+      "SharedPageContentResponse": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "content",
+          "metadata",
+          "vault_id"
+        ],
+        "title": "SharedPageContentResponse",
+        "type": "object"
+      },
+      "SharedPageResponse": {
+        "properties": {
+          "page": {
+            "$ref": "#/components/schemas/SharedPageContentResponse"
+          },
+          "permission": {
+            "title": "Permission",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "permission",
+          "page"
+        ],
+        "title": "SharedPageResponse",
         "type": "object"
       },
       "SidebarPageInfo": {
@@ -49381,7 +49568,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SharedPageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -69487,7 +69676,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -69608,7 +69799,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ShareListResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -74914,7 +75107,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedShareResponse"
+                }
               }
             },
             "description": "Successful Response"

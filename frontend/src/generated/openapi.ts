@@ -15843,6 +15843,13 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** RevokedShareResponse */
+        RevokedShareResponse: {
+            /** Status */
+            status: string;
+            /** Token */
+            token: string;
+        };
         /** RoleUpdateRequest */
         RoleUpdateRequest: {
             /** Permissions */
@@ -15957,6 +15964,53 @@ export interface components {
              * @default view
              */
             permission: string;
+        };
+        /** SharedPageContentResponse */
+        SharedPageContentResponse: {
+            /** Content */
+            content: string | null;
+            /** Id */
+            id: string | null;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** Title */
+            title: string | null;
+            /** Vault Id */
+            vault_id: string | null;
+        };
+        /** SharedPageResponse */
+        SharedPageResponse: {
+            page: components["schemas"]["SharedPageContentResponse"];
+            /** Permission */
+            permission: string;
+            /** Token */
+            token: string;
+        };
+        /** ShareLinkResponse */
+        ShareLinkResponse: {
+            /** Created At */
+            created_at: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /** Page Id */
+            page_id: string;
+            /** Permission */
+            permission: string;
+            /** Revoked */
+            revoked: boolean;
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
+        };
+        /** ShareListResponse */
+        ShareListResponse: {
+            /** Shares */
+            shares: components["schemas"]["ShareLinkResponse"][];
         };
         /** SidebarPageInfo */
         SidebarPageInfo: {
@@ -27084,7 +27138,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SharedPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33513,7 +33567,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ShareLinkResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33551,7 +33605,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ShareListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35381,7 +35435,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RevokedShareResponse"];
                 };
             };
             /** @description Validation Error */

@@ -80,6 +80,19 @@ export type {
 } from './integrations';
 export { queryClient } from './query-client';
 export {
+  createShareLink,
+  fetchSharedPage,
+  fetchShareLinks,
+  revokeShareLink,
+} from './sharing';
+export type {
+  ShareCreateInput,
+  ShareLink,
+  ShareList,
+  ShareRevocation,
+  SharedPageDocument,
+} from './sharing';
+export {
   cancelReaderAnalysis,
   createReaderSource,
   deleteReaderSource,
