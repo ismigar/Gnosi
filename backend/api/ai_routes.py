@@ -9,6 +9,16 @@ from pydantic import BaseModel
 
 from backend.config.app_config import load_params
 from backend.config.env_config import remove_env_keys
+from backend.domains.configuration.ai.contracts import (
+    AiCatalogResponse,
+    AiUsageHistoryResponse,
+    AiUsageResponse,
+    ModelCatalogResponse,
+    ModelComparisonResponse,
+    ModelRegistryResponse,
+    ModelRegistryUpdateResponse,
+    ModelsPayload,
+)
 from backend.domains.configuration.ai.content_routes import (
     CorrectPayload,
     GeneratePayload,
@@ -176,8 +186,12 @@ def _set_provider_disconnected(ai_cfg: JsonObject, provider: str, disconnected: 
     return current != before
 
 
-@router.get("/catalog", response_model=None, responses=_LEGACY_JSON_RESPONSE)
-async def get_ai_catalog() -> Any:
+@router.get(
+    "/catalog",
+    response_model=AiCatalogResponse,
+    response_model_exclude_unset=True,
+)
+async def get_ai_catalog() -> JsonObject:
     # to_thread: the provider list is now fed by the model catalog, whose
     # loader does blocking I/O (disk cache / short HTTP fetches).
     def _load() -> JsonObject:
@@ -399,13 +413,12 @@ async def update_provider_status(
 # Router model registry (data-driven) + budget policy
 # cf. backend/agent/model_router.py i directiva vault_knowledge_agents.md
 # ---------------------------------------------------------------------------
-class ModelsPayload(BaseModel):
-    models: list[Any]
-    budget: JsonObject | None = None
-
-
-@router.get("/models", response_model=None, responses=_LEGACY_JSON_RESPONSE)
-async def get_model_registry() -> Any:
+@router.get(
+    "/models",
+    response_model=ModelRegistryResponse,
+    response_model_exclude_unset=True,
+)
+async def get_model_registry() -> JsonObject:
     """Returns the router's model registry (config `ai.models`, or the default)
     and the budget policy (`ai.budget`).
 
@@ -440,8 +453,12 @@ async def get_model_registry() -> Any:
     }
 
 
-@router.get("/model-catalog", response_model=None, responses=_LEGACY_JSON_RESPONSE)
-async def get_model_catalog(refresh: bool = False) -> Any:
+@router.get(
+    "/model-catalog",
+    response_model=ModelCatalogResponse,
+    response_model_exclude_unset=True,
+)
+async def get_model_catalog(refresh: bool = False) -> JsonObject:
     """Provider → model catalog (ids + cost/context/capabilities) feeding the
     registry UI dropdowns. Sources: models.dev (day-cached) → disk cache →
     vendored JSON, plus the live Ollama model list. Each provider is annotated
@@ -492,8 +509,12 @@ async def get_model_catalog(refresh: bool = False) -> Any:
     return await asyncio.to_thread(_load)
 
 
-@router.get("/model-comparison", response_model=None, responses=_LEGACY_JSON_RESPONSE)
-async def get_model_comparison() -> Any:
+@router.get(
+    "/model-comparison",
+    response_model=ModelComparisonResponse,
+    response_model_exclude_unset=True,
+)
+async def get_model_comparison() -> JsonObject:
     """Complete, freshly paginated Artificial Analysis language-model feed."""
     from backend.services.artificial_analysis import (
         ArtificialAnalysisError,
@@ -515,8 +536,12 @@ async def get_model_comparison() -> Any:
         ) from exc
 
 
-@router.get("/usage", response_model=None, responses=_LEGACY_JSON_RESPONSE)
-async def get_ai_usage() -> Any:
+@router.get(
+    "/usage",
+    response_model=AiUsageResponse,
+    response_model_exclude_unset=True,
+)
+async def get_ai_usage() -> JsonObject:
     """Current-period AI spend: USD + the Settings currency, cap, ratio and a
     per-model breakdown. to_thread: reads the ledger from disk and may do one
     short FX fetch."""
@@ -525,8 +550,12 @@ async def get_ai_usage() -> Any:
     return await asyncio.to_thread(budget_status)
 
 
-@router.get("/usage/history", response_model=None, responses=_LEGACY_JSON_RESPONSE)
-async def get_ai_usage_history() -> Any:
+@router.get(
+    "/usage/history",
+    response_model=AiUsageHistoryResponse,
+    response_model_exclude_unset=True,
+)
+async def get_ai_usage_history() -> JsonObject:
     """Returns all historical usage records grouped by period, provider, and model."""
     from backend.agent.model_router import UsageStore, _normalize_usage_entry
     from backend.config.app_config import load_params
@@ -598,10 +627,9 @@ def _sanitize_budget(raw: JsonObject) -> JsonObject:
 @router.put(
     "/models",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
-    responses=_LEGACY_JSON_RESPONSE,
+    response_model=ModelRegistryUpdateResponse,
 )
-async def set_model_registry(payload: ModelsPayload, request: Request) -> Any:
+async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonObject:
     """Saves the model registry and the budget policy to params.yaml.
 
     Prices are NOT taken from the payload: the catalog owns them (the UI shows
