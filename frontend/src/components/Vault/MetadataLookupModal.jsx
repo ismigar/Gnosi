@@ -1,9 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { Search, X, Loader2, Check } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import {
+    lookupMetadata,
+    recognizePdf,
+    translateUrl,
+} from '../../shared/api/resource-lookup';
 import { LABEL_TO_ZOTERO_TYPE, ZOTERO_TYPE_LABELS, ZOTERO_TO_CSL_TYPE } from './zoteroSchema';
 import { uiLangToZoteroLocale } from './zoteroLocale';
 import { isFieldRelevantForType } from './recursosZoteroMapping';
@@ -160,19 +164,19 @@ export const MetadataLookupModal = ({
         setLoading(true);
         try {
             const onlyUrl = payload.url && !payload.doi && !payload.isbn && !payload.arxiv && !payload.pmid;
-            let r;
+            let data;
             if (onlyUrl) {
                 // Rich web capture via Zotero translation-server; if it doesn't respond,
                 // fallback to the meta tags (Open Graph/Highwire) from /lookup-metadata.
-                r = await axios.post('/api/vault/translate-url', { url: payload.url });
-                const sug = r.data?.suggested;
-                if (r.data?.error && (!sug || Object.keys(sug).length === 0)) {
-                    r = await axios.post('/api/vault/lookup-metadata', payload);
+                data = await translateUrl({ url: payload.url });
+                const sug = data?.suggested;
+                if (data?.error && (!sug || Object.keys(sug).length === 0)) {
+                    data = await lookupMetadata(payload);
                 }
             } else {
-                r = await axios.post('/api/vault/lookup-metadata', payload);
+                data = await lookupMetadata(payload);
             }
-            populateFromResult(r.data);
+            populateFromResult(data);
         } catch (err) {
             console.error('lookup failed:', err?.message);
             toast.error(t('metadata_lookup.fetch_failed', {
@@ -190,12 +194,8 @@ export const MetadataLookupModal = ({
         if (!file) return;
         setLoading(true);
         try {
-            const fd = new FormData();
-            fd.append('file', file);
-            const r = await axios.post('/api/vault/recognize-pdf', fd, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            populateFromResult(r.data);
+            const data = await recognizePdf(file);
+            populateFromResult(data);
         } catch (err) {
             console.error('pdf recognize failed:', err?.message);
             toast.error(t('metadata_lookup.pdf_failed', {
