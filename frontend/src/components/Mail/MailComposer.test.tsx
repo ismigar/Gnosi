@@ -1,26 +1,84 @@
-import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { act, type ComponentType, type ChangeEvent, type RefObject } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import MailComposer from './MailComposer';
 
+
+type DeleteMailDraft = typeof import('../../shared/api/mail').deleteMailDraft;
+type GenerateMailDraft = typeof import('../../shared/api/mail').generateMailDraft;
+type SaveMailDraft = typeof import('../../shared/api/mail').saveMailDraft;
+type ReplyMailMultipart = typeof import('../../shared/api/mail-specialized').replyMailMultipart;
+type SendMailMultipart = typeof import('../../shared/api/mail-specialized').sendMailMultipart;
+type ToastMockCall = (message: unknown, options?: unknown) => unknown;
+
+interface MailComposerAccount {
+    readonly display_name?: string | null;
+    readonly email?: string | null;
+    readonly name?: string | null;
+    readonly signature?: string | null;
+    readonly smtp_email?: string | null;
+    readonly username?: string | null;
+}
+
+interface MailComposerProps {
+    readonly _draftId?: string | null;
+    readonly account?: MailComposerAccount | null;
+    readonly accounts?: readonly MailComposerAccount[];
+    readonly initialBody?: string;
+    readonly initialCc?: string;
+    readonly initialSubject?: string;
+    readonly initialTo?: string;
+    readonly mode?: 'forward' | 'reply' | 'reply_all' | null;
+    readonly onClose: () => void;
+    readonly onDraftSaved?: () => void;
+    readonly onSent?: () => void;
+    readonly quotedHtml?: string;
+    readonly replyToMessageId?: string | null;
+    readonly sourceFolder?: string;
+}
+
+interface AddressInputMockProps {
+    readonly label: string;
+    readonly onChange: (value: string) => void;
+    readonly value: string;
+}
+
+interface MailBlockEditorMockHandle {
+    readonly replaceBlocks: ReturnType<typeof vi.fn>;
+}
+
+interface MailBlockEditorMockProps {
+    readonly editorRef: RefObject<MailBlockEditorMockHandle | null>;
+    readonly onChange: (value: string) => void;
+}
+
+interface MountedRoot {
+    readonly container: HTMLDivElement;
+    readonly root: Root;
+}
+
+const TypedMailComposer = MailComposer as unknown as ComponentType<MailComposerProps>;
+
+
 const mocks = vi.hoisted(() => {
-    const toast = vi.fn();
-    toast.success = vi.fn();
-    toast.error = vi.fn();
+    const toast = Object.assign(vi.fn<ToastMockCall>(), {
+        error: vi.fn<ToastMockCall>(),
+        success: vi.fn<ToastMockCall>(),
+    });
     return {
-        deleteMailDraft: vi.fn(),
-        generateMailDraft: vi.fn(),
-        replyMailMultipart: vi.fn(),
-        saveMailDraft: vi.fn(),
-        sendMailMultipart: vi.fn(),
+        deleteMailDraft: vi.fn<DeleteMailDraft>(),
+        generateMailDraft: vi.fn<GenerateMailDraft>(),
+        replyMailMultipart: vi.fn<ReplyMailMultipart>(),
+        saveMailDraft: vi.fn<SaveMailDraft>(),
+        sendMailMultipart: vi.fn<SendMailMultipart>(),
         toast,
     };
 });
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (key, fallback) => fallback || key,
+        t: (key: string, fallback?: unknown): unknown => fallback || key,
     }),
 }));
 
@@ -38,24 +96,28 @@ vi.mock('../../shared/api/mail-specialized', () => ({
 }));
 
 vi.mock('./MailAddressInput', () => ({
-    AddressInput: ({ label, onChange, value }) => (
+    AddressInput: ({ label, onChange, value }: AddressInputMockProps) => (
         <input
             aria-label={label}
             value={value}
-            onChange={(event) => onChange(event.target.value)}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                onChange(event.target.value);
+            }}
         />
     ),
 }));
 
 vi.mock('./MailBlockEditor', () => ({
-    default: ({ editorRef, onChange }) => {
+    default: ({ editorRef, onChange }: MailBlockEditorMockProps) => {
         editorRef.current = {
             replaceBlocks: vi.fn(),
         };
         return (
             <textarea
                 aria-label="mail-body"
-                onChange={(event) => onChange(event.target.value)}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+                    onChange(event.target.value);
+                }}
             />
         );
     },
@@ -69,34 +131,45 @@ vi.mock('../../hooks/useModalKeyboard', () => ({
     useModalKeyboard: vi.fn(),
 }));
 
-const mountedRoots = [];
+const mountedRoots: MountedRoot[] = [];
+const reactTestGlobal = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+};
 
 beforeAll(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
 beforeEach(() => {
     vi.clearAllMocks();
     mocks.deleteMailDraft.mockResolvedValue({ status: 'success' });
-    mocks.generateMailDraft.mockResolvedValue({ draft: 'Generated reply' });
+    mocks.generateMailDraft.mockResolvedValue({
+        draft: 'Generated reply',
+        provider: 'test',
+    });
     mocks.replyMailMultipart.mockResolvedValue({ status: 'success' });
     mocks.saveMailDraft.mockResolvedValue({
         draft_id: 'draft-saved',
+        imap_uid: null,
         status: 'success',
     });
     mocks.sendMailMultipart.mockResolvedValue({ status: 'success' });
 });
 
-afterEach(async () => {
+afterEach(() => {
     while (mountedRoots.length) {
-        const { container, root } = mountedRoots.pop();
-        await act(async () => root.unmount());
+        const mountedRoot = mountedRoots.pop();
+        if (!mountedRoot) throw new Error('Mounted mail composer root is missing.');
+        const { container, root } = mountedRoot;
+        act(() => {
+            root.unmount();
+        });
         container.remove();
     }
     vi.useRealTimers();
 });
 
-function renderComposer(props = {}) {
+function renderComposer(props: Partial<MailComposerProps> = {}): { container: HTMLDivElement } {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -110,7 +183,7 @@ function renderComposer(props = {}) {
 
     act(() => {
         root.render(
-            <MailComposer
+            <TypedMailComposer
                 account={account}
                 accounts={[account]}
                 onClose={vi.fn()}
@@ -121,19 +194,24 @@ function renderComposer(props = {}) {
     return { container };
 }
 
-function changeValue(element, value) {
+function changeValue(
+    element: HTMLInputElement | HTMLTextAreaElement,
+    value: string,
+): void {
     const prototype = element instanceof HTMLTextAreaElement
         ? HTMLTextAreaElement.prototype
         : HTMLInputElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-    setter.call(element, value);
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
+    if (!descriptor?.set) throw new Error('Native input value setter is missing.');
+    const setValue = descriptor.set.bind(element);
+    setValue(value);
     element.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function buttonContaining(container, text) {
-    const button = [...container.querySelectorAll('button')]
+function buttonContaining(container: HTMLElement, text: string): HTMLButtonElement {
+    const button = [...container.querySelectorAll<HTMLButtonElement>('button')]
         .find((candidate) => candidate.textContent.includes(text));
-    expect(button).toBeTruthy();
+    if (!button) throw new Error(`Button containing ${text} is missing.`);
     return button;
 }
 
@@ -176,11 +254,14 @@ describe('MailComposer shared Mail API migration', () => {
             onDraftSaved,
             onSent,
         });
-        const body = container.querySelector('textarea[aria-label="mail-body"]');
-        const fileInput = container.querySelector('input[type="file"]');
+        const body = container.querySelector<HTMLTextAreaElement>(
+            'textarea[aria-label="mail-body"]',
+        );
+        const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+        if (!body || !fileInput) throw new Error('Mail body or attachment input is missing.');
         const attachment = new File(['engine'], 'engine.txt', { type: 'text/plain' });
 
-        await act(async () => {
+        act(() => {
             changeValue(body, '<p>Hello</p>');
             Object.defineProperty(fileInput, 'files', {
                 configurable: true,
@@ -196,7 +277,9 @@ describe('MailComposer shared Mail API migration', () => {
         });
 
         expect(mocks.sendMailMultipart).toHaveBeenCalledOnce();
-        const [email, formData] = mocks.sendMailMultipart.mock.calls[0];
+        const sendCall = mocks.sendMailMultipart.mock.calls.at(0);
+        if (!sendCall) throw new Error('Multipart send call is missing.');
+        const [email, formData] = sendCall;
         expect(email).toBe('smtp@example.test');
         expect(formData.get('to')).toBe('charles@example.test');
         expect(formData.get('subject')).toBe('Notes');
@@ -220,7 +303,10 @@ describe('MailComposer shared Mail API migration', () => {
             replyToMessageId: 'message/42',
             sourceFolder: 'Sent Items',
         });
-        const body = container.querySelector('textarea[aria-label="mail-body"]');
+        const body = container.querySelector<HTMLTextAreaElement>(
+            'textarea[aria-label="mail-body"]',
+        );
+        if (!body) throw new Error('Mail body input is missing.');
 
         await act(async () => {
             changeValue(body, 'Original context');
@@ -242,7 +328,9 @@ describe('MailComposer shared Mail API migration', () => {
         });
 
         expect(mocks.replyMailMultipart).toHaveBeenCalledOnce();
-        const [messageId, email, folder, formData] = mocks.replyMailMultipart.mock.calls[0];
+        const replyCall = mocks.replyMailMultipart.mock.calls.at(0);
+        if (!replyCall) throw new Error('Multipart reply call is missing.');
+        const [messageId, email, folder, formData] = replyCall;
         expect(messageId).toBe('message/42');
         expect(email).toBe('smtp@example.test');
         expect(folder).toBe('Sent Items');
