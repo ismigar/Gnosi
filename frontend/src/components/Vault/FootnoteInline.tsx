@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -15,43 +15,89 @@ import { useTranslation } from 'react-i18next';
 
 // Collects the ids of all footnotes in the document in order to calculate the
 // number for this one. Cheap: it's only called when the node itself renders.
-const footnoteNumber = (editor, id) => {
-    const ids = [];
-    const walk = (blocks) => {
-        for (const b of blocks || []) {
-            if (Array.isArray(b?.content)) {
-                for (const it of b.content) {
-                    if (it?.type === 'footnote') ids.push(it.props?.id || '');
+interface FootnoteContentItem {
+    readonly props?: { readonly id?: string | null };
+    readonly type?: string;
+}
+
+interface FootnoteDocumentBlock {
+    readonly children?: readonly FootnoteDocumentBlock[];
+    readonly content?: readonly FootnoteContentItem[] | string;
+}
+
+interface FootnoteEditor {
+    readonly document?: readonly FootnoteDocumentBlock[];
+}
+
+interface FootnoteInlineContent {
+    readonly props?: {
+        readonly content?: string | null;
+        readonly id?: string | null;
+    };
+}
+
+interface FootnoteUpdate {
+    readonly props: {
+        readonly content: string;
+        readonly id: string;
+    };
+    readonly type: 'footnote';
+}
+
+export interface FootnoteInlineProps {
+    readonly editor?: FootnoteEditor | null;
+    readonly inlineContent?: FootnoteInlineContent | null;
+    readonly updateInlineContent: (content: FootnoteUpdate) => unknown;
+}
+
+interface PopoverCoordinates {
+    readonly left: number;
+    readonly top: number;
+}
+
+function footnoteNumber(editor: FootnoteEditor | null | undefined, id: string): number {
+    const ids: string[] = [];
+    const walk = (blocks: readonly FootnoteDocumentBlock[]): void => {
+        for (const block of blocks) {
+            const content = block.content;
+            if (content && typeof content !== 'string') {
+                for (const item of content) {
+                    if (item.type === 'footnote') ids.push(item.props?.id || '');
                 }
             }
-            if (Array.isArray(b?.children) && b.children.length) walk(b.children);
+            if (block.children?.length) walk(block.children);
         }
     };
-    try { walk(editor?.document || []); } catch { /* noop */ }
+    try { walk(editor?.document ?? []); } catch { /* noop */ }
     const idx = ids.indexOf(id);
     return idx >= 0 ? idx + 1 : ids.length + 1;
-};
+}
 
-export default function FootnoteInline({ inlineContent, updateInlineContent, editor }) {
+export default function FootnoteInline({
+    inlineContent,
+    updateInlineContent,
+    editor,
+}: FootnoteInlineProps) {
     const { t } = useTranslation();
     const id = inlineContent?.props?.id || '';
-    const text = String(inlineContent?.props?.content || '');
+    const text = inlineContent?.props?.content || '';
     const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState(text);
-    const markRef = useRef(null);
-    const popRef = useRef(null);
-    const [coords, setCoords] = useState(null);
+    const markRef = useRef<HTMLElement>(null);
+    const popRef = useRef<HTMLDivElement>(null);
+    const [coords, setCoords] = useState<PopoverCoordinates | null>(null);
 
     const num = footnoteNumber(editor, id);
 
-    useEffect(() => { setDraft(text); }, [text]);
-
-    // Positions the popover under the mark (viewport coordinates: position fixed).
-    useLayoutEffect(() => {
-        if (!open || !markRef.current) return;
-        const r = markRef.current.getBoundingClientRect();
-        setCoords({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 340) });
-    }, [open]);
+    useEffect(() => {
+        let active = true;
+        queueMicrotask(() => {
+            if (active) setDraft(text);
+        });
+        return () => {
+            active = false;
+        };
+    }, [text]);
 
     const save = useCallback(() => {
         try { updateInlineContent({ type: 'footnote', props: { id, content: draft } }); } catch { /* noop */ }
@@ -61,20 +107,38 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
     // Closes (saving) when clicking outside the popover and the mark.
     useEffect(() => {
         if (!open) return undefined;
-        const onDown = (e) => {
-            if (popRef.current?.contains(e.target) || markRef.current?.contains(e.target)) return;
+        const onDown = (event: MouseEvent): void => {
+            if (!(event.target instanceof Node)) return;
+            if (popRef.current?.contains(event.target) || markRef.current?.contains(event.target)) return;
             save();
         };
         document.addEventListener('mousedown', onDown, true);
-        return () => document.removeEventListener('mousedown', onDown, true);
+        return () => {
+            document.removeEventListener('mousedown', onDown, true);
+        };
     }, [open, save]);
+
+    const togglePopover = (): void => {
+        if (!open && markRef.current) {
+            const rect = markRef.current.getBoundingClientRect();
+            setCoords({
+                top: rect.bottom + 6,
+                left: Math.min(rect.left, window.innerWidth - 340),
+            });
+        }
+        setOpen((value) => !value);
+    };
 
     return (
         <span className="bn-footnote">
             <sup
                 ref={markRef}
                 contentEditable={false}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
+                onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    togglePopover();
+                }}
                 title={text || t('footnote.tooltip_hint', "Footnote (click to edit)")}
                 className="mx-0.5 cursor-pointer select-none rounded px-1 text-[0.7em] font-semibold text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10"
             >
@@ -91,10 +155,12 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                     <textarea
                         autoFocus
                         value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Escape') { e.preventDefault(); save(); }
-                            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save(); }
+                        onChange={(event) => {
+                            setDraft(event.target.value);
+                        }}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Escape') { event.preventDefault(); save(); }
+                            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); save(); }
                         }}
                         placeholder={t('footnote.placeholder', "Write the note text…")}
                         className="h-24 w-full resize-y rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"

@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Calendar, Bell } from 'lucide-react';
+
 import i18n from '../../i18n';
 
 /**
@@ -15,32 +16,66 @@ import i18n from '../../i18n';
  * `@key` citations (which require a letter after the @).
  */
 
-const fmtDate = (iso) => {
+type InlineScalar = string | number | bigint | boolean | null | undefined;
+
+interface DateMentionContent {
+    readonly props?: {
+        readonly date?: InlineScalar;
+        readonly time?: InlineScalar;
+    };
+}
+
+interface DateMentionUpdate {
+    readonly props: {
+        readonly date: string;
+        readonly time: string;
+    };
+    readonly type: 'dateref';
+}
+
+export interface DateMentionInlineProps {
+    readonly inlineContent?: DateMentionContent | null;
+    readonly updateInlineContent: (content: DateMentionUpdate) => unknown;
+}
+
+interface PopoverCoordinates {
+    readonly left: number;
+    readonly top: number;
+}
+
+function formatDate(iso: string): string {
     if (!iso) return i18n.t('common.date', "Date");
     try {
         const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''));
         return new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
     } catch { return iso; }
-};
+}
 
-export default function DateMentionInline({ inlineContent, updateInlineContent }) {
+export default function DateMentionInline({
+    inlineContent,
+    updateInlineContent,
+}: DateMentionInlineProps) {
     const { t } = useTranslation();
     const date = String(inlineContent?.props?.date || '').trim();
     const time = String(inlineContent?.props?.time || '').trim();
     const [open, setOpen] = useState(false);
     const [draftDate, setDraftDate] = useState(date);
     const [draftTime, setDraftTime] = useState(time);
-    const chipRef = useRef(null);
-    const popRef = useRef(null);
-    const [coords, setCoords] = useState(null);
+    const chipRef = useRef<HTMLSpanElement>(null);
+    const popRef = useRef<HTMLDivElement>(null);
+    const [coords, setCoords] = useState<PopoverCoordinates | null>(null);
 
-    useEffect(() => { setDraftDate(date); setDraftTime(time); }, [date, time]);
-
-    useLayoutEffect(() => {
-        if (!open || !chipRef.current) return;
-        const r = chipRef.current.getBoundingClientRect();
-        setCoords({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 280) });
-    }, [open]);
+    useEffect(() => {
+        let active = true;
+        queueMicrotask(() => {
+            if (!active) return;
+            setDraftDate(date);
+            setDraftTime(time);
+        });
+        return () => {
+            active = false;
+        };
+    }, [date, time]);
 
     const save = useCallback(() => {
         try {
@@ -51,25 +86,43 @@ export default function DateMentionInline({ inlineContent, updateInlineContent }
 
     useEffect(() => {
         if (!open) return undefined;
-        const onDown = (e) => {
-            if (popRef.current?.contains(e.target) || chipRef.current?.contains(e.target)) return;
+        const onDown = (event: MouseEvent): void => {
+            if (!(event.target instanceof Node)) return;
+            if (popRef.current?.contains(event.target) || chipRef.current?.contains(event.target)) return;
             save();
         };
         document.addEventListener('mousedown', onDown, true);
-        return () => document.removeEventListener('mousedown', onDown, true);
+        return () => {
+            document.removeEventListener('mousedown', onDown, true);
+        };
     }, [open, save]);
+
+    const togglePopover = (): void => {
+        if (!open && chipRef.current) {
+            const rect = chipRef.current.getBoundingClientRect();
+            setCoords({
+                top: rect.bottom + 6,
+                left: Math.min(rect.left, window.innerWidth - 280),
+            });
+        }
+        setOpen((value) => !value);
+    };
 
     return (
         <span className="bn-dateref">
             <span
                 ref={chipRef}
                 contentEditable={false}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
-                title={time ? t('editor.date_reminder_tooltip', "Reminder: {{date}} at {{time}}", { date: fmtDate(date), time }) : fmtDate(date)}
+                onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    togglePopover();
+                }}
+                title={time ? t('editor.date_reminder_tooltip', "Reminder: {{date}} at {{time}}", { date: formatDate(date), time }) : formatDate(date)}
                 className="mx-0.5 inline-flex cursor-pointer select-none items-center gap-1 rounded px-1.5 py-0.5 text-sm text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/8 hover:bg-[var(--gnosi-primary)]/15"
             >
                 <Calendar size={13} />
-                {fmtDate(date)}
+                {formatDate(date)}
                 {time && <><Bell size={12} /> {time}</>}
             </span>
             {open && coords && createPortal(
@@ -83,7 +136,9 @@ export default function DateMentionInline({ inlineContent, updateInlineContent }
                     <input
                         type="date"
                         value={draftDate}
-                        onChange={(e) => setDraftDate(e.target.value)}
+                        onChange={(event) => {
+                            setDraftDate(event.target.value);
+                        }}
                         className="mb-2 w-full rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                     />
                     <label className="mb-1 flex items-center gap-1 text-xs font-semibold text-[var(--text-tertiary)]">
@@ -93,11 +148,15 @@ export default function DateMentionInline({ inlineContent, updateInlineContent }
                         <input
                             type="time"
                             value={draftTime}
-                            onChange={(e) => setDraftTime(e.target.value)}
+                            onChange={(event) => {
+                                setDraftTime(event.target.value);
+                            }}
                             className="flex-1 rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                         />
                         {draftTime && (
-                            <button type="button" onClick={() => setDraftTime('')} className="text-xs text-[var(--text-tertiary)] hover:text-[var(--gnosi-danger,#dc2626)]">
+                            <button type="button" onClick={() => {
+                                setDraftTime('');
+                            }} className="text-xs text-[var(--text-tertiary)] hover:text-[var(--gnosi-danger,#dc2626)]">
                                 {t('editor.date_reminder_clear', "Clear")}
                             </button>
                         )}
