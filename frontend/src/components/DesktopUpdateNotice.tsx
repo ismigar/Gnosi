@@ -1,18 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Download, RefreshCw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-const INITIAL_STATE = { status: 'idle' };
+const INITIAL_STATE: DesktopUpdateState = { status: 'idle' };
+const VISIBLE_STATUSES: ReadonlySet<DesktopUpdateStatus> = new Set([
+    'available',
+    'downloading',
+    'downloaded',
+    'manual-download',
+]);
 
 export function DesktopUpdateNotice() {
     const { t } = useTranslation();
-    const [update, setUpdate] = useState(INITIAL_STATE);
-    const [dismissedVersion, setDismissedVersion] = useState(null);
-    const eventSequence = useRef(0);
+    const [update, setUpdate] = useState<DesktopUpdateState>(INITIAL_STATE);
+    const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
+    const eventSequence = useRef<number>(0);
 
     useEffect(() => {
         const api = window.electronAPI;
-        if (!api?.onUpdateStatus || !api?.getUpdateStatus) return undefined;
+        if (!api?.onUpdateStatus || !api.getUpdateStatus) return undefined;
 
         const initialSequence = eventSequence.current;
         api.onUpdateStatus((nextUpdate) => {
@@ -20,41 +26,58 @@ export function DesktopUpdateNotice() {
             setUpdate(nextUpdate);
         });
 
-        api.getUpdateStatus()
+        void api.getUpdateStatus()
             .then((currentUpdate) => {
                 if (eventSequence.current === initialSequence && currentUpdate) {
                     setUpdate(currentUpdate);
                 }
             })
-            .catch(() => {});
+            .catch(() => undefined);
 
-        return () => api.removeUpdateListener?.();
+        return () => {
+            api.removeUpdateListener?.();
+        };
     }, []);
 
-    const version = update.version || '';
-    const visibleStatuses = ['available', 'downloading', 'downloaded', 'manual-download'];
-    const isVisible = (visibleStatuses.includes(update.status)
+    const version = update.version ?? '';
+    const isVisible = (VISIBLE_STATUSES.has(update.status)
         || (update.status === 'error' && update.userInitiated))
         && dismissedVersion !== version;
 
     if (!isVisible) return null;
 
-    const percent = Math.max(0, Math.min(100, Math.round(update.percent || 0)));
+    const percent = Math.max(0, Math.min(100, Math.round(update.percent ?? 0)));
 
     const downloadUpdate = () => {
-        window.electronAPI?.downloadUpdate?.().then((nextUpdate) => {
-            if (nextUpdate) setUpdate(nextUpdate);
-        }).catch(() => {
-            setUpdate((current) => ({ ...current, status: 'error', userInitiated: true }));
-        });
+        void window.electronAPI?.downloadUpdate?.()
+            .then((nextUpdate) => {
+                if (nextUpdate) {
+                    setUpdate(nextUpdate);
+                }
+            })
+            .catch(() => {
+                setUpdate((current) => ({
+                    ...current,
+                    status: 'error',
+                    userInitiated: true,
+                }));
+            });
     };
 
     const installUpdate = () => {
-        window.electronAPI?.installUpdate?.().then((nextUpdate) => {
-            if (nextUpdate) setUpdate(nextUpdate);
-        }).catch(() => {
-            setUpdate((current) => ({ ...current, status: 'error', userInitiated: true }));
-        });
+        void window.electronAPI?.installUpdate?.()
+            .then((nextUpdate) => {
+                if (nextUpdate) {
+                    setUpdate(nextUpdate);
+                }
+            })
+            .catch(() => {
+                setUpdate((current) => ({
+                    ...current,
+                    status: 'error',
+                    userInitiated: true,
+                }));
+            });
     };
 
     return (
@@ -66,7 +89,9 @@ export function DesktopUpdateNotice() {
         >
             <button
                 type="button"
-                onClick={() => setDismissedVersion(version)}
+                onClick={() => {
+                    setDismissedVersion(version);
+                }}
                 className="absolute right-2 top-2 rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
                 aria-label={t('desktop_update.dismiss', 'Dismiss update notice')}
             >
@@ -104,13 +129,13 @@ export function DesktopUpdateNotice() {
                         <div
                             className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--bg-secondary)]"
                             role="progressbar"
-                            aria-valuemin="0"
-                            aria-valuemax="100"
+                            aria-valuemin={0}
+                            aria-valuemax={100}
                             aria-valuenow={percent}
                         >
                             <div
                                 className="h-full rounded-full bg-[var(--accent-primary)] transition-[width] duration-200"
-                                style={{ width: `${percent}%` }}
+                                style={{ width: `${String(percent)}%` }}
                             />
                         </div>
                     )}

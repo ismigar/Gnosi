@@ -10,6 +10,7 @@ export type ReleaseNoteSection = typeof RELEASE_NOTE_SECTIONS[number];
 export interface ReleaseNote {
   readonly channel: string;
   readonly date: string;
+  readonly downloadUrl?: string;
   readonly sections: Readonly<Record<ReleaseNoteSection, readonly string[]>>;
   readonly version: string;
 }

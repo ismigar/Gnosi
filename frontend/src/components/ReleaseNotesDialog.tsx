@@ -1,19 +1,26 @@
-import React, { useRef } from 'react';
-import { CheckCircle2, Download, Rocket, Sparkles, Wrench, X } from 'lucide-react';
+import { useRef } from 'react';
+import { Download, Rocket, Sparkles, Wrench, X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { RELEASES, RELEASE_NOTE_SECTIONS } from '../lib/releaseNotes';
+import { RELEASES, RELEASE_NOTE_SECTIONS, type ReleaseNoteSection } from '../lib/releaseNotes';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
-const SECTION_ICONS = {
+const SECTION_ICONS: Readonly<Record<ReleaseNoteSection, LucideIcon>> = {
   highlights: Sparkles,
   improvements: Rocket,
   fixes: Wrench,
 };
 
-export function ReleaseNotesDialog({ open, onClose, initialVersion }) {
+export interface ReleaseNotesDialogProps {
+  readonly initialVersion?: string;
+  readonly onClose: () => void;
+  readonly open: boolean;
+}
+
+export function ReleaseNotesDialog({ open, onClose, initialVersion }: ReleaseNotesDialogProps) {
   const { t, i18n } = useTranslation();
-  const dialogRef = useRef(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
 
   useModalKeyboard({ isOpen: open, onClose, containerRef: dialogRef, trapFocus: true });
 
@@ -92,9 +99,9 @@ export function ReleaseNotesDialog({ open, onClose, initialVersion }) {
 
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
                   {RELEASE_NOTE_SECTIONS.map((section) => {
-                    const entries = release.sections[section] || [];
+                    const entries = release.sections[section];
                     if (entries.length === 0) return null;
-                    const Icon = SECTION_ICONS[section] || CheckCircle2;
+                    const Icon = SECTION_ICONS[section];
                     return (
                       <section key={section} className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-4">
                         <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">

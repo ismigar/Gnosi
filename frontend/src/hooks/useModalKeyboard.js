@@ -25,14 +25,14 @@
  * keys untouched, so a modal with a navigable list keeps its own arrow
  * handler and only delegates Esc/Enter here.
  *
- * @param {Object}   params
- * @param {boolean}  params.isOpen           - Whether the modal is visible.
- * @param {Function} params.onClose          - Negative action triggered by Escape.
- * @param {Function} [params.onConfirm]      - Positive action (Enter). Omit it if the modal doesn't have one (e.g. dropdowns or lists with their own Enter handling).
- * @param {boolean}  [params.confirmDisabled] - If true, Enter does not confirm (mirrors the disabled primary button).
- * @param {React.RefObject} [params.containerRef] - Ref to the modal panel. Enter only confirms if focus is inside it; required for trapFocus.
- * @param {boolean}  [params.closeOnEscape]  - Allows disabling Esc in very specific cases (defaults to true).
- * @param {boolean}  [params.trapFocus]      - If true, Tab cycles within the modal and focus is restored on close (requires containerRef).
+ * @typedef {Object} ModalKeyboardOptions
+ * @property {boolean} isOpen - Whether the modal is visible.
+ * @property {() => void} onClose - Negative action triggered by Escape.
+ * @property {(() => void) | null} [onConfirm] - Positive action triggered by Enter.
+ * @property {boolean} [confirmDisabled] - Whether Enter confirmation is disabled.
+ * @property {import('react').RefObject<HTMLElement | null> | null} [containerRef] - Modal panel ref.
+ * @property {boolean} [closeOnEscape] - Whether Escape closes the modal.
+ * @property {boolean} [trapFocus] - Whether Tab cycles within the modal.
  */
 import { useEffect, useRef } from 'react';
 
@@ -58,7 +58,7 @@ export function pushModalLayer() {
         },
     };
 }
-
+/** @param {ModalKeyboardOptions} options */
 export function useModalKeyboard({
     isOpen,
     onClose,
