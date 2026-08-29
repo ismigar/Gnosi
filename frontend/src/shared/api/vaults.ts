@@ -29,6 +29,9 @@ export type VaultPageSummary = components['schemas']['PageInfo'];
 export type VaultPage = components['schemas']['PageDetailResponse'];
 export type VaultPageMutation = components['schemas']['PageMutationResponse'];
 export type VaultPageDeletion = components['schemas']['PageDeleteResponse'];
+export type VaultPageDuplicate = components['schemas']['PageDuplicateResponse'];
+export type VaultBulkTemplateInput = components['schemas']['BulkApplyTemplateRequest'];
+export type VaultBulkTemplateResult = components['schemas']['BulkPageMutationResponse'];
 export type VaultPagePreview = components['schemas']['PagePreviewResponse'];
 export type VaultPagePreviewWarmRequest =
   components['schemas']['_BulkWarmPayload'];
@@ -310,6 +313,26 @@ export async function deleteVaultPage(
     await apiClient.DELETE('/api/vault/pages/{page_id}', {
       params: { path: { page_id: pageId } },
     }),
+  );
+}
+
+
+export async function duplicateVaultPage(
+  pageId: string,
+): Promise<VaultPageDuplicate> {
+  return unwrapApiResult<VaultPageDuplicate, unknown>(
+    await apiClient.POST('/api/vault/pages/{page_id}/duplicate', {
+      params: { path: { page_id: pageId } },
+    }),
+  );
+}
+
+
+export async function bulkApplyVaultTemplate(
+  input: VaultBulkTemplateInput,
+): Promise<VaultBulkTemplateResult> {
+  return unwrapApiResult<VaultBulkTemplateResult, unknown>(
+    await apiClient.POST('/api/vault/bulk-apply-template', { body: input }),
   );
 }
 

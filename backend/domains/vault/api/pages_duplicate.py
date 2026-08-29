@@ -11,6 +11,8 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.params import Depends as DependsParameter
 
+from backend.domains.vault.schemas.pages import PageDuplicateResponse
+
 Metadata = dict[str, Any]
 
 log = logging.getLogger(__name__)
@@ -113,7 +115,7 @@ def register_routes(
         duplicate_page,
         methods=["POST"],
         dependencies=list(editor_dependencies),
-        response_model=None,
+        response_model=PageDuplicateResponse,
     )
 
 

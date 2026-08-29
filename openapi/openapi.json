@@ -2365,6 +2365,171 @@
         "title": "BrowseRequest",
         "type": "object"
       },
+      "BulkApplyTemplateRequest": {
+        "properties": {
+          "expected_etags": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Expected Etags",
+            "type": "object"
+          },
+          "page_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Page Ids",
+            "type": "array"
+          },
+          "template_id": {
+            "title": "Template Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_ids",
+          "template_id"
+        ],
+        "title": "BulkApplyTemplateRequest",
+        "type": "object"
+      },
+      "BulkMutationConflictResponse": {
+        "properties": {
+          "current_etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Etag"
+          },
+          "expected_etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Etag"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id"
+        ],
+        "title": "BulkMutationConflictResponse",
+        "type": "object"
+      },
+      "BulkMutationErrorResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id"
+        ],
+        "title": "BulkMutationErrorResponse",
+        "type": "object"
+      },
+      "BulkMutationEtagResponse": {
+        "properties": {
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etag"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id",
+          "etag"
+        ],
+        "title": "BulkMutationEtagResponse",
+        "type": "object"
+      },
+      "BulkPageMutationResponse": {
+        "properties": {
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/BulkMutationConflictResponse"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/BulkMutationErrorResponse"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          },
+          "updated_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Updated Ids",
+            "type": "array"
+          },
+          "updated_with_etags": {
+            "items": {
+              "$ref": "#/components/schemas/BulkMutationEtagResponse"
+            },
+            "title": "Updated With Etags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "updated",
+          "updated_ids",
+          "updated_with_etags",
+          "skipped",
+          "conflicts",
+          "errors"
+        ],
+        "title": "BulkPageMutationResponse",
+        "type": "object"
+      },
       "BulkPreviewWarmResponse": {
         "description": "Counters from a best-effort preview cache warmup.",
         "properties": {
@@ -16317,6 +16482,35 @@
           "etag"
         ],
         "title": "PageDetailResponse",
+        "type": "object"
+      },
+      "PageDuplicateResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "const": "created",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "message",
+          "title"
+        ],
+        "title": "PageDuplicateResponse",
         "type": "object"
       },
       "PageHistoryContent": {
@@ -58962,9 +59156,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/BulkApplyTemplateRequest"
               }
             }
           },
@@ -58974,7 +59166,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BulkPageMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -74003,7 +74197,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageDuplicateResponse"
+                }
               }
             },
             "description": "Successful Response"

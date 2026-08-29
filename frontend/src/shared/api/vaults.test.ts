@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  bulkApplyVaultTemplate,
   createVaultDatabase,
   createVaultPage,
   createVaultTable,
   deleteVaultDatabase,
   deleteVaultPage,
   deleteVaultTable,
+  duplicateVaultPage,
   emptyVaultTrash,
   fetchVaultAliasIndex,
   fetchVaultDatabases,
@@ -51,6 +53,43 @@ function requestAt(
 
 
 describe('vault collections API', () => {
+  it('duplicates one page and applies a template to a selected batch', async () => {
+    const duplicate = {
+      status: 'created',
+      id: 'page-copy',
+      message: 'Page duplicated',
+      title: 'Copy',
+    };
+    const batch = {
+      updated: 1,
+      updated_ids: ['page-1'],
+      updated_with_etags: [{ page_id: 'page-1', etag: 'etag-2' }],
+      skipped: [],
+      conflicts: [],
+      errors: [],
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(duplicate))
+      .mockResolvedValueOnce(Response.json(batch));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(duplicateVaultPage('page-1')).resolves.toEqual(duplicate);
+    await expect(
+      bulkApplyVaultTemplate({ page_ids: ['page-1'], template_id: 'template-1' }),
+    ).resolves.toEqual(batch);
+
+    expect(new URL(requestAt(fetchMock.mock.calls, 0).url).pathname).toBe(
+      '/api/vault/pages/page-1/duplicate',
+    );
+    const batchRequest = requestAt(fetchMock.mock.calls, 1);
+    expect(new URL(batchRequest.url).pathname).toBe('/api/vault/bulk-apply-template');
+    await expect(batchRequest.clone().json()).resolves.toEqual({
+      page_ids: ['page-1'],
+      template_id: 'template-1',
+    });
+  });
+
   it('loads the full typed registry without dropping extension state', async () => {
     const registry = {
       databases: [{ id: 'db-1', name: 'Knowledge' }],

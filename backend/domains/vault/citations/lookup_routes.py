@@ -8,6 +8,11 @@ from typing import cast as _strict_cast
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from backend.domains.vault.schemas.pages import (
+    BulkApplyTemplateRequest,
+    BulkPageMutationResponse,
+)
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 
@@ -674,14 +679,19 @@ async def bulk_update_metadata(
 @router.post(
     "/bulk-apply-template",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BulkPageMutationResponse,
 )
 async def bulk_apply_template(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
+    payload: BulkApplyTemplateRequest = _legacy.Body(...),
 ) -> _LegacyAny:
     """Apply a table template body and declared properties to selected rows."""
+    payload_data = (
+        payload.model_dump(exclude_unset=True)
+        if isinstance(payload, BulkApplyTemplateRequest)
+        else payload
+    )
     return await _legacy.metadata_mutations.bulk_apply_template(
-        payload, _metadata_mutation_dependencies()
+        payload_data, _metadata_mutation_dependencies()
     )
 
 

@@ -7,12 +7,14 @@ import { saveDrawing } from '../shared/api/drawings';
 import { fetchReferenceTable } from '../shared/api/literature-resources';
 import { fetchResourceProcessingStatus } from '../shared/api/resource-processing';
 import {
+    bulkApplyVaultTemplate,
     createVaultPage,
     createVaultDatabase,
     createVaultTable,
     deleteVaultDatabase,
     deleteVaultPage,
     deleteVaultTable,
+    duplicateVaultPage,
     fetchVaultAliasIndex,
     fetchVaultGlobalIndex,
     fetchVaultPage,
@@ -2889,12 +2891,12 @@ export default function VaultDashboard() {
         const pageIds = [...selectedIds];
         if (pageIds.length === 0 || !templateId) return;
         try {
-            const response = await axios.post('/api/vault/bulk-apply-template', {
+            const response = await bulkApplyVaultTemplate({
                 page_ids: pageIds,
                 template_id: templateId,
             });
-            const updated = response.data?.updated || 0;
-            const failed = (response.data?.errors?.length || 0) + (response.data?.conflicts?.length || 0);
+            const updated = response?.updated || 0;
+            const failed = (response?.errors?.length || 0) + (response?.conflicts?.length || 0);
             if (updated > 0) {
                 toast.success(t('bulk_actions.template_applied', { count: updated }));
                 await fetchPagesByTable(tableId);
@@ -3090,10 +3092,10 @@ export default function VaultDashboard() {
 
     const handleDuplicatePage = useCallback(async (pageId) => {
         try {
-            const res = await axios.post(`/api/vault/pages/${pageId}/duplicate`);
+            const duplicate = await duplicateVaultPage(pageId);
             toast.success(t('success.page_duplicated'));
             await fetchPages();
-            loadPage(res.data.id);
+            loadPage(duplicate.id);
         } catch {
             toast.error(t('errors.duplicate_page'));
         }

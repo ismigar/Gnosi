@@ -1,8 +1,8 @@
 """Page API schemas owned by the vault domain."""
 
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PageSaveRequest(BaseModel):
@@ -117,12 +117,56 @@ class TablePagesSnapshot(BaseModel):
     pages: List[PageInfo]
 
 
+class PageDuplicateResponse(BaseModel):
+    status: Literal["created"]
+    id: str
+    message: str
+    title: str
+
+
+class BulkApplyTemplateRequest(BaseModel):
+    page_ids: list[str]
+    template_id: str
+    expected_etags: dict[str, str] = Field(default_factory=dict)
+
+
+class BulkMutationEtagResponse(BaseModel):
+    page_id: str
+    etag: str | None
+
+
+class BulkMutationConflictResponse(BaseModel):
+    page_id: str
+    expected_etag: str | None = None
+    current_etag: str | None = None
+
+
+class BulkMutationErrorResponse(BaseModel):
+    page_id: str
+    error: str | None = None
+
+
+class BulkPageMutationResponse(BaseModel):
+    updated: int
+    updated_ids: list[str]
+    updated_with_etags: list[BulkMutationEtagResponse]
+    skipped: list[str]
+    conflicts: list[BulkMutationConflictResponse]
+    errors: list[BulkMutationErrorResponse]
+
+
 class _BulkWarmPayload(BaseModel):
     ids: List[str]
 
 
 __all__ = [
+    "BulkApplyTemplateRequest",
+    "BulkMutationConflictResponse",
+    "BulkMutationErrorResponse",
+    "BulkMutationEtagResponse",
+    "BulkPageMutationResponse",
     "PageInfo",
+    "PageDuplicateResponse",
     "PageDetailResponse",
     "PagePreviewResponse",
     "BulkPreviewWarmResponse",

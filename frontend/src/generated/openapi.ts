@@ -10611,6 +10611,55 @@ export interface components {
              */
             path: string;
         };
+        /** BulkApplyTemplateRequest */
+        BulkApplyTemplateRequest: {
+            /** Expected Etags */
+            expected_etags?: {
+                [key: string]: string;
+            };
+            /** Page Ids */
+            page_ids: string[];
+            /** Template Id */
+            template_id: string;
+        };
+        /** BulkMutationConflictResponse */
+        BulkMutationConflictResponse: {
+            /** Current Etag */
+            current_etag?: string | null;
+            /** Expected Etag */
+            expected_etag?: string | null;
+            /** Page Id */
+            page_id: string;
+        };
+        /** BulkMutationErrorResponse */
+        BulkMutationErrorResponse: {
+            /** Error */
+            error?: string | null;
+            /** Page Id */
+            page_id: string;
+        };
+        /** BulkMutationEtagResponse */
+        BulkMutationEtagResponse: {
+            /** Etag */
+            etag: string | null;
+            /** Page Id */
+            page_id: string;
+        };
+        /** BulkPageMutationResponse */
+        BulkPageMutationResponse: {
+            /** Conflicts */
+            conflicts: components["schemas"]["BulkMutationConflictResponse"][];
+            /** Errors */
+            errors: components["schemas"]["BulkMutationErrorResponse"][];
+            /** Skipped */
+            skipped: string[];
+            /** Updated */
+            updated: number;
+            /** Updated Ids */
+            updated_ids: string[];
+            /** Updated With Etags */
+            updated_with_etags: components["schemas"]["BulkMutationEtagResponse"][];
+        };
         /**
          * BulkPreviewWarmResponse
          * @description Counters from a best-effort preview cache warmup.
@@ -15800,6 +15849,20 @@ export interface components {
             resolved_table_id?: string | null;
             /** Title */
             title: unknown;
+        };
+        /** PageDuplicateResponse */
+        PageDuplicateResponse: {
+            /** Id */
+            id: string;
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "created";
+            /** Title */
+            title: string;
         };
         /** PageHistoryContent */
         PageHistoryContent: {
@@ -30455,9 +30518,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["BulkApplyTemplateRequest"];
             };
         };
         responses: {
@@ -30467,7 +30528,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BulkPageMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35068,7 +35129,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageDuplicateResponse"];
                 };
             };
             /** @description Validation Error */
