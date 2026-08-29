@@ -17,6 +17,14 @@ from backend.domains.vault.tables.contracts import RegistryRecord
 from backend.domains.vault.tables.security import get_workspace_context, require_role
 from backend.domains.vault.views import api as vault_views
 from backend.domains.vault.views import schema as vault_view_schema
+from backend.domains.vault.views.contracts import (
+    VaultViewInput,
+    VaultViewResponse,
+    ViewMutationResponse,
+    ViewReorderRequest,
+    ViewReorderResponse,
+    ViewUsageResponse,
+)
 
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
 _dependencies: TableDomainDependencies | None = None
@@ -377,7 +385,23 @@ async def delete_option_catalog(name: str) -> RegistryData:
     )
 
 
-@router.get("/views", response_model=None)
+def _view_payload(view: VaultViewInput | RegistryData) -> RegistryData:
+    if isinstance(view, VaultViewInput):
+        return view.model_dump(exclude_unset=True)
+    return view
+
+
+def _view_reorder_payload(body: ViewReorderRequest | RegistryData) -> RegistryData:
+    if isinstance(body, ViewReorderRequest):
+        return body.model_dump()
+    return body
+
+
+@router.get(
+    "/views",
+    response_model=list[VaultViewResponse],
+    response_model_exclude_unset=True,
+)
 async def list_views(table_id: Optional[str] = None) -> list[RegistryData]:
     return await vault_views.list_views(table_id, _configured().views)
 
@@ -385,18 +409,19 @@ async def list_views(table_id: Optional[str] = None) -> list[RegistryData]:
 @router.post(
     "/views",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=VaultViewResponse,
+    response_model_exclude_unset=True,
 )
-async def create_view(view: RegistryData = Body(...)) -> RegistryData:
-    return await vault_views.create_view(view, _configured().views)
+async def create_view(view: VaultViewInput = Body(...)) -> RegistryData:
+    return await vault_views.create_view(_view_payload(view), _configured().views)
 
 
 @router.put(
     "/views/order",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ViewReorderResponse,
 )
-async def reorder_views(body: RegistryData = Body(...)) -> RegistryData:
+async def reorder_views(body: ViewReorderRequest = Body(...)) -> RegistryData:
     """Reorders a table's views according to the received order.
 
     Body: {"table_id": "...", "ordered_ids": ["v1", "v2", "v3"]}.
@@ -405,15 +430,22 @@ async def reorder_views(body: RegistryData = Body(...)) -> RegistryData:
     the given order.
 
     """
-    return await vault_views.reorder_views(body, _configured().views)
+    return await vault_views.reorder_views(
+        _view_reorder_payload(body),
+        _configured().views,
+    )
 
 
-@router.get("/views/{view_id}", response_model=None)
+@router.get(
+    "/views/{view_id}",
+    response_model=VaultViewResponse,
+    response_model_exclude_unset=True,
+)
 async def get_view(view_id: str) -> RegistryData:
     return await vault_views.get_view(view_id, _configured().views)
 
 
-@router.get("/views/{view_id}/usage", response_model=None)
+@router.get("/views/{view_id}/usage", response_model=ViewUsageResponse)
 async def get_view_usage(view_id: str) -> RegistryData:
     """Find all pages/notes in the vault where this view_id is embedded or referenced."""
     return await vault_views.get_view_usage(view_id, _configured().views)
@@ -422,7 +454,7 @@ async def get_view_usage(view_id: str) -> RegistryData:
 @router.delete(
     "/views/{view_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ViewMutationResponse,
 )
 async def delete_view(view_id: str) -> RegistryData:
     return await vault_views.delete_view(view_id, _configured().views)
@@ -431,13 +463,17 @@ async def delete_view(view_id: str) -> RegistryData:
 @router.put(
     "/views/{view_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ViewMutationResponse,
 )
 async def update_view(
     view_id: str,
-    data: RegistryData = Body(...),
+    data: VaultViewInput = Body(...),
 ) -> RegistryData:
-    return await vault_views.update_view(view_id, data, _configured().views)
+    return await vault_views.update_view(
+        view_id,
+        _view_payload(data),
+        _configured().views,
+    )
 
 
 def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:

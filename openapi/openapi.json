@@ -20889,6 +20889,265 @@
         "title": "VaultTagsResponse",
         "type": "object"
       },
+      "VaultViewInput": {
+        "additionalProperties": true,
+        "description": "Flexible saved-view payload with its stable public fields typed.",
+        "properties": {
+          "cardSize": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cardsize"
+          },
+          "embedded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedded"
+          },
+          "galleryPreview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gallerypreview"
+          },
+          "hidden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hidden"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "is_main": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Main"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "visibleProperties": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibleproperties"
+          }
+        },
+        "title": "VaultViewInput",
+        "type": "object"
+      },
+      "VaultViewResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "cardSize": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cardsize"
+          },
+          "embedded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedded"
+          },
+          "galleryPreview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gallerypreview"
+          },
+          "hidden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hidden"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_main": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Main"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "visibleProperties": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibleproperties"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "VaultViewResponse",
+        "type": "object"
+      },
       "VerifyPayload": {
         "properties": {
           "database_ids": {
@@ -20930,6 +21189,63 @@
           "value"
         ],
         "title": "ViewFilter",
+        "type": "object"
+      },
+      "ViewMutationResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ViewMutationResponse",
+        "type": "object"
+      },
+      "ViewReorderRequest": {
+        "properties": {
+          "ordered_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ordered Ids",
+            "type": "array"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table_id",
+          "ordered_ids"
+        ],
+        "title": "ViewReorderRequest",
+        "type": "object"
+      },
+      "ViewReorderResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "table_id",
+          "count"
+        ],
+        "title": "ViewReorderResponse",
         "type": "object"
       },
       "ViewSection": {
@@ -20994,6 +21310,55 @@
           "source_table_id"
         ],
         "title": "ViewSection",
+        "type": "object"
+      },
+      "ViewUsagePageResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "path"
+        ],
+        "title": "ViewUsagePageResponse",
+        "type": "object"
+      },
+      "ViewUsageResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/ViewUsagePageResponse"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "view_id": {
+            "title": "View Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view_id",
+          "count",
+          "pages"
+        ],
+        "title": "ViewUsageResponse",
         "type": "object"
       },
       "WorklogCreateResponse": {
@@ -82789,7 +83154,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VaultViewResponse"
+                  },
+                  "title": "Response List Views Api Vault Views Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -82898,9 +83269,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "View",
-                "type": "object"
+                "$ref": "#/components/schemas/VaultViewInput"
               }
             }
           },
@@ -82910,7 +83279,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VaultViewResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83022,9 +83393,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
+                "$ref": "#/components/schemas/ViewReorderRequest"
               }
             }
           },
@@ -83034,7 +83403,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ViewReorderResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83154,7 +83525,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83272,7 +83645,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VaultViewResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83390,9 +83765,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Data",
-                "type": "object"
+                "$ref": "#/components/schemas/VaultViewInput"
               }
             }
           },
@@ -83402,7 +83775,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83523,7 +83898,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ViewUsageResponse"
+                }
               }
             },
             "description": "Successful Response"

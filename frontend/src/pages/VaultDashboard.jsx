@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
 import axios from '../shared/api/legacy-http';
+import {
+    createVaultView,
+    deleteVaultView,
+    fetchVaultViewUsage,
+    reorderVaultViews,
+    updateVaultView,
+} from '../shared/api/vault-views';
 import { toast } from '../lib/toast';
 import { v4 as uuidv4 } from 'uuid';
 import { logError, notifyError } from '../lib/notifyError';
@@ -1198,7 +1205,7 @@ export default function VaultDashboard() {
         if (!needsMigration) return;
         if (viewCreationInProgressRef.current.has(`migrate-${tableId}`)) return;
         viewCreationInProgressRef.current.add(`migrate-${tableId}`);
-        axios.put(`/api/vault/views/${mainView.id}`, {
+        updateVaultView(mainView.id, {
             ...mainView,
             ...canonical,
             id: mainView.id,
@@ -1296,7 +1303,7 @@ export default function VaultDashboard() {
                     is_main: false,
                 };
 
-            await axios.put(`/api/vault/views/${updatedView.id}`, normalizedView);
+            await updateVaultView(updatedView.id, normalizedView);
             await fetchRegistry();
             // Refresh current table pages to show possible new quick-entry records
             if (activeTableId) {
@@ -1328,7 +1335,7 @@ export default function VaultDashboard() {
             embedded: false,
         };
         try {
-            await axios.post('/api/vault/views', newView);
+            await createVaultView(newView);
             await fetchRegistry();
             setActiveViewId(newView.id);
             toast.success(t('success.view_duplicated'));
@@ -1348,9 +1355,9 @@ export default function VaultDashboard() {
         }
         setViewToDelete(view);
         setViewToDeleteUsage(null);
-        axios.get(`/api/vault/views/${encodeURIComponent(view.id)}/usage`)
-            .then(res => {
-                if (res.data) setViewToDeleteUsage(res.data);
+        fetchVaultViewUsage(view.id)
+            .then(usage => {
+                if (usage) setViewToDeleteUsage(usage);
             })
             .catch(() => {});
     };
@@ -1358,7 +1365,7 @@ export default function VaultDashboard() {
     const executeDeleteView = async () => {
         if (!viewToDelete) return;
         try {
-            await axios.delete(`/api/vault/views/${viewToDelete.id}`);
+            await deleteVaultView(viewToDelete.id);
             await fetchRegistry();
             if (activeViewId === viewToDelete.id) {
                 const remaining = (registry.views || [])
@@ -1386,7 +1393,7 @@ export default function VaultDashboard() {
         // Optimistic UI: updates local state before the round-trip.
         setViews(reorderedViews);
         try {
-            await axios.put('/api/vault/views/order', {
+            await reorderVaultViews({
                 table_id: tableId,
                 ordered_ids: orderedIds,
             });
@@ -1417,7 +1424,7 @@ export default function VaultDashboard() {
             if (fallback) setActiveViewId(fallback.id);
         }
         try {
-            await axios.put(`/api/vault/views/${viewId}`, { ...view, hidden });
+            await updateVaultView(viewId, { ...view, hidden });
             await fetchRegistry();
         } catch (err) {
             console.error("Error changing view visibility:", err);
@@ -2023,7 +2030,7 @@ export default function VaultDashboard() {
         ) {
             const defaultId = uuidv4();
             viewCreationInProgressRef.current.add(tableId);
-            axios.post(`/api/vault/views`, {
+            createVaultView({
                 id: defaultId,
                 table_id: tableId,
                 ...buildMainViewBody(tableId),
@@ -2486,7 +2493,7 @@ export default function VaultDashboard() {
             ) {
                 const defaultId = uuidv4();
                 viewCreationInProgressRef.current.add(tableId);
-                axios.post(`/api/vault/views`, {
+                createVaultView({
                     id: defaultId,
                     table_id: tableId,
                     ...buildMainViewBody(tableId),
@@ -2609,10 +2616,10 @@ export default function VaultDashboard() {
                         name: title,
                         order: 0,
                     };
-                    await axios.post('/api/vault/views', newView);
+                    await createVaultView(newView);
                     setActiveViewId(newView.id);
                 } else {
-                    await axios.put(`/api/vault/views/${viewId}`, updated);
+                    await updateVaultView(viewId, updated);
                 }
                 await fetchRegistry();
                 toast.success(t('success.view_renamed'));
@@ -2635,7 +2642,7 @@ export default function VaultDashboard() {
                     locale: i18n.resolvedLanguage || i18n.language,
                     properties: [{ name: "Status", type: "select" }]
                 });
-                await axios.post(`/api/vault/views`, {
+                await createVaultView({
                     id: uuidv4(),
                     table_id: tableRes.data.id,
                     ...buildMainViewBody(tableRes.data.id),

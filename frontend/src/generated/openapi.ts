@@ -17936,6 +17936,63 @@ export interface components {
             /** Pages */
             pages: components["schemas"]["VaultTagPage"][];
         };
+        /**
+         * VaultViewInput
+         * @description Flexible saved-view payload with its stable public fields typed.
+         */
+        VaultViewInput: {
+            /** Cardsize */
+            cardSize?: string | null;
+            /** Embedded */
+            embedded?: boolean | null;
+            /** Gallerypreview */
+            galleryPreview?: string | null;
+            /** Hidden */
+            hidden?: boolean | null;
+            /** Id */
+            id?: string | null;
+            /** Is Main */
+            is_main?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Order */
+            order?: number | null;
+            /** Table Id */
+            table_id?: string | null;
+            /** Type */
+            type?: string | null;
+            /** Visibleproperties */
+            visibleProperties?: components["schemas"]["JsonValue"][] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** VaultViewResponse */
+        VaultViewResponse: {
+            /** Cardsize */
+            cardSize?: string | null;
+            /** Embedded */
+            embedded?: boolean | null;
+            /** Gallerypreview */
+            galleryPreview?: string | null;
+            /** Hidden */
+            hidden?: boolean | null;
+            /** Id */
+            id: string;
+            /** Is Main */
+            is_main?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Order */
+            order?: number | null;
+            /** Table Id */
+            table_id?: string | null;
+            /** Type */
+            type?: string | null;
+            /** Visibleproperties */
+            visibleProperties?: components["schemas"]["JsonValue"][] | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** VerifyPayload */
         VerifyPayload: {
             /** Database Ids */
@@ -17952,6 +18009,27 @@ export interface components {
             field: string;
             /** Value */
             value: string;
+        };
+        /** ViewMutationResponse */
+        ViewMutationResponse: {
+            /** Status */
+            status: string;
+        };
+        /** ViewReorderRequest */
+        ViewReorderRequest: {
+            /** Ordered Ids */
+            ordered_ids: string[];
+            /** Table Id */
+            table_id: string;
+        };
+        /** ViewReorderResponse */
+        ViewReorderResponse: {
+            /** Count */
+            count: number;
+            /** Ok */
+            ok: boolean;
+            /** Table Id */
+            table_id: string;
         };
         /** ViewSection */
         ViewSection: {
@@ -17983,6 +18061,24 @@ export interface components {
             type: string;
         } & {
             [key: string]: unknown;
+        };
+        /** ViewUsagePageResponse */
+        ViewUsagePageResponse: {
+            /** Id */
+            id: string;
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
+        };
+        /** ViewUsageResponse */
+        ViewUsageResponse: {
+            /** Count */
+            count: number;
+            /** Pages */
+            pages: components["schemas"]["ViewUsagePageResponse"][];
+            /** View Id */
+            view_id: string;
         };
         /**
          * WorklogCreateResponse
@@ -37976,7 +38072,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultViewResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -38006,9 +38102,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["VaultViewInput"];
             };
         };
         responses: {
@@ -38018,7 +38112,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultViewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38056,7 +38150,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultViewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38088,9 +38182,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["VaultViewInput"];
             };
         };
         responses: {
@@ -38100,7 +38192,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ViewMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38138,7 +38230,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ViewMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38176,7 +38268,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ViewUsageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38206,9 +38298,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["ViewReorderRequest"];
             };
         };
         responses: {
@@ -38218,7 +38308,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ViewReorderResponse"];
                 };
             };
             /** @description Validation Error */
