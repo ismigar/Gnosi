@@ -6,6 +6,30 @@ export interface PageEtagConflictEventDetail {
   readonly pageId: string;
 }
 
+export type RelationEventScalar =
+  | string
+  | number
+  | bigint
+  | boolean
+  | null
+  | undefined;
+
+export interface RelationUnlinkedEventDetail {
+  readonly field: string;
+  readonly metadataKey: string;
+  readonly nextValue: readonly string[];
+  readonly pageId: string;
+  readonly previousValue: readonly string[];
+  readonly relationId?: RelationEventScalar;
+  readonly relationTitle?: RelationEventScalar;
+}
+
+export interface RelationValueAppliedEventDetail {
+  readonly metadataKey: string;
+  readonly pageId: string;
+  readonly value: unknown;
+}
+
 
 export interface AppEventMap {
   readonly 'db-theme-changed': null;
@@ -13,6 +37,8 @@ export interface AppEventMap {
   readonly 'gnosi:floating-dock-change': { readonly isOpen: boolean };
   readonly 'gnosi:floating-panel-open': { readonly panelId: string };
   readonly 'gnosi:invalidatePreview': { readonly pageId: string };
+  readonly 'gnosi:relation-unlinked': RelationUnlinkedEventDetail;
+  readonly 'gnosi:relation-value-applied': RelationValueAppliedEventDetail;
   readonly 'gnosi:vault-name-changed': null;
   readonly 'gnosi:vault-changed': {
     readonly id: string;
