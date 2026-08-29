@@ -1,51 +1,70 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Hash, Search, ChevronRight, ChevronDown, FileText, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+import { logError } from '../../lib/notifyError';
 import { toast } from '../../lib/toast';
-import { fetchVaultTags } from '../../shared/api/vault-tags';
+import {
+    fetchVaultTags,
+    type VaultTagSummary,
+} from '../../shared/api/vault-tags';
+
+
+export interface VaultTagsViewProps {
+    readonly onPageSelect?: (pageId: string) => unknown;
+}
 
 /**
  * Obsidian-style Tags page: an index of every tag in the vault with
  * a count, expandable to see (and open) the pages that contain them.
  */
-export function VaultTagsView({ onPageSelect }) {
+export function VaultTagsView({ onPageSelect }: VaultTagsViewProps) {
     const { t } = useTranslation();
-    const [tags, setTags] = useState([]);
+    const [tags, setTags] = useState<VaultTagSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [expanded, setExpanded] = useState(() => new Set());
+    const [expanded, setExpanded] = useState(() => new Set<string>());
 
-    const fetchTags = useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = await fetchVaultTags();
-            setTags(data.tags || []);
-        } catch (err) {
-            console.error('Error loading tags:', err);
-            toast.error(t('errors.tags_load', { defaultValue: "Couldn't load the tags" }));
-        } finally {
-            setLoading(false);
-        }
+    useEffect(() => {
+        let active = true;
+        const controller = new AbortController();
+        const loadTags = async (): Promise<void> => {
+            try {
+                const data = await fetchVaultTags(controller.signal);
+                if (active) setTags(data.tags);
+            } catch (error) {
+                if (!active) return;
+                logError('vault-tags-load', error);
+                toast.error(t('errors.tags_load', {
+                    defaultValue: "Couldn't load the tags",
+                }));
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        void loadTags();
+        return () => {
+            active = false;
+            controller.abort();
+        };
     }, [t]);
-
-    useEffect(() => { fetchTags(); }, [fetchTags]);
 
     const filtered = useMemo(() => {
         if (!searchTerm) return tags;
         const needle = searchTerm.toLowerCase();
-        return tags.filter(tg => String(tg.name || '').toLowerCase().includes(needle));
+        return tags.filter((tag) => tag.name.toLowerCase().includes(needle));
     }, [tags, searchTerm]);
 
-    const toggle = (name) => {
-        setExpanded(prev => {
-            const next = new Set(prev);
+    const toggle = (name: string): void => {
+        setExpanded((previous) => {
+            const next = new Set(previous);
             if (next.has(name)) next.delete(name); else next.add(name);
             return next;
         });
     };
 
     const totalPages = useMemo(
-        () => tags.reduce((acc, tg) => acc + (tg.count || 0), 0),
+        () => tags.reduce((total, tag) => total + tag.count, 0),
         [tags]
     );
 
@@ -70,7 +89,9 @@ export function VaultTagsView({ onPageSelect }) {
                     <input
                         type="text"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(event) => {
+                            setSearchTerm(event.target.value);
+                        }}
                         placeholder={t('tags.search_placeholder', "Search tags…")}
                         className="w-full pl-9 pr-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg text-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--gnosi-blue)]/30"
                     />
@@ -100,7 +121,9 @@ export function VaultTagsView({ onPageSelect }) {
                                 <div key={tg.name} className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden">
                                     <button
                                         type="button"
-                                        onClick={() => toggle(tg.name)}
+                                        onClick={() => {
+                                            toggle(tg.name);
+                                        }}
                                         className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--bg-secondary)] transition-colors"
                                     >
                                         {isOpen
@@ -114,11 +137,13 @@ export function VaultTagsView({ onPageSelect }) {
                                     </button>
                                     {isOpen && (
                                         <div className="border-t border-[var(--border-primary)] py-1">
-                                            {(tg.pages || []).map((pg) => (
+                                            {tg.pages.map((pg) => (
                                                 <button
                                                     key={pg.id}
                                                     type="button"
-                                                    onClick={() => onPageSelect?.(pg.id)}
+                                                    onClick={() => {
+                                                        onPageSelect?.(pg.id);
+                                                    }}
                                                     className="w-full flex items-center gap-2 px-3 py-1.5 pl-9 text-left hover:bg-[var(--bg-secondary)] transition-colors"
                                                 >
                                                     <FileText size={13} className="text-[var(--text-tertiary)] shrink-0" />

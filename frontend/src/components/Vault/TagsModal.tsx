@@ -1,9 +1,16 @@
-import React, { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, type MouseEvent } from 'react';
 import { Hash, ChevronRight, FileText, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { openVaultNote } from '../../utils/vaultQuickNavigation';
 import { IconRenderer } from './IconRenderer';
+import {
+    buildTagTree,
+    tagNoteIcon,
+    type TagNote,
+    type TagTreeNode,
+} from './vaultTagTree';
 
 /**
  * TagsModal
@@ -13,35 +20,24 @@ import { IconRenderer } from './IconRenderer';
  * selected tag (the tag or any descendant). Fully client-side.
  */
 
-const noteTags = (note) => {
-    const raw = note?.metadata?.tags;
-    if (!raw) return [];
-    const arr = Array.isArray(raw) ? raw : String(raw).split(',');
-    return arr.map((t) => String(t).replace(/^#/, '').trim()).filter(Boolean);
-};
+interface TagNodeProps {
+    readonly depth: number;
+    readonly expanded: ReadonlySet<string>;
+    readonly node: TagTreeNode;
+    readonly onSelect: (path: string) => void;
+    readonly selected: string;
+    readonly toggle: (path: string) => void;
+}
 
-// Builds the tag tree. Each node accumulates the pages of its subtree.
-const buildTree = (notes) => {
-    const root = { name: '', fullPath: '', children: new Map(), pages: new Map() };
-    for (const note of notes) {
-        for (const tag of noteTags(note)) {
-            const parts = tag.split('/').map((p) => p.trim()).filter(Boolean);
-            let node = root;
-            let path = '';
-            for (const part of parts) {
-                path = path ? `${path}/${part}` : part;
-                if (!node.children.has(part)) {
-                    node.children.set(part, { name: part, fullPath: path, children: new Map(), pages: new Map() });
-                }
-                node = node.children.get(part);
-                node.pages.set(note.id, note);
-            }
-        }
-    }
-    return root;
-};
 
-function TagNode({ node, depth, selected, onSelect, expanded, toggle }) {
+function TagNode({
+    node,
+    depth,
+    selected,
+    onSelect,
+    expanded,
+    toggle,
+}: TagNodeProps) {
     const hasChildren = node.children.size > 0;
     const isOpen = expanded.has(node.fullPath);
     const isSel = selected === node.fullPath;
@@ -49,11 +45,13 @@ function TagNode({ node, depth, selected, onSelect, expanded, toggle }) {
         <div>
             <div
                 className={`flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 text-sm ${isSel ? 'bg-[var(--gnosi-primary)]/12 text-[var(--gnosi-primary)]' : 'hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)]'}`}
-                style={{ paddingLeft: `${depth * 14 + 4}px` }}
-                onClick={() => onSelect(node.fullPath)}
+                style={{ paddingLeft: depth * 14 + 4 }}
+                onClick={() => {
+                    onSelect(node.fullPath);
+                }}
             >
                 {hasChildren ? (
-                    <button onClick={(e) => { e.stopPropagation(); toggle(node.fullPath); }} className="shrink-0 rounded p-0.5 hover:bg-[var(--bg-tertiary)]">
+                    <button type="button" onClick={(event: MouseEvent<HTMLButtonElement>) => { event.stopPropagation(); toggle(node.fullPath); }} className="shrink-0 rounded p-0.5 hover:bg-[var(--bg-tertiary)]">
                         <ChevronRight size={13} className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                     </button>
                 ) : <span className="w-[18px] shrink-0" />}
@@ -74,15 +72,28 @@ function TagNode({ node, depth, selected, onSelect, expanded, toggle }) {
     );
 }
 
-export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
+export interface TagsModalProps {
+    readonly allNotes?: readonly TagNote[];
+    readonly isOpen: boolean;
+    readonly onClose: () => unknown;
+    readonly onNoteSelect?: (pageId: string) => void;
+}
+
+
+export default function TagsModal({
+    isOpen,
+    onClose,
+    allNotes = [],
+    onNoteSelect,
+}: TagsModalProps) {
     const { t } = useTranslation();
     const [selected, setSelected] = useState('');
-    const [expanded, setExpanded] = useState(() => new Set());
+    const [expanded, setExpanded] = useState(() => new Set<string>());
     const [filter, setFilter] = useState('');
-    const panelRef = useRef(null);
+    const panelRef = useRef<HTMLDivElement>(null);
     useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
 
-    const root = useMemo(() => buildTree(allNotes), [allNotes]);
+    const root = useMemo(() => buildTagTree(allNotes), [allNotes]);
 
     const topNodes = useMemo(() => {
         const list = Array.from(root.children.values());
@@ -94,16 +105,21 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
     const selectedNode = useMemo(() => {
         if (!selected) return null;
         const parts = selected.split('/');
-        let node = root;
-        for (const p of parts) { node = node?.children.get(p); if (!node) return null; }
+        let node: TagTreeNode | undefined = root;
+        for (const part of parts) {
+            node = node.children.get(part);
+            if (!node) return null;
+        }
         return node;
     }, [root, selected]);
 
-    const toggle = (path) => setExpanded((prev) => {
-        const next = new Set(prev);
-        if (next.has(path)) next.delete(path); else next.add(path);
-        return next;
-    });
+    const toggle = (path: string): void => {
+        setExpanded((previous) => {
+            const next = new Set(previous);
+            if (next.has(path)) next.delete(path); else next.add(path);
+            return next;
+        });
+    };
 
     if (!isOpen) return null;
 
@@ -125,7 +141,9 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         <input
                             data-autofocus
                             value={filter}
-                            onChange={(e) => setFilter(e.target.value)}
+                            onChange={(event) => {
+                                setFilter(event.target.value);
+                            }}
                             placeholder={t('tags.filter_placeholder', "Filter tags…")}
                             className="w-full rounded bg-[var(--bg-secondary)] px-2 py-1 text-sm text-[var(--text-primary)] outline-none"
                         />
@@ -154,10 +172,10 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         ) : pages.map((note) => (
                             <button
                                 key={note.id}
-                                onClick={() => { openVaultNote(onNoteSelect, note); onClose(); }}
+                                onClick={() => { openVaultNote(onNoteSelect, { id: note.id }); onClose(); }}
                                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-[var(--bg-secondary)]"
                             >
-                                {note.metadata?.icon ? <IconRenderer icon={note.metadata.icon} size={15} className="shrink-0" /> : <FileText size={15} className="shrink-0 text-[var(--text-tertiary)]" />}
+                                {tagNoteIcon(note) ? <IconRenderer icon={tagNoteIcon(note)} size={15} className="shrink-0" /> : <FileText size={15} className="shrink-0 text-[var(--text-tertiary)]" />}
                                 <span className="truncate text-[var(--text-primary)]">{note.title || t('common.untitled', "Untitled")}</span>
                             </button>
                         ))}
