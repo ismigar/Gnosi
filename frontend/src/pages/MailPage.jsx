@@ -10,7 +10,7 @@ import { cachedJson } from '../lib/cachedJson';
 import { AppHeader } from '../components/AppHeader';
 import { Inbox, PanelLeft } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { transportFetch } from '../shared/api/transports';
+import { fetchMailCounts, moveMailMessage } from '../shared/api/mail';
 
 export default function MailPage() {
     return (
@@ -108,7 +108,7 @@ function MailPageInner() {
             ? [selectedAccount.email]
             : accs.map(a => a.email || a.username).filter(Boolean);
         if (!emailList.length) return;
-        Promise.all(emailList.map(e => transportFetch(`/api/mail/counts?email=${encodeURIComponent(e)}`).then(r => r.json()).catch(() => ({}))))
+        Promise.all(emailList.map(e => fetchMailCounts(e).catch(() => ({}))))
             .then(results => {
                 const merged = {};
                 results.forEach(res => {
@@ -131,15 +131,11 @@ function MailPageInner() {
         undoRef.current = null;
         toast.dismiss('undo-toast');
         try {
-            const res = await transportFetch(
-                `/api/mail/messages/${action.mailId}/move?email=${encodeURIComponent(action.email)}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target_folder: 'INBOX', imap_uid: action.imap_uid, imap_folder: action.imap_folder }),
-                }
-            );
-            if (!res.ok) throw new Error('move_failed');
+            await moveMailMessage(action.mailId, action.email, {
+                target_folder: 'INBOX',
+                imap_uid: action.imap_uid,
+                imap_folder: action.imap_folder,
+            });
             setRemovedMailId(null);
             setListRefreshToken(n => n + 1);
             fetchCounts(accounts);

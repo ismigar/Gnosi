@@ -58,6 +58,11 @@ import { syncContacts as requestContactsSync } from '../shared/api/contacts';
 import { fetchIdentity, saveIdentity } from '../shared/api/identity';
 import { fetchEnvironment, updateEnvironment } from '../shared/api/environment';
 import {
+    fetchMailCounts,
+    setMailAccountEnabled,
+    syncMail,
+} from '../shared/api/mail';
+import {
     fetchSocialNetworks,
     fetchSocialStreams,
     updateSocialNetworks,
@@ -1275,7 +1280,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
     }, [syncErrorAccounts]);
 
     // When the Mail tab opens, perform a passive health check calling
-    // /api/mail/counts for each account. If it returns {} (authentication or
+    // the typed mail-count endpoint for each account. If it returns {} (authentication or
     // IMAP connection failed), marks the account as error; if it returns
     // data, removes it from the Set. This corrects the persisted ERROR state
     // to localStorage for accounts that are already working correctly.
@@ -1299,9 +1304,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         let cancelled = false;
         Promise.all(emails.map(async email => {
             try {
-                const r = await transportFetch(`/api/mail/counts?email=${encodeURIComponent(email)}`);
-                if (!r.ok) return { email, ok: false };
-                const data = await r.json();
+                const data = await fetchMailCounts(email);
                 return { email, ok: data && Object.keys(data).length > 0 };
             } catch {
                 return { email, ok: false };
@@ -2095,7 +2098,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             } else if (category === 'calendar') {
                 data = await syncCalendar(email);
             } else {
-                data = (await axios.post(`/api/mail/sync?email=${encodeURIComponent(email)}`)).data;
+                data = await syncMail(email);
             }
 
             const ok = data.status === 'success' || data.status === 'ok';
@@ -3222,7 +3225,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                         enabled={acc.enabled !== false}
                                                                         onToggleEnabled={activeTab === 'mail' ? async (val) => {
                                                                             const emailAddr = acc.email || acc.username;
-                                                                            await axios.patch(`/api/mail/accounts/${encodeURIComponent(emailAddr)}/enabled`, { enabled: val });
+                                                                            await setMailAccountEnabled(emailAddr, val);
                                                                             setIntegrations(prev => {
                                                                                 const updated = { ...prev };
                                                                                 for (const section of ['mail_accounts', 'emails']) {

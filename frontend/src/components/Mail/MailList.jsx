@@ -11,7 +11,18 @@ import { useMailTags } from '../../hooks/useMailTags';
 import MailTagPicker, { TagPill } from './MailTagPicker';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { openEventStream } from '../../shared/api/specialized-transports';
-import { transportFetch } from '../../shared/api/transports';
+import {
+    archiveMailMessage,
+    batchMailMessages,
+    deleteMailDraft,
+    emptyMailFolder,
+    fetchMailFolders,
+    fetchMailMessages,
+    moveMailMessage,
+    starMailMessage,
+    trashMailMessage,
+} from '../../shared/api/mail';
+import { mailEventsUrl } from '../../shared/api/mail-specialized';
 
 const cleanName = (addr) =>
     (addr || '').split('<')[0].trim().replace(/^["']+|["']+$/g, '').trim() || addr || '';
@@ -99,16 +110,18 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     const [offsets, setOffsets] = useState({});          // imap offset
     const [totals, setTotals] = useState({});            // total per account
 
-    const buildUrl = (email, { pageToken, offset, force } = {}) => {
-        let url = `/api/mail/messages?email=${encodeURIComponent(email)}&limit=50`;
+    const buildQuery = (email, { pageToken, offset, force } = {}) => {
         // Always sends folder. "all" = all emails (no INBOX filter). "NOT_ARCHIVED" is filtered client-side.
         const folderParam = folder === 'NOT_ARCHIVED' ? 'all' : (folder || 'all');
-        url += `&folder=${encodeURIComponent(folderParam)}`;
-        if (category) url += `&category=${encodeURIComponent(category)}`;
-        if (pageToken) url += `&page_token=${encodeURIComponent(pageToken)}`;
-        if (offset) url += `&offset=${offset}`;
-        if (force) url += `&force=true`;
-        return url;
+        return {
+            email,
+            limit: 50,
+            folder: folderParam,
+            ...(category ? { category } : {}),
+            ...(pageToken ? { pageToken } : {}),
+            ...(offset ? { offset } : {}),
+            ...(force ? { force: true } : {}),
+        };
     };
 
     const fetchMessages = ({ force = false } = {}) => {
@@ -137,7 +150,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         }
 
         Promise.all(emailList.map(email =>
-            transportFetch(buildUrl(email, { force })).then(r => r.json()).catch(() => ({ messages: [], total: 0 }))
+            fetchMailMessages(buildQuery(email, { force })).catch(() => ({ messages: [], total: 0 }))
         ))
             .then(results => {
                 const newTokens = {};
@@ -177,8 +190,8 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                         const pfKey = `${emailList2.join(',')}|${pf}|`;
                         if (msgCacheRef.current[pfKey]) return;
                         Promise.all(emailList2.map(em =>
-                            transportFetch(`/api/mail/messages?email=${encodeURIComponent(em)}&limit=50&folder=${encodeURIComponent(pf)}`)
-                                .then(r => r.json()).catch(() => ({ messages: [] }))
+                            fetchMailMessages({ email: em, limit: 50, folder: pf })
+                                .catch(() => ({ messages: [] }))
                         )).then(pfResults => {
                             const pfSeen = new Set();
                             const pfMsgs = pfResults.flatMap(r => r.messages || []).filter(m => {
@@ -212,8 +225,8 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             const token = pageTokens[email];
             const offset = offsets[email] || 0;
             if (!token && totals[email] && offset >= totals[email]) return Promise.resolve({ messages: [], total: totals[email] });
-            return transportFetch(buildUrl(email, { pageToken: token, offset }))
-                .then(r => r.json()).catch(() => ({ messages: [], total: 0 }));
+            return fetchMailMessages(buildQuery(email, { pageToken: token, offset }))
+                .catch(() => ({ messages: [], total: 0 }));
         }))
             .then(results => {
                 const newTokens = { ...pageTokens };
@@ -257,9 +270,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     useEffect(() => {
         // If we only show a specific account, we filter by email so that
         // events from other accounts don't trigger an unnecessary reload.
-        const url = account?.email
-            ? `/api/mail/events?email=${encodeURIComponent(account.email)}`
-            : `/api/mail/events`;
+        const url = mailEventsUrl(account?.email);
 
         let es;
         try {
@@ -467,24 +478,23 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
                 setLoading(true);
                 try {
-                    const results = await Promise.all(emailList.map(async email => {
-                        const res = await transportFetch(`/api/mail/empty_folder?email=${encodeURIComponent(email)}&folder=${encodeURIComponent(folder)}`, { method: 'POST' });
-                        return { email, ok: res.ok, res };
-                    }));
+                    const results = await Promise.all(emailList.map(email =>
+                        emptyMailFolder(email, folder)
+                            .then(() => ({ email, ok: true }))
+                            .catch(error => ({ email, ok: false, error }))
+                    ));
 
                     const failed = results.filter(r => !r.ok);
                     const succeeded = results.filter(r => r.ok);
 
                     if (succeeded.length === 0) {
-                        const errData = await failed[0].res.json().catch(() => ({}));
-                        throw new Error(errData.detail || t('mail.server_error', "Server error"));
+                        throw new Error(failed[0].error?.message || t('mail.server_error', "Server error"));
                     }
 
                     if (failed.length > 0) {
-                        const errDetails = await Promise.all(failed.map(async f => {
-                            const d = await f.res.json().catch(() => ({}));
-                            return `${f.email}: ${d.detail || t('errors.unknown')}`;
-                        }));
+                        const errDetails = failed.map(f =>
+                            `${f.email}: ${f.error?.message || t('errors.unknown')}`
+                        );
                         toast.error(t('mail.empty_partial_error', "Partially emptied. Errors: {{errors}}", { errors: errDetails.join('; ') }), { duration: 6000 });
                     } else {
                         toast.success(isTrash ? t('mail.trash_emptied', "Trash emptied") : t('mail.junk_moved_to_trash', "Junk mail moved to trash"));
@@ -687,9 +697,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     const getFolders = async (email) => {
         if (foldersCacheRef.current[email]?.length) return foldersCacheRef.current[email];
         try {
-            const res = await transportFetch(`/api/mail/folders?email=${encodeURIComponent(email)}`);
-            const d = await res.json();
-            const folders = d.folders || [];
+            const folders = (await fetchMailFolders(email)).folders || [];
             foldersCacheRef.current[email] = folders;
             return folders;
         } catch { return []; }
@@ -712,19 +720,13 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         if (!email || !msg.id) return;
         setMessages(prev => filterOutThread(prev, msg.id, msg.thread_id));
         try {
-            const res = await transportFetch(`/api/mail/messages/${msg.id}/move?email=${encodeURIComponent(email)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target_folder: folderName, imap_uid: msg.imap_uid, imap_folder: msg.imap_folder })
+            await moveMailMessage(msg.id, email, {
+                target_folder: folderName,
+                imap_uid: msg.imap_uid,
+                imap_folder: msg.imap_folder,
             });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                toast.error(err.detail || t('mail.move_message_failed', "Couldn't move the message"));
-                setMessages(prev => [msg, ...prev]);
-                return;
-            }
-        } catch {
-            toast.error(t('mail.move_connection_error', "Connection error while moving the message"));
+        } catch (error) {
+            toast.error(error?.message || t('mail.move_connection_error', "Connection error while moving the message"));
             setMessages(prev => [msg, ...prev]);
             return;
         }
@@ -766,11 +768,11 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         const results = await Promise.all(emailsToCall.map(({ email, ids: groupIds }) =>
             Promise.all(groupIds.map(id => {
                 const m = msgById[id] || {};
-                return transportFetch(`/api/mail/messages/${id}/move?email=${encodeURIComponent(email)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target_folder: folderName, imap_uid: m.imap_uid, imap_folder: m.imap_folder })
-                }).then(r => ({ ok: r.ok, id })).catch(() => ({ ok: false, id }));
+                return moveMailMessage(id, email, {
+                    target_folder: folderName,
+                    imap_uid: m.imap_uid,
+                    imap_folder: m.imap_folder,
+                }).then(() => ({ ok: true, id })).catch(() => ({ ok: false, id }));
             }))
         ));
         const failedIds = new Set(results.flat().filter(r => !r.ok).map(r => r.id));
@@ -798,25 +800,21 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         if (action === 'star') {
             const newVal = !msg.is_starred;
             setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_starred: newVal } : m));
-            await transportFetch(`/api/mail/messages/${msg.id}/star?email=${encodeURIComponent(effectiveEmail)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ starred: newVal }),
-            }).catch(() => {});
+            await starMailMessage(msg.id, effectiveEmail, newVal).catch(() => {});
         } else if (action === 'archive') {
             setMessages(prev => filterOutThread(prev, msg.id, msg.thread_id));
             purgeMsgFromCache(msg.id, msg.thread_id);
             onRecordAction?.('archive', msg.id, effectiveEmail, { imap_uid: msg.imap_uid, imap_folder: msg.imap_folder });
-            await transportFetch(`/api/mail/messages/${msg.id}/archive?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' }).catch(() => {});
+            await archiveMailMessage(msg.id, effectiveEmail).catch(() => {});
         } else if (action === 'trash') {
             setMessages(prev => filterOutThread(prev, msg.id, msg.thread_id));
             purgeMsgFromCache(msg.id, msg.thread_id);
             onRecordAction?.('trash', msg.id, effectiveEmail, { imap_uid: msg.imap_uid, imap_folder: msg.imap_folder });
             if (msg.source === 'vault') {
-                await transportFetch(`/api/mail/drafts/${msg.id}`, { method: 'DELETE' }).catch(() => {});
+                await deleteMailDraft(msg.id).catch(() => {});
                 onBatchDone?.();
             } else {
-                await transportFetch(`/api/mail/messages/${msg.id}/trash?email=${encodeURIComponent(effectiveEmail)}`, { method: 'POST' }).catch(() => {});
+                await trashMailMessage(msg.id, effectiveEmail).catch(() => {});
             }
         }
     };
@@ -849,8 +847,8 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             const imapIds = ids.filter(id => !vaultIds.includes(id));
 
             const results = await Promise.all([
-                ...vaultIds.map(id => transportFetch(`/api/mail/drafts/${id}`, { method: 'DELETE' })
-                    .then(r => ({ ok: r.ok, ids: [id] }))
+                ...vaultIds.map(id => deleteMailDraft(id)
+                    .then(() => ({ ok: true, ids: [id] }))
                     .catch(() => ({ ok: false, ids: [id] }))),
                 ...(() => {
                     if (!imapIds.length) return [];
@@ -868,11 +866,8 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                 }, {})
                         );
                     return emailsToCall.map(({ email, ids: groupIds }) =>
-                        transportFetch(`/api/mail/batch?email=${encodeURIComponent(email)}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action, ids: groupIds }),
-                        }).then(r => ({ ok: r.ok, ids: groupIds }))
+                        batchMailMessages(email, action, groupIds)
+                          .then(() => ({ ok: true, ids: groupIds }))
                           .catch(() => ({ ok: false, ids: groupIds })));
                 })(),
             ]);
@@ -899,11 +894,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                         }, {})
                 );
             await Promise.all(emailsToCall.map(({ email, ids: groupIds }) =>
-                transportFetch(`/api/mail/batch?email=${encodeURIComponent(email)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, ids: groupIds }),
-                }).catch(() => {})
+                batchMailMessages(email, action, groupIds).catch(() => {})
             ));
         }
         onBatchDone?.();
