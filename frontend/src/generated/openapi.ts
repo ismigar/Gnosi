@@ -11374,6 +11374,35 @@ export interface components {
         ConfigurationDocument: {
             [key: string]: components["schemas"]["JsonValue"];
         };
+        /**
+         * ConfigurationInstalledPluginResponse
+         * @description One installed plugin or one discoverable broken installation.
+         */
+        ConfigurationInstalledPluginResponse: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Error */
+            error?: string | null;
+            /** Granted */
+            granted?: string[];
+            /** Id */
+            id?: string | null;
+            manifest?: components["schemas"]["ConfigurationPluginManifestResponse"] | null;
+            /** Provenance */
+            provenance?: {
+                [key: string]: unknown;
+            } | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ConfigurationInstalledPluginsResponse
+         * @description Installed third-party plugin inventory.
+         */
+        ConfigurationInstalledPluginsResponse: {
+            /** Plugins */
+            plugins: components["schemas"]["ConfigurationInstalledPluginResponse"][];
+        };
         /** ConfigurationPatch */
         ConfigurationPatch: {
             /** Ai Agent Id */
@@ -11386,6 +11415,142 @@ export interface components {
             source_defaults?: {
                 [key: string]: boolean;
             } | null;
+        };
+        /**
+         * ConfigurationPluginCatalogEntryResponse
+         * @description One local or remote plugin catalog entry.
+         */
+        ConfigurationPluginCatalogEntryResponse: {
+            /** Author */
+            author?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Id */
+            id: string;
+            /** Installed */
+            installed: boolean;
+            /** Name */
+            name?: string | null;
+            /** Signed */
+            signed: boolean;
+            /** Source */
+            source?: string | null;
+            /** Version */
+            version?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ConfigurationPluginCatalogResponse
+         * @description Plugin marketplace entries with installation state.
+         */
+        ConfigurationPluginCatalogResponse: {
+            /** Catalog */
+            catalog: components["schemas"]["ConfigurationPluginCatalogEntryResponse"][];
+        };
+        /**
+         * ConfigurationPluginManifestResponse
+         * @description Validated third-party plugin manifest displayed by Settings.
+         */
+        ConfigurationPluginManifestResponse: {
+            /** Author */
+            author?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Homepage */
+            homepage?: string | null;
+            /** Id */
+            id: string;
+            /** Main */
+            main?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Permissions */
+            permissions?: string[];
+            /** Version */
+            version?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ConfigurationPluginNetworkFetchResponse
+         * @description Bounded network response returned to a sandboxed UI plugin.
+         */
+        ConfigurationPluginNetworkFetchResponse: {
+            /** Body */
+            body: string;
+            /** Contenttype */
+            contentType: string;
+            /** Status */
+            status: number;
+        };
+        /**
+         * ConfigurationPluginPermissionsCatalogResponse
+         * @description Capability descriptions supported by the plugin host.
+         */
+        ConfigurationPluginPermissionsCatalogResponse: {
+            /** Apiversion */
+            apiVersion: number;
+            /** Permissions */
+            permissions: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * ConfigurationPluginRegistryUrlResponse
+         * @description Effective remote plugin registry URL.
+         */
+        ConfigurationPluginRegistryUrlResponse: {
+            /** Url */
+            url: string;
+        };
+        /**
+         * ConfigurationPluginStateResponse
+         * @description Versioned plugin activation state exposed to the frontend host.
+         */
+        ConfigurationPluginStateResponse: {
+            /** Builtins */
+            builtins?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Disabled */
+            disabled?: string[];
+            /** Enabled Builtin */
+            enabled_builtin?: string[];
+            /** Enabled Third Party */
+            enabled_third_party?: string[];
+            /** Granted */
+            granted?: {
+                [key: string]: unknown;
+            };
+            /** Registry Url */
+            registry_url?: string | null;
+            /** Schema Version */
+            schema_version?: number | null;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ConfigurationPluginTrustedKeyResponse
+         * @description Safe public summary of one trusted signing key.
+         */
+        ConfigurationPluginTrustedKeyResponse: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ConfigurationPluginTrustedKeysResponse
+         * @description Trusted signing-key summaries.
+         */
+        ConfigurationPluginTrustedKeysResponse: {
+            /** Keys */
+            keys: components["schemas"]["ConfigurationPluginTrustedKeyResponse"][];
         };
         /**
          * ConfigurationUpdateRequest
@@ -13475,20 +13640,39 @@ export interface components {
             /** Table Id */
             table_id: string | null;
         };
+        /** LlmWikiCapabilitiesResponse */
+        LlmWikiCapabilitiesResponse: {
+            /** Binaries */
+            binaries: {
+                [key: string]: boolean;
+            };
+            /** Modules */
+            modules: {
+                [key: string]: boolean;
+            };
+            /** Ocr */
+            ocr: boolean;
+            /** Ocr Languages */
+            ocr_languages: string[];
+            /** Ocr Missing Languages */
+            ocr_missing_languages: string[];
+            /** Streaming */
+            streaming: boolean;
+            /** Supported Extensions */
+            supported_extensions: string[];
+            /** Transcription */
+            transcription: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * LlmWikiConfigResponse
          * @description Migrated configuration plus runtime status used by settings and pages.
          */
         LlmWikiConfigResponse: {
             brain: components["schemas"]["LlmWikiBrainResponse"];
-            /** Capabilities */
-            capabilities: {
-                [key: string]: components["schemas"]["JsonValue"];
-            };
-            /** Config */
-            config: {
-                [key: string]: components["schemas"]["JsonValue"];
-            };
+            capabilities: components["schemas"]["LlmWikiCapabilitiesResponse"];
+            config: components["schemas"]["LlmWikiSettingsDocument"];
             /** Eligible Index Properties */
             eligible_index_properties: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -13497,18 +13681,42 @@ export interface components {
             enabled: boolean;
             /** Index Options */
             index_options: {
-                [key: string]: {
-                    [key: string]: components["schemas"]["JsonValue"];
-                }[];
+                [key: string]: components["schemas"]["LlmWikiSettingsOptionResponse"][];
             };
-            /** Processed Resources */
-            processed_resources: {
+            processed_resources: components["schemas"]["JsonValue"];
+            resource_statuses: components["schemas"]["JsonValue"];
+            validation: components["schemas"]["LlmWikiValidationResponse"];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * LlmWikiCreatedSettingsResponse
+         * @description Settings response returned after creating the standard Brain table.
+         */
+        LlmWikiCreatedSettingsResponse: {
+            brain: components["schemas"]["LlmWikiBrainResponse"];
+            capabilities: components["schemas"]["LlmWikiCapabilitiesResponse"];
+            config: components["schemas"]["LlmWikiSettingsDocument"];
+            /** Configured */
+            configured: boolean;
+            /** Created */
+            created: boolean;
+            /** Eligible Index Properties */
+            eligible_index_properties: {
                 [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Enabled */
+            enabled: boolean;
+            /** Index Options */
+            index_options: {
+                [key: string]: components["schemas"]["LlmWikiSettingsOptionResponse"][];
             };
-            /** Resource Statuses */
-            resource_statuses: {
-                [key: string]: components["schemas"]["JsonValue"];
-            };
+            /** Name */
+            name: string | null;
+            processed_resources: components["schemas"]["JsonValue"];
+            resource_statuses: components["schemas"]["JsonValue"];
+            /** Table Id */
+            table_id: string;
             validation: components["schemas"]["LlmWikiValidationResponse"];
         } & {
             [key: string]: unknown;
@@ -13582,6 +13790,35 @@ export interface components {
             enabled: boolean;
         };
         /**
+         * LlmWikiLintReportResponse
+         * @description Deterministic Brain lint report with forward-compatible findings.
+         */
+        LlmWikiLintReportResponse: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Note Count */
+            note_count: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * LlmWikiMaintenanceResponse
+         * @description Index, lint and suggestion totals returned by Brain maintenance.
+         */
+        LlmWikiMaintenanceResponse: {
+            /** Indexes */
+            indexes: {
+                [key: string]: unknown;
+            };
+            lint: components["schemas"]["LlmWikiLintReportResponse"];
+            /** Suggestions Pending */
+            suggestions_pending: number;
+            /** Suggestions Queued */
+            suggestions_queued: number;
+        };
+        /**
          * LlmWikiProcessRequest
          * @description Compatible request body for starting one durable Brain ingest.
          */
@@ -13630,6 +13867,50 @@ export interface components {
             source_table_id: string;
             /** Status */
             status: string;
+        };
+        /**
+         * LlmWikiSettingsDocument
+         * @description Persisted configuration with forward-compatible feature fields.
+         */
+        LlmWikiSettingsDocument: {
+            /** Brain Roles */
+            brain_roles?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Brain Table Id
+             * @default
+             */
+            brain_table_id: string;
+            /**
+             * Configured
+             * @default false
+             */
+            configured: boolean;
+            /** Index Field Ids */
+            index_field_ids?: string[];
+            /** Source Tables */
+            source_tables?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /**
+             * Target Table
+             * @default
+             */
+            target_table: string;
+            /** Ui Locale */
+            ui_locale?: string | null;
+            /** Version */
+            version?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LlmWikiSettingsOptionResponse */
+        LlmWikiSettingsOptionResponse: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
         };
         /** LlmWikiValidationResponse */
         LlmWikiValidationResponse: {
@@ -33343,7 +33624,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LlmWikiCreatedSettingsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33579,7 +33860,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LlmWikiMaintenanceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36011,7 +36292,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginStateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36208,7 +36489,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginStateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36250,7 +36531,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginNetworkFetchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36446,7 +36727,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginPermissionsCatalogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36522,7 +36803,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginCatalogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36598,7 +36879,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationInstalledPluginsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36674,7 +36955,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginRegistryUrlResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36750,7 +37031,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginTrustedKeysResponse"];
                 };
             };
             /** @description Validation Error */

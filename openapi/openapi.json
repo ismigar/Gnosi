@@ -4212,6 +4212,93 @@
         "title": "ConfigurationDocument",
         "type": "object"
       },
+      "ConfigurationInstalledPluginResponse": {
+        "additionalProperties": true,
+        "description": "One installed plugin or one discoverable broken installation.",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "granted": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Granted",
+            "type": "array"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfigurationPluginManifestResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenance"
+          }
+        },
+        "title": "ConfigurationInstalledPluginResponse",
+        "type": "object"
+      },
+      "ConfigurationInstalledPluginsResponse": {
+        "description": "Installed third-party plugin inventory.",
+        "properties": {
+          "plugins": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationInstalledPluginResponse"
+            },
+            "title": "Plugins",
+            "type": "array"
+          }
+        },
+        "required": [
+          "plugins"
+        ],
+        "title": "ConfigurationInstalledPluginsResponse",
+        "type": "object"
+      },
       "ConfigurationPatch": {
         "properties": {
           "ai_agent_id": {
@@ -4268,6 +4355,363 @@
           }
         },
         "title": "ConfigurationPatch",
+        "type": "object"
+      },
+      "ConfigurationPluginCatalogEntryResponse": {
+        "additionalProperties": true,
+        "description": "One local or remote plugin catalog entry.",
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "signed": {
+            "title": "Signed",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id",
+          "installed",
+          "signed"
+        ],
+        "title": "ConfigurationPluginCatalogEntryResponse",
+        "type": "object"
+      },
+      "ConfigurationPluginCatalogResponse": {
+        "description": "Plugin marketplace entries with installation state.",
+        "properties": {
+          "catalog": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationPluginCatalogEntryResponse"
+            },
+            "title": "Catalog",
+            "type": "array"
+          }
+        },
+        "required": [
+          "catalog"
+        ],
+        "title": "ConfigurationPluginCatalogResponse",
+        "type": "object"
+      },
+      "ConfigurationPluginManifestResponse": {
+        "additionalProperties": true,
+        "description": "Validated third-party plugin manifest displayed by Settings.",
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "homepage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "main": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Main"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "ConfigurationPluginManifestResponse",
+        "type": "object"
+      },
+      "ConfigurationPluginNetworkFetchResponse": {
+        "description": "Bounded network response returned to a sandboxed UI plugin.",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "contentType": {
+            "title": "Contenttype",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "body",
+          "contentType"
+        ],
+        "title": "ConfigurationPluginNetworkFetchResponse",
+        "type": "object"
+      },
+      "ConfigurationPluginPermissionsCatalogResponse": {
+        "description": "Capability descriptions supported by the plugin host.",
+        "properties": {
+          "apiVersion": {
+            "title": "Apiversion",
+            "type": "integer"
+          },
+          "permissions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "permissions",
+          "apiVersion"
+        ],
+        "title": "ConfigurationPluginPermissionsCatalogResponse",
+        "type": "object"
+      },
+      "ConfigurationPluginRegistryUrlResponse": {
+        "description": "Effective remote plugin registry URL.",
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "ConfigurationPluginRegistryUrlResponse",
+        "type": "object"
+      },
+      "ConfigurationPluginStateResponse": {
+        "additionalProperties": true,
+        "description": "Versioned plugin activation state exposed to the frontend host.",
+        "properties": {
+          "builtins": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Builtins"
+          },
+          "disabled": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Disabled",
+            "type": "array"
+          },
+          "enabled_builtin": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled Builtin",
+            "type": "array"
+          },
+          "enabled_third_party": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled Third Party",
+            "type": "array"
+          },
+          "granted": {
+            "additionalProperties": true,
+            "title": "Granted",
+            "type": "object"
+          },
+          "registry_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registry Url"
+          },
+          "schema_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schema Version"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          }
+        },
+        "title": "ConfigurationPluginStateResponse",
+        "type": "object"
+      },
+      "ConfigurationPluginTrustedKeyResponse": {
+        "description": "Safe public summary of one trusted signing key.",
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "fingerprint"
+        ],
+        "title": "ConfigurationPluginTrustedKeyResponse",
+        "type": "object"
+      },
+      "ConfigurationPluginTrustedKeysResponse": {
+        "description": "Trusted signing-key summaries.",
+        "properties": {
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationPluginTrustedKeyResponse"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "title": "ConfigurationPluginTrustedKeysResponse",
         "type": "object"
       },
       "ConfigurationUpdateRequest": {
@@ -10142,6 +10586,70 @@
         "title": "LlmWikiBrainResponse",
         "type": "object"
       },
+      "LlmWikiCapabilitiesResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "binaries": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Binaries",
+            "type": "object"
+          },
+          "modules": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Modules",
+            "type": "object"
+          },
+          "ocr": {
+            "title": "Ocr",
+            "type": "boolean"
+          },
+          "ocr_languages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ocr Languages",
+            "type": "array"
+          },
+          "ocr_missing_languages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ocr Missing Languages",
+            "type": "array"
+          },
+          "streaming": {
+            "title": "Streaming",
+            "type": "boolean"
+          },
+          "supported_extensions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Extensions",
+            "type": "array"
+          },
+          "transcription": {
+            "title": "Transcription",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "modules",
+          "binaries",
+          "supported_extensions",
+          "streaming",
+          "ocr",
+          "ocr_languages",
+          "ocr_missing_languages",
+          "transcription"
+        ],
+        "title": "LlmWikiCapabilitiesResponse",
+        "type": "object"
+      },
       "LlmWikiConfigResponse": {
         "additionalProperties": true,
         "description": "Migrated configuration plus runtime status used by settings and pages.",
@@ -10150,18 +10658,10 @@
             "$ref": "#/components/schemas/LlmWikiBrainResponse"
           },
           "capabilities": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/JsonValue"
-            },
-            "title": "Capabilities",
-            "type": "object"
+            "$ref": "#/components/schemas/LlmWikiCapabilitiesResponse"
           },
           "config": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/JsonValue"
-            },
-            "title": "Config",
-            "type": "object"
+            "$ref": "#/components/schemas/LlmWikiSettingsDocument"
           },
           "eligible_index_properties": {
             "items": {
@@ -10180,10 +10680,7 @@
           "index_options": {
             "additionalProperties": {
               "items": {
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/JsonValue"
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/LlmWikiSettingsOptionResponse"
               },
               "type": "array"
             },
@@ -10191,18 +10688,10 @@
             "type": "object"
           },
           "processed_resources": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/JsonValue"
-            },
-            "title": "Processed Resources",
-            "type": "object"
+            "$ref": "#/components/schemas/JsonValue"
           },
           "resource_statuses": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/JsonValue"
-            },
-            "title": "Resource Statuses",
-            "type": "object"
+            "$ref": "#/components/schemas/JsonValue"
           },
           "validation": {
             "$ref": "#/components/schemas/LlmWikiValidationResponse"
@@ -10220,6 +10709,94 @@
           "enabled"
         ],
         "title": "LlmWikiConfigResponse",
+        "type": "object"
+      },
+      "LlmWikiCreatedSettingsResponse": {
+        "additionalProperties": true,
+        "description": "Settings response returned after creating the standard Brain table.",
+        "properties": {
+          "brain": {
+            "$ref": "#/components/schemas/LlmWikiBrainResponse"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/LlmWikiCapabilitiesResponse"
+          },
+          "config": {
+            "$ref": "#/components/schemas/LlmWikiSettingsDocument"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "eligible_index_properties": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Eligible Index Properties",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "index_options": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/LlmWikiSettingsOptionResponse"
+              },
+              "type": "array"
+            },
+            "title": "Index Options",
+            "type": "object"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "processed_resources": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "resource_statuses": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/LlmWikiValidationResponse"
+          }
+        },
+        "required": [
+          "config",
+          "brain",
+          "eligible_index_properties",
+          "index_options",
+          "capabilities",
+          "validation",
+          "processed_resources",
+          "resource_statuses",
+          "enabled",
+          "table_id",
+          "configured",
+          "name",
+          "created"
+        ],
+        "title": "LlmWikiCreatedSettingsResponse",
         "type": "object"
       },
       "LlmWikiJobResponse": {
@@ -10484,6 +11061,58 @@
         "title": "LlmWikiLifecycleRequest",
         "type": "object"
       },
+      "LlmWikiLintReportResponse": {
+        "additionalProperties": true,
+        "description": "Deterministic Brain lint report with forward-compatible findings.",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "note_count": {
+            "title": "Note Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "note_count",
+          "counts"
+        ],
+        "title": "LlmWikiLintReportResponse",
+        "type": "object"
+      },
+      "LlmWikiMaintenanceResponse": {
+        "description": "Index, lint and suggestion totals returned by Brain maintenance.",
+        "properties": {
+          "indexes": {
+            "additionalProperties": true,
+            "title": "Indexes",
+            "type": "object"
+          },
+          "lint": {
+            "$ref": "#/components/schemas/LlmWikiLintReportResponse"
+          },
+          "suggestions_pending": {
+            "title": "Suggestions Pending",
+            "type": "integer"
+          },
+          "suggestions_queued": {
+            "title": "Suggestions Queued",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "indexes",
+          "lint",
+          "suggestions_queued",
+          "suggestions_pending"
+        ],
+        "title": "LlmWikiMaintenanceResponse",
+        "type": "object"
+      },
       "LlmWikiProcessRequest": {
         "additionalProperties": true,
         "description": "Compatible request body for starting one durable Brain ingest.",
@@ -10560,6 +11189,93 @@
           "job"
         ],
         "title": "LlmWikiProcessStartResponse",
+        "type": "object"
+      },
+      "LlmWikiSettingsDocument": {
+        "additionalProperties": true,
+        "description": "Persisted configuration with forward-compatible feature fields.",
+        "properties": {
+          "brain_roles": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Brain Roles",
+            "type": "object"
+          },
+          "brain_table_id": {
+            "default": "",
+            "title": "Brain Table Id",
+            "type": "string"
+          },
+          "configured": {
+            "default": false,
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "index_field_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Index Field Ids",
+            "type": "array"
+          },
+          "source_tables": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Source Tables",
+            "type": "array"
+          },
+          "target_table": {
+            "default": "",
+            "title": "Target Table",
+            "type": "string"
+          },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "title": "LlmWikiSettingsDocument",
+        "type": "object"
+      },
+      "LlmWikiSettingsOptionResponse": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "LlmWikiSettingsOptionResponse",
         "type": "object"
       },
       "LlmWikiValidationResponse": {
@@ -67912,7 +68628,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiCreatedSettingsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68657,7 +69375,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiMaintenanceResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -76652,7 +77372,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginStateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -76884,7 +77606,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginPermissionsCatalogResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77118,7 +77842,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginCatalogResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77352,7 +78078,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationInstalledPluginsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77586,7 +78314,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginRegistryUrlResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77818,7 +78548,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginTrustedKeysResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -78686,7 +79418,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginStateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -78817,7 +79551,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginNetworkFetchResponse"
+                }
               }
             },
             "description": "Successful Response"

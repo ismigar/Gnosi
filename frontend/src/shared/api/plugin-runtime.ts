@@ -1,6 +1,7 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { GnosiApiError, unwrapApiResult } from './errors';
+import { clearPageEtag } from './page-etag';
 import { transportFetch } from './transports';
 
 
@@ -39,83 +40,8 @@ export interface PluginNetworkResponse extends JsonRecord {
 }
 
 
-interface PageEtagConflictDetail {
-  readonly currentEtag?: string;
-  readonly expectedEtag?: string;
-  readonly message?: string;
-}
-
-
-const pluginHostPageEtags = new Map<string, string>();
-
-
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-
-function responseEtag(value: unknown): string | null {
-  return isRecord(value) && typeof value.etag === 'string' && value.etag
-    ? value.etag
-    : null;
-}
-
-
-function rememberPluginHostPageEtag(pageId: string, value: unknown): void {
-  const etag = typeof value === 'string' ? value : responseEtag(value);
-  if (etag) pluginHostPageEtags.set(pageId, etag);
-}
-
-
-function pageEtagConflict(error: unknown): PageEtagConflictDetail | null {
-  if (!(error instanceof GnosiApiError) || error.status !== 409) return null;
-  if (!isRecord(error.payload) || !isRecord(error.payload.detail)) return null;
-  const detail = error.payload.detail;
-  if (
-    detail.error !== 'etag_mismatch' &&
-    detail.error !== 'etag_mismatch_force'
-  ) {
-    return null;
-  }
-  return {
-    currentEtag:
-      typeof detail.current_etag === 'string' ? detail.current_etag : undefined,
-    expectedEtag:
-      typeof detail.expected_etag === 'string' ? detail.expected_etag : undefined,
-    message: typeof detail.message === 'string' ? detail.message : undefined,
-  };
-}
-
-
-function dispatchPreviewInvalidation(pageId: string): void {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(
-    new CustomEvent('gnosi:invalidatePreview', { detail: { pageId } }),
-  );
-}
-
-
-function dispatchPageEtagConflict(
-  pageId: string,
-  detail: PageEtagConflictDetail,
-  requestBody: PluginHostPagePatchInput,
-): void {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(
-    new CustomEvent('pageEtagConflict', {
-      detail: {
-        pageId,
-        currentEtag: detail.currentEtag,
-        expectedEtag: detail.expectedEtag,
-        message: detail.message,
-        originalRequest: {
-          data: requestBody,
-          method: 'patch',
-          url: `/api/vault/pages/${encodeURIComponent(pageId)}`,
-        },
-      },
-    }),
-  );
 }
 
 
@@ -167,14 +93,12 @@ export async function fetchPluginHostPage(
   pageId: string,
   signal?: AbortSignal,
 ): Promise<PluginHostPage> {
-  const page = unwrapApiResult<PluginHostPage, unknown>(
+  return unwrapApiResult<PluginHostPage, unknown>(
     await apiClient.GET('/api/vault/pages/{page_id}', {
       params: { path: { page_id: pageId } },
       signal,
     }),
   );
-  rememberPluginHostPageEtag(pageId, page);
-  return page;
 }
 
 
@@ -194,41 +118,20 @@ export async function patchPluginHostPage(
   input: PluginHostPagePatchInput,
   options: PluginHostPagePatchOptions = {},
 ): Promise<PluginHostPageMutation> {
-  if (options.knownEtag) {
-    rememberPluginHostPageEtag(pageId, options.knownEtag);
-  }
-  const cachedEtag = pluginHostPageEtags.get(pageId);
   const shouldAttachEtag =
-    Boolean(cachedEtag) &&
+    Boolean(options.knownEtag) &&
     !Object.hasOwn(input, 'expected_etag') &&
     input.force !== true;
   const requestBody = shouldAttachEtag
-    ? { ...input, expected_etag: cachedEtag }
+    ? { ...input, expected_etag: options.knownEtag }
     : input;
 
-  try {
-    const saved = await sendPluginHostPagePatch(
-      pageId,
-      requestBody,
-      options.signal,
-    );
-    rememberPluginHostPageEtag(pageId, saved);
-    dispatchPreviewInvalidation(pageId);
-    return saved;
-  } catch (error) {
-    const conflict = pageEtagConflict(error);
-    if (!conflict) throw error;
-    if (conflict.currentEtag) {
-      rememberPluginHostPageEtag(pageId, conflict.currentEtag);
-    }
-    dispatchPageEtagConflict(pageId, conflict, requestBody);
-    throw error;
-  }
+  return sendPluginHostPagePatch(pageId, requestBody, options.signal);
 }
 
 
 export function clearPluginHostPageEtag(pageId: string): void {
-  pluginHostPageEtags.delete(pageId);
+  clearPageEtag(pageId);
 }
 
 
