@@ -1,13 +1,48 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { buildPageLinksGraphModel, truncateGraphLabel } from './pageLinksGraphModel';
 
 const VIEWBOX_WIDTH = 720;
 const CENTER_X = VIEWBOX_WIDTH / 2;
-const RING_CAPACITIES = [10, 16, 22];
+const RING_CAPACITIES = [10, 16, 22] as const;
 const CONNECTED_NODE_RADIUS = 8;
 const CENTER_NODE_RADIUS = 14;
 
-const KIND_STYLES = {
+type GraphNode = ReturnType<typeof buildPageLinksGraphModel>[number];
+type ConnectionKind = GraphNode['kinds'][number];
+type VisualKind = GraphNode['visualKind'];
+
+interface PositionedGraphNode extends GraphNode {
+    x: number;
+    y: number;
+}
+
+interface GraphLayout {
+    readonly centerY: number;
+    readonly height: number;
+    readonly nodes: readonly PositionedGraphNode[];
+}
+
+export interface PageLinksGraphLabels extends Readonly<Record<ConnectionKind, string>> {
+    readonly ariaLabel: string;
+    readonly empty: string;
+    readonly untitled: string;
+}
+
+type PageTitle = string | number | bigint | boolean | null | undefined;
+
+export interface PageLinksGraphProps {
+    readonly currentTitle?: PageTitle;
+    readonly incomingLinks?: unknown;
+    readonly labels: PageLinksGraphLabels;
+    readonly onOpenPage: (pageId: string) => unknown;
+    readonly outgoingLinks?: unknown;
+    readonly relatedPages?: unknown;
+}
+
+const KIND_STYLES: Readonly<Record<VisualKind, {
+    readonly edge: string;
+    readonly fill: string;
+}>> = {
     outgoing: {
         fill: 'var(--gnosi-primary)',
         edge: 'var(--gnosi-primary)',
@@ -26,13 +61,15 @@ const KIND_STYLES = {
     },
 };
 
-function positionGraphNodes(nodes) {
+function positionGraphNodes(nodes: readonly GraphNode[]): GraphLayout {
     let cursor = 0;
     let ringIndex = 0;
-    const positioned = [];
+    const positioned: PositionedGraphNode[] = [];
 
     while (cursor < nodes.length) {
-        const capacity = RING_CAPACITIES[Math.min(ringIndex, RING_CAPACITIES.length - 1)];
+        const capacity = RING_CAPACITIES[
+            Math.min(ringIndex, RING_CAPACITIES.length - 1)
+        ] ?? RING_CAPACITIES[0];
         const ringNodes = nodes.slice(cursor, cursor + capacity);
         const radiusX = 205 + ringIndex * 62;
         const radiusY = 78 + ringIndex * 58;
@@ -67,10 +104,10 @@ export function PageLinksGraph({
     relatedPages,
     onOpenPage,
     labels,
-}) {
+}: PageLinksGraphProps) {
     const model = useMemo(
         () => buildPageLinksGraphModel({ outgoingLinks, incomingLinks, relatedPages }),
-        [outgoingLinks, incomingLinks, relatedPages]
+        [outgoingLinks, incomingLinks, relatedPages],
     );
     const layout = useMemo(() => positionGraphNodes(model), [model]);
     const safeCurrentTitle = String(currentTitle || labels.untitled).trim() || labels.untitled;
@@ -83,14 +120,14 @@ export function PageLinksGraph({
         );
     }
 
-    const activateNode = (node) => {
+    const activateNode = (node: GraphNode): void => {
         if (node.id) onOpenPage(node.id);
     };
 
     return (
         <div className="w-full overflow-x-auto" data-testid="page-links-graph">
             <svg
-                viewBox={`0 0 ${VIEWBOX_WIDTH} ${layout.height}`}
+                viewBox={`0 0 ${String(VIEWBOX_WIDTH)} ${String(layout.height)}`}
                 className="block min-w-[560px] w-full"
                 role="img"
                 aria-label={labels.ariaLabel}
@@ -124,7 +161,9 @@ export function PageLinksGraph({
                             tabIndex={isInteractive ? 0 : undefined}
                             aria-label={isInteractive ? tooltip : undefined}
                             className={isInteractive ? 'cursor-pointer outline-none group' : undefined}
-                            onClick={() => activateNode(node)}
+                            onClick={() => {
+                                activateNode(node);
+                            }}
                             onKeyDown={(event) => {
                                 if (!isInteractive || (event.key !== 'Enter' && event.key !== ' ')) return;
                                 event.preventDefault();

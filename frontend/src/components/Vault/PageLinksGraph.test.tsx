@@ -1,12 +1,20 @@
-import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PageLinksGraph } from './PageLinksGraph';
+import {
+    PageLinksGraph,
+    type PageLinksGraphLabels,
+    type PageLinksGraphProps,
+} from './PageLinksGraph';
 import { buildPageLinksGraphModel, truncateGraphLabel } from './pageLinksGraphModel';
 
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+interface ReactTestGlobal {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+}
 
-const labels = {
+const reactTestGlobal = globalThis as typeof globalThis & ReactTestGlobal;
+
+const labels: PageLinksGraphLabels = {
     untitled: 'Untitled',
     empty: 'No links',
     ariaLabel: 'Direct page links',
@@ -51,32 +59,38 @@ describe('page links graph model', () => {
 });
 
 describe('PageLinksGraph', () => {
-    let container;
-    let root;
+    let container: HTMLDivElement;
+    let root: Root;
 
     beforeEach(() => {
+        reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
         container = document.createElement('div');
         document.body.appendChild(container);
         root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => root.unmount());
+        act(() => {
+            root.unmount();
+        });
         container.remove();
+        delete reactTestGlobal.IS_REACT_ACT_ENVIRONMENT;
     });
 
     it('updates nodes live when direct-link props change', () => {
-        const onOpenPage = vi.fn();
-        const renderGraph = (outgoingLinks) => {
+        const onOpenPage = vi.fn<PageLinksGraphProps['onOpenPage']>();
+        const renderGraph = (outgoingLinks: unknown): void => {
             act(() => {
-                root.render(React.createElement(PageLinksGraph, {
-                    currentTitle: 'Current page',
-                    outgoingLinks,
-                    incomingLinks: [],
-                    relatedPages: [],
-                    onOpenPage,
-                    labels,
-                }));
+                root.render(
+                    <PageLinksGraph
+                        currentTitle="Current page"
+                        outgoingLinks={outgoingLinks}
+                        incomingLinks={[]}
+                        relatedPages={[]}
+                        onOpenPage={onOpenPage}
+                        labels={labels}
+                    />,
+                );
             });
         };
 
@@ -92,9 +106,13 @@ describe('PageLinksGraph', () => {
         expect(container.querySelectorAll('svg line')).toHaveLength(2);
         expect(container.querySelectorAll('svg g[role="button"]')).toHaveLength(2);
 
+        const firstNode = container.querySelector('svg g[role="button"]');
+        if (!(firstNode instanceof SVGElement)) {
+            throw new Error('Missing interactive graph node');
+        }
         act(() => {
-            container.querySelector('svg g[role="button"]')?.dispatchEvent(
-                new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+            firstNode.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
             );
         });
         expect(onOpenPage).toHaveBeenCalledWith('page-a');
@@ -102,14 +120,16 @@ describe('PageLinksGraph', () => {
 
     it('renders compact single-circle nodes without a core-and-sphere layer', () => {
         act(() => {
-            root.render(React.createElement(PageLinksGraph, {
-                currentTitle: 'Current page',
-                outgoingLinks: [{ id: 'page-a', title: 'Connected page' }],
-                incomingLinks: [],
-                relatedPages: [],
-                onOpenPage: vi.fn(),
-                labels,
-            }));
+            root.render(
+                <PageLinksGraph
+                    currentTitle="Current page"
+                    outgoingLinks={[{ id: 'page-a', title: 'Connected page' }]}
+                    incomingLinks={[]}
+                    relatedPages={[]}
+                    onOpenPage={vi.fn<PageLinksGraphProps['onOpenPage']>()}
+                    labels={labels}
+                />,
+            );
         });
 
         const connectedNode = container.querySelector('[data-graph-node="connected"]');
