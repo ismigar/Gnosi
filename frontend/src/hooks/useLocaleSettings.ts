@@ -1,5 +1,5 @@
 /**
- * useLocaleSettings.js
+ * useLocaleSettings.ts
  *
  * Single source of truth for format defaults (currency / number / date) for
  * rendering components (Vault table, page properties). Reads configuration
@@ -18,12 +18,41 @@ import { parseCurrencyCode, localeForDecimalSymbol } from '../components/Vault/f
 import { getIntlLocale } from '../locales/registry';
 import { fetchConfiguration } from '../shared/api/configuration';
 
-const CONFIG_CACHE_TTL = 5000;
-let cachedSettings = null;
-let cachedSettingsAt = 0;
-let settingsRequest = null;
+interface LocaleConfigurationSettings {
+    readonly currency?: string;
+    readonly date_format?: string;
+    readonly decimal_symbol?: string;
+}
 
-async function fetchLocaleSettings() {
+export interface LocaleFormatSettings {
+    readonly currencyCode: string;
+    readonly dateFormat: string;
+    readonly dateLocale: string;
+    readonly decimalSymbol: string;
+    readonly numberLocale: string;
+}
+
+const CONFIG_CACHE_TTL = 5000;
+let cachedSettings: LocaleConfigurationSettings | null = null;
+let cachedSettingsAt = 0;
+let settingsRequest: Promise<LocaleConfigurationSettings> | null = null;
+
+function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeLocaleSettings(value: unknown): LocaleConfigurationSettings {
+    if (!isUnknownRecord(value)) return {};
+    return {
+        ...(typeof value.currency === 'string' ? { currency: value.currency } : {}),
+        ...(typeof value.date_format === 'string' ? { date_format: value.date_format } : {}),
+        ...(typeof value.decimal_symbol === 'string'
+            ? { decimal_symbol: value.decimal_symbol }
+            : {}),
+    };
+}
+
+async function fetchLocaleSettings(): Promise<LocaleConfigurationSettings> {
     const now = Date.now();
     if (cachedSettings && now - cachedSettingsAt < CONFIG_CACHE_TTL) {
         return cachedSettings;
@@ -32,7 +61,7 @@ async function fetchLocaleSettings() {
     if (!settingsRequest) {
         settingsRequest = fetchConfiguration()
             .then((config) => {
-                cachedSettings = config?.settings || {};
+                cachedSettings = normalizeLocaleSettings(config.settings);
                 cachedSettingsAt = Date.now();
                 return cachedSettings;
             })
@@ -44,17 +73,17 @@ async function fetchLocaleSettings() {
     return settingsRequest;
 }
 
-function invalidateLocaleSettings() {
+function invalidateLocaleSettings(): void {
     cachedSettings = null;
     cachedSettingsAt = 0;
 }
 
-export function useLocaleSettings() {
+export function useLocaleSettings(): LocaleFormatSettings {
     const { i18n } = useTranslation();
-    const [settings, setSettings] = useState(null);
+    const [settings, setSettings] = useState<LocaleConfigurationSettings | null>(null);
 
     const load = useCallback(() => {
-        fetchLocaleSettings()
+        void fetchLocaleSettings()
             .then(setSettings)
             .catch(() => { /* no config → defaults */ });
     }, []);

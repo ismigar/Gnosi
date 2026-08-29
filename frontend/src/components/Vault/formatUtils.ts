@@ -1,5 +1,5 @@
 /**
- * formatUtils.js
+ * formatUtils.ts
  *
  * Pure helpers (no React) to format numbers (number/currency/percentage)
  * and dates according to a GLOBAL format (Settings) with a PER-FIELD override. Explicit
@@ -11,9 +11,55 @@
  */
 
 /** `'EUR (€)'` → `'EUR'`. Already accepts a code (`'USD'`) or with a symbol. */
-export function parseCurrencyCode(raw, fallback = 'EUR') {
+type DateFormatValue = Date | string | number | null | undefined;
+
+export interface NumberFormatOptions {
+    readonly currencyCode?: string;
+    readonly decimals?: number | null;
+    readonly kind?: string;
+    readonly locale?: string;
+}
+
+export interface DateFormatOptions {
+    readonly dateFormat?: string;
+    readonly locale?: string;
+    readonly type?: string;
+}
+
+export interface FieldFormat {
+    readonly currency?: unknown;
+    readonly dateFormat?: string | null;
+    readonly decimals?: number | null;
+    readonly kind?: string | null;
+}
+
+export interface FieldFormatConfig {
+    readonly format?: FieldFormat | null;
+}
+
+export interface GlobalFormatDefaults {
+    readonly currencyCode?: string | null;
+    readonly dateFormat?: string | null;
+    readonly dateLocale?: string;
+    readonly numberLocale?: string;
+}
+
+export interface ResolvedFieldFormat {
+    readonly currencyCode: string;
+    readonly dateFormat: string;
+    readonly dateLocale?: string;
+    readonly decimals?: number | null;
+    readonly kind: string;
+    readonly numberLocale?: string;
+}
+
+function stringifyFormatValue(value: unknown): string {
+    return Reflect.apply(String, undefined, [value]);
+}
+
+export function parseCurrencyCode(raw: unknown, fallback = 'EUR'): string {
     if (!raw) return fallback;
-    const m = String(raw).trim().match(/[A-Za-z]{3}/);
+    const m = stringifyFormatValue(raw).trim().match(/[A-Za-z]{3}/);
     return m ? m[0].toUpperCase() : fallback;
 }
 
@@ -22,13 +68,13 @@ export function parseCurrencyCode(raw, fallback = 'EUR') {
  * separators from the locale (it doesn't accept an arbitrary symbol), so instead of
  * doing fragile substitutions we pick a locale that uses the desired symbol.
  */
-export function localeForDecimalSymbol(decimalSymbol) {
+export function localeForDecimalSymbol(decimalSymbol: unknown): string | undefined {
     if (decimalSymbol === '.') return 'en-US';
     if (decimalSymbol === ',') return 'de-DE';
     return undefined; // → the caller will use its default locale
 }
 
-function isEmpty(value) {
+function isEmpty(value: unknown): boolean {
     return value === undefined || value === null
         // The number `NaN` (e.g. the result of a formula like `{Preu} * 2`
         // with a non-numeric value) is treated as EMPTY: `toNumber` leaves it
@@ -38,9 +84,9 @@ function isEmpty(value) {
         || (typeof value === 'string' && value.trim() === '');
 }
 
-function toNumber(value) {
+function toNumber(value: unknown): number | null {
     if (typeof value === 'number') return value;
-    const t = String(value).trim();
+    const t = stringifyFormatValue(value).trim();
     // ca/es locale: a clean number with a comma decimal ("1,5", "-2,75") is stored
     // often as a STRING with a comma. `Number("1,5")` is NaN, so without this
     // the value used to be shown RAW (without currency symbol, decimals, or grouping).
@@ -56,10 +102,10 @@ function toNumber(value) {
  * - 'percent' shows the value AS-IS with a '%' suffix (does not multiply ×100).
  * - 'year' shows the integer without a thousands separator (2024, not 2.024).
  */
-export function formatNumber(value, opts = {}) {
+export function formatNumber(value: unknown, opts: NumberFormatOptions = {}): string {
     if (isEmpty(value)) return '';
     const num = toNumber(value);
-    if (num === null) return String(value);
+    if (num === null) return stringifyFormatValue(value);
 
     const { kind = 'number', decimals, currencyCode = 'EUR', locale } = opts;
     const fractionOpts = decimals != null
@@ -80,13 +126,13 @@ export function formatNumber(value, opts = {}) {
         return new Intl.NumberFormat(locale, fractionOpts).format(num);
     } catch {
         // invalid currency code or bad locale: we don't crash, we show the raw value.
-        return String(value);
+        return stringifyFormatValue(value);
     }
 }
 
 import { formatVaultDate, parseVaultDate } from './dateUtils';
 
-const pad2 = (n) => String(n).padStart(2, '0');
+const pad2 = (n: number): string => String(n).padStart(2, '0');
 
 /**
  * Formats a date for DISPLAY.
@@ -94,7 +140,10 @@ const pad2 = (n) => String(n).padStart(2, '0');
  * - Explicit formats are built using LOCAL components (not UTC) to avoid
  *   shifting the day. Invalid date → the raw value (never "Invalid Date").
  */
-export function formatDate(value, opts = {}) {
+export function formatDate(
+    value: DateFormatValue,
+    opts: DateFormatOptions = {},
+): string {
     if (isEmpty(value)) return '';
     const { dateFormat = 'locale', type = 'date', locale } = opts;
     // A DATE-ONLY string ("YYYY-MM-DD") is parsed by `new Date()` as
@@ -121,10 +170,10 @@ export function formatDate(value, opts = {}) {
         }
     }
 
-    const y = d.getFullYear();
+    const y = String(d.getFullYear());
     const m = pad2(d.getMonth() + 1);
     const dd = pad2(d.getDate());
-    let datePart;
+    let datePart: string;
     if (dateFormat === 'YYYY-MM-DD') datePart = `${y}-${m}-${dd}`;
     else if (dateFormat === 'MM/DD/YYYY') datePart = `${m}/${dd}/${y}`;
     else datePart = `${dd}/${m}/${y}`; // 'DD/MM/YYYY' (explicit default)
@@ -138,8 +187,11 @@ export function formatDate(value, opts = {}) {
  * `global` comes from useLocaleSettings: { currencyCode, dateFormat, numberLocale, dateLocale }.
  * Returns the options ready for formatNumber/formatDate.
  */
-export function resolveFieldFormat(fieldConfig = {}, global = {}) {
-    const f = (fieldConfig && fieldConfig.format) || {};
+export function resolveFieldFormat(
+    fieldConfig: FieldFormatConfig = {},
+    global: GlobalFormatDefaults = {},
+): ResolvedFieldFormat {
+    const f = fieldConfig.format ?? {};
     return {
         kind: f.kind || 'number',
         decimals: f.decimals,
