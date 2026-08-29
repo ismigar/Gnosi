@@ -1,0 +1,54 @@
+export interface PageEtagConflictEventDetail {
+  readonly currentEtag?: string;
+  readonly expectedEtag?: string;
+  readonly message?: string;
+  readonly originalRequest: Request;
+  readonly pageId: string;
+}
+
+
+export interface AppEventMap {
+  readonly 'gnosi:config-changed': null;
+  readonly 'gnosi:invalidatePreview': { readonly pageId: string };
+  readonly 'gnosi:vault-name-changed': null;
+  readonly pageEtagConflict: PageEtagConflictEventDetail;
+}
+
+
+type EventArguments<K extends keyof AppEventMap> =
+  [AppEventMap[K]] extends [null] ? [] : [detail: AppEventMap[K]];
+
+
+function runtimeEventTarget(): Window | null {
+  return typeof window === 'undefined' ? null : window;
+}
+
+
+export function emitAppEvent<K extends keyof AppEventMap>(
+  name: K,
+  ...args: EventArguments<K>
+): boolean {
+  const target = runtimeEventTarget();
+  if (!target || typeof CustomEvent === 'undefined') return false;
+  const detail = (args.length ? args[0] : null) as AppEventMap[K];
+  return target.dispatchEvent(new CustomEvent<AppEventMap[K]>(name, { detail }));
+}
+
+
+export function subscribeAppEvent<K extends keyof AppEventMap>(
+  name: K,
+  listener: (detail: AppEventMap[K], event: CustomEvent<AppEventMap[K]>) => void,
+): () => void {
+  const target = runtimeEventTarget();
+  if (!target) return () => undefined;
+
+  const handler: EventListener = (event) => {
+    if (!(event instanceof CustomEvent)) return;
+    const typedEvent = event as CustomEvent<AppEventMap[K]>;
+    listener(typedEvent.detail, typedEvent);
+  };
+  target.addEventListener(name, handler);
+  return () => {
+    target.removeEventListener(name, handler);
+  };
+}

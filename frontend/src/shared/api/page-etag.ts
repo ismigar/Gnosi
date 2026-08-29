@@ -1,5 +1,13 @@
 import type { Middleware } from 'openapi-fetch';
 
+import {
+  emitAppEvent,
+  type PageEtagConflictEventDetail,
+} from '../platform/app-events';
+
+
+export type { PageEtagConflictEventDetail } from '../platform/app-events';
+
 
 type JsonObject = Record<string, unknown>;
 
@@ -9,15 +17,6 @@ interface EtagConflictDetail {
   readonly error: 'etag_mismatch' | 'etag_mismatch_force';
   readonly expected_etag?: string;
   readonly message?: string;
-}
-
-
-export interface PageEtagConflictEventDetail {
-  readonly currentEtag?: string;
-  readonly expectedEtag?: string;
-  readonly message?: string;
-  readonly originalRequest: Request;
-  readonly pageId: string;
 }
 
 
@@ -124,10 +123,7 @@ function etagConflict(payload: JsonObject | null): EtagConflictDetail | null {
 
 
 function dispatchPreviewInvalidation(pageId: string): void {
-  if (typeof window === 'undefined' || typeof CustomEvent === 'undefined') return;
-  window.dispatchEvent(
-    new CustomEvent('gnosi:invalidatePreview', { detail: { pageId } }),
-  );
+  emitAppEvent('gnosi:invalidatePreview', { pageId });
 }
 
 
@@ -136,7 +132,6 @@ function dispatchConflict(
   detail: EtagConflictDetail,
   request: Request,
 ): void {
-  if (typeof window === 'undefined' || typeof CustomEvent === 'undefined') return;
   const eventDetail: PageEtagConflictEventDetail = {
     currentEtag: detail.current_etag,
     expectedEtag: detail.expected_etag,
@@ -144,7 +139,7 @@ function dispatchConflict(
     originalRequest: request,
     pageId,
   };
-  window.dispatchEvent(new CustomEvent('pageEtagConflict', { detail: eventDetail }));
+  emitAppEvent('pageEtagConflict', eventDetail);
 }
 
 

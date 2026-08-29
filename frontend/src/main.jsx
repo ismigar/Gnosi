@@ -6,7 +6,7 @@ import App from './App.jsx'
 import './index.css'
 import { syncActiveVaultCookie } from './lib/fileResource.js'
 import { AuthProvider } from './context/AuthContext.jsx'
-import { initializeInterfaceLanguage } from './lib/interfaceLanguage.js'
+import { initializeInterfaceLanguage } from './lib/interfaceLanguage'
 import { installDesktopApplicationMenu } from './lib/desktopMenu.js'
 import {
     initializeVaultRouting,
