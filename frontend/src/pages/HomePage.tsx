@@ -1,12 +1,39 @@
-import React from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Network, BookOpen, Gauge, Share2, FileText, Calendar, Inbox, Settings, Users, Image as ImageIcon, CalendarRange, NotebookTabs } from 'lucide-react';
+import {
+    BookOpen,
+    Calendar,
+    CalendarRange,
+    FileText,
+    Gauge,
+    Image as ImageIcon,
+    Inbox,
+    Network,
+    NotebookTabs,
+    Settings,
+    Share2,
+    Users,
+    type LucideIcon,
+} from 'lucide-react';
+
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
 import { usePlugins } from '../plugins/usePlugins';
+import { emitAppEvent } from '../shared/platform/app-events';
 import { legacyBrowserPathToCanonical } from '../lib/vaultRouting';
 
-const MODULES = [
+interface HomeModule {
+    readonly descKey: string;
+    readonly description: string;
+    readonly icon: LucideIcon;
+    readonly id?: 'settings';
+    readonly pluginId?: string;
+    readonly title: string;
+    readonly titleKey: string;
+    readonly to?: string;
+}
+
+const MODULES: readonly HomeModule[] = [
     {
         to: '/vault',
         icon: FileText,
@@ -117,9 +144,11 @@ function HomePage() {
     const { t } = useTranslation();
     const { isEnabled } = usePlugins();
     const activeVaultName = useActiveVaultName();
-    const handleSettingsClick = (e) => {
-        if (e) e.preventDefault();
-        window.dispatchEvent(new CustomEvent('open-settings'));
+    const handleSettingsClick = (
+        event: ReactMouseEvent<HTMLButtonElement>,
+    ) => {
+        event.preventDefault();
+        emitAppEvent('open-settings', null);
     };
 
     return (
@@ -156,6 +185,7 @@ function HomePage() {
                             </button>
                         );
                     }
+                    if (!to) return null;
                     return (
                         <Link key={to} to={legacyBrowserPathToCanonical(to)} className="home-card">
                             <div className="home-card__icon-wrap">

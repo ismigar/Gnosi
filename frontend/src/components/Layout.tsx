@@ -1,22 +1,56 @@
-import React from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { PanelRight, Network } from 'lucide-react';
+
 import { AppHeader } from './AppHeader';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { subscribeWindowEvent } from '../shared/platform/browser-events';
 import { getPanelScrollTarget } from '../utils/panelKeyboardNavigation';
 
-export function Layout({ children, sidebar, controls, bottomPanel, containerStyle = {} }) {
+interface LayoutProps {
+  readonly bottomPanel?: ReactNode;
+  readonly children?: ReactNode;
+  readonly containerStyle?: CSSProperties;
+  readonly controls?: ReactNode;
+  readonly sidebar?: ReactNode;
+}
+
+interface PanelState {
+  readonly compact: boolean;
+  readonly open: boolean;
+}
+
+export function Layout({
+  children,
+  sidebar,
+  controls,
+  bottomPanel,
+  containerStyle = {},
+}: LayoutProps) {
   const { t } = useTranslation();
   const isCompact = useMediaQuery('(max-width: 767px)');
-  const [isPanelOpen, setIsPanelOpen] = React.useState(
-    () => typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches
-  );
-  const [isBottomPanelOpen, setIsBottomPanelOpen] = React.useState(false);
-  const graphContainerRef = React.useRef(null);
-  const sidebarRef = React.useRef(null);
-  const bottomPanelRef = React.useRef(null);
+  const [panelState, setPanelState] = useState<PanelState>(() => ({
+    compact: isCompact,
+    open: !isCompact,
+  }));
+  const [isBottomPanelOpen, setIsBottomPanelOpen] = useState(false);
+  const graphContainerRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const bottomPanelRef = useRef<HTMLDivElement>(null);
+  const isPanelOpen = panelState.compact === isCompact
+    ? panelState.open
+    : !isCompact;
 
-  const handleBottomPanelKeyDown = (event) => {
+  const handleBottomPanelKeyDown = (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+  ) => {
     const panel = bottomPanelRef.current;
     if (!panel) return;
     const target = getPanelScrollTarget(
@@ -30,12 +64,8 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
     panel.scrollTo({ top: target, behavior: event.repeat ? 'auto' : 'smooth' });
   };
 
-  React.useEffect(() => {
-    setIsPanelOpen(!isCompact);
-  }, [isCompact]);
-
-  React.useEffect(() => {
-    const handleFocusShortcut = (event) => {
+  useEffect(() => {
+    const handleFocusShortcut = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) return;
       if (event.key.toLowerCase() === 'p') {
         event.preventDefault();
@@ -46,9 +76,16 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
         graphContainerRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', handleFocusShortcut);
-    return () => window.removeEventListener('keydown', handleFocusShortcut);
+    return subscribeWindowEvent('keydown', handleFocusShortcut);
   }, []);
+
+  const togglePanel = () => {
+    setPanelState({ compact: isCompact, open: !isPanelOpen });
+  };
+
+  const closePanel = () => {
+    setPanelState({ compact: isCompact, open: false });
+  };
 
   return (
     <div id="app" className={!isPanelOpen ? 'panel-hidden' : ''}>
@@ -56,7 +93,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
           <button
             id="btn-toggle-panel"
             title={t('graph.toggle_panel_tooltip', "Show / hide panel")}
-            onClick={() => setIsPanelOpen(!isPanelOpen)}
+            onClick={togglePanel}
             aria-label={t('graph.toggle_panel_tooltip', "Show / hide panel")}
             aria-expanded={isPanelOpen}
             className="gnosi-icon-button"
@@ -70,7 +107,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
           <button
             type="button"
             className="graph-panel-backdrop"
-            onClick={() => setIsPanelOpen(false)}
+            onClick={closePanel}
             aria-label={t('common.close', 'Close')}
           />
         )}
@@ -90,7 +127,9 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
           ref={sidebarRef}
           tabIndex={-1}
           aria-label={t('graph.keyboard.sidebar_focus', 'Graph filters')}
-          onWheelCapture={(event) => event.stopPropagation()}
+          onWheelCapture={(event) => {
+            event.stopPropagation();
+          }}
         >
           {sidebar}
         </aside>
@@ -104,7 +143,10 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
         zIndex: 20
       }}>
         <button
-          onClick={() => setIsBottomPanelOpen(!isBottomPanelOpen)}
+          type="button"
+          onClick={() => {
+            setIsBottomPanelOpen(!isBottomPanelOpen);
+          }}
           aria-expanded={isBottomPanelOpen}
           aria-controls="graph-connections-panel"
           style={{
