@@ -149,8 +149,6 @@
     },
     "legacy_js_jsx": {
       "frontend/src/App.jsx": 404,
-      "frontend/src/components/AI/AIOperationsSettings.jsx": 264,
-      "frontend/src/components/AI/AIOperationsSettings.test.jsx": 108,
       "frontend/src/components/AI/AIQualitySettings.jsx": 291,
       "frontend/src/components/AI/AIResourcesSettings.jsx": 883,
       "frontend/src/components/AI/AIResourcesSettings.test.jsx": 153,

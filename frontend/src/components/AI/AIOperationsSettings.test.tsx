@@ -1,12 +1,17 @@
-import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { act, type ReactElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AutomationsSettingsPanel, OperationsHistoryPanel } from './AIOperationsSettings';
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (key, values = {}) => values.count === undefined ? key : `${key}:${values.count}`,
+        t: (key: string, values: { count?: unknown } = {}) => (
+            typeof values.count === 'number'
+                ? `${key}:${values.count.toString()}`
+                : key
+        ),
+        i18n: { language: 'en', resolvedLanguage: 'en' },
     }),
 }));
 
@@ -15,32 +20,49 @@ const { toastMock } = vi.hoisted(() => {
     return { toastMock: mock };
 });
 vi.mock('../../lib/toast', () => ({ toast: toastMock }));
+vi.mock('../../lib/notifyError', () => ({ logError: vi.fn() }));
 
-const roots = [];
-const render = async element => {
+
+interface RenderedRoot {
+    container: HTMLDivElement;
+    root: Root;
+}
+
+
+const roots: RenderedRoot[] = [];
+const render = (element: ReactElement): HTMLDivElement => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
     roots.push({ root, container });
-    await act(async () => root.render(element));
+    act(() => {
+        root.render(element);
+    });
     return container;
 };
 
 beforeAll(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    const reactTestGlobal = globalThis as typeof globalThis & {
+        IS_REACT_ACT_ENVIRONMENT: boolean;
+    };
+    reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-afterEach(async () => {
+afterEach(() => {
     while (roots.length) {
-        const { root, container } = roots.pop();
-        await act(async () => root.unmount());
+        const rendered = roots.pop();
+        if (!rendered) break;
+        const { root, container } = rendered;
+        act(() => {
+            root.unmount();
+        });
         container.remove();
     }
     vi.clearAllMocks();
 });
 
 describe('AI governed operations settings', () => {
-    it('only offers skills assigned to the selected agent', async () => {
+    it('only offers skills assigned to the selected agent', () => {
         const resources = {
             automations: [],
             skills: [
@@ -53,29 +75,31 @@ describe('AI governed operations settings', () => {
             deleteAutomation: vi.fn(),
             runAutomation: vi.fn(),
         };
-        const container = await render(
+        const container = render(
             <AutomationsSettingsPanel
                 resources={resources}
                 agents={[{ id: 'brain', name: 'Brain', skill_ids: ['core.assigned'] }]}
             />,
         );
         const newButton = [...container.querySelectorAll('button')]
-            .find(button => button.textContent.includes('new_automation'));
-        await act(async () => newButton.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+            .find((button) => button.textContent.includes('new_automation'));
+        if (!newButton) throw new Error('New automation action was not rendered');
+        act(() => {
+            newButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
         const selects = container.querySelectorAll('select');
-        await act(async () => {
-            selects[0].value = 'brain';
-            selects[0].dispatchEvent(new Event('change', { bubbles: true }));
+        const agentSelect = selects.item(0);
+        act(() => {
+            agentSelect.value = 'brain';
+            agentSelect.dispatchEvent(new Event('change', { bubbles: true }));
         });
 
         expect(container.textContent).toContain('Assigned');
         expect(container.textContent).not.toContain('Hidden');
     });
 
-    it('renders durable jobs and metadata-only audit events', async () => {
-        const container = await render(<OperationsHistoryPanel resources={{
-            loading: false,
-            reload: vi.fn(),
+    it('renders durable jobs and metadata-only audit events', () => {
+        const container = render(<OperationsHistoryPanel resources={{
             approvals: [],
             resolveApproval: vi.fn(),
             jobs: [{ job_id: 'reader:job-1', provider: 'reader', status: 'completed' }],
@@ -96,13 +120,17 @@ describe('AI governed operations settings', () => {
             confirmation_id: 'a'.repeat(32), action: 'governed_tool',
             agent_id: 'brain', session_id: 'automation:1:run:2', details: { tool: 'Publish' },
         };
-        const container = await render(<OperationsHistoryPanel resources={{
-            loading: false, reload: vi.fn(), approvals: [approval], resolveApproval,
+        const container = render(<OperationsHistoryPanel resources={{
+            approvals: [approval], resolveApproval,
             jobs: [], auditEvents: [],
         }} />);
         const approve = [...container.querySelectorAll('button')]
-            .find(button => button.textContent.includes('operations.approve'));
-        await act(async () => approve.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+            .find((button) => button.textContent.includes('operations.approve'));
+        if (!approve) throw new Error('Approval action was not rendered');
+        await act(async () => {
+            approve.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await Promise.resolve();
+        });
         expect(resolveApproval).toHaveBeenCalledWith(approval, 'confirm');
     });
 });
