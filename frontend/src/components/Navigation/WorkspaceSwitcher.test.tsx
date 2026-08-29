@@ -3,12 +3,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-    defineStorageKey,
-    readStorage,
-    removeStorage,
-    stringStorageCodec,
-    writeStorage,
-} from '../../shared/platform/browser-storage';
+    USER_ROLE_STORAGE_KEY,
+    WORKSPACE_ID_STORAGE_KEY,
+} from '../../shared/api/request-context';
+import { readStorage, removeStorage, writeStorage } from '../../shared/platform/browser-storage';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 interface ReactTestGlobal {
@@ -16,7 +14,7 @@ interface ReactTestGlobal {
 }
 
 const testState = vi.hoisted(() => ({
-    apiFetch: vi.fn<(url: string) => Promise<unknown>>(),
+    fetchWorkspaces: vi.fn(),
     translate: (
         key: string,
         fallback?: string,
@@ -26,19 +24,14 @@ const testState = vi.hoisted(() => ({
         : (fallback ?? key),
 }));
 
-vi.mock('../../hooks/use-api', () => ({
-    useApi: () => ({ apiFetch: testState.apiFetch }),
+vi.mock('../../shared/api/workspaces', () => ({
+    fetchWorkspaces: testState.fetchWorkspaces,
 }));
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: testState.translate }),
 }));
 
-const WORKSPACE_ID_KEY = defineStorageKey(
-    'gnosi_workspace_id',
-    stringStorageCodec,
-);
-const USER_ROLE_KEY = defineStorageKey('gnosi_role', stringStorageCodec);
 const reactTestGlobal = globalThis as typeof globalThis & ReactTestGlobal;
 
 describe('WorkspaceSwitcher', () => {
@@ -50,13 +43,13 @@ describe('WorkspaceSwitcher', () => {
         container = document.createElement('div');
         document.body.appendChild(container);
         root = createRoot(container);
-        testState.apiFetch.mockReset();
-        testState.apiFetch.mockResolvedValue([
-            { id: 'personal', name: 'Personal', role: 'owner' },
-            { id: 'team', name: 'Team', role: 'admin' },
-            { id: 'team', name: 'Duplicate team', role: 'viewer' },
+        testState.fetchWorkspaces.mockReset();
+        testState.fetchWorkspaces.mockResolvedValue([
+            { created_at: '', id: 'personal', name: 'Personal', role: 'owner' },
+            { created_at: '', id: 'team', name: 'Team', role: 'admin' },
+            { created_at: '', id: 'team', name: 'Duplicate team', role: 'viewer' },
         ]);
-        writeStorage(WORKSPACE_ID_KEY, 'team');
+        writeStorage(WORKSPACE_ID_STORAGE_KEY, 'team');
     });
 
     afterEach(() => {
@@ -64,8 +57,8 @@ describe('WorkspaceSwitcher', () => {
             root.unmount();
         });
         container.remove();
-        removeStorage(WORKSPACE_ID_KEY);
-        removeStorage(USER_ROLE_KEY);
+        removeStorage(WORKSPACE_ID_STORAGE_KEY);
+        removeStorage(USER_ROLE_STORAGE_KEY);
         delete reactTestGlobal.IS_REACT_ACT_ENVIRONMENT;
     });
 
@@ -75,8 +68,8 @@ describe('WorkspaceSwitcher', () => {
             await Promise.resolve();
         });
 
-        expect(testState.apiFetch).toHaveBeenCalledWith('/api/workspaces');
-        expect(readStorage(USER_ROLE_KEY)).toBe('admin');
+        expect(testState.fetchWorkspaces).toHaveBeenCalledOnce();
+        expect(readStorage(USER_ROLE_STORAGE_KEY)).toBe('admin');
 
         const trigger = container.querySelector('.workspace-switcher__trigger');
         expect(trigger).toBeInstanceOf(HTMLButtonElement);

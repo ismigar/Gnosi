@@ -2,49 +2,27 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Briefcase, Check, Plus, User } from 'lucide-react';
 
-import { useApi } from '../../hooks/use-api';
+import { logError } from '../../lib/notifyError';
 import {
-    defineStorageKey,
-    readStorage,
-    stringStorageCodec,
-    writeStorage,
-} from '../../shared/platform/browser-storage';
+    USER_ROLE_STORAGE_KEY,
+    WORKSPACE_ID_STORAGE_KEY,
+} from '../../shared/api/request-context';
+import {
+    fetchWorkspaces,
+    type WorkspaceCatalogEntry,
+} from '../../shared/api/workspaces';
+import { readStorage, writeStorage } from '../../shared/platform/browser-storage';
 
 import './WorkspaceSwitcher.css';
 
-interface WorkspaceSummary {
-    id: string;
-    name: string;
-    role?: string | null;
-}
+type WorkspaceSummary = Pick<
+    WorkspaceCatalogEntry,
+    'id' | 'name' | 'role'
+>;
 
-const WORKSPACE_ID_KEY = defineStorageKey(
-    'gnosi_workspace_id',
-    stringStorageCodec,
-);
-const USER_ROLE_KEY = defineStorageKey('gnosi_role', stringStorageCodec);
-
-function isUnknownArray(value: unknown): value is unknown[] {
-    return Array.isArray(value);
-}
-
-function isWorkspaceSummary(value: unknown): value is WorkspaceSummary {
-    if (typeof value !== 'object' || value === null) return false;
-    const record = value as Record<string, unknown>;
-    return (
-        typeof record.id === 'string'
-        && typeof record.name === 'string'
-        && (
-            record.role === undefined
-            || record.role === null
-            || typeof record.role === 'string'
-        )
-    );
-}
-
-function uniqueWorkspaces(value: unknown): WorkspaceSummary[] {
-    if (!isUnknownArray(value)) return [];
-    const workspaces = value.filter(isWorkspaceSummary);
+function uniqueWorkspaces(
+    workspaces: readonly WorkspaceCatalogEntry[],
+): WorkspaceSummary[] {
     return workspaces.filter(
         (workspace, index) => index === workspaces.findIndex(
             (candidate) => candidate.id === workspace.id,
@@ -54,15 +32,14 @@ function uniqueWorkspaces(value: unknown): WorkspaceSummary[] {
 
 export function WorkspaceSwitcher() {
     const { t } = useTranslation();
-    const { apiFetch } = useApi();
     const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
     const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceSummary | null>(null);
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
-        const fetchWorkspaces = async (): Promise<void> => {
+        const loadWorkspaces = async (): Promise<void> => {
             try {
-                const data = await apiFetch('/api/workspaces');
+                const data = await fetchWorkspaces();
                 const uniqueData = uniqueWorkspaces(data);
 
                 const wsList = uniqueData.length > 0 ? uniqueData : [
@@ -70,18 +47,18 @@ export function WorkspaceSwitcher() {
                 ];
                 setWorkspaces(wsList);
 
-                const savedId = readStorage(WORKSPACE_ID_KEY) || 'personal';
+                const savedId = readStorage(WORKSPACE_ID_STORAGE_KEY) || 'personal';
                 const active = wsList.find((workspace) => workspace.id === savedId)
                     ?? wsList.at(0);
                 if (!active) return;
                 setActiveWorkspace(active);
-                writeStorage(USER_ROLE_KEY, active.role || 'viewer');
+                writeStorage(USER_ROLE_STORAGE_KEY, active.role || 'viewer');
             } catch (error: unknown) {
-                console.error('Error fetching workspaces:', error);
+                logError('workspace-switcher', error);
             }
         };
-        void fetchWorkspaces();
-    }, [apiFetch]);
+        void loadWorkspaces();
+    }, []);
 
     const handleSelect = (workspace: WorkspaceSummary): void => {
         if (workspace.id === activeWorkspace?.id) {
@@ -89,8 +66,8 @@ export function WorkspaceSwitcher() {
             return;
         }
         setActiveWorkspace(workspace);
-        writeStorage(WORKSPACE_ID_KEY, workspace.id);
-        writeStorage(USER_ROLE_KEY, workspace.role || 'viewer');
+        writeStorage(WORKSPACE_ID_STORAGE_KEY, workspace.id);
+        writeStorage(USER_ROLE_STORAGE_KEY, workspace.role || 'viewer');
         setIsOpen(false);
         window.location.reload();
     };
