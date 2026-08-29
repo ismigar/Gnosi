@@ -11002,6 +11002,13 @@ export interface components {
             /** Source Lang */
             source_lang: string;
         };
+        /**
+         * ConfigurationDocument
+         * @description Sanitized, JSON-compatible settings returned to the frontend.
+         */
+        ConfigurationDocument: {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
         /** ConfigurationPatch */
         ConfigurationPatch: {
             /** Ai Agent Id */
@@ -11014,6 +11021,21 @@ export interface components {
             source_defaults?: {
                 [key: string]: boolean;
             } | null;
+        };
+        /**
+         * ConfigurationUpdateRequest
+         * @description Partial settings payload with legacy runtime validation semantics.
+         */
+        ConfigurationUpdateRequest: components["schemas"]["JsonValue"];
+        /**
+         * ConfigurationUpdateResponse
+         * @description Acknowledgement after atomically persisting configuration.
+         */
+        ConfigurationUpdateResponse: {
+            /** Message */
+            message: string;
+            /** Status */
+            status: string;
         };
         /** ConflictRequest */
         ConflictRequest: {
@@ -19728,7 +19750,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationDocument"];
                 };
             };
             /** @description Validation Error */
@@ -19756,7 +19778,11 @@ export interface operations {
                 gnosi_session?: string | null;
             };
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigurationUpdateRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -19764,7 +19790,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationUpdateResponse"];
                 };
             };
             /** @description Validation Error */

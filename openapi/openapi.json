@@ -3113,6 +3113,14 @@
         "title": "ComposeResponse",
         "type": "object"
       },
+      "ConfigurationDocument": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Sanitized, JSON-compatible settings returned to the frontend.",
+        "title": "ConfigurationDocument",
+        "type": "object"
+      },
       "ConfigurationPatch": {
         "properties": {
           "ai_agent_id": {
@@ -3169,6 +3177,30 @@
           }
         },
         "title": "ConfigurationPatch",
+        "type": "object"
+      },
+      "ConfigurationUpdateRequest": {
+        "$ref": "#/components/schemas/JsonValue",
+        "description": "Partial settings payload with legacy runtime validation semantics.",
+        "title": "ConfigurationUpdateRequest"
+      },
+      "ConfigurationUpdateResponse": {
+        "description": "Acknowledgement after atomically persisting configuration.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "ConfigurationUpdateResponse",
         "type": "object"
       },
       "ConflictRequest": {
@@ -26785,7 +26817,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationDocument"
+                }
               }
             },
             "description": "Successful Response"
@@ -26890,11 +26924,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurationUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
