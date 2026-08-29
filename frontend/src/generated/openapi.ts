@@ -11425,6 +11425,30 @@ export interface components {
             title: string;
         };
         /**
+         * EnvironmentResponse
+         * @description Masked repository-local environment values.
+         */
+        EnvironmentResponse: {
+            [key: string]: string;
+        };
+        /**
+         * EnvironmentUpdateRequest
+         * @description JSON update retained as a root value for legacy 400 validation semantics.
+         */
+        EnvironmentUpdateRequest: components["schemas"]["JsonValue"];
+        /**
+         * EnvironmentUpdateResponse
+         * @description Acknowledgement after routing settings and credentials to storage.
+         */
+        EnvironmentUpdateResponse: {
+            /** Message */
+            message: string;
+            /** Secure Updates */
+            secure_updates: number;
+            /** Status */
+            status: string;
+        };
+        /**
          * EvaluationCandidateReviewPayload
          * @description Administrative decision for one privacy-safe evaluation candidate.
          */
@@ -19845,7 +19869,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EnvironmentResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19873,7 +19897,11 @@ export interface operations {
                 gnosi_session?: string | null;
             };
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnvironmentUpdateRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -19881,7 +19909,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EnvironmentUpdateResponse"];
                 };
             };
             /** @description Validation Error */

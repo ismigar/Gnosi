@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import os
 import re
@@ -10,6 +10,11 @@ from backend.config.env_config import (
     is_sensitive_env_key,
     keychain_key_for_env,
     load_env,
+)
+from backend.domains.configuration.environment_schemas import (
+    EnvironmentResponse,
+    EnvironmentUpdateRequest,
+    EnvironmentUpdateResponse,
 )
 from backend.security.keychain_manager import get_keychain
 from backend.utils.errors import safe_error_detail
@@ -92,7 +97,7 @@ def write_env_file(
     safe_write_text(filepath, "".join(new_lines))
 
 
-@router.get("/env", response_model=None)
+@router.get("/env", response_model=EnvironmentResponse)
 async def get_env() -> Any:
     """Get environment variables from .env file (tokens are masked)."""
     try:
@@ -117,11 +122,11 @@ async def get_env() -> Any:
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="GET /env"))
 
 
-@router.post("/env", response_model=None)
-async def update_env(request: Request) -> Any:
+@router.post("/env", response_model=EnvironmentUpdateResponse)
+async def update_env(payload: EnvironmentUpdateRequest) -> Any:
     """Update local settings and route credentials to secure storage."""
     try:
-        new_vars = await request.json()
+        new_vars = payload.root
         if not isinstance(new_vars, dict) or not new_vars:
             raise HTTPException(status_code=400, detail="No data provided")
 

@@ -4301,6 +4301,43 @@
         "title": "DrawingSaveRequest",
         "type": "object"
       },
+      "EnvironmentResponse": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "Masked repository-local environment values.",
+        "title": "EnvironmentResponse",
+        "type": "object"
+      },
+      "EnvironmentUpdateRequest": {
+        "$ref": "#/components/schemas/JsonValue",
+        "description": "JSON update retained as a root value for legacy 400 validation semantics.",
+        "title": "EnvironmentUpdateRequest"
+      },
+      "EnvironmentUpdateResponse": {
+        "description": "Acknowledgement after routing settings and credentials to storage.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "secure_updates": {
+            "title": "Secure Updates",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "secure_updates"
+        ],
+        "title": "EnvironmentUpdateResponse",
+        "type": "object"
+      },
       "EvaluationCandidateReviewPayload": {
         "description": "Administrative decision for one privacy-safe evaluation candidate.",
         "properties": {
@@ -27352,7 +27389,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -27458,11 +27497,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"

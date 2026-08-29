@@ -56,6 +56,7 @@ import { fetchCalendarList, syncCalendar } from '../shared/api/calendar';
 import { fetchVaultGraph } from '../shared/api/graph';
 import { syncContacts as requestContactsSync } from '../shared/api/contacts';
 import { fetchIdentity, saveIdentity } from '../shared/api/identity';
+import { fetchEnvironment, updateEnvironment } from '../shared/api/environment';
 import {
     fetchSocialNetworks,
     fetchSocialStreams,
@@ -1184,7 +1185,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setTranslateState(s => ({ ...s, loading: true }));
         Promise.all([
             axios.get('/api/credentials/deepl_api_key').then(r => r.data).catch(() => ({ has_value: false })),
-            axios.get('/api/env').then(r => r.data || {}).catch(() => ({})),
+            fetchEnvironment().catch(() => ({})),
         ]).then(([cred, env]) => {
             if (cancelled) return;
             // Baseline BEFORE state so the autosave effect triggered by this
@@ -1249,7 +1250,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             // Empty string → reset to default. We send an empty string to
             // overwrite, and if the user wanted to remove it, the backend
             // persists as `SOFTCATALA_API_URL=` (the skill falls back to the default).
-            await axios.post('/api/env', { SOFTCATALA_API_URL: value });
+            await updateEnvironment({ SOFTCATALA_API_URL: value });
             softcatalaBaselineRef.current = value;
             setTranslateState(s => ({ ...s, saving_softcatala: false, saved_softcatala: true }));
         } catch (error) {
