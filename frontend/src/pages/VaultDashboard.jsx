@@ -3,6 +3,7 @@ import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
 import axios from '../shared/api/legacy-http';
 import { fetchBrainTableStatus, fetchLlmWikiConfig } from '../shared/api/brain';
 import { openDailyNote } from '../shared/api/daily-notes';
+import { fetchReferenceTable } from '../shared/api/literature-resources';
 import { fetchResourceProcessingStatus } from '../shared/api/resource-processing';
 import {
     createVaultPage,
@@ -669,8 +670,8 @@ export default function VaultDashboard() {
     }, []);
     const refreshReferenceTable = useCallback(async () => {
         try {
-            const { data } = await axios.get('/api/vault/reference-table');
-            setRefTableId(data?.table_id || null);
+            const status = await fetchReferenceTable();
+            setRefTableId(status?.table_id || null);
         } catch { /* no designation or backend busy → gating disabled */ }
     }, []);
     useEffect(() => { refreshReferenceTable(); }, [refreshReferenceTable]);

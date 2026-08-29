@@ -8692,6 +8692,1254 @@
         "title": "LinkPreviewResponse",
         "type": "object"
       },
+      "LiteratureActivityResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "activity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Type"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errors"
+          },
+          "exact_queries": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact Queries"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          },
+          "review_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Id"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "LiteratureActivityResponse",
+        "type": "object"
+      },
+      "LiteratureAiAgentResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "model"
+        ],
+        "title": "LiteratureAiAgentResponse",
+        "type": "object"
+      },
+      "LiteratureAiResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "audit": {
+            "additionalProperties": true,
+            "title": "Audit",
+            "type": "object"
+          },
+          "operation": {
+            "title": "Operation",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result"
+          }
+        },
+        "required": [
+          "operation",
+          "result",
+          "audit"
+        ],
+        "title": "LiteratureAiResponse",
+        "type": "object"
+      },
+      "LiteratureCandidateMutationResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "added": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureCandidateResponse"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "added_count": {
+            "title": "Added Count",
+            "type": "integer"
+          },
+          "existing": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureCandidateResponse"
+            },
+            "title": "Existing",
+            "type": "array"
+          },
+          "existing_count": {
+            "title": "Existing Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "added",
+          "existing",
+          "added_count",
+          "existing_count"
+        ],
+        "title": "LiteratureCandidateMutationResponse",
+        "type": "object"
+      },
+      "LiteratureCandidateResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "activity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Id"
+          },
+          "blind_pending": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blind Pending"
+          },
+          "conflict": {
+            "title": "Conflict",
+            "type": "boolean"
+          },
+          "full_text": {
+            "title": "Full Text",
+            "type": "string"
+          },
+          "full_text_evidence": {
+            "additionalProperties": true,
+            "title": "Full Text Evidence",
+            "type": "object"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "review_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "work": {
+            "additionalProperties": true,
+            "title": "Work",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "review_id",
+          "work",
+          "phase",
+          "full_text",
+          "full_text_evidence",
+          "resource_id",
+          "activity_id",
+          "conflict"
+        ],
+        "title": "LiteratureCandidateResponse",
+        "type": "object"
+      },
+      "LiteratureConfigurationResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "ai_agent_id": {
+            "title": "Ai Agent Id",
+            "type": "string"
+          },
+          "ai_agents": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureAiAgentResponse"
+            },
+            "title": "Ai Agents",
+            "type": "array"
+          },
+          "contact_email": {
+            "title": "Contact Email",
+            "type": "string"
+          },
+          "hidden_sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Hidden Sources",
+            "type": "array"
+          },
+          "source_defaults": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Source Defaults",
+            "type": "object"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contact_email",
+          "ai_agent_id",
+          "ai_agents",
+          "source_defaults",
+          "hidden_sources",
+          "sources"
+        ],
+        "title": "LiteratureConfigurationResponse",
+        "type": "object"
+      },
+      "LiteratureDecisionMutationResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "blind_released": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blind Released"
+          },
+          "conflict": {
+            "title": "Conflict",
+            "type": "boolean"
+          },
+          "decision": {
+            "additionalProperties": true,
+            "title": "Decision",
+            "type": "object"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "phase",
+          "conflict"
+        ],
+        "title": "LiteratureDecisionMutationResponse",
+        "type": "object"
+      },
+      "LiteratureImportMembershipResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "work_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Id"
+          }
+        },
+        "required": [
+          "work_id",
+          "resource_id",
+          "title",
+          "created"
+        ],
+        "title": "LiteratureImportMembershipResponse",
+        "type": "object"
+      },
+      "LiteratureImportResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "existing": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureImportMembershipResponse"
+            },
+            "title": "Existing",
+            "type": "array"
+          },
+          "existing_count": {
+            "title": "Existing Count",
+            "type": "integer"
+          },
+          "imported": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureImportMembershipResponse"
+            },
+            "title": "Imported",
+            "type": "array"
+          },
+          "imported_count": {
+            "title": "Imported Count",
+            "type": "integer"
+          },
+          "notebook": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notebook"
+          },
+          "resource_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Resource Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "imported",
+          "existing",
+          "resource_ids",
+          "notebook",
+          "imported_count",
+          "existing_count"
+        ],
+        "title": "LiteratureImportResponse",
+        "type": "object"
+      },
+      "LiteratureManualCaptureResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "lookup": {
+            "additionalProperties": true,
+            "title": "Lookup",
+            "type": "object"
+          },
+          "work": {
+            "additionalProperties": true,
+            "title": "Work",
+            "type": "object"
+          }
+        },
+        "required": [
+          "lookup",
+          "work"
+        ],
+        "title": "LiteratureManualCaptureResponse",
+        "type": "object"
+      },
+      "LiteratureRepositoryDeletionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "index_records_deleted": {
+            "title": "Index Records Deleted",
+            "type": "integer"
+          },
+          "repository_id": {
+            "title": "Repository Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deleted",
+          "repository_id",
+          "index_records_deleted"
+        ],
+        "title": "LiteratureRepositoryDeletionResponse",
+        "type": "object"
+      },
+      "LiteratureRepositoryResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "base_url"
+        ],
+        "title": "LiteratureRepositoryResponse",
+        "type": "object"
+      },
+      "LiteratureRepositoryTestResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "sample": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sample",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "latency_ms",
+          "count",
+          "sample"
+        ],
+        "title": "LiteratureRepositoryTestResponse",
+        "type": "object"
+      },
+      "LiteratureReviewDetailResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "activities": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureActivityResponse"
+            },
+            "title": "Activities",
+            "type": "array"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "prisma": {
+            "additionalProperties": true,
+            "title": "Prisma",
+            "type": "object"
+          },
+          "review": {
+            "$ref": "#/components/schemas/LiteratureReviewResponse"
+          }
+        },
+        "required": [
+          "review",
+          "activities",
+          "candidates",
+          "prisma"
+        ],
+        "title": "LiteratureReviewDetailResponse",
+        "type": "object"
+      },
+      "LiteratureReviewResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "configuration": {
+            "additionalProperties": true,
+            "title": "Configuration",
+            "type": "object"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "criteria": {
+            "additionalProperties": true,
+            "title": "Criteria",
+            "type": "object"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "protocol": {
+            "title": "Protocol",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "reviewer_mode": {
+            "title": "Reviewer Mode",
+            "type": "string"
+          },
+          "reviewers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reviewers",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "question",
+          "protocol",
+          "criteria",
+          "reviewer_mode",
+          "reviewers",
+          "status",
+          "configuration",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "LiteratureReviewResponse",
+        "type": "object"
+      },
+      "LiteratureReviewsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureReviewResponse"
+            },
+            "title": "Reviews",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reviews"
+        ],
+        "title": "LiteratureReviewsResponse",
+        "type": "object"
+      },
+      "LiteratureSearchResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "ai_audits": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Audits"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errors"
+          },
+          "exact_queries": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact Queries"
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filters"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "limit_per_source": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Per Source"
+          },
+          "offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "result_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Count"
+          },
+          "results": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Results"
+          },
+          "source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ids"
+          },
+          "source_queries": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Queries"
+          },
+          "source_snapshots": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Snapshots"
+          },
+          "source_status": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Status"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state"
+        ],
+        "title": "LiteratureSearchResponse",
+        "type": "object"
+      },
+      "LiteratureSearchesResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "searches": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureSearchResponse"
+            },
+            "title": "Searches",
+            "type": "array"
+          }
+        },
+        "required": [
+          "searches"
+        ],
+        "title": "LiteratureSearchesResponse",
+        "type": "object"
+      },
+      "LiteratureSnowballResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "activity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Id"
+          },
+          "counts": {
+            "additionalProperties": true,
+            "title": "Counts",
+            "type": "object"
+          },
+          "exact_queries": {
+            "additionalProperties": true,
+            "title": "Exact Queries",
+            "type": "object"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "works": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Works",
+            "type": "array"
+          }
+        },
+        "required": [
+          "provider",
+          "works",
+          "exact_queries",
+          "counts",
+          "activity_id"
+        ],
+        "title": "LiteratureSnowballResponse",
+        "type": "object"
+      },
+      "LiteratureSourceResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "automated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automated"
+          },
+          "available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available"
+          },
+          "credential_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Status"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
+          },
+          "hidden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hidden"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "implemented": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implemented"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requires_contact": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires Contact"
+          },
+          "search_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Url"
+          },
+          "sync": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiteratureSyncResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind"
+        ],
+        "title": "LiteratureSourceResponse",
+        "type": "object"
+      },
+      "LiteratureSyncResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "cancel_requested": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Requested"
+          },
+          "deleted_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted Count"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "index_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Size"
+          },
+          "indexed_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexed Count"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "received_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Count"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "LiteratureSyncResponse",
+        "type": "object"
+      },
       "LlmWikiBrainResponse": {
         "properties": {
           "configured": {
@@ -17716,6 +18964,66 @@
           "tags"
         ],
         "title": "ReferenceResourceResponse",
+        "type": "object"
+      },
+      "ReferenceTableResponse": {
+        "additionalProperties": true,
+        "description": "Stable designation state shared by all reference-table mutations.",
+        "properties": {
+          "columns_added": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Columns Added"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          }
+        },
+        "required": [
+          "table_id",
+          "configured"
+        ],
+        "title": "ReferenceTableResponse",
         "type": "object"
       },
       "RegisterPayload": {
@@ -62177,7 +63485,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureAiResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -62399,7 +63709,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureConfigurationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -62518,7 +63830,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureConfigurationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -62639,7 +63953,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureImportResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -62760,7 +64076,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureManualCaptureResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -62881,7 +64199,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureRepositoryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63002,7 +64322,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureRepositoryTestResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63142,7 +64464,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureRepositoryDeletionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63270,7 +64594,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureRepositoryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63381,7 +64707,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureReviewsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63500,7 +64828,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureReviewResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63731,7 +65061,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureReviewDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63861,7 +65193,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureActivityResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64120,7 +65454,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureCandidateMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64259,7 +65595,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureDecisionMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64398,7 +65736,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureDecisionMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64537,7 +65877,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureCandidateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64664,11 +66006,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -64796,7 +66133,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureReviewResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64926,7 +66265,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureSnowballResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -65049,7 +66390,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureSearchesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -65168,7 +66511,9 @@
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureSearchResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -65288,7 +66633,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureSearchResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -65429,7 +66776,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureSearchResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -65809,7 +67158,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureSyncResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -66054,7 +67405,9 @@
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureSyncResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -66174,7 +67527,9 @@
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureSyncResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -78189,7 +79544,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceTableResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -78299,7 +79656,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceTableResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -78421,7 +79780,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceTableResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -78544,7 +79905,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceTableResponse"
+                }
               }
             },
             "description": "Successful Response"

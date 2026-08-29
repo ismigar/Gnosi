@@ -13014,6 +13014,409 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** LiteratureActivityResponse */
+        LiteratureActivityResponse: {
+            /** Activity Type */
+            activity_type?: string | null;
+            /** Errors */
+            errors?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Exact Queries */
+            exact_queries?: {
+                [key: string]: unknown;
+            } | null;
+            /** Id */
+            id: string | null;
+            /** Occurred At */
+            occurred_at?: string | null;
+            /** Review Id */
+            review_id?: string | null;
+            /** Version */
+            version?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureAiAgentResponse */
+        LiteratureAiAgentResponse: {
+            /** Id */
+            id: string;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /** Provider */
+            provider: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureAiResponse */
+        LiteratureAiResponse: {
+            /** Audit */
+            audit: {
+                [key: string]: unknown;
+            };
+            /** Operation */
+            operation: string;
+            /** Result */
+            result: unknown;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureCandidateMutationResponse */
+        LiteratureCandidateMutationResponse: {
+            /** Added */
+            added: components["schemas"]["LiteratureCandidateResponse"][];
+            /** Added Count */
+            added_count: number;
+            /** Existing */
+            existing: components["schemas"]["LiteratureCandidateResponse"][];
+            /** Existing Count */
+            existing_count: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureCandidateResponse */
+        LiteratureCandidateResponse: {
+            /** Activity Id */
+            activity_id: string | null;
+            /** Blind Pending */
+            blind_pending?: boolean | null;
+            /** Conflict */
+            conflict: boolean;
+            /** Full Text */
+            full_text: string;
+            /** Full Text Evidence */
+            full_text_evidence: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: string | null;
+            /** Phase */
+            phase: string;
+            /** Resource Id */
+            resource_id: string | null;
+            /** Review Id */
+            review_id: string | null;
+            /** Title */
+            title: string | null;
+            /** Work */
+            work: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureConfigurationResponse */
+        LiteratureConfigurationResponse: {
+            /** Ai Agent Id */
+            ai_agent_id: string;
+            /** Ai Agents */
+            ai_agents: components["schemas"]["LiteratureAiAgentResponse"][];
+            /** Contact Email */
+            contact_email: string;
+            /** Hidden Sources */
+            hidden_sources: string[];
+            /** Source Defaults */
+            source_defaults: {
+                [key: string]: boolean;
+            };
+            /** Sources */
+            sources: components["schemas"]["LiteratureSourceResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureDecisionMutationResponse */
+        LiteratureDecisionMutationResponse: {
+            /** Blind Released */
+            blind_released?: boolean | null;
+            /** Conflict */
+            conflict: boolean;
+            /** Decision */
+            decision: {
+                [key: string]: unknown;
+            };
+            /** Phase */
+            phase: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureImportMembershipResponse */
+        LiteratureImportMembershipResponse: {
+            /** Created */
+            created: boolean;
+            /** Resource Id */
+            resource_id: string | null;
+            /** Title */
+            title: string | null;
+            /** Work Id */
+            work_id: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureImportResponse */
+        LiteratureImportResponse: {
+            /** Existing */
+            existing: components["schemas"]["LiteratureImportMembershipResponse"][];
+            /** Existing Count */
+            existing_count: number;
+            /** Imported */
+            imported: components["schemas"]["LiteratureImportMembershipResponse"][];
+            /** Imported Count */
+            imported_count: number;
+            /** Notebook */
+            notebook: {
+                [key: string]: unknown;
+            } | null;
+            /** Resource Ids */
+            resource_ids: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureManualCaptureResponse */
+        LiteratureManualCaptureResponse: {
+            /** Lookup */
+            lookup: {
+                [key: string]: unknown;
+            };
+            /** Work */
+            work: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureRepositoryDeletionResponse */
+        LiteratureRepositoryDeletionResponse: {
+            /** Deleted */
+            deleted: boolean;
+            /** Index Records Deleted */
+            index_records_deleted: number;
+            /** Repository Id */
+            repository_id: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureRepositoryResponse */
+        LiteratureRepositoryResponse: {
+            /** Base Url */
+            base_url: string;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureRepositoryTestResponse */
+        LiteratureRepositoryTestResponse: {
+            /** Count */
+            count: number;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Ok */
+            ok: boolean;
+            /** Sample */
+            sample: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureReviewDetailResponse */
+        LiteratureReviewDetailResponse: {
+            /** Activities */
+            activities: components["schemas"]["LiteratureActivityResponse"][];
+            /** Candidates */
+            candidates: components["schemas"]["LiteratureCandidateResponse"][];
+            /** Prisma */
+            prisma: {
+                [key: string]: unknown;
+            };
+            review: components["schemas"]["LiteratureReviewResponse"];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureReviewResponse */
+        LiteratureReviewResponse: {
+            /** Configuration */
+            configuration: {
+                [key: string]: unknown;
+            };
+            /** Created At */
+            created_at: string | null;
+            /** Criteria */
+            criteria: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: string | null;
+            /** Protocol */
+            protocol: string;
+            /** Question */
+            question: string;
+            /** Reviewer Mode */
+            reviewer_mode: string;
+            /** Reviewers */
+            reviewers: string[];
+            /** Status */
+            status: string;
+            /** Title */
+            title: string | null;
+            /** Updated At */
+            updated_at: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureReviewsResponse */
+        LiteratureReviewsResponse: {
+            /** Reviews */
+            reviews: components["schemas"]["LiteratureReviewResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureSearchesResponse */
+        LiteratureSearchesResponse: {
+            /** Searches */
+            searches: components["schemas"]["LiteratureSearchResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureSearchResponse */
+        LiteratureSearchResponse: {
+            /** Ai Audits */
+            ai_audits?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Counts */
+            counts?: {
+                [key: string]: unknown;
+            } | null;
+            /** Errors */
+            errors?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Exact Queries */
+            exact_queries?: {
+                [key: string]: unknown;
+            } | null;
+            /** Filters */
+            filters?: {
+                [key: string]: unknown;
+            } | null;
+            /** Id */
+            id: string;
+            /** Limit */
+            limit?: number | null;
+            /** Limit Per Source */
+            limit_per_source?: number | null;
+            /** Offset */
+            offset?: number | null;
+            /** Query */
+            query?: string | null;
+            /** Result Count */
+            result_count?: number | null;
+            /** Results */
+            results?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Source Ids */
+            source_ids?: string[] | null;
+            /** Source Queries */
+            source_queries?: {
+                [key: string]: string;
+            } | null;
+            /** Source Snapshots */
+            source_snapshots?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Source Status */
+            source_status?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            } | null;
+            /** State */
+            state: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureSnowballResponse */
+        LiteratureSnowballResponse: {
+            /** Activity Id */
+            activity_id: string | null;
+            /** Counts */
+            counts: {
+                [key: string]: unknown;
+            };
+            /** Exact Queries */
+            exact_queries: {
+                [key: string]: unknown;
+            };
+            /** Provider */
+            provider: string;
+            /** Works */
+            works: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureSourceResponse */
+        LiteratureSourceResponse: {
+            /** Automated */
+            automated?: boolean | null;
+            /** Available */
+            available?: boolean | null;
+            /** Credential Status */
+            credential_status?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group */
+            group?: string | null;
+            /** Hidden */
+            hidden?: boolean | null;
+            /** Id */
+            id: string;
+            /** Implemented */
+            implemented?: boolean | null;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Requires Contact */
+            requires_contact?: boolean | null;
+            /** Search Url */
+            search_url?: string | null;
+            sync?: components["schemas"]["LiteratureSyncResponse"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureSyncResponse */
+        LiteratureSyncResponse: {
+            /** Cancel Requested */
+            cancel_requested?: boolean | null;
+            /** Deleted Count */
+            deleted_count?: number | null;
+            /** Error */
+            error?: string | null;
+            /** Index Size */
+            index_size?: number | null;
+            /** Indexed Count */
+            indexed_count?: number | null;
+            /** Job Id */
+            job_id?: string | null;
+            /** Received Count */
+            received_count?: number | null;
+            /** Source Id */
+            source_id?: string | null;
+            /** State */
+            state: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** LlmWikiBrainResponse */
         LlmWikiBrainResponse: {
             /** Configured */
@@ -16572,6 +16975,24 @@ export interface components {
             tags: string[];
             /** Title */
             title: string;
+        };
+        /**
+         * ReferenceTableResponse
+         * @description Stable designation state shared by all reference-table mutations.
+         */
+        ReferenceTableResponse: {
+            /** Columns Added */
+            columns_added?: number | null;
+            /** Configured */
+            configured: boolean;
+            /** Created */
+            created?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Table Id */
+            table_id: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** RegisterPayload */
         RegisterPayload: {
@@ -31524,7 +31945,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureAiResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31596,7 +32017,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureConfigurationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31636,7 +32057,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureConfigurationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31676,7 +32097,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureImportResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31716,7 +32137,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureManualCaptureResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31756,7 +32177,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureRepositoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31798,7 +32219,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureRepositoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31839,7 +32260,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureRepositoryDeletionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31879,7 +32300,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureRepositoryTestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31915,7 +32336,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureReviewsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31955,7 +32376,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureReviewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31993,7 +32414,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureReviewDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32035,7 +32456,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureActivityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32117,7 +32538,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureCandidateMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32160,7 +32581,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureDecisionMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32203,7 +32624,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureDecisionMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32246,7 +32667,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureCandidateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32284,9 +32705,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -32327,7 +32746,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureReviewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32369,7 +32788,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureSnowballResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32443,7 +32862,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureSearchesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32483,7 +32902,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureSearchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32524,7 +32943,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureSearchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32562,7 +32981,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureSearchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32721,7 +33140,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureSyncResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32759,7 +33178,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureSyncResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32797,7 +33216,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureSyncResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36520,7 +36939,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReferenceTableResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36562,7 +36981,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReferenceTableResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36598,7 +37017,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReferenceTableResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36640,7 +37059,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReferenceTableResponse"];
                 };
             };
             /** @description Validation Error */
