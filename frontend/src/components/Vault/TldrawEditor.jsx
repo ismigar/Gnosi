@@ -7,10 +7,17 @@ import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { Tldraw, createTLStore, defaultShapeUtils, getSnapshot, loadSnapshot } from 'tldraw';
 import { createShapeId, toRichText } from '@tldraw/tlschema';
 import 'tldraw/tldraw.css';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle, FilePlus2, Search, ScanText, PenLine } from 'lucide-react';
+import {
+    fetchDrawing as fetchDrawingApi,
+    recognizeHandwriting,
+    saveDrawing,
+    warmupHandwriting,
+} from '../../shared/api/drawings';
+import { GnosiApiError } from '../../shared/api/errors';
+import { createVaultPage, fetchVaultPage } from '../../shared/api/vaults';
 import { PageCardShapeUtil, CanvasPageContext } from './canvasPageCardShape';
 import { GlobalSearchModal } from './GlobalSearchModal';
 import { usePlugins } from '../../plugins/usePlugins';
@@ -28,8 +35,7 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
         if (loading) return;
         setLoading(true);
         try {
-            const res = await axios.get(`/api/vault/pages/${pageId}`);
-            const data = res.data;
+            const data = await fetchVaultPage(pageId);
             setPreview(data.content || t('editor.no_content'));
         } catch {
             toast.error(t('tldraw.load_content_error'));
@@ -155,10 +161,9 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         const MAX_RETRIES = 5; // Enough to survive a backend restart (~15s backoff)
 
         const fetchDrawing = () => {
-            axios.get(`/api/vault/drawings/${drawingId}`, { signal: controller.signal })
-                .then(res => {
+            fetchDrawingApi(drawingId, controller.signal)
+                .then(data => {
                     if (controller.signal.aborted) return;
-                    const data = res.data;
                     // loadSnapshot does NOT validate the format: with an object lacking
                     // store/document/session keys it does nothing (silent no-op) — this is the case
                     // of legacy .excalidraw.json drawings. We validate before calling it.
@@ -189,8 +194,8 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     }
                 })
                 .catch((err) => {
-                    if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
-                    if (err?.response?.status === 404) {
+                    if (controller.signal.aborted || err?.name === 'AbortError') return;
+                    if (err instanceof GnosiApiError && err.status === 404) {
                         // The drawing doesn't exist yet → new empty whiteboard (can be saved)
                         setLoadState('ready');
                     } else if (retries < MAX_RETRIES) {
@@ -220,7 +225,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         if (!drawingId || loadState !== 'ready') return;
         try {
             const snapshot = getSnapshot(store);
-            await axios.put(`/api/vault/drawings/${drawingId}`, {
+            await saveDrawing(drawingId, {
                 title: title || 'Dibuix sense títol',
                 data: snapshot,
                 metadata: {}
@@ -437,14 +442,16 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         const editor = editorRef.current;
         if (!editor) return;
         try {
-            const res = await axios.post('/api/vault/pages', {
+            const page = await createVaultPage({
                 title: 'Nova nota',
                 content: '',
                 is_database: false,
                 metadata: {},
             });
-            const page = res.data;
-            insertPageOnCanvas(page.id, page.title || 'Nova nota');
+            insertPageOnCanvas(
+                page.id,
+                typeof page.title === 'string' ? page.title : 'Nova nota',
+            );
             toast.success(t('tldraw.note_created'));
         } catch (err) {
             console.error('Error creating note on canvas:', err);
@@ -457,7 +464,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
     // fashion (fire-and-forget). While the user draws, the model loads, and
     // when clicking "Convert to text" it's already there → the 1st call doesn't wait on ~1.3 GB.
     useEffect(() => {
-        axios.post('/api/vault/handwriting/warmup').catch(() => {});
+        warmupHandwriting().catch(() => {});
     }, []);
 
     // ── Convert handwritten strokes to text (local OCR with TrOCR on the backend) ──
@@ -490,10 +497,8 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             });
             if (!img?.blob) throw new Error('Could not export the image');
 
-            const form = new FormData();
-            form.append('image', img.blob, 'ink.png');
-            const res = await axios.post('/api/vault/handwriting/recognize', form);
-            const text = (res.data?.text || '').trim();
+            const result = await recognizeHandwriting(img.blob);
+            const text = result.text.trim();
 
             if (!text) {
                 toast.error(t('tldraw.no_text_recognized'));
@@ -514,13 +519,12 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 props: { richText: toRichText(text), color: 'black', size: 'm' },
             });
             editor.select(textId);
-            toast.success(res.data?.corrected
+            toast.success(result.corrected
                 ? t('tldraw.recognized_corrected')
                 : t('tldraw.recognized'));
         } catch (err) {
             console.error('Error recognizing handwriting:', err);
-            const status = err?.response?.status;
-            if (status === 503) {
+            if (err instanceof GnosiApiError && err.status === 503) {
                 toast.error(t('tldraw.engine_unavailable'));
             } else {
                 toast.error(t('tldraw.recognize_error'));

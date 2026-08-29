@@ -7,10 +7,9 @@ any cloud (cf. `services/handwriting.py`).
 
 import asyncio
 import logging
-from typing import Any, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 
 from backend.services import handwriting
 
@@ -40,8 +39,8 @@ class HandwritingRecognitionResponse(BaseModel):
     corrected: bool
 
 
-@router.get("/status", response_model=None)
-async def handwriting_status() -> dict[str, Any]:
+@router.get("/status", response_model=HandwritingStatusResponse)
+async def handwriting_status() -> dict[str, JsonValue]:
     """Indicates whether the local engine (transformers + PIL) is available."""
     return HandwritingStatusResponse(
         available=handwriting.is_available(),
@@ -50,7 +49,7 @@ async def handwriting_status() -> dict[str, Any]:
     ).model_dump()
 
 
-@router.post("/warmup", response_model=None)
+@router.post("/warmup", response_model=HandwritingWarmupResponse)
 async def handwriting_warmup() -> dict[str, bool]:
     """Preloads the model in the background (idempotent, non-blocking).
 
@@ -65,12 +64,12 @@ async def handwriting_warmup() -> dict[str, bool]:
     ).model_dump()
 
 
-@router.post("/recognize", response_model=None)
+@router.post("/recognize", response_model=HandwritingRecognitionResponse)
 async def recognize_handwriting(
     image: UploadFile = File(...),
-    correct: Optional[bool] = Form(None),
-    language: Optional[str] = Form(None),
-) -> dict[str, Any]:
+    correct: bool | None = Form(None),
+    language: str | None = Form(None),
+) -> dict[str, JsonValue]:
     """Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`.
 
     `correct` applies AI correction (accents/spelling) with the local LLM; if it's
