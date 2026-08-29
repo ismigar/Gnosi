@@ -7,6 +7,7 @@
  * active contributions from it and re-render when they change.
  */
 import { useEffect, useState } from 'react';
+import { subscribeAppEvent } from '../shared/platform/app-events';
 import {
     subscribeHost,
     loadPlugins,
@@ -31,10 +32,10 @@ export function usePluginHost(): PluginHostContributions {
         const unsub = subscribeHost(setState);
         if (!isLoaded()) void kickoffPluginLoad();
         const refresh = () => { void kickoffPluginLoad(); };
-        window.addEventListener('gnosi:vault-changed', refresh);
+        const unsubscribeVault = subscribeAppEvent('gnosi:vault-changed', refresh);
         return () => {
             unsub();
-            window.removeEventListener('gnosi:vault-changed', refresh);
+            unsubscribeVault();
         };
     }, []);
 

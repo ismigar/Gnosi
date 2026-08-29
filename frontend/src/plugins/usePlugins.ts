@@ -6,6 +6,7 @@ import {
     type PluginState,
 } from '../shared/api/plugins';
 import { updatePluginSettings } from '../shared/api/plugin-runtime';
+import { subscribeAppEvent } from '../shared/platform/app-events';
 
 import { BUILTIN_PLUGINS } from './registry';
 import type { BuiltinPluginDefinition } from './registry';
@@ -111,10 +112,10 @@ export function usePlugins(): PluginsState {
             _notify();
             void _load(true);
         };
-        window.addEventListener('gnosi:vault-changed', refresh);
+        const unsubscribeVault = subscribeAppEvent('gnosi:vault-changed', refresh);
         return () => {
             _subs.delete(setState);
-            window.removeEventListener('gnosi:vault-changed', refresh);
+            unsubscribeVault();
         };
     }, []);
 
