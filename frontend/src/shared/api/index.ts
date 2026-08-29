@@ -9,16 +9,22 @@ export type {
   InternalContextSource,
 } from './agent-context';
 export {
+  correctAiContent,
   fetchAiCatalog,
   fetchAiModelCatalog,
   fetchAiModelComparison,
   fetchAiModels,
   fetchAiUsage,
   fetchAiUsageHistory,
+  generateAiContent,
   updateAiModels,
 } from './ai';
 export type {
   AiCatalog,
+  AiCorrectionInput,
+  AiCorrectionResult,
+  AiGenerateInput,
+  AiGenerateResult,
   AiModelCatalog,
   AiModelComparison,
   AiModelRegistry,

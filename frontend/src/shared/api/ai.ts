@@ -12,6 +12,30 @@ export type AiModelRegistryUpdate =
   components['schemas']['ModelRegistryUpdateResponse'];
 export type AiUsage = components['schemas']['AiUsageResponse'];
 export type AiUsageHistory = components['schemas']['AiUsageHistoryResponse'];
+export type AiGenerateInput = components['schemas']['GeneratePayload'];
+export type AiGenerateResult = components['schemas']['GenerateContentResponse'];
+export type AiCorrectionInput = components['schemas']['CorrectPayload'];
+export type AiCorrectionResult = components['schemas']['CorrectTextResponse'];
+
+
+export async function generateAiContent(
+  payload: AiGenerateInput,
+  signal?: AbortSignal,
+): Promise<AiGenerateResult> {
+  return unwrapApiResult<AiGenerateResult, unknown>(
+    await apiClient.POST('/api/ai/generate', { body: payload, signal }),
+  );
+}
+
+
+export async function correctAiContent(
+  payload: AiCorrectionInput,
+  signal?: AbortSignal,
+): Promise<AiCorrectionResult> {
+  return unwrapApiResult<AiCorrectionResult, unknown>(
+    await apiClient.POST('/api/ai/correct', { body: payload, signal }),
+  );
+}
 
 export async function fetchAiCatalog(
   signal?: AbortSignal,

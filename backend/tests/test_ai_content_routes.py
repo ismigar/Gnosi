@@ -4,15 +4,30 @@ import asyncio
 
 import pytest
 from fastapi import HTTPException
+from fastapi.routing import APIRoute
 
 from backend.agent import factory
 from backend.domains.configuration.ai.content_routes import (
+    CorrectTextResponse,
     CorrectPayload,
+    GenerateContentResponse,
     GeneratePayload,
+    router,
     build_generation_prompt,
     correct_text,
     generate_content,
 )
+
+
+def test_editor_ai_routes_publish_typed_response_contracts() -> None:
+    routes = {
+        route.endpoint.__name__: route
+        for route in router.routes
+        if isinstance(route, APIRoute)
+    }
+
+    assert routes["generate_content"].response_model is GenerateContentResponse
+    assert routes["correct_text"].response_model is CorrectTextResponse
 
 
 def test_translation_prompt_preserves_target_language() -> None:

@@ -1,14 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  correctAiContent,
   fetchAiCatalog,
   fetchAiModelCatalog,
   fetchAiModelComparison,
   fetchAiModels,
   fetchAiUsage,
   fetchAiUsageHistory,
+  generateAiContent,
   updateAiModels,
   type AiCatalog,
+  type AiCorrectionInput,
+  type AiGenerateInput,
   type AiModelCatalog,
   type AiModelComparison,
   type AiModelRegistry,
@@ -43,6 +47,47 @@ const currency = {
 };
 
 describe('AI API', () => {
+  it('generates and corrects editor content through typed requests', async () => {
+    const generatePayload: AiGenerateInput = {
+      context: 'Current page',
+      language: null,
+      mode: 'continue',
+      prompt: 'Continue',
+    };
+    const correctPayload: AiCorrectionInput = {
+      language: 'ca',
+      scope: 'selection',
+      text: 'Text incorrekte',
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ content: 'Generated', provider: 'local' }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ corrected: 'Text correcte', provider: 'local' }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(generateAiContent(generatePayload)).resolves.toEqual({
+      content: 'Generated',
+      provider: 'local',
+    });
+    await expect(correctAiContent(correctPayload)).resolves.toEqual({
+      corrected: 'Text correcte',
+      provider: 'local',
+    });
+
+    expect(new URL(requestAt(fetchMock, 0).url).pathname).toBe('/api/ai/generate');
+    expect(new URL(requestAt(fetchMock, 1).url).pathname).toBe('/api/ai/correct');
+    await expect(requestAt(fetchMock, 0).clone().json()).resolves.toEqual(
+      generatePayload,
+    );
+    await expect(requestAt(fetchMock, 1).clone().json()).resolves.toEqual(
+      correctPayload,
+    );
+  });
+
   it('loads every typed AI read endpoint without changing its payload', async () => {
     const catalog: AiCatalog = { catalog: { providers: [] }, config: {} };
     const models: AiModelRegistry = {

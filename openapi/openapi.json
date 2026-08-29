@@ -4358,6 +4358,24 @@
         "title": "CorrectPayload",
         "type": "object"
       },
+      "CorrectTextResponse": {
+        "properties": {
+          "corrected": {
+            "title": "Corrected",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corrected",
+          "provider"
+        ],
+        "title": "CorrectTextResponse",
+        "type": "object"
+      },
       "CreateFromTemplatePayload": {
         "description": "Select an immutable template catalog entry for a new Vault.",
         "properties": {
@@ -5564,6 +5582,24 @@
           "status"
         ],
         "title": "FullTextRequest",
+        "type": "object"
+      },
+      "GenerateContentResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content",
+          "provider"
+        ],
+        "title": "GenerateContentResponse",
         "type": "object"
       },
       "GeneratePayload": {
@@ -20318,7 +20354,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectTextResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -20975,7 +21013,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateContentResponse"
+                }
               }
             },
             "description": "Successful Response"

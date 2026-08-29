@@ -11444,6 +11444,13 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** CorrectTextResponse */
+        CorrectTextResponse: {
+            /** Corrected */
+            corrected: string;
+            /** Provider */
+            provider: string;
+        };
         /**
          * CreateFromTemplatePayload
          * @description Select an immutable template catalog entry for a new Vault.
@@ -11935,6 +11942,13 @@ export interface components {
              * @enum {string}
              */
             status: "not_requested" | "requested" | "available_oa" | "attached" | "unavailable" | "assessed";
+        };
+        /** GenerateContentResponse */
+        GenerateContentResponse: {
+            /** Content */
+            content: string;
+            /** Provider */
+            provider: string;
         };
         /** GeneratePayload */
         GeneratePayload: {
@@ -17583,7 +17597,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CorrectTextResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17808,7 +17822,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GenerateContentResponse"];
                 };
             };
             /** @description Validation Error */
