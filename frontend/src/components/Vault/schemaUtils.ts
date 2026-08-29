@@ -6,16 +6,44 @@
  *   { fieldName: 'type', fieldName_config: { formula, relationField, ... } }
  */
 
+import type {
+    SchemaFieldConfig,
+    SchemaPage,
+    SchemaView,
+    TableProperty,
+    VaultMetadata,
+    VaultSchema,
+    ViewSort,
+} from './schemaTypes';
+
 export { isCalendarPage } from './pageClassification';
+export {
+    detectRecordSourceLang,
+    getLanguageFieldName,
+    normalizeLangCode,
+} from './schemaLanguageUtils';
+export type {
+    SchemaFieldConfig,
+    SchemaPage,
+    SchemaView,
+    TableProperty,
+    VaultMetadata,
+    VaultSchema,
+    ViewSort,
+} from './schemaTypes';
 
 const RESERVED_KEYS_SUFFIX = '_config';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 /**
  * Returns all field names from the schema (excludes _config keys).
  * @param {Object} schema
  * @returns {string[]}
  */
-export function getSchemaFieldNames(schema = {}) {
+export function getSchemaFieldNames(schema: VaultSchema = {}): string[] {
     return Object.keys(schema).filter(key => !key.endsWith(RESERVED_KEYS_SUFFIX));
 }
 
@@ -25,11 +53,11 @@ export function getSchemaFieldNames(schema = {}) {
  * @param {string} fieldName
  * @returns {string}
  */
-export function getFieldType(schema = {}, fieldName) {
+export function getFieldType(schema: VaultSchema = {}, fieldName: string): string {
     const val = schema[fieldName];
     if (!val) return 'text';
     if (typeof val === 'string') return val;
-    if (typeof val === 'object' && val.type) return val.type;
+    if (isRecord(val) && typeof val.type === 'string') return val.type;
     return 'text';
 }
 
@@ -39,102 +67,12 @@ export function getFieldType(schema = {}, fieldName) {
  * @param {string} fieldName
  * @returns {Object}
  */
-export function getFieldConfig(schema = {}, fieldName) {
-    return schema[`${fieldName}${RESERVED_KEYS_SUFFIX}`] || {};
-}
-
-// Field names we typically use for "the record's language". The
-// translation modal looks for them to hide the source language from the list of targets.
-// Accent/case-insensitive comparison (see detectRecordSourceLang).
-const LANGUAGE_FIELD_NAMES = ['idioma', 'llengua', 'language', 'lang', 'lengua', 'lingua'];
-
-// Common labels → ISO 639-1 code, because the "Idioma" field can have
-// values like "CA", "ca", "Català", "Castellà", "EN-GB"… The goal is to match it
-// with the `code` values from the modal's DEFAULT_LANGUAGES. If not recognized, we return
-// the lowercase 2-letter prefix (covers "EN-GB"→"en", "pt-BR"→"pt").
-const LANGUAGE_VALUE_TO_CODE = {
-    ca: 'ca', cat: 'ca', català: 'ca', catala: 'ca', catalan: 'ca', catalán: 'ca',
-    es: 'es', spa: 'es', cas: 'es', castellà: 'es', castella: 'es', castellano: 'es', español: 'es', espanyol: 'es', spanish: 'es',
-    en: 'en', eng: 'en', anglès: 'en', angles: 'en', inglés: 'en', english: 'en',
-    fr: 'fr', fra: 'fr', fre: 'fr', francès: 'fr', frances: 'fr', francés: 'fr', french: 'fr',
-    de: 'de', deu: 'de', ger: 'de', alemany: 'de', alemán: 'de', aleman: 'de', german: 'de',
-    it: 'it', ita: 'it', italià: 'it', italia: 'it', italiano: 'it', italian: 'it',
-    pt: 'pt', por: 'pt', portuguès: 'pt', portugues: 'pt', portugués: 'pt', portuguese: 'pt',
-    nl: 'nl', nld: 'nl', dut: 'nl', neerlandès: 'nl', neerlandes: 'nl', neerlandés: 'nl', dutch: 'nl', holandés: 'nl',
-    eu: 'eu', eus: 'eu', baq: 'eu', basc: 'eu', euskera: 'eu', euskara: 'eu', vasco: 'eu', vascuence: 'eu', basque: 'eu',
-    gl: 'gl', glg: 'gl', gallec: 'gl', gallego: 'gl', galego: 'gl', galician: 'gl',
-    ar: 'ar', ara: 'ar', àrab: 'ar', arab: 'ar', árabe: 'ar', arabe: 'ar', arabic: 'ar',
-    zh: 'zh', zho: 'zh', chi: 'zh', xinès: 'zh', xines: 'zh', chino: 'zh', chinese: 'zh', mandarí: 'zh', mandarin: 'zh',
-};
-
-/**
- * Normalizes a language value ("Català", "EN-GB", "ca") to an ISO 639-1 code.
- * Returns '' if it cannot be determined.
- * @param {string} value
- * @returns {string}
- */
-export function normalizeLangCode(value) {
-    if (!value || typeof value !== 'string') return '';
-    const raw = value.trim().toLowerCase();
-    if (!raw) return '';
-    if (LANGUAGE_VALUE_TO_CODE[raw]) return LANGUAGE_VALUE_TO_CODE[raw];
-    // "en-gb" / "pt_br" → prefix before the separator.
-    const prefix = raw.split(/[-_]/)[0];
-    if (LANGUAGE_VALUE_TO_CODE[prefix]) return LANGUAGE_VALUE_TO_CODE[prefix];
-    // Last resort: if it already looks like a 2-letter code, accept it as-is.
-    return /^[a-z]{2}$/.test(prefix) ? prefix : '';
-}
-
-/**
- * Detects a record's source language by reading its "Idioma" field (or
- * synonyms) from the metadata. The translation modal uses it to hide the language that
- * is already the original and prevent the user from selecting it. Returns the ISO 639-1 code, or
- * '' if the record has no recognizable language field (in that case the backend
- * skips the source anyway, as a safety net).
- *
- * @param {Object} metadata  record metadata (note.metadata)
- * @param {Object} schema    table schema (to resolve field name↔id)
- * @returns {string}
- */
-export function detectRecordSourceLang(metadata = {}, schema = {}) {
-    if (!metadata || typeof metadata !== 'object') return '';
-    const stripAccents = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    // 1) Locate the language field name in the schema (accent/case-insensitive).
-    const langFieldName = getSchemaFieldNames(schema).find(name =>
-        LANGUAGE_FIELD_NAMES.includes(stripAccents(String(name).toLowerCase()))
-    );
-    // 2) Gather the candidate keys in the metadata: the field name, its
-    //    stable id, and any key that matches by name (for metadata that
-    //    it has been saved by name or by id).
-    const candidates = [];
-    if (langFieldName) {
-        candidates.push(langFieldName);
-        const cfgId = getFieldConfig(schema, langFieldName)?.id;
-        if (cfgId) candidates.push(cfgId);
-    }
-    for (const k of Object.keys(metadata)) {
-        if (LANGUAGE_FIELD_NAMES.includes(stripAccents(String(k).toLowerCase()))) candidates.push(k);
-    }
-    for (const key of candidates) {
-        const val = metadata[key];
-        const code = normalizeLangCode(Array.isArray(val) ? val[0] : val);
-        if (code) return code;
-    }
-    return '';
-}
-
-/**
- * Returns the NAME of the "Idioma" field (or synonym) from the schema, or undefined if
- * there is none. Recognizes the same names as detectRecordSourceLang. The table
- * uses it to avoid duplicating the language badge when the column is already visible.
- * @param {Object} schema
- * @returns {string|undefined}
- */
-export function getLanguageFieldName(schema = {}) {
-    const stripAccents = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    return getSchemaFieldNames(schema).find(name =>
-        LANGUAGE_FIELD_NAMES.includes(stripAccents(String(name).toLowerCase()))
-    );
+export function getFieldConfig(
+    schema: VaultSchema = {},
+    fieldName: string,
+): SchemaFieldConfig {
+    const config = schema[`${fieldName}${RESERVED_KEYS_SUFFIX}`];
+    return isRecord(config) ? config : {};
 }
 
 /**
@@ -143,12 +81,14 @@ export function getLanguageFieldName(schema = {}) {
  * @param {Array} tableProperties
  * @returns {Object}
  */
-export function buildSchemaFromTableProperties(tableProperties = []) {
-    const schema = {};
+export function buildSchemaFromTableProperties(
+    tableProperties: readonly TableProperty[] = [],
+): Record<string, unknown> {
+    const schema: Record<string, unknown> = {};
     tableProperties.forEach(prop => {
         if (!prop.name) return;
         schema[prop.name] = prop.type || 'text';
-        const config = {};
+        const config: Record<string, unknown> = {};
         if (prop.formula) config.formula = prop.formula;
         if (prop.compute) config.compute = prop.compute;
         if (prop.defaultFormula) config.defaultFormula = prop.defaultFormula;
@@ -167,11 +107,11 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.button_action) config.button_action = prop.button_action;
         if (prop.button_label) config.button_label = prop.button_label;
         if (prop.button_config) config.button_config = prop.button_config;
-        if (prop.duration_enabled !== undefined) config.duration_enabled = prop.duration_enabled !== false;
-        if (prop.predecessors_enabled !== undefined) config.predecessors_enabled = prop.predecessors_enabled !== false;
-        if (prop.skip_non_working_days !== undefined) config.skip_non_working_days = prop.skip_non_working_days !== false;
-        if (['hours', 'days', 'years'].includes(prop.period_unit)) config.period_unit = prop.period_unit;
-        if (prop.format && typeof prop.format === 'object') config.format = prop.format;
+        if (prop.duration_enabled !== undefined) config.duration_enabled = prop.duration_enabled;
+        if (prop.predecessors_enabled !== undefined) config.predecessors_enabled = prop.predecessors_enabled;
+        if (prop.skip_non_working_days !== undefined) config.skip_non_working_days = prop.skip_non_working_days;
+        if (typeof prop.period_unit === 'string' && ['hours', 'days', 'years'].includes(prop.period_unit)) config.period_unit = prop.period_unit;
+        if (isRecord(prop.format)) config.format = prop.format;
         // Explicit select/multi_select/status options: the fixed catalog of
         // selectable values. There are two possible sources and they can diverge:
         //   - `config.options` (nested): written by the inline options PATCH.
@@ -201,8 +141,12 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
  * @param {string} fieldName
  * @returns {string|undefined}
  */
-export function getFieldId(schema = {}, fieldName) {
-    return getFieldConfig(schema, fieldName).id;
+export function getFieldId(
+    schema: VaultSchema = {},
+    fieldName: string,
+): string | undefined {
+    const id = getFieldConfig(schema, fieldName).id;
+    return typeof id === 'string' ? id : undefined;
 }
 
 /**
@@ -211,7 +155,10 @@ export function getFieldId(schema = {}, fieldName) {
  * @param {string} fieldId
  * @returns {string|undefined}
  */
-export function getFieldNameById(schema = {}, fieldId) {
+export function getFieldNameById(
+    schema: VaultSchema = {},
+    fieldId: string,
+): string | undefined {
     if (!fieldId) return undefined;
     for (const name of getSchemaFieldNames(schema)) {
         if (getFieldConfig(schema, name).id === fieldId) return name;
@@ -226,7 +173,10 @@ export function getFieldNameById(schema = {}, fieldId) {
  * @param {string} ref - id ('fld_*') or field name
  * @returns {{id: string|undefined, name: string|undefined}}
  */
-export function resolveFieldRef(schema = {}, ref) {
+export function resolveFieldRef(
+    schema: VaultSchema = {},
+    ref: string,
+): { id: string | undefined; name: string | undefined } {
     if (!ref) return { id: undefined, name: undefined };
     if (typeof ref === 'string' && ref.startsWith('fld_')) {
         return { id: ref, name: getFieldNameById(schema, ref) };
@@ -241,7 +191,11 @@ export function resolveFieldRef(schema = {}, ref) {
  * @param {Object} schema
  * @param {string} ref - id or name
  */
-export function getMetaValue(page, schema, ref) {
+export function getMetaValue(
+    page: SchemaPage | null | undefined,
+    schema: VaultSchema,
+    ref: string,
+): unknown {
     if (!page || !page.metadata) return undefined;
     const { id, name } = resolveFieldRef(schema, ref);
     if (id !== undefined && page.metadata[id] !== undefined) return page.metadata[id];
@@ -262,8 +216,12 @@ export function getMetaValue(page, schema, ref) {
  * @param {string} fieldRef   optional explicit field name or stable field ID
  * @returns {*} resolved timestamp, or an empty string
  */
-export function resolveSystemDateValue(page, schema = {}, type, fieldRef = '') {
-    if (type !== 'created_time' && type !== 'last_edited_time') return '';
+export function resolveSystemDateValue(
+    page: SchemaPage | null | undefined,
+    schema: VaultSchema = {},
+    type: 'created_time' | 'last_edited_time',
+    fieldRef = '',
+): unknown {
     const metadata = page?.metadata || {};
     const registeredField = fieldRef || getSchemaFieldNames(schema)
         .find(name => getFieldType(schema, name) === type);
@@ -280,11 +238,22 @@ export function resolveSystemDateValue(page, schema = {}, type, fieldRef = '') {
  * Returns a page whose top-level timestamps reflect registered system fields.
  * Existing objects are reused when no value changes.
  */
-export function withResolvedSystemDates(page, schema = {}) {
+export function withResolvedSystemDates<Page extends SchemaPage>(
+    page: Page,
+    schema?: VaultSchema,
+): Page;
+export function withResolvedSystemDates(
+    page: null | undefined,
+    schema?: VaultSchema,
+): null | undefined;
+export function withResolvedSystemDates(
+    page: SchemaPage | null | undefined,
+    schema: VaultSchema = {},
+): SchemaPage | null | undefined {
     if (!page || typeof page !== 'object') return page;
     const createdTime = resolveSystemDateValue(page, schema, 'created_time');
     const lastModified = resolveSystemDateValue(page, schema, 'last_edited_time');
-    const patch = {};
+    const patch: Pick<SchemaPage, 'created_time' | 'last_modified'> = {};
     if (createdTime && createdTime !== page.created_time) patch.created_time = createdTime;
     if (lastModified && lastModified !== page.last_modified) patch.last_modified = lastModified;
     return Object.keys(patch).length ? { ...page, ...patch } : page;
@@ -297,13 +266,18 @@ export function withResolvedSystemDates(page, schema = {}) {
  * (to_storage_names) re-canonicalizes it again as a safety net.
  * Mutates and returns the metadata.
  */
-export function setMetaValue(metadata, schema, ref, value) {
+export function setMetaValue(
+    metadata: VaultMetadata | null | undefined,
+    schema: VaultSchema,
+    ref: string,
+    value: unknown,
+): VaultMetadata {
     metadata = metadata || {};
     const { id, name } = resolveFieldRef(schema, ref);
     if (name) {
         metadata[name] = value;
         if (id && id !== name && metadata[id] !== undefined) {
-            delete metadata[id];
+            Reflect.deleteProperty(metadata, id);
         }
     } else if (id) {
         metadata[id] = value;
@@ -317,7 +291,9 @@ export function setMetaValue(metadata, schema, ref, value) {
  * @param {Object} schema
  * @returns {Array}
  */
-export function buildTablePropertiesFromSchema(schema = {}) {
+export function buildTablePropertiesFromSchema(
+    schema: VaultSchema = {},
+): TableProperty[] {
     return getSchemaFieldNames(schema).map(name => {
         const config = getFieldConfig(schema, name);
         return {
@@ -333,7 +309,9 @@ export function buildTablePropertiesFromSchema(schema = {}) {
  * @param {Object} schema
  * @returns {Array<[string, string]>}
  */
-export function getSchemaFieldEntries(schema = {}) {
+export function getSchemaFieldEntries(
+    schema: VaultSchema = {},
+): Array<[string, string]> {
     return getSchemaFieldNames(schema).map(name => [name, getFieldType(schema, name)]);
 }
 
@@ -352,14 +330,22 @@ export function getSchemaFieldEntries(schema = {}) {
  * @param {Object|Array|null|undefined} raw  raw value of `view.sort`
  * @returns {Array<{id: string, field: string, direction: string}>}
  */
-export function normalizeSorts(raw) {
+export function normalizeSorts(raw: unknown): ViewSort[] {
     if (Array.isArray(raw)) {
         return raw
-            .filter(s => s && s.field)
-            .map((s, i) => ({ id: s.id ?? `sort-${i}`, field: s.field, direction: s.direction || 'asc' }));
+            .filter((sort): sort is Record<string, unknown> & { field: string } => isRecord(sort) && typeof sort.field === 'string' && sort.field.length > 0)
+            .map((sort, index) => ({
+                id: typeof sort.id === 'string' ? sort.id : `sort-${String(index)}`,
+                field: sort.field,
+                direction: typeof sort.direction === 'string' && sort.direction ? sort.direction : 'asc',
+            }));
     }
-    if (raw && typeof raw === 'object' && raw.field) {
-        return [{ id: raw.id ?? 'sort-0', field: raw.field, direction: raw.direction || 'asc' }];
+    if (isRecord(raw) && typeof raw.field === 'string' && raw.field) {
+        return [{
+            id: typeof raw.id === 'string' ? raw.id : 'sort-0',
+            field: raw.field,
+            direction: typeof raw.direction === 'string' && raw.direction ? raw.direction : 'asc',
+        }];
     }
     return [];
 }
@@ -385,7 +371,10 @@ export function normalizeSorts(raw) {
  *        when the view has NO sort config at all (e.g. last_modified desc)
  * @returns {Array<{id: string, field: string, direction: string}>}
  */
-export function resolveViewSorts(view, fallback = null) {
+export function resolveViewSorts(
+    view: SchemaView | null | undefined,
+    fallback: unknown = null,
+): ViewSort[] {
     const plural = normalizeSorts(view?.sorts);
     const resolved = plural.length ? plural : normalizeSorts(view?.sort);
     if (resolved.length) return resolved;
@@ -406,10 +395,10 @@ export function resolveViewSorts(view, fallback = null) {
  * @param {Object|null|undefined} view  the registry view
  * @returns {Array} list of filters (never null)
  */
-export function resolveViewFilters(view) {
+export function resolveViewFilters(view: SchemaView | null | undefined): unknown[] {
     const f = view?.filters;
     if (Array.isArray(f)) return f.filter(Boolean);
-    if (f && typeof f === 'object' && Array.isArray(f.conditions)) return f.conditions.filter(Boolean);
+    if (isRecord(f) && Array.isArray(f.conditions)) return f.conditions.filter(Boolean);
     return [];
 }
 
@@ -420,9 +409,9 @@ export function resolveViewFilters(view) {
  * @param {Object} page
  * @returns {boolean}
  */
-export function isAppContent(page) {
+export function isAppContent(page: SchemaPage | null | undefined): boolean {
     if (!page) return false;
-    const folder = String(page.folder || '');
+    const folder = typeof page.folder === 'string' ? page.folder : '';
     const systemFolders = [
         'Contacts',
         'Mail',
@@ -444,7 +433,7 @@ export function isAppContent(page) {
  * must never be shown in the column selector or the grid. It's the same
  * canonical set that BlockEditor uses to compute `adhocProperties`.
  */
-export const INTERNAL_METADATA_KEYS = new Set([
+export const INTERNAL_METADATA_KEYS: ReadonlySet<string> = new Set([
     'title', 'table_id', 'database_id', 'database_table_id', 'id',
     'parent_id', 'source_id', 'resolved_table_id', 'last_modified',
     'created_time', 'last_edited_time', 'last_edited_at', 'last_edited_by',
@@ -466,13 +455,15 @@ const TITLE_FIELD_NAMES = new Set(['title', 'títol', 'titulo', 'título', 'titr
  * @param {Array} records  list of records ({ metadata })
  * @returns {string[]}     unique field names, sorted alphabetically
  */
-export function discoverFieldNamesFromRecords(records = []) {
-    const byNorm = new Map(); // normalized key → original name (first seen)
-    for (const rec of Array.isArray(records) ? records : []) {
-        const md = rec && rec.metadata;
-        if (!md || typeof md !== 'object') continue;
+export function discoverFieldNamesFromRecords(
+    records: readonly SchemaPage[] = [],
+): string[] {
+    const byNorm = new Map<string, string>(); // normalized key → original name (first seen)
+    for (const rec of records) {
+        const md = rec.metadata;
+        if (!md) continue;
         for (const key of Object.keys(md)) {
-            const norm = String(key || '').toLowerCase();
+            const norm = key.toLowerCase();
             if (INTERNAL_METADATA_KEYS.has(key) || INTERNAL_METADATA_KEYS.has(norm)) continue;
             if (TITLE_FIELD_NAMES.has(norm)) continue;
             if (norm.endsWith('_manual')) continue;
