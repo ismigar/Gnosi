@@ -71,9 +71,15 @@ export interface AppEventMap {
   readonly 'gnosi:floating-dock-change': { readonly isOpen: boolean };
   readonly 'gnosi:floating-panel-open': { readonly panelId: string };
   readonly 'gnosi:invalidatePreview': { readonly pageId?: string };
+  readonly 'gnosi:imported': unknown;
   readonly 'gnosi:open-pdf': OpenDocumentEventDetail;
+  readonly 'gnosi:open-search': null;
   readonly 'gnosi:open-settings': null;
+  readonly 'gnosi:open-tags': null;
+  readonly 'gnosi:open-workspaces': null;
   readonly 'gnosi:page-deleted': PageDeletedEventDetail;
+  readonly 'gnosi:present': null;
+  readonly 'gnosi:toggle-comments': null;
   readonly 'gnosi-ai-models-changed': { readonly source: string };
   readonly 'gnosi:relation-unlinked': RelationUnlinkedEventDetail;
   readonly 'gnosi:relation-value-applied': RelationValueAppliedEventDetail;
