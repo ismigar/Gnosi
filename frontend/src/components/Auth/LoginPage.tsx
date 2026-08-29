@@ -1,59 +1,66 @@
-/**
- * LoginPage — entry screen when there is no authenticated user.
- *
- * Shown in org mode, and in personal mode when the backend enforces auth
- * (GNOSI_REQUIRE_AUTH, surfaced as `require_auth` by /api/health). Toggles
- * between signing in and signing up. Signing up also serves as a "claim"
- * of a membership pre-created by email (see auth_routes.register), so a
- * cooperative can invite members before they register.
- */
-import React, { useState } from 'react';
-import { LogIn, UserPlus, Loader2 } from 'lucide-react';
+import { useState, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Loader2, LogIn, UserPlus } from 'lucide-react';
+
 import { useAuth } from '../../context/auth-context';
 import { toast } from '../../lib/toast';
+
+type AuthMode = 'login' | 'register';
+
+function errorMessage(error: unknown, fallback: string): string {
+    return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export function LoginPage() {
     const { t } = useTranslation();
     const { login, register } = useAuth();
-    const [mode, setMode] = useState('login'); // 'login' | 'register'
+    const [mode, setMode] = useState<AuthMode>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
-
     const isRegister = mode === 'register';
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (
+        event: SyntheticEvent<HTMLFormElement, SubmitEvent>,
+    ): Promise<void> => {
+        event.preventDefault();
         setError('');
         if (!email || !password) {
-            setError(t('auth.missing_fields', "Email and password are required."));
+            setError(t('auth.missing_fields', 'Email and password are required.'));
             return;
         }
         if (isRegister && password.length < 8) {
-            setError(t('auth.password_too_short', "The password must be at least 8 characters long."));
+            setError(t(
+                'auth.password_too_short',
+                'The password must be at least 8 characters long.',
+            ));
             return;
         }
         setSubmitting(true);
         try {
             if (isRegister) {
                 await register(email, password, name);
-                toast.success(t('auth.register_success', "Account created. Welcome to Gnosi!"));
+                toast.success(t(
+                    'auth.register_success',
+                    'Account created. Welcome to Gnosi!',
+                ));
             } else {
                 await login(email, password);
-                toast.success(t('auth.login_success', "Signed in."));
+                toast.success(t('auth.login_success', 'Signed in.'));
             }
-            // No need to navigate: AuthProvider updates `user` and App renders the app.
-        } catch (err) {
-            setError(err.message || t('auth.auth_error', "Authentication error."));
+        } catch (caught: unknown) {
+            setError(errorMessage(
+                caught,
+                t('auth.auth_error', 'Authentication error.'),
+            ));
         } finally {
             setSubmitting(false);
         }
     };
 
-    const toggleMode = () => {
+    const toggleMode = (): void => {
         setMode(isRegister ? 'login' : 'register');
         setError('');
     };
@@ -71,7 +78,7 @@ export function LoginPage() {
             }}
         >
             <form
-                onSubmit={handleSubmit}
+                onSubmit={(event) => void handleSubmit(event)}
                 style={{
                     width: '100%',
                     maxWidth: '380px',
@@ -105,10 +112,14 @@ export function LoginPage() {
                         G
                     </div>
                     <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                        {isRegister ? t('auth.register_title', "Create your account") : t('auth.login_title', "Welcome to Gnosi")}
+                        {isRegister
+                            ? t('auth.register_title', 'Create your account')
+                            : t('auth.login_title', 'Welcome to Gnosi')}
                     </h1>
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                        {isRegister ? t('auth.register_subtitle', "Join your workspace") : t('auth.login_subtitle', "Sign in to continue")}
+                        {isRegister
+                            ? t('auth.register_subtitle', 'Join your workspace')
+                            : t('auth.login_subtitle', 'Sign in to continue')}
                     </p>
                 </div>
 
@@ -116,9 +127,11 @@ export function LoginPage() {
                     <input
                         className="gnosi-input"
                         type="text"
-                        placeholder={t('auth.name_placeholder', "Name (optional)")}
+                        placeholder={t('auth.name_placeholder', 'Name (optional)')}
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(event) => {
+                            setName(event.target.value);
+                        }}
                         autoComplete="name"
                     />
                 )}
@@ -128,7 +141,9 @@ export function LoginPage() {
                     type="email"
                     placeholder={t('auth.email_placeholder', 'Email')}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(event) => {
+                        setEmail(event.target.value);
+                    }}
                     autoComplete="email"
                     required
                 />
@@ -136,15 +151,18 @@ export function LoginPage() {
                 <input
                     className="gnosi-input"
                     type="password"
-                    placeholder={t('auth.password_placeholder', "Password")}
+                    placeholder={t('auth.password_placeholder', 'Password')}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(event) => {
+                        setPassword(event.target.value);
+                    }}
                     autoComplete={isRegister ? 'new-password' : 'current-password'}
                     required
                 />
 
                 {error && (
                     <div
+                        role="alert"
                         style={{
                             fontSize: '13px',
                             color: '#dc2626',
@@ -178,14 +196,14 @@ export function LoginPage() {
                         transition: 'opacity 0.2s ease',
                     }}
                 >
-                    {submitting ? (
-                        <Loader2 size={16} className="animate-spin" />
-                    ) : isRegister ? (
-                        <UserPlus size={16} />
-                    ) : (
-                        <LogIn size={16} />
-                    )}
-                    {submitting ? t('auth.processing', "Processing…") : isRegister ? t('auth.create_account_btn', "Create account") : t('auth.enter_btn', "Sign in")}
+                    {submitting
+                        ? <Loader2 size={16} className="animate-spin" />
+                        : isRegister ? <UserPlus size={16} /> : <LogIn size={16} />}
+                    {submitting
+                        ? t('auth.processing', 'Processing…')
+                        : isRegister
+                            ? t('auth.create_account_btn', 'Create account')
+                            : t('auth.enter_btn', 'Sign in')}
                 </button>
 
                 <button
@@ -200,7 +218,9 @@ export function LoginPage() {
                         padding: '4px',
                     }}
                 >
-                    {isRegister ? t('auth.switch_to_login', "Already have an account? Sign in") : t('auth.switch_to_register', "Don't have an account? Sign up")}
+                    {isRegister
+                        ? t('auth.switch_to_login', 'Already have an account? Sign in')
+                        : t('auth.switch_to_register', "Don't have an account? Sign up")}
                 </button>
             </form>
         </div>

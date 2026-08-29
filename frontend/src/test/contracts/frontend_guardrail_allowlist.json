@@ -178,7 +178,6 @@
       "frontend/src/components/AppSidebar.jsx": 414,
       "frontend/src/components/AppSidebar.test.jsx": 164,
       "frontend/src/components/Auth/AccountSettings.jsx": 194,
-      "frontend/src/components/Auth/LoginPage.jsx": 210,
       "frontend/src/components/CommandPalette.jsx": 203,
       "frontend/src/components/Contacts/ContactDetail.jsx": 365,
       "frontend/src/components/Contacts/ContactForm.jsx": 636,
