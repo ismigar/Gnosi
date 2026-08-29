@@ -4991,6 +4991,23 @@
         "title": "CustomIconsRequest",
         "type": "object"
       },
+      "CustomIconsResponse": {
+        "description": "Shared custom-icon library persisted for the active Vault.",
+        "properties": {
+          "icons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Icons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "icons"
+        ],
+        "title": "CustomIconsResponse",
+        "type": "object"
+      },
       "DailyNoteRequest": {
         "properties": {
           "date": {
@@ -7116,6 +7133,49 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "IconAssetResponse": {
+        "description": "Stored icon location returned by upload and URL import routes.",
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "thumbnail_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Path"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Url"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "path",
+          "thumbnail_url",
+          "thumbnail_path"
+        ],
+        "title": "IconAssetResponse",
+        "type": "object"
+      },
       "IconUrlImportRequest": {
         "properties": {
           "url": {
@@ -7396,6 +7456,25 @@
           "status"
         ],
         "title": "IdentitySaveResponse",
+        "type": "object"
+      },
+      "ImageAssetResponse": {
+        "description": "Stored image location returned by a cover upload.",
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "path"
+        ],
+        "title": "ImageAssetResponse",
         "type": "object"
       },
       "ImportFile": {
@@ -14361,6 +14440,22 @@
         "title": "PluginSettingsRequest",
         "type": "object"
       },
+      "PluginSettingsResponse": {
+        "additionalProperties": true,
+        "description": "Dynamic settings document owned by one plugin.",
+        "properties": {
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "title": "PluginSettingsResponse",
+        "type": "object"
+      },
       "PluginsUpdateRequest": {
         "properties": {
           "disabled": {
@@ -18823,6 +18918,60 @@
         "title": "TurnContextRef",
         "type": "object"
       },
+      "UnsplashPhotoResponse": {
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "author_url": {
+            "title": "Author Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "thumb": {
+            "title": "Thumb",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "thumb",
+          "author",
+          "author_url"
+        ],
+        "title": "UnsplashPhotoResponse",
+        "type": "object"
+      },
+      "UnsplashSearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/UnsplashPhotoResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "total_pages"
+        ],
+        "title": "UnsplashSearchResponse",
+        "type": "object"
+      },
       "UpdateProfilePayload": {
         "properties": {
           "current_password": {
@@ -19199,6 +19348,25 @@
           "path"
         ],
         "title": "VaultMutationResponse",
+        "type": "object"
+      },
+      "VaultPluginSummaryResponse": {
+        "description": "Generated summary and the governed model that produced it.",
+        "properties": {
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "model"
+        ],
+        "title": "VaultPluginSummaryResponse",
         "type": "object"
       },
       "VaultSummaryRequest": {
@@ -55644,7 +55812,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CustomIconsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -55764,7 +55934,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CustomIconsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58559,7 +58731,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IconAssetResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -74006,7 +74180,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VaultPluginSummaryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -74892,7 +75068,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PluginSettingsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -75021,7 +75199,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PluginSettingsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -80557,7 +80737,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UnsplashSearchResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -80679,7 +80861,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ImageAssetResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -80801,7 +80985,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IconAssetResponse"
+                }
               }
             },
             "description": "Successful Response"

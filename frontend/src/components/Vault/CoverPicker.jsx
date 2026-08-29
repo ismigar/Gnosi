@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Image as ImageIcon, Link2, Upload, Search, X, Loader2 } from 'lucide-react';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { toast } from '../../lib/toast';
 import { logError } from '../../lib/notifyError';
+import {
+    searchUnsplashCovers,
+    uploadVaultCover,
+} from '../../shared/api/vault-icons';
 
 const PREDEFINED_COVERS = {
     'Colors i Degradats': [
@@ -79,8 +82,8 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
     const fetchUnsplash = async (query) => {
         setIsSearching(true);
         try {
-            const res = await axios.get(`/api/vault/unsplash/search?query=${encodeURIComponent(query)}`);
-            setUnsplashResults(res.data.results || []);
+            const response = await searchUnsplashCovers(query);
+            setUnsplashResults(response.results || []);
         } catch (error) {
             logError('cover-picker', error);
             toast.error(t('cover_picker.toast.unsplash_error'));
@@ -93,13 +96,10 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const formData = new FormData();
-        formData.append('file', file);
-
         setIsUploading(true);
         try {
-            const res = await axios.post('/api/vault/upload-cover', formData);
-            onSelectCover(res.data.url);
+            const response = await uploadVaultCover(file);
+            onSelectCover(response.url);
             onClose();
             toast.success(t('cover_picker.toast.upload_success'));
         } catch (error) {

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from '../../shared/api/legacy-http';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp, PanelRight, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters, withResolvedSystemDates } from './schemaUtils';
 import { normalizeOptions, optionChipStyle, autoColorFor } from './optionCatalogUtils';
@@ -27,6 +26,11 @@ import {
     unlinkRelationFromRecord,
 } from './relationItemUtils';
 import { transportFetch } from '../../shared/api/transports';
+import {
+    fetchVaultSummarySettings,
+    summarizeVaultRecord,
+    updateVaultSummarySettings,
+} from '../../shared/api/vault-summary';
 
 // How many records are rendered per batch; infinite scroll adds more as
 // that the sentinel enters the view. Keeping it low saves initial DOM.
@@ -421,9 +425,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         let cancelled = false;
         const loadSummaryModel = async () => {
             try {
-                const settingsResponse = await axios.get('/api/vault/plugins/vault-summary/settings');
+                const settingsResponse = await fetchVaultSummarySettings();
                 if (cancelled) return;
-                const configured = settingsResponse.data?.settings?.model || '';
+                const configured = typeof settingsResponse.settings?.model === 'string'
+                    ? settingsResponse.settings.model
+                    : '';
                 setFallbackSummaryModel(configured);
             } catch {
                 if (!cancelled) setFallbackSummaryModel('');
@@ -654,16 +660,18 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         setSummaryText('');
         setSummaryForId(previewNote.id);
         try {
-            await axios.put('/api/vault/plugins/vault-summary/settings', { settings: { model: summaryModel } });
-            const response = await axios.post('/api/vault/plugins/vault-summary/summarize', {
+            await updateVaultSummarySettings({ model: summaryModel });
+            const response = await summarizeVaultRecord({
                 content: `${previewNote.title || ''}\n\n${prepareBodyMd(previewNote.metadata?.description || '')}`,
                 language: i18n.resolvedLanguage || i18n.language || 'en',
             });
-            setSummaryText(response.data?.summary || '');
+            setSummaryText(response.summary || '');
             setSummaryState('success');
         } catch (error) {
             setSummaryState('error');
-            toast.error(error?.response?.data?.detail || t('feed.summary_error', 'Could not create the summary'));
+            toast.error(error instanceof Error && error.message
+                ? error.message
+                : t('feed.summary_error', 'Could not create the summary'));
         }
     };
     const movePreview = useCallback((offset) => {

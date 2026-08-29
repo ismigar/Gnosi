@@ -11654,6 +11654,14 @@ export interface components {
              */
             icons: string[];
         };
+        /**
+         * CustomIconsResponse
+         * @description Shared custom-icon library persisted for the active Vault.
+         */
+        CustomIconsResponse: {
+            /** Icons */
+            icons: string[];
+        };
         /** DailyNoteRequest */
         DailyNoteRequest: {
             /** Date */
@@ -12374,6 +12382,20 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * IconAssetResponse
+         * @description Stored icon location returned by upload and URL import routes.
+         */
+        IconAssetResponse: {
+            /** Path */
+            path: string;
+            /** Thumbnail Path */
+            thumbnail_path: string | null;
+            /** Thumbnail Url */
+            thumbnail_url: string | null;
+            /** Url */
+            url: string;
+        };
         /** IconUrlImportRequest */
         IconUrlImportRequest: {
             /** Url */
@@ -12500,6 +12522,16 @@ export interface components {
         IdentitySaveResponse: {
             /** Status */
             status: string;
+        };
+        /**
+         * ImageAssetResponse
+         * @description Stored image location returned by a cover upload.
+         */
+        ImageAssetResponse: {
+            /** Path */
+            path: string;
+            /** Url */
+            url: string;
         };
         /** ImportedReferenceItemResponse */
         ImportedReferenceItemResponse: {
@@ -15103,6 +15135,18 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * PluginSettingsResponse
+         * @description Dynamic settings document owned by one plugin.
+         */
+        PluginSettingsResponse: {
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
         /** PluginsUpdateRequest */
         PluginsUpdateRequest: {
             /**
@@ -17123,6 +17167,26 @@ export interface components {
              */
             type: string;
         };
+        /** UnsplashPhotoResponse */
+        UnsplashPhotoResponse: {
+            /** Author */
+            author: string;
+            /** Author Url */
+            author_url: string;
+            /** Id */
+            id: string;
+            /** Thumb */
+            thumb: string;
+            /** Url */
+            url: string;
+        };
+        /** UnsplashSearchResponse */
+        UnsplashSearchResponse: {
+            /** Results */
+            results: components["schemas"]["UnsplashPhotoResponse"][];
+            /** Total Pages */
+            total_pages: number;
+        };
         /** UpdateProfilePayload */
         UpdateProfilePayload: {
             /** Current Password */
@@ -17266,6 +17330,16 @@ export interface components {
             path: string;
             /** Slug */
             slug: string | null;
+        };
+        /**
+         * VaultPluginSummaryResponse
+         * @description Generated summary and the governed model that produced it.
+         */
+        VaultPluginSummaryResponse: {
+            /** Model */
+            model: string;
+            /** Summary */
+            summary: string;
         };
         /**
          * VaultSummaryRequest
@@ -29279,7 +29353,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CustomIconsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29319,7 +29393,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CustomIconsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30254,7 +30328,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IconAssetResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34909,7 +34983,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PluginSettingsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34951,7 +35025,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PluginSettingsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35447,7 +35521,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultPluginSummaryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37171,7 +37245,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UnsplashSearchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37211,7 +37285,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ImageAssetResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37251,7 +37325,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IconAssetResponse"];
                 };
             };
             /** @description Validation Error */

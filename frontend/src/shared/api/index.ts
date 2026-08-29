@@ -526,3 +526,73 @@ export {
   useClearSystemNotifications,
   useSystemNotifications,
 } from './useSystemData';
+export {
+  exportReferences,
+  fetchCslStyles,
+  importReferences,
+  uploadCslStyle,
+} from './citation-io';
+export type {
+  CslStyle,
+  ExportReferencesOptions,
+  ImportReferencesOptions,
+  ImportReferencesResult,
+  ReferenceExportFormat,
+} from './citation-io';
+export {
+  lookupMetadata,
+  promoteZoteroExtra,
+  recognizePdf,
+  translateUrl,
+} from './resource-lookup';
+export type {
+  MetadataLookupInput,
+  MetadataLookupResponse,
+  PdfRecognitionResponse,
+  UrlTranslationInput,
+  UrlTranslationResponse,
+  ZoteroExtraPromotionInput,
+  ZoteroExtraPromotionResponse,
+} from './resource-lookup';
+export {
+  DRUPAL_SYNC_TIMEOUT_MS,
+  syncDrupalRow,
+  translateVaultPage,
+  translateVaultRow,
+  translateVaultRows,
+} from './translation';
+export type {
+  SyncDrupalRowInput,
+  SyncDrupalRowResult,
+  SyncDrupalScope,
+  TranslatePageInput,
+  TranslatePageResult,
+  TranslateRowInput,
+  TranslateRowResult,
+  TranslateRowsInput,
+  TranslateRowsResult,
+} from './translation';
+export {
+  fetchCustomIcons,
+  importVaultIconUrl,
+  saveCustomIcons,
+  searchUnsplashCovers,
+  uploadVaultCover,
+  uploadVaultIcon,
+} from './vault-icons';
+export type {
+  CustomIconLibrary,
+  UnsplashCoverSearch,
+  VaultCoverAsset,
+  VaultIconAsset,
+} from './vault-icons';
+export {
+  fetchVaultSummarySettings,
+  summarizeVaultRecord,
+  updateVaultSummarySettings,
+} from './vault-summary';
+export type {
+  VaultSummaryInput,
+  VaultSummaryResult,
+  VaultSummarySettings,
+} from './vault-summary';
