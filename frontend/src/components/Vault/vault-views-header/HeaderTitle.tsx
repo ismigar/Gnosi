@@ -59,7 +59,9 @@ export function HeaderTitle({
                 {referenceTableId && (
                     <ReferenceImportExport
                         tableId={referenceTableId}
-                        onImported={onReferencesImported}
+                        onImported={onReferencesImported ? () => {
+                            onReferencesImported();
+                        } : undefined}
                     />
                 )}
                 {onClose && (
