@@ -210,7 +210,6 @@
       "frontend/src/components/MeetingReminderWatcher.jsx": 117,
       "frontend/src/components/Minimap.jsx": 311,
       "frontend/src/components/Navigation/WorkspaceSwitcher.jsx": 103,
-      "frontend/src/components/NodeDetailsPanel.jsx": 148,
       "frontend/src/components/Notebooks/NotebookCreateDialog.jsx": 235,
       "frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx": 304,
       "frontend/src/components/NotionImportSettings.jsx": 855,
