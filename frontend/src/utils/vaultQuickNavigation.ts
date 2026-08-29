@@ -1,12 +1,12 @@
-type MetadataValue = string | number | boolean | null | undefined;
+export type MetadataValue = string | number | boolean | null | undefined;
 
-type VaultMetadata = Record<string, MetadataValue> & {
+export type VaultMetadata = Readonly<Record<string, unknown>> & {
   llm_wiki_managed?: MetadataValue;
   llm_wiki_role?: MetadataValue;
   note_type?: MetadataValue;
 };
 
-interface VaultQuickNote<Id = string> {
+export interface VaultQuickNote<Id = string> {
   [key: string]: unknown;
   id?: Id | null;
   filename?: MetadataValue;
@@ -15,8 +15,13 @@ interface VaultQuickNote<Id = string> {
   title?: MetadataValue;
 }
 
-const normalizeMetadataValue = (value: MetadataValue): string =>
-  String(value ?? '').trim().toLocaleLowerCase();
+const normalizeMetadataValue = (value: unknown): string => (
+  typeof value === 'string'
+  || typeof value === 'number'
+  || typeof value === 'boolean'
+    ? String(value).trim().toLocaleLowerCase()
+    : ''
+);
 
 const LEGACY_INDEX_TYPES = new Set([
   'index',

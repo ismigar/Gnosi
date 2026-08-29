@@ -1,48 +1,103 @@
-import React, { useState, useEffect, useRef } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type SetStateAction,
+} from 'react';
 import { Search, FileText, Hash, FolderClosed, Clock, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { isCalendarPage } from './schemaUtils';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { subscribeWindowEvent } from '../../shared/platform/browser-events';
 import { IconRenderer } from './IconRenderer';
 import { getIntlLocale } from '../../locales/registry';
-import { openVaultNote, selectRecentNotes } from '../../utils/vaultQuickNavigation';
+import {
+    openVaultNote,
+    selectRecentNotes,
+    type VaultQuickNote,
+} from '../../utils/vaultQuickNavigation';
 
-export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
+
+export interface RecentModalProps {
+    readonly allNotes?: readonly VaultQuickNote[];
+    readonly isOpen: boolean;
+    readonly onClose: () => unknown;
+    readonly onNoteSelect?: (pageId: string) => void;
+}
+
+
+interface SelectionState {
+    readonly index: number;
+    readonly open: boolean;
+}
+
+
+function displayText(value: unknown): string {
+    return typeof value === 'string'
+        || typeof value === 'number'
+        || typeof value === 'boolean'
+        ? String(value)
+        : '';
+}
+
+
+function noteIcon(note: VaultQuickNote): string | undefined {
+    const icon = note.metadata?.icon;
+    return typeof icon === 'string' && icon ? icon : undefined;
+}
+
+export function RecentModal({
+    isOpen,
+    onClose,
+    allNotes = [],
+    onNoteSelect,
+}: RecentModalProps) {
     const { t, i18n } = useTranslation();
-    const [selectedIndex, setSelectedIndex] = useState(0);
-    const listRef = useRef(null);
-    const panelRef = useRef(null);
+    const [selection, setSelection] = useState<SelectionState>({
+        index: 0,
+        open: isOpen,
+    });
+    const listRef = useRef<HTMLDivElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const selectedIndex = selection.open === isOpen ? selection.index : 0;
+    const setSelectedIndex = useCallback((value: SetStateAction<number>): void => {
+        setSelection((previous) => {
+            const currentIndex = previous.open === isOpen ? previous.index : 0;
+            return {
+                index: typeof value === 'function' ? value(currentIndex) : value,
+                open: isOpen,
+            };
+        });
+    }, [isOpen]);
 
     // Esc + focus-trap centralized in the canonical hook. We do NOT pass onConfirm:
     // Enter in this modal selects the highlighted item (its own handler).
     useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
 
     // Filter and sort notes
-    const recentNotes = React.useMemo(() => {
+    const recentNotes = useMemo(() => {
         // Filter out calendar pages
-        const filtered = (allNotes || []).filter(p => !isCalendarPage(p));
+        const filtered = allNotes.filter((page) => !isCalendarPage(page));
 
         return selectRecentNotes(filtered, 20);
     }, [allNotes]);
 
     useEffect(() => {
-        if (isOpen) {
-            setSelectedIndex(0);
-        }
-    }, [isOpen]);
-
-    useEffect(() => {
-        const handleKeyDown = (e) => {
+        const handleKeyDown = (event: KeyboardEvent): void => {
             if (!isOpen) return;
 
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setSelectedIndex(prev => (prev < recentNotes.length - 1 ? prev + 1 : prev));
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                setSelectedIndex((previous) => (
+                    previous < recentNotes.length - 1 ? previous + 1 : previous
+                ));
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                setSelectedIndex((previous) => (previous > 0 ? previous - 1 : previous));
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
                 if (recentNotes.length > 0 && recentNotes[selectedIndex]) {
                     const selected = recentNotes[selectedIndex];
                     openVaultNote(onNoteSelect, selected);
@@ -51,27 +106,27 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
             }
         };
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, recentNotes, selectedIndex, onNoteSelect, onClose]);
+        return subscribeWindowEvent('keydown', handleKeyDown);
+    }, [isOpen, recentNotes, selectedIndex, onNoteSelect, onClose, setSelectedIndex]);
 
     // Scroll selected item into view
     useEffect(() => {
-        if (listRef.current && listRef.current.children[selectedIndex]) {
-            const element = listRef.current.children[selectedIndex];
+        const element = listRef.current?.children.item(selectedIndex);
+        if (element instanceof HTMLElement
+            && typeof element.scrollIntoView === 'function') {
             element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
     }, [selectedIndex]);
 
     if (!isOpen) return null;
 
-    const getIcon = (folder) => {
+    const getIcon = (folder: unknown) => {
         if (folder === 'Tasques') return <Hash size={16} className="text-[var(--text-tertiary)]" />;
         if (folder === 'Notes') return <FileText size={16} className="text-[var(--text-tertiary)]" />;
         return <FileText size={16} className="text-[var(--text-tertiary)]" />;
     };
 
-    const formatDate = (dateString) => {
+    const formatDate = (dateString: string | number | Date | null | undefined) => {
         if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleDateString(getIntlLocale(i18n.resolvedLanguage || i18n.language), {
@@ -117,34 +172,38 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
                         <div className="p-2 space-y-1">
                             {recentNotes.map((note, index) => {
                                 const isSelected = index === selectedIndex;
+                                const folder = displayText(note.folder);
+                                const icon = noteIcon(note);
                                 return (
                                     <button
-                                        key={note.id || note.filename}
+                                        key={note.id || displayText(note.filename)}
                                         onClick={() => {
                                             openVaultNote(onNoteSelect, note);
                                             onClose();
                                         }}
-                                        onMouseEnter={() => setSelectedIndex(index)}
+                                        onMouseEnter={() => {
+                                            setSelectedIndex(index);
+                                        }}
                                         className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${isSelected ? 'bg-[var(--gnosi-primary)]/10' : 'hover:bg-[var(--bg-secondary)]'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            {note.metadata?.icon ? (
-                                                <IconRenderer icon={note.metadata.icon} size={16} className="shrink-0" />
+                                            {icon ? (
+                                                <IconRenderer icon={icon} size={16} className="shrink-0" />
                                             ) : (
                                                 getIcon(note.folder)
                                             )}
                                             <div>
                                                 <h3 className={`text-sm font-bold ${isSelected ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>
-                                                    {note.title || note.filename || t('common.untitled')}
+                                                    {displayText(note.title) || displayText(note.filename) || t('common.untitled')}
                                                 </h3>
                                                 <div className="flex items-center gap-2 mt-0.5 opacity-70">
                                                     <span className="text-[11px] font-medium text-[var(--text-secondary)]/60">
                                                         {t('vault.recent.modified')} {formatDate(note.last_modified)}
                                                     </span>
-                                                    {note.folder && (
+                                                    {folder && (
                                                         <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-[var(--text-secondary)]">
-                                                            {note.folder}
+                                                            {folder}
                                                         </span>
                                                     )}
                                                 </div>

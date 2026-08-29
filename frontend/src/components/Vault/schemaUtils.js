@@ -6,6 +6,8 @@
  *   { fieldName: 'type', fieldName_config: { formula, relationField, ... } }
  */
 
+export { isCalendarPage } from './pageClassification';
+
 const RESERVED_KEYS_SUFFIX = '_config';
 
 /**
@@ -411,31 +413,6 @@ export function resolveViewFilters(view) {
     return [];
 }
 
-
-/**
- * Determines whether a page should be considered a calendar appointment.
- * @param {Object} page 
- * @returns {boolean}
- */
-export function isCalendarPage(page) {
-    if (!page) return false;
-    const metadata = page.metadata || {};
-    const source = String(metadata.source || '').trim().toLowerCase();
-    const hasDate = !!metadata.date;
-    const tableId = page.resolved_table_id || metadata.table_id || metadata.database_table_id;
-    const folder = String(page.folder || '');
-    
-    // Match backend logic in is_calendar_entry: the source must be EXACTLY
-    // "gnosi"/"gnosi vault" (not a substring). With `includes('gnosi')` a
-    // DB record with table, date, and source "gnosi-*" (e.g. "gnosi-newsletter")
-    // was classified as a citation and stayed HIDDEN from Recent/Sidebar/Search, even though
-    // would make the backend treat it as a normal record. Real appointments (without
-    // a table) still count thanks to `!tableId`.
-    const isEntry = hasDate && (source === 'gnosi' || source === 'gnosi vault' || !tableId);
-    const isInFolder = folder === 'Calendar' || folder.startsWith('Calendar/');
-    
-    return isEntry || isInFolder;
-}
 
 /**
  * Determines whether a page belongs to content from a system application
