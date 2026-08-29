@@ -1,8 +1,25 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Highlighter, Quote, Copy, Loader2 } from 'lucide-react';
+import { logError } from '../../lib/notifyError';
 import { toast } from '../../lib/toast';
-import { fetchPdfAnnotations } from '../../shared/api/citations';
+import {
+    fetchPdfAnnotations,
+    type PdfAnnotation,
+} from '../../shared/api/citations';
+
+
+export interface PdfAnnotationsToCiteProps {
+    readonly citationKey?: string | null;
+    readonly readOnly?: boolean;
+    readonly sourceUri?: string | null;
+}
+
+
+interface AnnotationState {
+    readonly annotations: PdfAnnotation[];
+    readonly sourceUri: string;
+}
 
 /**
  * List of PDF annotations for a Resource with a "copy as citation" action.
@@ -40,53 +57,71 @@ import { fetchPdfAnnotations } from '../../shared/api/citations';
  *   - Optional: click-and-drag the quote into the document (drag & drop API)
  *     instead of copy/paste.
  */
-export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false }) {
+export function PdfAnnotationsToCite({
+    sourceUri,
+    citationKey,
+    readOnly = false,
+}: PdfAnnotationsToCiteProps) {
     const { t } = useTranslation();
-    const [annotations, setAnnotations] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [copyingId, setCopyingId] = useState(null);
+    const [annotationState, setAnnotationState] = useState<AnnotationState>({
+        annotations: [],
+        sourceUri: '',
+    });
+    const [copyingId, setCopyingId] = useState<number | null>(null);
+    const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const loading = Boolean(sourceUri) && annotationState.sourceUri !== sourceUri;
 
     useEffect(() => {
-        if (!sourceUri) {
-            setAnnotations([]);
-            return;
-        }
+        if (!sourceUri) return undefined;
         const controller = new AbortController();
-        let cancelled = false;
-        setLoading(true);
-        fetchPdfAnnotations(sourceUri, controller.signal)
-            .then((data) => { if (!cancelled) setAnnotations(data); })
-            .catch((err) => {
+        const loadAnnotations = async (): Promise<void> => {
+            try {
+                const data = await fetchPdfAnnotations(sourceUri, controller.signal);
+                setAnnotationState({ annotations: data, sourceUri });
+            } catch (error) {
                 if (controller.signal.aborted) return;
-                console.warn('PdfAnnotationsToCite: load failed', err?.message);
-                if (!cancelled) setAnnotations([]);
-            })
-            .finally(() => { if (!cancelled) setLoading(false); });
+                logError('pdf-annotations-load', error);
+                setAnnotationState({ annotations: [], sourceUri });
+            }
+        };
+        void loadAnnotations();
         return () => {
-            cancelled = true;
             controller.abort();
         };
     }, [sourceUri]);
 
+    useEffect(() => () => {
+        if (copyResetRef.current !== null) clearTimeout(copyResetRef.current);
+    }, []);
+
     const highlights = useMemo(
-        () => annotations.filter((a) => a.type === 'highlight' || a.type === 'note').filter((a) => (a.text || a.comment)),
-        [annotations],
+        () => (annotationState.sourceUri === sourceUri
+            ? annotationState.annotations
+            : []
+        ).filter((annotation) => (
+            annotation.type === 'highlight' || annotation.type === 'note'
+        )).filter((annotation) => annotation.text || annotation.comment),
+        [annotationState, sourceUri],
     );
 
-    const copyAsQuote = useCallback(async (ann) => {
+    const copyAsQuote = useCallback(async (ann: PdfAnnotation): Promise<void> => {
         const text = (ann.text || ann.comment || '').trim();
         if (!text) return;
-        const page = (ann.page != null) ? ` p. ${ann.page + 1}` : '';
+        const page = ` p. ${String(ann.page + 1)}`;
         const cite = citationKey ? `[@${citationKey}]` : '[@?]';
         const quote = `> ${text}\n>\n> — ${cite}${page}\n`;
         try {
             await navigator.clipboard.writeText(quote);
             setCopyingId(ann.id);
-            setTimeout(() => setCopyingId(null), 1200);
+            if (copyResetRef.current !== null) clearTimeout(copyResetRef.current);
+            copyResetRef.current = setTimeout(() => {
+                setCopyingId(null);
+                copyResetRef.current = null;
+            }, 1200);
             toast.success(t('pdf_quotes.copied', {
                 defaultValue: "Quote copied to the clipboard. Paste it into the document.",
             }));
-        } catch (_error) {
+        } catch {
             toast.error(t('pdf_quotes.copy_failed', { defaultValue: "Error copying the quote" }));
         }
     }, [citationKey, t]);
@@ -127,16 +162,16 @@ export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false 
                             />
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs text-[var(--text-primary)] line-clamp-3">{text}</p>
-                                {ann.page != null && (
-                                    <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
-                                        {t('pdf_quotes.page_label', { defaultValue: 'p.' })} {ann.page + 1}
-                                    </p>
-                                )}
+                                <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
+                                    {t('pdf_quotes.page_label', { defaultValue: 'p.' })} {ann.page + 1}
+                                </p>
                             </div>
                             {!readOnly && (
                                 <button
                                     type="button"
-                                    onClick={() => copyAsQuote(ann)}
+                                    onClick={() => {
+                                        void copyAsQuote(ann);
+                                    }}
                                     className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-primary)] transition-colors"
                                     title={t('pdf_quotes.copy_quote', { defaultValue: "Copy as markdown quote" })}
                                 >
