@@ -8,6 +8,7 @@ export interface PageEtagConflictEventDetail {
 
 
 export interface AppEventMap {
+  readonly 'db-theme-changed': null;
   readonly 'gnosi:config-changed': null;
   readonly 'gnosi:floating-dock-change': { readonly isOpen: boolean };
   readonly 'gnosi:floating-panel-open': { readonly panelId: string };
