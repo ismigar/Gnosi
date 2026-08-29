@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ContentCalendar from './ContentCalendar';
 import SchedulerPage from './SchedulerPage';
-import { localDateKey, postsForLocalDay } from './contentCalendarUtils';
+import {
+  localDateKey,
+  postsForLocalDay,
+  weekDaysFor,
+} from './contentCalendarUtils';
 import {
   formatTaskInterval,
   hoursToMinutes,
@@ -124,6 +128,16 @@ afterEach(() => {
 describe('operational pages', () => {
   it('groups scheduled posts by local date and cancels from the calendar', async () => {
     const now = new Date();
+    const sundayWeek = weekDaysFor(new Date(2026, 7, 30));
+    expect(sundayWeek.map(localDateKey)).toEqual([
+      '2026-08-24',
+      '2026-08-25',
+      '2026-08-26',
+      '2026-08-27',
+      '2026-08-28',
+      '2026-08-29',
+      '2026-08-30',
+    ]);
     expect(localDateKey(now)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(postsForLocalDay([{
       content: 'Scheduled update',

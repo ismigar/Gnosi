@@ -17,7 +17,8 @@ export function localDateKey(date: Date): string {
 
 export function weekDaysFor(date: Date): Date[] {
   const startOfWeek = new Date(date);
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1);
+  const daysSinceMonday = (startOfWeek.getDay() + 6) % 7;
+  startOfWeek.setDate(startOfWeek.getDate() - daysSinceMonday);
   return Array.from({ length: 7 }, (_, offset) => {
     const day = new Date(startOfWeek);
     day.setDate(day.getDate() + offset);
