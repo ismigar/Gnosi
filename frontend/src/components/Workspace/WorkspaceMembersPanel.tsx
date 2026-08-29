@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { UserPlus, Trash2, Shield, X, Loader2, Lock } from 'lucide-react';
+import { UserPlus, Trash2, Shield, Loader2 } from 'lucide-react';
 import {
     fetchWorkspaceMembers,
     fetchWorkspaceMemberVaults,
@@ -10,9 +10,18 @@ import {
     removeWorkspaceMember,
     revokeWorkspaceMemberVault,
     updateWorkspaceMemberRole,
+    type WorkspaceMember,
+    type WorkspaceMemberVault,
+    type WorkspaceMemberVaultAccess,
 } from '../../shared/api/workspace-members';
 import { toast } from '../../lib/toast';
 import ConfirmModal from '../ConfirmModal';
+import { WorkspaceInviteForm } from './WorkspaceInviteForm';
+import { WorkspaceVaultAccessPanel } from './WorkspaceVaultAccessPanel';
+import {
+    isWorkspaceRole,
+    type WorkspaceRole,
+} from './workspaceMemberModel';
 
 /**
  * Member management panel + vault access for a workspace.
@@ -36,31 +45,43 @@ import ConfirmModal from '../ConfirmModal';
  *   - isAdmin (bool)        — enables add/remove/edit; otherwise, list only
  *   - currentUserId (string?) — protects against deleting yourself
  */
-const ROLE_CAPABILITIES = {
+export interface WorkspaceMembersPanelProps {
+    readonly currentUserId?: string | null;
+    readonly isAdmin?: boolean;
+    readonly workspaceId: string;
+}
+
+
+const ROLE_CAPABILITIES: Readonly<Record<WorkspaceRole, readonly string[]>> = {
     viewer: ['read'],
     editor: ['read', 'write'],
     admin: ['read', 'write', 'delete', 'admin', 'analytics', 'tools'],
     owner: ['read', 'write', 'delete', 'admin', 'analytics', 'tools'],
 };
 
-export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUserId = null }) {
+
+export function WorkspaceMembersPanel({
+    workspaceId,
+    isAdmin = false,
+    currentUserId = null,
+}: WorkspaceMembersPanelProps) {
     const { t } = useTranslation();
-    const [members, setMembers] = useState([]);
+    const [members, setMembers] = useState<WorkspaceMember[]>([]);
     const [loading, setLoading] = useState(false);
-    const [vaults, setVaults] = useState([]);
+    const [vaults, setVaults] = useState<WorkspaceMemberVault[]>([]);
     const [showAddForm, setShowAddForm] = useState(false);
     const [newEmail, setNewEmail] = useState('');
-    const [newRole, setNewRole] = useState('viewer');
-    const [selectedMember, setSelectedMember] = useState(null);
-    const [vaultAccess, setVaultAccess] = useState([]);
-    const [confirmUserId, setConfirmUserId] = useState(null);
+    const [newRole, setNewRole] = useState<WorkspaceRole>('viewer');
+    const [selectedMember, setSelectedMember] = useState<WorkspaceMember | null>(null);
+    const [vaultAccess, setVaultAccess] = useState<WorkspaceMemberVaultAccess[]>([]);
+    const [confirmUserId, setConfirmUserId] = useState<string | null>(null);
 
-    const fetchMembers = useCallback(async () => {
+    const fetchMembers = useCallback(async (): Promise<void> => {
         if (!workspaceId) return;
         setLoading(true);
         try {
             const data = await fetchWorkspaceMembers(workspaceId);
-            setMembers(Array.isArray(data) ? data : []);
+            setMembers(data);
         } catch (_error) {
             toast.error(t('workspace.members_fetch_failed', { defaultValue: "Error loading members" }));
         } finally {
@@ -68,33 +89,56 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         }
     }, [workspaceId, t]);
 
-    const fetchVaults = useCallback(async () => {
+    const fetchVaults = useCallback(async (): Promise<void> => {
         if (!workspaceId) return;
         try {
             const data = await fetchWorkspaceVaults(workspaceId);
-            setVaults(Array.isArray(data) ? data : []);
+            setVaults(data);
         } catch {
             setVaults([]);
         }
     }, [workspaceId]);
 
-    const fetchVaultAccess = useCallback(async (userId) => {
+    const fetchVaultAccess = useCallback(async (userId: string): Promise<void> => {
         if (!workspaceId || !userId) return;
         try {
             const data = await fetchWorkspaceMemberVaults(workspaceId, userId);
-            setVaultAccess(Array.isArray(data) ? data : []);
+            setVaultAccess(data);
         } catch {
             setVaultAccess([]);
         }
     }, [workspaceId]);
 
-    useEffect(() => { fetchMembers(); }, [fetchMembers]);
-    useEffect(() => { fetchVaults(); }, [fetchVaults]);
     useEffect(() => {
-        if (selectedMember) fetchVaultAccess(selectedMember.user_id);
+        let cancelled = false;
+        queueMicrotask(() => {
+            if (!cancelled) void fetchMembers();
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [fetchMembers]);
+    useEffect(() => {
+        let cancelled = false;
+        queueMicrotask(() => {
+            if (!cancelled) void fetchVaults();
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [fetchVaults]);
+    useEffect(() => {
+        if (!selectedMember) return undefined;
+        let cancelled = false;
+        queueMicrotask(() => {
+            if (!cancelled) void fetchVaultAccess(selectedMember.user_id);
+        });
+        return () => {
+            cancelled = true;
+        };
     }, [selectedMember, fetchVaultAccess]);
 
-    const addMember = async () => {
+    const addMember = async (): Promise<void> => {
         const email = newEmail.trim();
         if (!email) return;
         try {
@@ -102,14 +146,14 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
             toast.success(t('workspace.member_added', { email, newRole, defaultValue: "Invited {{email}} as {{newRole}}" }));
             setNewEmail('');
             setShowAddForm(false);
-            fetchMembers();
+            void fetchMembers();
         } catch (error) {
             const msg = error instanceof Error ? error.message : undefined;
             toast.error(t('workspace.add_failed', { msg, defaultValue: 'Error: {{msg}}' }));
         }
     };
 
-    const removeMember = (userId) => {
+    const removeMember = (userId: string): void => {
         if (userId === currentUserId) {
             toast.error(t('workspace.cant_remove_self', { defaultValue: "You can't remove yourself" }));
             return;
@@ -117,31 +161,38 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         setConfirmUserId(userId);
     };
 
-    const doRemove = async () => {
+    const doRemove = async (): Promise<void> => {
         const userId = confirmUserId;
         setConfirmUserId(null);
+        if (!userId) return;
         try {
             await removeWorkspaceMember(workspaceId, userId);
-            fetchMembers();
+            void fetchMembers();
         } catch (_error) {
             toast.error(t('workspace.remove_failed', { defaultValue: "Error removing member" }));
         }
     };
 
-    const updateRole = async (userId, newRoleValue) => {
+    const updateRole = async (
+        userId: string,
+        newRoleValue: WorkspaceRole,
+    ): Promise<void> => {
         try {
             await updateWorkspaceMemberRole(workspaceId, userId, {
                 role: newRoleValue,
-                permissions: { capabilities: ROLE_CAPABILITIES[newRoleValue] || ['read'] },
+                permissions: { capabilities: [...ROLE_CAPABILITIES[newRoleValue]] },
             });
-            fetchMembers();
+            void fetchMembers();
         } catch (_error) {
             toast.error(t('workspace.role_update_failed', { defaultValue: "Error changing role" }));
         }
     };
 
-    const toggleVaultAccess = async (userId, vaultId) => {
-        const has = vaultAccess.some(a => a.vault_id === vaultId);
+    const toggleVaultAccess = async (
+        userId: string,
+        vaultId: string,
+    ): Promise<void> => {
+        const has = vaultAccess.some((access) => access.vault_id === vaultId);
         try {
             if (has) {
                 await revokeWorkspaceMemberVault(workspaceId, userId, vaultId);
@@ -151,7 +202,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                     permissions: { capabilities: ['read'] },
                 });
             }
-            fetchVaultAccess(userId);
+            void fetchVaultAccess(userId);
         } catch (_error) {
             toast.error(t('workspace.vault_access_failed', { defaultValue: "Error changing Vault access" }));
         }
@@ -175,7 +226,9 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                 {isAdmin && !showAddForm && (
                     <button
                         type="button"
-                        onClick={() => setShowAddForm(true)}
+                        onClick={() => {
+                            setShowAddForm(true);
+                        }}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--gnosi-primary)] text-white hover:opacity-90"
                     >
                         <UserPlus size={13} />
@@ -185,28 +238,23 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
             </div>
 
             {isAdmin && showAddForm && (
-                <div className="flex items-center gap-2 p-3 rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)]/30">
-                    <input
-                        autoFocus
-                        type="email"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') addMember(); if (e.key === 'Escape') setShowAddForm(false); }}
-                        placeholder={t('workspace.email_placeholder', { defaultValue: 'email@cooperativa.coop' })}
-                        className="flex-1 px-2 py-1 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] outline-none focus:border-[var(--gnosi-primary)]"
-                    />
-                    <select
-                        value={newRole}
-                        onChange={(e) => setNewRole(e.target.value)}
-                        className="px-2 py-1 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)]"
-                    >
-                        <option value="viewer">{t('dashboard.role_viewer', 'Viewer')}</option>
-                        <option value="editor">{t('dashboard.role_editor', 'Editor')}</option>
-                        <option value="admin">{t('dashboard.role_admin', 'Admin')}</option>
-                    </select>
-                    <button onClick={addMember} className="px-3 py-1 text-xs rounded-md bg-[var(--gnosi-primary)] text-white">{t('workspace.ok', 'OK')}</button>
-                    <button onClick={() => { setShowAddForm(false); setNewEmail(''); }} className="text-[var(--text-tertiary)] p-1"><X size={14} /></button>
-                </div>
+                <WorkspaceInviteForm
+                    email={newEmail}
+                    onCancel={() => {
+                        setShowAddForm(false);
+                        setNewEmail('');
+                    }}
+                    onEmailChange={(email) => {
+                        setNewEmail(email);
+                    }}
+                    onRoleChange={(role) => {
+                        setNewRole(role);
+                    }}
+                    onSubmit={() => {
+                        void addMember();
+                    }}
+                    role={newRole}
+                />
             )}
 
             {loading ? (
@@ -233,7 +281,14 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                                         {isAdmin && m.role !== 'owner' ? (
                                             <select
                                                 value={m.role}
-                                                onChange={(e) => updateRole(m.user_id, e.target.value)}
+                                                onChange={(event) => {
+                                                    if (isWorkspaceRole(event.target.value)) {
+                                                        void updateRole(
+                                                            m.user_id,
+                                                            event.target.value,
+                                                        );
+                                                    }
+                                                }}
                                                 className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)]"
                                             >
                                                 <option value="viewer">{t('dashboard.role_viewer', 'Viewer')}</option>
@@ -253,7 +308,9 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                                         {isAdmin && (
                                             <div className="flex items-center justify-end gap-1">
                                                 <button
-                                                    onClick={() => setSelectedMember(m)}
+                                                    onClick={() => {
+                                                        setSelectedMember(m);
+                                                    }}
                                                     className="p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
                                                     title={t('workspace.manage_access', { defaultValue: "Manage Vault access" })}
                                                 >
@@ -261,7 +318,9 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                                                 </button>
                                                 {m.role !== 'owner' && m.user_id !== currentUserId && (
                                                     <button
-                                                        onClick={() => removeMember(m.user_id)}
+                                                        onClick={() => {
+                                                            removeMember(m.user_id);
+                                                        }}
                                                         className="p-1 text-[var(--text-tertiary)] hover:text-red-500"
                                                         title={t('workspace.remove', { defaultValue: "Remove" })}
                                                     >
@@ -285,49 +344,24 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
 
             {/* Mini panel for vault access for the selected member */}
             {selectedMember && (
-                <div className="mt-3 p-4 rounded-md border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/5">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2 text-sm font-semibold">
-                            <Lock size={14} className="text-[var(--gnosi-primary)]" />
-                            {t('workspace.vault_access_for', {
-                                email: selectedMember.email || selectedMember.user_id,
-                                defaultValue: "Vault access — {{email}}",
-                            })}
-                        </div>
-                        <button onClick={() => setSelectedMember(null)} className="text-[var(--text-tertiary)] p-1"><X size={14} /></button>
-                    </div>
-                    {vaults.length === 0 ? (
-                        <p className="text-xs text-[var(--text-tertiary)] italic">
-                            {t('workspace.no_vaults', { defaultValue: "There are no Vaults in this workspace." })}
-                        </p>
-                    ) : (
-                        <ul className="space-y-1.5">
-                            {vaults.map(v => {
-                                const has = vaultAccess.some(a => a.vault_id === v.id);
-                                return (
-                                    <li key={v.id} className="flex items-center justify-between text-xs">
-                                        <span>{v.name || v.id}</span>
-                                        <button
-                                            onClick={() => toggleVaultAccess(selectedMember.user_id, v.id)}
-                                            className={`px-2 py-0.5 rounded ${
-                                                has ? 'bg-[var(--gnosi-primary)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'
-                                            }`}
-                                        >
-                                            {has
-                                                ? t('workspace.has_access', { defaultValue: "Has access" })
-                                                : t('workspace.grant_access', { defaultValue: "Grant" })}
-                                        </button>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    )}
-                </div>
+                <WorkspaceVaultAccessPanel
+                    access={vaultAccess}
+                    member={selectedMember}
+                    onClose={() => {
+                        setSelectedMember(null);
+                    }}
+                    onToggleAccess={(userId, vaultId) => {
+                        void toggleVaultAccess(userId, vaultId);
+                    }}
+                    vaults={vaults}
+                />
             )}
 
             <ConfirmModal
                 isOpen={confirmUserId != null}
-                onClose={() => setConfirmUserId(null)}
+                onClose={() => {
+                    setConfirmUserId(null);
+                }}
                 onConfirm={doRemove}
                 title={t('workspace.confirm_remove_title', { defaultValue: "Remove member" })}
                 message={t('workspace.confirm_remove', { defaultValue: "Remove this member?" })}
