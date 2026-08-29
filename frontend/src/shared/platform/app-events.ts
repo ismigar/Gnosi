@@ -78,6 +78,7 @@ export interface AppEventMap {
   readonly 'gnosi:open-settings': null;
   readonly 'gnosi:open-tags': null;
   readonly 'gnosi:open-workspaces': null;
+  readonly 'gnosi:quick-open-document': null;
   readonly 'gnosi:page-deleted': PageDeletedEventDetail;
   readonly 'gnosi:present': null;
   readonly 'gnosi:toggle-comments': null;
