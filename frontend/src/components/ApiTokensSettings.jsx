@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from '../shared/api/legacy-http';
 import { useTranslation, Trans } from 'react-i18next';
 import { KeyRound, Plus, Trash2, Copy, Check } from 'lucide-react';
 import i18n from '../i18n';
+import { createApiToken, fetchApiTokens, revokeApiToken } from '../shared/api/tokens';
 import { ConfirmModal } from './ConfirmModal';
 
 /**
@@ -22,7 +22,7 @@ export default function ApiTokensSettings() {
 
     const load = useCallback(async () => {
         setLoading(true);
-        try { const res = await axios.get('/api/tokens'); setTokens(res.data || []); }
+        try { setTokens(await fetchApiTokens()); }
         catch { setTokens([]); }
         finally { setLoading(false); }
     }, []);
@@ -33,8 +33,8 @@ export default function ApiTokensSettings() {
         if (!name.trim()) return;
         setCreating(true);
         try {
-            const res = await axios.post('/api/tokens', { name: name.trim() });
-            setJustCreated(res.data);
+            const created = await createApiToken(name.trim());
+            setJustCreated(created);
             setName('');
             load();
         } catch { /* noop */ } finally { setCreating(false); }
@@ -44,7 +44,7 @@ export default function ApiTokensSettings() {
      * (clipper, Word add-in, scripts), so it goes through a confirmation. */
     const revoke = async () => {
         if (!confirmRevoke) return;
-        try { await axios.delete(`/api/tokens/${confirmRevoke.id}`); load(); } catch { /* noop */ }
+        try { await revokeApiToken(confirmRevoke.id); load(); } catch { /* noop */ }
         finally { setConfirmRevoke(null); }
     };
 

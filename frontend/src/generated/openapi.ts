@@ -11451,6 +11451,21 @@ export interface components {
             /** Provider */
             provider: string;
         };
+        /** CreatedTokenResponse */
+        CreatedTokenResponse: {
+            /** Created At */
+            created_at: string | null;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Prefix */
+            prefix: string;
+            /** Scopes */
+            scopes: string;
+            /** Token */
+            token: string;
+        };
         /**
          * CreateFromTemplatePayload
          * @description Select an immutable template catalog entry for a new Vault.
@@ -15886,6 +15901,13 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** RevokedTokenResponse */
+        RevokedTokenResponse: {
+            /** Id */
+            id: string;
+            /** Status */
+            status: string;
+        };
         /** RoleUpdateRequest */
         RoleUpdateRequest: {
             /** Permissions */
@@ -16438,6 +16460,21 @@ export interface components {
         TokenPayload: {
             /** Token */
             token: string;
+        };
+        /** TokenSummaryResponse */
+        TokenSummaryResponse: {
+            /** Created At */
+            created_at: string | null;
+            /** Id */
+            id: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Name */
+            name: string;
+            /** Prefix */
+            prefix: string;
+            /** Scopes */
+            scopes: string;
         };
         /**
          * ToolAnalyticsResponse
@@ -27974,7 +28011,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TokenSummaryResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -28014,7 +28051,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CreatedTokenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -28052,7 +28089,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RevokedTokenResponse"];
                 };
             };
             /** @description Validation Error */

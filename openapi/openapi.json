@@ -4469,6 +4469,51 @@
         "title": "CreateVaultPayload",
         "type": "object"
       },
+      "CreatedTokenResponse": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          },
+          "scopes": {
+            "title": "Scopes",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "token",
+          "prefix",
+          "scopes",
+          "created_at"
+        ],
+        "title": "CreatedTokenResponse",
+        "type": "object"
+      },
       "CredentialMigrationResponse": {
         "properties": {
           "failed": {
@@ -15515,6 +15560,24 @@
         "title": "RevokedShareResponse",
         "type": "object"
       },
+      "RevokedTokenResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id"
+        ],
+        "title": "RevokedTokenResponse",
+        "type": "object"
+      },
       "RoleUpdateRequest": {
         "properties": {
           "permissions": {
@@ -16802,6 +16865,58 @@
           "token"
         ],
         "title": "TokenPayload",
+        "type": "object"
+      },
+      "TokenSummaryResponse": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          },
+          "scopes": {
+            "title": "Scopes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "scopes",
+          "created_at",
+          "last_used_at"
+        ],
+        "title": "TokenSummaryResponse",
         "type": "object"
       },
       "ToolAnalyticsResponse": {
@@ -51773,7 +51888,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TokenSummaryResponse"
+                  },
+                  "title": "Response List Tokens Api Tokens Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -51893,7 +52014,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTokenResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -52013,7 +52136,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedTokenResponse"
+                }
               }
             },
             "description": "Successful Response"

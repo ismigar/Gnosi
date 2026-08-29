@@ -154,7 +154,7 @@ class PublicClipResponse(BaseModel):
     table: str | None = None
 
 
-@router.post("/tokens", response_model=None)
+@router.post("/tokens", response_model=CreatedTokenResponse)
 def create_token(
     body: CreateTokenRequest,
     context: WorkspaceContext = Depends(get_workspace_context),
@@ -184,7 +184,7 @@ def create_token(
     ).model_dump()
 
 
-@router.get("/tokens", response_model=None)
+@router.get("/tokens", response_model=list[TokenSummaryResponse])
 def list_tokens(
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
@@ -211,7 +211,7 @@ def list_tokens(
     ]
 
 
-@router.delete("/tokens/{token_id}", response_model=None)
+@router.delete("/tokens/{token_id}", response_model=RevokedTokenResponse)
 def revoke_token(
     token_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),

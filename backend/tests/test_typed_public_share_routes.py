@@ -35,6 +35,20 @@ def test_public_routes_keep_historical_mapping_shapes(monkeypatch) -> None:
     }
 
 
+def test_token_management_routes_publish_typed_response_contracts() -> None:
+    from backend.api import public_routes
+
+    routes = {
+        route.endpoint.__name__: route
+        for route in public_routes.router.routes
+        if isinstance(route, APIRoute)
+    }
+
+    assert routes["create_token"].response_model is public_routes.CreatedTokenResponse
+    assert routes["list_tokens"].response_model == list[public_routes.TokenSummaryResponse]
+    assert routes["revoke_token"].response_model is public_routes.RevokedTokenResponse
+
+
 def test_clipper_config_keeps_optional_field_shape(monkeypatch) -> None:
     from backend.api import public_routes
 

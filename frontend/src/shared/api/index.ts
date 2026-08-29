@@ -102,6 +102,12 @@ export type {
   ShareRevocation,
   SharedPageDocument,
 } from './sharing';
+export { createApiToken, fetchApiTokens, revokeApiToken } from './tokens';
+export type {
+  ApiTokenCreated,
+  ApiTokenRevocation,
+  ApiTokenSummary,
+} from './tokens';
 export {
   cancelReaderAnalysis,
   createReaderSource,
