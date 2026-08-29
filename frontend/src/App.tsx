@@ -1,4 +1,15 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState, Suspense, lazy } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppSidebar } from './components/AppSidebar';
@@ -29,7 +40,12 @@ const SharedPage = lazy(() => import('./pages/SharedPage'));
 const ProjectPlanningPage = lazy(() => import('./pages/ProjectPlanningPage'));
 const LiteraturePage = lazy(() => import('./pages/LiteraturePage'));
 const NotebooksPage = lazy(() => import('./pages/NotebooksPage'));
-const AgentChat = lazy(() => import('./components/AgentChat'));
+interface AgentChatProps {
+  readonly contextRefs?: readonly ModuleContextRef[];
+  readonly storageIdentity?: string;
+}
+
+const AgentChat = lazy(() => import('./components/AgentChat')) as unknown as ComponentType<AgentChatProps>;
 const MeetingReminderWatcher = lazy(() => import('./components/MeetingReminderWatcher'));
 const MeetingRecorder = lazy(() => import('./components/MeetingRecorder'));
 const NotebookCreateDialog = lazy(() => import('./components/Notebooks/NotebookCreateDialog'));
@@ -48,6 +64,10 @@ import { vaultAgentContextRefs } from './lib/vaultAgentContext';
 import { PluginRoute, PluginSurface } from './components/PluginGate';
 import { usePlugins } from './plugins/usePlugins';
 import {
+  subscribeAppEvent,
+  type ModuleContextRef,
+} from './shared/platform/app-events';
+import {
   activateVaultSlug,
   getActiveVaultSlug,
   legacyBrowserPathToCanonical,
@@ -55,7 +75,13 @@ import {
   vaultPath,
 } from './lib/vaultRouting';
 
-const ROUTE_ANNOUNCEMENT_LABELS = [
+interface RouteAnnouncementLabel {
+  readonly fallback: string;
+  readonly key: string;
+  readonly match: (path: string) => boolean;
+}
+
+const ROUTE_ANNOUNCEMENT_LABELS: readonly RouteAnnouncementLabel[] = [
   { match: (path) => path === '/', key: 'fs_picker.home', fallback: 'Home' },
   { match: (path) => path.startsWith('/vault'), key: 'sidebar.nav_vault', fallback: 'Knowledge' },
   { match: (path) => path.startsWith('/notebooks'), key: 'sidebar.nav_notebooks', fallback: 'Notebooks' },
@@ -73,7 +99,7 @@ const ROUTE_ANNOUNCEMENT_LABELS = [
   { match: (path) => path === '/composer', key: 'social.composer', fallback: 'Composer' },
 ];
 
-const APP_ANNOUNCEMENT_LABELS = {
+const APP_ANNOUNCEMENT_LABELS: Readonly<Record<string, readonly [string, string]>> = {
   knowledge: ['sidebar.nav_vault', 'Knowledge'],
   notebooks: ['sidebar.nav_notebooks', 'Notebooks'],
   graph: ['sidebar.nav_graph', 'Graph'],
@@ -88,7 +114,16 @@ const APP_ANNOUNCEMENT_LABELS = {
   automations: ['scheduler.title', 'Scheduler'],
 };
 
-function VaultRouteScope({ children }) {
+interface VaultRouteScopeProps {
+  readonly children: ReactNode;
+}
+
+interface ModuleContextOverride {
+  readonly locationKey: string;
+  readonly refs: readonly ModuleContextRef[];
+}
+
+function VaultRouteScope({ children }: VaultRouteScopeProps) {
   const { vaultHandle } = useParams();
   const vaultSlug = vaultHandle?.startsWith('@')
     ? decodeURIComponent(vaultHandle.slice(1)).toLowerCase()
@@ -103,11 +138,15 @@ function VaultRouteScope({ children }) {
     if (getActiveVaultSlug() === vaultSlug) {
       return () => { alive = false; };
     }
-    activateVaultSlug(vaultSlug).then((vault) => {
-      if (!alive) return;
-      if (vault) setResolvedSlug(vaultSlug);
-      else setMissingSlug(vaultSlug);
-    });
+    void activateVaultSlug(vaultSlug)
+      .then((vault) => {
+        if (!alive) return;
+        if (vault) setResolvedSlug(vaultSlug);
+        else setMissingSlug(vaultSlug);
+      })
+      .catch(() => {
+        if (alive) setMissingSlug(vaultSlug);
+      });
     return () => { alive = false; };
   }, [vaultSlug]);
 
@@ -155,10 +194,10 @@ function App() {
   const { effectiveTheme } = useTheme();
   const { user, gnosiMode, requireAuth, loading } = useAuth();
   const { loaded: pluginStateLoaded } = usePlugins();
-  const [moduleContextOverride, setModuleContextOverride] = useState(null);
-  const [bulkNotebookResources, setBulkNotebookResources] = useState(null);
+  const [moduleContextOverride, setModuleContextOverride] = useState<ModuleContextOverride | null>(null);
+  const [bulkNotebookResources, setBulkNotebookResources] = useState<readonly string[] | null>(null);
   const [vaultRevision, setVaultRevision] = useState(0);
-  const mainContentRef = React.useRef(null);
+  const mainContentRef = useRef<HTMLElement | null>(null);
   const routeAnnouncement = useMemo(() => {
     const app = vaultAppFromPath(location.pathname);
     const appLabel = APP_ANNOUNCEMENT_LABELS[app];
@@ -177,13 +216,11 @@ function App() {
   useFocusModality();
 
   useEffect(() => {
-    const handleVaultChanged = () => {
+    return subscribeAppEvent('gnosi:vault-changed', () => {
       setModuleContextOverride(null);
       setBulkNotebookResources(null);
       setVaultRevision((revision) => revision + 1);
-    };
-    window.addEventListener('gnosi:vault-changed', handleVaultChanged);
-    return () => window.removeEventListener('gnosi:vault-changed', handleVaultChanged);
+    });
   }, []);
 
   useEffect(() => {
@@ -201,7 +238,7 @@ function App() {
   }, [location.pathname]);
 
   const defaultModuleContextRefs = useMemo(() => {
-    const byRoute = {
+    const byRoute: Readonly<Record<string, readonly ModuleContextRef[]>> = {
       '/reader': [{ id: 'route-reader', type: 'internal', ref: 'reader', label: t('reader_title'), scope: { unread_only: false, read_status: 'all', source_ids: [] } }],
       '/mail': [{ id: 'route-mail', type: 'internal', ref: 'mail', label: t('sidebar.mail', 'Mail'), scope: {} }],
       '/calendar': [{ id: 'route-calendar', type: 'internal', ref: 'calendar', label: t('sidebar.calendar', 'Calendars'), scope: {} }],
@@ -209,11 +246,11 @@ function App() {
     };
     const app = vaultAppFromPath(location.pathname);
     if (app === 'knowledge') return vaultAgentContextRefs();
-    const canonicalByApp = {
-      reader: byRoute['/reader'],
-      mail: byRoute['/mail'],
-      calendar: byRoute['/calendar'],
-      contacts: byRoute['/contacts'],
+    const canonicalByApp: Readonly<Record<string, readonly ModuleContextRef[]>> = {
+      reader: byRoute['/reader'] ?? [],
+      mail: byRoute['/mail'] ?? [],
+      calendar: byRoute['/calendar'] ?? [],
+      contacts: byRoute['/contacts'] ?? [],
     };
     if (app) return canonicalByApp[app] || [];
     return byRoute[location.pathname] || [];
@@ -222,33 +259,24 @@ function App() {
     ? moduleContextOverride.refs
     : defaultModuleContextRefs;
 
-  const handleSkipToContent = (event) => {
+  const handleSkipToContent = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     mainContentRef.current?.focus({ preventScroll: true });
   };
 
   useLayoutEffect(() => {
-    const updateModuleContext = (event) => {
-      if (Array.isArray(event.detail)) {
-        setModuleContextOverride({ locationKey: location.key, refs: event.detail });
-      }
-    };
     // VaultDashboard publishes its initial context from a passive effect. Install
     // the parent listener during the layout phase so that first event cannot race
     // ahead and leave the assistant with only the broad route fallback.
-    window.addEventListener('gnosi:module-context', updateModuleContext);
-    return () => window.removeEventListener('gnosi:module-context', updateModuleContext);
+    return subscribeAppEvent('gnosi:module-context', (refs) => {
+      setModuleContextOverride({ locationKey: location.key, refs });
+    });
   }, [location.key]);
 
   useEffect(() => {
-    const openNotebookCreator = (event) => {
-      const resourceIds = Array.isArray(event.detail?.resourceIds)
-        ? event.detail.resourceIds.map(String)
-        : [];
+    return subscribeAppEvent('gnosi:create-notebook', ({ resourceIds }) => {
       if (resourceIds.length) setBulkNotebookResources(resourceIds);
-    };
-    window.addEventListener('gnosi:create-notebook', openNotebookCreator);
-    return () => window.removeEventListener('gnosi:create-notebook', openNotebookCreator);
+    });
   }, []);
 
   // Bootstrap: we wait to know the mode and whether there's a session before deciding.
@@ -372,29 +400,29 @@ function App() {
       <Toaster position="bottom-right" containerStyle={{ zIndex: 'var(--z-toast)' }} />
       <DesktopUpdateNotice />
       <CommandPalette />
-      <PageOutline key={`outline-${vaultRevision}`} />
+      <PageOutline key={`outline-${String(vaultRevision)}`} />
       <PluginSurface pluginIds="ai-platform">
         <Suspense fallback={null}>
           {vaultAppFromPath(location.pathname) !== 'notebooks' && (
-            <AgentChat key={`chat-${vaultRevision}`} storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
+            <AgentChat key={`chat-${String(vaultRevision)}`} storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
           )}
         </Suspense>
       </PluginSurface>
       <PluginSurface pluginIds="grounded-notebooks">
         <Suspense fallback={null}>
           <NotebookCreateDialog
-            key={`notebook-dialog-${vaultRevision}`}
+            key={`notebook-dialog-${String(vaultRevision)}`}
             isOpen={Array.isArray(bulkNotebookResources)}
             initialResourceIds={bulkNotebookResources || []}
-            onClose={() => setBulkNotebookResources(null)}
-            onCreated={(notebook) => navigate(vaultPath('notebooks', notebook.id))}
+            onClose={() => { setBulkNotebookResources(null); }}
+            onCreated={(notebook) => { void navigate(vaultPath('notebooks', notebook.id)); }}
           />
         </Suspense>
       </PluginSurface>
       <PluginSurface pluginIds={['calendar', 'ai-platform']}>
         <Suspense fallback={null}>
-          <MeetingReminderWatcher key={`meeting-reminders-${vaultRevision}`} />
-          <MeetingRecorder key={`meeting-recorder-${vaultRevision}`} />
+          <MeetingReminderWatcher key={`meeting-reminders-${String(vaultRevision)}`} />
+          <MeetingRecorder key={`meeting-recorder-${String(vaultRevision)}`} />
         </Suspense>
       </PluginSurface>
     </div>

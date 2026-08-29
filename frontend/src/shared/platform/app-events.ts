@@ -63,16 +63,26 @@ export interface PageDeletedEventDetail {
   readonly pageId: string;
 }
 
+export interface ModuleContextRef {
+  readonly id: string;
+  readonly label: string;
+  readonly ref: string;
+  readonly scope?: Readonly<Record<string, unknown>>;
+  readonly type: string;
+}
+
 
 export interface AppEventMap {
   readonly 'app-error': AppErrorEventDetail;
   readonly 'db-theme-changed': null;
   readonly 'gnosi:config-changed': null;
+  readonly 'gnosi:create-notebook': { readonly resourceIds: readonly string[] };
   readonly 'gnosi:ai-correct-page': null;
   readonly 'gnosi:floating-dock-change': { readonly isOpen: boolean };
   readonly 'gnosi:floating-panel-open': { readonly panelId: string };
   readonly 'gnosi:invalidatePreview': { readonly pageId?: string };
   readonly 'gnosi:imported': unknown;
+  readonly 'gnosi:module-context': readonly ModuleContextRef[];
   readonly 'gnosi:open-pdf': OpenDocumentEventDetail;
   readonly 'gnosi:open-search': null;
   readonly 'gnosi:open-settings': null;

@@ -31,4 +31,32 @@ describe('typed application events', () => {
     );
     unsubscribe();
   });
+
+  it('carries module context and notebook resources through typed shell events', () => {
+    const contextListener = vi.fn();
+    const notebookListener = vi.fn();
+    const unsubscribeContext = subscribeAppEvent('gnosi:module-context', contextListener);
+    const unsubscribeNotebook = subscribeAppEvent('gnosi:create-notebook', notebookListener);
+    const refs = [{
+      id: 'route-mail',
+      type: 'internal',
+      ref: 'mail',
+      label: 'Mail',
+      scope: {},
+    }];
+
+    emitAppEvent('gnosi:module-context', refs);
+    emitAppEvent('gnosi:create-notebook', { resourceIds: ['resource-1'] });
+
+    expect(contextListener).toHaveBeenCalledWith(
+      refs,
+      expect.objectContaining({ type: 'gnosi:module-context' }),
+    );
+    expect(notebookListener).toHaveBeenCalledWith(
+      { resourceIds: ['resource-1'] },
+      expect.objectContaining({ type: 'gnosi:create-notebook' }),
+    );
+    unsubscribeContext();
+    unsubscribeNotebook();
+  });
 });

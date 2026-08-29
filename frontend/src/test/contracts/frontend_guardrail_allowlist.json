@@ -81,7 +81,6 @@
       "frontend/src/shared/api/workspace-members.test.ts": 1
     },
     "global_events": {
-      "frontend/src/App.jsx": 6,
       "frontend/src/components/AgentChat.jsx": 2,
       "frontend/src/components/AgentConfirmations.test.tsx": 1,
       "frontend/src/components/GlobalSettingsModal.jsx": 9,
@@ -119,7 +118,6 @@
       "frontend/src/shared/api/plugins.test.ts": 8
     },
     "legacy_js_jsx": {
-      "frontend/src/App.jsx": 404,
       "frontend/src/components/AgentChat.jsx": 2723,
       "frontend/src/components/FeedManagerModal.jsx": 386,
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,
