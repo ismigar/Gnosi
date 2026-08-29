@@ -5,7 +5,6 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
-
 // ── Constants ─────────────────────────────────────────────────────────────────
 // `label` keeps the English text as the i18n fallback default; `labelKey`
 // is the translation key resolved via t() at each render site (see FieldRow/FilterRow
@@ -236,6 +235,7 @@ function FilterRow({ filter, index, onChange, onRemove }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+/** @param {{initialView?: (import('../../shared/api/mail').MailView|null), onSave: (data: import('../../shared/api/mail').MailViewCreate) => unknown, onCancel: () => void}} props */
 export default function MailViewEditor({ initialView = null, onSave, onCancel }) {
     const { t } = useTranslation();
     const [form, setForm] = useState(() => {

@@ -188,7 +188,6 @@
       "frontend/src/components/Mail/MailComposer.jsx": 649,
       "frontend/src/components/Mail/MailComposer.test.jsx": 252,
       "frontend/src/components/Mail/MailList.jsx": 1323,
-      "frontend/src/components/Mail/MailSidebar.jsx": 306,
       "frontend/src/components/Mail/MailViewEditor.jsx": 500,
       "frontend/src/components/Mail/MailViewer.jsx": 1307,
       "frontend/src/components/MeetingRecorder.jsx": 323,
