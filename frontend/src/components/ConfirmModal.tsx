@@ -1,7 +1,24 @@
-import React, { useEffect, useId, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, X, Check } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
+
+export interface ConfirmModalProps {
+    readonly acknowledgementLabel?: ReactNode;
+    readonly autofocusConfirm?: boolean;
+    readonly cancelText?: ReactNode;
+    readonly children?: ReactNode;
+    readonly confirmOnEnter?: boolean;
+    readonly confirmText?: ReactNode;
+    readonly isDestructive?: boolean;
+    readonly isOpen: boolean;
+    readonly message?: ReactNode;
+    readonly onClose: () => void;
+    readonly onConfirm: () => unknown;
+    readonly requireAcknowledgement?: boolean;
+    readonly title?: ReactNode;
+}
 
 export const ConfirmModal = ({
     isOpen,
@@ -17,7 +34,7 @@ export const ConfirmModal = ({
     requireAcknowledgement = false,
     acknowledgementLabel,
     children,
-}) => {
+}: ConfirmModalProps) => {
     const { t } = useTranslation();
     // Localized fallbacks: callers may omit these props; default to i18n instead
     // of hardcoded Catalan so the dialog is never partially untranslated. `??`
@@ -26,7 +43,7 @@ export const ConfirmModal = ({
     const resolvedMessage = message ?? t('common.confirm_action_msg', "Are you sure you want to proceed with this action?");
     const resolvedConfirmText = confirmText ?? t('common.confirm', "Confirm");
     const resolvedCancelText = cancelText ?? t('common.cancel', "Cancel");
-    const modalRef = useRef(null);
+    const modalRef = useRef<HTMLDivElement | null>(null);
     const titleId = useId();
     const messageId = useId();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,7 +66,9 @@ export const ConfirmModal = ({
     // ongoing destructive operation (isSubmitting guard), same as the backdrop.
     useModalKeyboard({
         isOpen,
-        onClose: () => { if (!isSubmitting) onClose(); },
+        onClose: () => {
+            if (!isSubmitting) onClose();
+        },
         onConfirm: confirmOnEnter ? handleConfirm : null,
         confirmDisabled: isSubmitting || (requireAcknowledgement && !isAcknowledged),
         containerRef: modalRef,
@@ -57,10 +76,14 @@ export const ConfirmModal = ({
     });
 
     useEffect(() => {
-        if (!isOpen) {
+        if (isOpen) return undefined;
+        const resetId = setTimeout(() => {
             setIsSubmitting(false);
             setIsAcknowledged(false);
-        }
+        }, 0);
+        return () => {
+            clearTimeout(resetId);
+        };
     }, [isOpen]);
 
     if (!isOpen) return null;
@@ -84,7 +107,9 @@ export const ConfirmModal = ({
 
             <div
                 ref={modalRef}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(event) => {
+                    event.stopPropagation();
+                }}
                 className="relative bg-[var(--bg-primary)] rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 p-6 border border-[var(--border-primary)]"
             >
                 <div className="flex justify-between items-start mb-4">
@@ -118,7 +143,9 @@ export const ConfirmModal = ({
                         <input
                             type="checkbox"
                             checked={isAcknowledged}
-                            onChange={(event) => setIsAcknowledged(event.target.checked)}
+                            onChange={(event) => {
+                                setIsAcknowledged(event.target.checked);
+                            }}
                             disabled={isSubmitting}
                             className="mt-0.5"
                         />
@@ -139,7 +166,9 @@ export const ConfirmModal = ({
                     <button
                         {...(autofocusConfirm ? { 'data-autofocus': 'true' } : {})}
                         type="button"
-                        onClick={handleConfirm}
+                        onClick={() => {
+                            void handleConfirm();
+                        }}
                         disabled={isSubmitting || (requireAcknowledgement && !isAcknowledged)}
                         className={`px-4 py-2 font-medium rounded-lg text-white shadow-sm transition-colors focus:ring-2 focus:ring-offset-1 outline-none ${isDestructive
                             ? 'bg-[var(--status-error)] hover:opacity-90 focus:ring-[var(--status-error)]/50'
