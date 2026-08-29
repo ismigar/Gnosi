@@ -2,12 +2,66 @@
 
 import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
+from typing import Literal
 from typing import cast as _strict_cast
 
 from fastapi import APIRouter
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
+
+
+class SyncDrupalRowResponse(BaseModel):
+    __module__ = "backend.api.vault_routes"
+    model_config = ConfigDict(extra="allow")
+
+    status: Literal["ok"]
+    item_id: str
+    uuid: str | None
+    nid: JsonValue
+    url: str | None
+    created: bool
+    media_pushed: bool
+    source_lang: str
+    scope: Literal["all", "lang_only"]
+    languages: list[str]
+    translations: list[dict[str, JsonValue]]
+    skipped_fields: list[dict[str, JsonValue]]
+
+
+class TranslateRowResponse(BaseModel):
+    __module__ = "backend.api.vault_routes"
+    model_config = ConfigDict(extra="allow")
+
+    status: Literal["ok"]
+    item_id: str
+    source_lang: str
+    created: list[dict[str, JsonValue]]
+    updated: list[dict[str, JsonValue]]
+    skipped: list[dict[str, JsonValue]]
+
+
+class TranslateRowsResponse(BaseModel):
+    __module__ = "backend.api.vault_routes"
+    model_config = ConfigDict(extra="allow")
+
+    status: Literal["ok"]
+    count: int
+    results: list[dict[str, JsonValue]]
+    errors: list[dict[str, JsonValue]]
+
+
+class TranslatePageResponse(BaseModel):
+    __module__ = "backend.api.vault_routes"
+    model_config = ConfigDict(extra="allow")
+
+    status: Literal["ok"]
+    page_id: str
+    source_lang: str
+    created: list[dict[str, JsonValue]]
+    updated: list[dict[str, JsonValue]]
+    skipped: list[dict[str, JsonValue]]
 
 
 @router.get(
@@ -43,7 +97,7 @@ async def drupal_content_type_fields(bundle: str) -> _LegacyAny:
 @router.post(
     "/skills/sync-drupal-row",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=SyncDrupalRowResponse,
 )
 async def sync_drupal_row(
     background_tasks: _legacy.BackgroundTasks,
@@ -147,7 +201,7 @@ async def match_drupal_rows(
         _legacy.Depends(_legacy.require_role("editor")),
         _legacy.Depends(_legacy.require_plugins("translation")),
     ],
-    response_model=None,
+    response_model=TranslateRowResponse,
 )
 async def translate_row(
     background_tasks: _legacy.BackgroundTasks,
@@ -201,7 +255,7 @@ async def translate_row(
         _legacy.Depends(_legacy.require_role("editor")),
         _legacy.Depends(_legacy.require_plugins("translation")),
     ],
-    response_model=None,
+    response_model=TranslateRowsResponse,
 )
 async def translate_rows(
     background_tasks: _legacy.BackgroundTasks,
@@ -372,7 +426,7 @@ async def execute_button_action(
         _legacy.Depends(_legacy.require_role("editor")),
         _legacy.Depends(_legacy.require_plugins("translation")),
     ],
-    response_model=None,
+    response_model=TranslatePageResponse,
 )
 async def translate_page(
     background_tasks: _legacy.BackgroundTasks,
