@@ -8,9 +8,11 @@ import {
     EMPTY_RESOURCE_FACETS,
     EMPTY_RESOURCE_FILTERS,
     normalizeResourceFacets,
-    notebookResourceCatalogUrl,
 } from './notebookResourceCatalog';
-import { transportFetch } from '../../shared/api/transports';
+import {
+    createNotebook,
+    fetchReferenceResources,
+} from '../../shared/api/notebooks';
 
 const EMPTY_RESOURCE_IDS = Object.freeze([]);
 
@@ -60,14 +62,14 @@ export default function NotebookCreateDialog({
         const controller = new AbortController();
         const timer = window.setTimeout(() => {
             setLoadingResources(true);
-            transportFetch(notebookResourceCatalogUrl({
+            fetchReferenceResources({
                 query,
                 page: resourceData.page,
-                filters,
-            }), {
-                signal: controller.signal,
-            })
-                .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Resource list failed (${response.status})`)))
+                pageSize: 50,
+                author: filters.author || undefined,
+                resourceType: filters.type || undefined,
+                tag: filters.tag || undefined,
+            }, controller.signal)
                 .then((data) => setResourceData({
                     items: Array.isArray(data.items) ? data.items : [],
                     total: Number(data.total) || 0,
@@ -113,18 +115,12 @@ export default function NotebookCreateDialog({
         if (!selectedIds.size || creating) return;
         setCreating(true);
         try {
-            const response = await transportFetch('/api/notebooks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: title.trim() || t('notebooks.default_title', 'New notebook'),
-                    visibility,
-                    conversation_mode: conversationMode,
-                    resource_ids: [...selectedIds],
-                }),
+            const data = await createNotebook({
+                title: title.trim() || t('notebooks.default_title', 'New notebook'),
+                visibility,
+                conversation_mode: conversationMode,
+                resource_ids: [...selectedIds],
             });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(data.detail || `Notebook creation failed (${response.status})`);
             toast.success(t('notebooks.created', 'Notebook created.'));
             onCreated?.(data);
             onClose?.();

@@ -22,6 +22,16 @@ vi.mock('../../lib/toast', () => ({
 
 const mountedRoots = [];
 
+function asRequest(input, init = {}) {
+    return input instanceof Request
+        ? input
+        : new Request(new URL(String(input), window.location.origin), init);
+}
+
+function jsonResponse(payload, status = 200) {
+    return Response.json(payload, { status });
+}
+
 beforeAll(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 });
@@ -37,16 +47,13 @@ afterEach(async () => {
 
 describe('NotebookCreateDialog', () => {
     it('explains why Resources without attachment or URL sources are omitted', async () => {
-        globalThis.fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: vi.fn().mockResolvedValue({
+        globalThis.fetch = vi.fn().mockResolvedValue(jsonResponse({
                 items: [{ id: 'resource-1', title: 'Paper', source_count: 1 }],
                 total: 1,
                 page: 1,
                 page_size: 50,
                 hidden_without_sources: 3,
-            }),
-        });
+        }));
         const container = document.createElement('div');
         document.body.appendChild(container);
         const root = createRoot(container);
@@ -66,10 +73,9 @@ describe('NotebookCreateDialog', () => {
     });
 
     it('exposes dialog semantics, closes with Escape, and does not close from the backdrop', async () => {
-        globalThis.fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 }),
-        });
+        globalThis.fetch = vi.fn().mockResolvedValue(
+            jsonResponse({ items: [], total: 0, page: 1, page_size: 50 }),
+        );
         const onClose = vi.fn();
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -95,28 +101,15 @@ describe('NotebookCreateDialog', () => {
 
     it('creates a notebook from the exact selected Resource ids', async () => {
         const notebook = { id: 'notebook-1', title: 'Research' };
-        globalThis.fetch = vi.fn().mockImplementation((url, options) => {
-            if (options?.method === 'POST') {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue(notebook),
-                });
-            }
-            if (String(url).includes('/api/notebooks?')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue({ items: [], total: 0 }),
-                });
-            }
-            return Promise.resolve({
-                ok: true,
-                json: vi.fn().mockResolvedValue({
+        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+            const request = asRequest(input, init);
+            if (request.method === 'POST') return Promise.resolve(jsonResponse(notebook, 201));
+            return Promise.resolve(jsonResponse({
                     items: [{ id: 'resource-1', title: 'Paper', source_count: 2 }],
                     total: 1,
                     page: 1,
                     page_size: 50,
-                }),
-            });
+            }));
         });
         const onCreated = vi.fn();
         const container = document.createElement('div');
@@ -147,9 +140,11 @@ describe('NotebookCreateDialog', () => {
             await Promise.resolve();
         });
 
-        const request = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'POST');
-        expect(request[0]).toBe('/api/notebooks');
-        expect(JSON.parse(request[1].body)).toMatchObject({
+        const request = globalThis.fetch.mock.calls
+            .map(([input, init]) => asRequest(input, init))
+            .find((candidate) => candidate.method === 'POST');
+        expect(new URL(request.url).pathname).toBe('/api/notebooks');
+        await expect(request.clone().json()).resolves.toMatchObject({
             resource_ids: ['resource-1'],
             visibility: 'private',
             conversation_mode: 'private_member',
@@ -158,28 +153,17 @@ describe('NotebookCreateDialog', () => {
     });
 
     it('keeps a manually selected Resource when no initial selection is provided', async () => {
-        globalThis.fetch = vi.fn().mockImplementation((url, options) => {
-            if (options?.method === 'POST') {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue({ id: 'notebook-2' }),
-                });
+        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+            const request = asRequest(input, init);
+            if (request.method === 'POST') {
+                return Promise.resolve(jsonResponse({ id: 'notebook-2' }, 201));
             }
-            if (String(url).includes('/api/notebooks?')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue({ items: [], total: 0 }),
-                });
-            }
-            return Promise.resolve({
-                ok: true,
-                json: vi.fn().mockResolvedValue({
+            return Promise.resolve(jsonResponse({
                     items: [{ id: 'resource-2', title: 'Manual selection', source_count: 1 }],
                     total: 1,
                     page: 1,
                     page_size: 50,
-                }),
-            });
+            }));
         });
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -206,22 +190,22 @@ describe('NotebookCreateDialog', () => {
             await Promise.resolve();
             await Promise.resolve();
         });
-        const request = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'POST');
-        expect(JSON.parse(request[1].body).resource_ids).toEqual(['resource-2']);
+        const request = globalThis.fetch.mock.calls
+            .map(([input, init]) => asRequest(input, init))
+            .find((candidate) => candidate.method === 'POST');
+        await expect(request.clone().json()).resolves.toMatchObject({
+            resource_ids: ['resource-2'],
+        });
     });
 
     it('keeps selections while paging through hundreds of Resources', async () => {
-        globalThis.fetch = vi.fn().mockImplementation((url, options) => {
-            if (options?.method === 'POST') {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue({ id: 'notebook-paged' }),
-                });
+        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+            const request = asRequest(input, init);
+            if (request.method === 'POST') {
+                return Promise.resolve(jsonResponse({ id: 'notebook-paged' }, 201));
             }
-            const page = String(url).includes('page=2') ? 2 : 1;
-            return Promise.resolve({
-                ok: true,
-                json: vi.fn().mockResolvedValue({
+            const page = new URL(request.url).searchParams.get('page') === '2' ? 2 : 1;
+            return Promise.resolve(jsonResponse({
                     items: [{
                         id: page === 1 ? 'resource-1' : 'resource-51',
                         title: page === 1 ? 'First page Resource' : 'Second page Resource',
@@ -230,8 +214,7 @@ describe('NotebookCreateDialog', () => {
                     total: 51,
                     page,
                     page_size: 50,
-                }),
-            });
+            }));
         });
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -263,14 +246,15 @@ describe('NotebookCreateDialog', () => {
             await Promise.resolve();
         });
 
-        const request = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'POST');
-        expect(JSON.parse(request[1].body).resource_ids.sort()).toEqual(['resource-1', 'resource-51']);
+        const request = globalThis.fetch.mock.calls
+            .map(([input, init]) => asRequest(input, init))
+            .find((candidate) => candidate.method === 'POST');
+        const body = await request.clone().json();
+        expect(body.resource_ids.sort()).toEqual(['resource-1', 'resource-51']);
     });
 
     it('requests the selected type, author, and tag filters from the shared catalog', async () => {
-        globalThis.fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: vi.fn().mockResolvedValue({
+        globalThis.fetch = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({
                 items: [],
                 total: 0,
                 page: 1,
@@ -280,8 +264,7 @@ describe('NotebookCreateDialog', () => {
                     authors: [{ value: 'Ada Lovelace', count: 1 }],
                     tags: [{ value: 'Education', count: 1 }],
                 },
-            }),
-        });
+        })));
         const container = document.createElement('div');
         document.body.appendChild(container);
         const root = createRoot(container);
@@ -310,7 +293,8 @@ describe('NotebookCreateDialog', () => {
         await setFilter('Author', 'Ada Lovelace');
         await setFilter('Tag', 'Education');
 
-        const urls = globalThis.fetch.mock.calls.map(([url]) => new URL(url, 'https://gnosi.local'));
+        const urls = globalThis.fetch.mock.calls
+            .map(([input, init]) => new URL(asRequest(input, init).url));
         const filtered = urls.at(-1).searchParams;
         expect(filtered.get('type')).toBe('Course');
         expect(filtered.get('author')).toBe('Ada Lovelace');

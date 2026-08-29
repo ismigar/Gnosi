@@ -33,6 +33,16 @@ vi.mock('../lib/toast', () => ({
 
 const mountedRoots = [];
 
+function asRequest(input, init = {}) {
+    return input instanceof Request
+        ? input
+        : new Request(new URL(String(input), window.location.origin), init);
+}
+
+function jsonResponse(payload, status = 200) {
+    return Response.json(payload, { status });
+}
+
 beforeAll(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 });
@@ -64,15 +74,14 @@ describe('NotebookDetail permissions', () => {
             progress: null,
             last_error: null,
         };
-        globalThis.fetch = vi.fn().mockImplementation((url) => Promise.resolve({
-            ok: true,
-            status: 200,
-            json: vi.fn().mockResolvedValue(String(url).includes('/chat-sources')
+        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+            const request = asRequest(input, init);
+            return Promise.resolve(jsonResponse(request.url.includes('/chat-sources')
                 ? { sources: [{ source_id: 'source-1', label: 'Source', kind: 'file', status: 'available' }], notebooks: [] }
-                : String(url).includes('/sources?')
+                : request.url.includes('/sources?')
                     ? { items: [], total: 0, page: 1, page_size: 50, active_revision: 1 }
-                    : notebook),
-        }));
+                    : notebook));
+        });
         const container = document.createElement('div');
         document.body.appendChild(container);
         const root = createRoot(container);
@@ -108,13 +117,13 @@ describe('NotebookDetail permissions', () => {
             }],
             total: 1, page: 1, page_size: 50, active_revision: 1,
         };
-        globalThis.fetch = vi.fn().mockImplementation((url, options = {}) => Promise.resolve({
-            ok: true,
-            status: options.method === 'POST' ? 202 : 200,
-            json: vi.fn().mockResolvedValue(String(url).includes('/chat-sources')
+        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+            const request = asRequest(input, init);
+            return Promise.resolve(jsonResponse(request.url.includes('/chat-sources')
                 ? { sources: [{ source_id: 'source-1', label: 'Source', kind: 'file', status: 'available' }], notebooks: [] }
-                : String(url).includes('/sources?') ? sourceData : notebook),
-        }));
+                : request.url.includes('/sources?') ? sourceData : notebook,
+            request.method === 'POST' ? 202 : 200));
+        });
         const container = document.createElement('div');
         document.body.appendChild(container);
         const root = createRoot(container);
@@ -133,12 +142,14 @@ describe('NotebookDetail permissions', () => {
             await Promise.resolve();
         });
 
-        expect(globalThis.fetch).toHaveBeenCalledWith(
-            '/api/notebooks/notebook-1/sources/resource-1/refresh',
-            expect.objectContaining({ method: 'POST' }),
-        );
-        expect(globalThis.fetch.mock.calls.some(([url, options]) => (
-            url === '/api/notebooks/notebook-1/refresh' && options?.method === 'POST'
+        const requests = globalThis.fetch.mock.calls.map(([input, init]) => asRequest(input, init));
+        expect(requests.some((request) => (
+            new URL(request.url).pathname === '/api/notebooks/notebook-1/sources/resource-1/refresh'
+            && request.method === 'POST'
+        ))).toBe(true);
+        expect(requests.some((request) => (
+            new URL(request.url).pathname === '/api/notebooks/notebook-1/refresh'
+            && request.method === 'POST'
         ))).toBe(false);
     });
 
@@ -154,15 +165,14 @@ describe('NotebookDetail permissions', () => {
                 current_resource_title: 'Lecture recording', cancellable: true,
             },
         };
-        globalThis.fetch = vi.fn().mockImplementation((url) => Promise.resolve({
-            ok: true,
-            status: 200,
-            json: vi.fn().mockResolvedValue(String(url).includes('/chat-sources')
+        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+            const request = asRequest(input, init);
+            return Promise.resolve(jsonResponse(request.url.includes('/chat-sources')
                 ? { sources: [{ source_id: 'source-1', label: 'Source', kind: 'file', status: 'available' }], notebooks: [] }
-                : String(url).includes('/sources?')
+                : request.url.includes('/sources?')
                     ? { items: [], total: 0, page: 1, page_size: 50, active_revision: 1 }
-                    : notebook),
-        }));
+                    : notebook));
+        });
         const container = document.createElement('div');
         document.body.appendChild(container);
         const root = createRoot(container);
@@ -183,14 +193,12 @@ describe('NotebookDetail permissions', () => {
             await Promise.resolve();
         });
 
-        expect(globalThis.fetch).toHaveBeenCalledWith(
-            '/api/notebooks/notebook-1/refresh/cancel',
-            expect.objectContaining({
-                credentials: 'include',
-                headers: expect.any(Headers),
-                method: 'POST',
-            }),
-        );
+        const cancelRequest = globalThis.fetch.mock.calls
+            .map(([input, init]) => asRequest(input, init))
+            .find((request) => new URL(request.url).pathname === '/api/notebooks/notebook-1/refresh/cancel');
+        expect(cancelRequest).toBeTruthy();
+        expect(cancelRequest.method).toBe('POST');
+        expect(cancelRequest.credentials).toBe('include');
     });
 
     it('selects individual sources directly from left panel cards', async () => {
@@ -225,14 +233,15 @@ describe('NotebookDetail permissions', () => {
             ],
             notebooks: [],
         };
-        globalThis.fetch = vi.fn().mockImplementation((url) => {
-            const value = String(url);
+        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+            const request = asRequest(input, init);
+            const value = request.url;
             const payload = value.includes('/chat-sources')
                 ? chatSources
                 : value.includes('/sources?')
                     ? sourceData
                     : notebook;
-            return Promise.resolve({ ok: true, status: 200, json: vi.fn().mockResolvedValue(payload) });
+            return Promise.resolve(jsonResponse(payload));
         });
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -293,22 +302,19 @@ describe('NotebookDetail permissions', () => {
             ],
             notebooks: [],
         };
-        globalThis.fetch = vi.fn().mockImplementation((url, options = {}) => {
-            const value = String(url);
-            if (options.method === 'PATCH') {
-                const body = JSON.parse(options.body || '{}');
-                return Promise.resolve({
-                    ok: true,
-                    status: 200,
-                    json: vi.fn().mockResolvedValue({ ...notebook, ...body }),
-                });
+        globalThis.fetch = vi.fn().mockImplementation(async (input, init) => {
+            const request = asRequest(input, init);
+            const value = request.url;
+            if (request.method === 'PATCH') {
+                const body = await request.clone().json();
+                return jsonResponse({ ...notebook, ...body });
             }
             const payload = value.includes('/chat-sources')
                 ? chatSources
                 : value.includes('/sources?')
                     ? sourceData
                     : notebook;
-            return Promise.resolve({ ok: true, status: 200, json: vi.fn().mockResolvedValue(payload) });
+            return jsonResponse(payload);
         });
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -348,14 +354,15 @@ describe('NotebookDetail permissions', () => {
             await Promise.resolve();
         });
 
-        expect(globalThis.fetch).toHaveBeenCalledWith(
-            '/api/notebooks/notebook-1',
-            expect.objectContaining({
-                method: 'PATCH',
-                body: JSON.stringify({
-                    groups: [{ id: 'grp-1', name: 'Primary Group', resource_ids: ['resource-1', 'resource-2'] }],
-                }),
-            }),
-        );
+        const patchRequest = globalThis.fetch.mock.calls
+            .map(([input, init]) => asRequest(input, init))
+            .find((request) => (
+                new URL(request.url).pathname === '/api/notebooks/notebook-1'
+                && request.method === 'PATCH'
+            ));
+        expect(patchRequest).toBeTruthy();
+        await expect(patchRequest.clone().json()).resolves.toEqual({
+            groups: [{ id: 'grp-1', name: 'Primary Group', resource_ids: ['resource-1', 'resource-2'] }],
+        });
     });
 });

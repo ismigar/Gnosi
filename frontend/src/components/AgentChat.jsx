@@ -32,6 +32,7 @@ import { deriveAgentRuntimeStatus } from './agentRuntimeStatus';
 import { toast } from '../lib/toast';
 import { streamFetch } from '../shared/api/specialized-transports';
 import { transportFetch } from '../shared/api/transports';
+import { fetchNotebookConversation } from '../shared/api/notebooks';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -381,8 +382,7 @@ const AgentChat = ({
         if (forcedAgentId) setSelectedAgentId(forcedAgentId);
         const hydrateConversation = () => {
             if (document.visibilityState !== 'visible' || isLoading) return;
-            void transportFetch(`/api/notebooks/${encodeURIComponent(notebookId)}/conversation`)
-                .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Conversation load failed (${response.status})`)))
+            void fetchNotebookConversation(notebookId)
                 .then((canonical) => {
                     if (cancelled || historyHydrationRef.current !== hydrationId) return;
                     const canonicalMessages = Array.isArray(canonical.messages) ? canonical.messages : [];

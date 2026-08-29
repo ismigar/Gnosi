@@ -14,6 +14,7 @@
  */
 import { toast } from './toast';
 import { transportFetch } from '../shared/api/transports';
+import { fetchNotebookEvidence } from '../shared/api/notebooks';
 
 // Document types that the integrated viewer (Zotero reader) can display.
 const DOCUMENT_KIND_BY_EXT = { pdf: 'pdf', epub: 'epub', html: 'snapshot', htm: 'snapshot' };
@@ -638,14 +639,11 @@ export async function openCitation(resourceId, page, {
     if (citation.notebook && citation.chunk) {
         try {
             const revision = String(citation.revision || '').trim();
-            const revisionQuery = /^\d+$/.test(revision)
-                ? `?revision=${encodeURIComponent(revision)}`
-                : '';
-            const evidenceResponse = await transportFetch(
-                `/api/notebooks/${encodeURIComponent(citation.notebook)}/evidence/${encodeURIComponent(citation.chunk)}${revisionQuery}`,
-                { credentials: 'include' },
+            evidence = await fetchNotebookEvidence(
+                String(citation.notebook),
+                String(citation.chunk),
+                /^\d+$/.test(revision) ? Number(revision) : undefined,
             );
-            if (evidenceResponse.ok) evidence = await evidenceResponse.json();
         } catch {
             evidence = null;
         }
