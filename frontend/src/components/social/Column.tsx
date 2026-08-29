@@ -1,13 +1,9 @@
-import type { Key, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal } from 'lucide-react';
 import PostCard from './PostCard';
 import { SocialNetworkIcon, isKnownSocialNetwork } from './SocialNetworkIcon';
-
-interface SocialPost {
-    readonly [key: string]: unknown;
-    readonly id: Key;
-}
+import type { SocialPost } from '../../shared/api/social';
 
 export interface SocialColumnProps {
     readonly icon?: ReactNode;

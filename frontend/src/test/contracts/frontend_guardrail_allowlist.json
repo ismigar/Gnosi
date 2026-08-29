@@ -286,10 +286,7 @@
       "frontend/src/components/VaultTemplateMarketplace.test.jsx": 127,
       "frontend/src/components/VisualizationSection.jsx": 141,
       "frontend/src/components/Workspace/WorkspaceMembersPanel.jsx": 342,
-      "frontend/src/components/social/AddStreamModal.jsx": 197,
       "frontend/src/components/social/Composer.jsx": 198,
-      "frontend/src/components/social/PostCard.jsx": 164,
-      "frontend/src/components/social/Scheduler.jsx": 128,
       "frontend/src/hooks/useFileLinkInterceptor.js": 157,
       "frontend/src/hooks/useVaultViewData.js": 70,
       "frontend/src/lib/fileResource.js": 691,
@@ -306,11 +303,9 @@
       "frontend/src/pages/MediaCenter.jsx": 1632,
       "frontend/src/pages/NotebooksPage.jsx": 1097,
       "frontend/src/pages/NotebooksPage.test.jsx": 368,
-      "frontend/src/pages/PostHistory.jsx": 117,
       "frontend/src/pages/ProjectPlanningPage.jsx": 150,
       "frontend/src/pages/ReaderDashboard.jsx": 759,
       "frontend/src/pages/SchedulerPage.jsx": 204,
-      "frontend/src/pages/SocialDashboard.jsx": 178,
       "frontend/src/pages/VaultDashboard.jsx": 4684
     },
     "oversized_files": {
