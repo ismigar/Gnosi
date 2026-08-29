@@ -12,7 +12,7 @@ const {
     updatePluginSettings: vi.fn(),
 }));
 
-vi.mock('../lib/pageEtagInterceptor', () => ({ getCachedEtag: vi.fn() }));
+vi.mock('../shared/api/page-etag', () => ({ getCachedPageEtag: vi.fn() }));
 vi.mock('../shared/api/plugin-runtime', () => ({
     createPluginHostPage: vi.fn(),
     fetchForUiPlugin: vi.fn(),

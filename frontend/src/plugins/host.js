@@ -21,7 +21,7 @@
  * Module-level store with subscription (same pattern as usePlugins): the
  * command palette, the shell, and the config panel read the active contributions.
  */
-import { getCachedEtag } from '../lib/pageEtagInterceptor';
+import { getCachedPageEtag } from '../shared/api/page-etag';
 import {
     createPluginHostPage,
     fetchForUiPlugin,
@@ -177,7 +177,7 @@ const _HOST_METHODS = {
         const payload = {};
         if (args.content !== undefined) payload.content = args.content;
         if (args.metadata !== undefined) payload.metadata = args.metadata;
-        await patchPluginHostPage(id, payload, { knownEtag: getCachedEtag(id) });
+        await patchPluginHostPage(id, payload, { knownEtag: getCachedPageEtag(id) });
         return { pageId: id, written: (args.content || '').length };
     } },
     'vault.queryDB': { perm: 'vault:read', run: async (args) => {
