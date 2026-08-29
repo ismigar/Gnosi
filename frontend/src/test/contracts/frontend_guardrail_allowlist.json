@@ -143,8 +143,6 @@
     },
     "legacy_js_jsx": {
       "frontend/src/App.jsx": 404,
-      "frontend/src/components/AI/AIResourcesSettings.jsx": 883,
-      "frontend/src/components/AI/AIResourcesSettings.test.jsx": 153,
       "frontend/src/components/AgentChat.jsx": 2723,
       "frontend/src/components/AgentConfirmations.test.js": 231,
       "frontend/src/components/AgentContextSources.jsx": 569,
@@ -245,7 +243,6 @@
       "frontend/src/pages/VaultDashboard.jsx": 4684
     },
     "oversized_files": {
-      "frontend/src/components/AI/AIResourcesSettings.jsx": 883,
       "frontend/src/components/AgentChat.jsx": 2723,
       "frontend/src/components/AgentContextSources.jsx": 569,
       "frontend/src/components/FilesystemPickerModal.jsx": 747,

@@ -7,7 +7,7 @@ interface RawOrigin extends UnknownRecord {
     type?: string;
 }
 
-interface NormalizedOrigin extends RawOrigin {
+export interface NormalizedOrigin extends RawOrigin {
     id: string;
     label: string;
     type: string;
@@ -79,12 +79,12 @@ export interface NormalizedTool extends RawCatalogRecord {
     available: boolean;
     confirmation: string;
     description: string;
-    effects: unknown[];
+    effects: string[];
     id: string;
     minimumRole: string;
     name: string;
     origin: NormalizedOrigin;
-    skillIds: unknown[];
+    skillIds: string[];
     status: string;
     version: string | number;
 }
@@ -98,16 +98,16 @@ export interface NormalizedSkill extends RawCatalogRecord {
     deletable: boolean;
     description: string;
     editable: boolean;
-    effects: unknown[];
+    effects: string[];
     enabled: boolean;
     id: string;
     instructions: string;
     kind: string;
-    missingToolIds: unknown[];
+    missingToolIds: string[];
     name: string;
     origin: NormalizedOrigin;
     required: boolean;
-    requiredAgentIds: unknown[];
+    requiredAgentIds: string[];
     revision: string | number | null;
     status: string;
     toolIds: string[];
@@ -124,7 +124,7 @@ export interface SkillDraft {
     description: string;
     instructions: string;
     name: string;
-    toolIds?: readonly unknown[];
+    toolIds?: readonly string[];
     [key: string]: unknown;
 }
 
@@ -140,8 +140,10 @@ const asArray = (value: unknown): unknown[] => (isUnknownArray(value) ? value : 
 const asRecords = (value: unknown): RawCatalogRecord[] => (
     asArray(value).filter(isRecord)
 );
-const asStringArray = (value: unknown): unknown[] => {
-    if (isUnknownArray(value)) return value;
+const asStringArray = (value: unknown): string[] => {
+    if (isUnknownArray(value)) {
+        return value.filter((item): item is string => typeof item === 'string');
+    }
     if (typeof value === 'string' && value) return [value];
     return [];
 };
@@ -256,7 +258,7 @@ export const normalizeTool = (raw: RawCatalogRecord = {}): NormalizedTool => {
         confirmation: raw.confirmation || raw.confirmation_policy || 'none',
         inputSchema: raw.input_schema || null,
         outputSchema: raw.output_schema || null,
-        skillIds: asArray(raw.skill_ids ?? raw.skills ?? raw.consumers),
+        skillIds: asStringArray(raw.skill_ids ?? raw.skills ?? raw.consumers),
         approvalStatus: raw.approval_status || raw.approval?.status || '',
     };
 };
@@ -295,7 +297,7 @@ export const normalizeSkill = (raw: RawCatalogRecord = {}): NormalizedSkill => {
                 ...metadataRequiredAgentIds,
             ]),
         ],
-        missingToolIds: asArray(raw.missing_tool_ids ?? raw.unavailable_tool_ids),
+        missingToolIds: asStringArray(raw.missing_tool_ids ?? raw.unavailable_tool_ids),
         assignable: raw.assignable ?? raw.agent_assignable ?? kind === 'agent',
         required: raw.required === true || raw.metadata?.required === true,
         enabled: raw.enabled !== false,
@@ -313,8 +315,8 @@ export const normalizeSkill = (raw: RawCatalogRecord = {}): NormalizedSkill => {
 
 export const skillEffects = (
     skill: NormalizedSkill | null | undefined,
-    toolsById: ReadonlyMap<unknown, NormalizedTool>,
-): unknown[] => {
+    toolsById: ReadonlyMap<string, NormalizedTool>,
+): string[] => {
     const effects = new Set(skill?.effects ?? []);
     (skill?.toolIds ?? []).forEach(toolId => {
         (toolsById.get(toolId)?.effects ?? []).forEach(effect => effects.add(effect));
@@ -325,10 +327,12 @@ export const skillEffects = (
 export const requiredSkillIdsForAgent = (
     agent: RawCatalogRecord | null | undefined,
     skills: readonly NormalizedSkill[] | null | undefined,
-): Set<unknown> => {
-    const required = new Set(asArray(agent?.required_skill_ids));
+): Set<string> => {
+    const required = new Set(asStringArray(agent?.required_skill_ids));
     (skills ?? []).forEach(skill => {
-        if (skill.required && asArray(agent?.skill_ids).includes(skill.id)) required.add(skill.id);
+        if (skill.required && asStringArray(agent?.skill_ids).includes(skill.id)) {
+            required.add(skill.id);
+        }
         if (skill.requiredAgentIds.some(agentId => agentId === agent?.id)) required.add(skill.id);
     });
     return required;
@@ -368,9 +372,9 @@ export const agentSkillWarnings = (
     skills: readonly NormalizedSkill[],
     tools: readonly NormalizedTool[],
     registry: unknown,
-) => {
+): AgentSkillWarning[] => {
     const selected = skills.filter(skill => selectedIds.includes(skill.id));
-    const warnings: Array<{ type: string; skillNames?: string[] }> = [];
+    const warnings: AgentSkillWarning[] = [];
     const unavailable = selected.filter(skill => !skill.available || skill.missingToolIds.length > 0);
     if (unavailable.length > 0) {
         warnings.push({
@@ -389,6 +393,11 @@ export const agentSkillWarnings = (
     }
     return warnings;
 };
+
+
+export type AgentSkillWarning =
+    | { readonly type: 'model_tools' }
+    | { readonly skillNames: string[]; readonly type: 'unavailable' };
 
 export const skillPayload = (draft: SkillDraft, revision: unknown = null) => ({
     name: draft.name.trim(),
