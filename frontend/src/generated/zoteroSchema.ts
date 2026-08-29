@@ -1,11 +1,11 @@
 // GENERATED — DO NOT EDIT. Source: pipeline/skills/zotero_schema/schema.json. Regenerate with `pipeline/skills/zotero_schema/scripts/build_constants.py`.
 
-export const SCHEMA_VERSION = 42;
-export const SCHEMA_SOURCE_SHA = "cb40cf538b7f21ad";
+export const SCHEMA_VERSION: number = 42;
+export const SCHEMA_SOURCE_SHA: string = "cb40cf538b7f21ad";
 
-export const ALL_ITEM_TYPES = ["annotation", "artwork", "attachment", "audioRecording", "bill", "blogPost", "book", "bookSection", "case", "computerProgram", "conferencePaper", "dataset", "dictionaryEntry", "document", "email", "encyclopediaArticle", "film", "forumPost", "hearing", "instantMessage", "interview", "journalArticle", "letter", "magazineArticle", "manuscript", "map", "newspaperArticle", "note", "patent", "podcast", "preprint", "presentation", "radioBroadcast", "report", "standard", "statute", "thesis", "tvBroadcast", "videoRecording", "webpage"];
+export const ALL_ITEM_TYPES: readonly string[] = ["annotation", "artwork", "attachment", "audioRecording", "bill", "blogPost", "book", "bookSection", "case", "computerProgram", "conferencePaper", "dataset", "dictionaryEntry", "document", "email", "encyclopediaArticle", "film", "forumPost", "hearing", "instantMessage", "interview", "journalArticle", "letter", "magazineArticle", "manuscript", "map", "newspaperArticle", "note", "patent", "podcast", "preprint", "presentation", "radioBroadcast", "report", "standard", "statute", "thesis", "tvBroadcast", "videoRecording", "webpage"];
 
-export const ZOTERO_TO_CSL_TYPE = {
+export const ZOTERO_TO_CSL_TYPE: Readonly<Record<string, string>> = {
     "artwork": "graphic",
     "attachment": "document",
     "audioRecording": "song",
@@ -47,7 +47,7 @@ export const ZOTERO_TO_CSL_TYPE = {
     "webpage": "webpage",
 };
 
-export const ZOTERO_TYPE_LABELS = {
+export const ZOTERO_TYPE_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
     "ca-AD": {
     "annotation": "Anotaci\u00f3",
     "artwork": "Pe\u00e7a art\u00edstica",
@@ -260,7 +260,7 @@ export const ZOTERO_TYPE_LABELS = {
 },
 };
 
-export const LABEL_TO_ZOTERO_TYPE = {
+export const LABEL_TO_ZOTERO_TYPE: Readonly<Record<string, Readonly<Record<string, string>>>> = {
     "ca-AD": {
     "Adjunci\u00f3": "attachment",
     "Anotaci\u00f3": "annotation",
@@ -473,7 +473,7 @@ export const LABEL_TO_ZOTERO_TYPE = {
 },
 };
 
-export const ITEM_TYPE_FIELDS = {
+export const ITEM_TYPE_FIELDS: Readonly<Record<string, readonly string[]>> = {
     "annotation": [],
     "artwork": ["title", "abstractNote", "artworkMedium", "artworkSize", "date", "eventPlace", "DOI", "citationKey", "url", "accessDate", "archive", "archiveLocation", "shortTitle", "language", "libraryCatalog", "callNumber", "rights", "extra"],
     "attachment": ["title", "accessDate", "url"],

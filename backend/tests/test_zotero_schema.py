@@ -5,7 +5,7 @@ Covers:
      EXACTLY the same output as the committed files. If it fails, it
      means the build isn't deterministic, or someone hand-edited a
      generated file, or `schema.json` changed without regenerating.
-  2. **Py↔JS consistency:** `ALL_ITEM_TYPES` and `ZOTERO_TO_CSL_TYPE` are
+  2. **Py↔TS consistency:** `ALL_ITEM_TYPES` and `ZOTERO_TO_CSL_TYPE` are
      identical across the two generated files.
   3. **Resolver:** canonical key, translated label (ca-AD), legacy alias,
      new types (preprint/dataset), and fallback resolve correctly.
@@ -30,25 +30,29 @@ SKILL_DIR = GNOSI_ROOT / "pipeline/skills/zotero_schema"
 BUILD_SCRIPT = SKILL_DIR / "scripts/build_constants.py"
 SCHEMA_JSON = SKILL_DIR / "schema.json"
 OUT_PY = GNOSI_ROOT / "backend/services/zotero_schema.py"
-OUT_JS = GNOSI_ROOT / "frontend/src/components/Vault/zoteroSchema.js"
+OUT_TS = GNOSI_ROOT / "frontend/src/generated/zoteroSchema.ts"
 
 
 @pytest.fixture(scope="module")
-def js_constants() -> dict:
-    """Extracts the main constants from the generated JS file via regex.
+def ts_constants() -> dict:
+    """Extracts the main constants from the generated TS file via regex.
 
-    The constants come as `export const NAME = <json-literal>;`.
+    The constants come as `export const NAME: Type = <json-literal>;`.
     The build emits ALL_ITEM_TYPES on one line and ZOTERO_TO_CSL_TYPE
     multi-line; we capture up to the final `};` or final `];`.
     
     """
-    js = OUT_JS.read_text(encoding="utf-8")
+    source = OUT_TS.read_text(encoding="utf-8")
 
     def capture(name: str) -> object:
-        m = re.search(rf'export const {name} = (.+?);\s*\n(?:export|$|\Z)', js, re.DOTALL)
+        m = re.search(
+            rf'export const {name}:[^=]+ = (.+?);\s*\n(?:export|$|\Z)',
+            source,
+            re.DOTALL,
+        )
         if not m:
-            raise AssertionError(f"No s'ha trobat l'export {name} al JS generat")
-        # JS accepts trailing commas, JSON doesn't. We strip them before parsing.
+            raise AssertionError(f"No s'ha trobat l'export {name} al TS generat")
+        # TS accepts trailing commas, JSON doesn't. We strip them before parsing.
         literal = re.sub(r',(\s*[}\]])', r'\1', m.group(1))
         return json.loads(literal)
 
@@ -56,8 +60,12 @@ def js_constants() -> dict:
         "ALL_ITEM_TYPES": capture("ALL_ITEM_TYPES"),
         "ZOTERO_TO_CSL_TYPE": capture("ZOTERO_TO_CSL_TYPE"),
         "ITEM_TYPE_FIELDS": capture("ITEM_TYPE_FIELDS"),
-        "SCHEMA_VERSION": int(re.search(r"SCHEMA_VERSION = (\d+);", js).group(1)),
-        "SCHEMA_SOURCE_SHA": re.search(r'SCHEMA_SOURCE_SHA = "([^"]+)";', js).group(1),
+        "SCHEMA_VERSION": int(
+            re.search(r"SCHEMA_VERSION: number = (\d+);", source).group(1)
+        ),
+        "SCHEMA_SOURCE_SHA": re.search(
+            r'SCHEMA_SOURCE_SHA: string = "([^"]+)";', source
+        ).group(1),
     }
 
 
@@ -66,7 +74,7 @@ def js_constants() -> dict:
 def test_build_is_deterministic(tmp_path: Path) -> None:
     """Regenerating with the current schema emits exactly the same output."""
     py_before = OUT_PY.read_text(encoding="utf-8")
-    js_before = OUT_JS.read_text(encoding="utf-8")
+    ts_before = OUT_TS.read_text(encoding="utf-8")
 
     r = subprocess.run(
         [sys.executable, str(BUILD_SCRIPT)],
@@ -75,32 +83,32 @@ def test_build_is_deterministic(tmp_path: Path) -> None:
     assert r.returncode == 0, f"build_constants.py va fallar:\n{r.stderr}"
 
     py_after = OUT_PY.read_text(encoding="utf-8")
-    js_after = OUT_JS.read_text(encoding="utf-8")
+    ts_after = OUT_TS.read_text(encoding="utf-8")
     assert py_before == py_after, (
         "Output Python ha canviat al regenerar — build no determinista o "
         "fitxer editat a mà. Re-executa build_constants.py i commiteja."
     )
-    assert js_before == js_after, (
-        "Output JS ha canviat al regenerar — vegis test Python anàleg."
+    assert ts_before == ts_after, (
+        "Output TS ha canviat al regenerar — vegis test Python anàleg."
     )
 
 
-# ---------- 2. Py ↔ JS consistency ----------
+# ---------- 2. Py ↔ TS consistency ----------
 
-def test_py_and_js_have_same_item_types(js_constants: dict) -> None:
+def test_py_and_ts_have_same_item_types(ts_constants: dict) -> None:
     from backend.services.zotero_schema import ALL_ITEM_TYPES
-    assert sorted(ALL_ITEM_TYPES) == sorted(js_constants["ALL_ITEM_TYPES"])
+    assert sorted(ALL_ITEM_TYPES) == sorted(ts_constants["ALL_ITEM_TYPES"])
 
 
-def test_py_and_js_have_same_csl_mapping(js_constants: dict) -> None:
+def test_py_and_ts_have_same_csl_mapping(ts_constants: dict) -> None:
     from backend.services.zotero_schema import ZOTERO_TO_CSL_TYPE
-    assert ZOTERO_TO_CSL_TYPE == js_constants["ZOTERO_TO_CSL_TYPE"]
+    assert ZOTERO_TO_CSL_TYPE == ts_constants["ZOTERO_TO_CSL_TYPE"]
 
 
-def test_py_and_js_have_same_schema_version(js_constants: dict) -> None:
+def test_py_and_ts_have_same_schema_version(ts_constants: dict) -> None:
     from backend.services.zotero_schema import SCHEMA_VERSION, SCHEMA_SOURCE_SHA
-    assert SCHEMA_VERSION == js_constants["SCHEMA_VERSION"]
-    assert SCHEMA_SOURCE_SHA == js_constants["SCHEMA_SOURCE_SHA"]
+    assert SCHEMA_VERSION == ts_constants["SCHEMA_VERSION"]
+    assert SCHEMA_SOURCE_SHA == ts_constants["SCHEMA_SOURCE_SHA"]
 
 
 # ---------- 3. Resolver ----------
@@ -188,9 +196,9 @@ def test_item_type_fields_known_examples() -> None:
         assert not missing, f"{itype} ha perdut camps esperats: {missing}"
 
 
-def test_py_and_js_have_same_item_type_fields(js_constants: dict) -> None:
+def test_py_and_ts_have_same_item_type_fields(ts_constants: dict) -> None:
     from backend.services.zotero_schema import ITEM_TYPE_FIELDS
-    assert ITEM_TYPE_FIELDS == js_constants["ITEM_TYPE_FIELDS"]
+    assert ITEM_TYPE_FIELDS == ts_constants["ITEM_TYPE_FIELDS"]
 
 
 # ---------- 6. Mapping Recursos↔Zotero (L2) ----------

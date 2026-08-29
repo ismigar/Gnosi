@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Generates the Py + JS constants files from `schema.json`.
+"""Generates the Python + TypeScript constants files from `schema.json`.
 
 Reads `pipeline/skills/zotero_schema/schema.json` (pinned, never from the network
 in this script — see `refresh_schema.py` to update it) and emits:
 
   - `backend/services/zotero_schema.py`
-  - `frontend/src/components/Vault/zoteroSchema.js`
+  - `frontend/src/generated/zoteroSchema.ts`
 
 Both with header "GENERATED — DO NOT EDIT". Deterministic output
 (keys sorted alphabetically) so the regeneration test can
 compare against the committed file.
 
-Generated constants (same names in Py and JS):
+Generated constants (same names in Python and TypeScript):
   - SCHEMA_VERSION           — schema.json version (`version` field)
   - SCHEMA_SOURCE_SHA        — first 16 chars of schema.json's SHA-256
   - ALL_ITEM_TYPES           — alphabetical list of all itemType values
@@ -44,7 +44,7 @@ LOCALES = ("ca-AD", "es-ES", "en-GB", "en-US", "fr-FR")
 ROOT = Path(__file__).resolve().parents[4]  # Gnosi
 SCHEMA_PATH = ROOT / "pipeline/skills/zotero_schema/schema.json"
 OUT_PY = ROOT / "backend/services/zotero_schema.py"
-OUT_JS = ROOT / "frontend/src/components/Vault/zoteroSchema.js"
+OUT_TS = ROOT / "frontend/src/generated/zoteroSchema.ts"
 
 WARN_HEADER = (
     "GENERATED — DO NOT EDIT. Source: pipeline/skills/zotero_schema/schema.json. "
@@ -117,7 +117,7 @@ def invert_labels(labels: Dict[str, Dict[str, str]]) -> Dict[str, Dict[str, str]
     return out
 
 
-# ---------- Emissors Python / JavaScript ----------
+# ---------- Emissors Python / TypeScript ----------
 
 def _py_dict(d: dict, indent: int = 4) -> str:
     """Emits a Python dict with sorted keys, string values, fixed indent."""
@@ -163,38 +163,47 @@ def emit_python(schema_ver: int, sha16: str, all_types: List[str],
     return "\n".join(body)
 
 
-def _js_value(v) -> str:
+def _ts_value(v: object) -> str:
     if isinstance(v, dict):
-        parts = [f"    {json.dumps(k)}: {_js_value(val)}" for k, val in sorted(v.items())]
+        parts = [
+            f"    {json.dumps(k)}: {_ts_value(val)}"
+            for k, val in sorted(v.items())
+        ]
         return "{\n" + ",\n".join(parts) + ",\n}"
     if isinstance(v, list):
         return "[" + ", ".join(json.dumps(x) for x in v) + "]"
     return json.dumps(v)
 
 
-def _js_export(name: str, value) -> str:
-    return f"export const {name} = {_js_value(value)};"
+def _ts_export(name: str, annotation: str, value: object) -> str:
+    return f"export const {name}: {annotation} = {_ts_value(value)};"
 
 
-def emit_javascript(schema_ver: int, sha16: str, all_types: List[str],
+def emit_typescript(schema_ver: int, sha16: str, all_types: List[str],
                     z2csl: Dict[str, str], labels: Dict[str, Dict[str, str]],
                     inv_labels: Dict[str, Dict[str, str]],
                     fields: Dict[str, List[str]]) -> str:
+    string_map = "Readonly<Record<string, string>>"
+    localized_map = f"Readonly<Record<string, {string_map}>>"
     body = [
         f"// {WARN_HEADER}",
         "",
-        f"export const SCHEMA_VERSION = {schema_ver};",
-        f"export const SCHEMA_SOURCE_SHA = {json.dumps(sha16)};",
+        f"export const SCHEMA_VERSION: number = {schema_ver};",
+        f"export const SCHEMA_SOURCE_SHA: string = {json.dumps(sha16)};",
         "",
-        _js_export("ALL_ITEM_TYPES", all_types),
+        _ts_export("ALL_ITEM_TYPES", "readonly string[]", all_types),
         "",
-        _js_export("ZOTERO_TO_CSL_TYPE", z2csl),
+        _ts_export("ZOTERO_TO_CSL_TYPE", string_map, z2csl),
         "",
-        _js_export("ZOTERO_TYPE_LABELS", labels),
+        _ts_export("ZOTERO_TYPE_LABELS", localized_map, labels),
         "",
-        _js_export("LABEL_TO_ZOTERO_TYPE", inv_labels),
+        _ts_export("LABEL_TO_ZOTERO_TYPE", localized_map, inv_labels),
         "",
-        _js_export("ITEM_TYPE_FIELDS", fields),
+        _ts_export(
+            "ITEM_TYPE_FIELDS",
+            "Readonly<Record<string, readonly string[]>>",
+            fields,
+        ),
         "",
     ]
     return "\n".join(body)
@@ -216,17 +225,17 @@ def main() -> int:
     fields = derive_item_type_fields(schema)
 
     OUT_PY.parent.mkdir(parents=True, exist_ok=True)
-    OUT_JS.parent.mkdir(parents=True, exist_ok=True)
+    OUT_TS.parent.mkdir(parents=True, exist_ok=True)
     OUT_PY.write_text(
         emit_python(schema_ver, sha16, all_types, z2csl, labels, inv_labels, fields),
         encoding="utf-8")
-    OUT_JS.write_text(
-        emit_javascript(schema_ver, sha16, all_types, z2csl, labels, inv_labels, fields),
+    OUT_TS.write_text(
+        emit_typescript(schema_ver, sha16, all_types, z2csl, labels, inv_labels, fields),
         encoding="utf-8")
 
     total_fields = sum(len(v) for v in fields.values())
     print(f"OK schema v{schema_ver} (sha:{sha16}) → {OUT_PY.relative_to(ROOT)}")
-    print(f"OK schema v{schema_ver} (sha:{sha16}) → {OUT_JS.relative_to(ROOT)}")
+    print(f"OK schema v{schema_ver} (sha:{sha16}) → {OUT_TS.relative_to(ROOT)}")
     print(f"   {len(all_types)} itemTypes · {len(z2csl)} Zotero→CSL · "
           f"{len(LOCALES)} locales · {total_fields} field-occurrences")
     return 0
