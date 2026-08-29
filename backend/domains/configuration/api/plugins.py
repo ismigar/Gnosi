@@ -16,24 +16,19 @@ from fastapi.responses import FileResponse, Response
 
 from backend.domains.configuration.api.plugin_models import (
     CatalogInstallRequest,
-    ConfigurationInstalledPluginsResponse,
-    ConfigurationPluginCatalogResponse,
-    ConfigurationPluginNetworkFetchResponse,
-    ConfigurationPluginPermissionsCatalogResponse,
-    ConfigurationPluginRegistryUrlResponse,
-    ConfigurationPluginStateResponse,
-    ConfigurationPluginTrustedKeysResponse,
     LlmWikiLifecycleRequest,
     PluginLifecycleRequest,
     PluginNetworkFetchRequest,
     PluginPermissionsRequest,
     PluginSettingsRequest,
-    PluginSettingsResponse,
     PluginsUpdateRequest,
     RegistryUrlRequest,
     TrustedKeyRequest,
-    VaultPluginSummaryResponse,
     VaultSummaryRequest,
+)
+from backend.domains.configuration.api.plugin_routes import (
+    PluginRouteHandlers,
+    register_plugin_routes,
 )
 from backend.services import builtin_plugins
 
@@ -703,111 +698,34 @@ def register_routes(
     summary_dependencies: Sequence[DependsParameter],
 ) -> None:
     """Register plugin routes in their historical order and position."""
-    admin = list(admin_dependencies)
-    editor = list(editor_dependencies)
-    summary = list(summary_dependencies)
-    routes: tuple[
-        tuple[str, str, Callable[..., Any], Sequence[DependsParameter]],
-        ...,
-    ] = (
-        ("GET", "/plugins", get_plugins_state, ()),
-        ("PUT", "/plugins", set_plugins_state, admin),
-        (
-            "POST",
-            "/plugins/{plugin_id}/lifecycle",
-            set_plugin_lifecycle,
-            admin,
+    register_plugin_routes(
+        router,
+        PluginRouteHandlers(
+            add_trusted_key=add_trusted_key,
+            export_plugin_package=export_plugin_package,
+            fetch_for_ui_plugin=fetch_for_ui_plugin,
+            get_installed_plugins=get_installed_plugins,
+            get_plugin_asset=get_plugin_asset,
+            get_plugin_settings=get_plugin_settings,
+            get_plugins_catalog=get_plugins_catalog,
+            get_plugins_state=get_plugins_state,
+            get_registry_url=get_registry_url,
+            install_from_catalog=install_from_catalog,
+            install_plugin=install_plugin,
+            list_plugin_catalog=list_plugin_catalog,
+            list_trusted_keys=list_trusted_keys,
+            remove_trusted_key=remove_trusted_key,
+            set_llm_wiki_lifecycle=set_llm_wiki_lifecycle,
+            set_plugin_lifecycle=set_plugin_lifecycle,
+            set_plugin_permissions=set_plugin_permissions,
+            set_plugin_settings=set_plugin_settings,
+            set_plugins_state=set_plugins_state,
+            set_registry_url=set_registry_url,
+            submit_plugin_package=submit_plugin_package,
+            summarize_with_vault_plugin=summarize_with_vault_plugin,
+            uninstall_plugin=uninstall_plugin,
         ),
-        (
-            "POST",
-            "/plugins/llm-wiki/lifecycle",
-            set_llm_wiki_lifecycle,
-            admin,
-        ),
-        ("GET", "/plugins/catalog", get_plugins_catalog, ()),
-        ("GET", "/plugins/installed", get_installed_plugins, ()),
-        (
-            "POST",
-            "/plugins/{plugin_id}/permissions",
-            set_plugin_permissions,
-            admin,
-        ),
-        ("GET", "/plugins/{plugin_id}/settings", get_plugin_settings, ()),
-        (
-            "PUT",
-            "/plugins/{plugin_id}/settings",
-            set_plugin_settings,
-            editor,
-        ),
-        (
-            "POST",
-            "/plugins/{plugin_id}/network/fetch",
-            fetch_for_ui_plugin,
-            editor,
-        ),
-        (
-            "POST",
-            "/plugins/vault-summary/summarize",
-            summarize_with_vault_plugin,
-            summary,
-        ),
-        (
-            "GET",
-            "/plugins/{plugin_id}/asset/{asset_path:path}",
-            get_plugin_asset,
-            (),
-        ),
-        ("POST", "/plugins/install", install_plugin, admin),
-        ("DELETE", "/plugins/{plugin_id}", uninstall_plugin, admin),
-        (
-            "POST",
-            "/plugins/{plugin_id}/export",
-            export_plugin_package,
-            editor,
-        ),
-        (
-            "POST",
-            "/plugins/{plugin_id}/submissions",
-            submit_plugin_package,
-            admin,
-        ),
-        ("GET", "/plugins/catalog/list", list_plugin_catalog, ()),
-        (
-            "POST",
-            "/plugins/catalog/install",
-            install_from_catalog,
-            admin,
-        ),
-        ("GET", "/plugins/trust", list_trusted_keys, ()),
-        ("POST", "/plugins/trust", add_trusted_key, admin),
-        (
-            "DELETE",
-            "/plugins/trust/{name}",
-            remove_trusted_key,
-            admin,
-        ),
-        ("GET", "/plugins/registry-url", get_registry_url, ()),
-        ("PUT", "/plugins/registry-url", set_registry_url, admin),
+        admin_dependencies=admin_dependencies,
+        editor_dependencies=editor_dependencies,
+        summary_dependencies=summary_dependencies,
     )
-    response_models = {
-        fetch_for_ui_plugin: ConfigurationPluginNetworkFetchResponse,
-        get_installed_plugins: ConfigurationInstalledPluginsResponse,
-        get_plugins_catalog: ConfigurationPluginPermissionsCatalogResponse,
-        get_plugins_state: ConfigurationPluginStateResponse,
-        get_registry_url: ConfigurationPluginRegistryUrlResponse,
-        get_plugin_settings: PluginSettingsResponse,
-        list_plugin_catalog: ConfigurationPluginCatalogResponse,
-        list_trusted_keys: ConfigurationPluginTrustedKeysResponse,
-        set_plugin_lifecycle: ConfigurationPluginStateResponse,
-        set_plugin_settings: PluginSettingsResponse,
-        summarize_with_vault_plugin: VaultPluginSummaryResponse,
-    }
-    for method, path, endpoint, dependencies in routes:
-        router.add_api_route(
-            path,
-            endpoint,
-            methods=[method],
-            dependencies=list(dependencies),
-            response_model=response_models.get(endpoint),
-            response_model_exclude_unset=endpoint in response_models,
-        )
