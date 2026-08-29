@@ -7,7 +7,6 @@ import {
 import { toast } from '../../lib/toast';
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
-import axios from '../../shared/api/legacy-http';
 import MailBlockEditor from './MailBlockEditor';
 import { AddressInput } from './MailAddressInput';
 import { DigitalBrainCalendar } from '../Vault/DigitalBrainCalendar';
@@ -23,6 +22,7 @@ import {
     sendMailMultipart,
 } from '../../shared/api/mail-specialized';
 import { queryClient } from '../../shared/api/query-client';
+import { fetchVaultPages, fetchVaultTables } from '../../shared/api/vaults';
 
 const INTEGRATIONS_QUERY_KEY = ['integrations'];
 
@@ -243,12 +243,12 @@ export default function MailComposer({
 
     const fetchCalendarResources = useCallback(async () => {
         try {
-            const [pagesRes, integrations, tablesRes] = await Promise.all([
-                axios.get('/api/vault/pages'),
+            const [pages, integrations, tables] = await Promise.all([
+                fetchVaultPages(),
                 fetchCachedIntegrations(),
-                axios.get('/api/vault/tables'),
+                fetchVaultTables(),
             ]);
-            setCalendarData({ pages: pagesRes.data, integrations, tables: tablesRes.data });
+            setCalendarData({ pages, integrations, tables });
         } catch {
             toast.error(t('mail.calendar_load_error', "Error loading the calendar"));
         }

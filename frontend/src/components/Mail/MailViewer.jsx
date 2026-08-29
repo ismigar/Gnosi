@@ -16,7 +16,6 @@ import { toast } from '../../lib/toast';
 import MailTagPicker, { TagPill } from './MailTagPicker';
 import { useMailTags } from '../../hooks/useMailTags';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
-import axios from '../../shared/api/legacy-http';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { translateFolderName } from './mailFolderUtils';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -39,6 +38,7 @@ import { mailAttachmentUrl, mailCidUrl } from '../../shared/api/mail-specialized
 import { createCalendarEvent, fetchCalendarList } from '../../shared/api/calendar';
 import { createContact } from '../../shared/api/contacts';
 import { fetchIdentity } from '../../shared/api/identity';
+import { createVaultPage } from '../../shared/api/vaults';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -661,7 +661,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         try {
             const title = mailData.subject || 'Correu sense assumpte';
             const content = `# ${title}\n\n**${t('mail.from_label', "From")}:** ${mailData.sender}\n**${t('mail.date_label', "Date")}:** ${mailData.date}\n\n---\n\n${mailData.body_text || ''}`;
-            await axios.post('/api/vault/pages', { title, content, metadata: { type: 'Mail', source: 'mail', sender: mailData.sender, date: mailData.date } });
+            await createVaultPage({ title, content, metadata: { type: 'Mail', source: 'mail', sender: mailData.sender, date: mailData.date } });
             toast.success(t('mail.added_to_vault'));
         } catch {
             toast.error(t('mail.add_to_vault_error'));
