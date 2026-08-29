@@ -57,6 +57,16 @@ export type VaultResourceOpenRequest =
   components['schemas']['OpenResourceRequest'];
 export type VaultResourceOpenResult =
   components['schemas']['ResourceOpenResponse'];
+export type VaultTitleResolution =
+  components['schemas']['ResolveByTitleResponse'];
+export type VaultTrashEntry = components['schemas']['TrashEntry'];
+export type VaultTrash = components['schemas']['TrashListResponse'];
+export type VaultPageRestore = components['schemas']['PageRestoreResponse'];
+export type VaultTrashPurge = components['schemas']['TrashPurgeResponse'];
+export type VaultTrashEmpty = components['schemas']['TrashEmptyResponse'];
+export type VaultTrashQuery = NonNullable<
+  operations['list_trash_api_vault_trash_get']['parameters']['query']
+>;
 
 
 function materializeVaultPageSaveRequest(
@@ -256,6 +266,61 @@ export async function deleteVaultPage(
     await apiClient.DELETE('/api/vault/pages/{page_id}', {
       params: { path: { page_id: pageId } },
     }),
+  );
+}
+
+
+export async function resolveVaultTitle(
+  title: string,
+  signal?: AbortSignal,
+): Promise<VaultTitleResolution> {
+  return unwrapApiResult<VaultTitleResolution, unknown>(
+    await apiClient.GET('/api/vault/resolve-by-title', {
+      params: { query: { title } },
+      signal,
+    }),
+  );
+}
+
+
+export async function fetchVaultTrash(
+  query: VaultTrashQuery = {},
+  signal?: AbortSignal,
+): Promise<VaultTrash> {
+  return unwrapApiResult<VaultTrash, unknown>(
+    await apiClient.GET('/api/vault/trash', {
+      params: { query },
+      signal,
+    }),
+  );
+}
+
+
+export async function restoreVaultPage(
+  pageId: string,
+): Promise<VaultPageRestore> {
+  return unwrapApiResult<VaultPageRestore, unknown>(
+    await apiClient.POST('/api/vault/pages/{page_id}/restore', {
+      params: { path: { page_id: pageId } },
+    }),
+  );
+}
+
+
+export async function purgeVaultTrashPage(
+  pageId: string,
+): Promise<VaultTrashPurge> {
+  return unwrapApiResult<VaultTrashPurge, unknown>(
+    await apiClient.DELETE('/api/vault/trash/{page_id}', {
+      params: { path: { page_id: pageId } },
+    }),
+  );
+}
+
+
+export async function emptyVaultTrash(): Promise<VaultTrashEmpty> {
+  return unwrapApiResult<VaultTrashEmpty, unknown>(
+    await apiClient.DELETE('/api/vault/trash'),
   );
 }
 

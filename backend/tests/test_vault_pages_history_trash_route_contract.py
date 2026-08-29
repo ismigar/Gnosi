@@ -15,6 +15,13 @@ from backend.domains.vault.schemas.pages import (
     PageMutationResponse,
     PagePreviewResponse,
 )
+from backend.domains.vault.schemas.trash import (
+    PageRestoreResponse,
+    ResolveByTitleResponse,
+    TrashEmptyResponse,
+    TrashListResponse,
+    TrashPurgeResponse,
+)
 from backend.domains.vault.trash import purge as trash_purge
 
 
@@ -122,6 +129,27 @@ def test_page_delete_route_exposes_its_typed_response_contract() -> None:
         if isinstance(route, APIRoute) and route.endpoint.__name__ == "delete_page"
     )
     assert route.response_model is PageDeleteResponse
+
+
+def test_page_resolution_and_trash_routes_expose_typed_contracts() -> None:
+    routes = {
+        route.endpoint.__name__: route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+        and route.endpoint.__name__
+        in {
+            "empty_trash",
+            "list_trash",
+            "purge_trash_entry",
+            "resolve_by_title",
+            "restore_page",
+        }
+    }
+    assert routes["resolve_by_title"].response_model is ResolveByTitleResponse
+    assert routes["restore_page"].response_model is PageRestoreResponse
+    assert routes["list_trash"].response_model is TrashListResponse
+    assert routes["empty_trash"].response_model is TrashEmptyResponse
+    assert routes["purge_trash_entry"].response_model is TrashPurgeResponse
 
 
 def test_trash_purge_domain_does_not_import_http_facade() -> None:

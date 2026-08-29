@@ -12312,6 +12312,47 @@
         "title": "PagePreviewResponse",
         "type": "object"
       },
+      "PageRestoreResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "restored_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored Path"
+          },
+          "status": {
+            "const": "restored",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "status",
+          "id"
+        ],
+        "title": "PageRestoreResponse",
+        "type": "object"
+      },
       "PageSaveRequest": {
         "properties": {
           "content": {
@@ -14696,6 +14737,56 @@
         "title": "RepositoryTestPayload",
         "type": "object"
       },
+      "ResolveByTitleResponse": {
+        "properties": {
+          "folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "matched_alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Alias"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "ResolveByTitleResponse",
+        "type": "object"
+      },
       "ResourceMutationResponse": {
         "description": "Resource mutation result and planning-store revision.",
         "properties": {
@@ -16334,6 +16425,184 @@
           "category"
         ],
         "title": "TrapAnalyticsResponse",
+        "type": "object"
+      },
+      "TrashEmptyResponse": {
+        "properties": {
+          "failed_count": {
+            "title": "Failed Count",
+            "type": "integer"
+          },
+          "failed_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Ids",
+            "type": "array"
+          },
+          "freed_bytes": {
+            "title": "Freed Bytes",
+            "type": "integer"
+          },
+          "purged_count": {
+            "title": "Purged Count",
+            "type": "integer"
+          },
+          "status": {
+            "const": "emptied",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "purged_count",
+          "failed_count",
+          "failed_ids",
+          "freed_bytes"
+        ],
+        "title": "TrashEmptyResponse",
+        "type": "object"
+      },
+      "TrashEntry": {
+        "additionalProperties": true,
+        "properties": {
+          "days_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Remaining"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "extension": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extension"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "original_parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Parent Id"
+          },
+          "original_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Path"
+          },
+          "size_bytes": {
+            "default": 0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "TrashEntry",
+        "type": "object"
+      },
+      "TrashListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TrashEntry"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "retention_days"
+        ],
+        "title": "TrashListResponse",
+        "type": "object"
+      },
+      "TrashPurgeResponse": {
+        "properties": {
+          "freed_bytes": {
+            "title": "Freed Bytes",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "purged",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "freed_bytes"
+        ],
+        "title": "TrashPurgeResponse",
         "type": "object"
       },
       "TrustedKeyRequest": {
@@ -68698,7 +68967,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageRestoreResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -73750,7 +74021,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveByTitleResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77318,7 +77591,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TrashEmptyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77444,7 +77719,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TrashListResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77565,7 +77842,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TrashPurgeResponse"
+                }
               }
             },
             "description": "Successful Response"

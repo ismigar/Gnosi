@@ -14396,6 +14396,20 @@ export interface components {
             /** Title */
             title: unknown;
         };
+        /** PageRestoreResponse */
+        PageRestoreResponse: {
+            /** Id */
+            id: string;
+            /** Restored Path */
+            restored_path?: string | null;
+            /**
+             * Status
+             * @constant
+             */
+            status: "restored";
+            /** Title */
+            title?: string | null;
+        };
         /** PageSaveRequest */
         PageSaveRequest: {
             /** Content */
@@ -15571,6 +15585,17 @@ export interface components {
              */
             tombstones: boolean;
         };
+        /** ResolveByTitleResponse */
+        ResolveByTitleResponse: {
+            /** Folder */
+            folder?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Matched Alias */
+            matched_alias?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /**
          * ResourceMutationResponse
          * @description Resource mutation result and planning-store revision.
@@ -16285,6 +16310,67 @@ export interface components {
             source: string;
             /** Trap */
             trap: string;
+        };
+        /** TrashEmptyResponse */
+        TrashEmptyResponse: {
+            /** Failed Count */
+            failed_count: number;
+            /** Failed Ids */
+            failed_ids: string[];
+            /** Freed Bytes */
+            freed_bytes: number;
+            /** Purged Count */
+            purged_count: number;
+            /**
+             * Status
+             * @constant
+             */
+            status: "emptied";
+        };
+        /** TrashEntry */
+        TrashEntry: {
+            /** Days Remaining */
+            days_remaining?: number | null;
+            /** Deleted At */
+            deleted_at?: string | null;
+            /** Extension */
+            extension?: string | null;
+            /** Id */
+            id: string;
+            /** Original Parent Id */
+            original_parent_id?: string | null;
+            /** Original Path */
+            original_path?: string | null;
+            /**
+             * Size Bytes
+             * @default 0
+             */
+            size_bytes: number;
+            /** Table Id */
+            table_id?: string | null;
+            /** Title */
+            title?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** TrashListResponse */
+        TrashListResponse: {
+            /** Items */
+            items: components["schemas"]["TrashEntry"][];
+            /** Retention Days */
+            retention_days: number;
+        };
+        /** TrashPurgeResponse */
+        TrashPurgeResponse: {
+            /** Freed Bytes */
+            freed_bytes: number;
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "purged";
         };
         /** TrustedKeyRequest */
         TrustedKeyRequest: {
@@ -33249,7 +33335,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageRestoreResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35000,7 +35086,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResolveByTitleResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36143,7 +36229,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TrashListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36179,7 +36265,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TrashEmptyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36217,7 +36303,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TrashPurgeResponse"];
                 };
             };
             /** @description Validation Error */

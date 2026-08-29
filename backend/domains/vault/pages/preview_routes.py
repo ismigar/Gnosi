@@ -6,11 +6,13 @@ from typing import cast as _strict_cast
 
 from fastapi import APIRouter
 
+from backend.domains.vault.schemas.trash import ResolveByTitleResponse
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 
 
-@router.get("/resolve-by-title", response_model=None)
+@router.get("/resolve-by-title", response_model=ResolveByTitleResponse)
 async def resolve_by_title(title: str) -> _LegacyAny:
     """Resolve a literal title (or a note alias) to a UUID via _page_index_entries.
 
