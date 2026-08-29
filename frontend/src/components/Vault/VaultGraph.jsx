@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { GraphViewer } from '../GraphViewer';
 import { Loader2, Settings2, Maximize2, ZoomIn, ZoomOut, Target, AlertTriangle } from 'lucide-react';
 import { } from '../../utils/vaultFilters';
 import { useConfigChanged } from '../../lib/configEvents';
+import { fetchConfiguration } from '../../shared/api/configuration';
 import { useVaultGraphData } from '../../shared/api/useGraphData';
 
 /**
@@ -30,19 +30,19 @@ export function VaultGraph({
     // partial-graph warning's retry button can re-trigger a full fetch.
     const fetchData = async () => {
         try {
-            const [, configRes] = await Promise.all([
+            const [, config] = await Promise.all([
                 graphQuery.refetch(),
-                axios.get('/api/config')
+                fetchConfiguration()
             ]);
-            setConfig(configRes.data);
+            setConfig(config);
         } catch (err) {
             console.error("Error loading graph data:", err);
         }
     };
 
     useEffect(() => {
-        axios.get('/api/config')
-            .then((response) => setConfig(response.data))
+        fetchConfiguration()
+            .then(setConfig)
             .catch((err) => console.error('Error loading graph config:', err));
     }, []);
 
@@ -50,8 +50,7 @@ export function VaultGraph({
     // (the graph itself doesn't change due to config changes).
     useConfigChanged(async () => {
         try {
-            const res = await axios.get('/api/config');
-            setConfig(res.data);
+            setConfig(await fetchConfiguration());
         } catch (err) {
             console.error('Error refetching config:', err);
         }
