@@ -33,7 +33,7 @@ LEGACY_HTTP_IMPORT = re.compile(
     r"(?:\bfrom\s*|\bimport\(\s*|\brequire\(\s*)"
     r"(?P<quote>['\"]).*shared/api/legacy-http(?P=quote)"
 )
-MAX_LEGACY_HTTP_CONSUMERS = 33
+MAX_LEGACY_HTTP_CONSUMERS = 30
 
 
 def _relative(path: Path) -> str:
