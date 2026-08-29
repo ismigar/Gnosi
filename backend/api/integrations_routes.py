@@ -2,6 +2,7 @@ from fastapi import Depends, APIRouter, HTTPException, Body, Request
 import asyncio
 import logging
 from backend.services.integration_manager import integration_manager
+from backend.domains.integrations.contracts import IntegrationsDocument
 from backend.utils.errors import safe_error_detail
 from backend.services.workspace_service import require_role
 from backend.services.plugin_access import require_plugins
@@ -117,7 +118,7 @@ def _invalidate_imap_state(emails: set[str]) -> None:
     )
 
 
-@router.get("", response_model=None)
+@router.get("", response_model=IntegrationsDocument)
 async def get_integrations() -> Any:
     """Returns safe masked integration configuration for the UI."""
     try:
