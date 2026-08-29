@@ -5,11 +5,16 @@ from typing import Any, TypedDict, cast
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
 
 os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 from google_auth_oauthlib.flow import Flow  # type: ignore[import-untyped]
 
+from backend.app.health_contracts import (
+    GoogleOAuthAppStatus,
+    GoogleOAuthHealthResponse,
+    GoogleOAuthScope,
+    GoogleOAuthStatusResponse,
+)
 from backend.config.env_config import get_env
 from backend.services.integration_manager import integration_manager
 
@@ -35,23 +40,6 @@ class PendingAuth(TypedDict):
     created_at: float
 
 
-class GoogleOAuthStatusResponse(BaseModel):
-    configured: bool
-    client_id: str | None
-
-
-class GoogleOAuthHealthResponse(BaseModel):
-    configured: bool
-    client_id_present: bool
-    scopes: list[str]
-    google_accounts_total: int
-    google_accounts_with_refresh_token: int
-    google_accounts_recently_failed: int
-    app_status: str
-    hint: str
-    publish_guide: str
-
-
 # Temporary in-memory storage for the Code Verifier (PKCE).
 # Entries carry a created_at timestamp and are pruned on each login so that
 # abandoned flows (user closed the tab) don't grow the dict without bound.
@@ -70,7 +58,7 @@ def _prune_pending_auths() -> None:
 
 
 # Scopes needed for Calendar and Gmail
-SCOPES = [
+SCOPES: list[GoogleOAuthScope] = [
     "https://www.googleapis.com/auth/calendar",
     "https://mail.google.com/",
     "https://www.googleapis.com/auth/contacts",
@@ -111,8 +99,8 @@ def get_google_config() -> GoogleConfig | None:
     }
 
 
-@router.get("/status", response_model=None)
-async def status() -> dict[str, Any]:
+@router.get("/status", response_model=GoogleOAuthStatusResponse)
+async def status() -> dict[str, object]:
     config = get_google_config()
     return GoogleOAuthStatusResponse(
         configured=config is not None,
@@ -120,8 +108,8 @@ async def status() -> dict[str, Any]:
     ).model_dump()
 
 
-@router.get("/health", response_model=None)
-async def health() -> dict[str, Any]:
+@router.get("/health", response_model=GoogleOAuthHealthResponse)
+async def health() -> dict[str, object]:
     """OAuth2 diagnostics for the UI: config status, connected accounts,
     and heuristics about whether the app is in Testing or Production mode.
 
@@ -144,6 +132,7 @@ async def health() -> dict[str, Any]:
         if a.get("last_refresh_error") and "invalid_grant" in str(a.get("last_refresh_error", ""))
     )
 
+    app_status: GoogleOAuthAppStatus
     if recently_failed:
         app_status = "testing-likely"
         hint = (
