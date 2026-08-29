@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pencil, Check, Workflow } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,18 +13,86 @@ import { useTranslation } from 'react-i18next';
  * source code is shown as a fallback — the note never loses information.
  */
 
-let _mermaidPromise = null;
-const loadMermaid = () => {
+interface MermaidRenderer {
+    initialize(config: {
+        readonly securityLevel: 'strict';
+        readonly startOnLoad: false;
+        readonly theme: 'default';
+    }): void;
+    render(id: string, code: string): Promise<{ readonly svg: string }>;
+}
+
+interface MermaidBlockValue {
+    readonly props?: {
+        readonly code?: string | null;
+    } | null;
+}
+
+interface MermaidEditor {
+    updateBlock(
+        block: MermaidBlockValue | null | undefined,
+        update: {
+            readonly props: { readonly code: string };
+            readonly type: 'mermaid';
+        },
+    ): unknown;
+}
+
+export interface MermaidBlockProps {
+    readonly block?: MermaidBlockValue | null;
+    readonly editor?: MermaidEditor | null;
+}
+
+function isMermaidRenderer(value: unknown): value is MermaidRenderer {
+    return (
+        typeof value === 'object'
+        && value !== null
+        && 'initialize' in value
+        && typeof value.initialize === 'function'
+        && 'render' in value
+        && typeof value.render === 'function'
+    );
+}
+
+function mermaidErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error) {
+        return error.message || error.name || fallback;
+    }
+    if (
+        typeof error === 'object'
+        && error !== null
+        && 'message' in error
+        && typeof error.message === 'string'
+    ) {
+        return error.message || fallback;
+    }
+    if (
+        typeof error === 'string'
+        || typeof error === 'number'
+        || typeof error === 'bigint'
+        || typeof error === 'boolean'
+    ) {
+        return String(error) || fallback;
+    }
+    return fallback;
+}
+
+let _mermaidPromise: Promise<MermaidRenderer> | null = null;
+const loadMermaid = (): Promise<MermaidRenderer> => {
     if (_mermaidPromise) return _mermaidPromise;
     // Import of the local package (not CDN): Vite code-splits it into a separate chunk,
     // so it works OFFLINE and doesn't bloat the main bundle.
     _mermaidPromise = import('mermaid')
         .then((mod) => {
-            const mermaid = mod.default || mod;
+            const defaultExport: unknown = mod.default;
+            const mermaid: unknown = defaultExport || mod;
+            if (!isMermaidRenderer(mermaid)) {
+                throw new TypeError('The Mermaid module does not expose its renderer API');
+            }
             mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' });
             return mermaid;
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
             _mermaidPromise = null; // allows retrying later
             throw err;
         });
@@ -33,33 +101,54 @@ const loadMermaid = () => {
 
 let _mermaidSeq = 0;
 
-export default function MermaidBlock({ block, editor }) {
+export default function MermaidBlock({ block, editor }: MermaidBlockProps) {
     const { t } = useTranslation();
-    const code = String(block?.props?.code || '').trim();
+    const code = (block?.props?.code || '').trim();
     const [editing, setEditing] = useState(!code);
-    const [draft, setDraft] = useState(code);
+    const [draftState, setDraftState] = useState(() => ({
+        sourceCode: code,
+        value: code,
+    }));
     const [svg, setSvg] = useState('');
     const [error, setError] = useState('');
     const renderToken = useRef(0);
+    const draft = draftState.sourceCode === code ? draftState.value : code;
 
-    useEffect(() => { setDraft(code); }, [code]);
+    useEffect(() => {
+        let cancelled = false;
+        if (editing || code || (!svg && !error)) return undefined;
+        queueMicrotask(() => {
+            if (!cancelled) {
+                setSvg('');
+                setError('');
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [code, editing, error, svg]);
 
     // Renders the diagram when the code changes and it's not being edited.
     useEffect(() => {
-        if (editing || !code) { setSvg(''); setError(''); return; }
-        const token = ++renderToken.current;
+        if (editing || !code) return undefined;
         let cancelled = false;
-        setError('');
+        const token = ++renderToken.current;
+        queueMicrotask(() => {
+            if (!cancelled) setError('');
+        });
         loadMermaid()
             .then(async (mermaid) => {
-                const id = `gnosi-mermaid-${++_mermaidSeq}`;
+                const id = `gnosi-mermaid-${String(++_mermaidSeq)}`;
                 try {
                     const { svg: out } = await mermaid.render(id, code);
                     if (!cancelled && token === renderToken.current) setSvg(out);
                 } catch (e) {
                     if (!cancelled && token === renderToken.current) {
                         setSvg('');
-                        setError(String(e?.message || e || t('editor.mermaid_syntax_error', "Mermaid syntax error")));
+                        setError(mermaidErrorMessage(
+                            e,
+                            t('editor.mermaid_syntax_error', "Mermaid syntax error"),
+                        ));
                     }
                 }
             })
@@ -69,12 +158,16 @@ export default function MermaidBlock({ block, editor }) {
                     setError(t('editor.mermaid_load_error', "Couldn't load Mermaid (no connection?)."));
                 }
             });
-        return () => { cancelled = true; };
-    }, [code, editing]);
+        return () => {
+            cancelled = true;
+        };
+    }, [code, editing, t]);
 
     const save = useCallback(() => {
         const next = draft.trim();
-        try { editor?.updateBlock(block, { type: 'mermaid', props: { code: next } }); } catch { /* noop */ }
+        try {
+            editor?.updateBlock(block, { type: 'mermaid', props: { code: next } });
+        } catch { /* noop */ }
         setEditing(false);
     }, [draft, editor, block]);
 
@@ -95,9 +188,17 @@ export default function MermaidBlock({ block, editor }) {
                 </div>
                 <textarea
                     value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save(); }
+                        onChange={(e) => {
+                            setDraftState({
+                                sourceCode: code,
+                                value: e.target.value,
+                            });
+                        }}
+                        onKeyDown={(e) => {
+                            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                                e.preventDefault();
+                                save();
+                            }
                     }}
                     spellCheck={false}
                     placeholder={t('editor.mermaid_placeholder', "graph TD\n  A[Start] --> B[End]")}
@@ -111,7 +212,9 @@ export default function MermaidBlock({ block, editor }) {
         <div className="bn-mermaid group/mermaid relative my-3 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-3" contentEditable={false}>
             <button
                 type="button"
-                onClick={() => setEditing(true)}
+                onClick={() => {
+                    setEditing(true);
+                }}
                 title={t('editor.mermaid_edit_title', "Edit the diagram")}
                 className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-[var(--bg-primary)] px-2 py-1 text-xs text-[var(--text-tertiary)] opacity-0 shadow transition-opacity hover:text-[var(--gnosi-primary)] group-hover/mermaid:opacity-100"
             >

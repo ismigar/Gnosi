@@ -1,17 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Palette, Calendar, HardDrive, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import toast from '../../lib/toast';
-import { deleteDrawing, listDrawings } from '../../shared/api/drawings';
+import {
+    deleteDrawing,
+    listDrawings,
+    type DrawingSummary,
+} from '../../shared/api/drawings';
 import ConfirmModal from '../ConfirmModal';
 
-const VaultDrawings = ({ onDrawingSelect }) => {
-    const { t } = useTranslation();
-    const [drawings, setDrawings] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [drawingToDelete, setDrawingToDelete] = useState(null);
+export interface VaultDrawingsProps {
+    readonly onDrawingSelect: (id: string, title: string) => unknown;
+}
 
-    const fetchDrawings = async () => {
+const VaultDrawings = ({ onDrawingSelect }: VaultDrawingsProps) => {
+    const { t } = useTranslation();
+    const [drawings, setDrawings] = useState<DrawingSummary[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [drawingToDelete, setDrawingToDelete] = useState<string | null>(null);
+
+    const fetchDrawings = useCallback(async (): Promise<void> => {
         try {
             setLoading(true);
             setDrawings(await listDrawings());
@@ -21,23 +29,25 @@ const VaultDrawings = ({ onDrawingSelect }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [t]);
 
     useEffect(() => {
-        fetchDrawings();
-    }, []);
+        queueMicrotask(() => {
+            void fetchDrawings();
+        });
+    }, [fetchDrawings]);
 
-    const handleDeleteClick = (e, id) => {
+    const handleDeleteClick = (e: MouseEvent<HTMLButtonElement>, id: string): void => {
         e.stopPropagation();
         setDrawingToDelete(id);
     };
 
-    const confirmDelete = async () => {
+    const confirmDelete = async (): Promise<void> => {
         if (!drawingToDelete) return;
         try {
             await deleteDrawing(drawingToDelete);
             toast.success(t('drawings.deleted', "Drawing deleted"));
-            fetchDrawings();
+            void fetchDrawings();
         } catch (error) {
             console.error(error);
             toast.error(t('drawings.delete_error', "Error deleting the drawing"));
@@ -71,7 +81,9 @@ const VaultDrawings = ({ onDrawingSelect }) => {
                 {drawings.map((drawing) => (
                     <div
                         key={drawing.id}
-                        onClick={() => onDrawingSelect(drawing.id, drawing.title)}
+                        onClick={() => {
+                            onDrawingSelect(drawing.id, drawing.title);
+                        }}
                         className="group relative bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-xl hover:border-indigo-200 transition-all cursor-pointer flex flex-col"
                     >
                         <div className="aspect-video bg-slate-50 flex items-center justify-center border-b border-slate-100 overflow-hidden relative">
@@ -97,7 +109,9 @@ const VaultDrawings = ({ onDrawingSelect }) => {
                         </div>
 
                         <button
-                            onClick={(e) => handleDeleteClick(e, drawing.id)}
+                            onClick={(e) => {
+                                handleDeleteClick(e, drawing.id);
+                            }}
                             className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur shadow-sm rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                         >
                             <Trash2 size={14} />
@@ -108,7 +122,9 @@ const VaultDrawings = ({ onDrawingSelect }) => {
 
             <ConfirmModal
                 isOpen={!!drawingToDelete}
-                onClose={() => setDrawingToDelete(null)}
+                onClose={() => {
+                    setDrawingToDelete(null);
+                }}
                 onConfirm={confirmDelete}
                 title={t('drawings.delete_confirm_title', "Delete drawing")}
                 message={t('drawings.delete_confirm_message', "Are you sure you want to permanently delete this drawing? This action cannot be undone and will delete the file.")}
