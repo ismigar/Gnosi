@@ -1,6 +1,25 @@
 export { $api, apiClient } from './client';
 export { ApiProvider } from './ApiProvider';
 export {
+  fetchAiCatalog,
+  fetchAiModelCatalog,
+  fetchAiModelComparison,
+  fetchAiModels,
+  fetchAiUsage,
+  fetchAiUsageHistory,
+  updateAiModels,
+} from './ai';
+export type {
+  AiCatalog,
+  AiModelCatalog,
+  AiModelComparison,
+  AiModelRegistry,
+  AiModelRegistryUpdate,
+  AiModelsPayload,
+  AiUsage,
+  AiUsageHistory,
+} from './ai';
+export {
   fetchConfiguration,
   updateConfiguration,
 } from './configuration';
@@ -10,6 +29,28 @@ export type {
   ConfigurationUpdateResponse,
 } from './configuration';
 export { assertApiSuccess, GnosiApiError, unwrapApiResult } from './errors';
+export {
+  fetchGoogleOAuthHealth,
+  fetchGoogleOAuthStatus,
+} from './google-auth';
+export type { GoogleOAuthHealth, GoogleOAuthStatus } from './google-auth';
+export {
+  bulkUpdateIntegrations,
+  fetchIntegrations,
+  updateCalendarAliases,
+  updateCalendarColors,
+  updateCalendarSelection,
+  updateDefaultCalendar,
+  updateDefaultContacts,
+  updateDefaultMail,
+  updateIntegration,
+} from './integrations';
+export type {
+  CalendarSelection,
+  IntegrationsDocument,
+  IntegrationsUpdate,
+  IntegrationUpdateResponse,
+} from './integrations';
 export { queryClient } from './query-client';
 export {
   cancelReaderAnalysis,
@@ -142,22 +183,56 @@ export {
 } from './useReaderData';
 export { useVaultCatalog } from './useVaultCatalog';
 export {
+  createVaultDatabase,
+  createVaultPage,
+  createVaultTable,
   createVault,
+  deleteVaultDatabase,
+  deleteVaultTable,
   deleteVault,
   fetchVaultAliasIndex,
   fetchVaultCatalog,
+  fetchVaultDatabases,
   fetchVaultGlobalIndex,
+  fetchVaultPage,
+  fetchVaultPagePreview,
+  fetchVaultPages,
   fetchVaultTables,
+  openVaultLocalPath,
+  openVaultResource,
+  patchVaultPage,
+  renameVaultTable,
   renameVault,
+  saveVaultPage,
+  warmVaultPagePreviews,
 } from './vaults';
 export type {
   VaultAliasIndex,
   VaultCatalog,
+  VaultDatabaseInput,
   VaultDeletion,
   VaultGlobalIndex,
+  VaultLocalPathOpenRequest,
+  VaultLocalPathOpenResult,
   VaultMutation,
+  VaultPage,
+  VaultPageMutation,
+  VaultPagePatchInput,
+  VaultPagePreview,
+  VaultPagePreviewQuery,
+  VaultPagePreviewWarmRequest,
+  VaultPagePreviewWarmResult,
+  VaultPagesQuery,
+  VaultPageSaveInput,
+  VaultPageSaveRequest,
+  VaultPageSummary,
   VaultRegistryRecord,
+  VaultResourceOpenRequest,
+  VaultResourceOpenResult,
   VaultSummary,
+  VaultTableDeleteQuery,
+  VaultTableInput,
+  VaultTableRenameInput,
 } from './vaults';
 export {
   applyPlanningLevelingProposal,
@@ -277,6 +352,7 @@ export {
   createSystemNotification,
   fetchNativePickAvailability,
   fetchSystemGraphVisualization,
+  fetchSystemHealth,
   fetchSystemNotifications,
   fetchSystemStats,
   pickNativeFilesystemEntry,
@@ -291,6 +367,7 @@ export type {
   NativePickResult,
   SearchFilesystemInput,
   SystemGraphVisualization,
+  SystemHealth,
   SystemNotification,
   SystemNotificationInput,
   SystemNotificationPage,
