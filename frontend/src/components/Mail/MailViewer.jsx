@@ -22,6 +22,7 @@ import { translateFolderName } from './mailFolderUtils';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { transportFetch } from '../../shared/api/transports';
+import { createCalendarEvent, fetchCalendarList } from '../../shared/api/calendar';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -562,8 +563,8 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         setShowEventCalendarPicker(event);
         if (availableCalendars.length === 0) {
             try {
-                const res = await axios.get(`/api/calendar/calendars?email=${encodeURIComponent(account?.email || '')}`);
-                setAvailableCalendars(res.data);
+                const result = await fetchCalendarList(account?.email || '');
+                setAvailableCalendars(result.items);
             } catch {
                 toast.error(t('mail.load_calendars_error', "Error loading calendars"));
             }
@@ -572,12 +573,16 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
 
     const handleAddExtractedEvent = async (event, calendarId) => {
         try {
-            await axios.post(`/api/calendar/events?email=${encodeURIComponent(account?.email || '')}&calendar_id=${calendarId}`, {
-                title: event.title,
-                start: { dateTime: event.start },
-                end: { dateTime: event.end },
-                location: event.location,
-                description: event.description + `\n\n${t('mail.from_email_label', "From the email")}: ${mailData?.subject}`
+            await createCalendarEvent({
+                calendarId,
+                email: account?.email || '',
+                event: {
+                    title: event.title,
+                    start: { dateTime: event.start },
+                    end: { dateTime: event.end },
+                    location: event.location,
+                    description: event.description + `\n\n${t('mail.from_email_label', "From the email")}: ${mailData?.subject}`,
+                },
             });
             toast.success(t('mail.event_added_to_calendar', "Event \"{{title}}\" added to the calendar", { title: event.title }));
             setShowEventCalendarPicker(null);

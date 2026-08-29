@@ -17,6 +17,7 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 import './CalendarStyles.css';
 import { useTitlePreview } from './useTitlePreview';
 import { parsePeriod, withPeriodBoundaries } from '../../utils/projectPlanning';
+import { updateCalendarEvent } from '../../shared/api/calendar';
 import {
     exclusiveToInclusiveAllDayEnd,
     inclusiveToExclusiveAllDayEnd,
@@ -396,10 +397,12 @@ export const DigitalBrainCalendar = ({
             if (isGoogle) {
                 const gStart = event.startStr;
                 const gEnd = event.endStr || gStart;
-                await axios.patch(
-                    `/api/calendar/events/${encodeURIComponent(id)}?email=${encodeURIComponent(metadata._account)}&calendar_id=${encodeURIComponent(metadata._calendar_id || 'primary')}`,
-                    { start: gStart, end: gEnd, calendar_id: metadata._calendar_id || 'primary' }
-                );
+                await updateCalendarEvent({
+                    calendarId: metadata._calendar_id || 'primary',
+                    email: metadata._account,
+                    event: { start: gStart, end: gEnd, calendar_id: metadata._calendar_id || 'primary' },
+                    eventId: id,
+                });
             } else {
                 // Write to the VIEW fields (dateField/endDateField), not to the
                 // fixed date/end_date: with a configured field, writing `date`
@@ -473,10 +476,16 @@ export const DigitalBrainCalendar = ({
         const isGoogle = (metadata?._provider === 'google' || !!metadata?._account) && !metadata?._vault_path;
         try {
             if (isGoogle) {
-                await axios.patch(
-                    `/api/calendar/events/${encodeURIComponent(id)}?email=${encodeURIComponent(metadata._account)}&calendar_id=${encodeURIComponent(metadata._calendar_id || 'primary')}`,
-                    { start: event.startStr, end: event.endStr || event.startStr, calendar_id: metadata._calendar_id || 'primary' }
-                );
+                await updateCalendarEvent({
+                    calendarId: metadata._calendar_id || 'primary',
+                    email: metadata._account,
+                    event: {
+                        start: event.startStr,
+                        end: event.endStr || event.startStr,
+                        calendar_id: metadata._calendar_id || 'primary',
+                    },
+                    eventId: id,
+                });
             } else {
                 // Write to THE VIEW'S field; a `period` value gets re-serialized
                 // in full into the start field (see handleEventDrop).

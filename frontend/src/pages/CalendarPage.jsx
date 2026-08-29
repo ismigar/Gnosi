@@ -16,6 +16,15 @@ import { buildOccurrenceKey, truncateRruleBefore } from '../utils/calendarUtils'
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePlugins } from '../plugins/usePlugins';
 import { vaultPath } from '../lib/vaultRouting';
+import {
+    fetchCalendarEvents,
+    rsvpCalendarEvent,
+} from '../shared/api/calendar';
+import {
+    useCalendarList,
+    useMeetingReminderSettings,
+    useUpdateMeetingReminderSettings,
+} from '../shared/api/useCalendarData';
 
 // Keyboard handler removed in favor of RecurrenceChoiceModal component
 
@@ -27,7 +36,6 @@ export default function CalendarPage() {
     const isCompact = useMediaQuery('(max-width: 1023px)');
     const [pages, setPages] = useState([]);           // notes vault locals (source=Gnosi)
     const [externalEvents, setExternalEvents] = useState([]); // Google/CalDAV events
-    const [googleCalendars, setGoogleCalendars] = useState([]); // real Google calendars (id, name, account)
     const [undatedNotes, setUndatedNotes] = useState([]);
     const [dateRange, setDateRange] = useState(null);  // { start, end } of the visible range
     const [loading, setLoading] = useState(true);
@@ -48,6 +56,10 @@ export default function CalendarPage() {
     // AI meeting notifier (agenda)
     const [remindersEnabled, setRemindersEnabled] = useState(false);
     const [remindersLead, setRemindersLead] = useState(10);
+    const calendarListQuery = useCalendarList();
+    const googleCalendars = calendarListQuery.data?.items || [];
+    const reminderSettingsQuery = useMeetingReminderSettings(aiMeetingsEnabled);
+    const updateReminderSettingsMutation = useUpdateMeetingReminderSettings();
 
     // Event selection and editing state
     const [selectedEventId, setSelectedEventId] = useState(null); // ID of the selected event
@@ -263,17 +275,14 @@ export default function CalendarPage() {
         const controller = new AbortController();
         externalEventsAbortRef.current = controller;
         try {
-            const params = { include_vault: false };
-            if (timeMin) params.time_min = timeMin;
-            if (timeMax) params.time_max = timeMax;
-            if (search) params.search = search;
-            const res = await axios.get('/api/calendar/events', {
-                params,
-                timeout: 30000,
-                signal: controller.signal,
-            });
+            const events = await fetchCalendarEvents({
+                includeVault: false,
+                search: search || undefined,
+                timeMax: timeMax || undefined,
+                timeMin: timeMin || undefined,
+            }, controller.signal);
             if (controller.signal.aborted) return;
-            const converted = (res.data || []).map(convertHybridEvent);
+            const converted = events.map(convertHybridEvent);
             setExternalEvents(converted);
         } catch (err) {
             if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
@@ -350,15 +359,6 @@ export default function CalendarPage() {
 
     useEffect(() => {
         fetchPages();
-    }, []);
-
-    // Loads the real Google calendars (id/account) to be able to actually create events in them
-    useEffect(() => {
-        let cancelled = false;
-        axios.get('/api/calendar/calendars')
-            .then(res => { if (!cancelled) setGoogleCalendars(Array.isArray(res.data) ? res.data : []); })
-            .catch(() => { if (!cancelled) setGoogleCalendars([]); });
-        return () => { cancelled = true; };
     }, []);
 
     // Abort the external events request if the component unmounts.
@@ -792,10 +792,11 @@ export default function CalendarPage() {
         if (!eventId || !acct) return;
 
         try {
-            await axios.post(`/api/calendar/events/${eventId}/rsvp`, {
+            await rsvpCalendarEvent({
+                eventId,
                 email: acct,
-                calendar_id: calId,
                 rsvp: rsvpStatus,
+                calendarId: calId,
             });
             // Update local state without re-fetching
             setEventPanel(prev => {
@@ -852,17 +853,11 @@ export default function CalendarPage() {
 
     // ── Meeting reminders (AI notifier) ──────────────────────────
     useEffect(() => {
-        if (!aiMeetingsEnabled) return undefined;
-        let alive = true;
-        axios.get('/api/calendar/reminders/settings')
-            .then(({ data }) => {
-                if (!alive || !data) return;
-                setRemindersEnabled(!!data.enabled);
-                if (data.lead_minutes) setRemindersLead(Number(data.lead_minutes));
-            })
-            .catch(() => {});
-        return () => { alive = false; };
-    }, [aiMeetingsEnabled]);
+        const settings = reminderSettingsQuery.data;
+        if (!aiMeetingsEnabled || !settings) return;
+        setRemindersEnabled(!!settings.enabled);
+        if (settings.lead_minutes) setRemindersLead(Number(settings.lead_minutes));
+    }, [aiMeetingsEnabled, reminderSettingsQuery.data]);
 
     const saveReminderSettings = useCallback(async (patch) => {
         const next = {
@@ -872,14 +867,14 @@ export default function CalendarPage() {
         setRemindersEnabled(next.enabled);
         setRemindersLead(next.lead_minutes);
         try {
-            await axios.put('/api/calendar/reminders/settings', next);
+            await updateReminderSettingsMutation.mutateAsync(next);
             toast.success(next.enabled
                 ? t('calendar.reminders_on', "Meeting reminders enabled")
                 : t('calendar.reminders_off', "Meeting reminders disabled"));
         } catch {
             toast.error(t('calendar.reminders_error', "Couldn't save the reminder settings"));
         }
-    }, [remindersEnabled, remindersLead, t]);
+    }, [remindersEnabled, remindersLead, t, updateReminderSettingsMutation]);
 
     const btnClass = "flex items-center justify-center h-7 px-3 rounded-md text-[11px] font-bold tracking-tight uppercase transition-all border";
 

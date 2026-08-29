@@ -52,6 +52,7 @@ import { SocialNetworkIcon, isKnownSocialNetwork } from './social/SocialNetworkI
 import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
 import { transportFetch } from '../shared/api/transports';
+import { fetchCalendarList, syncCalendar } from '../shared/api/calendar';
 import {
     fetchSocialNetworks,
     fetchSocialStreams,
@@ -1155,18 +1156,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     useEffect(() => {
         if (activeTab === 'calendar' && isOpen) {
-            transportFetch('/api/calendar/calendars')
-                .then(r => {
-                    const authErr = r.headers.get('X-Calendar-Auth-Error') || '';
+            let cancelled = false;
+            fetchCalendarList()
+                .then(({ authError, items }) => {
+                    if (cancelled) return;
+                    const authErr = authError || '';
                     setGoogleCalAuthError(Boolean(authErr));
                     // Specific emails with an expired token → paint the ERROR badge
                     // ONLY for this tab (not inherited from the Mail state).
                     setCalendarAuthErrors(new Set(authErr.split(',').map(e => e.trim()).filter(Boolean)));
-                    return r.ok ? r.json() : [];
+                    setGoogleSubCalendars(items);
                 })
-                .then(setGoogleSubCalendars)
                 .catch(() => {});
+            return () => { cancelled = true; };
         }
+        return undefined;
     }, [activeTab, isOpen]);
 
     // Translate tab: loads the state of the DeepL key (Keychain) and the URL of
@@ -2075,20 +2079,20 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setSyncingAccounts(prev => ({ ...prev, [accountId]: true }));
         setSavingStatus('saving');
         try {
-            let res;
+            let data;
             if (category === 'contacts') {
                 const provider = account?.provider || 'manual';
-                res = await axios.post('/api/contacts/sync', { provider, email, server_url: account?.server_url, password: account?.password, username: account?.username });
+                data = (await axios.post('/api/contacts/sync', { provider, email, server_url: account?.server_url, password: account?.password, username: account?.username })).data;
             } else if (category === 'calendar') {
-                res = await axios.post(`/api/calendar/sync?email=${encodeURIComponent(email)}`);
+                data = await syncCalendar(email);
             } else {
-                res = await axios.post(`/api/mail/sync?email=${encodeURIComponent(email)}`);
+                data = (await axios.post(`/api/mail/sync?email=${encodeURIComponent(email)}`)).data;
             }
 
-            const ok = res.data.status === 'success' || res.data.status === 'ok';
-            const partial = res.data.status === 'partial';
+            const ok = data.status === 'success' || data.status === 'ok';
+            const partial = data.status === 'partial';
             if (ok || partial) {
-                const failedEmails = res.data.failed || [];
+                const failedEmails = data.failed || [];
                 markError(prev => {
                     const next = new Set(prev);
                     if (email) failedEmails.includes(email) ? next.add(email) : next.delete(email);
@@ -2102,7 +2106,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             } else {
                 setSavingStatus('error');
                 if (email) markError(prev => new Set(prev).add(email));
-                toast.error(tn('accounts.sync_error', { detail: res.data.error || res.data.detail || tn('accounts.unknown_error') }));
+                toast.error(tn('accounts.sync_error', { detail: data.error || data.detail || tn('accounts.unknown_error') }));
             }
         } catch (e) {
             console.error("Sync error:", e);
