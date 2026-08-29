@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { X, Send, Loader2, RefreshCw, AlertTriangle, Sparkles, ArrowLeft } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { fetchVaultPage } from '../../shared/api/vaults';
 import {
     composeSocialPosts,
     fetchSocialNetworks,
@@ -72,8 +72,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
             // the AI better context. If it fails, we derive it from the metadata.
             if (noteId) {
                 try {
-                    const res = await axios.get(`/api/vault/pages/${noteId}`);
-                    const d = res.data || {};
+                    const d = await fetchVaultPage(noteId);
                     setSourceTitle(String(d.title || d.metadata?.title || recordMetadata?.title || '').trim());
                     setSourceContent(String(d.content || '').trim() || deriveContent(recordMetadata));
                 } catch (_error) {
