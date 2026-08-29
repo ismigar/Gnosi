@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { normalizeLineEndings } from './releaseNotesFormatting';
 
+
 describe('normalizeLineEndings', () => {
   it('preserves LF line endings', () => {
     expect(normalizeLineEndings('first\nsecond\n')).toBe('first\nsecond\n');

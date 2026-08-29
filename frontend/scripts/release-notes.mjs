@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { normalizeLineEndings } from '../src/lib/releaseNotesFormatting.js';
+import { normalizeLineEndings } from '../src/lib/releaseNotesFormatting.ts';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const frontendDir = path.resolve(scriptDir, '..');

@@ -7,6 +7,7 @@ import { AppSidebar, ENGINEERING_DOCUMENTATION_URL } from './AppSidebar';
 import { normalizeSidebarPreferences, orderSidebarItems } from '../lib/appSidebarNavigation';
 
 const pluginState = vi.hoisted(() => ({ enabled: new Set(), settings: {} }));
+const systemApi = vi.hoisted(() => ({ fetchSystemHealth: vi.fn() }));
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -20,6 +21,10 @@ vi.mock('../context/AuthContext', () => ({
 
 vi.mock('../lib/toast', () => ({
     toast: { success: vi.fn() },
+}));
+
+vi.mock('../shared/api/system', () => ({
+    fetchSystemHealth: systemApi.fetchSystemHealth,
 }));
 
 vi.mock('../plugins/usePlugins', () => ({
@@ -47,10 +52,8 @@ beforeAll(() => {
 beforeEach(() => {
     pluginState.enabled.clear();
     pluginState.settings = {};
+    systemApi.fetchSystemHealth.mockResolvedValue({ gnosi_mode: 'personal' });
     localStorage.setItem('gnosi_active_vault_slug', 'principal');
-    globalThis.fetch = vi.fn().mockResolvedValue({
-        json: vi.fn().mockResolvedValue({ gnosi_mode: 'personal' }),
-    });
 });
 
 afterEach(async () => {
