@@ -33,6 +33,7 @@ import { toast } from '../lib/toast';
 import { streamFetch } from '../shared/api/specialized-transports';
 import { transportFetch } from '../shared/api/transports';
 import { fetchNotebookConversation } from '../shared/api/notebooks';
+import { fetchConfiguration } from '../shared/api/configuration';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -505,30 +506,27 @@ const AgentChat = ({
 
     const loadConfig = useCallback(async () => {
         try {
-            const res = await transportFetch('/api/config');
-            if (res.ok) {
-                const data = await res.json();
-                const ai = data.ai || {};
-                const activeId = ai.active_agent_id;
-                // Disabled profiles stay editable in Settings but are not
-                // selectable for a conversation. This also keeps a newly
-                // created LLM Wiki profile with no model from falling back to
-                // an unrelated provider before the user configures it.
-                const agents = (ai.agents || []).filter((agent) => agent.enabled !== false);
-                setAgentList(agents);
-                const selection = resolveAgentRuntimeSelection(
-                    agents,
-                    forcedAgentId,
-                    selectedAgentId,
-                    activeId,
-                );
-                const agent = selection.agent;
-                if (agent) {
-                    setAgentConfig(agent);
-                }
-                if (selection.selectedAgentId) {
-                    setSelectedAgentId(selection.selectedAgentId);
-                }
+            const data = await fetchConfiguration();
+            const ai = data.ai || {};
+            const activeId = ai.active_agent_id;
+            // Disabled profiles stay editable in Settings but are not
+            // selectable for a conversation. This also keeps a newly
+            // created LLM Wiki profile with no model from falling back to
+            // an unrelated provider before the user configures it.
+            const agents = (ai.agents || []).filter((agent) => agent.enabled !== false);
+            setAgentList(agents);
+            const selection = resolveAgentRuntimeSelection(
+                agents,
+                forcedAgentId,
+                selectedAgentId,
+                activeId,
+            );
+            const agent = selection.agent;
+            if (agent) {
+                setAgentConfig(agent);
+            }
+            if (selection.selectedAgentId) {
+                setSelectedAgentId(selection.selectedAgentId);
             }
         } catch (e) {
             console.error("Error loading agent config", e);

@@ -30,6 +30,7 @@ import {
     useClearSystemNotifications,
     useSystemNotifications,
 } from '../shared/api/useSystemData';
+import { fetchConfiguration } from '../shared/api/configuration';
 
 const NOTIF_LIMIT = 20;
 
@@ -126,14 +127,14 @@ function Dashboard() {
     const [gnosiMode, setGnosiMode] = useState('personal');
     const fetchConfig = useCallback(async () => {
         try {
-            const config = await apiFetch('/api/config');
+            const config = await fetchConfiguration();
             if (config.settings && config.settings.gnosi_mode) {
                 setGnosiMode(config.settings.gnosi_mode);
             }
         } catch (error) {
             console.error("Error fetching config", error);
         }
-    }, [apiFetch]);
+    }, []);
 
     // Re-fetch when the Settings modal has saved changes (without a reload).
     useConfigChanged(fetchConfig);
