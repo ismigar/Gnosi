@@ -25,7 +25,7 @@ interface ConnectionEdgeAttributes extends ConnectionAttributes {
   reasons?: SemanticReason;
 }
 
-interface ConnectionFilters {
+export interface ConnectionFilters {
   [key: string]: unknown;
   showSemanticSuggestions?: unknown;
 }
@@ -51,7 +51,7 @@ interface ConnectionGroup {
   url?: string;
 }
 
-type ConnectionGraph = Graph<ConnectionNodeAttributes, ConnectionEdgeAttributes>;
+export type ConnectionGraph = Graph<ConnectionNodeAttributes, ConnectionEdgeAttributes>;
 
 const runApplyFilters = applyFilters as (
   graph: ConnectionGraph,

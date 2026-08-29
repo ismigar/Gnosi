@@ -1,15 +1,31 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { FocusEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-export function Controls({ onZoomIn, onZoomOut, onCenter, onFullscreen, legend }) {
+export interface ControlsProps {
+    readonly legend?: ReactNode;
+    readonly onCenter: () => void;
+    readonly onFullscreen: () => void;
+    readonly onZoomIn: () => void;
+    readonly onZoomOut: () => void;
+}
+
+export function Controls({
+    onZoomIn,
+    onZoomOut,
+    onCenter,
+    onFullscreen,
+    legend,
+}: ControlsProps) {
     const { t } = useTranslation();
     const [isLegendHovered, setIsLegendHovered] = useState(false);
     const [isLegendFocused, setIsLegendFocused] = useState(false);
     const [isLegendPinned, setIsLegendPinned] = useState(false);
     const isLegendOpen = isLegendHovered || isLegendFocused || isLegendPinned;
 
-    const closeLegendOnBlur = (event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
+    const closeLegendOnBlur = (event: FocusEvent<HTMLDivElement>) => {
+        if (!(event.relatedTarget instanceof Node)
+            || !event.currentTarget.contains(event.relatedTarget)) {
             setIsLegendFocused(false);
         }
     };
@@ -19,9 +35,15 @@ export function Controls({ onZoomIn, onZoomOut, onCenter, onFullscreen, legend }
             {legend && (
                 <div
                     className="graph-legend-control"
-                    onMouseEnter={() => setIsLegendHovered(true)}
-                    onMouseLeave={() => setIsLegendHovered(false)}
-                    onFocus={() => setIsLegendFocused(true)}
+                    onMouseEnter={() => {
+                        setIsLegendHovered(true);
+                    }}
+                    onMouseLeave={() => {
+                        setIsLegendHovered(false);
+                    }}
+                    onFocus={() => {
+                        setIsLegendFocused(true);
+                    }}
                     onBlur={closeLegendOnBlur}
                 >
                     <button
@@ -31,7 +53,9 @@ export function Controls({ onZoomIn, onZoomOut, onCenter, onFullscreen, legend }
                         aria-label={t('graph.controls.legend', 'Graph legend')}
                         aria-expanded={isLegendOpen}
                         aria-controls="graph-legend-tooltip"
-                        onClick={() => setIsLegendPinned((isPinned) => !isPinned)}
+                        onClick={() => {
+                            setIsLegendPinned((isPinned) => !isPinned);
+                        }}
                     >
                         ⓘ
                     </button>

@@ -1,13 +1,31 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getVisibleConnectionGroups } from '../utils/graphConnections';
+import {
+    getVisibleConnectionGroups,
+    type ConnectionFilters,
+    type ConnectionGraph,
+} from '../utils/graphConnections';
 import { CONNECTION_TYPE_COLORS } from '../utils/graphLegend';
-import { hasSemanticSuggestions } from '../utils/semanticOverlay';
+import { hasSemanticSuggestions, type SemanticEdge } from '../utils/semanticOverlay';
 
-export const ConnectionList = ({ graphInstance, graphData, filters }) => {
+interface ConnectionGraphData {
+    readonly edges?: readonly SemanticEdge[] | null;
+}
+
+export interface ConnectionListProps {
+    readonly filters?: ConnectionFilters;
+    readonly graphData?: ConnectionGraphData | null;
+    readonly graphInstance?: ConnectionGraph | null;
+}
+
+export const ConnectionList = ({
+    graphInstance,
+    graphData,
+    filters = {},
+}: ConnectionListProps) => {
     const { t } = useTranslation();
     const groupedConnections = useMemo(
-        () => getVisibleConnectionGroups(graphInstance, filters, graphData?.edges),
+        () => getVisibleConnectionGroups(graphInstance, filters, graphData?.edges ?? []),
         [graphInstance, graphData?.edges, filters],
     );
     const hasSemanticData = hasSemanticSuggestions(graphData?.edges);
@@ -32,7 +50,7 @@ export const ConnectionList = ({ graphInstance, graphData, filters }) => {
                     'Each group is a visible source note and each row is one outgoing connection. Types and colors match the legend.',
                 )}
             </p>
-            {filters?.showSemanticSuggestions && hasSemanticData && (
+            {Boolean(filters.showSemanticSuggestions) && hasSemanticData && (
                 <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                     {t(
                         'graph.connections_panel.semantic_note',
