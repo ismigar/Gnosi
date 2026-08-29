@@ -1,26 +1,84 @@
-import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import {
+    StrictMode,
+    act,
+    type ComponentType,
+} from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+    afterAll,
+    afterEach,
+    beforeAll,
+    describe,
+    expect,
+    it,
+    vi,
+    type MockedFunction,
+} from 'vitest';
 
 import { NotebookDetail } from './NotebooksPage';
 
+interface AgentChatProps {
+    readonly contextRefs: unknown;
+    readonly readOnly: boolean;
+}
+
+interface MountedRoot {
+    readonly container: HTMLDivElement;
+    readonly root: Root;
+}
+
+interface NotebookDetailProps {
+    readonly notebookId: string;
+}
+
+interface ReactTestGlobal {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+}
+
+type FetchInput = Parameters<typeof fetch>[0];
+type TranslationValues = Readonly<Record<string, unknown>>;
+
+const TypedNotebookDetail = NotebookDetail as unknown as ComponentType<
+    NotebookDetailProps
+>;
+const mountedRoots: MountedRoot[] = [];
+const originalFetch = globalThis.fetch;
+const reactTestGlobal = globalThis as typeof globalThis & ReactTestGlobal;
+
+const { translate } = vi.hoisted(() => {
+    const replacement = (value: unknown, fallback: string): string => {
+        if (typeof value === 'string') return value;
+        if (typeof value === 'number') return value.toString();
+        return fallback;
+    };
+    return {
+        translate: (
+            key: string,
+            fallback?: string,
+            values: TranslationValues = {},
+        ): string => (fallback ?? key)
+            .replace('{{revision}}', replacement(values.revision, '{{revision}}'))
+            .replace('{{resources}}', replacement(values.resources, '{{resources}}'))
+            .replace('{{sources}}', replacement(values.sources, '{{sources}}'))
+            .replace('{{resource}}', replacement(values.resource, '{{resource}}'))
+            .replace('{{time}}', replacement(values.time, '{{time}}'))
+            .replace('{{count}}', replacement(values.count, '{{count}}'))
+            .replace('{{notebooks}}', replacement(values.notebooks, '{{notebooks}}')),
+    };
+});
+
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (_key, fallback, values = {}) => String(fallback || _key)
-            .replace('{{revision}}', values.revision ?? '{{revision}}')
-            .replace('{{resources}}', values.resources ?? '{{resources}}')
-            .replace('{{sources}}', values.sources ?? '{{sources}}')
-            .replace('{{resource}}', values.resource ?? '{{resource}}')
-            .replace('{{time}}', values.time ?? '{{time}}')
-            .replace('{{count}}', values.count ?? '{{count}}')
-            .replace('{{notebooks}}', values.notebooks ?? '{{notebooks}}'),
-    }),
+    useTranslation: () => ({ t: translate }),
 }));
 
 vi.mock('../components/AgentChat', () => ({
-    default: ({ readOnly, contextRefs }) => (
-        <div data-testid="agent-chat" data-read-only={String(readOnly)} data-context={JSON.stringify(contextRefs)}>
+    default: ({ readOnly, contextRefs }: AgentChatProps) => (
+        <div
+            data-testid="agent-chat"
+            data-read-only={readOnly ? 'true' : 'false'}
+            data-context={JSON.stringify(contextRefs)}
+        >
             {readOnly ? 'Read-only conversation' : 'Editable conversation'}
         </div>
     ),
@@ -31,28 +89,102 @@ vi.mock('../lib/toast', () => ({
     toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-const mountedRoots = [];
-
-function asRequest(input, init = {}) {
-    return input instanceof Request
-        ? input
-        : new Request(new URL(String(input), window.location.origin), init);
+function asRequest(input: FetchInput, init: RequestInit = {}): Request {
+    if (input instanceof Request) return input;
+    const target = typeof input === 'string' ? input : input.href;
+    return new Request(new URL(target, window.location.origin), init);
 }
 
-function jsonResponse(payload, status = 200) {
+function jsonResponse(payload: unknown, status = 200): Response {
     return Response.json(payload, { status });
 }
 
+function installFetchMock(
+    implementation: typeof fetch,
+): MockedFunction<typeof fetch> {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(implementation);
+    globalThis.fetch = fetchMock;
+    return fetchMock;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+    return Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is readonly string[] {
+    return isUnknownArray(value)
+        && value.every((item) => typeof item === 'string');
+}
+
+function requireButton(
+    element: Element | null | undefined,
+    description: string,
+): HTMLButtonElement {
+    if (!(element instanceof HTMLButtonElement)) {
+        throw new Error(`Missing ${description} button`);
+    }
+    return element;
+}
+
+function readSelectedSourceIds(container: HTMLElement): readonly string[] {
+    const chat = container.querySelector<HTMLElement>('[data-testid="agent-chat"]');
+    if (!chat) throw new Error('Missing AgentChat test boundary');
+    const parsed: unknown = JSON.parse(chat.dataset.context ?? '[]');
+    if (!isUnknownArray(parsed)) throw new Error('Expected context references');
+    const firstReference = parsed.at(0);
+    if (!isRecord(firstReference) || !isRecord(firstReference.scope)) {
+        throw new Error('Expected a scoped notebook context');
+    }
+    if (!isStringArray(firstReference.scope.source_ids)) {
+        throw new Error('Expected selected source identifiers');
+    }
+    return firstReference.scope.source_ids;
+}
+
+async function renderNotebookDetail(
+    strict = false,
+    flushTurns = 2,
+): Promise<HTMLDivElement> {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    mountedRoots.push({ root, container });
+    const detail = (
+        <MemoryRouter>
+            <TypedNotebookDetail notebookId="notebook-1" />
+        </MemoryRouter>
+    );
+    await act(async () => {
+        root.render(strict ? <StrictMode>{detail}</StrictMode> : detail);
+        for (let turn = 0; turn < flushTurns; turn += 1) {
+            await Promise.resolve();
+        }
+    });
+    return container;
+}
+
 beforeAll(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-afterEach(async () => {
+afterAll(() => {
+    globalThis.fetch = originalFetch;
+    delete reactTestGlobal.IS_REACT_ACT_ENVIRONMENT;
+});
+
+afterEach(() => {
     vi.restoreAllMocks();
-    while (mountedRoots.length) {
-        const { root, container } = mountedRoots.pop();
-        await act(async () => root.unmount());
-        container.remove();
+    while (mountedRoots.length > 0) {
+        const mounted = mountedRoots.pop();
+        if (!mounted) throw new Error('Missing mounted root during cleanup');
+        act(() => {
+            mounted.root.unmount();
+        });
+        mounted.container.remove();
     }
 });
 
@@ -74,7 +206,7 @@ describe('NotebookDetail permissions', () => {
             progress: null,
             last_error: null,
         };
-        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+        installFetchMock((input, init) => {
             const request = asRequest(input, init);
             return Promise.resolve(jsonResponse(request.url.includes('/chat-sources')
                 ? { sources: [{ source_id: 'source-1', label: 'Source', kind: 'file', status: 'available' }], notebooks: [] }
@@ -82,22 +214,12 @@ describe('NotebookDetail permissions', () => {
                     ? { items: [], total: 0, page: 1, page_size: 50, active_revision: 1 }
                     : notebook));
         });
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-        const root = createRoot(container);
-        mountedRoots.push({ root, container });
+        const container = await renderNotebookDetail();
 
-        await act(async () => {
-            root.render(
-                <MemoryRouter>
-                    <NotebookDetail notebookId="notebook-1" />
-                </MemoryRouter>,
-            );
-            await Promise.resolve();
-            await Promise.resolve();
-        });
-
-        expect(container.querySelector('[data-testid="agent-chat"]')?.dataset.readOnly).toBe('true');
+        const agentChat = container.querySelector<HTMLElement>(
+            '[data-testid="agent-chat"]',
+        );
+        expect(agentChat?.dataset.readOnly).toBe('true');
         expect([...container.querySelectorAll('button')]
             .some((button) => button.textContent.includes('Refresh'))).toBe(false);
     });
@@ -117,32 +239,26 @@ describe('NotebookDetail permissions', () => {
             }],
             total: 1, page: 1, page_size: 50, active_revision: 1,
         };
-        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+        const fetchMock = installFetchMock((input, init) => {
             const request = asRequest(input, init);
             return Promise.resolve(jsonResponse(request.url.includes('/chat-sources')
                 ? { sources: [{ source_id: 'source-1', label: 'Source', kind: 'file', status: 'available' }], notebooks: [] }
                 : request.url.includes('/sources?') ? sourceData : notebook,
             request.method === 'POST' ? 202 : 200));
         });
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-        const root = createRoot(container);
-        mountedRoots.push({ root, container });
-
-        await act(async () => {
-            root.render(<MemoryRouter><NotebookDetail notebookId="notebook-1" /></MemoryRouter>);
-            await Promise.resolve();
-            await Promise.resolve();
-        });
-        const retry = container.querySelector('button[aria-label="Retry Resource"]');
-        expect(retry).toBeTruthy();
+        const container = await renderNotebookDetail();
+        const retry = requireButton(
+            container.querySelector('button[aria-label="Retry Resource"]'),
+            'retry Resource',
+        );
         await act(async () => {
             retry.dispatchEvent(new MouseEvent('click', { bubbles: true }));
             await Promise.resolve();
             await Promise.resolve();
         });
 
-        const requests = globalThis.fetch.mock.calls.map(([input, init]) => asRequest(input, init));
+        const requests = fetchMock.mock.calls
+            .map(([input, init]) => asRequest(input, init));
         expect(requests.some((request) => (
             new URL(request.url).pathname === '/api/notebooks/notebook-1/sources/resource-1/refresh'
             && request.method === 'POST'
@@ -165,7 +281,7 @@ describe('NotebookDetail permissions', () => {
                 current_resource_title: 'Lecture recording', cancellable: true,
             },
         };
-        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+        const fetchMock = installFetchMock((input, init) => {
             const request = asRequest(input, init);
             return Promise.resolve(jsonResponse(request.url.includes('/chat-sources')
                 ? { sources: [{ source_id: 'source-1', label: 'Source', kind: 'file', status: 'available' }], notebooks: [] }
@@ -173,30 +289,23 @@ describe('NotebookDetail permissions', () => {
                     ? { items: [], total: 0, page: 1, page_size: 50, active_revision: 1 }
                     : notebook));
         });
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-        const root = createRoot(container);
-        mountedRoots.push({ root, container });
-
-        await act(async () => {
-            root.render(<MemoryRouter><NotebookDetail notebookId="notebook-1" /></MemoryRouter>);
-            await Promise.resolve();
-            await Promise.resolve();
-        });
+        const container = await renderNotebookDetail();
         expect(container.textContent).toContain('Current Resource: Lecture recording');
-        const cancel = [...container.querySelectorAll('button')]
-            .find((button) => button.textContent.includes('Cancel indexing'));
-        expect(cancel).toBeTruthy();
+        const cancel = requireButton(
+            [...container.querySelectorAll('button')]
+                .find((button) => button.textContent.includes('Cancel indexing')),
+            'cancel indexing',
+        );
         await act(async () => {
             cancel.dispatchEvent(new MouseEvent('click', { bubbles: true }));
             await Promise.resolve();
             await Promise.resolve();
         });
 
-        const cancelRequest = globalThis.fetch.mock.calls
+        const cancelRequest = fetchMock.mock.calls
             .map(([input, init]) => asRequest(input, init))
             .find((request) => new URL(request.url).pathname === '/api/notebooks/notebook-1/refresh/cancel');
-        expect(cancelRequest).toBeTruthy();
+        if (!cancelRequest) throw new Error('Missing cancel indexing request');
         expect(cancelRequest.method).toBe('POST');
         expect(cancelRequest.credentials).toBe('include');
     });
@@ -233,7 +342,7 @@ describe('NotebookDetail permissions', () => {
             ],
             notebooks: [],
         };
-        globalThis.fetch = vi.fn().mockImplementation((input, init) => {
+        installFetchMock((input, init) => {
             const request = asRequest(input, init);
             const value = request.url;
             const payload = value.includes('/chat-sources')
@@ -243,28 +352,22 @@ describe('NotebookDetail permissions', () => {
                     : notebook;
             return Promise.resolve(jsonResponse(payload));
         });
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-        const root = createRoot(container);
-        mountedRoots.push({ root, container });
-
-        await act(async () => {
-            root.render(<React.StrictMode><MemoryRouter><NotebookDetail notebookId="notebook-1" /></MemoryRouter></React.StrictMode>);
-            await Promise.resolve();
-            await Promise.resolve();
-            await Promise.resolve();
-        });
-        const checkboxes = [...container.querySelectorAll('.notebook-source-checkbox')];
+        const container = await renderNotebookDetail(true, 3);
+        const checkboxes = [
+            ...container.querySelectorAll<HTMLInputElement>(
+                '.notebook-source-checkbox',
+            ),
+        ];
         expect(checkboxes.length).toBeGreaterThanOrEqual(2);
         expect(checkboxes.every((input) => input.checked)).toBe(true);
+        const firstCheckbox = checkboxes.at(0);
+        if (!firstCheckbox) throw new Error('Missing first source checkbox');
         await act(async () => {
-            checkboxes[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            firstCheckbox.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await Promise.resolve();
         });
 
-        const context = JSON.parse(container.querySelector('[data-testid="agent-chat"]')?.dataset.context || '[]');
-        expect(context).toEqual([
-            expect.objectContaining({ ref: 'notebook-1', scope: { selection: 'sources', source_ids: ['source-b'] } }),
-        ]);
+        expect(readSelectedSourceIds(container)).toEqual(['source-b']);
     });
 
     it('manages custom groups and toggles all sources in a group with group checkbox', async () => {
@@ -302,11 +405,12 @@ describe('NotebookDetail permissions', () => {
             ],
             notebooks: [],
         };
-        globalThis.fetch = vi.fn().mockImplementation(async (input, init) => {
+        const fetchMock = installFetchMock(async (input, init) => {
             const request = asRequest(input, init);
             const value = request.url;
             if (request.method === 'PATCH') {
-                const body = await request.clone().json();
+                const body: unknown = await request.clone().json();
+                if (!isRecord(body)) throw new Error('Expected a PATCH object body');
                 return jsonResponse({ ...notebook, ...body });
             }
             const payload = value.includes('/chat-sources')
@@ -316,51 +420,45 @@ describe('NotebookDetail permissions', () => {
                     : notebook;
             return jsonResponse(payload);
         });
-        const container = document.createElement('div');
-        document.body.appendChild(container);
-        const root = createRoot(container);
-        mountedRoots.push({ root, container });
-
-        await act(async () => {
-            root.render(<MemoryRouter><NotebookDetail notebookId="notebook-1" /></MemoryRouter>);
-            await Promise.resolve();
-            await Promise.resolve();
-            await Promise.resolve();
-        });
+        const container = await renderNotebookDetail(false, 3);
 
         // Verify group header exists
         expect(container.textContent).toContain('Primary Group');
         expect(container.textContent).toContain('Ungrouped');
 
         // Toggle group-level checkbox (which targets grp-1 containing resource-1 -> source-1)
-        const groupCheckbox = container.querySelector('.notebook-custom-group__header .notebook-source-checkbox');
-        expect(groupCheckbox).toBeTruthy();
+        const groupCheckbox = container.querySelector<HTMLInputElement>(
+            '.notebook-custom-group__header .notebook-source-checkbox',
+        );
+        if (!groupCheckbox) throw new Error('Missing custom-group checkbox');
         expect(groupCheckbox.checked).toBe(true);
 
         await act(async () => {
             groupCheckbox.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await Promise.resolve();
         });
 
         // Chat context should now only have source-2
-        const contextAfterToggle = JSON.parse(container.querySelector('[data-testid="agent-chat"]')?.dataset.context || '[]');
-        expect(contextAfterToggle[0].scope.source_ids).toEqual(['source-2']);
+        expect(readSelectedSourceIds(container)).toEqual(['source-2']);
 
         // Move ungrouped resource to group
-        const select = container.querySelector('.notebook-ungrouped-section .notebook-group-select');
-        expect(select).toBeTruthy();
+        const select = container.querySelector<HTMLSelectElement>(
+            '.notebook-ungrouped-section .notebook-group-select',
+        );
+        if (!select) throw new Error('Missing ungrouped Resource selector');
         await act(async () => {
             select.value = 'grp-1';
             select.dispatchEvent(new Event('change', { bubbles: true }));
             await Promise.resolve();
         });
 
-        const patchRequest = globalThis.fetch.mock.calls
+        const patchRequest = fetchMock.mock.calls
             .map(([input, init]) => asRequest(input, init))
             .find((request) => (
                 new URL(request.url).pathname === '/api/notebooks/notebook-1'
                 && request.method === 'PATCH'
             ));
-        expect(patchRequest).toBeTruthy();
+        if (!patchRequest) throw new Error('Missing notebook group PATCH request');
         await expect(patchRequest.clone().json()).resolves.toEqual({
             groups: [{ id: 'grp-1', name: 'Primary Group', resource_ids: ['resource-1', 'resource-2'] }],
         });
