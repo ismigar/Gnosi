@@ -3,7 +3,6 @@ import {
     useEffect,
     useRef,
     useState,
-    type ComponentType,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrainCircuit, Loader2, Trash2, X } from 'lucide-react';
@@ -25,12 +24,6 @@ import { WikilinkInline } from './WikilinkInline';
 interface BrainInboxProps {
     readonly onAccepted?: () => void;
 }
-
-
-const BrainWikilink = WikilinkInline as unknown as ComponentType<{
-    readonly target: string;
-    readonly title: string;
-}>;
 
 
 export function BrainInbox({ onAccepted }: BrainInboxProps) {
@@ -231,7 +224,7 @@ export function BrainInbox({ onAccepted }: BrainInboxProps) {
                                                 {tb('notes', 'Notes')}:
                                             </span>
                                             {suggestion.member_ids.map((memberId, index) => (
-                                                <BrainWikilink
+                            <WikilinkInline
                                                     key={memberId}
                                                     title={suggestion.member_titles?.[index] || memberId}
                                                     target={memberId}
