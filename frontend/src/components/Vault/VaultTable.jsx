@@ -398,7 +398,14 @@ import { TranslateLanguagesModal } from './TranslateLanguagesModal';
 import { SyncDrupalModal } from './SyncDrupalModal';
 import { PublishSocialModal } from './PublishSocialModal';
 import { ProcessResourceModal } from './ProcessResourceModal';
-import axios from '../../shared/api/legacy-http';
+import { fetchLlmWikiConfig } from '../../shared/api/brain';
+import { apiErrorDetail } from '../../shared/api/errors';
+import { fetchOptionCatalogs, removeTableOption } from '../../shared/api/vault-schema';
+import {
+    createVaultTablePage,
+    executeVaultTableButtonAction,
+    patchVaultTablePage,
+} from '../../shared/api/vault-table';
 import { toast } from '../../lib/toast';
 import { notifyError } from '../../lib/notifyError';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -473,16 +480,16 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             setLlmWikiConfig(null);
             return () => { alive = false; };
         }
-        axios.get('/api/vault/llm-wiki/config')
+        fetchLlmWikiConfig()
             .then((response) => {
                 if (!alive) return;
-                setLlmWikiConfig(response.data?.config
+                setLlmWikiConfig(response.config
                     ? {
-                        ...response.data.config,
-                        processed_resources: response.data.processed_resources || {},
+                        ...response.config,
+                        processed_resources: response.processed_resources || {},
                     }
                     : null);
-                setLlmWikiJobs(response.data?.resource_statuses || {});
+                setLlmWikiJobs(response.resource_statuses || {});
             })
             .catch((error) => {
                 if (alive) setLlmWikiConfig(null);
@@ -1664,12 +1671,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             //    we used to send PUT with the full `title + content + metadata` for
             //    each edited cell (potentially MBs of body, double the latency of
             //    serialization).
-            // Use axios (not raw fetch) so this write flows through the etag
-            // optimistic-concurrency interceptor: it attaches expected_etag and
-            // captures the new etag. A raw fetch bypassed both, so cell edits had
-            // no two-device clobber protection and later editor saves 409'd.
-            // axios rejects on non-2xx, so no manual response.ok check is needed.
-            await axios.patch(`/api/vault/pages/${noteId}`, {
+            // The typed shared client flows through the canonical ETag middleware:
+            // it attaches expected_etag, captures the new ETag and rejects non-2xx.
+            await patchVaultTablePage(noteId, {
                 metadata: { [originalMetaKey]: newValue, ...additionalMetaUpdates }
             });
             // Propagate changes to parent if this is a child
@@ -1852,22 +1856,19 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 notes: safeNotes,
                 currentTableId: tableId,
             });
-            // Use axios for consistency with the dashboard and to ensure the correct port
-            const res = await axios.post(`/api/vault/pages`, {
+            await createVaultTablePage({
                 title,
                 content: '',
                 parent_id: parentId,
                 metadata: metadataWithDefaults
             });
 
-            if (res.status === 200 || res.status === 201) {
-                setExpandedRows(prev => new Set([...prev, parentId]));
-                // Notify the parent so it reloads the data. Prefer onCellSaved
-                // over onUpdateView to avoid persisting the virtual 'default' view.
-                if (onCellSaved) onCellSaved();
-                else if (onUpdateView) onUpdateView(activeView);
-                toast.success(t('table.subitem_created'));
-            }
+            setExpandedRows(prev => new Set([...prev, parentId]));
+            // Notify the parent so it reloads the data. Prefer onCellSaved
+            // over onUpdateView to avoid persisting the virtual 'default' view.
+            if (onCellSaved) onCellSaved();
+            else if (onUpdateView) onUpdateView(activeView);
+            toast.success(t('table.subitem_created'));
         } catch (error) {
             notifyError('table-create-subitem', error, t('table.subitem_create_error'));
         } finally {
@@ -1903,26 +1904,24 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 currentTableId: tableId,
             });
 
-            const res = await axios.post(`/api/vault/pages`, {
+            const res = await createVaultTablePage({
                 title,
                 content: '',
                 metadata: metadataWithDefaults
             });
 
-            if (res.status === 200 || res.status === 201) {
-                setNewRowTitle('');
-                // Refresh rows via onCellSaved, NOT onUpdateView: the latter
-                // PUTs the (possibly virtual 'default') view and caused cross-table
-                // view-id collisions.
-                if (onCellSaved) onCellSaved();
-                toast.success(t('table.record_created'));
-                const newId = res.data?.id;
-                if (newId && onNoteSelect) {
-                    onNoteSelect(newId, { returnFocusId: newId });
-                }
+            setNewRowTitle('');
+            // Refresh rows via onCellSaved, NOT onUpdateView: the latter
+            // PUTs the (possibly virtual 'default') view and caused cross-table
+            // view-id collisions.
+            if (onCellSaved) onCellSaved();
+            toast.success(t('table.record_created'));
+            const newId = res.id;
+            if (newId && onNoteSelect) {
+                onNoteSelect(newId, { returnFocusId: newId });
             }
         } catch (error) {
-            const errorMsg = error.response?.data?.detail || t('table.record_create_error');
+            const errorMsg = apiErrorDetail(error, t('table.record_create_error'));
             notifyError('table-create-record', error, errorMsg);
         }
     }, [newRowTitle, safeNotes, activeView, onUpdateView, schema, resolveNoteTableId]);
@@ -1935,8 +1934,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             .some((name) => getFieldConfig(schema, name)?.catalog_ref);
         if (!needsCatalogs) return undefined;
         let cancelled = false;
-        axios.get('/api/vault/option-catalogs')
-            .then((res) => { if (!cancelled) setSharedOptionCatalogs(res.data?.catalogs || {}); })
+        fetchOptionCatalogs()
+            .then((response) => { if (!cancelled) setSharedOptionCatalogs(response.catalogs || {}); })
             .catch(() => {});
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2036,10 +2035,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
         try {
             if (tableId && fieldId) {
-                await axios.post(`/api/vault/tables/${tableId}/options/remove`, {
-                    field_id: fieldId,
-                    value: optionValue,
-                });
+                await removeTableOption(tableId, fieldId, optionValue);
             } else {
                 // Without resolvable table/field id (e.g. folder view
                 // arrival) there is no per-table endpoint: it only removes the option from the
@@ -2883,17 +2879,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         if (action === 'ai_prompt' || action === 'run_skill') {
             setExecutingButtonKey(buttonKey);
             try {
-                const response = await axios.post('/api/vault/skills/execute-button-action', {
+                const response = await executeVaultTableButtonAction({
                     note_id: note.id,
                     button_action: action,
                     button_config: config,
                 });
-                if (response.data?.status === 'ok') {
+                if (response.status === 'ok') {
                     toast.success(t('schema.functionality_executed_success', 'Functionality executed successfully'));
                     onTranslated?.({});
                 }
             } catch (error) {
-                toast.error(error.response?.data?.detail || t('schema.functionality_execute_error', 'Could not execute functionality'));
+                toast.error(apiErrorDetail(error, t('schema.functionality_execute_error', 'Could not execute functionality')));
             } finally {
                 setExecutingButtonKey(null);
             }
@@ -2952,17 +2948,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 if (action === 'ai_prompt' || action === 'run_skill') {
                     setExecutingButtonKey(btnKey);
                     try {
-                        const res = await axios.post('/api/vault/skills/execute-button-action', {
+                        const res = await executeVaultTableButtonAction({
                             note_id: noteId,
                             button_action: action,
                             button_config: cfg.button_config || {},
                         });
-                        if (res.data?.status === 'ok') {
+                        if (res.status === 'ok') {
                             toast.success(t('schema.button_executed_success', "Acció executada correctament"));
                             onTranslated?.({});
                         }
                     } catch (err) {
-                        toast.error(err.response?.data?.detail || "Error executing action");
+                        toast.error(apiErrorDetail(err, "Error executing action"));
                     } finally {
                         setExecutingButtonKey(null);
                     }
