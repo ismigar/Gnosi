@@ -2,7 +2,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ComponentType,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Users } from 'lucide-react';
@@ -10,7 +9,7 @@ import { Plus, Users } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import ConfirmModal from '../components/ConfirmModal';
 import ContactDetail from '../components/Contacts/ContactDetail';
-import ContactFormLegacy from '../components/Contacts/ContactForm';
+import ContactForm from '../components/Contacts/ContactForm';
 import ContactList from '../components/Contacts/ContactList';
 import { logError } from '../lib/notifyError';
 import { toast } from '../lib/toast';
@@ -28,7 +27,6 @@ import {
 import { useIntegrations } from '../shared/api/useIntegrationsData';
 import {
   buildContactIntegrationCatalog,
-  type ContactIntegrationAccount,
 } from './contactIntegrationCatalog';
 
 
@@ -36,20 +34,6 @@ interface DeleteContactState {
   readonly contactId: string | null;
   readonly isOpen: boolean;
 }
-
-
-interface ContactFormBoundaryProps {
-  readonly contact: Contact | null;
-  readonly contactAccounts: readonly ContactIntegrationAccount[];
-  readonly onBack: () => void;
-  readonly onCancel: () => void;
-  readonly onSave: (formData: ContactWriteInput) => unknown;
-}
-
-
-const ContactForm = ContactFormLegacy as unknown as ComponentType<
-  ContactFormBoundaryProps
->;
 
 
 function describeError(error: unknown): string {
