@@ -2,12 +2,66 @@
 
 import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
+from typing import Literal, TypeAlias
 from typing import cast as _strict_cast
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
+
+
+ResourceMetadata: TypeAlias = dict[str, _LegacyAny]
+MetadataLookupSource: TypeAlias = Literal[
+    "crossref",
+    "arxiv",
+    "pubmed",
+    "openlibrary",
+    "url",
+]
+
+
+class MetadataLookupResponse(BaseModel):
+    """Metadata suggestion returned for one external identifier."""
+
+    source: MetadataLookupSource | None
+    identifier: str | None
+    suggested: ResourceMetadata
+    error: str | None
+
+
+class UrlTranslationResponse(BaseModel):
+    """Zotero web-capture result, including a count only on success."""
+
+    source: Literal["web"]
+    identifier: str
+    suggested: ResourceMetadata
+    count: int | None = None
+    error: str | None
+
+
+class PdfRecognitionResponse(BaseModel):
+    """Metadata recognized from an uploaded PDF."""
+
+    identifiers: dict[str, str]
+    source: MetadataLookupSource | Literal["pdf"] | None
+    suggested: ResourceMetadata
+    error: str | None
+
+
+class ZoteroExtraPromotionResponse(BaseModel):
+    """Summary of promoting one dynamic Zotero extra field."""
+
+    column_created: bool
+    column_id: _LegacyAny
+    column_name: str
+    migrated: int
+    migrated_ids: list[str]
+    migrated_with_etags: list[ResourceMetadata]
+    skipped: list[str]
+    conflicts: list[ResourceMetadata]
+    errors: list[ResourceMetadata]
 
 
 def _ensure_recursos_citation_key(
@@ -206,9 +260,11 @@ def _pubmed_to_recursos(doc: dict[_LegacyAny, _LegacyAny]) -> dict[_LegacyAny, _
 @router.post(
     "/lookup-metadata",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=MetadataLookupResponse,
 )
-async def lookup_metadata(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
+async def lookup_metadata(
+    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
+) -> ResourceMetadata:
     """Resolves external metadata for a given identifier.
 
     Body (accepts all and picks the best; priority DOI > arXiv > PMID > ISBN > URL):
@@ -242,7 +298,10 @@ async def lookup_metadata(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(.
         inject_citation_key=lambda metadata: _legacy._inject_citation_key(metadata),
         normalize_item_type=lambda metadata: _legacy._normalize_suggested_item_type(metadata),
     )
-    return await _legacy.metadata_lookup.resolve_metadata(payload, dependencies)
+    return _strict_cast(
+        ResourceMetadata,
+        await _legacy.metadata_lookup.resolve_metadata(payload, dependencies),
+    )
 
 
 generate_citation_key_endpoint = _legacy.citation_keys_api.register_route(
@@ -368,9 +427,11 @@ def _pdf_fallback_to_recursos(
 @router.post(
     "/recognize-pdf",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=PdfRecognitionResponse,
 )
-async def recognize_pdf(file: _legacy.UploadFile = _legacy.File(...)) -> _LegacyAny:
+async def recognize_pdf(
+    file: _legacy.UploadFile = _legacy.File(...),
+) -> ResourceMetadata:
     """Detects a PDF's reference, with a metadata fallback for id-less sources.
 
     Strategy:
@@ -449,9 +510,12 @@ def _zotero_item_to_recursos(item: dict[_LegacyAny, _LegacyAny]) -> dict[_Legacy
 @router.post(
     "/translate-url",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=UrlTranslationResponse,
+    response_model_exclude_unset=True,
 )
-async def translate_url(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
+async def translate_url(
+    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
+) -> ResourceMetadata:
     """Captures a reference from a URL via Zotero translation-server.
 
     Body: { url }. Response with the same shape as `/lookup-metadata`:
@@ -471,7 +535,10 @@ async def translate_url(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...
         inject_citation_key=lambda metadata: _legacy._inject_citation_key(metadata),
         normalize_item_type=lambda metadata: _legacy._normalize_suggested_item_type(metadata),
     )
-    return await _legacy.citation_web_capture.capture_url(payload, dependencies)
+    return _strict_cast(
+        ResourceMetadata,
+        await _legacy.citation_web_capture.capture_url(payload, dependencies),
+    )
 
 
 def _build_dedup_indexes(v_str: str) -> dict[_LegacyAny, _LegacyAny]:
@@ -524,11 +591,11 @@ def _metadata_mutation_dependencies() -> _legacy.metadata_mutations.MetadataMuta
 @router.post(
     "/promote-zotero-extra",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=ZoteroExtraPromotionResponse,
 )
 async def promote_zotero_extra(
     payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+) -> ResourceMetadata:
     """Promotes a `Zotero Extras` field to its own registry column.
 
     Body:
@@ -551,8 +618,11 @@ async def promote_zotero_extra(
       4. Rewrites via `save_page_md`.
 
     """
-    return await _legacy.metadata_mutations.promote_zotero_extra(
-        payload, _metadata_mutation_dependencies()
+    return _strict_cast(
+        ResourceMetadata,
+        await _legacy.metadata_mutations.promote_zotero_extra(
+            payload, _metadata_mutation_dependencies()
+        ),
     )
 
 
