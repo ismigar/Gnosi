@@ -18,7 +18,7 @@ describe('graph keyboard navigation', () => {
     [{ key: 'Add', code: 'NumpadAdd' }, GRAPH_KEYBOARD_ACTIONS.ZOOM_IN],
     [{ key: 'Subtract', code: 'NumpadSubtract' }, GRAPH_KEYBOARD_ACTIONS.ZOOM_OUT],
     [{ key: 'Insert', code: 'Numpad0' }, GRAPH_KEYBOARD_ACTIONS.CENTER],
-  ])('maps %o to %s', (event, expected) => {
+  ] as const)('maps %o to %s', (event, expected) => {
     expect(getGraphKeyboardAction(event)).toBe(expected);
   });
 

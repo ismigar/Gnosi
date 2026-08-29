@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { matchesRule, matchesSearch, matchesTextPattern } from './vaultFilters';
+import {
+    matchesRule,
+    matchesSearch,
+    matchesTextPattern,
+} from './vaultFilters';
 
 describe('text patterns', () => {
     it('supports SQL-style percent wildcards and explicit regular expressions', () => {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { getPanelScrollTarget } from './panelKeyboardNavigation';
+import {
+    getPanelScrollTarget,
+} from './panelKeyboardNavigation';
 
 describe('scrollable panel keyboard navigation', () => {
     it('moves by a row-sized step with the arrow keys', () => {

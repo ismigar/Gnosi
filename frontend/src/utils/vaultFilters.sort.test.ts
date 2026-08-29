@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { compareFieldValues } from './vaultFilters';
 
 describe('compareFieldValues', () => {
-    it.each(['asc', 'desc'])('keeps empty values last for %s sorting', (direction) => {
+    it.each(['asc', 'desc'] as const)('keeps empty values last for %s sorting', (direction) => {
         const values = ['', '2026', '2025', null, undefined];
 
         const sorted = [...values].sort((a, b) => compareFieldValues(a, b, direction));

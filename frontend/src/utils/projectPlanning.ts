@@ -4,19 +4,48 @@
  * Enhanced period values are structured objects. Legacy "start/end" strings
  * remain readable so vaults migrate one edited value at a time.
  */
-
+type LegacyScalar = string | number | bigint | boolean | null | undefined;
+export type PeriodUnit = 'hours' | 'days' | 'years';
+type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
+interface PlanningSettings { [key: string]: unknown; holidays?: readonly LegacyScalar[]; hours_per_day?: LegacyScalar; workday_start?: LegacyScalar; working_weekdays?: readonly LegacyScalar[]; }
+type PlanningSettingsInput = PlanningSettings | null | undefined;
+interface RawDependency { lagMinutes?: LegacyScalar; predecessorId?: LegacyScalar; type?: LegacyScalar; }
+interface PeriodInputObject {
+    actualEnd?: LegacyScalar; actualStart?: LegacyScalar; constraintDate?: LegacyScalar; constraintType?: LegacyScalar; deadline?: LegacyScalar; dependencies?: readonly RawDependency[]; durationDays?: LegacyScalar; durationUnit?: LegacyScalar; durationValue?: LegacyScalar; end?: LegacyScalar; endMode?: LegacyScalar; mode?: LegacyScalar; percentComplete?: LegacyScalar; predecessorIds?: LegacyScalar | readonly LegacyScalar[]; start?: LegacyScalar; startMode?: LegacyScalar;
+}
+export type PeriodInput = LegacyScalar | Date | PeriodInputObject;
+interface NormalizedDependency { lagMinutes: number; predecessorId: string; type: DependencyType; }
+interface ParsedPeriod {
+    actualEnd: string; actualStart: string; constraintDate: string; constraintType: string; deadline: string; dependencies: NormalizedDependency[]; durationDays: number | null; durationUnit: PeriodUnit | null; durationValue: number | null; end: string; endMode: 'auto' | 'manual'; mode: 'automatic' | 'manual'; percentComplete: number; predecessorIds: string[]; start: string; startMode: 'auto' | 'manual'; version: 1 | 3;
+}
+interface SerializedPeriod extends Omit<ParsedPeriod, 'version'> { version: 3; }
+interface BoundaryModes { endMode?: 'auto' | 'manual'; startMode?: 'auto' | 'manual'; }
+interface NormalizedSettings { holidays: ReadonlySet<string>; hoursPerDay: number; startMinutes: number; weekdays: ReadonlySet<number>; }
+interface IdentifiedNote { [key: string]: unknown; id?: LegacyScalar; }
 const DEFAULT_SETTINGS = Object.freeze({
     hours_per_day: 8,
     workday_start: '09:00',
     working_weekdays: [1, 2, 3, 4, 5],
     holidays: [],
 });
-
-const PERIOD_UNITS = new Set(['hours', 'days', 'years']);
-
-const pad = (value) => String(value).padStart(2, '0');
-
-function parseLocalDateTime(value) {
+const PERIOD_UNITS: ReadonlySet<PeriodUnit> = new Set([
+    'hours',
+    'days',
+    'years',
+]);
+const pad = (value: number): string => String(value).padStart(2, '0');
+function isPeriodUnit(value: unknown): value is PeriodUnit {
+    return value === 'hours' || value === 'days' || value === 'years';
+}
+function isLegacyScalarArray(value: LegacyScalar | readonly LegacyScalar[]): value is readonly LegacyScalar[] {
+    return Array.isArray(value);
+}
+function isPeriodObject(value: PeriodInput): value is Date | PeriodInputObject {
+    return value !== null
+        && typeof value === 'object'
+        && !Array.isArray(value);
+}
+function parseLocalDateTime(value: Date | LegacyScalar): Date | null {
     if (value instanceof Date) return new Date(value.getTime());
     const text = String(value || '').trim();
     const match = text.match(
@@ -37,8 +66,7 @@ function parseLocalDateTime(value) {
     const parsed = new Date(text);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
-
-export function formatLocalDateTime(value) {
+export function formatLocalDateTime(value: Date | LegacyScalar): string {
     const date = parseLocalDateTime(value);
     if (!date) return '';
     const year = date.getFullYear();
@@ -46,62 +74,73 @@ export function formatLocalDateTime(value) {
     return `${formattedYear}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
         + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
-
-function validDuration(value) {
+function validDuration(value: LegacyScalar): number | null {
     if (value === '' || value === null || value === undefined) return null;
     const number = Number(value);
     return Number.isFinite(number) && number >= 0 ? number : null;
 }
-
-export function normalizePeriodUnit(value) {
-    return PERIOD_UNITS.has(value) ? value : 'days';
+export function normalizePeriodUnit(value: unknown): PeriodUnit {
+    return isPeriodUnit(value) ? value : 'days';
 }
-
-function configuredHoursPerDay(settings = {}) {
+function configuredHoursPerDay(settings: PlanningSettingsInput = {}): number {
     const value = Number(settings?.hours_per_day);
     return Number.isFinite(value) && value > 0 ? value : DEFAULT_SETTINGS.hours_per_day;
 }
-
-function normalizedIds(value) {
-    const input = Array.isArray(value) ? value : (value ? [value] : []);
+function normalizedIds(value: LegacyScalar | readonly LegacyScalar[] = []): string[] {
+    const input = isLegacyScalarArray(value) ? value : (value ? [value] : []);
     return [...new Set(input.map((item) => String(item || '').trim()).filter(Boolean))];
 }
-
-function normalizedDependencies(value, legacyIds = []) {
-    const input = Array.isArray(value) ? value : [];
-    const dependencies = input.length > 0 ? input : legacyIds.map((predecessorId) => ({ predecessorId }));
-    const seen = new Set();
-    return dependencies.map((dependency) => {
-        const predecessorId = String(dependency?.predecessorId || '').trim();
-        if (!predecessorId || seen.has(predecessorId)) return null;
+function normalizedDependencies(value: readonly RawDependency[] | undefined,
+    legacyIds: readonly string[] = []): NormalizedDependency[] {
+    const input = value ?? [];
+    const dependencies: readonly RawDependency[] = input.length > 0
+        ? input
+        : legacyIds.map((predecessorId): RawDependency => ({ predecessorId }));
+    const seen = new Set<string>();
+    const normalized: NormalizedDependency[] = [];
+    dependencies.forEach((dependency) => {
+        const predecessorId = String(dependency.predecessorId || '').trim();
+        if (!predecessorId || seen.has(predecessorId)) return;
         seen.add(predecessorId);
-        const type = ['FS', 'SS', 'FF', 'SF'].includes(String(dependency?.type || '').toUpperCase())
-            ? String(dependency.type).toUpperCase() : 'FS';
-        const lagMinutes = Number(dependency?.lagMinutes);
-        return { predecessorId, type, lagMinutes: Number.isFinite(lagMinutes) ? lagMinutes : 0 };
-    }).filter(Boolean);
+        const rawType = String(dependency.type || '').toUpperCase();
+        const type: DependencyType = rawType === 'SS' || rawType === 'FF'
+            || rawType === 'SF' ? rawType : 'FS';
+        const lagMinutes = Number(dependency.lagMinutes);
+        normalized.push({
+            predecessorId,
+            type,
+            lagMinutes: Number.isFinite(lagMinutes) ? lagMinutes : 0,
+        });
+    });
+    return normalized;
 }
-
-export function parsePeriod(value) {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
+export function parsePeriod(value: PeriodInput): ParsedPeriod {
+    if (isPeriodObject(value)) {
+        const source: PeriodInputObject = value instanceof Date ? {} : value;
         return {
             version: 3,
-            start: String(value.start || ''),
-            end: String(value.end || ''),
-            durationDays: validDuration(value.durationDays),
-            durationValue: validDuration(value.durationValue),
-            durationUnit: PERIOD_UNITS.has(value.durationUnit) ? value.durationUnit : null,
-            predecessorIds: normalizedIds(value.predecessorIds),
-            dependencies: normalizedDependencies(value.dependencies, normalizedIds(value.predecessorIds)),
-            startMode: ['auto', 'automatic'].includes(value.startMode) ? 'auto' : 'manual',
-            endMode: ['auto', 'automatic'].includes(value.endMode) ? 'auto' : 'manual',
-            mode: value.mode === 'manual' ? 'manual' : 'automatic',
-            constraintType: String(value.constraintType || 'ASAP').toUpperCase(),
-            constraintDate: String(value.constraintDate || ''),
-            deadline: String(value.deadline || ''),
-            percentComplete: Math.min(100, Math.max(0, Number(value.percentComplete) || 0)),
-            actualStart: String(value.actualStart || ''),
-            actualEnd: String(value.actualEnd || ''),
+            start: String(source.start || ''),
+            end: String(source.end || ''),
+            durationDays: validDuration(source.durationDays),
+            durationValue: validDuration(source.durationValue),
+            durationUnit: isPeriodUnit(source.durationUnit)
+                ? source.durationUnit : null,
+            predecessorIds: normalizedIds(source.predecessorIds),
+            dependencies: normalizedDependencies(
+                source.dependencies,
+                normalizedIds(source.predecessorIds),
+            ),
+            startMode: source.startMode === 'auto'
+                || source.startMode === 'automatic' ? 'auto' : 'manual',
+            endMode: source.endMode === 'auto'
+                || source.endMode === 'automatic' ? 'auto' : 'manual',
+            mode: source.mode === 'manual' ? 'manual' : 'automatic',
+            constraintType: String(source.constraintType || 'ASAP').toUpperCase(),
+            constraintDate: String(source.constraintDate || ''),
+            deadline: String(source.deadline || ''),
+            percentComplete: Math.min(100, Math.max(0, Number(source.percentComplete) || 0)),
+            actualStart: String(source.actualStart || ''),
+            actualEnd: String(source.actualEnd || ''),
         };
     }
 
@@ -127,7 +166,7 @@ export function parsePeriod(value) {
     };
 }
 
-export function serializePeriod(value) {
+export function serializePeriod(value: PeriodInput): '' | SerializedPeriod {
     const period = parsePeriod(value);
     if (
         !period.start
@@ -159,7 +198,10 @@ export function serializePeriod(value) {
     };
 }
 
-export function withPeriodBoundaries(value, start, end, modes = {}) {
+export function withPeriodBoundaries(
+    value: PeriodInput, start: LegacyScalar, end: LegacyScalar,
+    modes: BoundaryModes = {},
+): '' | SerializedPeriod {
     const period = parsePeriod(value);
     period.start = String(start || '');
     period.end = String(end || '');
@@ -172,13 +214,18 @@ export function withPeriodBoundaries(value, start, end, modes = {}) {
     return serializePeriod(period);
 }
 
-export function periodBoundary(value, part) {
+export function periodBoundary(value: PeriodInput, part: string): string;
+export function periodBoundary(value: PeriodInput, part?: null): PeriodInput;
+export function periodBoundary(value: PeriodInput, part?: string | null): PeriodInput | string;
+export function periodBoundary(value: PeriodInput,
+    part?: string | null): PeriodInput | string {
     if (!part) return value;
     const period = parsePeriod(value);
     return part === 'end' ? (period.end || period.start) : period.start;
 }
 
-function normalizeSettings(settings = {}, skipNonWorkingDays = true) {
+function normalizeSettings(settings: PlanningSettingsInput = {},
+    skipNonWorkingDays = true): NormalizedSettings {
     const merged = { ...DEFAULT_SETTINGS, ...(settings || {}) };
     const startMatch = String(merged.workday_start || '').match(/^(\d{2}):(\d{2})$/);
     const startMinutes = startMatch
@@ -201,21 +248,22 @@ function normalizeSettings(settings = {}, skipNonWorkingDays = true) {
                 : DEFAULT_SETTINGS.working_weekdays,
         )
         : new Set([0, 1, 2, 3, 4, 5, 6]);
-    const holidays = skipNonWorkingDays
-        ? new Set(
-            (Array.isArray(merged.holidays) ? merged.holidays : [])
+    const holidays: ReadonlySet<string> = skipNonWorkingDays
+        ? new Set<string>(
+            (settings?.holidays ?? [])
                 .map((day) => String(day || '').trim())
                 .filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day)),
         )
-        : new Set();
+        : new Set<string>();
     return { hoursPerDay, startMinutes, weekdays, holidays };
 }
 
-function dayKey(date) {
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+function dayKey(date: Date): string {
+    return `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function dayWindow(date, calendar) {
+function dayWindow(date: Date,
+    calendar: NormalizedSettings): { end: Date; start: Date } | null {
     if (!calendar.weekdays.has(date.getDay()) || calendar.holidays.has(dayKey(date))) {
         return null;
     }
@@ -225,7 +273,8 @@ function dayWindow(date, calendar) {
     return { start, end };
 }
 
-export function nextWorkingInstant(value, settings = {}, skipNonWorkingDays = true) {
+export function nextWorkingInstant(value: Date | LegacyScalar,
+    settings: PlanningSettingsInput = {}, skipNonWorkingDays = true): string {
     const parsed = parseLocalDateTime(value);
     if (!parsed) return '';
     const calendar = normalizeSettings(settings, skipNonWorkingDays);
@@ -244,11 +293,9 @@ export function nextWorkingInstant(value, settings = {}, skipNonWorkingDays = tr
 }
 
 export function addWorkingDuration(
-    startValue,
-    durationDays,
-    settings = {},
-    skipNonWorkingDays = true,
-) {
+    startValue: Date | LegacyScalar, durationDays: LegacyScalar,
+    settings: PlanningSettingsInput = {}, skipNonWorkingDays = true,
+): string {
     const duration = validDuration(durationDays);
     if (duration === null) return '';
     const calendar = normalizeSettings(settings, skipNonWorkingDays);
@@ -295,7 +342,8 @@ export function addWorkingDuration(
  * duration used by the scheduler. The original field remains authoritative for
  * compatibility; durationValue/durationUnit retain the user's exact unit.
  */
-export function periodDurationToWorkingDays(value, unit, settings = {}) {
+export function periodDurationToWorkingDays(value: LegacyScalar, unit: unknown,
+    settings: PlanningSettingsInput = {}): number | null {
     const duration = validDuration(value);
     if (duration === null) return null;
     const normalizedUnit = normalizePeriodUnit(unit);
@@ -306,12 +354,9 @@ export function periodDurationToWorkingDays(value, unit, settings = {}) {
 
 /** Adds a duration using the configured unit, preserving calendar years. */
 export function addPeriodDuration(
-    startValue,
-    durationValue,
-    unit,
-    settings = {},
-    skipNonWorkingDays = true,
-) {
+    startValue: Date | LegacyScalar, durationValue: LegacyScalar, unit: unknown,
+    settings: PlanningSettingsInput = {}, skipNonWorkingDays = true,
+): string {
     const duration = validDuration(durationValue);
     if (duration === null) return '';
     const normalizedUnit = normalizePeriodUnit(unit);
@@ -334,12 +379,9 @@ export function addPeriodDuration(
 
 /** Derives a displayed duration from two period boundaries. */
 export function periodDurationFromBoundaries(
-    startValue,
-    endValue,
-    unit,
-    settings = {},
-    skipNonWorkingDays = true,
-) {
+    startValue: Date | LegacyScalar, endValue: Date | LegacyScalar, unit: unknown,
+    settings: PlanningSettingsInput = {}, skipNonWorkingDays = true,
+): number | null {
     const start = parseLocalDateTime(startValue);
     const end = parseLocalDateTime(endValue);
     if (!start || !end || end < start) return null;
@@ -359,11 +401,9 @@ export function periodDurationFromBoundaries(
 }
 
 export function workingDurationDays(
-    startValue,
-    endValue,
-    settings = {},
-    skipNonWorkingDays = true,
-) {
+    startValue: Date | LegacyScalar, endValue: Date | LegacyScalar,
+    settings: PlanningSettingsInput = {}, skipNonWorkingDays = true,
+): number | null {
     const start = parseLocalDateTime(startValue);
     const end = parseLocalDateTime(endValue);
     if (!start || !end || end < start) return null;
@@ -385,12 +425,9 @@ export function workingDurationDays(
     return Number((minutes / (calendar.hoursPerDay * 60)).toFixed(4));
 }
 
-export function periodDaysInclusive(startOrValue, endValue) {
-    if (
-        startOrValue
-        && typeof startOrValue === 'object'
-        && !Array.isArray(startOrValue)
-    ) {
+export function periodDaysInclusive(startOrValue: PeriodInput,
+    endValue?: Date | LegacyScalar): number | null {
+    if (isPeriodObject(startOrValue)) {
         const period = parsePeriod(startOrValue);
         if (period.durationDays !== null) return period.durationDays;
         return periodDaysInclusive(period.start, period.end);
@@ -401,12 +438,16 @@ export function periodDaysInclusive(startOrValue, endValue) {
     if (!start || !end) return null;
     const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    const diff = Math.round((endDay - startDay) / 86400000) + 1;
+    const diff = Math.round(
+        (endDay.getTime() - startDay.getTime()) / 86400000,
+    ) + 1;
     return diff >= 1 ? diff : null;
 }
 
-export function latestPredecessorEnd(predecessorIds, notes, getPeriodValue) {
-    let latest = null;
+export function latestPredecessorEnd<T extends IdentifiedNote>(
+    predecessorIds: LegacyScalar | readonly LegacyScalar[], notes: readonly T[] | null | undefined,
+    getPeriodValue: (note: T) => PeriodInput): string {
+    let latest: Date | null = null;
     for (const predecessorId of normalizedIds(predecessorIds)) {
         const note = (notes || []).find((candidate) => String(candidate.id) === predecessorId);
         if (!note) continue;
@@ -416,24 +457,28 @@ export function latestPredecessorEnd(predecessorIds, notes, getPeriodValue) {
     return latest ? formatLocalDateTime(latest) : '';
 }
 
-export function dependencySuccessorIds(taskId, notes, getPredecessorIds) {
+export function dependencySuccessorIds<T extends IdentifiedNote>(
+    taskId: LegacyScalar, notes: readonly T[] | null | undefined,
+    getPredecessorIds: (note: T) => LegacyScalar | readonly LegacyScalar[],
+): Set<string> {
     const target = String(taskId || '');
     if (!target) return new Set();
-    const successorsByPredecessor = new Map();
+    const successorsByPredecessor = new Map<string, string[]>();
     for (const note of notes || []) {
-        const noteId = String(note?.id || '');
+        const noteId = String(note.id || '');
         if (!noteId) continue;
         for (const predecessor of normalizedIds(getPredecessorIds(note))) {
             if (!successorsByPredecessor.has(predecessor)) {
                 successorsByPredecessor.set(predecessor, []);
             }
-            successorsByPredecessor.get(predecessor).push(noteId);
+            successorsByPredecessor.get(predecessor)?.push(noteId);
         }
     }
     const blocked = new Set([target]);
     const stack = [target];
     while (stack.length > 0) {
         const current = stack.pop();
+        if (current === undefined) break;
         for (const successor of successorsByPredecessor.get(current) || []) {
             if (blocked.has(successor)) continue;
             blocked.add(successor);
@@ -443,7 +488,11 @@ export function dependencySuccessorIds(taskId, notes, getPredecessorIds) {
     return blocked;
 }
 
-export function wouldCreateDependencyCycle(taskId, predecessorId, notes, getPredecessorIds) {
+export function wouldCreateDependencyCycle<T extends IdentifiedNote>(
+    taskId: LegacyScalar, predecessorId: LegacyScalar,
+    notes: readonly T[] | null | undefined,
+    getPredecessorIds: (note: T) => LegacyScalar | readonly LegacyScalar[],
+): boolean {
     const candidate = String(predecessorId || '');
     if (!candidate) return true;
     return dependencySuccessorIds(taskId, notes, getPredecessorIds).has(candidate);

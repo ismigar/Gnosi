@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    exclusiveToInclusiveAllDayEnd,
-    inclusiveToExclusiveAllDayEnd,
-    shiftCalendarDay,
+  exclusiveToInclusiveAllDayEnd,
+  inclusiveToExclusiveAllDayEnd,
+  shiftCalendarDay,
 } from './calendarUtils';
 
 describe('calendar all-day boundaries', () => {

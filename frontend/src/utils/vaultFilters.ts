@@ -1,12 +1,67 @@
 /**
- * vaultFilters.js
+ * vaultFilters.ts
  * Shared filtering utilities for the Vault and the Graph.
  */
-import { periodBoundary } from './projectPlanning';
+import {
+    periodBoundary,
+    type PeriodInput,
+} from './projectPlanning';
 
-function localToday() {
+type FilterPrimitive = string | number | bigint | boolean | null | undefined;
+export type FilterValue =
+    | FilterPrimitive
+    | readonly FilterValue[]
+    | { readonly [key: string]: FilterValue };
+
+export interface FilterItem {
+    [key: string]: FilterValue;
+    label?: FilterPrimitive;
+    metadata?: Readonly<Record<string, FilterValue>>;
+    title?: FilterPrimitive;
+}
+
+export interface FilterRule {
+    field?: string | null;
+    operator?: string | null;
+    periodPart?: string | null;
+    value?: FilterValue;
+}
+
+export interface FilterGroup {
+    conjunction?: string | null;
+    rules: readonly FilterNode[];
+}
+
+export type FilterNode = FilterGroup | FilterRule | null | undefined;
+
+interface FilterView { filterTree?: FilterNode; filters?: readonly FilterNode[]; }
+
+interface StructuredAuthor { readonly [key: string]: FilterValue; cognom1?: FilterValue; cognom2?: FilterValue; nom?: FilterValue; }
+
+type TextMatchMode = 'contains' | 'equals';
+type AuthorKey = 'nom' | 'cognom1' | 'cognom2';
+
+const AUTHOR_KEYS: readonly AuthorKey[] = ['nom', 'cognom1', 'cognom2'];
+
+function isFilterValueArray(
+    value: FilterValue,
+): value is readonly FilterValue[] {
+    return Array.isArray(value);
+}
+
+function stringifyFilterValue(value: FilterValue): string {
+    return Reflect.apply(String, undefined, [value]);
+}
+
+function toPeriodInput(value: FilterValue): PeriodInput {
+    return isFilterValueArray(value)
+        ? value.map(stringifyFilterValue).join(',')
+        : value;
+}
+
+function localToday(): string {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 // Values that a checkbox considers "checked" (parity with the backend:
@@ -31,11 +86,11 @@ export const ISO_DATE_RE = /^\d{4}-\d{2}/;
 
 // Exported so that rollupUtils (percent_checked) counts checkboxes with the
 // SAME truthiness logic as the filters.
-export function asBool(x) {
+export function asBool(x: FilterValue): boolean {
     if (x === true) return true;
     if (x === false || x === null || x === undefined || x === '') return false;
     if (typeof x === 'number') return x !== 0;
-    return TRUTHY.has(String(x).trim().toLowerCase());
+    return TRUTHY.has(stringifyFilterValue(x).trim().toLowerCase());
 }
 
 // Parses a numeric value tolerant of the LOCAL decimal (comma): "0,25" → 0.25.
@@ -45,15 +100,15 @@ export function asBool(x) {
 // thousands); the rest falls back to parseFloat (compatible with "0.25", "5", "12.5"…).
 // Exported so that DbViewEmbed.applyFilter compares numbers with the SAME
 // semantics (parity between the main view's filter and the embedded one's).
-export function parseNumericValue(s) {
-    const t = String(s).trim();
+export function parseNumericValue(s: FilterValue): number {
+    const t = stringifyFilterValue(s).trim();
     return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : parseFloat(t);
 }
 
 const REGEX_LITERAL_RE = /^\/([\s\S]*)\/([a-z]*)$/i;
 const REGEX_FLAGS_RE = /^[dgimsuvy]*$/;
 
-function escapeRegex(value) {
+function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
@@ -63,17 +118,29 @@ function escapeRegex(value) {
  * SQL-style wildcard and `/pattern/flags` is treated as an explicit regular
  * expression. Invalid regular expressions safely fall back to plain text.
  */
-export function matchesTextPattern(candidate, pattern, mode = 'contains') {
+export function matchesTextPattern(
+    candidate: FilterValue,
+    pattern: FilterValue,
+    mode: TextMatchMode = 'contains',
+): boolean {
     const source = normalizeForSearch(candidate);
-    const rawPattern = String(pattern ?? '');
+    const rawPattern = stringifyFilterValue(pattern ?? '');
     const normalizedPattern = normalizeForSearch(rawPattern);
     if (!normalizedPattern) return true;
 
     const literal = rawPattern.match(REGEX_LITERAL_RE);
-    if (literal && REGEX_FLAGS_RE.test(literal[2])) {
+    const literalBody = literal?.[1];
+    const literalFlags = literal?.[2];
+    if (
+        literalBody !== undefined
+        && literalFlags !== undefined
+        && REGEX_FLAGS_RE.test(literalFlags)
+    ) {
         try {
-            const normalizedBody = normalizeForSearch(literal[1]);
-            const flags = Array.from(new Set(`${literal[2]}i`.replace(/[gy]/g, ''))).join('');
+            const normalizedBody = normalizeForSearch(literalBody);
+            const flags = Array.from(
+                new Set(`${literalFlags}i`.replace(/[gy]/g, '')),
+            ).join('');
             return new RegExp(normalizedBody, flags).test(source);
         } catch {
             // Keep the filter usable while the user is typing an incomplete regex.
@@ -92,29 +159,41 @@ export function matchesTextPattern(candidate, pattern, mode = 'contains') {
         : source.includes(normalizedPattern);
 }
 
-function isStructuredAuthor(value) {
-    return value && typeof value === 'object' && !Array.isArray(value)
+function isStructuredAuthor(value: FilterValue): value is StructuredAuthor {
+    return value !== null
+        && typeof value === 'object'
+        && !isFilterValueArray(value)
         && ('nom' in value || 'cognom1' in value || 'cognom2' in value);
 }
 
-function textValues(value) {
+function textValues(value: FilterValue): string[] {
     if (value === null || value === undefined || value === '') return [];
-    if (Array.isArray(value)) return value.flatMap(textValues);
+    if (isFilterValueArray(value)) return value.flatMap(textValues);
     if (isStructuredAuthor(value)) {
-        return [[value.nom, value.cognom1, value.cognom2].filter(Boolean).join(' ')];
+        return [[value.nom, value.cognom1, value.cognom2]
+            .map((part) => stringifyFilterValue(part ?? ''))
+            .filter(Boolean)
+            .join(' ')];
     }
     if (typeof value === 'object') return Object.values(value).flatMap(textValues);
-    return [String(value)];
+    return [stringifyFilterValue(value)];
 }
 
-function matchesStructuredAuthorship(rawValue, filterValue, operator) {
+function matchesStructuredAuthorship(
+    rawValue: FilterValue,
+    filterValue: FilterValue,
+    operator: string | null | undefined,
+): boolean | null {
     if (!isStructuredAuthor(filterValue)) return null;
-    const criteria = ['nom', 'cognom1', 'cognom2']
-        .filter(key => String(filterValue[key] || '').trim())
-        .map(key => [key, filterValue[key]]);
+    const criteria = AUTHOR_KEYS
+        .filter((key) => stringifyFilterValue(filterValue[key] || '').trim())
+        .map((key): readonly [AuthorKey, FilterValue] => [
+            key,
+            filterValue[key],
+        ]);
     if (!criteria.length) return true;
     const mode = operator === 'equals' || operator === 'not_equals' ? 'equals' : 'contains';
-    const authors = Array.isArray(rawValue) ? rawValue : [rawValue];
+    const authors = isFilterValueArray(rawValue) ? rawValue : [rawValue];
     const positive = authors.some(author => {
         if (isStructuredAuthor(author)) {
             return criteria.every(([key, pattern]) => matchesTextPattern(author[key], pattern, mode));
@@ -136,7 +215,10 @@ function matchesStructuredAuthorship(rawValue, filterValue, operator) {
  * @param {Object} filter - A single rule { field, operator, value }
  * @returns {boolean}
  */
-export function matchesRule(item, filter) {
+export function matchesRule(
+    item: FilterItem,
+    filter: FilterRule | null | undefined,
+): boolean {
     if (!filter || !filter.field) return true;
     // Get the field's value (supports special 'title' or metadata)
     let rawVal = filter.field === 'title'
@@ -151,7 +233,10 @@ export function matchesRule(item, filter) {
             && 'start' in rawVal
         )
     ) {
-        rawVal = periodBoundary(rawVal, filter.periodPart || 'start');
+        rawVal = periodBoundary(
+            toPeriodInput(rawVal),
+            filter.periodPart || 'start',
+        );
     }
 
     const authorshipMatch = matchesStructuredAuthorship(rawVal, filter.value, filter.operator);
@@ -213,7 +298,7 @@ export function matchesRule(item, filter) {
                 // lexicographic = chronological). Arbitrary text ("foo") does NOT match
                 // a numeric threshold — it used to fall into this and diverge from the backend.
                 if (targetNum && !ISO_DATE_RE.test(xt)) return false;
-                const xl = arrLower[i];
+                const xl = arrLower.at(i) ?? '';
                 if (isGt) return isEq ? xl >= filterVal : xl > filterVal;
                 return isEq ? xl <= filterVal : xl < filterVal;
             });
@@ -226,8 +311,11 @@ export function matchesRule(item, filter) {
 // combines its children with `conjunction` ('and' = every / 'or' = some).
 // Shared shape across the 3 filter engines (matchesFilterNode here,
 // DbViewEmbed.applyFilterNode, backend view_snapshot.apply_filter_node).
-export function isFilterGroup(node) {
-    return !!node && Array.isArray(node.rules);
+export function isFilterGroup(node: FilterNode): node is FilterGroup {
+    return node !== null
+        && node !== undefined
+        && 'rules' in node
+        && Array.isArray(node.rules);
 }
 
 /**
@@ -243,12 +331,15 @@ export function isFilterGroup(node) {
  * @param {Object} node - A rule or a group
  * @returns {boolean}
  */
-export function matchesFilterNode(item, node) {
+export function matchesFilterNode(
+    item: FilterItem,
+    node: FilterNode,
+): boolean {
     if (!node) return true;
     if (isFilterGroup(node)) {
         const rules = node.rules;
-        if (!rules || rules.length === 0) return true;
-        const useOr = String(node.conjunction || 'and').toLowerCase() === 'or';
+        if (rules.length === 0) return true;
+        const useOr = (node.conjunction || 'and').toLowerCase() === 'or';
         return useOr
             ? rules.some(child => matchesFilterNode(item, child))
             : rules.every(child => matchesFilterNode(item, child));
@@ -265,7 +356,10 @@ export function matchesFilterNode(item, node) {
  * @param {Array} filters - List of filters [{ field, operator, value }]
  * @returns {boolean} - True if the object satisfies ALL filters
  */
-export function matchesFilters(item, filters = []) {
+export function matchesFilters(
+    item: FilterItem,
+    filters: readonly FilterNode[] | null | undefined = [],
+): boolean {
     if (!filters || filters.length === 0) return true;
     return matchesFilterNode(item, { conjunction: 'and', rules: filters });
 }
@@ -280,10 +374,13 @@ export function matchesFilters(item, filters = []) {
  * @param {Object} view - A view object ({ filterTree?, filters? })
  * @returns {boolean}
  */
-export function viewMatchesFilters(item, view) {
-    const tree = view && view.filterTree;
+export function viewMatchesFilters(
+    item: FilterItem,
+    view: FilterView | null | undefined,
+): boolean {
+    const tree = view?.filterTree;
     if (isFilterGroup(tree)) return matchesFilterNode(item, tree);
-    return matchesFilters(item, (view && view.filters) || []);
+    return matchesFilters(item, view?.filters || []);
 }
 
 /**
@@ -295,8 +392,9 @@ export function viewMatchesFilters(item, view) {
  * @param {*} value - The value to normalize
  * @returns {string} - The value without punctuation/leading symbols
  */
-export function sortKey(value) {
-    return String(value ?? '').replace(/^[\p{P}\p{S}\s]+/u, '');
+export function sortKey(value: FilterValue): string {
+    return stringifyFilterValue(value ?? '')
+        .replace(/^[\p{P}\p{S}\s]+/u, '');
 }
 
 /**
@@ -318,16 +416,24 @@ export function sortKey(value) {
  * @param {string} direction - 'asc' (default) or 'desc'
  * @returns {number} negative if A goes before, positive if after, 0 if tied
  */
-export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
-    const comparable = (raw) => {
-        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+export function compareFieldValues(
+    aRaw: FilterValue,
+    bRaw: FilterValue,
+    direction = 'asc',
+): number {
+    const comparable = (raw: FilterValue): FilterValue => {
+        if (
+            raw
+            && typeof raw === 'object'
+            && !isFilterValueArray(raw)
+        ) {
             if ('start' in raw) return raw.start || '';
             return raw.name ?? raw.title ?? '';
         }
         return raw ?? '';
     };
-    const aVal = String(comparable(aRaw));
-    const bVal = String(comparable(bRaw));
+    const aVal = stringifyFilterValue(comparable(aRaw));
+    const bVal = stringifyFilterValue(comparable(bRaw));
     const aEmpty = aVal.trim() === '';
     const bEmpty = bVal.trim() === '';
     if (aEmpty || bEmpty) {
@@ -356,8 +462,11 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
  * Catalan/Castilian vault, where the user doesn't usually type the accents—. The cedilla
  * (ç→c) and the tilde (ñ→n) are also decomposed and removed.
  */
-export const normalizeForSearch = (s) =>
-    String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+export const normalizeForSearch = (s: FilterValue): string =>
+    stringifyFilterValue(s ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '');
 
 /**
  * Applies a text search to the title and metadata.
@@ -366,7 +475,10 @@ export const normalizeForSearch = (s) =>
  * @param {string} searchTerm - The search text
  * @returns {boolean} - True if the text is found in the object
  */
-export function matchesSearch(item, searchTerm = '') {
+export function matchesSearch(
+    item: FilterItem,
+    searchTerm: string | null | undefined = '',
+): boolean {
     if (!searchTerm || !searchTerm.trim()) return true;
 
     if (matchesTextPattern(item.title || item.label || '', searchTerm, 'contains')) return true;

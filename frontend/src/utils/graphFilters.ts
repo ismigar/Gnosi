@@ -1,4 +1,99 @@
-import { matchesFilters, matchesSearch as vaultMatchesSearch } from './vaultFilters';
+import type Graph from 'graphology';
+
+import {
+    matchesFilters,
+    matchesSearch as vaultMatchesSearch,
+    type FilterItem,
+    type FilterNode,
+    type FilterValue,
+} from './vaultFilters';
+
+interface GraphMetadata extends Readonly<Record<string, FilterValue>> {
+    account_id?: string | null;
+    calendar_id?: string | null;
+    database_id?: string | null;
+    database_table_id?: string | null;
+    source?: string | null;
+    table_id?: string | null;
+    tags?: readonly string[];
+}
+
+interface GraphNodeAttributes extends FilterItem {
+    cluster?: string | null;
+    clusters_extra?: readonly (string | null | undefined)[];
+    created_time?: string | number | null;
+    database_id?: string | null;
+    database_table_id?: string | null;
+    kind?: string | null;
+    label?: string | null;
+    metadata?: GraphMetadata;
+    path?: string | null;
+    project?: string | null;
+    table_id?: string | null;
+    tags?: readonly string[];
+}
+
+interface GraphEdgeAttributes {
+    [key: string]: unknown;
+    hidden?: unknown;
+    kind?: string | null;
+}
+
+interface GraphFilterOptions {
+    activeClusters?: ReadonlySet<string>;
+    activeKinds?: ReadonlySet<string>;
+    activeMediaTags?: ReadonlySet<string> | null;
+    activeProjects?: ReadonlySet<string>;
+    activeTableFilters?: ReadonlySet<string>;
+    activeTableId?: string | null;
+    depth?: number | string;
+    fieldFilters?: Readonly<Record<
+        string,
+        ReadonlySet<string> | null | undefined
+    >>;
+    graphTableFiltersSettings?: readonly string[] | null;
+    hideIsolated?: boolean;
+    isVaultMode?: boolean;
+    onlyIsolated?: boolean;
+    searchTerm?: string | null;
+    selectedNode?: string | null;
+    sourcesInitialized?: boolean;
+    timelineDate?: number | null;
+    vaultFilters?: readonly FilterNode[];
+    visibleDatabases?: readonly string[];
+    visibleTables?: readonly string[];
+}
+
+interface GraphFilterResult {
+    visibleEdges: Set<string>;
+    visibleNodes: Set<string>;
+}
+
+interface GraphNeighborhood {
+    edges: Set<string>;
+    nodes: Set<string>;
+}
+
+type FilterGraph = Graph<GraphNodeAttributes, GraphEdgeAttributes>;
+
+type SystemCategory =
+    | 'assets'
+    | 'calendar'
+    | 'contacts'
+    | 'drawings'
+    | 'images'
+    | 'mail'
+    | 'wiki';
+
+function stringifyGraphValue(value: FilterValue): string {
+    return Reflect.apply(String, undefined, [value]);
+}
+
+function isFilterValueArray(
+    value: FilterValue,
+): value is readonly FilterValue[] {
+    return Array.isArray(value);
+}
 
 export { matchesFilters, vaultMatchesSearch };
 
@@ -6,13 +101,19 @@ export { matchesFilters, vaultMatchesSearch };
 // "Història"), as expected in a Catalan/Castilian vault. NFD decomposes
 // accented letters and combining marks are removed (U+0300–U+036F:
 // accents, cedilla, titlla).
-const foldAccents = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const foldAccents = (value: FilterValue): string =>
+    stringifyGraphValue(value ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '');
 
 /**
  * Determines the logical table/category ID for a node, unifying registry nodes,
  * system entities (calendar, contacts…) and standard BD pages.
  */
-export function getEffectiveTableId(attrs) {
+export function getEffectiveTableId(
+    attrs: GraphNodeAttributes,
+): string | null {
     const nodeDb = attrs.database_id || attrs.metadata?.database_id;
     const nodeTableRaw = attrs.table_id || attrs.database_table_id
         || attrs.metadata?.table_id || attrs.metadata?.database_table_id;
@@ -48,7 +149,9 @@ export function getEffectiveTableId(attrs) {
 }
 
 /** Returns the system category for a node (wiki/calendar/contacts/mail/drawings/images/assets), or null for BD pages. */
-export function getSystemCategory(attrs) {
+export function getSystemCategory(
+    attrs: GraphNodeAttributes,
+): SystemCategory | null {
     const nodeDb = attrs.database_id || attrs.metadata?.database_id;
     const nodeTableRaw = attrs.table_id || attrs.database_table_id
         || attrs.metadata?.table_id || attrs.metadata?.database_table_id;
@@ -72,7 +175,10 @@ export function getSystemCategory(attrs) {
  * Looks up a field value from node attrs using case-insensitive metadata key matching.
  * Needed because the schema may use 'Tags' while frontmatter YAML uses 'tags'.
  */
-export function resolveMetaValue(attrs, fieldName) {
+export function resolveMetaValue(
+    attrs: GraphNodeAttributes,
+    fieldName: string,
+): FilterValue {
     if (attrs[fieldName] !== undefined) return attrs[fieldName];
     const meta = attrs.metadata || {};
     const lower = fieldName.toLowerCase();
@@ -81,10 +187,12 @@ export function resolveMetaValue(attrs, fieldName) {
 }
 
 /** Normalises a raw field value (scalar or array) to an array of non-empty strings. */
-export function toValueStrings(raw) {
+export function toValueStrings(raw: FilterValue): string[] {
     if (raw === undefined || raw === null || raw === "") return [];
-    const arr = Array.isArray(raw) ? raw : [raw];
-    return arr.filter(v => v !== undefined && v !== null && v !== "").map(String);
+    const values = isFilterValueArray(raw) ? raw : [raw];
+    return values
+        .filter((value) => value !== undefined && value !== null && value !== '')
+        .map(stringifyGraphValue);
 }
 
 /**
@@ -92,9 +200,12 @@ export function toValueStrings(raw) {
  * Hidden nodes and edges belong to the backing graph, but not to the topology
  * currently shown to the user.
  */
-export function getVisibleHoverNeighborhood(graph, node) {
-    const nodes = new Set([node]);
-    const edges = new Set();
+export function getVisibleHoverNeighborhood(
+    graph: FilterGraph,
+    node: string,
+): GraphNeighborhood {
+    const nodes = new Set<string>([node]);
+    const edges = new Set<string>();
 
     graph.forEachEdge((edge, attrs, source, target) => {
         if (attrs.kind === 'suggestion') return;
@@ -108,11 +219,14 @@ export function getVisibleHoverNeighborhood(graph, node) {
     return { nodes, edges };
 }
 
-export function applyFilters(graph, filters) {
+export function applyFilters(
+    graph: FilterGraph,
+    filters: GraphFilterOptions,
+): GraphFilterResult {
     const {
-        activeClusters = new Set(),
-        activeKinds = new Set(),
-        activeProjects = new Set(),
+        activeClusters = new Set<string>(),
+        activeKinds = new Set<string>(),
+        activeProjects = new Set<string>(),
         hideIsolated = false,
         onlyIsolated = false,
         selectedNode = null,
@@ -122,16 +236,16 @@ export function applyFilters(graph, filters) {
         visibleDatabases = [],
         visibleTables = [],
         sourcesInitialized = false,
-        activeTableFilters = new Set(),
+        activeTableFilters = new Set<string>(),
         fieldFilters = {},
         isVaultMode = false,
         vaultFilters = [],
         activeTableId = null,
-        activeMediaTags = new Set()
+        activeMediaTags = new Set<string>()
     } = filters;
 
-    const visibleNodes = new Set();
-    const visibleEdges = new Set();
+    const visibleNodes = new Set<string>();
+    const visibleEdges = new Set<string>();
 
     const hasDbVisibility = visibleDatabases.length > 0;
     const hasTableVisibility = visibleTables.length > 0;
@@ -141,11 +255,15 @@ export function applyFilters(graph, filters) {
 
     if (selectedNode) {
         const maxDepth = Number(depth);
-        const queue = [{ node: selectedNode, d: 0 }];
+        const queue: Array<{ d: number; node: string }> = [
+            { node: selectedNode, d: 0 },
+        ];
         visibleNodes.add(selectedNode);
 
         while (queue.length > 0) {
-            const { node, d } = queue.shift();
+            const current = queue.shift();
+            if (!current) break;
+            const { node, d } = current;
             if (d >= maxDepth) continue;
             try {
                 graph.neighbors(node).forEach((neighbor) => {
@@ -182,7 +300,6 @@ export function applyFilters(graph, filters) {
             const isWikiNode = attrs.kind === 'Wiki' || (!nodeDb && (!nodeTableRaw || nodeTableRaw === '__wiki__'));
 
             const systemCategory = getSystemCategory(attrs);
-            const isSystemNode = !!systemCategory;
             const effectiveTableId = getEffectiveTableId(attrs);
 
             // Vault mode
@@ -205,14 +322,15 @@ export function applyFilters(graph, filters) {
             // inherited behavior ("empty = show everything") so as not to leave the graph
             // blank during loading/migration.
             const enforceSources = sourcesInitialized;
-            if (isSystemNode) {
+            if (systemCategory) {
                 const isBucketOnly = ['wiki', 'drawings', 'images', 'assets'].includes(systemCategory);
                 if (enforceSources || hasDbVisibility) {
                     if (!visibleDbSet.has(systemCategory)) return;
                 }
                 // wiki/drawings/images/assets have no sub-element: they are only filtered by category.
                 if (!isBucketOnly && (enforceSources || hasTableVisibility)) {
-                    if (!visibleTableSet.has(effectiveTableId)) return;
+                    if (effectiveTableId === null
+                        || !visibleTableSet.has(effectiveTableId)) return;
                 }
             } else {
                 if (nodeTableRaw) {
@@ -238,8 +356,16 @@ export function applyFilters(graph, filters) {
                     if (!activeTableFilters.has('__wiki__')) return;
                 } else {
                     const configuredTables = filters.graphTableFiltersSettings || [];
-                    const isManaged = configuredTables.includes(nodeTableRaw);
-                    if (isManaged && !activeTableFilters.has(nodeTableRaw)) return;
+                    const isManaged = nodeTableRaw !== null
+                        && nodeTableRaw !== undefined
+                        ? configuredTables.includes(nodeTableRaw)
+                        : false;
+                    if (
+                        isManaged
+                        && nodeTableRaw !== null
+                        && nodeTableRaw !== undefined
+                        && !activeTableFilters.has(nodeTableRaw)
+                    ) return;
                 }
             }
 
@@ -247,7 +373,7 @@ export function applyFilters(graph, filters) {
             if (hasFieldFilters) {
                 for (const [fieldKey, activeValues] of Object.entries(fieldFilters)) {
                     if (!activeValues || activeValues.size === 0) continue;
-                    const [tableId, fieldName] = fieldKey.split(':');
+                    const [tableId, fieldName = ''] = fieldKey.split(':');
                     if (effectiveTableId !== tableId) continue;
                     const nodeVals = toValueStrings(resolveMetaValue(attrs, fieldName));
                     if (!nodeVals.some(v => activeValues.has(v))) return;
@@ -272,7 +398,8 @@ export function applyFilters(graph, filters) {
                 matchMediaTags = nodeTags.some(tag => activeMediaTags.has(tag));
             }
 
-            const matchSearch = !searchTerm?.trim() || foldAccents(attrs.label).includes(foldAccents(searchTerm).trim());
+            const matchSearch = !searchTerm?.trim()
+                || foldAccents(attrs.label).includes(foldAccents(searchTerm).trim());
             const matchTimeline = !timelineDate || !attrs.created_time
                 || new Date(attrs.created_time).getTime() <= timelineDate;
             const isNodeVisible = matchCluster && matchKind && matchProject
@@ -309,7 +436,7 @@ export function applyFilters(graph, filters) {
         // exclusive modes at once.
         const effectiveHideIsolated = hideIsolated && !onlyIsolated;
         if (effectiveHideIsolated || onlyIsolated) {
-            const connectedNodes = new Set();
+            const connectedNodes = new Set<string>();
             visibleEdges.forEach((edge) => {
                 connectedNodes.add(graph.source(edge));
                 connectedNodes.add(graph.target(edge));

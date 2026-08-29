@@ -9,8 +9,10 @@ describe('sortFieldItems', () => {
             { id: '1', name: 'Alpha' },
         ];
 
-        expect(sortFieldItems(fields, (field) => field.name, 'ca').map((field) => field.name))
-            .toEqual(['Alpha', 'Àrea', 'zeta']);
+        expect(
+            sortFieldItems(fields, (field) => field.name, 'ca')
+                .map((field) => field.name),
+        ).toEqual(['Alpha', 'Àrea', 'zeta']);
         expect(fields.map((field) => field.name)).toEqual(['zeta', 'Àrea', 'Alpha']);
     });
 });

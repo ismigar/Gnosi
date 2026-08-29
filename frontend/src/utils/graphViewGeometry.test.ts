@@ -22,6 +22,8 @@ describe('graph view geometry', () => {
       centerY: 0,
     };
     const transform = createMinimapTransform(bounds, 200, 100, 1);
+    expect(transform).not.toBeNull();
+    if (!transform) return;
 
     expect(transform.graphToMinimap(0, 50)).toEqual({ x: 100, y: 0 });
     const point = transform.minimapToGraph(175, 75);
@@ -32,11 +34,14 @@ describe('graph view geometry', () => {
 
   it('derives the minimap viewport from Sigma viewport conversions', () => {
     const transform = {
-      graphToMinimap: (x, y) => ({ x: x * 2, y: y * 3 }),
+      graphToMinimap: (x: number, y: number) => ({ x: x * 2, y: y * 3 }),
     };
     const renderer = {
       getDimensions: () => ({ width: 100, height: 50 }),
-      viewportToGraph: ({ x, y }) => ({ x: x / 10, y: y / 10 }),
+      viewportToGraph: ({ x, y }: { x: number; y: number }) => ({
+        x: x / 10,
+        y: y / 10,
+      }),
     };
 
     expect(getCameraViewportRect(renderer, transform)).toEqual({
@@ -50,7 +55,10 @@ describe('graph view geometry', () => {
   it('keeps the complete camera frame inside the minimap transform', () => {
     const renderer = {
       getDimensions: () => ({ width: 100, height: 50 }),
-      viewportToGraph: ({ x, y }) => ({ x: x / 2 - 10, y: y / 2 - 5 }),
+      viewportToGraph: ({ x, y }: { x: number; y: number }) => ({
+        x: x / 2 - 10,
+        y: y / 2 - 5,
+      }),
     };
     const graphBounds = {
       minX: 0,
@@ -67,6 +75,8 @@ describe('graph view geometry', () => {
     const combinedBounds = mergeGraphBounds(graphBounds, cameraBounds);
     const transform = createMinimapTransform(combinedBounds, 200, 100);
     const rect = getCameraViewportRect(renderer, transform);
+    expect(rect).not.toBeNull();
+    if (!rect) return;
 
     expect(rect.x).toBeGreaterThan(0);
     expect(rect.y).toBeGreaterThan(0);

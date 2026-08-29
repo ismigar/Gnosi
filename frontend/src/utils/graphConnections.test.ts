@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import Graph from 'graphology';
 import { getVisibleConnectionGroups } from './graphConnections';
 
-function buildGraph() {
+function buildGraph(): Graph {
     const graph = new Graph();
     graph.addNode('a', { kind: 'page', label: 'Alpha' });
     graph.addNode('b', { kind: 'page', label: 'Beta' });
@@ -30,6 +30,8 @@ describe('visible connection groups', () => {
             { showSemanticSuggestions: true },
             proposals,
         );
+        const structuralEdgeId = groups.at(0)?.targets.at(0)?.id;
+        expect(typeof structuralEdgeId).toBe('string');
 
         expect(groups).toEqual([
             {
@@ -37,7 +39,7 @@ describe('visible connection groups', () => {
                 label: 'Alpha',
                 url: undefined,
                 targets: [{
-                    id: expect.any(String),
+                    id: structuralEdgeId,
                     label: 'Beta',
                     url: undefined,
                     type: 'wikilink',
@@ -69,6 +71,6 @@ describe('visible connection groups', () => {
         );
 
         expect(groups).toHaveLength(1);
-        expect(groups[0].targets[0].type).toBe('wikilink');
+        expect(groups.at(0)?.targets.at(0)?.type).toBe('wikilink');
     });
 });

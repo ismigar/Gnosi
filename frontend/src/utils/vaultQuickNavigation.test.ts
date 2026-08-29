@@ -46,8 +46,8 @@ describe('vault quick navigation', () => {
             { id: 'newer', title: 'Newer', last_modified: '2026-07-29T12:00:00Z' },
         ];
 
-        expect(selectRecentNotes(notes).map(note => note.id)).toEqual(['newer', 'older']);
-        expect(notes.map(note => note.id)).toEqual(['generated', 'older', 'newer']);
+        expect(selectRecentNotes(notes).map((note) => note.id)).toEqual(['newer', 'older']);
+        expect(notes.map((note) => note.id)).toEqual(['generated', 'older', 'newer']);
     });
 
     it('shows generated indexes as a fallback when they are the only pages', () => {

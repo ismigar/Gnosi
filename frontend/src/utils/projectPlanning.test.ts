@@ -14,7 +14,12 @@ import {
     wouldCreateDependencyCycle,
 } from './projectPlanning';
 
-const settings = {
+const settings: Readonly<{
+    holidays: string[];
+    hours_per_day: number;
+    workday_start: string;
+    working_weekdays: number[];
+}> = {
     hours_per_day: 8,
     workday_start: '09:00',
     working_weekdays: [1, 2, 3, 4, 5],
@@ -142,7 +147,8 @@ describe('project planning periods', () => {
             { id: 'b', predecessors: ['a'] },
             { id: 'c', predecessors: ['b'] },
         ];
-        const getIds = (note) => note.predecessors;
+        const getIds = (note: { predecessors: string[] }): string[] =>
+            note.predecessors;
         expect([...dependencySuccessorIds('a', notes, getIds)].sort())
             .toEqual(['a', 'b', 'c']);
         expect(wouldCreateDependencyCycle('a', 'c', notes, getIds)).toBe(true);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import Graph from 'graphology';
 import { applyFilters, getVisibleHoverNeighborhood } from './graphFilters';
 
-function buildCrossTableGraph() {
+function buildCrossTableGraph(): Graph {
     const graph = new Graph();
     graph.addNode('source', {
         kind: 'page',
@@ -45,7 +45,7 @@ describe('cross-table graph filtering', () => {
 });
 
 describe('visible graph topology', () => {
-    function buildProposalGraph() {
+    function buildProposalGraph(): Graph {
         const graph = new Graph();
         graph.addNode('a', { kind: 'page' });
         graph.addNode('b', { kind: 'page' });
