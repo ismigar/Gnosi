@@ -10266,16 +10266,6 @@ export interface components {
             /** To */
             to?: string;
         };
-        /** Body_spam_msg_api_mail_messages__message_id__spam_post */
-        Body_spam_msg_api_mail_messages__message_id__spam_post: {
-            /** Spam */
-            spam: boolean;
-        };
-        /** Body_star_msg_api_mail_messages__message_id__star_post */
-        Body_star_msg_api_mail_messages__message_id__star_post: {
-            /** Starred */
-            starred: boolean;
-        };
         /** Body_start_synchronization_api_vault_literature_synchronizations__source_id__post */
         Body_start_synchronization_api_vault_literature_synchronizations__source_id__post: {
             /**
@@ -12192,6 +12182,280 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** MailAccountEnabledRequest */
+        MailAccountEnabledRequest: {
+            /** @default true */
+            enabled: components["schemas"]["JsonValue"];
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailAccountEnabledResponse */
+        MailAccountEnabledResponse: {
+            /** Email */
+            email: string;
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** MailAttachmentResponse */
+        MailAttachmentResponse: {
+            /** Cid */
+            cid?: string | null;
+            /** Content Type */
+            content_type?: string | null;
+            /** Filename */
+            filename?: string | null;
+            /** Part Index */
+            part_index?: number | null;
+            /** Size */
+            size?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailBatchRequest */
+        MailBatchRequest: {
+            /** Action */
+            action?: string | null;
+            /** Ids */
+            ids?: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailBatchResponse */
+        MailBatchResponse: {
+            /** Processed */
+            processed: number;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
+        /**
+         * MailCountsResponse
+         * @description Counts keyed by provider folder or virtual category.
+         */
+        MailCountsResponse: {
+            [key: string]: components["schemas"]["MailFolderCountResponse"];
+        };
+        /** MailDraftSaveRequest */
+        MailDraftSaveRequest: {
+            /**
+             * Account
+             * @default
+             */
+            account: string;
+            /**
+             * Bcc
+             * @default
+             */
+            bcc: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /**
+             * Cc
+             * @default
+             */
+            cc: string;
+            /** Draft Id */
+            draft_id?: string | null;
+            /** Imap Uid */
+            imap_uid?: string | null;
+            /**
+             * Subject
+             * @default
+             */
+            subject: string;
+            /**
+             * To
+             * @default
+             */
+            to: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailDraftSaveResponse */
+        MailDraftSaveResponse: {
+            /** Draft Id */
+            draft_id: string;
+            /** Imap Uid */
+            imap_uid: string | null;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
+        /** MailExtractEntitiesRequest */
+        MailExtractEntitiesRequest: {
+            /**
+             * Context
+             * @default
+             */
+            context: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailExtractEntitiesResponse */
+        MailExtractEntitiesResponse: {
+            /** Contacts */
+            contacts: components["schemas"]["JsonValue"][];
+            /** Error */
+            error?: string | null;
+            /** Events */
+            events: components["schemas"]["JsonValue"][];
+            /** Provider */
+            provider?: string | null;
+            /** Raw */
+            raw?: string | null;
+        };
+        /** MailFolderCountResponse */
+        MailFolderCountResponse: {
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Unread
+             * @default 0
+             */
+            unread: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailFolderResponse */
+        MailFolderResponse: {
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailFoldersResponse */
+        MailFoldersResponse: {
+            /** Folders */
+            folders: components["schemas"]["MailFolderResponse"][];
+        };
+        /** MailGenerateDraftRequest */
+        MailGenerateDraftRequest: {
+            /**
+             * Context
+             * @default
+             */
+            context: string;
+            /**
+             * Prompt
+             * @default Write a professional response.
+             */
+            prompt: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailGenerateDraftResponse */
+        MailGenerateDraftResponse: {
+            /** Draft */
+            draft: string;
+            /** Provider */
+            provider: string;
+        };
+        /**
+         * MailMessageResponse
+         * @description Provider-neutral message with preserved provider additions.
+         */
+        MailMessageResponse: {
+            /** Account */
+            account?: string | null;
+            /** Archived */
+            archived?: boolean | null;
+            /** Attachments */
+            attachments?: components["schemas"]["MailAttachmentResponse"][] | null;
+            /** Bcc */
+            bcc?: string | string[] | null;
+            /** Body Html */
+            body_html?: string | null;
+            /** Body Text */
+            body_text?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Cc */
+            cc?: string | string[] | null;
+            /**
+             * Date
+             * @default
+             */
+            date: string;
+            /** Gm Thrid */
+            gm_thrid?: string | null;
+            /**
+             * Has Attachments
+             * @default false
+             */
+            has_attachments: boolean;
+            /** Id */
+            id: string;
+            /** Imap Folder */
+            imap_folder?: string | null;
+            /** Imap Uid */
+            imap_uid?: string | null;
+            /** Inline Images */
+            inline_images?: components["schemas"]["MailAttachmentResponse"][] | null;
+            /**
+             * Is Read
+             * @default false
+             */
+            is_read: boolean;
+            /**
+             * Is Starred
+             * @default false
+             */
+            is_starred: boolean;
+            /** Recipient */
+            recipient?: string | string[] | null;
+            /** Sender */
+            sender: string;
+            /** Snippet */
+            snippet?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Subject */
+            subject: string;
+            /** Thread Id */
+            thread_id: string;
+            /**
+             * Timestamp
+             * @default 0
+             */
+            timestamp: number;
+            /** Type */
+            type?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailMessagesResponse */
+        MailMessagesResponse: {
+            /** Error */
+            error?: string | null;
+            /** Messages */
+            messages: components["schemas"]["MailMessageResponse"][];
+            /** Next Page Token */
+            next_page_token: string | null;
+            /** Total */
+            total: number;
+        };
+        /** MailMessageTagsResponse */
+        MailMessageTagsResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+            /** Tag Ids */
+            tag_ids: string[];
+        };
         /** MailMessageTagsSetSchema */
         MailMessageTagsSetSchema: {
             /**
@@ -12217,6 +12481,90 @@ export interface components {
             /** Tag Ids */
             tag_ids: string[];
         };
+        /** MailMessageUpdateRequest */
+        MailMessageUpdateRequest: {
+            /** Category */
+            category?: string | null;
+            /** Is Read */
+            is_read?: boolean | null;
+            /** Is Starred */
+            is_starred?: boolean | null;
+            /** Snoozed Until */
+            snoozed_until?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailMoveRequest */
+        MailMoveRequest: {
+            /** Imap Folder */
+            imap_folder?: string | null;
+            /** Imap Uid */
+            imap_uid?: string | null;
+            /** Target Folder */
+            target_folder?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailRecipientSuggestionResponse */
+        MailRecipientSuggestionResponse: {
+            /** Email */
+            email: string;
+            /** Freq */
+            freq: number;
+            /** Name */
+            name: string;
+            /** Source */
+            source: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailRecipientSuggestionsResponse */
+        MailRecipientSuggestionsResponse: {
+            /** Group Suggestions */
+            group_suggestions: components["schemas"]["MailRecipientSuggestionResponse"][];
+            /** Suggestions */
+            suggestions: components["schemas"]["MailRecipientSuggestionResponse"][];
+        };
+        /** MailSnoozeRequest */
+        MailSnoozeRequest: {
+            /** Snooze Until */
+            snooze_until?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailSpamRequest */
+        MailSpamRequest: {
+            /** Spam */
+            spam: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailStarRequest */
+        MailStarRequest: {
+            /** Starred */
+            starred: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MailStatusResponse */
+        MailStatusResponse: {
+            /** Status */
+            status: string;
+        };
+        /** MailSyncResponse */
+        MailSyncResponse: {
+            /** Accounts */
+            accounts: string[];
+            /** Failed */
+            failed: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "success" | "partial";
+            /** Synced Count */
+            synced_count: number;
+        };
         /** MailTagCreateSchema */
         MailTagCreateSchema: {
             /**
@@ -12227,6 +12575,50 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** MailTaggedMessageResponse */
+        MailTaggedMessageResponse: {
+            /** Account Email */
+            account_email: string;
+            /** Date Str */
+            date_str: string;
+            /** Message Id */
+            message_id: string;
+            /** Sender */
+            sender: string;
+            /** Subject */
+            subject: string;
+        };
+        /** MailTaggedMessagesResponse */
+        MailTaggedMessagesResponse: {
+            /** Messages */
+            messages: components["schemas"]["MailTaggedMessageResponse"][];
+            tag: components["schemas"]["MailTagResponse"];
+        };
+        /** MailTagResponse */
+        MailTagResponse: {
+            /** Color */
+            color: string;
+            /** Created At */
+            created_at: string | null;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** MailTagsBatchRequest */
+        MailTagsBatchRequest: {
+            /** Message Ids */
+            message_ids?: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * MailTagsByMessageResponse
+         * @description Tag identifiers keyed by message identifier.
+         */
+        MailTagsByMessageResponse: {
+            [key: string]: string[];
+        };
         /** MailTagUpdateSchema */
         MailTagUpdateSchema: {
             /** Color */
@@ -12234,32 +12626,24 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /** MailThreadResponse */
+        MailThreadResponse: {
+            /** Messages */
+            messages: components["schemas"]["MailMessageResponse"][];
+        };
         /** MailViewCreateSchema */
         MailViewCreateSchema: {
-            /**
-             * Actions
-             * @default [
-             *       "archive",
-             *       "trash",
-             *       "mark_read"
-             *     ]
-             */
-            actions: string[];
-            /**
-             * Fields
-             * @default []
-             */
-            fields: components["schemas"]["MailViewFieldSchema"][];
+            /** Actions */
+            actions?: string[];
+            /** Fields */
+            fields?: components["schemas"]["MailViewFieldSchema"][];
             /**
              * Filter Logic
              * @default AND
              */
             filter_logic: string;
-            /**
-             * Filters
-             * @default []
-             */
-            filters: components["schemas"]["MailViewFilterSchema"][];
+            /** Filters */
+            filters?: components["schemas"]["MailViewFilterSchema"][];
             /**
              * Group By
              * @default none
@@ -12298,35 +12682,46 @@ export interface components {
             field: string;
             /** Operator */
             operator: string;
-            /** Value */
-            value: unknown;
+            value: components["schemas"]["JsonValue"];
+        };
+        /** MailViewResponse */
+        MailViewResponse: {
+            /** Actions */
+            actions: string[];
+            /** Created At */
+            created_at: string | null;
+            /** Fields */
+            fields: components["schemas"]["MailViewFieldSchema"][];
+            /** Filter Logic */
+            filter_logic: string;
+            /** Filters */
+            filters: components["schemas"]["MailViewFilterSchema"][];
+            /** Group By */
+            group_by: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Sort By */
+            sort_by: string;
+            /** Sort Dir */
+            sort_dir: string;
+            /** Updated At */
+            updated_at: string | null;
         };
         /** MailViewUpdateSchema */
         MailViewUpdateSchema: {
-            /**
-             * Actions
-             * @default [
-             *       "archive",
-             *       "trash",
-             *       "mark_read"
-             *     ]
-             */
-            actions: string[];
-            /**
-             * Fields
-             * @default []
-             */
-            fields: components["schemas"]["MailViewFieldSchema"][];
+            /** Actions */
+            actions?: string[];
+            /** Fields */
+            fields?: components["schemas"]["MailViewFieldSchema"][];
             /**
              * Filter Logic
              * @default AND
              */
             filter_logic: string;
-            /**
-             * Filters
-             * @default []
-             */
-            filters: components["schemas"]["MailViewFilterSchema"][];
+            /** Filters */
+            filters?: components["schemas"]["MailViewFilterSchema"][];
             /**
              * Group By
              * @default none
@@ -20539,9 +20934,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MailAccountEnabledRequest"];
             };
         };
         responses: {
@@ -20551,7 +20944,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailAccountEnabledResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20581,9 +20974,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MailExtractEntitiesRequest"];
             };
         };
         responses: {
@@ -20593,7 +20984,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailExtractEntitiesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20623,9 +21014,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MailGenerateDraftRequest"];
             };
         };
         responses: {
@@ -20635,7 +21024,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailGenerateDraftResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20667,9 +21056,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MailBatchRequest"];
             };
         };
         responses: {
@@ -20679,7 +21066,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailBatchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20717,7 +21104,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailCountsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20747,9 +21134,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MailDraftSaveRequest"];
             };
         };
         responses: {
@@ -20759,7 +21144,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailDraftSaveResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20797,7 +21182,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20836,7 +21221,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20873,9 +21258,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -20912,7 +21295,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailFoldersResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20957,7 +21340,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailMessagesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20998,7 +21381,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailMessageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21030,9 +21413,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MailMessageUpdateRequest"];
             };
         };
         responses: {
@@ -21042,7 +21423,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21083,7 +21464,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21127,9 +21508,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -21169,9 +21548,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -21204,9 +21581,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MailMoveRequest"];
             };
         };
         responses: {
@@ -21216,7 +21591,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21257,7 +21632,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21302,7 +21677,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21334,9 +21709,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MailSnoozeRequest"];
             };
         };
         responses: {
@@ -21346,7 +21719,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21380,7 +21753,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Body_spam_msg_api_mail_messages__message_id__spam_post"];
+                "application/json": components["schemas"]["MailSpamRequest"];
             };
         };
         responses: {
@@ -21390,7 +21763,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21424,7 +21797,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Body_star_msg_api_mail_messages__message_id__star_post"];
+                "application/json": components["schemas"]["MailStarRequest"];
             };
         };
         responses: {
@@ -21434,7 +21807,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21472,7 +21845,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */
@@ -21514,7 +21887,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailMessageTagsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21555,7 +21928,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21595,7 +21968,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailRecipientSuggestionsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21637,7 +22010,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21676,7 +22049,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailSyncResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21712,7 +22085,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailTagResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -21752,7 +22125,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailTagResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21794,7 +22167,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailTagResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21868,7 +22241,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailTaggedMessagesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21898,9 +22271,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MailTagsBatchRequest"];
             };
         };
         responses: {
@@ -21910,7 +22281,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailTagsByMessageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21950,7 +22321,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailThreadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21986,7 +22357,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailViewResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -22026,7 +22397,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailViewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22068,7 +22439,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MailViewResponse"];
                 };
             };
             /** @description Validation Error */

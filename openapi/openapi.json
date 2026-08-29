@@ -1456,32 +1456,6 @@
         "title": "Body_send_mail_api_mail_send_post",
         "type": "object"
       },
-      "Body_spam_msg_api_mail_messages__message_id__spam_post": {
-        "properties": {
-          "spam": {
-            "title": "Spam",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "spam"
-        ],
-        "title": "Body_spam_msg_api_mail_messages__message_id__spam_post",
-        "type": "object"
-      },
-      "Body_star_msg_api_mail_messages__message_id__star_post": {
-        "properties": {
-          "starred": {
-            "title": "Starred",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "starred"
-        ],
-        "title": "Body_star_msg_api_mail_messages__message_id__star_post",
-        "type": "object"
-      },
       "Body_start_synchronization_api_vault_literature_synchronizations__source_id__post": {
         "properties": {
           "full": {
@@ -6508,6 +6482,679 @@
         "title": "LoginPayload",
         "type": "object"
       },
+      "MailAccountEnabledRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "enabled": {
+            "$ref": "#/components/schemas/JsonValue",
+            "default": true
+          }
+        },
+        "title": "MailAccountEnabledRequest",
+        "type": "object"
+      },
+      "MailAccountEnabledResponse": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email",
+          "enabled"
+        ],
+        "title": "MailAccountEnabledResponse",
+        "type": "object"
+      },
+      "MailAttachmentResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "cid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cid"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "part_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Index"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          }
+        },
+        "title": "MailAttachmentResponse",
+        "type": "object"
+      },
+      "MailBatchRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "title": "MailBatchRequest",
+        "type": "object"
+      },
+      "MailBatchResponse": {
+        "properties": {
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "processed"
+        ],
+        "title": "MailBatchResponse",
+        "type": "object"
+      },
+      "MailCountsResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/MailFolderCountResponse"
+        },
+        "description": "Counts keyed by provider folder or virtual category.",
+        "title": "MailCountsResponse",
+        "type": "object"
+      },
+      "MailDraftSaveRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "account": {
+            "default": "",
+            "title": "Account",
+            "type": "string"
+          },
+          "bcc": {
+            "default": "",
+            "title": "Bcc",
+            "type": "string"
+          },
+          "body": {
+            "default": "",
+            "title": "Body",
+            "type": "string"
+          },
+          "cc": {
+            "default": "",
+            "title": "Cc",
+            "type": "string"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Id"
+          },
+          "imap_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap Uid"
+          },
+          "subject": {
+            "default": "",
+            "title": "Subject",
+            "type": "string"
+          },
+          "to": {
+            "default": "",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "title": "MailDraftSaveRequest",
+        "type": "object"
+      },
+      "MailDraftSaveResponse": {
+        "properties": {
+          "draft_id": {
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "imap_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap Uid"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "draft_id",
+          "imap_uid"
+        ],
+        "title": "MailDraftSaveResponse",
+        "type": "object"
+      },
+      "MailExtractEntitiesRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "context": {
+            "default": "",
+            "title": "Context",
+            "type": "string"
+          }
+        },
+        "title": "MailExtractEntitiesRequest",
+        "type": "object"
+      },
+      "MailExtractEntitiesResponse": {
+        "properties": {
+          "contacts": {
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Contacts",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          }
+        },
+        "required": [
+          "events",
+          "contacts"
+        ],
+        "title": "MailExtractEntitiesResponse",
+        "type": "object"
+      },
+      "MailFolderCountResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "unread": {
+            "default": 0,
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "title": "MailFolderCountResponse",
+        "type": "object"
+      },
+      "MailFolderResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "MailFolderResponse",
+        "type": "object"
+      },
+      "MailFoldersResponse": {
+        "properties": {
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/MailFolderResponse"
+            },
+            "title": "Folders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "folders"
+        ],
+        "title": "MailFoldersResponse",
+        "type": "object"
+      },
+      "MailGenerateDraftRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "context": {
+            "default": "",
+            "title": "Context",
+            "type": "string"
+          },
+          "prompt": {
+            "default": "Write a professional response.",
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "title": "MailGenerateDraftRequest",
+        "type": "object"
+      },
+      "MailGenerateDraftResponse": {
+        "properties": {
+          "draft": {
+            "title": "Draft",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draft",
+          "provider"
+        ],
+        "title": "MailGenerateDraftResponse",
+        "type": "object"
+      },
+      "MailMessageResponse": {
+        "additionalProperties": true,
+        "description": "Provider-neutral message with preserved provider additions.",
+        "properties": {
+          "account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account"
+          },
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived"
+          },
+          "attachments": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MailAttachmentResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachments"
+          },
+          "bcc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bcc"
+          },
+          "body_html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body Html"
+          },
+          "body_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body Text"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "cc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cc"
+          },
+          "date": {
+            "default": "",
+            "title": "Date",
+            "type": "string"
+          },
+          "gm_thrid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gm Thrid"
+          },
+          "has_attachments": {
+            "default": false,
+            "title": "Has Attachments",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "imap_folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap Folder"
+          },
+          "imap_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap Uid"
+          },
+          "inline_images": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MailAttachmentResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inline Images"
+          },
+          "is_read": {
+            "default": false,
+            "title": "Is Read",
+            "type": "boolean"
+          },
+          "is_starred": {
+            "default": false,
+            "title": "Is Starred",
+            "type": "boolean"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient"
+          },
+          "sender": {
+            "title": "Sender",
+            "type": "string"
+          },
+          "snippet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snippet"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "thread_id": {
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "default": 0,
+            "title": "Timestamp"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "required": [
+          "id",
+          "thread_id",
+          "subject",
+          "sender"
+        ],
+        "title": "MailMessageResponse",
+        "type": "object"
+      },
+      "MailMessageTagsResponse": {
+        "properties": {
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          },
+          "tag_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tag Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "tag_ids"
+        ],
+        "title": "MailMessageTagsResponse",
+        "type": "object"
+      },
       "MailMessageTagsSetSchema": {
         "properties": {
           "account_email": {
@@ -6544,6 +7191,291 @@
         "title": "MailMessageTagsSetSchema",
         "type": "object"
       },
+      "MailMessageUpdateRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "is_read": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Read"
+          },
+          "is_starred": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Starred"
+          },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
+          }
+        },
+        "title": "MailMessageUpdateRequest",
+        "type": "object"
+      },
+      "MailMessagesResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/MailMessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "next_page_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Page Token"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "messages",
+          "next_page_token",
+          "total"
+        ],
+        "title": "MailMessagesResponse",
+        "type": "object"
+      },
+      "MailMoveRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "imap_folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap Folder"
+          },
+          "imap_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imap Uid"
+          },
+          "target_folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Folder"
+          }
+        },
+        "title": "MailMoveRequest",
+        "type": "object"
+      },
+      "MailRecipientSuggestionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "freq": {
+            "title": "Freq",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "source",
+          "freq"
+        ],
+        "title": "MailRecipientSuggestionResponse",
+        "type": "object"
+      },
+      "MailRecipientSuggestionsResponse": {
+        "properties": {
+          "group_suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/MailRecipientSuggestionResponse"
+            },
+            "title": "Group Suggestions",
+            "type": "array"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/MailRecipientSuggestionResponse"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suggestions",
+          "group_suggestions"
+        ],
+        "title": "MailRecipientSuggestionsResponse",
+        "type": "object"
+      },
+      "MailSnoozeRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "snooze_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snooze Until"
+          }
+        },
+        "title": "MailSnoozeRequest",
+        "type": "object"
+      },
+      "MailSpamRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "spam": {
+            "title": "Spam",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "spam"
+        ],
+        "title": "MailSpamRequest",
+        "type": "object"
+      },
+      "MailStarRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "starred": {
+            "title": "Starred",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "starred"
+        ],
+        "title": "MailStarRequest",
+        "type": "object"
+      },
+      "MailStatusResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "MailStatusResponse",
+        "type": "object"
+      },
+      "MailSyncResponse": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "failed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "success",
+              "partial"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "synced_count": {
+            "title": "Synced Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "synced_count",
+          "accounts",
+          "failed"
+        ],
+        "title": "MailSyncResponse",
+        "type": "object"
+      },
       "MailTagCreateSchema": {
         "properties": {
           "color": {
@@ -6560,6 +7492,41 @@
           "name"
         ],
         "title": "MailTagCreateSchema",
+        "type": "object"
+      },
+      "MailTagResponse": {
+        "properties": {
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "color",
+          "created_at"
+        ],
+        "title": "MailTagResponse",
         "type": "object"
       },
       "MailTagUpdateSchema": {
@@ -6590,14 +7557,103 @@
         "title": "MailTagUpdateSchema",
         "type": "object"
       },
+      "MailTaggedMessageResponse": {
+        "properties": {
+          "account_email": {
+            "title": "Account Email",
+            "type": "string"
+          },
+          "date_str": {
+            "title": "Date Str",
+            "type": "string"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "sender": {
+            "title": "Sender",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id",
+          "account_email",
+          "subject",
+          "sender",
+          "date_str"
+        ],
+        "title": "MailTaggedMessageResponse",
+        "type": "object"
+      },
+      "MailTaggedMessagesResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/MailTaggedMessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "tag": {
+            "$ref": "#/components/schemas/MailTagResponse"
+          }
+        },
+        "required": [
+          "tag",
+          "messages"
+        ],
+        "title": "MailTaggedMessagesResponse",
+        "type": "object"
+      },
+      "MailTagsBatchRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "message_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Message Ids",
+            "type": "array"
+          }
+        },
+        "title": "MailTagsBatchRequest",
+        "type": "object"
+      },
+      "MailTagsByMessageResponse": {
+        "additionalProperties": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "description": "Tag identifiers keyed by message identifier.",
+        "title": "MailTagsByMessageResponse",
+        "type": "object"
+      },
+      "MailThreadResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/MailMessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "title": "MailThreadResponse",
+        "type": "object"
+      },
       "MailViewCreateSchema": {
         "properties": {
           "actions": {
-            "default": [
-              "archive",
-              "trash",
-              "mark_read"
-            ],
             "items": {
               "type": "string"
             },
@@ -6605,7 +7661,6 @@
             "type": "array"
           },
           "fields": {
-            "default": [],
             "items": {
               "$ref": "#/components/schemas/MailViewFieldSchema"
             },
@@ -6618,7 +7673,6 @@
             "type": "string"
           },
           "filters": {
-            "default": [],
             "items": {
               "$ref": "#/components/schemas/MailViewFilterSchema"
             },
@@ -6696,7 +7750,7 @@
             "type": "string"
           },
           "value": {
-            "title": "Value"
+            "$ref": "#/components/schemas/JsonValue"
           }
         },
         "required": [
@@ -6707,14 +7761,95 @@
         "title": "MailViewFilterSchema",
         "type": "object"
       },
+      "MailViewResponse": {
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/MailViewFieldSchema"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "filter_logic": {
+            "title": "Filter Logic",
+            "type": "string"
+          },
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/MailViewFilterSchema"
+            },
+            "title": "Filters",
+            "type": "array"
+          },
+          "group_by": {
+            "title": "Group By",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sort_by": {
+            "title": "Sort By",
+            "type": "string"
+          },
+          "sort_dir": {
+            "title": "Sort Dir",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "fields",
+          "filters",
+          "filter_logic",
+          "group_by",
+          "sort_by",
+          "sort_dir",
+          "actions",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MailViewResponse",
+        "type": "object"
+      },
       "MailViewUpdateSchema": {
         "properties": {
           "actions": {
-            "default": [
-              "archive",
-              "trash",
-              "mark_read"
-            ],
             "items": {
               "type": "string"
             },
@@ -6722,7 +7857,6 @@
             "type": "array"
           },
           "fields": {
-            "default": [],
             "items": {
               "$ref": "#/components/schemas/MailViewFieldSchema"
             },
@@ -6735,7 +7869,6 @@
             "type": "string"
           },
           "filters": {
-            "default": [],
             "items": {
               "$ref": "#/components/schemas/MailViewFilterSchema"
             },
@@ -29308,9 +30441,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
+                "$ref": "#/components/schemas/MailAccountEnabledRequest"
               }
             }
           },
@@ -29320,7 +30451,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailAccountEnabledResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29432,9 +30565,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MailExtractEntitiesRequest"
               }
             }
           },
@@ -29444,7 +30575,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailExtractEntitiesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29556,9 +30689,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MailGenerateDraftRequest"
               }
             }
           },
@@ -29568,7 +30699,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailGenerateDraftResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29689,9 +30822,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MailBatchRequest"
               }
             }
           },
@@ -29701,7 +30832,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailBatchResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29823,7 +30956,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailCountsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29936,9 +31071,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MailDraftSaveRequest"
               }
             }
           },
@@ -29948,7 +31081,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailDraftSaveResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30069,7 +31204,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30200,7 +31337,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30327,11 +31466,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -30451,7 +31585,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailFoldersResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30668,7 +31804,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailMessagesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30822,7 +31960,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailMessageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30942,9 +32082,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Update",
-                "type": "object"
+                "$ref": "#/components/schemas/MailMessageUpdateRequest"
               }
             }
           },
@@ -30954,7 +32092,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31100,7 +32240,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31290,11 +32432,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -31440,11 +32577,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -31573,9 +32705,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MailMoveRequest"
               }
             }
           },
@@ -31585,7 +32715,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31732,7 +32864,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31882,7 +33016,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32004,9 +33140,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MailSnoozeRequest"
               }
             }
           },
@@ -32016,7 +33150,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32147,7 +33283,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_spam_msg_api_mail_messages__message_id__spam_post"
+                "$ref": "#/components/schemas/MailSpamRequest"
               }
             }
           },
@@ -32157,7 +33293,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32287,7 +33425,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_star_msg_api_mail_messages__message_id__star_post"
+                "$ref": "#/components/schemas/MailStarRequest"
               }
             }
           },
@@ -32297,7 +33435,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32418,7 +33558,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Get Message Tags Api Mail Messages  Message Id  Tags Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -32547,7 +33693,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailMessageTagsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32693,7 +33841,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32842,7 +33992,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailRecipientSuggestionsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -32972,7 +34124,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33111,7 +34265,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailSyncResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33223,7 +34379,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MailTagResponse"
+                  },
+                  "title": "Response List Tags Api Mail Tags Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -33343,7 +34505,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailTagResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33455,9 +34619,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MailTagsBatchRequest"
               }
             }
           },
@@ -33467,7 +34629,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailTagsByMessageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33712,7 +34876,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailTagResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33833,7 +34999,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailTaggedMessagesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -33964,7 +35132,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailThreadResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34076,7 +35246,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MailViewResponse"
+                  },
+                  "title": "Response List Views Api Mail Views Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -34196,7 +35372,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailViewResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34441,7 +35619,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MailViewResponse"
+                }
               }
             },
             "description": "Successful Response"
