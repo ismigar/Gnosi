@@ -3,11 +3,16 @@ import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
 import axios from '../shared/api/legacy-http';
 import { fetchBrainTableStatus, fetchLlmWikiConfig } from '../shared/api/brain';
 import { openDailyNote } from '../shared/api/daily-notes';
+import { saveDrawing } from '../shared/api/drawings';
 import { fetchReferenceTable } from '../shared/api/literature-resources';
 import { fetchResourceProcessingStatus } from '../shared/api/resource-processing';
 import {
     createVaultPage,
+    createVaultDatabase,
+    createVaultTable,
+    deleteVaultDatabase,
     deleteVaultPage,
+    deleteVaultTable,
     fetchVaultAliasIndex,
     fetchVaultGlobalIndex,
     fetchVaultPage,
@@ -17,6 +22,7 @@ import {
     fetchVaultTablePagesSnapshot,
     patchVaultPage,
     resolveVaultTitle,
+    renameVaultTable,
     restoreVaultPage,
     saveVaultPage,
 } from '../shared/api/vaults';
@@ -2609,7 +2615,7 @@ export default function VaultDashboard() {
                 toast.success(t('success.template_created')); // Add success.template_created
                 loadPage(created.id);
             } else if (isApp) {
-                await axios.post('/api/vault/databases', { name: title });
+                await createVaultDatabase({ name: title });
                 await fetchRegistry();
                 toast.success(t('success.app_created', { name: title }));
             } else if (isRename) {
@@ -2638,7 +2644,7 @@ export default function VaultDashboard() {
                 toast.success(t('success.view_renamed'));
             } else if (isDrawing) {
                 const drawingId = uuidv4();
-                await axios.put(`/api/vault/drawings/${drawingId}`, {
+                await saveDrawing(drawingId, {
                     title: title,
                     data: {},
                     metadata: {}
@@ -2649,7 +2655,7 @@ export default function VaultDashboard() {
                 pushToHistory({ type: 'drawing', id: drawingId });
             } else if (isDatabase && databaseId) {
                 // Table inside a Database (App)
-                const tableRes = await axios.post('/api/vault/tables', {
+                const table = await createVaultTable({
                     name: title,
                     database_id: databaseId,
                     locale: i18n.resolvedLanguage || i18n.language,
@@ -2657,8 +2663,8 @@ export default function VaultDashboard() {
                 });
                 await createVaultView({
                     id: uuidv4(),
-                    table_id: tableRes.data.id,
-                    ...buildMainViewBody(tableRes.data.id),
+                    table_id: table.id,
+                    ...buildMainViewBody(table.id),
                 });
                 await fetchRegistry();
                 toast.success(t('success.table_created', { name: title }));
@@ -3578,7 +3584,7 @@ export default function VaultDashboard() {
                 try {
                     const db = registry.databases.find(d => d.id === dbId);
                     if (db) {
-                        await axios.post('/api/vault/databases', { ...db, name: newName });
+                        await createVaultDatabase({ ...db, name: newName });
                         fetchRegistry();
                         toast.success(t('success.db_updated'));
                     }
@@ -3588,7 +3594,7 @@ export default function VaultDashboard() {
             }}
             onDeleteDatabase={async (dbId) => {
                 try {
-                    await axios.delete(`/api/vault/databases/${dbId}`);
+                    await deleteVaultDatabase(dbId);
                     fetchRegistry();
                     if (activeTabId === dbId || activeTableId === dbId) {
                         setActiveTabId(null);
@@ -3603,7 +3609,7 @@ export default function VaultDashboard() {
             }}
             onRenameTable={async (tableId, newName) => {
                 try {
-                    await axios.put(`/api/vault/tables/${tableId}`, { name: newName });
+                    await renameVaultTable(tableId, { name: newName });
                     fetchRegistry();
                     toast.success(t('success.table_updated'));
                 } catch {
@@ -3612,7 +3618,7 @@ export default function VaultDashboard() {
             }}
             onDeleteTable={async (tableId) => {
                 try {
-                    await axios.delete(`/api/vault/tables/${tableId}`);
+                    await deleteVaultTable(tableId);
                     setSplitTableIds(prev => prev.filter(id => id !== tableId));
                     fetchRegistry();
                     if (activeTableId === tableId) {
@@ -4598,7 +4604,7 @@ export default function VaultDashboard() {
                                     // `translation_enabled` is metadata of the table
                                     // (not of the view) because it defines what can be
                                     // translated, not how it's displayed.
-                                    await axios.post(`/api/vault/tables`, {
+                                    await createVaultTable({
                                         ...activeTable,
                                         properties: newProperties,
                                         translation_enabled: !!viewConfig.enableTranslation,
