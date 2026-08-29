@@ -44,6 +44,47 @@ export function subscribeElementEvent<K extends keyof HTMLElementEventMap>(
     };
 }
 
+export interface BrowserViewportSize {
+    readonly height: number;
+    readonly width: number;
+}
+
+export function browserViewportSize(): BrowserViewportSize {
+    return {
+        height: window.innerHeight,
+        width: window.innerWidth,
+    };
+}
+
+export function browserDocumentBody(): HTMLElement {
+    return document.body;
+}
+
+export function eventTargetIsWithin(
+    container: Element,
+    target: EventTarget | null,
+): boolean {
+    return target instanceof Node && container.contains(target);
+}
+
+export function eventTargetClosest(
+    target: EventTarget | null,
+    selector: string,
+): Element | null {
+    return target instanceof Element ? target.closest(selector) : null;
+}
+
+export function observeElementResize(
+    element: Element,
+    callback: ResizeObserverCallback,
+): () => void {
+    const observer = new ResizeObserver(callback);
+    observer.observe(element);
+    return () => {
+        observer.disconnect();
+    };
+}
+
 export function currentBrowserOrigin(): string {
     return window.location.origin;
 }
