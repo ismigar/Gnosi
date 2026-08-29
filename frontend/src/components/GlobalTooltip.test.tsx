@@ -1,25 +1,38 @@
-import React, { act } from 'react';
+import { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { GlobalTooltip } from './GlobalTooltip';
 
-const mountedRoots = [];
+interface MountedRoot {
+    readonly container: HTMLDivElement;
+    readonly root: Root;
+}
+
+const mountedRoots: MountedRoot[] = [];
+const reactTestGlobal = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT: boolean;
+};
 
 beforeAll(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-afterEach(async () => {
+afterEach(() => {
     while (mountedRoots.length > 0) {
-        const { root, container } = mountedRoots.pop();
-        await act(async () => root.unmount());
+        const mounted = mountedRoots.pop();
+        if (!mounted) break;
+        const { root, container } = mounted;
+        act(() => {
+            root.unmount();
+        });
         container.remove();
     }
     document.body.replaceChildren();
 });
 
-async function mountTooltipLayer(markup) {
+async function mountTooltipLayer(markup: string): Promise<HTMLDivElement> {
     const fixture = document.createElement('div');
     fixture.innerHTML = markup;
     document.body.appendChild(fixture);
@@ -31,20 +44,39 @@ async function mountTooltipLayer(markup) {
 
     await act(async () => {
         root.render(<GlobalTooltip />);
+        await Promise.resolve();
     });
 
     return fixture;
 }
 
+function requiredElement(root: ParentNode, selector: string): Element {
+    const element = root.querySelector(selector);
+    if (!element) throw new Error(`Expected fixture element matching "${selector}".`);
+    return element;
+}
+
+function requiredButton(root: ParentNode): HTMLButtonElement {
+    const element = requiredElement(root, 'button');
+    if (!(element instanceof HTMLButtonElement)) throw new Error('Expected a button.');
+    return element;
+}
+
+function requiredDiv(root: ParentNode): HTMLDivElement {
+    const element = requiredElement(root, 'div');
+    if (!(element instanceof HTMLDivElement)) throw new Error('Expected a div.');
+    return element;
+}
+
 describe('GlobalTooltip', () => {
     it('replaces a native title with the shared tooltip on hover', async () => {
         const fixture = await mountTooltipLayer('<button title="Open document">Open</button>');
-        const trigger = fixture.querySelector('button');
+        const trigger = requiredButton(fixture);
 
         expect(trigger.hasAttribute('title')).toBe(false);
         expect(trigger.getAttribute('data-gnosi-tooltip')).toBe('Open document');
 
-        await act(async () => {
+        act(() => {
             trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         });
 
@@ -56,7 +88,7 @@ describe('GlobalTooltip', () => {
 
     it('adopts titles added by lazy content and updates their text', async () => {
         const fixture = await mountTooltipLayer('<button>Lazy action</button>');
-        const trigger = fixture.querySelector('button');
+        const trigger = requiredButton(fixture);
 
         await act(async () => {
             trigger.setAttribute('title', 'First label');
@@ -74,12 +106,14 @@ describe('GlobalTooltip', () => {
 
     it('uses keyboard focus and closes on Escape', async () => {
         const fixture = await mountTooltipLayer('<button title="Keyboard action">Action</button>');
-        const trigger = fixture.querySelector('button');
+        const trigger = requiredButton(fixture);
 
-        await act(async () => trigger.focus());
+        act(() => {
+            trigger.focus();
+        });
         expect(document.getElementById('gnosi-global-tooltip')?.textContent).toBe('Keyboard action');
 
-        await act(async () => {
+        act(() => {
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         });
         expect(document.getElementById('gnosi-global-tooltip')).toBeNull();
@@ -92,8 +126,8 @@ describe('GlobalTooltip', () => {
                 <button type="button">View options</button>
             </div>
         `);
-        const tab = fixture.querySelector('div');
-        const trigger = fixture.querySelector('button');
+        const tab = requiredDiv(fixture);
+        const trigger = requiredButton(fixture);
 
         trigger.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -102,12 +136,12 @@ describe('GlobalTooltip', () => {
             fixture.appendChild(menu);
         });
 
-        await act(async () => {
+        act(() => {
             tab.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         });
         expect(document.getElementById('gnosi-global-tooltip')).not.toBeNull();
 
-        await act(async () => {
+        act(() => {
             trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
 
@@ -118,14 +152,14 @@ describe('GlobalTooltip', () => {
 
     it('closes on a native context-menu request', async () => {
         const fixture = await mountTooltipLayer('<button title="Open actions">Actions</button>');
-        const trigger = fixture.querySelector('button');
+        const trigger = requiredButton(fixture);
 
-        await act(async () => {
+        act(() => {
             trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         });
         expect(document.getElementById('gnosi-global-tooltip')).not.toBeNull();
 
-        await act(async () => {
+        act(() => {
             trigger.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
         });
 
@@ -135,7 +169,7 @@ describe('GlobalTooltip', () => {
 
     it('preserves a title-only icon control as an accessible name', async () => {
         const fixture = await mountTooltipLayer('<button title="Filter unread"><svg aria-hidden="true"></svg></button>');
-        const trigger = fixture.querySelector('button');
+        const trigger = requiredButton(fixture);
 
         expect(trigger.getAttribute('aria-label')).toBe('Filter unread');
 
@@ -153,9 +187,9 @@ describe('GlobalTooltip', () => {
                 <span class="app-sidebar__tooltip">Mail <kbd>Ctrl 4</kbd></span>
             </button>
         `);
-        const trigger = fixture.querySelector('button');
+        const trigger = requiredButton(fixture);
 
-        await act(async () => {
+        act(() => {
             trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
         });
 
@@ -165,10 +199,13 @@ describe('GlobalTooltip', () => {
 
     it('restores adopted titles when the global layer unmounts', async () => {
         const fixture = await mountTooltipLayer('<button title="Restored label">Action</button>');
-        const trigger = fixture.querySelector('button');
+        const trigger = requiredButton(fixture);
         const mounted = mountedRoots.pop();
+        if (!mounted) throw new Error('Expected the mounted tooltip root.');
 
-        await act(async () => mounted.root.unmount());
+        act(() => {
+            mounted.root.unmount();
+        });
         mounted.container.remove();
 
         expect(trigger.getAttribute('title')).toBe('Restored label');

@@ -1,5 +1,16 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+interface ActiveTooltip {
+    readonly content: string;
+    readonly trigger: Element;
+}
+
+interface TooltipPosition {
+    readonly left: number;
+    readonly placement: 'bottom' | 'top';
+    readonly top: number;
+}
 
 const TOOLTIP_ID = 'gnosi-global-tooltip';
 const TOOLTIP_ATTRIBUTE = 'data-gnosi-tooltip';
@@ -12,7 +23,7 @@ const RICH_TOOLTIP_OWNER_SELECTOR = '.graph-legend-control, .vault-page-compact-
 const VIEWPORT_PADDING = 8;
 const TRIGGER_GAP = 8;
 
-function removeTooltipDescription(trigger) {
+function removeTooltipDescription(trigger: Element | null): void {
     if (!trigger) return;
     const descriptions = (trigger.getAttribute('aria-describedby') || '')
         .split(/\s+/)
@@ -26,7 +37,7 @@ function removeTooltipDescription(trigger) {
     }
 }
 
-function hasRichTooltip(trigger) {
+function hasRichTooltip(trigger: Element): boolean {
     if (trigger.querySelector(RICH_TOOLTIP_SELECTOR)) return true;
 
     const owner = trigger.closest(RICH_TOOLTIP_OWNER_SELECTOR);
@@ -43,11 +54,11 @@ function hasRichTooltip(trigger) {
     });
 }
 
-function findTooltipTrigger(target) {
+function findTooltipTrigger(target: EventTarget | null): Element | null {
     return target instanceof Element ? target.closest(TOOLTIP_SELECTOR) : null;
 }
 
-function hasMeaningfulVisibleName(element) {
+function hasMeaningfulVisibleName(element: Element): boolean {
     const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
     if (/\p{L}|\p{N}/u.test(text)) return true;
     if (element.querySelector('img[alt]:not([alt=""])')) return true;
@@ -55,7 +66,7 @@ function hasMeaningfulVisibleName(element) {
         && Boolean(element.getAttribute('value')?.trim());
 }
 
-function preserveTitleAsAccessibleName(element, title) {
+function preserveTitleAsAccessibleName(element: Element, title: string): void {
     const generatedLabel = element.getAttribute(ARIA_LABEL_SOURCE_ATTRIBUTE) === 'title';
     const generatedValue = element.getAttribute(ARIA_LABEL_VALUE_ATTRIBUTE);
 
@@ -91,19 +102,19 @@ function preserveTitleAsAccessibleName(element, title) {
  * are adopted into a data attribute as components and portals enter the DOM.
  */
 export function GlobalTooltip() {
-    const tooltipRef = useRef(null);
-    const hoveredTriggerRef = useRef(null);
-    const focusedTriggerRef = useRef(null);
-    const activeTriggerRef = useRef(null);
-    const [activeTooltip, setActiveTooltip] = useState(null);
-    const [position, setPosition] = useState(null);
+    const tooltipRef = useRef<HTMLDivElement | null>(null);
+    const hoveredTriggerRef = useRef<Element | null>(null);
+    const focusedTriggerRef = useRef<Element | null>(null);
+    const activeTriggerRef = useRef<Element | null>(null);
+    const [activeTooltip, setActiveTooltip] = useState<ActiveTooltip | null>(null);
+    const [position, setPosition] = useState<TooltipPosition | null>(null);
 
     useEffect(() => {
         activeTriggerRef.current = activeTooltip?.trigger || null;
     }, [activeTooltip]);
 
     useEffect(() => {
-        const adoptTitle = (element) => {
+        const adoptTitle = (element: Node) => {
             if (!(element instanceof Element) || !element.hasAttribute('title')) return;
 
             const title = element.getAttribute('title') || '';
@@ -124,7 +135,7 @@ export function GlobalTooltip() {
             }
         };
 
-        const adoptTitlesWithin = (root) => {
+        const adoptTitlesWithin = (root: Node) => {
             if (!(root instanceof Element)) return;
             adoptTitle(root);
             root.querySelectorAll('[title]').forEach(adoptTitle);
@@ -148,7 +159,7 @@ export function GlobalTooltip() {
             attributeFilter: ['title'],
         });
 
-        const syncActiveTooltip = () => {
+        const syncActiveTooltip = (): void => {
             const trigger = focusedTriggerRef.current || hoveredTriggerRef.current;
             const content = trigger?.getAttribute(TOOLTIP_ATTRIBUTE);
             if (!trigger || !content || hasRichTooltip(trigger)) {
@@ -158,39 +169,39 @@ export function GlobalTooltip() {
             setActiveTooltip({ trigger, content });
         };
 
-        const handleMouseOver = (event) => {
+        const handleMouseOver = (event: MouseEvent): void => {
             const trigger = findTooltipTrigger(event.target);
             if (!trigger || trigger === hoveredTriggerRef.current) return;
             hoveredTriggerRef.current = trigger;
             syncActiveTooltip();
         };
 
-        const handleMouseOut = (event) => {
+        const handleMouseOut = (event: MouseEvent): void => {
             const trigger = hoveredTriggerRef.current;
             if (!trigger || (event.relatedTarget instanceof Node && trigger.contains(event.relatedTarget))) return;
             hoveredTriggerRef.current = null;
             syncActiveTooltip();
         };
 
-        const handleFocusIn = (event) => {
+        const handleFocusIn = (event: FocusEvent): void => {
             focusedTriggerRef.current = findTooltipTrigger(event.target);
             syncActiveTooltip();
         };
 
-        const handleFocusOut = (event) => {
+        const handleFocusOut = (event: FocusEvent): void => {
             const trigger = focusedTriggerRef.current;
             if (!trigger || (event.relatedTarget instanceof Node && trigger.contains(event.relatedTarget))) return;
             focusedTriggerRef.current = null;
             syncActiveTooltip();
         };
 
-        const dismissTooltip = () => {
+        const dismissTooltip = (): void => {
             hoveredTriggerRef.current = null;
             focusedTriggerRef.current = null;
             setActiveTooltip(null);
         };
 
-        const handleKeyDown = (event) => {
+        const handleKeyDown = (event: KeyboardEvent): void => {
             if (event.key === 'Escape') dismissTooltip();
         };
 
@@ -245,7 +256,9 @@ export function GlobalTooltip() {
         describedBy.add(TOOLTIP_ID);
         trigger.setAttribute('aria-describedby', [...describedBy].join(' '));
 
-        return () => removeTooltipDescription(trigger);
+        return () => {
+            removeTooltipDescription(trigger);
+        };
     }, [activeTooltip]);
 
     useLayoutEffect(() => {
