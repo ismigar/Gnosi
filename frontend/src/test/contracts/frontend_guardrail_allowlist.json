@@ -119,7 +119,6 @@
     },
     "legacy_js_jsx": {
       "frontend/src/components/AgentChat.jsx": 2723,
-      "frontend/src/components/FeedManagerModal.jsx": 386,
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,
       "frontend/src/components/GraphViewer.jsx": 1016,
       "frontend/src/components/Mail/MailComposer.jsx": 649,
