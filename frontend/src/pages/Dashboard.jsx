@@ -19,6 +19,14 @@ import {
     updateScheduledTask,
 } from '../shared/api/scheduler';
 import {
+    deleteDirective,
+    fetchAnalyticsOverview,
+    fetchDirectiveAnalytics,
+    fetchDirectiveContent,
+    fetchTrapAnalytics,
+    saveDirectiveContent,
+} from '../shared/api/analytics';
+import {
     useClearSystemNotifications,
     useSystemNotifications,
 } from '../shared/api/useSystemData';
@@ -139,14 +147,14 @@ function Dashboard() {
         }
     }, [apiFetch]);
 
-    const fetchAnalytics = async () => {
+    const fetchAnalytics = useCallback(async () => {
         try {
-            const data = await apiFetch('/api/analytics/');
+            const data = await fetchAnalyticsOverview();
             if (data) setAnalytics(data);
         } catch (error) {
             console.error('Error fetching analytics:', error);
         }
-    };
+    }, []);
 
     const fetchSchedulers = useCallback(async (silent = false) => {
         if (!silent) setSchedulerLoading(true);
@@ -162,7 +170,7 @@ function Dashboard() {
     const fetchApprovedTools = useCallback(async () => {
         setApprovedLoading(true);
         try {
-            const data = await apiFetch('/api/analytics/directives');
+            const data = await fetchDirectiveAnalytics();
             const mature = (data.directives || []).filter(d => d.path.includes('pipeline/skills/') && d.path.endsWith('SKILL.md'));
             setApprovedTools(mature);
         } catch (error) {
@@ -170,7 +178,7 @@ function Dashboard() {
         } finally {
             setApprovedLoading(false);
         }
-    }, [apiFetch]);
+    }, []);
 
     const fetchTaskHistory = async (p = 0) => {
         const page = typeof p === 'number' ? p : 0;
@@ -193,7 +201,7 @@ function Dashboard() {
         setIsTrapsLoading(true);
         try {
             const offset = page * TRAPS_LIMIT;
-            const data = await apiFetch(`/api/analytics/traps?limit=${TRAPS_LIMIT}&offset=${offset}`);
+            const data = await fetchTrapAnalytics({ limit: TRAPS_LIMIT, offset });
             if (data && data.traps) {
                 setTraps(data.traps);
                 setTrapsTotal(data.total);
@@ -211,7 +219,7 @@ function Dashboard() {
         setIsDirectivesLoading(true);
         try {
             const offset = page * DIRECTIVES_LIMIT;
-            const data = await apiFetch(`/api/analytics/directives?limit=${DIRECTIVES_LIMIT}&offset=${offset}`);
+            const data = await fetchDirectiveAnalytics({ limit: DIRECTIVES_LIMIT, offset });
             if (data && data.directives) {
                 setDirectives(data.directives);
                 setDirectivesTotal(data.total);
@@ -226,24 +234,21 @@ function Dashboard() {
 
     const handleEditDirective = useCallback(async (directive) => {
         try {
-            const data = await apiFetch(`/api/analytics/directives/content?path=${encodeURIComponent(directive.path)}`);
+            const data = await fetchDirectiveContent(directive.path);
             setEditorContent(data.content);
             setEditingDirective(directive);
         } catch (_error) {
             toast.error(t('dashboard.directive_load_error'));
         }
-    }, [apiFetch, t]);
+    }, [t]);
 
     const handleSaveDirective = useCallback(async () => {
         if (!editingDirective) return;
         setIsEditorSaving(true);
         try {
-            await apiFetch('/api/analytics/directives/content', {
-                method: 'POST',
-                body: JSON.stringify({
-                    path: editingDirective.path,
-                    content: editorContent
-                })
+            await saveDirectiveContent({
+                path: editingDirective.path,
+                content: editorContent,
             });
             toast.success(t('dashboard.directive_saved'));
             setEditingDirective(null);
@@ -255,7 +260,7 @@ function Dashboard() {
         } finally {
             setIsEditorSaving(false);
         }
-    }, [editingDirective, editorContent, directivesPage, fetchApprovedTools, fetchAnalytics, apiFetch, t]);
+    }, [editingDirective, editorContent, directivesPage, fetchApprovedTools, fetchAnalytics, t]);
 
     const handleDeleteDirective = (directive) => setConfirmDeleteDirective(directive);
 
@@ -265,9 +270,7 @@ function Dashboard() {
         if (!directive) return;
         const isSkill = directive.path?.includes("pipeline/skills");
         try {
-            await apiFetch(`/api/analytics/directives?path=${encodeURIComponent(directive.path)}`, {
-                method: 'DELETE'
-            });
+            await deleteDirective(directive.path);
             toast.success(isSkill ? t('dashboard.skill_deleted') : t('dashboard.directive_deleted'));
             fetchDirectives(directivesPage);
             fetchApprovedTools();

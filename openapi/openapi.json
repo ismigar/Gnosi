@@ -312,6 +312,28 @@
         "title": "AllocationWarningResponse",
         "type": "object"
       },
+      "AnalyticsOverviewResponse": {
+        "description": "Dashboard analytics overview.",
+        "properties": {
+          "directives": {
+            "$ref": "#/components/schemas/DirectiveSummaryResponse"
+          },
+          "errors_prevented": {
+            "title": "Errors Prevented",
+            "type": "integer"
+          },
+          "tools": {
+            "$ref": "#/components/schemas/ToolAnalyticsResponse"
+          }
+        },
+        "required": [
+          "tools",
+          "directives",
+          "errors_prevented"
+        ],
+        "title": "AnalyticsOverviewResponse",
+        "type": "object"
+      },
       "AppliedAssignmentChangeResponse": {
         "description": "Assignment boundaries changed by an accepted proposal.",
         "properties": {
@@ -1387,24 +1409,6 @@
           "body"
         ],
         "title": "Body_reply_message_api_mail_messages__message_id__reply_post",
-        "type": "object"
-      },
-      "Body_save_directive_content_api_analytics_directives_content_post": {
-        "properties": {
-          "content": {
-            "title": "Content",
-            "type": "string"
-          },
-          "path": {
-            "title": "Path",
-            "type": "string"
-          }
-        },
-        "required": [
-          "path",
-          "content"
-        ],
-        "title": "Body_save_directive_content_api_analytics_directives_content_post",
         "type": "object"
       },
       "Body_send_mail_api_mail_send_post": {
@@ -3464,6 +3468,159 @@
           "decision"
         ],
         "title": "DecisionRequest",
+        "type": "object"
+      },
+      "DirectiveAnalyticsPageResponse": {
+        "description": "Paginated directive inventory.",
+        "properties": {
+          "directives": {
+            "items": {
+              "$ref": "#/components/schemas/DirectiveAnalyticsResponse"
+            },
+            "title": "Directives",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "directives",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "DirectiveAnalyticsPageResponse",
+        "type": "object"
+      },
+      "DirectiveAnalyticsResponse": {
+        "description": "One directive or consolidated skill visible to an administrator.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "trap_count": {
+            "title": "Trap Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "category",
+          "size_bytes",
+          "trap_count",
+          "path"
+        ],
+        "title": "DirectiveAnalyticsResponse",
+        "type": "object"
+      },
+      "DirectiveContentResponse": {
+        "description": "Editable directive text and its canonical path.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "title": "DirectiveContentResponse",
+        "type": "object"
+      },
+      "DirectiveContentUpdateRequest": {
+        "description": "Replacement content for one validated directive path.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "title": "DirectiveContentUpdateRequest",
+        "type": "object"
+      },
+      "DirectiveMutationResponse": {
+        "description": "Acknowledgement for directive save and delete operations.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "DirectiveMutationResponse",
+        "type": "object"
+      },
+      "DirectiveSummaryResponse": {
+        "description": "Aggregate development-memory counters.",
+        "properties": {
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "traps_documented": {
+            "title": "Traps Documented",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "traps_documented"
+        ],
+        "title": "DirectiveSummaryResponse",
         "type": "object"
       },
       "DrawingSaveRequest": {
@@ -11961,6 +12118,52 @@
         "title": "TokenPayload",
         "type": "object"
       },
+      "ToolAnalyticsResponse": {
+        "description": "Generated-tool registry counters exposed by the dashboard.",
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "integer"
+          },
+          "by_risk_level": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Risk Level",
+            "type": "object"
+          },
+          "created_last_7_days": {
+            "title": "Created Last 7 Days",
+            "type": "integer"
+          },
+          "internal_skills": {
+            "title": "Internal Skills",
+            "type": "integer"
+          },
+          "pending": {
+            "title": "Pending",
+            "type": "integer"
+          },
+          "rejected": {
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "total_tools": {
+            "title": "Total Tools",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_tools",
+          "pending",
+          "approved",
+          "rejected",
+          "created_last_7_days",
+          "internal_skills"
+        ],
+        "title": "ToolAnalyticsResponse",
+        "type": "object"
+      },
       "ToolResponse": {
         "properties": {
           "approved_at": {
@@ -12041,6 +12244,77 @@
           "created_at"
         ],
         "title": "ToolResponse",
+        "type": "object"
+      },
+      "TrapAnalyticsPageResponse": {
+        "description": "Paginated development-trap inventory.",
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "traps": {
+            "items": {
+              "$ref": "#/components/schemas/TrapAnalyticsResponse"
+            },
+            "title": "Traps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "traps",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "TrapAnalyticsPageResponse",
+        "type": "object"
+      },
+      "TrapAnalyticsResponse": {
+        "description": "One documented development trap.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "solution": {
+            "title": "Solution",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "trap": {
+            "title": "Trap",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "trap",
+          "solution",
+          "source",
+          "category"
+        ],
+        "title": "TrapAnalyticsResponse",
         "type": "object"
       },
       "TrustedKeyRequest": {
@@ -18909,9 +19183,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Analytics Api Analytics  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AnalyticsOverviewResponse"
                 }
               }
             },
@@ -19025,9 +19297,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Delete Directive Api Analytics Directives Delete",
-                  "type": "object"
+                  "$ref": "#/components/schemas/DirectiveMutationResponse"
                 }
               }
             },
@@ -19080,9 +19350,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Directive Analytics Api Analytics Directives Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/DirectiveAnalyticsPageResponse"
                 }
               }
             },
@@ -19126,9 +19394,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Directive Content Api Analytics Directives Content Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/DirectiveContentResponse"
                 }
               }
             },
@@ -19240,7 +19506,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_save_directive_content_api_analytics_directives_content_post"
+                "$ref": "#/components/schemas/DirectiveContentUpdateRequest"
               }
             }
           },
@@ -19251,9 +19517,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Save Directive Content Api Analytics Directives Content Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/DirectiveMutationResponse"
                 }
               }
             },
@@ -19286,9 +19550,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Tool Analytics Api Analytics Tools Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ToolAnalyticsResponse"
                 }
               }
             },
@@ -19333,9 +19595,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Traps Api Analytics Traps Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/TrapAnalyticsPageResponse"
                 }
               }
             },

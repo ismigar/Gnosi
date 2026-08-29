@@ -9796,6 +9796,16 @@ export interface components {
             resource_id: string;
         };
         /**
+         * AnalyticsOverviewResponse
+         * @description Dashboard analytics overview.
+         */
+        AnalyticsOverviewResponse: {
+            directives: components["schemas"]["DirectiveSummaryResponse"];
+            /** Errors Prevented */
+            errors_prevented: number;
+            tools: components["schemas"]["ToolAnalyticsResponse"];
+        };
+        /**
          * AppliedAssignmentChangeResponse
          * @description Assignment boundaries changed by an accepted proposal.
          */
@@ -10227,13 +10237,6 @@ export interface components {
             cc?: string | null;
             /** To */
             to?: string | null;
-        };
-        /** Body_save_directive_content_api_analytics_directives_content_post */
-        Body_save_directive_content_api_analytics_directives_content_post: {
-            /** Content */
-            content: string;
-            /** Path */
-            path: string;
         };
         /** Body_send_mail_api_mail_send_post */
         Body_send_mail_api_mail_send_post: {
@@ -11138,6 +11141,78 @@ export interface components {
              * @default
              */
             reason: string;
+        };
+        /**
+         * DirectiveAnalyticsPageResponse
+         * @description Paginated directive inventory.
+         */
+        DirectiveAnalyticsPageResponse: {
+            /** Directives */
+            directives: components["schemas"]["DirectiveAnalyticsResponse"][];
+            /** Has More */
+            has_more: boolean;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * DirectiveAnalyticsResponse
+         * @description One directive or consolidated skill visible to an administrator.
+         */
+        DirectiveAnalyticsResponse: {
+            /** Category */
+            category: string;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Trap Count */
+            trap_count: number;
+        };
+        /**
+         * DirectiveContentResponse
+         * @description Editable directive text and its canonical path.
+         */
+        DirectiveContentResponse: {
+            /** Content */
+            content: string;
+            /** Path */
+            path: string;
+        };
+        /**
+         * DirectiveContentUpdateRequest
+         * @description Replacement content for one validated directive path.
+         */
+        DirectiveContentUpdateRequest: {
+            /** Content */
+            content: string;
+            /** Path */
+            path: string;
+        };
+        /**
+         * DirectiveMutationResponse
+         * @description Acknowledgement for directive save and delete operations.
+         */
+        DirectiveMutationResponse: {
+            /** Message */
+            message: string;
+            /** Path */
+            path?: string | null;
+        };
+        /**
+         * DirectiveSummaryResponse
+         * @description Aggregate development-memory counters.
+         */
+        DirectiveSummaryResponse: {
+            /** Total */
+            total: number;
+            /** Traps Documented */
+            traps_documented: number;
         };
         /** DrawingSaveRequest */
         DrawingSaveRequest: {
@@ -14655,6 +14730,28 @@ export interface components {
             /** Token */
             token: string;
         };
+        /**
+         * ToolAnalyticsResponse
+         * @description Generated-tool registry counters exposed by the dashboard.
+         */
+        ToolAnalyticsResponse: {
+            /** Approved */
+            approved: number;
+            /** By Risk Level */
+            by_risk_level?: {
+                [key: string]: number;
+            };
+            /** Created Last 7 Days */
+            created_last_7_days: number;
+            /** Internal Skills */
+            internal_skills: number;
+            /** Pending */
+            pending: number;
+            /** Rejected */
+            rejected: number;
+            /** Total Tools */
+            total_tools: number;
+        };
         /** ToolResponse */
         ToolResponse: {
             /** Approved At */
@@ -14677,6 +14774,38 @@ export interface components {
             risk_level: string;
             /** Status */
             status: string;
+        };
+        /**
+         * TrapAnalyticsPageResponse
+         * @description Paginated development-trap inventory.
+         */
+        TrapAnalyticsPageResponse: {
+            /** Has More */
+            has_more: boolean;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+            /** Traps */
+            traps: components["schemas"]["TrapAnalyticsResponse"][];
+        };
+        /**
+         * TrapAnalyticsResponse
+         * @description One documented development trap.
+         */
+        TrapAnalyticsResponse: {
+            /** Category */
+            category: string;
+            /** Date */
+            date: string;
+            /** Solution */
+            solution: string;
+            /** Source */
+            source: string;
+            /** Trap */
+            trap: string;
         };
         /** TrustedKeyRequest */
         TrustedKeyRequest: {
@@ -16976,9 +17105,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AnalyticsOverviewResponse"];
                 };
             };
         };
@@ -17001,9 +17128,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["DirectiveAnalyticsPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17041,9 +17166,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["DirectiveMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17074,9 +17197,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["DirectiveContentResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17106,7 +17227,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Body_save_directive_content_api_analytics_directives_content_post"];
+                "application/json": components["schemas"]["DirectiveContentUpdateRequest"];
             };
         };
         responses: {
@@ -17116,9 +17237,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["DirectiveMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17147,9 +17266,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ToolAnalyticsResponse"];
                 };
             };
         };
@@ -17172,9 +17289,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TrapAnalyticsPageResponse"];
                 };
             };
             /** @description Validation Error */
