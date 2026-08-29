@@ -141,6 +141,173 @@
         "title": "AgentSkillAssignmentPayload",
         "type": "object"
       },
+      "AgentSkillCatalogIssueResponse": {
+        "additionalProperties": false,
+        "description": "Validation issue for one user-provided skill package.",
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "package": {
+            "title": "Package",
+            "type": "string"
+          }
+        },
+        "required": [
+          "package",
+          "error"
+        ],
+        "title": "AgentSkillCatalogIssueResponse",
+        "type": "object"
+      },
+      "AgentSkillCatalogItemResponse": {
+        "additionalProperties": false,
+        "description": "Flattened effective skill descriptor returned by the catalog route.",
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/SkillActivation",
+            "default": "automatic"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "deletable": {
+            "title": "Deletable",
+            "type": "boolean"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/ToolEffect"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "id": {
+            "maxLength": 160,
+            "minLength": 3,
+            "pattern": "^(?:core|user|mcp|generated|plugin\\.[a-z0-9][a-z0-9_-]{1,63})\\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+            "title": "Id",
+            "type": "string"
+          },
+          "instructions": {
+            "default": "",
+            "maxLength": 100000,
+            "title": "Instructions",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SkillKind",
+            "default": "agent"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "missing_tool_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Tool Ids",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/CatalogOrigin"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CatalogStatus",
+            "default": "available"
+          },
+          "tool_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Tool Ids",
+            "type": "array"
+          },
+          "version": {
+            "default": "1.0.0",
+            "maxLength": 64,
+            "pattern": "^[0-9]+(?:\\.[0-9]+){0,2}(?:[-+][a-zA-Z0-9.-]+)?$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "origin",
+          "available",
+          "missing_tool_ids",
+          "effects",
+          "editable",
+          "deletable",
+          "revision"
+        ],
+        "title": "AgentSkillCatalogItemResponse",
+        "type": "object"
+      },
+      "AgentSkillCatalogResponse": {
+        "additionalProperties": false,
+        "description": "Effective skills plus package issues and the catalog revision.",
+        "properties": {
+          "catalog_revision": {
+            "title": "Catalog Revision",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSkillCatalogIssueResponse"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSkillCatalogItemResponse"
+            },
+            "title": "Skills",
+            "type": "array"
+          }
+        },
+        "required": [
+          "skills",
+          "issues",
+          "catalog_revision"
+        ],
+        "title": "AgentSkillCatalogResponse",
+        "type": "object"
+      },
       "AiCatalogResponse": {
         "description": "Live provider catalog paired with sanitized persisted configuration.",
         "properties": {
@@ -3378,6 +3545,39 @@
         "title": "CatalogInstallRequest",
         "type": "object"
       },
+      "CatalogOrigin": {
+        "additionalProperties": false,
+        "description": "Ownership metadata derived by core or a plugin boundary.",
+        "properties": {
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/OriginType"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "title": "CatalogOrigin",
+        "type": "object"
+      },
+      "CatalogStatus": {
+        "description": "Lifecycle state for a catalog entry.",
+        "enum": [
+          "available",
+          "suspended",
+          "pending",
+          "rejected",
+          "unavailable"
+        ],
+        "title": "CatalogStatus",
+        "type": "string"
+      },
       "ChangePasswordPayload": {
         "properties": {
           "current_password": {
@@ -6293,6 +6493,102 @@
         "title": "DrawingSummaryResponse",
         "type": "object"
       },
+      "DrupalContentTypeFieldsResponse": {
+        "description": "Fields exposed for one Drupal node bundle.",
+        "properties": {
+          "bundle": {
+            "title": "Bundle",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/DrupalFieldResponse"
+            },
+            "title": "Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bundle",
+          "fields"
+        ],
+        "title": "DrupalContentTypeFieldsResponse",
+        "type": "object"
+      },
+      "DrupalContentTypeResponse": {
+        "additionalProperties": true,
+        "description": "One Drupal node bundle available for table synchronization.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "machine": {
+            "title": "Machine",
+            "type": "string"
+          },
+          "uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uuid"
+          }
+        },
+        "required": [
+          "machine",
+          "label",
+          "uuid"
+        ],
+        "title": "DrupalContentTypeResponse",
+        "type": "object"
+      },
+      "DrupalContentTypesResponse": {
+        "description": "Envelope consumed by the schema configuration modal.",
+        "properties": {
+          "content_types": {
+            "items": {
+              "$ref": "#/components/schemas/DrupalContentTypeResponse"
+            },
+            "title": "Content Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "content_types"
+        ],
+        "title": "DrupalContentTypesResponse",
+        "type": "object"
+      },
+      "DrupalFieldResponse": {
+        "additionalProperties": true,
+        "description": "One Drupal field; connector-specific metadata remains round-trippable.",
+        "properties": {
+          "field_name": {
+            "title": "Field Name",
+            "type": "string"
+          },
+          "field_type": {
+            "title": "Field Type",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_name",
+          "label",
+          "field_type"
+        ],
+        "title": "DrupalFieldResponse",
+        "type": "object"
+      },
       "EmailConnectionTestRequest": {
         "properties": {
           "imap_encryption": {
@@ -6953,6 +7249,29 @@
           "status"
         ],
         "title": "FullTextRequest",
+        "type": "object"
+      },
+      "GenerateButtonActionResponse": {
+        "description": "Dynamic but JSON-safe button action generated by the LLM.",
+        "properties": {
+          "result": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Result",
+            "type": "object"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "result"
+        ],
+        "title": "GenerateButtonActionResponse",
         "type": "object"
       },
       "GenerateContentResponse": {
@@ -9301,6 +9620,57 @@
         "title": "LinkPreviewResponse",
         "type": "object"
       },
+      "LinkedExistingFileResponse": {
+        "additionalProperties": false,
+        "description": "Location and rename metadata for one linked local file.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "renamed": {
+            "title": "Renamed",
+            "type": "boolean"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "storage": {
+            "enum": [
+              "assets",
+              "absolute"
+            ],
+            "title": "Storage",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "path",
+          "url",
+          "storage",
+          "name",
+          "size",
+          "renamed"
+        ],
+        "title": "LinkedExistingFileResponse",
+        "type": "object"
+      },
       "LiteratureActivityResponse": {
         "additionalProperties": true,
         "properties": {
@@ -11302,6 +11672,51 @@
         "title": "LlmWikiValidationResponse",
         "type": "object"
       },
+      "LocalFileRegistrationResponse": {
+        "additionalProperties": false,
+        "description": "Stable serving token and metadata for one registered local file.",
+        "properties": {
+          "extension": {
+            "title": "Extension",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "url",
+          "name",
+          "size",
+          "kind",
+          "extension",
+          "path"
+        ],
+        "title": "LocalFileRegistrationResponse",
+        "type": "object"
+      },
       "LocalPathOpenRequest": {
         "description": "A local path or file URL accepted by the compatibility endpoint.",
         "properties": {
@@ -12828,6 +13243,73 @@
           "value"
         ],
         "title": "ManualCaptureRequest",
+        "type": "object"
+      },
+      "MatchDrupalRowsResponse": {
+        "additionalProperties": true,
+        "description": "Result of matching Vault rows with existing Drupal nodes.",
+        "properties": {
+          "ambiguous": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Ambiguous",
+            "type": "array"
+          },
+          "bundle": {
+            "title": "Bundle",
+            "type": "string"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "matched": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Matched",
+            "type": "array"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "unmatched": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Unmatched",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "dry_run",
+          "bundle",
+          "counts",
+          "matched",
+          "unmatched",
+          "ambiguous"
+        ],
+        "title": "MatchDrupalRowsResponse",
         "type": "object"
       },
       "MaterializedTaskResponse": {
@@ -17011,6 +17493,18 @@
         "title": "OpenResourceRequest",
         "type": "object"
       },
+      "OriginType": {
+        "description": "Governed source types for catalog entries.",
+        "enum": [
+          "core",
+          "plugin",
+          "user",
+          "mcp",
+          "generated"
+        ],
+        "title": "OriginType",
+        "type": "string"
+      },
       "PageComment": {
         "properties": {
           "author": {
@@ -17704,6 +18198,90 @@
           "content"
         ],
         "title": "PageSaveRequest",
+        "type": "object"
+      },
+      "PageViewMutationResponse": {
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading"
+          },
+          "heading_deleted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading Deleted"
+          },
+          "md_synced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Md Synced"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "page_id"
+        ],
+        "title": "PageViewMutationResponse",
+        "type": "object"
+      },
+      "PageViewsResponse": {
+        "properties": {
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "page_id",
+          "sections"
+        ],
+        "title": "PageViewsResponse",
         "type": "object"
       },
       "PdfAnnotationDeletedResponse": {
@@ -18488,6 +19066,42 @@
           "scheduleRevision"
         ],
         "title": "ProjectScheduleResponse",
+        "type": "object"
+      },
+      "PropertyFileUploadResponse": {
+        "additionalProperties": false,
+        "description": "Location returned after uploading one configured property file.",
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "storage": {
+            "enum": [
+              "assets",
+              "absolute"
+            ],
+            "title": "Storage",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "path",
+          "url",
+          "storage"
+        ],
+        "title": "PropertyFileUploadResponse",
         "type": "object"
       },
       "ProposalApplyPayload": {
@@ -22464,6 +23078,25 @@
         "title": "ToolAnalyticsResponse",
         "type": "object"
       },
+      "ToolEffect": {
+        "description": "Effect classes used by the authorization policy.",
+        "enum": [
+          "read",
+          "local_write",
+          "external_write",
+          "destructive",
+          "code_execution",
+          "ai_cost",
+          "external_read",
+          "personal_data",
+          "data_egress",
+          "bulk_write",
+          "financial_cost",
+          "notification"
+        ],
+        "title": "ToolEffect",
+        "type": "string"
+      },
       "ToolResponse": {
         "properties": {
           "approved_at": {
@@ -24123,6 +24756,53 @@
           "pages"
         ],
         "title": "ViewUsageResponse",
+        "type": "object"
+      },
+      "VirtualFieldComputerResponse": {
+        "additionalProperties": false,
+        "description": "One read-only virtual-field computer exposed to schema configuration.",
+        "properties": {
+          "compute": {
+            "title": "Compute",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value_type": {
+            "title": "Value Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "compute",
+          "label",
+          "description",
+          "value_type"
+        ],
+        "title": "VirtualFieldComputerResponse",
+        "type": "object"
+      },
+      "VirtualFieldsResponse": {
+        "description": "Virtual-field catalog envelope.",
+        "properties": {
+          "computers": {
+            "items": {
+              "$ref": "#/components/schemas/VirtualFieldComputerResponse"
+            },
+            "title": "Computers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "computers"
+        ],
+        "title": "VirtualFieldsResponse",
         "type": "object"
       },
       "WorklogCreateResponse": {
@@ -29612,7 +30292,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkillCatalogResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -48990,7 +49672,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageViewsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -49119,7 +49803,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageViewMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -61877,7 +62563,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DrupalContentTypesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -61998,7 +62686,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DrupalContentTypeFieldsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63871,7 +64561,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LinkedExistingFileResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -70502,7 +71194,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LocalFileRegistrationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -72774,7 +73468,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -73026,7 +73722,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -81638,7 +82336,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -82265,7 +82965,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateButtonActionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -82389,7 +83091,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MatchDrupalRowsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -84075,7 +84779,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -84208,7 +84914,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -84338,7 +85046,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -85894,7 +86604,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyFileUploadResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -86879,7 +87591,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VirtualFieldsResponse"
+                }
               }
             },
             "description": "Successful Response"

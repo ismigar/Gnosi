@@ -9717,6 +9717,83 @@ export interface components {
             skill_ids?: string[];
         };
         /**
+         * AgentSkillCatalogIssueResponse
+         * @description Validation issue for one user-provided skill package.
+         */
+        AgentSkillCatalogIssueResponse: {
+            /** Error */
+            error: string;
+            /** Package */
+            package: string;
+        };
+        /**
+         * AgentSkillCatalogItemResponse
+         * @description Flattened effective skill descriptor returned by the catalog route.
+         */
+        AgentSkillCatalogItemResponse: {
+            /** @default automatic */
+            activation: components["schemas"]["SkillActivation"];
+            /** Available */
+            available: boolean;
+            /** Deletable */
+            deletable: boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Editable */
+            editable: boolean;
+            /** Effects */
+            effects: components["schemas"]["ToolEffect"][];
+            /** Id */
+            id: string;
+            /**
+             * Instructions
+             * @default
+             */
+            instructions: string;
+            /** @default agent */
+            kind: components["schemas"]["SkillKind"];
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Missing Tool Ids */
+            missing_tool_ids: string[];
+            /** Name */
+            name: string;
+            origin: components["schemas"]["CatalogOrigin"];
+            /** Revision */
+            revision: string;
+            /**
+             * Schema Version
+             * @default 1
+             */
+            schema_version: number;
+            /** @default available */
+            status: components["schemas"]["CatalogStatus"];
+            /** Tool Ids */
+            tool_ids?: string[];
+            /**
+             * Version
+             * @default 1.0.0
+             */
+            version: string;
+        };
+        /**
+         * AgentSkillCatalogResponse
+         * @description Effective skills plus package issues and the catalog revision.
+         */
+        AgentSkillCatalogResponse: {
+            /** Catalog Revision */
+            catalog_revision: string;
+            /** Issues */
+            issues: components["schemas"]["AgentSkillCatalogIssueResponse"][];
+            /** Skills */
+            skills: components["schemas"]["AgentSkillCatalogItemResponse"][];
+        };
+        /**
          * AiCatalogResponse
          * @description Live provider catalog paired with sanitized persisted configuration.
          */
@@ -11046,6 +11123,21 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /**
+         * CatalogOrigin
+         * @description Ownership metadata derived by core or a plugin boundary.
+         */
+        CatalogOrigin: {
+            /** Id */
+            id: string;
+            type: components["schemas"]["OriginType"];
+        };
+        /**
+         * CatalogStatus
+         * @description Lifecycle state for a catalog entry.
+         * @enum {string}
+         */
+        CatalogStatus: "available" | "suspended" | "pending" | "rejected" | "unavailable";
         /** ChangePasswordPayload */
         ChangePasswordPayload: {
             /** Current Password */
@@ -12163,6 +12255,52 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * DrupalContentTypeFieldsResponse
+         * @description Fields exposed for one Drupal node bundle.
+         */
+        DrupalContentTypeFieldsResponse: {
+            /** Bundle */
+            bundle: string;
+            /** Fields */
+            fields: components["schemas"]["DrupalFieldResponse"][];
+        };
+        /**
+         * DrupalContentTypeResponse
+         * @description One Drupal node bundle available for table synchronization.
+         */
+        DrupalContentTypeResponse: {
+            /** Label */
+            label: string;
+            /** Machine */
+            machine: string;
+            /** Uuid */
+            uuid: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DrupalContentTypesResponse
+         * @description Envelope consumed by the schema configuration modal.
+         */
+        DrupalContentTypesResponse: {
+            /** Content Types */
+            content_types: components["schemas"]["DrupalContentTypeResponse"][];
+        };
+        /**
+         * DrupalFieldResponse
+         * @description One Drupal field; connector-specific metadata remains round-trippable.
+         */
+        DrupalFieldResponse: {
+            /** Field Name */
+            field_name: string;
+            /** Field Type */
+            field_type: string;
+            /** Label */
+            label: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** EmailConnectionTestRequest */
         EmailConnectionTestRequest: {
             /**
@@ -12407,6 +12545,21 @@ export interface components {
              * @enum {string}
              */
             status: "not_requested" | "requested" | "available_oa" | "attached" | "unavailable" | "assessed";
+        };
+        /**
+         * GenerateButtonActionResponse
+         * @description Dynamic but JSON-safe button action generated by the LLM.
+         */
+        GenerateButtonActionResponse: {
+            /** Result */
+            result: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
         };
         /** GenerateContentResponse */
         GenerateContentResponse: {
@@ -13203,6 +13356,27 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * LinkedExistingFileResponse
+         * @description Location and rename metadata for one linked local file.
+         */
+        LinkedExistingFileResponse: {
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Renamed */
+            renamed: boolean;
+            /** Size */
+            size: number;
+            /**
+             * Storage
+             * @enum {string}
+             */
+            storage: "assets" | "absolute";
+            /** Url */
+            url: string | null;
+        };
         /** LinkMentionsRequest */
         LinkMentionsRequest: {
             /** Source Id */
@@ -13922,6 +14096,26 @@ export interface components {
             valid: boolean;
         };
         /**
+         * LocalFileRegistrationResponse
+         * @description Stable serving token and metadata for one registered local file.
+         */
+        LocalFileRegistrationResponse: {
+            /** Extension */
+            extension: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Size */
+            size: number;
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
+        };
+        /**
          * LocalPathOpenRequest
          * @description A local path or file URL accepted by the compatibility endpoint.
          */
@@ -14527,6 +14721,39 @@ export interface components {
             kind: "auto" | "doi" | "pmid" | "arxiv" | "isbn" | "url";
             /** Value */
             value: string;
+        };
+        /**
+         * MatchDrupalRowsResponse
+         * @description Result of matching Vault rows with existing Drupal nodes.
+         */
+        MatchDrupalRowsResponse: {
+            /** Ambiguous */
+            ambiguous: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Bundle */
+            bundle: string;
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Dry Run */
+            dry_run: boolean;
+            /** Matched */
+            matched: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Unmatched */
+            unmatched: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+        } & {
+            [key: string]: unknown;
         };
         /**
          * MaterializedTaskResponse
@@ -16064,6 +16291,12 @@ export interface components {
             /** Zotero Uri */
             zotero_uri?: string | null;
         };
+        /**
+         * OriginType
+         * @description Governed source types for catalog entries.
+         * @enum {string}
+         */
+        OriginType: "core" | "plugin" | "user" | "mcp" | "generated";
         /** PageComment */
         PageComment: {
             /** Author */
@@ -16326,6 +16559,30 @@ export interface components {
             parent_id?: string | null;
             /** Title */
             title: string;
+        };
+        /** PageViewMutationResponse */
+        PageViewMutationResponse: {
+            /** Action */
+            action?: string | null;
+            /** Heading */
+            heading?: string | null;
+            /** Heading Deleted */
+            heading_deleted?: string | null;
+            /** Md Synced */
+            md_synced?: boolean | null;
+            /** Ok */
+            ok: boolean;
+            /** Page Id */
+            page_id: string;
+        };
+        /** PageViewsResponse */
+        PageViewsResponse: {
+            /** Page Id */
+            page_id: string;
+            /** Sections */
+            sections: {
+                [key: string]: unknown;
+            }[];
         };
         /** PdfAnnotationDeletedResponse */
         PdfAnnotationDeletedResponse: {
@@ -16617,6 +16874,21 @@ export interface components {
             tasks: components["schemas"]["PlanningScheduledTaskResponse"][];
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * PropertyFileUploadResponse
+         * @description Location returned after uploading one configured property file.
+         */
+        PropertyFileUploadResponse: {
+            /** Path */
+            path: string;
+            /**
+             * Storage
+             * @enum {string}
+             */
+            storage: "assets" | "absolute";
+            /** Url */
+            url: string | null;
         };
         /**
          * ProposalApplyPayload
@@ -18443,6 +18715,12 @@ export interface components {
             /** Total Tools */
             total_tools: number;
         };
+        /**
+         * ToolEffect
+         * @description Effect classes used by the authorization policy.
+         * @enum {string}
+         */
+        ToolEffect: "read" | "local_write" | "external_write" | "destructive" | "code_execution" | "ai_cost" | "external_read" | "personal_data" | "data_egress" | "bulk_write" | "financial_cost" | "notification";
         /** ToolResponse */
         ToolResponse: {
             /** Approved At */
@@ -19051,6 +19329,28 @@ export interface components {
             pages: components["schemas"]["ViewUsagePageResponse"][];
             /** View Id */
             view_id: string;
+        };
+        /**
+         * VirtualFieldComputerResponse
+         * @description One read-only virtual-field computer exposed to schema configuration.
+         */
+        VirtualFieldComputerResponse: {
+            /** Compute */
+            compute: string;
+            /** Description */
+            description: string;
+            /** Label */
+            label: string;
+            /** Value Type */
+            value_type: string;
+        };
+        /**
+         * VirtualFieldsResponse
+         * @description Virtual-field catalog envelope.
+         */
+        VirtualFieldsResponse: {
+            /** Computers */
+            computers: components["schemas"]["VirtualFieldComputerResponse"][];
         };
         /**
          * WorklogCreateResponse
@@ -20830,7 +21130,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentSkillCatalogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -27148,7 +27448,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageViewsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -27190,7 +27490,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageViewMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31451,7 +31751,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DrupalContentTypesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31489,7 +31789,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DrupalContentTypeFieldsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32121,7 +32421,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LinkedExistingFileResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34297,7 +34597,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LocalFileRegistrationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34871,7 +35171,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -34915,7 +35215,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -37659,7 +37959,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -37856,7 +38156,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GenerateButtonActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37898,7 +38198,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MatchDrupalRowsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38434,7 +38734,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -38478,7 +38778,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -38518,7 +38818,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -38994,7 +39294,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PropertyFileUploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39304,7 +39604,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VirtualFieldsResponse"];
                 };
             };
             /** @description Validation Error */
