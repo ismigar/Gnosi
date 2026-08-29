@@ -1,5 +1,41 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+
+
+interface GraphPathResult {
+    readonly fullPath: readonly string[];
+    readonly noPath?: boolean;
+}
+
+
+interface SidebarProps {
+    readonly afterWidgets?: ReactNode;
+    readonly children?: ReactNode;
+    readonly colorMode: string;
+    readonly getNodeLabel: (nodeId: string) => string;
+    readonly hasClusterData?: boolean;
+    readonly hasSemanticData?: boolean;
+    readonly hideIsolated: boolean;
+    readonly isPathfindingMode: boolean;
+    readonly maxDate: number | null;
+    readonly minDate: number | null;
+    readonly onClearPath: () => void;
+    readonly onColorModeChange: (mode: string) => void;
+    readonly onHideIsolatedChange: (checked: boolean) => void;
+    readonly onOnlyIsolatedChange: (checked: boolean) => void;
+    readonly onPathfindingModeChange: (enabled: boolean) => void;
+    readonly onSearchChange: (value: string) => void;
+    readonly onSearchSubmit?: (value: string) => void;
+    readonly onShowSemanticSuggestionsChange: (checked: boolean) => void;
+    readonly onTimelineChange: (value: number) => void;
+    readonly onlyIsolated: boolean;
+    readonly pathResult: GraphPathResult | null;
+    readonly pathSource: string | null;
+    readonly pathTarget: string | null;
+    readonly searchTerm: string;
+    readonly showSemanticSuggestions: boolean;
+    readonly timelineDate: number | null;
+}
 
 export function Sidebar({
     searchTerm,
@@ -31,9 +67,9 @@ export function Sidebar({
     getNodeLabel,
     children,
     afterWidgets
-}) {
+}: SidebarProps) {
     const { t } = useTranslation();
-    const toggleColorMode = (mode) => {
+    const toggleColorMode = (mode: string): void => {
         onColorModeChange(colorMode === mode ? 'kind' : mode);
     };
     return (
@@ -45,7 +81,9 @@ export function Sidebar({
                     id="search-input"
                     placeholder={t('search_placeholder')}
                     value={searchTerm}
-                    onChange={(e) => onSearchChange(e.target.value)}
+                    onChange={(event) => {
+                        onSearchChange(event.target.value);
+                    }}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             // Trigger search/submit if prop provided
@@ -61,15 +99,17 @@ export function Sidebar({
             {hasClusterData && <div className="section">
                 <h2 className="filter-title gnosi-sidebar-section-title">{t('graph.sidebar.color_by', "Color by")}</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    {hasClusterData && <label style={{ cursor: 'pointer' }}>
+                    <label style={{ cursor: 'pointer' }}>
                         <input
                             type="checkbox"
                             checked={colorMode === 'cluster'}
-                            onChange={() => toggleColorMode('cluster')}
+                            onChange={() => {
+                                toggleColorMode('cluster');
+                            }}
                             style={{ marginRight: '5px' }}
                         />
                         {t('graph.sidebar.color_cluster', "Cluster")}
-                    </label>}
+                    </label>
                 </div>
             </div>}
 
@@ -80,7 +120,9 @@ export function Sidebar({
                 </h2>
                 <div style={{ marginBottom: '10px' }}>
                     <button
-                        onClick={() => onPathfindingModeChange(!isPathfindingMode)}
+                        onClick={() => {
+                            onPathfindingModeChange(!isPathfindingMode);
+                        }}
                         style={{
                             width: '100%',
                             padding: '8px',
@@ -152,7 +194,7 @@ export function Sidebar({
                             </button>
                         )}
 
-                        {pathResult && pathResult.fullPath && pathResult.fullPath.length > 0 && (
+                        {pathResult && pathResult.fullPath.length > 0 && (
                             <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '4px' }}>
                                 <div style={{ fontWeight: 'bold', color: 'var(--gnosi-blue)', marginBottom: '5px' }}>{t('graph.sidebar.pathfinding_path_found', { count: pathResult.fullPath.length, defaultValue: "Path found ({{count}} nodes):" })}</div>
                                 <div style={{ fontSize: '0.8rem' }}>
@@ -189,7 +231,9 @@ export function Sidebar({
                                 max={maxDate}
                                 value={timelineDate || maxDate}
                                 step={24 * 60 * 60 * 1000} // Daily steps
-                                onChange={(e) => onTimelineChange(Number(e.target.value))}
+                                onChange={(event) => {
+                                    onTimelineChange(Number(event.target.value));
+                                }}
                                 style={{ width: "100%" }}
                             />
                             <label htmlFor="timeline-slider" style={{ fontSize: "0.8rem", marginTop: "5px", display: "block" }}>
@@ -209,7 +253,9 @@ export function Sidebar({
                         type="checkbox"
                         id="semantic-suggestions-toggle"
                         checked={showSemanticSuggestions}
-                        onChange={(event) => onShowSemanticSuggestionsChange(event.target.checked)}
+                        onChange={(event) => {
+                            onShowSemanticSuggestionsChange(event.target.checked);
+                        }}
                     />
                     <label htmlFor="semantic-suggestions-toggle">
                         {t('graph.connections_panel.show_semantic', 'Show semantic connections')}
@@ -226,7 +272,9 @@ export function Sidebar({
                         type="checkbox"
                         id="isolated-nodes-filter"
                         checked={hideIsolated}
-                        onChange={(e) => onHideIsolatedChange(e.target.checked)}
+                        onChange={(event) => {
+                            onHideIsolatedChange(event.target.checked);
+                        }}
                     />
                     <label htmlFor="isolated-nodes-filter">{t('graph.sidebar.hide_isolated_nodes', "Hide isolated nodes")}</label>
                 </div>
@@ -236,7 +284,9 @@ export function Sidebar({
                         type="checkbox"
                         id="only-isolated-filter"
                         checked={onlyIsolated}
-                        onChange={(e) => onOnlyIsolatedChange(e.target.checked)}
+                        onChange={(event) => {
+                            onOnlyIsolatedChange(event.target.checked);
+                        }}
                     />
                     <label htmlFor="only-isolated-filter">{t('graph.sidebar.show_only_isolated_nodes', "Show only isolated nodes")}</label>
                 </div>
