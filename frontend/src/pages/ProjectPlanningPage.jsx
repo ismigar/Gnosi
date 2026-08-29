@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import axios from '../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CalendarRange, RefreshCw, Route, Wallet } from 'lucide-react';
 import { VaultTimeline } from '../components/Vault/VaultTimeline';
@@ -15,6 +14,7 @@ import {
     usePlanningWorklogs,
     useProjectSchedule,
 } from '../shared/api/usePlanningData';
+import { fetchVaultPagesByTable } from '../shared/api/vaults';
 
 export default function ProjectPlanningPage() {
     const { t } = useTranslation();
@@ -55,15 +55,23 @@ export default function ProjectPlanningPage() {
             return;
         }
         let active = true;
-        axios.get(`/api/vault/pages/by-table/${encodeURIComponent(tableId)}`, { params: { include_templates: false } })
-            .then((response) => {
+        const controller = new AbortController();
+        fetchVaultPagesByTable(
+            tableId,
+            { include_templates: false },
+            controller.signal,
+        )
+            .then((pages) => {
                 if (!active) return;
-                const next = Array.isArray(response.data) ? response.data : [];
+                const next = Array.isArray(pages) ? pages : [];
                 setProjects(next);
                 setProjectId((current) => next.some((project) => project.id === current) ? current : (next[0]?.id || 'default'));
             })
             .catch(() => { if (active) setProjects([]); });
-        return () => { active = false; };
+        return () => {
+            active = false;
+            controller.abort();
+        };
     }, [planningSettings.project_table_id]);
 
     const load = useCallback(async () => {
