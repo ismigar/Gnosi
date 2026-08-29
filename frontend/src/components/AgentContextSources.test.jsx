@@ -2,14 +2,15 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import axios from '../shared/api/legacy-http';
 import AgentContextSources from './AgentContextSources';
 
-vi.mock('../shared/api/legacy-http', () => ({
-    default: {
-        get: vi.fn(),
-        post: vi.fn(),
-    },
+const { fetchInternalContextSources } = vi.hoisted(() => ({
+    fetchInternalContextSources: vi.fn(),
+}));
+
+vi.mock('../shared/api/agent-context', () => ({
+    fetchExternalContextSources: vi.fn(),
+    fetchInternalContextSources,
 }));
 
 vi.mock('react-i18next', () => ({
@@ -93,7 +94,7 @@ afterEach(async () => {
 
 describe('AgentContextSources internal sources', () => {
     it('adds a source reference with its server-provided default scope', async () => {
-        axios.get.mockResolvedValue({ data: sourceCatalogue });
+        fetchInternalContextSources.mockResolvedValue(sourceCatalogue);
         const onChange = vi.fn();
         const container = await render(<AgentContextSources value={[]} onChange={onChange} />);
 
@@ -116,7 +117,7 @@ describe('AgentContextSources internal sources', () => {
     });
 
     it('edits a persisted Reader scope without granting actions', async () => {
-        axios.get.mockResolvedValue({ data: sourceCatalogue });
+        fetchInternalContextSources.mockResolvedValue(sourceCatalogue);
         const onChange = vi.fn();
         const value = [{
             id: 'ctx-reader',
@@ -142,7 +143,7 @@ describe('AgentContextSources internal sources', () => {
     });
 
     it('renders server-provided Planning scope options', async () => {
-        axios.get.mockResolvedValue({ data: sourceCatalogue });
+        fetchInternalContextSources.mockResolvedValue(sourceCatalogue);
         const value = [{
             id: 'ctx-planning',
             type: 'internal',
@@ -162,7 +163,7 @@ describe('AgentContextSources internal sources', () => {
     });
 
     it('renders connected Notion scope options', async () => {
-        axios.get.mockResolvedValue({ data: sourceCatalogue });
+        fetchInternalContextSources.mockResolvedValue(sourceCatalogue);
         const value = [{
             id: 'ctx-notion',
             type: 'internal',
