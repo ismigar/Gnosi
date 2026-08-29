@@ -53,6 +53,7 @@ import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
 import { transportFetch } from '../shared/api/transports';
 import { fetchCalendarList, syncCalendar } from '../shared/api/calendar';
+import { fetchVaultGraph } from '../shared/api/graph';
 import {
     fetchSocialNetworks,
     fetchSocialStreams,
@@ -752,8 +753,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         if (!isOpen || activeTab !== 'graph' || graphNodesFetchedRef.current) return;
         graphNodesFetchedRef.current = true;
         setGraphNodesLoading(true);
-        transportFetch('/api/graph')
-            .then(r => (r.ok ? r.json() : { nodes: [] }))
+        fetchVaultGraph()
             .then(g => setGraphNodes(Array.isArray(g?.nodes) ? g.nodes : []))
             .catch(() => setGraphNodes([]))
             .finally(() => setGraphNodesLoading(false));

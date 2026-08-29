@@ -26,6 +26,7 @@ import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
 import { GraphLoadingState } from '../components/GraphLoadingState';
 import '../viewer/style.css';
 import { transportFetch } from '../shared/api/transports';
+import { fetchVaultGraph } from '../shared/api/graph';
 
 const MINIMUM_LOADING_DURATION_MS = 900;
 
@@ -159,10 +160,7 @@ function GraphPage() {
             setLoading(true);
         }
 
-        transportFetch('/api/graph').then(res => {
-            if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
-            return res.json();
-        }).then(graph => {
+        fetchVaultGraph().then(graph => {
             // /api/graph is the single source for structural and proposal edges.
             if (!isBackground) setLoadingProgress(70);
             setGraphData(graph);

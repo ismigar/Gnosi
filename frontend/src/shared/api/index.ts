@@ -253,6 +253,9 @@ export {
   useMeetingReminders,
   useUpdateMeetingReminderSettings,
 } from './useCalendarData';
+export { fetchVaultGraph } from './graph';
+export type { VaultGraphData, VaultGraphEdge, VaultGraphNode } from './graph';
+export { graphQueryKey, useVaultGraphData } from './useGraphData';
 export {
   browseFilesystem,
   clearSystemNotifications,

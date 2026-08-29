@@ -5,6 +5,7 @@ import { GraphViewer } from '../GraphViewer';
 import { Loader2, Settings2, Maximize2, ZoomIn, ZoomOut, Target, AlertTriangle } from 'lucide-react';
 import { } from '../../utils/vaultFilters';
 import { useConfigChanged } from '../../lib/configEvents';
+import { useVaultGraphData } from '../../shared/api/useGraphData';
 
 /**
  * VaultGraph.jsx
@@ -19,31 +20,30 @@ export function VaultGraph({
     onNodeClick
 }) {
     const { t } = useTranslation();
-    const [graphData, setGraphData] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [, setConfig] = useState(null);
     const viewerRef = useRef(null);
+    const graphQuery = useVaultGraphData();
+    const graphData = graphQuery.data || null;
+    const loading = graphQuery.isLoading;
 
     // Load graph data and configuration. Defined outside the effect so the
     // partial-graph warning's retry button can re-trigger a full fetch.
     const fetchData = async () => {
         try {
-            setLoading(true);
-            const [graphRes, configRes] = await Promise.all([
-                axios.get('/api/graph'),
+            const [, configRes] = await Promise.all([
+                graphQuery.refetch(),
                 axios.get('/api/config')
             ]);
-            setGraphData(graphRes.data);
             setConfig(configRes.data);
         } catch (err) {
             console.error("Error loading graph data:", err);
-        } finally {
-            setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchData();
+        axios.get('/api/config')
+            .then((response) => setConfig(response.data))
+            .catch((err) => console.error('Error loading graph config:', err));
     }, []);
 
     // Re-fetch only the config when the Settings modals emit the event
