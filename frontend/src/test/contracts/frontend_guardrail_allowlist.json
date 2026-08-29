@@ -91,7 +91,6 @@
     },
     "global_events": {
       "frontend/src/App.jsx": 6,
-      "frontend/src/components/AIModelComparisonModal.jsx": 4,
       "frontend/src/components/AgentChat.jsx": 2,
       "frontend/src/components/AgentConfirmations.test.js": 1,
       "frontend/src/components/AppSidebar.jsx": 8,
@@ -146,7 +145,6 @@
       "frontend/src/App.jsx": 404,
       "frontend/src/components/AI/AIResourcesSettings.jsx": 883,
       "frontend/src/components/AI/AIResourcesSettings.test.jsx": 153,
-      "frontend/src/components/AIModelComparisonModal.jsx": 918,
       "frontend/src/components/AgentChat.jsx": 2723,
       "frontend/src/components/AgentConfirmations.test.js": 231,
       "frontend/src/components/AgentContextSources.jsx": 569,
@@ -248,7 +246,6 @@
     },
     "oversized_files": {
       "frontend/src/components/AI/AIResourcesSettings.jsx": 883,
-      "frontend/src/components/AIModelComparisonModal.jsx": 918,
       "frontend/src/components/AgentChat.jsx": 2723,
       "frontend/src/components/AgentContextSources.jsx": 569,
       "frontend/src/components/FilesystemPickerModal.jsx": 747,

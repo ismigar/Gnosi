@@ -10,6 +10,8 @@ import {
   fetchAiUsage,
   fetchAiUsageHistory,
   generateAiContent,
+  setAiProviderCredentials,
+  setAiProviderStatus,
   updateAiModels,
   type AiCatalog,
   type AiCorrectionInput,
@@ -224,6 +226,37 @@ describe('AI API', () => {
     expect(request.method).toBe('PUT');
     expect(new URL(request.url).pathname).toBe('/api/ai/models');
     await expect(request.clone().json()).resolves.toEqual(payload);
+  });
+
+  it('updates provider credentials and status through generated routes', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(() => Promise.resolve(
+        Response.json({ status: 'success' }),
+      ));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await setAiProviderCredentials('openai/direct', {
+      api_key: 'secret',
+      base_url: 'https://api.example.test/v1',
+    });
+    await setAiProviderStatus('openai/direct', { enabled: true });
+
+    const credentialRequest = requestAt(fetchMock, 0);
+    const statusRequest = requestAt(fetchMock, 1);
+    expect(credentialRequest.method).toBe('POST');
+    expect(new URL(credentialRequest.url).pathname).toBe(
+      '/api/ai/providers/openai%2Fdirect/credentials',
+    );
+    await expect(credentialRequest.clone().json()).resolves.toEqual({
+      api_key: 'secret',
+      base_url: 'https://api.example.test/v1',
+    });
+    expect(statusRequest.method).toBe('PATCH');
+    expect(new URL(statusRequest.url).pathname).toBe(
+      '/api/ai/providers/openai%2Fdirect/status',
+    );
+    await expect(statusRequest.clone().json()).resolves.toEqual({ enabled: true });
   });
 
   it('normalizes typed API errors through the shared boundary', async () => {

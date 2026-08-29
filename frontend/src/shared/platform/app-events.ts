@@ -68,6 +68,7 @@ export interface AppEventMap {
   readonly 'gnosi:floating-panel-open': { readonly panelId: string };
   readonly 'gnosi:invalidatePreview': { readonly pageId?: string };
   readonly 'gnosi:open-pdf': OpenDocumentEventDetail;
+  readonly 'gnosi-ai-models-changed': { readonly source: string };
   readonly 'gnosi:relation-unlinked': RelationUnlinkedEventDetail;
   readonly 'gnosi:relation-value-applied': RelationValueAppliedEventDetail;
   readonly 'gnosi:vault-name-changed': null;

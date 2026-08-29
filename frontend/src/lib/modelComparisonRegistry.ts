@@ -11,7 +11,7 @@ export interface ComparisonRoute {
   readonly provider: string;
   readonly provider_name?: string | null;
   readonly quality?: unknown;
-  readonly tags?: readonly unknown[] | null;
+  readonly tags?: readonly string[] | null;
 }
 
 
@@ -45,6 +45,7 @@ export interface ResolvedComparisonRoute extends ComparisonRoute {
 
 
 export interface ModelRegistryEntry {
+  readonly [key: string]: unknown;
   readonly context_window: number;
   readonly cost_in: number;
   readonly cost_out: number;
@@ -54,7 +55,7 @@ export interface ModelRegistryEntry {
   readonly priority: 100;
   readonly provider: string;
   readonly quality: number;
-  readonly tags: unknown[];
+  readonly tags: string[];
 }
 
 
