@@ -11746,10 +11746,29 @@ export interface components {
             /** Icons */
             icons: string[];
         };
+        /**
+         * DailyNoteDocumentResponse
+         * @description Existing or newly created page, with the shared stable identifier.
+         */
+        DailyNoteDocumentResponse: {
+            /** Id */
+            id: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** DailyNoteRequest */
         DailyNoteRequest: {
             /** Date */
             date: string;
+        };
+        /** DailyNoteSummaryResponse */
+        DailyNoteSummaryResponse: {
+            /** Date */
+            date: string;
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
         };
         /** DavConnectionTestRequest */
         DavConnectionTestRequest: {
@@ -30201,7 +30220,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DailyNoteSummaryResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -30241,7 +30260,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DailyNoteDocumentResponse"];
                 };
             };
             /** @description Validation Error */

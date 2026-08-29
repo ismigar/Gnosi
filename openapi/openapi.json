@@ -5259,6 +5259,21 @@
         "title": "CustomIconsResponse",
         "type": "object"
       },
+      "DailyNoteDocumentResponse": {
+        "additionalProperties": true,
+        "description": "Existing or newly created page, with the shared stable identifier.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "DailyNoteDocumentResponse",
+        "type": "object"
+      },
       "DailyNoteRequest": {
         "properties": {
           "date": {
@@ -5270,6 +5285,29 @@
           "date"
         ],
         "title": "DailyNoteRequest",
+        "type": "object"
+      },
+      "DailyNoteSummaryResponse": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "title"
+        ],
+        "title": "DailyNoteSummaryResponse",
         "type": "object"
       },
       "DavConnectionTestRequest": {
@@ -58195,7 +58233,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DailyNoteSummaryResponse"
+                  },
+                  "title": "Response List Daily Notes Api Vault Daily Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -58315,7 +58359,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DailyNoteDocumentResponse"
+                }
               }
             },
             "description": "Successful Response"

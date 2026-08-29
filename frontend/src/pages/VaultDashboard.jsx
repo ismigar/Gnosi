@@ -2,7 +2,12 @@ import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 
 import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
 import axios from '../shared/api/legacy-http';
 import { fetchBrainTableStatus } from '../shared/api/brain';
-import { fetchVaultRegistry } from '../shared/api/vaults';
+import { openDailyNote } from '../shared/api/daily-notes';
+import {
+    createVaultPage,
+    fetchVaultPage,
+    fetchVaultRegistry,
+} from '../shared/api/vaults';
 import {
     createVaultView,
     deleteVaultView,
@@ -1464,8 +1469,7 @@ export default function VaultDashboard() {
             let title = "Nou";
 
             if (normalizedTemplateId) {
-                const getRes = await axios.get(`/api/vault/pages/${normalizedTemplateId}`);
-                const templateData = getRes.data;
+                const templateData = await fetchVaultPage(normalizedTemplateId);
                 initialContent = templateData.content || "";
                 title = templateData.title || "Nou";
                 initialMeta = {
@@ -1479,8 +1483,7 @@ export default function VaultDashboard() {
                 // Use default template if available and no specific templateId is provided
                 const defaultTemplate = tableTemplates.find(t => t.metadata?.is_default_template);
                 if (defaultTemplate) {
-                    const getRes = await axios.get(`/api/vault/pages/${defaultTemplate.id}`);
-                    const templateData = getRes.data;
+                    const templateData = await fetchVaultPage(defaultTemplate.id);
                     initialContent = templateData.content || "";
                     title = templateData.title || t('common.new');
                     initialMeta = {
@@ -1495,14 +1498,14 @@ export default function VaultDashboard() {
 
             initialMeta = applySchemaDefaults(tableId, initialMeta, title);
 
-            const res = await axios.post(`/api/vault/pages`, {
+            const created = await createVaultPage({
                 title: title,
                 content: initialContent,
                 is_database: false,
                 metadata: initialMeta
             });
 
-            const newId = res.data?.id;
+            const newId = created?.id;
             if (newId) {
                 const newPageObj = {
                     id: newId,
@@ -1547,7 +1550,7 @@ export default function VaultDashboard() {
                 id: undefined,
             };
             if (template) {
-                const { data: templateData } = await axios.get(`/api/vault/pages/${template.id}`);
+                const templateData = await fetchVaultPage(template.id);
                 initialContent = templateData.content || '';
                 initialMeta = {
                     ...templateData.metadata,
@@ -1559,7 +1562,7 @@ export default function VaultDashboard() {
                 };
             }
             initialMeta = applySchemaDefaults(tableId, initialMeta, title);
-            const res = await axios.post(`/api/vault/pages`, {
+            const created = await createVaultPage({
                 title,
                 content: initialContent,
                 is_database: false,
@@ -1567,7 +1570,7 @@ export default function VaultDashboard() {
             });
             await fetchPages();
             toast.success(t('success.record_created'));
-            loadPage(res.data.id);
+            loadPage(created.id);
         } catch (err) {
             console.error("Error creating the record from a source:", err);
             toast.error(t('errors.record_create', { defaultValue: "Error creating the record" }));
@@ -1585,9 +1588,9 @@ export default function VaultDashboard() {
                 const now = new Date();
                 date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             }
-            const res = await axios.post('/api/vault/daily', { date });
+            const note = await openDailyNote({ date });
             await fetchPages();
-            loadPage(res.data.id);
+            loadPage(note.id);
         } catch (err) {
             console.error('Error opening the daily note:', err);
             toast.error(t('errors.daily_note', { defaultValue: "Error opening the daily note" }));
