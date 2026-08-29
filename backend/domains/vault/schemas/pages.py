@@ -62,6 +62,20 @@ class BulkPreviewWarmResponse(BaseModel):
     failed: int
 
 
+class PageMutationResponse(BaseModel):
+    """Canonical page document returned after create, save or patch."""
+
+    status: str
+    id: str
+    title: Any
+    metadata: dict[str, Any]
+    content: str
+    folder: str
+    resolved_table_id: Optional[str] = None
+    etag: Optional[str] = None
+    message: str
+
+
 class PagePatchRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
@@ -100,6 +114,7 @@ __all__ = [
     "PageDetailResponse",
     "PagePreviewResponse",
     "BulkPreviewWarmResponse",
+    "PageMutationResponse",
     "PagePatchRequest",
     "PageSaveRequest",
     "SidebarPageInfo",

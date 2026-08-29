@@ -19,7 +19,11 @@ from backend.domains.vault.pages.save_service import (
     SavePageDependencies,
     save_page as save_page_service,
 )
-from backend.domains.vault.schemas.pages import PagePatchRequest, PageSaveRequest
+from backend.domains.vault.schemas.pages import (
+    PageMutationResponse,
+    PagePatchRequest,
+    PageSaveRequest,
+)
 
 
 class UserContext(Protocol):
@@ -67,7 +71,7 @@ def register_create_route(
         create_page,
         methods=["POST"],
         dependencies=[Depends(editor_dependency)],
-        response_model=None,
+        response_model=PageMutationResponse,
     )
     return create_page
 
@@ -118,14 +122,14 @@ def register_write_routes(
         save_page,
         methods=["PUT"],
         dependencies=route_dependencies,
-        response_model=None,
+        response_model=PageMutationResponse,
     )
     router.add_api_route(
         "/pages/{page_id}",
         patch_page,
         methods=["PATCH"],
         dependencies=route_dependencies,
-        response_model=None,
+        response_model=PageMutationResponse,
     )
     return save_page, patch_page
 

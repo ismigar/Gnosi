@@ -11,6 +11,7 @@ from backend.api import vault_routes
 from backend.domains.vault.schemas.pages import (
     BulkPreviewWarmResponse,
     PageDetailResponse,
+    PageMutationResponse,
     PagePreviewResponse,
 )
 from backend.domains.vault.trash import purge as trash_purge
@@ -100,6 +101,17 @@ def test_page_preview_routes_expose_typed_response_contracts() -> None:
     }
     assert routes["get_page_preview"].response_model is PagePreviewResponse
     assert routes["bulk_warm_previews"].response_model is BulkPreviewWarmResponse
+
+
+def test_page_mutation_routes_share_the_canonical_response_contract() -> None:
+    routes = [
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+        and route.endpoint.__name__ in {"create_page", "save_page", "patch_page"}
+    ]
+    assert len(routes) == 3
+    assert all(route.response_model is PageMutationResponse for route in routes)
 
 
 def test_trash_purge_domain_does_not_import_http_facade() -> None:
