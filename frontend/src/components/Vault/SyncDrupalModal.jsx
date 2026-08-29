@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { X, Globe, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { syncDrupalRow } from '../../shared/api/translation';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 // Confirmation modal to sync a row with Drupal. Unlike the
@@ -22,17 +22,12 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
     const handleSubmit = async () => {
         setSubmitting(true);
         try {
-            const res = await axios.post('/api/vault/skills/sync-drupal-row', {
+            const d = await syncDrupalRow({
                 item_id: noteId,
                 button_action: 'sync_drupal',
                 scope,
                 push_media: pushMedia,
-            }, {
-                // The sync does image resizing + multiple writes to Drupal
-                // (remote): it can exceed the 30s of axios's global timeout.
-                timeout: 180000,
             });
-            const d = res.data || {};
             const trOk = (d.translations || []).filter((x) => x.status === 'ok').length;
             const base = d.created
                 ? t('drupal.sync_created', "Node created in Drupal.")
@@ -49,7 +44,9 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
             onClose();
         } catch (err) {
             console.error('Error syncing with Drupal:', err);
-            const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");
+            const msg = err instanceof Error && err.message
+                ? err.message
+                : t('errors.unknown', "Unknown error");
             toast.error(`${t('drupal.sync_error', "Error syncing with Drupal")}: ${msg}`);
         } finally {
             setSubmitting(false);
