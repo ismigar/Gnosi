@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from '../shared/api/legacy-http';
 import { Mic, Square, Loader2, X, FileText, Monitor, Users, AlertTriangle, Check } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 import { vaultPath } from '../lib/vaultRouting';
+import { uploadMeetingRecording } from '../shared/api/meeting-specialized';
+import { fetchMeetingStatus } from '../shared/api/meetings';
 
 /**
  * AI meeting minutes taker (Notion AI Meeting Notes style).
@@ -61,7 +62,7 @@ export default function MeetingRecorder() {
         if (pollRef.current) return;
         pollRef.current = setInterval(async () => {
             try {
-                const { data } = await axios.get('/api/meetings/status');
+                const data = await fetchMeetingStatus();
                 setStage(data?.stage || '');
                 if (data?.stage === 'done') {
                     clearInterval(pollRef.current); pollRef.current = null;
@@ -80,24 +81,20 @@ export default function MeetingRecorder() {
         // Retain the recording so a failed upload can be retried instead of lost.
         lastBlobRef.current = blob;
         setPhase('uploading');
-        const fd = new FormData();
-        fd.append('audio', blob, 'meeting.webm');
-        fd.append('title', title.trim() || 'Reunió');
-        fd.append('mode', mode);
         try {
-            // timeout: 0 — a long meeting is a multi-MB upload that must not be
-            // aborted by the global 30s axios timeout (which would discard the
-            // recording). Pattern #812.
-            await axios.post('/api/meetings/record', fd, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                timeout: 0,
-            });
+            // The reviewed fetch adapter has no implicit timeout, so long
+            // recordings are not discarded while they upload. Pattern #812.
+            await uploadMeetingRecording(
+                blob,
+                title.trim() || 'Reunió',
+                mode,
+            );
             lastBlobRef.current = null;  // uploaded successfully; drop the copy
             setPhase('processing');
             setStage('transcribing');
             pollStatus();
         } catch (err) {
-            const detail = err?.response?.data?.detail || err?.message || 'Error';
+            const detail = err?.message || 'Error';
             setErrMsg(detail);
             setPhase('error');
         }

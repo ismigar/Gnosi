@@ -9287,6 +9287,76 @@
         "title": "MeetingRemindersResponse",
         "type": "object"
       },
+      "MeetingStartResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "MeetingStartResponse",
+        "type": "object"
+      },
+      "MeetingStatusResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "page_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Id"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "running",
+          "stage",
+          "progress"
+        ],
+        "title": "MeetingStatusResponse",
+        "type": "object"
+      },
       "MemberResponse": {
         "properties": {
           "email": {
@@ -38572,7 +38642,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingStartResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -38603,7 +38675,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingStatusResponse"
+                }
               }
             },
             "description": "Successful Response"

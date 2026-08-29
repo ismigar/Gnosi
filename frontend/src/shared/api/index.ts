@@ -78,6 +78,10 @@ export type {
   IntegrationsUpdate,
   IntegrationUpdateResponse,
 } from './integrations';
+export { uploadMeetingRecording } from './meeting-specialized';
+export type { MeetingMode } from './meeting-specialized';
+export { fetchMeetingStatus } from './meetings';
+export type { MeetingStart, MeetingStatus } from './meetings';
 export { queryClient } from './query-client';
 export {
   createShareLink,

@@ -8,8 +8,6 @@ frontend polls `GET /api/meetings/status` until it finishes and opens the page.
 import logging
 import uuid
 from pathlib import Path
-from typing import Any
-
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, ConfigDict
 
@@ -44,12 +42,12 @@ def _audio_dir() -> Path:
     return d
 
 
-@router.post("/record", response_model=None)
+@router.post("/record", response_model=MeetingStartResponse)
 async def record_meeting(
     audio: UploadFile = File(...),
     title: str = Form("Reunió"),
     mode: str = Form("presencial"),
-) -> dict[str, str]:
+) -> MeetingStartResponse:
     """Receives the audio, saves it, and starts background processing."""
     if meeting_notes.get_status().get("running"):
         raise HTTPException(status_code=409, detail="A meeting is already being processed.")
@@ -67,10 +65,10 @@ async def record_meeting(
 
     if not meeting_notes.start_async(str(dest), title, mode):
         raise HTTPException(status_code=409, detail="A meeting is already being processed.")
-    return MeetingStartResponse(status="started").model_dump()
+    return MeetingStartResponse(status="started")
 
 
-@router.get("/status", response_model=None)
-async def meeting_status() -> dict[str, Any]:
+@router.get("/status", response_model=MeetingStatusResponse)
+async def meeting_status() -> MeetingStatusResponse:
     """Status of the in-flight job (polled from the frontend)."""
-    return MeetingStatusResponse.model_validate(meeting_notes.get_status()).model_dump()
+    return MeetingStatusResponse.model_validate(meeting_notes.get_status())

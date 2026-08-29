@@ -13295,6 +13295,28 @@ export interface components {
             /** Reminders */
             reminders: components["schemas"]["MeetingReminderResponse"][];
         };
+        /** MeetingStartResponse */
+        MeetingStartResponse: {
+            /** Status */
+            status: string;
+        };
+        /** MeetingStatusResponse */
+        MeetingStatusResponse: {
+            /** Error */
+            error?: string | null;
+            /** Page Id */
+            page_id?: string | null;
+            /** Progress */
+            progress: number;
+            /** Running */
+            running: boolean;
+            /** Stage */
+            stage: string;
+            /** Title */
+            title?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** MemberResponse */
         MemberResponse: {
             /** Email */
@@ -23565,7 +23587,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MeetingStartResponse"];
                 };
             };
             /** @description Validation Error */
@@ -23594,7 +23616,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MeetingStatusResponse"];
                 };
             };
         };
