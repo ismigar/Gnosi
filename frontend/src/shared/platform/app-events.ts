@@ -52,7 +52,7 @@ export interface AppEventMap {
   readonly 'gnosi:config-changed': null;
   readonly 'gnosi:floating-dock-change': { readonly isOpen: boolean };
   readonly 'gnosi:floating-panel-open': { readonly panelId: string };
-  readonly 'gnosi:invalidatePreview': { readonly pageId: string };
+  readonly 'gnosi:invalidatePreview': { readonly pageId?: string };
   readonly 'gnosi:relation-unlinked': RelationUnlinkedEventDetail;
   readonly 'gnosi:relation-value-applied': RelationValueAppliedEventDetail;
   readonly 'gnosi:vault-name-changed': null;
