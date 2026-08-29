@@ -23,6 +23,7 @@ import {
     fetchVaultRegistry,
     fetchVaultTablePagesSnapshot,
     patchVaultPage,
+    patchVaultTableProperty,
     resolveVaultTitle,
     renameVaultTable,
     restoreVaultPage,
@@ -3209,10 +3210,9 @@ export default function VaultDashboard() {
     const handleAddSchemaOption = useCallback(async (tableId, fieldId, nextOptions) => {
         if (!tableId || !fieldId || !Array.isArray(nextOptions)) return;
         try {
-            await axios.patch(
-                `/api/vault/tables/${tableId}/properties/${fieldId}`,
-                { config: { options: nextOptions } }
-            );
+            await patchVaultTableProperty(tableId, fieldId, {
+                config: { options: nextOptions },
+            });
             await fetchRegistry();
         } catch (err) {
             notifyError('add-schema-option', err, t('errors.add_schema_option'));

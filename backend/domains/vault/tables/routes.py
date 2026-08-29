@@ -13,7 +13,11 @@ from backend.domains.vault.tables import lifecycle as table_lifecycle
 from backend.domains.vault.tables import options as table_options
 from backend.domains.vault.tables import schema as table_schema
 from backend.domains.vault.tables.composition import TableDomainDependencies
-from backend.domains.vault.tables.contracts import RegistryRecord
+from backend.domains.vault.tables.contracts import (
+    RegistryRecord,
+    TablePropertyPatchRequest,
+    TablePropertyPatchResponse,
+)
 from backend.domains.vault.tables.security import get_workspace_context, require_role
 from backend.domains.vault.views import api as vault_views
 from backend.domains.vault.views import schema as vault_view_schema
@@ -214,12 +218,12 @@ def _propagate_property_rename(
 @router.patch(
     "/tables/{table_id}/properties/{field_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=TablePropertyPatchResponse,
 )
 async def patch_table_property(
     table_id: str,
     field_id: str,
-    data: RegistryData = Body(...),
+    data: TablePropertyPatchRequest = Body(...),
 ) -> RegistryData:
     """
         Renames or updates non-structural attributes of a property identified
@@ -240,7 +244,9 @@ async def patch_table_property(
     return await table_schema.patch_table_property(
         table_id,
         field_id,
-        data,
+        data.model_dump(exclude_unset=True)
+        if isinstance(data, TablePropertyPatchRequest)
+        else data,
         _configured().properties,
     )
 

@@ -2,11 +2,31 @@
 
 from __future__ import annotations
 
-from pydantic import JsonValue, RootModel
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, JsonValue, RootModel
 
 
 class RegistryRecord(RootModel[dict[str, JsonValue]]):
     """One JSON-compatible database or table registry record."""
 
 
-__all__ = ["RegistryRecord"]
+class TablePropertyPatchRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str | None = None
+    type: str | None = None
+    config: dict[str, JsonValue] | None = None
+
+
+class TablePropertyPatchResponse(BaseModel):
+    status: Literal["success"]
+    table_id: str
+    property: RegistryRecord
+
+
+__all__ = [
+    "RegistryRecord",
+    "TablePropertyPatchRequest",
+    "TablePropertyPatchResponse",
+]

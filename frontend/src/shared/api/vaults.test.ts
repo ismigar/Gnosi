@@ -23,6 +23,7 @@ import {
   fetchVaultTrash,
   openVaultLocalPath,
   openVaultResource,
+  patchVaultTableProperty,
   patchVaultPage,
   purgeVaultTrashPage,
   renameVaultTable,
@@ -53,6 +54,33 @@ function requestAt(
 
 
 describe('vault collections API', () => {
+  it('patches one immutable table property through both path identifiers', async () => {
+    const response = {
+      status: 'success',
+      table_id: 'table-1',
+      property: {
+        id: 'status',
+        name: 'Status',
+        type: 'select',
+        config: { options: [{ name: 'Open' }] },
+      },
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(response));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      patchVaultTableProperty('table-1', 'status', {
+        config: { options: [{ name: 'Open' }] },
+      }),
+    ).resolves.toEqual(response);
+
+    const request = requestAt(fetchMock.mock.calls, 0);
+    expect(request.method).toBe('PATCH');
+    expect(new URL(request.url).pathname).toBe(
+      '/api/vault/tables/table-1/properties/status',
+    );
+  });
+
   it('duplicates one page and applies a template to a selected batch', async () => {
     const duplicate = {
       status: 'created',

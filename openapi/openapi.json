@@ -21157,6 +21157,72 @@
         "title": "TablePagesSnapshot",
         "type": "object"
       },
+      "TablePropertyPatchRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "title": "TablePropertyPatchRequest",
+        "type": "object"
+      },
+      "TablePropertyPatchResponse": {
+        "properties": {
+          "property": {
+            "$ref": "#/components/schemas/RegistryRecord"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "table_id",
+          "property"
+        ],
+        "title": "TablePropertyPatchResponse",
+        "type": "object"
+      },
       "TaskFactPayload": {
         "description": "Markdown-owned task facts accepted by schedule recalculation.",
         "properties": {
@@ -83666,9 +83732,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Data",
-                "type": "object"
+                "$ref": "#/components/schemas/TablePropertyPatchRequest"
               }
             }
           },
@@ -83678,7 +83742,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TablePropertyPatchResponse"
+                }
               }
             },
             "description": "Successful Response"

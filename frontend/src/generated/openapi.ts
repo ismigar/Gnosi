@@ -17913,6 +17913,30 @@ export interface components {
             /** Visible Count */
             visible_count: number;
         };
+        /** TablePropertyPatchRequest */
+        TablePropertyPatchRequest: {
+            /** Config */
+            config?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Name */
+            name?: string | null;
+            /** Type */
+            type?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** TablePropertyPatchResponse */
+        TablePropertyPatchResponse: {
+            property: components["schemas"]["RegistryRecord"];
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+            /** Table Id */
+            table_id: string;
+        };
         /**
          * TaskFactPayload
          * @description Markdown-owned task facts accepted by schedule recalculation.
@@ -38246,9 +38270,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TablePropertyPatchRequest"];
             };
         };
         responses: {
@@ -38258,7 +38280,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TablePropertyPatchResponse"];
                 };
             };
             /** @description Validation Error */

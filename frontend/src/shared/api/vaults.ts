@@ -20,6 +20,10 @@ export type VaultTableInput = operations[
 export type VaultTableRenameInput = operations[
   'rename_table_api_vault_tables__table_id__put'
 ]['requestBody']['content']['application/json'];
+export type VaultTablePropertyPatchInput =
+  components['schemas']['TablePropertyPatchRequest'];
+export type VaultTablePropertyPatchResult =
+  components['schemas']['TablePropertyPatchResponse'];
 export type VaultTableDeleteQuery = NonNullable<
   operations[
     'delete_table_api_vault_tables__table_id__delete'
@@ -189,6 +193,23 @@ export async function deleteVaultTable(
     await apiClient.DELETE('/api/vault/tables/{table_id}', {
       params: { path: { table_id: tableId }, query },
     }),
+  );
+}
+
+
+export async function patchVaultTableProperty(
+  tableId: string,
+  fieldId: string,
+  input: VaultTablePropertyPatchInput,
+): Promise<VaultTablePropertyPatchResult> {
+  return unwrapApiResult<VaultTablePropertyPatchResult, unknown>(
+    await apiClient.PATCH(
+      '/api/vault/tables/{table_id}/properties/{field_id}',
+      {
+        body: input,
+        params: { path: { field_id: fieldId, table_id: tableId } },
+      },
+    ),
   );
 }
 
