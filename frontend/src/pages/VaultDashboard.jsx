@@ -7,6 +7,7 @@ import { fetchReferenceTable } from '../shared/api/literature-resources';
 import { fetchResourceProcessingStatus } from '../shared/api/resource-processing';
 import {
     createVaultPage,
+    deleteVaultPage,
     fetchVaultAliasIndex,
     fetchVaultGlobalIndex,
     fetchVaultPage,
@@ -14,7 +15,10 @@ import {
     fetchVaultPagesByTable,
     fetchVaultRegistry,
     fetchVaultTablePagesSnapshot,
+    patchVaultPage,
     resolveVaultTitle,
+    restoreVaultPage,
+    saveVaultPage,
 } from '../shared/api/vaults';
 import {
     createVaultView,
@@ -1104,7 +1108,7 @@ export default function VaultDashboard() {
 
     const handleUpdateNote = useCallback(async (id, data) => {
         try {
-            await axios.patch(`/api/vault/pages/${id}`, data);
+            await patchVaultPage(id, data);
             await fetchPages();
             const page = pages.find(p => p.id === id);
             const tableIdOfPage = resolvePageTableId(page);
@@ -1131,7 +1135,7 @@ export default function VaultDashboard() {
             : p
         ));
         try {
-            await axios.patch(`/api/vault/pages/${pageId}`, {
+            await patchVaultPage(pageId, {
                 parent_id: newParentId,
                 metadata: { parent_id: newParentId },
             });
@@ -2351,7 +2355,7 @@ export default function VaultDashboard() {
 
     const handleDuplicateTemplate = async (template) => {
         try {
-            await axios.post(`/api/vault/pages`, {
+            await createVaultPage({
                 title: `${template.title} (${t('common.copy')})`,
                 content: template.content || "",
                 is_database: false,
@@ -2376,13 +2380,13 @@ export default function VaultDashboard() {
             const otherTemplates = pages.filter(p => resolvePageTableId(p) === targetTableId && p.metadata?.is_template && p.id !== template.id && p.metadata?.is_default_template);
             
             for (const t of otherTemplates) {
-                await axios.patch(`/api/vault/pages/${t.id}`, {
+                await patchVaultPage(t.id, {
                     ...t,
                     metadata: { ...t.metadata, is_default_template: false }
                 });
             }
 
-            await axios.patch(`/api/vault/pages/${template.id}`, {
+            await patchVaultPage(template.id, {
                 ...template,
                 metadata: { ...template.metadata, is_default_template: true }
             });
@@ -2411,8 +2415,7 @@ export default function VaultDashboard() {
             let title = "Nou";
 
             if (normalizedTemplateId) {
-                const getRes = await axios.get(`/api/vault/pages/${normalizedTemplateId}`);
-                const templateData = getRes.data;
+                const templateData = await fetchVaultPage(normalizedTemplateId);
                 initialContent = templateData.content || "";
                 title = templateData.title || "Nou";
                 initialMeta = {
@@ -2427,14 +2430,14 @@ export default function VaultDashboard() {
 
             initialMeta = applySchemaDefaults(targetTableId, initialMeta, title);
 
-            const res = await axios.post(`/api/vault/pages`, {
+            const created = await createVaultPage({
                 title: title,
                 content: initialContent,
                 is_database: false,
                 metadata: initialMeta
             });
             await fetchPagesByTable(targetTableId);
-            loadPage(res.data.id);
+            loadPage(created.id);
         } catch {
             toast.error(t('errors.record_create'));
         }
@@ -2592,7 +2595,7 @@ export default function VaultDashboard() {
             setPromptModal(prev => ({ ...prev, isLoading: true }));
 
             if (isTemplate) {
-                const res = await axios.post(`/api/vault/pages`, {
+                const created = await createVaultPage({
                     title: title,
                     content: ``,
                     is_database: false,
@@ -2604,7 +2607,7 @@ export default function VaultDashboard() {
                 });
                 await fetchPages();
                 toast.success(t('success.template_created')); // Add success.template_created
-                loadPage(res.data.id);
+                loadPage(created.id);
             } else if (isApp) {
                 await axios.post('/api/vault/databases', { name: title });
                 await fetchRegistry();
@@ -2660,7 +2663,7 @@ export default function VaultDashboard() {
                 await fetchRegistry();
                 toast.success(t('success.table_created', { name: title }));
             } else {
-                const res = await axios.post(`/api/vault/pages`, {
+                const created = await createVaultPage({
                     title: title,
                     content: isDashboard ? '{\n  \n}' : ``,
                     parent_id: parentId,
@@ -2673,7 +2676,7 @@ export default function VaultDashboard() {
                         : undefined,
                 });
                 await fetchPages();
-                loadPage(res.data.id);
+                loadPage(created.id);
             }
             closePromptModal();
         } catch {
@@ -2735,7 +2738,7 @@ export default function VaultDashboard() {
         };
         const restorePage = async () => {
             try {
-                await axios.post(`/api/vault/pages/${id}/restore`);
+                await restoreVaultPage(id);
                 refreshAfterDelete();
                 toast.success(t('success.page_restored'));
             } catch (err) {
@@ -2745,7 +2748,7 @@ export default function VaultDashboard() {
         };
 
         try {
-            await axios.delete(`/api/vault/pages/${id}`);
+            await deleteVaultPage(id);
             removeFromState();
             refreshAfterDelete();
             toast((tObj) => (
@@ -2793,7 +2796,7 @@ export default function VaultDashboard() {
         // Restore with partial error reporting. Returns {succeeded, failed}.
         const restoreMany = async (ids) => {
             const results = await Promise.allSettled(
-                ids.map(id => axios.post(`/api/vault/pages/${id}/restore`))
+                ids.map(id => restoreVaultPage(id))
             );
             const succeeded = [];
             const failed = [];
@@ -2815,7 +2818,7 @@ export default function VaultDashboard() {
         // DELETE: 404 → treated as success (it's no longer on disk; it still needs to be removed from
         // local state anyway); 200/2xx → success; anything else → failed.
         const deleteResults = await Promise.allSettled(
-            idArray.map(id => axios.delete(`/api/vault/pages/${id}`))
+            idArray.map(id => deleteVaultPage(id))
         );
         const deletedIds = [];
         const failedDeletes = [];
@@ -2938,7 +2941,7 @@ export default function VaultDashboard() {
         applyLocalValue(value);
 
         try {
-            await axios.patch(`/api/vault/pages/${encodeURIComponent(operation.pageId)}`, {
+            await patchVaultPage(operation.pageId, {
                 metadata: { [operation.metadataKey]: value },
             });
 
@@ -2978,7 +2981,7 @@ export default function VaultDashboard() {
 
         if (operation.type === 'delete' && Array.isArray(operation.ids)) {
             const results = await Promise.allSettled(
-                operation.ids.map(id => axios.post(`/api/vault/pages/${id}/restore`))
+                operation.ids.map(id => restoreVaultPage(id))
             );
             const succeeded = [];
             const failed = [];
@@ -3025,7 +3028,7 @@ export default function VaultDashboard() {
 
         if (operation.type === 'delete' && Array.isArray(operation.ids)) {
             const results = await Promise.allSettled(
-                operation.ids.map(id => axios.delete(`/api/vault/pages/${id}`))
+                operation.ids.map(id => deleteVaultPage(id))
             );
             const succeeded = [];
             const failed = [];
@@ -3092,11 +3095,11 @@ export default function VaultDashboard() {
 
     const handleRenamePage = useCallback(async (pageId, newTitle) => {
         try {
-            const getRes = await axios.get(`/api/vault/pages/${pageId}`);
-            const { content, metadata } = getRes.data;
+            const page = await fetchVaultPage(pageId);
+            const { content, metadata } = page;
             const updatedMeta = { ...metadata, title: newTitle };
 
-            await axios.put(`/api/vault/pages/${pageId}`, {
+            await saveVaultPage(pageId, {
                 title: newTitle,
                 content: content,
                 is_database: updatedMeta.is_database || false,
@@ -3149,10 +3152,10 @@ export default function VaultDashboard() {
         // PUT (not lose the note body); if the GET or the PUT fail,
         // we revert the optimistic update so as not to mislead the user.
         try {
-            const getRes = await axios.get(`/api/vault/pages/${pageId}`);
-            const { content, metadata, title } = getRes.data;
+            const page = await fetchVaultPage(pageId);
+            const { content, metadata, title } = page;
             const updatedMeta = { ...metadata, favorite: nextFav };
-            await axios.put(`/api/vault/pages/${pageId}`, {
+            await saveVaultPage(pageId, {
                 title: title,
                 content: content,
                 is_database: updatedMeta.is_database || false,
