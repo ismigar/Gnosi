@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Database, FileText, Paperclip, Layers, Globe, Landmark, X, Plus, Loader2, Blocks, SlidersHorizontal } from 'lucide-react';
-import axios from '../shared/api/legacy-http';
 import { toast } from '../lib/toast';
+import {
+    fetchExternalContextSources,
+    fetchInternalContextSources,
+} from '../shared/api/agent-context';
 import { uploadVaultAsset } from '../shared/api/vault-specialized';
 import { fetchVaultPages, fetchVaultTables } from '../shared/api/vaults';
 
@@ -66,16 +69,16 @@ export default function AgentContextSources({ value, onChange }) {
                 });
         }
         if (picking === 'source' && externalSources === null) {
-            axios.get('/api/agent/context-sources')
-                .then(res => setExternalSources(res.data || []))
+            fetchExternalContextSources()
+                .then(data => setExternalSources(data || []))
                 .catch(err => {
                     console.error('Could not load the external source catalogue', err);
                     setExternalSources([]);
                 });
         }
         if ((picking === 'internal' || refs.some(ref => ref.type === 'internal')) && internalSources === null) {
-            axios.get('/api/agent/internal-sources')
-                .then(res => setInternalSources(res.data || []))
+            fetchInternalContextSources()
+                .then(data => setInternalSources(data || []))
                 .catch(err => {
                     console.error('Could not load the Gnosi source catalogue', err);
                     setInternalSources([]);
