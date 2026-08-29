@@ -29,6 +29,11 @@ AXIOS_SPECIFIER = re.compile(
     r"(?P<quote>['\"])axios(?P=quote)"
 )
 GLOBAL_FETCH_ASSIGNMENT = re.compile(r"^\s*(?:globalThis|window)\.fetch\s*=", re.MULTILINE)
+LEGACY_HTTP_IMPORT = re.compile(
+    r"(?:\bfrom\s*|\bimport\(\s*|\brequire\(\s*)"
+    r"(?P<quote>['\"]).*shared/api/legacy-http(?P=quote)"
+)
+MAX_LEGACY_HTTP_CONSUMERS = 60
 
 
 def _relative(path: Path) -> str:
@@ -76,6 +81,14 @@ def _all_source_specifiers() -> list[str]:
     return violations
 
 
+def _legacy_http_consumers() -> list[str]:
+    return [
+        _relative(path)
+        for path in _production_sources()
+        if LEGACY_HTTP_IMPORT.search(path.read_text(encoding="utf-8"))
+    ]
+
+
 def _package_has_axios() -> bool:
     package: object = json.loads((FRONTEND_ROOT / "package.json").read_text(encoding="utf-8"))
     if not isinstance(package, dict):
@@ -93,9 +106,9 @@ def main() -> int:
     findings: dict[str, set[str]] = {category: set() for category in PATTERNS}
     global_assignments: list[str] = []
 
-    for path in _production_sources():
-        text = path.read_text(encoding="utf-8")
-        relative = _relative(path)
+    for source_path in _production_sources():
+        text = source_path.read_text(encoding="utf-8")
+        relative = _relative(source_path)
         for category, pattern in PATTERNS.items():
             if pattern.search(text):
                 findings[category].add(relative)
@@ -109,12 +122,20 @@ def main() -> int:
         stale = sorted(expected - found)
         violations.extend(f"{category}: unreviewed boundary in {path}" for path in unexpected)
         violations.extend(f"{category}: stale allowlist entry for {path}" for path in stale)
-        for path in expected:
-            if not (REPOSITORY_ROOT / path).is_file():
-                violations.append(f"{category}: allowlisted path does not exist: {path}")
+        for allowlisted_path in expected:
+            if not (REPOSITORY_ROOT / allowlisted_path).is_file():
+                violations.append(
+                    f"{category}: allowlisted path does not exist: {allowlisted_path}"
+                )
 
     axios_specifiers = _all_source_specifiers()
+    legacy_http_consumers = _legacy_http_consumers()
     violations.extend(f"axios module specifier remains in {path}" for path in axios_specifiers)
+    if len(legacy_http_consumers) > MAX_LEGACY_HTTP_CONSUMERS:
+        violations.append(
+            "legacy-http consumer count increased: "
+            f"{len(legacy_http_consumers)} > {MAX_LEGACY_HTTP_CONSUMERS}"
+        )
     if _package_has_axios():
         violations.append("axios remains in frontend/package.json")
     violations.extend(f"global fetch assignment remains in {path}" for path in global_assignments)
@@ -130,6 +151,8 @@ def main() -> int:
         },
         "axiosSpecifiers": 0,
         "globalFetchAssignments": 0,
+        "legacyHttpConsumers": len(legacy_http_consumers),
+        "legacyHttpMaximum": MAX_LEGACY_HTTP_CONSUMERS,
         "productionSources": len(_production_sources()),
     }
     LOG.info(json.dumps(report, indent=2, sort_keys=True))
