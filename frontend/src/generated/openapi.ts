@@ -12719,6 +12719,56 @@ export interface components {
             url: string;
         };
         /**
+         * LlmWikiJobResponse
+         * @description Durable Brain-ingest state returned while a resource is processed.
+         */
+        LlmWikiJobResponse: {
+            /** Chunks Done */
+            chunks_done?: number | null;
+            /** Chunks Total */
+            chunks_total?: number | null;
+            /** Created */
+            created?: string[] | null;
+            /** Error */
+            error?: string | null;
+            /** Finished At */
+            finished_at?: number | null;
+            /** Index Report */
+            index_report?: {
+                [key: string]: unknown;
+            } | null;
+            /** Job Id */
+            job_id?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Origins Done */
+            origins_done?: number | null;
+            /** Origins Total */
+            origins_total?: number | null;
+            /** Pages Touched */
+            pages_touched?: number | null;
+            /** Phase */
+            phase?: string | null;
+            /** Progress */
+            progress?: number | null;
+            /** Resource Id */
+            resource_id?: string | null;
+            /** Running */
+            running?: boolean | null;
+            /** Source Table Id */
+            source_table_id?: string | null;
+            /** Started At */
+            started_at?: number | null;
+            /** Updated */
+            updated?: string[] | null;
+            /** Updated At */
+            updated_at?: number | null;
+            /** Warnings */
+            warnings?: string[] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * LlmWikiLifecycleRequest
          * @description Backward-compatible lifecycle request for LLM Wiki.
          */
@@ -12735,6 +12785,56 @@ export interface components {
             confirm_disable: boolean;
             /** Enabled */
             enabled: boolean;
+        };
+        /**
+         * LlmWikiProcessRequest
+         * @description Compatible request body for starting one durable Brain ingest.
+         */
+        LlmWikiProcessRequest: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Item Id
+             * @default
+             */
+            item_id: string;
+            /**
+             * Language
+             * @default
+             */
+            language: string;
+            /**
+             * Resource Id
+             * @default
+             */
+            resource_id: string;
+            /**
+             * Source Table Id
+             * @default
+             */
+            source_table_id: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * LlmWikiProcessStartResponse
+         * @description Acknowledgement and initial state for a newly started Brain ingest.
+         */
+        LlmWikiProcessStartResponse: {
+            /** Item Id */
+            item_id: string;
+            job: components["schemas"]["LlmWikiJobResponse"];
+            /** Job Id */
+            job_id: string | null;
+            /** Resource Id */
+            resource_id: string;
+            /** Source Table Id */
+            source_table_id: string;
+            /** Status */
+            status: string;
         };
         /**
          * LocalPathOpenRequest
@@ -31815,9 +31915,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["LlmWikiProcessRequest"];
             };
         };
         responses: {
@@ -31827,7 +31925,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LlmWikiProcessStartResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31867,7 +31965,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LlmWikiJobResponse"];
                 };
             };
             /** @description Validation Error */

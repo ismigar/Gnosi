@@ -32,6 +32,56 @@ class BrainSuggestionRejectedResponse(BaseModel):
     rejected: str
 
 
+class LlmWikiProcessRequest(BaseModel):
+    """Compatible request body for starting one durable Brain ingest."""
+
+    model_config = ConfigDict(extra="allow")
+
+    resource_id: str = ""
+    item_id: str = ""
+    source_table_id: str = ""
+    force: bool = False
+    language: str = ""
+
+
+class LlmWikiJobResponse(BaseModel):
+    """Durable Brain-ingest state returned while a resource is processed."""
+
+    model_config = ConfigDict(extra="allow")
+
+    job_id: str | None = None
+    source_table_id: str | None = None
+    resource_id: str | None = None
+    running: bool | None = None
+    phase: str | None = None
+    progress: int | None = None
+    origins_total: int | None = None
+    origins_done: int | None = None
+    chunks_total: int | None = None
+    chunks_done: int | None = None
+    pages_touched: int | None = None
+    created: list[str] | None = None
+    updated: list[str] | None = None
+    model: str | None = None
+    warnings: list[str] | None = None
+    error: str | None = None
+    started_at: float | None = None
+    updated_at: float | None = None
+    finished_at: float | None = None
+    index_report: dict[str, _LegacyAny] | None = None
+
+
+class LlmWikiProcessStartResponse(BaseModel):
+    """Acknowledgement and initial state for a newly started Brain ingest."""
+
+    status: str
+    item_id: str
+    resource_id: str
+    source_table_id: str
+    job_id: str | None
+    job: LlmWikiJobResponse
+
+
 def ensure_llm_wiki_column(reference_table_id: str) -> bool:
     """Add the `Processat pel Cervell` system date column when missing.
 
@@ -137,19 +187,22 @@ def mark_resource_processed(page_id: str, date_str: str) -> bool:
 @router.post(
     "/llm-wiki/process",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LlmWikiProcessStartResponse,
+    response_model_exclude_unset=True,
 )
-async def llm_wiki_process(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
+async def llm_wiki_process(
+    payload: LlmWikiProcessRequest = _legacy.Body(...),
+) -> _LegacyAny:
     """Start a durable ingest for one row of a configured source table."""
     from backend.services.llm_wiki_actions import LlmWikiActionError, start_source_process
 
     try:
         return await _legacy.asyncio.to_thread(
             start_source_process,
-            str((payload or {}).get("resource_id") or (payload or {}).get("item_id") or ""),
-            source_table_id=str((payload or {}).get("source_table_id") or ""),
-            force=bool((payload or {}).get("force")),
-            language=str((payload or {}).get("language") or ""),
+            payload.resource_id or payload.item_id,
+            source_table_id=payload.source_table_id,
+            force=payload.force,
+            language=payload.language,
         )
     except LlmWikiActionError as exc:
         raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
@@ -158,7 +211,8 @@ async def llm_wiki_process(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(
 @router.get(
     "/llm-wiki/status/{item_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LlmWikiJobResponse,
+    response_model_exclude_unset=True,
 )
 async def llm_wiki_status(
     item_id: str, source_table_id: str = _legacy.Query(default="")

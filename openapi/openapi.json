@@ -7912,6 +7912,244 @@
         "title": "LinkPreviewResponse",
         "type": "object"
       },
+      "LlmWikiJobResponse": {
+        "additionalProperties": true,
+        "description": "Durable Brain-ingest state returned while a resource is processed.",
+        "properties": {
+          "chunks_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunks Done"
+          },
+          "chunks_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunks Total"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "index_report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Report"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "origins_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origins Done"
+          },
+          "origins_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origins Total"
+          },
+          "pages_touched": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages Touched"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "running": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running"
+          },
+          "source_table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Table Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "updated": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "warnings": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warnings"
+          }
+        },
+        "title": "LlmWikiJobResponse",
+        "type": "object"
+      },
       "LlmWikiLifecycleRequest": {
         "description": "Backward-compatible lifecycle request for LLM Wiki.",
         "properties": {
@@ -7934,6 +8172,84 @@
           "enabled"
         ],
         "title": "LlmWikiLifecycleRequest",
+        "type": "object"
+      },
+      "LlmWikiProcessRequest": {
+        "additionalProperties": true,
+        "description": "Compatible request body for starting one durable Brain ingest.",
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "item_id": {
+            "default": "",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "language": {
+            "default": "",
+            "title": "Language",
+            "type": "string"
+          },
+          "resource_id": {
+            "default": "",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "source_table_id": {
+            "default": "",
+            "title": "Source Table Id",
+            "type": "string"
+          }
+        },
+        "title": "LlmWikiProcessRequest",
+        "type": "object"
+      },
+      "LlmWikiProcessStartResponse": {
+        "description": "Acknowledgement and initial state for a newly started Brain ingest.",
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "job": {
+            "$ref": "#/components/schemas/LlmWikiJobResponse"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "source_table_id": {
+            "title": "Source Table Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "item_id",
+          "resource_id",
+          "source_table_id",
+          "job_id",
+          "job"
+        ],
+        "title": "LlmWikiProcessStartResponse",
         "type": "object"
       },
       "LocalPathOpenRequest": {
@@ -63593,9 +63909,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/LlmWikiProcessRequest"
               }
             }
           },
@@ -63605,7 +63919,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiProcessStartResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63736,7 +64052,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiJobResponse"
+                }
               }
             },
             "description": "Successful Response"

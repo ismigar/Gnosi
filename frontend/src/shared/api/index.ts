@@ -116,6 +116,15 @@ export { fetchMeetingStatus } from './meetings';
 export type { MeetingStart, MeetingStatus } from './meetings';
 export { queryClient } from './query-client';
 export {
+  fetchResourceProcessingStatus,
+  startResourceProcessing,
+} from './resource-processing';
+export type {
+  ResourceProcessingInput,
+  ResourceProcessingJob,
+  ResourceProcessingStart,
+} from './resource-processing';
+export {
   createShareLink,
   fetchSharedPage,
   fetchShareLinks,
