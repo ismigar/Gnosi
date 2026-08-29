@@ -68,6 +68,7 @@ export interface AppEventMap {
   readonly 'app-error': AppErrorEventDetail;
   readonly 'db-theme-changed': null;
   readonly 'gnosi:config-changed': null;
+  readonly 'gnosi:ai-correct-page': null;
   readonly 'gnosi:floating-dock-change': { readonly isOpen: boolean };
   readonly 'gnosi:floating-panel-open': { readonly panelId: string };
   readonly 'gnosi:invalidatePreview': { readonly pageId?: string };
