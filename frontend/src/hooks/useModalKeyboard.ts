@@ -25,16 +25,24 @@
  * keys untouched, so a modal with a navigable list keeps its own arrow
  * handler and only delegates Esc/Enter here.
  *
- * @typedef {Object} ModalKeyboardOptions
- * @property {boolean} isOpen - Whether the modal is visible.
- * @property {() => void} onClose - Negative action triggered by Escape.
- * @property {(() => void) | null} [onConfirm] - Positive action triggered by Enter.
- * @property {boolean} [confirmDisabled] - Whether Enter confirmation is disabled.
- * @property {import('react').RefObject<HTMLElement | null> | null} [containerRef] - Modal panel ref.
- * @property {boolean} [closeOnEscape] - Whether Escape closes the modal.
- * @property {boolean} [trapFocus] - Whether Tab cycles within the modal.
  */
 import { useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
+
+export interface ModalKeyboardOptions {
+    readonly closeOnEscape?: boolean;
+    readonly confirmDisabled?: boolean;
+    readonly containerRef?: RefObject<HTMLElement | null> | null;
+    readonly isOpen: boolean;
+    readonly onClose: () => unknown;
+    readonly onConfirm?: (() => unknown) | null;
+    readonly trapFocus?: boolean;
+}
+
+export interface ModalLayer {
+    readonly isTop: () => boolean;
+    readonly release: () => void;
+}
 
 // ── Global stack of modal layers ──────────────────────────────────────────
 // With NESTED modals (Settings → Import Notion → schema / confirmation),
@@ -45,9 +53,9 @@ import { useEffect, useRef } from 'react';
 // releases it when it closes; Esc handlers only act if their layer is
 // the top one. Exported so modals with their own keyboard handling
 // (SchemaConfigModal) can also be counted.
-const modalLayerStack = [];
+const modalLayerStack: object[] = [];
 
-export function pushModalLayer() {
+export function pushModalLayer(): ModalLayer {
     const token = {};
     modalLayerStack.push(token);
     return {
@@ -58,7 +66,6 @@ export function pushModalLayer() {
         },
     };
 }
-/** @param {ModalKeyboardOptions} options */
 export function useModalKeyboard({
     isOpen,
     onClose,
@@ -67,7 +74,7 @@ export function useModalKeyboard({
     containerRef = null,
     closeOnEscape = true,
     trapFocus = false,
-}) {
+}: ModalKeyboardOptions): void {
     const onCloseRef = useRef(onClose);
     const onConfirmRef = useRef(onConfirm);
     const confirmDisabledRef = useRef(confirmDisabled);
@@ -100,12 +107,12 @@ export function useModalKeyboard({
         const panelEl = containerRef?.current || null;
         let addedContainerTabIndex = false;
 
-        const getFocusable = () => {
+        const getFocusable = (): HTMLElement[] => {
             const root = containerRef?.current;
             if (!root) return [];
-            const layoutAvailable = document.body?.getClientRects().length > 0;
+            const layoutAvailable = document.body.getClientRects().length > 0;
             return Array.from(
-                root.querySelectorAll(
+                root.querySelectorAll<HTMLElement>(
                     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
                 ),
             ).filter((element) => (
@@ -135,17 +142,17 @@ export function useModalKeyboard({
                     }
                     target = root;
                 }
-                try { target?.focus?.(); } catch { /* The element may not be focusable. */ }
+                try { target.focus(); } catch { /* The element may not be focusable. */ }
             }
         }
 
-        const handleKeyDown = (e) => {
+        const handleKeyDown = (e: KeyboardEvent): void => {
             if (closeOnEscapeRef.current && e.key === 'Escape') {
                 // With a nested modal open on top (upper layer of another one),
                 // the Esc belongs to it: we neither close nor consume the event.
                 if (!layer.isTop()) return;
                 e.preventDefault();
-                onCloseRef.current?.();
+                onCloseRef.current();
                 return;
             }
 
@@ -160,6 +167,7 @@ export function useModalKeyboard({
                 }
                 const first = items[0];
                 const last = items[items.length - 1];
+                if (!first || !last) return;
                 const active = document.activeElement;
                 if (e.shiftKey) {
                     if (active === first || !root?.contains(active)) {
@@ -177,12 +185,13 @@ export function useModalKeyboard({
                 // Key combinations: they are not "confirm".
                 if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
                 // IME (Chinese, Japanese, Korean…): Enter closes the composition, not the modal.
-                if (e.isComposing || e.keyCode === 229) return;
+                if (e.isComposing || Reflect.get(e, 'keyCode') === 229) return;
 
                 const ae = document.activeElement;
                 const tag = ae?.tagName;
                 // In multiline text, Enter is a line break.
-                if (tag === 'TEXTAREA' || ae?.isContentEditable) return;
+                if (tag === 'TEXTAREA'
+                    || (ae instanceof HTMLElement && ae.isContentEditable)) return;
                 // If focus is on its own interactive element (button, link,
                 // select), we leave its native behavior: so Enter on
                 // "Cancel" cancels and on the primary button confirms, without
@@ -215,7 +224,7 @@ export function useModalKeyboard({
             const focusIsLoose = !active
                 || active === document.body
                 || (panelEl ? panelEl.contains(active) : false);
-            if (focusIsLoose && previouslyFocused && typeof previouslyFocused.focus === 'function') {
+            if (focusIsLoose && previouslyFocused instanceof HTMLElement) {
                 try { previouslyFocused.focus({ preventScroll: true }); } catch { /* element is gone */ }
             }
         };
