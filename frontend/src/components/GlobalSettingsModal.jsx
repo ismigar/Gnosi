@@ -51,7 +51,22 @@ import { SettingsSectionTabs } from './SettingsSectionTabs';
 import { SocialNetworkIcon, isKnownSocialNetwork } from './social/SocialNetworkIcon';
 import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
-import { transportFetch } from '../shared/api/transports';
+import { fetchGoogleOAuthStatus } from '../shared/api/google-auth';
+import {
+    bulkUpdateIntegrations,
+    fetchIntegrations,
+    updateDefaultCalendar,
+    updateDefaultContacts,
+    updateDefaultMail,
+} from '../shared/api/integrations';
+import {
+    fetchAiCatalog,
+    fetchAiModelComparison,
+    fetchAiModels,
+    fetchAiUsage,
+    updateAiModels,
+} from '../shared/api/ai';
+import { fetchVaultDatabases, fetchVaultTables } from '../shared/api/vaults';
 import { fetchCalendarList, syncCalendar } from '../shared/api/calendar';
 import { fetchVaultGraph } from '../shared/api/graph';
 import { syncContacts as requestContactsSync } from '../shared/api/contacts';
@@ -1079,7 +1094,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                 aliases: fields.aliases,
             });
             try {
-                await axios.post('/api/integrations/bulk', { ...integrationsRef.current, mail_accounts: newList });
+                await bulkUpdateIntegrations({ ...integrationsRef.current, mail_accounts: newList });
                 setIntegrations(prev => ({ ...prev, mail_accounts: newList }));
             } catch (err) {
                 console.error("Error saving pending mail identity:", err);
@@ -1416,7 +1431,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                     providers: draft.ai.providers
                                 }
                             }),
-                            axios.post('/api/integrations/bulk', updatedIntegrations),
+                            bulkUpdateIntegrations(updatedIntegrations),
                             saveIdentity(draft.identity)
                         );
                     }
@@ -1469,11 +1484,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const checkGoogleAuth = async () => {
         try {
-            const res = await transportFetch('/api/auth/google/status');
-            if (res.ok) {
-                const data = await res.json();
-                setGoogleAuthConfigured(data.configured);
-            }
+            const data = await fetchGoogleOAuthStatus();
+            setGoogleAuthConfigured(data.configured);
         } catch (err) { console.error("Error checking Google Auth:", err); }
     };
 
@@ -1511,11 +1523,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadIntegrations = async (hydrationGeneration = null) => {
         try {
-            const res = await transportFetch(`/api/integrations?t=${Date.now()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setIntegrations(data);
-            }
+            const data = await fetchIntegrations();
+            setIntegrations(data);
         } catch (err) {
             console.error("Error loading integrations:", err);
         } finally {
@@ -1530,15 +1539,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadAiCatalog = async (hydrationGeneration = null) => {
         try {
-            const res = await transportFetch('/api/ai/catalog');
-            if (res.ok) {
-                const payload = await res.json();
-                if (payload?.config?.providers) {
-                    setDraft(prev => ({
-                        ...prev,
-                        ai: { ...prev.ai, providers: payload.config.providers }
-                    }));
-                }
+            const payload = await fetchAiCatalog();
+            if (payload?.config?.providers) {
+                setDraft(prev => ({
+                    ...prev,
+                    ai: { ...prev.ai, providers: payload.config.providers }
+                }));
             }
         } catch (err) {
             console.error("Error loading AI catalog:", err);
@@ -1556,97 +1562,80 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         // Feeds the agent-creation model dropdown. Only enabled rows: a disabled
         // model in the registry is not a valid target for a new agent.
         try {
-            const [modelsRes, comparisonRes, usageRes] = await Promise.all([
-                transportFetch('/api/ai/models'),
-                transportFetch('/api/ai/model-comparison'),
-                transportFetch('/api/ai/usage')
+            const [payload, comparisonPayload, usageData] = await Promise.all([
+                fetchAiModels(),
+                fetchAiModelComparison(),
+                fetchAiUsage()
             ]);
-            
-            if (modelsRes.ok) {
-                const payload = await modelsRes.json();
-                let comparisonModels = [];
-                if (comparisonRes.ok) {
-                    const comparisonPayload = await comparisonRes.json();
-                    comparisonModels = comparisonPayload.models || [];
+
+            const comparisonModels = comparisonPayload.models || [];
+            setAiUsage(usageData);
+            setMonthlyCostCap(usageData?.cap_ccy !== null && usageData?.cap_ccy !== undefined ? usageData.cap_ccy : (usageData?.budget?.monthly_cost_cap ?? ''));
+            setEnforceBlock(Boolean(usageData?.budget?.enforce_block));
+            const usageModels = usageData?.per_model || [];
+
+            const configuredMap = new Map();
+            for (const modelEntry of (payload?.configured_models || [])) {
+                if (modelEntry?.model_id) {
+                    configuredMap.set(`${modelEntry.provider}:${modelEntry.model_id}`, modelEntry);
                 }
-
-                let usageModels = [];
-                if (usageRes.ok) {
-                    const usageData = await usageRes.json();
-                    setAiUsage(usageData);
-                    setMonthlyCostCap(usageData?.cap_ccy !== null && usageData?.cap_ccy !== undefined ? usageData.cap_ccy : (usageData?.budget?.monthly_cost_cap ?? ''));
-                    setEnforceBlock(Boolean(usageData?.budget?.enforce_block));
-                    usageModels = usageData?.per_model || [];
-                }
-
-                const configuredMap = new Map();
-                for (const modelEntry of (payload?.configured_models || [])) {
-                    if (modelEntry?.model_id) {
-                        configuredMap.set(`${modelEntry.provider}:${modelEntry.model_id}`, modelEntry);
-                    }
-                }
-
-                for (const u of usageModels) {
-                    const key = `${u.provider}:${u.model_id}`;
-                    if (!configuredMap.has(key) && (u.in > 0 || u.out > 0 || u.cost_usd > 0)) {
-                        configuredMap.set(key, {
-                            provider: u.provider,
-                            model_id: u.model_id,
-                            enabled: false,
-                            cost_in: 0,
-                            cost_out: 0,
-                        });
-                    }
-                }
-
-                const configured = [];
-                for (const configuredModel of configuredMap.values()) {
-                    const matched = comparisonModels.find(cm => registryEntryMatchesModel(configuredModel, cm));
-                    const costIn = (matched && matched.input_price !== undefined && matched.input_price !== null)
-                        ? Number(matched.input_price)
-                        : Number(configuredModel.cost_in || 0);
-                    const costOut = (matched && matched.output_price !== undefined && matched.output_price !== null)
-                        ? Number(matched.output_price)
-                        : Number(configuredModel.cost_out || 0);
-                    const isFree = Boolean(configuredModel.is_local) || Boolean(matched?.is_free) || (costIn === 0 && costOut === 0);
-
-                    const usage = usageModels.find(
-                        u => u.provider === configuredModel.provider && u.model_id === configuredModel.model_id
-                    );
-                    const hasUsage = usage && (usage.in > 0 || usage.out > 0 || usage.cost_usd > 0);
-
-                    if (configuredModel.enabled !== false || hasUsage) {
-                        configured.push({
-                            ...configuredModel,
-                            name: matched?.name || configuredModel.model_id,
-                            creator: matched?.creator || configuredModel.provider || '',
-                            profile: matched?.profile || 'unrated',
-                            cost_in: costIn,
-                            cost_out: costOut,
-                            is_free: isFree,
-                        });
-                    }
-                }
-                
-                setAiRegistry(configured);
             }
+
+            for (const u of usageModels) {
+                const key = `${u.provider}:${u.model_id}`;
+                if (!configuredMap.has(key) && (u.in > 0 || u.out > 0 || u.cost_usd > 0)) {
+                    configuredMap.set(key, {
+                        provider: u.provider,
+                        model_id: u.model_id,
+                        enabled: false,
+                        cost_in: 0,
+                        cost_out: 0,
+                    });
+                }
+            }
+
+            const configured = [];
+            for (const configuredModel of configuredMap.values()) {
+                const matched = comparisonModels.find(cm => registryEntryMatchesModel(configuredModel, cm));
+                const costIn = (matched && matched.input_price !== undefined && matched.input_price !== null)
+                    ? Number(matched.input_price)
+                    : Number(configuredModel.cost_in || 0);
+                const costOut = (matched && matched.output_price !== undefined && matched.output_price !== null)
+                    ? Number(matched.output_price)
+                    : Number(configuredModel.cost_out || 0);
+                const isFree = Boolean(configuredModel.is_local) || Boolean(matched?.is_free) || (costIn === 0 && costOut === 0);
+
+                const usage = usageModels.find(
+                    u => u.provider === configuredModel.provider && u.model_id === configuredModel.model_id
+                );
+                const hasUsage = usage && (usage.in > 0 || usage.out > 0 || usage.cost_usd > 0);
+
+                if (configuredModel.enabled !== false || hasUsage) {
+                    configured.push({
+                        ...configuredModel,
+                        name: matched?.name || configuredModel.model_id,
+                        creator: matched?.creator || configuredModel.provider || '',
+                        profile: matched?.profile || 'unrated',
+                        cost_in: costIn,
+                        cost_out: costOut,
+                        is_free: isFree,
+                    });
+                }
+            }
+
+            setAiRegistry(configured);
         } catch (err) { console.error("Error loading AI model registry:", err); }
     };
 
     const saveAiBudget = async (newCap, newEnforceBlock) => {
         setSavingBudget(true);
         try {
-            const modelsRes = await transportFetch('/api/ai/models');
-            let currentModels = [];
-            let currentBudget = {};
-            if (modelsRes.ok) {
-                const payload = await modelsRes.json();
-                // Preserve capability, context, and quality metadata. The
-                // budget control changes policy only; reducing each row to an
-                // identity used to rewrite tool-capable models as tool-less.
-                currentModels = payload?.configured_models || [];
-                currentBudget = payload?.budget || {};
-            }
+            const payload = await fetchAiModels();
+            // Preserve capability, context, and quality metadata. The budget
+            // control changes policy only; reducing each row to an identity
+            // used to rewrite tool-capable models as tool-less.
+            const currentModels = payload?.configured_models || [];
+            const currentBudget = payload?.budget || {};
             
             const updatedBudget = {
                 ...currentBudget,
@@ -1654,18 +1643,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                 enforce_block: Boolean(newEnforceBlock)
             };
 
-            const response = await transportFetch('/api/ai/models', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ models: currentModels, budget: updatedBudget }),
-            });
+            await updateAiModels({ models: currentModels, budget: updatedBudget });
 
-            if (!response.ok) {
-                throw new Error('Save failed');
-            }
-
-            const uRes = await transportFetch('/api/ai/usage');
-            if (uRes.ok) setAiUsage(await uRes.json());
+            setAiUsage(await fetchAiUsage());
             window.dispatchEvent(new CustomEvent('gnosi-ai-models-changed', {
                 detail: { source: 'budget-settings' },
             }));
@@ -1693,12 +1673,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         // (table selection) and Databases tabs. They used to be loaded inside
         // loadZoteroData, removed when the Zotero integration was taken out of Settings.
         try {
-            const res = await transportFetch('/api/vault/tables');
-            if (res.ok) setTables(await res.json());
+            setTables(await fetchVaultTables());
         } catch (e) { console.error("Tables fetch error:", e); }
         try {
-            const res = await transportFetch('/api/vault/databases');
-            if (res.ok) setDatabases(await res.json());
+            setDatabases(await fetchVaultDatabases());
         } catch (e) { console.error("Databases fetch error:", e); }
     };
 
@@ -1866,7 +1844,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                         providers: draft.ai.providers
                     }
                 }),
-                axios.post('/api/integrations/bulk', integrations),
+                bulkUpdateIntegrations(integrations),
                 saveIdentity(draft.identity)
             ]);
             
@@ -2022,7 +2000,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                 setSavingStatus('saving');
                 try {
                     // We force the save even if 'changed' is false to clean up possible inconsistencies
-                    await axios.post('/api/integrations/bulk', updatedIntegrations);
+                    await bulkUpdateIntegrations(updatedIntegrations);
                     setIntegrations(updatedIntegrations);
                     setSavingStatus('saved');
                     setTimeout(() => setSavingStatus('idle'), 2000);
@@ -2676,7 +2654,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                             const email = e.target.value;
                                                             const updated = { ...integrations, default_contacts: email };
                                                             setIntegrations(updated);
-                                                            axios.put('/api/integrations/default_contacts', { email }).catch(console.error);
+                                                            updateDefaultContacts(email).catch(console.error);
                                                         }}
                                                         className="gnosi-input"
                                                         style={{ width: '100%' }}
@@ -2709,7 +2687,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                             const email = e.target.value;
                                                             const updated = { ...integrations, default_mail: email };
                                                             setIntegrations(updated);
-                                                            axios.put('/api/integrations/default_mail', { email }).catch(console.error);
+                                                            updateDefaultMail(email).catch(console.error);
                                                         }}
                                                         className="gnosi-input"
                                                         style={{ width: '100%' }}
@@ -2752,7 +2730,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                             const source = e.target.value;
                                                             const updated = { ...integrations, default_calendar: source };
                                                             setIntegrations(updated);
-                                                            axios.put('/api/integrations/default_calendar', { source }).catch(console.error);
+                                                            updateDefaultCalendar(source).catch(console.error);
                                                         }}
                                                         className="gnosi-input"
                                                         style={{ width: '100%' }}
@@ -2785,7 +2763,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                 const newList = [...(integrations.vault_calendar?.enabled_tables || []), tbl.id];
                                                                 const updated = { ...integrations, vault_calendar: { ...integrations.vault_calendar, enabled_tables: newList } };
                                                                 setIntegrations(updated);
-                                                                axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                bulkUpdateIntegrations(updated).catch(console.error);
                                                                 setIsAddingTable(false);
                                                             }}
                                                             style={{ 
@@ -2955,7 +2933,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                 // Edit mode: test the IMAP/SMTP connection
                                                                 setMailTestStatus('testing');
                                                                 try {
-                                                                    await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
+                                                                    await bulkUpdateIntegrations({ ...integrations, [key]: newList });
                                                                     const res = await axios.post('/api/integrations/test-email', {
                                                                         imap_server: mailImapHost,
                                                                         imap_port: mailImapPort,
@@ -2978,7 +2956,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                 // New account mode: saves and closes
                                                                 setSavingStatus('saving');
                                                                 try {
-                                                                    await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
+                                                                    await bulkUpdateIntegrations({ ...integrations, [key]: newList });
                                                                     setSavingStatus('saved');
                                                                     setAddAccountType(null);
                                                                     setAddAccountEmail('');
@@ -3126,7 +3104,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                     newList = [...currentList, newAcc];
                                                                 }
 
-                                                                await axios.post('/api/integrations/bulk', {
+                                                                await bulkUpdateIntegrations({
                                                                     ...integrations,
                                                                     [key]: newList
                                                                 });
@@ -3271,7 +3249,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                             const newList = integrations.vault_calendar?.enabled_tables?.filter(id => id !== tbl.id) || [];
                                                                             const updated = { ...integrations, vault_calendar: { ...integrations.vault_calendar, enabled_tables: newList } };
                                                                             setIntegrations(updated);
-                                                                            axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                            bulkUpdateIntegrations(updated).catch(console.error);
                                                                         }}
                                                                         color={tblColor}
                                                                     />
@@ -3313,7 +3291,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                                 const updatedColors = { ...(integrations.calendar_colors || {}), [editingTableColor.id]: editingTableColor.color };
                                                                                 const updated = { ...integrations, calendar_colors: updatedColors };
                                                                                 setIntegrations(updated);
-                                                                                axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                                bulkUpdateIntegrations(updated).catch(console.error);
                                                                                 setEditingTableColor(null);
                                                                             }}
                                                                             className="btn-gnosi-primary" style={{ flex: 1, padding: '12px' }}
