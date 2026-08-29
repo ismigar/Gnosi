@@ -8,7 +8,6 @@ import rrulePlugin from '@fullcalendar/rrule';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import caLocale from '@fullcalendar/core/locales/ca';
 import esLocale from '@fullcalendar/core/locales/es';
-import axios from '../../shared/api/legacy-http';
 import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
@@ -18,6 +17,7 @@ import './CalendarStyles.css';
 import { useTitlePreview } from './useTitlePreview';
 import { parsePeriod, withPeriodBoundaries } from '../../utils/projectPlanning';
 import { updateCalendarEvent } from '../../shared/api/calendar';
+import { patchVaultPage } from '../../shared/api/vaults';
 import {
     exclusiveToInclusiveAllDayEnd,
     inclusiveToExclusiveAllDayEnd,
@@ -428,7 +428,7 @@ export const DigitalBrainCalendar = ({
                     patchData.metadata[startKey] = newStart;
                     if (newEnd) patchData.metadata[endKey] = newEnd;
                 }
-                await axios.patch(`/api/vault/pages/${id}`, patchData);
+                await patchVaultPage(id, patchData);
             }
             toast.success(t('calendar.date_updated', "Date updated!"));
             onRefresh?.();
@@ -508,7 +508,7 @@ export const DigitalBrainCalendar = ({
                 } else {
                     patchData.metadata[endKey] = newEnd;
                 }
-                await axios.patch(`/api/vault/pages/${id}`, patchData);
+                await patchVaultPage(id, patchData);
             }
             toast.success(t('calendar.duration_updated', "Duration updated!"));
             onRefresh?.();

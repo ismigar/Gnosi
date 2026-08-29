@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun, Users, UserPlus, Loader2, Check, Navigation } from 'lucide-react';
-import axios from '../../shared/api/legacy-http';
 import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../ConfirmModal';
@@ -19,6 +18,11 @@ import {
     searchCalendarAttendees,
     updateCalendarEvent,
 } from '../../shared/api/calendar';
+import {
+    createVaultPage,
+    deleteVaultPage,
+    patchVaultPage,
+} from '../../shared/api/vaults';
 
 export const CalendarSidebarRight = ({
     searchQuery,
@@ -752,7 +756,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         // If the appointment already existed in the Vault (calendar change Tasks→Google),
                         // delete it so it doesn't remain duplicated.
                         if (createdIdRef.current) {
-                            try { await axios.delete(`/api/vault/pages/${createdIdRef.current}`); }
+                            try { await deleteVaultPage(createdIdRef.current); }
                             catch (delErr) { console.error('Error cleaning up duplicate appointment in Vault:', delErr); }
                             createdIdRef.current = null;
                         }
@@ -852,7 +856,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             ? eventData.metadata.exdates.split(',').filter(Boolean)
                             : []);
                     
-                    await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                    await patchVaultPage(eventData.id, {
                         metadata: {
                             exdates: [...new Set([...existingExdates, occurrenceKey])],
                         }
@@ -860,18 +864,18 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
                     // 2. Creates a new single appointment
                     const newMetadata = { ...metadata, rrule: null, exdates: [] };
-                    const response = await axios.post('/api/vault/pages', {
+                    const response = await createVaultPage({
                         title: title.trim(),
                         content: description.trim() || '',
                         metadata: newMetadata,
                     });
-                    onSaved?.(response.data);
+                    onSaved?.(response);
                     onClose?.();
                     toast.success(t('calendar.instance_updated'));
                 } else if (isFollowing) {
                     // 1. Truncate the old master's rrule
                     const newRruleOldMaster = truncateRruleBefore(eventData.metadata?.rrule, eventData.metadata?.date);
-                    await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                    await patchVaultPage(eventData.id, {
                         metadata: { rrule: newRruleOldMaster }
                     });
 
@@ -883,17 +887,17 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     };
                     delete newMetadata.id;
 
-                    const response = await axios.post('/api/vault/pages', {
+                    const response = await createVaultPage({
                         title: title.trim(),
                         content: description.trim() || '',
                         metadata: newMetadata,
                     });
-                    onSaved?.(response.data);
+                    onSaved?.(response);
                     onClose?.();
                     toast.success(t('calendar.series_split_updated'));
                 } else {
                     // Normal patch (or the whole series)
-                    const response = await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                    const response = await patchVaultPage(eventData.id, {
                         title: title.trim(),
                         content: description.trim() || undefined,
                         metadata,
@@ -901,30 +905,30 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     });
                     
                     if (!silent) toast.success(t('calendar.event_updated', "Appointment updated!"));
-                    onSaved?.(response.data);
+                    onSaved?.(response);
                     if (!silent) onClose?.();
                 }
             } else if (createdIdRef.current) {
                 // Appointment already created in this same session: PATCH (we continue editing it)
-                const response = await axios.patch(`/api/vault/pages/${createdIdRef.current}`, {
+                const response = await patchVaultPage(createdIdRef.current, {
                     title: title.trim(),
                     content: description.trim() || undefined,
                     metadata,
                     ...(removeMetaKeys.length ? { remove_metadata_keys: removeMetaKeys } : {}),
                 });
                 if (!silent) toast.success(t('calendar.event_updated', "Appointment updated!"));
-                onSaved?.(response.data);
+                onSaved?.(response);
                 if (!silent) onClose?.();
             } else {
                 // First creation: POST. Stores the id so subsequent autosaves do a
                 // PATCH (not duplicate) and the UI switches to "edit" mode.
                 isCreatingRef.current = true;
-                const response = await axios.post('/api/vault/pages', {
+                const response = await createVaultPage({
                     title: title.trim(),
                     content: description.trim() || '',
                     metadata,
                 });
-                createdIdRef.current = response.data?.id || null;
+                createdIdRef.current = response.id || null;
                 setCreatedId(createdIdRef.current);
                 // If the appointment already existed in Google (calendar change Google→table),
                 // delete it from Google so it doesn't remain duplicated.
@@ -939,7 +943,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     googleRef.current = null;
                 }
                 if (!silent) toast.success(t('calendar.event_created', "Appointment created!"));
-                onSaved?.(response.data);
+                onSaved?.(response);
                 if (!silent) onClose?.();
             }
 
@@ -1039,7 +1043,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         ? eventData.metadata.exdates.split(',').filter(Boolean)
                         : []);
 
-                await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                await patchVaultPage(eventData.id, {
                     metadata: {
                         exdates: [...new Set([...existingExdates, occurrenceKey])],
                     }
@@ -1048,12 +1052,12 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             } else if (isFollowing) {
                 // Split: Truncate the master's rrule so it ends before today
                 const newRrule = truncateRruleBefore(eventData.metadata?.rrule, eventData.metadata?.date);
-                await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                await patchVaultPage(eventData.id, {
                     metadata: { rrule: newRrule }
                 });
                 toast.success(t('calendar.following_deleted', "Series truncated from today."));
             } else {
-                await axios.delete(`/api/vault/pages/${deleteId}`);
+                await deleteVaultPage(deleteId);
                 toast.success(t('calendar.event_deleted', "Appointment deleted."));
             }
             onSaved?.();

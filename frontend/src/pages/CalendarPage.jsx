@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import axios from '../shared/api/legacy-http';
 import { toast } from '../lib/toast';
 import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Circle, Trash2, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -300,7 +299,11 @@ export default function CalendarPage() {
             const converted = events.map(convertHybridEvent);
             setExternalEvents(converted);
         } catch (err) {
-            if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
+            if (
+                controller.signal.aborted
+                || err?.name === 'AbortError'
+                || err?.name === 'CanceledError'
+            ) return;
             console.warn('fetchExternalEvents error:', err);
         } finally {
             if (externalEventsAbortRef.current === controller) {
