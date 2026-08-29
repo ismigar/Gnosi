@@ -136,7 +136,7 @@ import {
     saveToggleDomExpansionState,
     saveToggleExpansionState,
 } from './toggleExpansionStateUtils';
-import { transportFetch } from '../../shared/api/transports';
+import { uploadVaultAsset } from '../../shared/api/vault-specialized';
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -1631,24 +1631,16 @@ export function EditorInner({
     // wrapper's onDrop/onPaste handlers intercept them first and take them
     // to the unified insertion modal.
     const uploadFileToAssetsDirect = useCallback(async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
         const tid = tableIdRef.current;
-        const params = new URLSearchParams();
-        if (tid) params.set('table_id', tid);
         // Default naming pattern for inline images: "{title} {index}".
         // The index is (#multimedia blocks already in the body) + 1; it's omitted when it's the 1st.
         const title = String(metadataRef.current?.title || '').trim();
+        let targetName;
         if (title) {
             const index = countMediaBlocks(editorRef.current?.document) + 1;
-            params.set('target_name', index > 1 ? `${title} ${index}` : title);
+            targetName = index > 1 ? `${title} ${index}` : title;
         }
-        const qs = params.toString();
-        const url = qs ? `/api/vault/assets/upload?${qs}` : '/api/vault/assets/upload';
-        const res = await transportFetch(url, { method: 'POST', body: formData });
-        if (!res.ok) throw new Error('Upload failed');
-        const data = await res.json();
-        return data.url;
+        return (await uploadVaultAsset(file, { tableId: tid, targetName })).url;
     }, [metadataRef]);
 
     // Real-time collaboration (CRDT/Yjs) ONLY in org mode. In
