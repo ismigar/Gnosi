@@ -2,11 +2,15 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
 
+from backend.domains.identity.schemas import (
+    IdentityProfile,
+    IdentityReadResponse,
+    IdentitySaveResponse,
+)
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext, require_role
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.errors import safe_error_detail
@@ -15,27 +19,6 @@ from backend.utils.safe_io import safe_write_json
 log = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
-
-
-class IdentityProfile(BaseModel):
-    full_name: Optional[str] = ""
-    first_name: Optional[str] = ""
-    last_name: Optional[str] = ""
-    email: Optional[str] = ""
-    phone: Optional[str] = ""
-    address: Optional[str] = ""
-    city: Optional[str] = ""
-    zip_code: Optional[str] = ""
-    dni_nie: Optional[str] = ""
-    notes: Optional[str] = ""
-
-
-class IdentityReadResponse(IdentityProfile):
-    model_config = ConfigDict(extra="allow")
-
-
-class IdentitySaveResponse(BaseModel):
-    status: str
 
 
 def get_identity_path() -> Path:
@@ -48,7 +31,11 @@ def get_identity_path() -> Path:
     return path
 
 
-@router.get("/api/identity", response_model=None)
+@router.get(
+    "/api/identity",
+    response_model=IdentityReadResponse,
+    response_model_exclude_unset=True,
+)
 async def get_identity() -> dict[str, Any]:
     path = get_identity_path()
     if not path.exists():
@@ -66,7 +53,7 @@ async def get_identity() -> dict[str, Any]:
 @router.post(
     "/api/identity",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IdentitySaveResponse,
 )
 async def save_identity(
     profile: IdentityProfile,

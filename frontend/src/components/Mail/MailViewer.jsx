@@ -24,6 +24,7 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { transportFetch } from '../../shared/api/transports';
 import { createCalendarEvent, fetchCalendarList } from '../../shared/api/calendar';
 import { createContact } from '../../shared/api/contacts';
+import { fetchIdentity } from '../../shared/api/identity';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -638,8 +639,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         toast.success(t('mail.autofill_starting', "Starting smart autofill..."));
         try {
             // Load the current bunker profile
-            const res = await axios.get('/api/identity');
-            const profile = res.data;
+            const profile = await fetchIdentity();
 
             if (window.electronAPI?.openFormFiller) {
                 window.electronAPI.openFormFiller(url, profile);

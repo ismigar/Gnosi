@@ -11873,7 +11873,10 @@ export interface components {
             /** Url */
             url: string;
         };
-        /** IdentityProfile */
+        /**
+         * IdentityProfile
+         * @description Editable personal identity fields stored inside the active vault.
+         */
         IdentityProfile: {
             /**
              * Address
@@ -11925,6 +11928,72 @@ export interface components {
              * @default
              */
             zip_code: string | null;
+        };
+        /**
+         * IdentityReadResponse
+         * @description Stored profile, preserving additive fields written by older versions.
+         */
+        IdentityReadResponse: {
+            /**
+             * Address
+             * @default
+             */
+            address: string | null;
+            /**
+             * City
+             * @default
+             */
+            city: string | null;
+            /**
+             * Dni Nie
+             * @default
+             */
+            dni_nie: string | null;
+            /**
+             * Email
+             * @default
+             */
+            email: string | null;
+            /**
+             * First Name
+             * @default
+             */
+            first_name: string | null;
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string | null;
+            /**
+             * Last Name
+             * @default
+             */
+            last_name: string | null;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string | null;
+            /**
+             * Phone
+             * @default
+             */
+            phone: string | null;
+            /**
+             * Zip Code
+             * @default
+             */
+            zip_code: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * IdentitySaveResponse
+         * @description Acknowledgement after atomically saving the profile.
+         */
+        IdentitySaveResponse: {
+            /** Status */
+            status: string;
         };
         /** ImportFile */
         ImportFile: {
@@ -19888,7 +19957,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IdentityReadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19928,7 +19997,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IdentitySaveResponse"];
                 };
             };
             /** @description Validation Error */

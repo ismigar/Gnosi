@@ -55,6 +55,7 @@ import { transportFetch } from '../shared/api/transports';
 import { fetchCalendarList, syncCalendar } from '../shared/api/calendar';
 import { fetchVaultGraph } from '../shared/api/graph';
 import { syncContacts as requestContactsSync } from '../shared/api/contacts';
+import { fetchIdentity, saveIdentity } from '../shared/api/identity';
 import {
     fetchSocialNetworks,
     fetchSocialStreams,
@@ -1139,9 +1140,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadIdentity = async (hydrationGeneration = null) => {
         try {
-            const res = await axios.get('/api/identity');
-            if (res.data) {
-                setDraft(prev => ({ ...prev, identity: { ...prev.identity, ...res.data } }));
+            const identity = await fetchIdentity();
+            if (identity) {
+                setDraft(prev => ({ ...prev, identity: { ...prev.identity, ...identity } }));
             }
         } catch (error) {
             console.error("Error loading identity:", error);
@@ -1411,7 +1412,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                 }
                             }),
                             axios.post('/api/integrations/bulk', updatedIntegrations),
-                            axios.post('/api/identity', draft.identity)
+                            saveIdentity(draft.identity)
                         );
                     }
 
@@ -1864,7 +1865,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                     }
                 }),
                 axios.post('/api/integrations/bulk', integrations),
-                axios.post('/api/identity', draft.identity)
+                saveIdentity(draft.identity)
             ]);
             
             lastSavedData.current = currentData;
