@@ -24,7 +24,7 @@ from backend.domains.workspace.api import routes as workspace
 
 
 EXPECTED_OPENAPI_SHA256 = (
-    "cc74bd1fb888f3639b65334144e0e800ab4c8f723060812400f37e4f58abf029"
+    "4f9f8df57c863d738060afbb2d707c86b9498da9e54c7485c9e3406fdf389b8a"
 )
 
 
