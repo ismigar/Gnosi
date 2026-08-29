@@ -150,13 +150,13 @@ describe('ResourcesPluginConfig', () => {
     ): Promise<void> {
         const configuration = configurationWith(extraSources);
         testState.fetchConfiguration.mockResolvedValue(configuration);
-        testState.updateConfiguration.mockImplementation(async (patch) => {
+        testState.updateConfiguration.mockImplementation((patch) => {
             const hiddenSources = new Set(
                 patch.hidden_sources ?? configuration.hidden_sources,
             );
             const sourceDefaults = patch.source_defaults
                 ?? configuration.source_defaults;
-            return {
+            return Promise.resolve({
                 ...configuration,
                 ai_agent_id: patch.ai_agent_id ?? configuration.ai_agent_id,
                 contact_email: patch.contact_email ?? configuration.contact_email,
@@ -169,9 +169,9 @@ describe('ResourcesPluginConfig', () => {
                         : source.enabled,
                     hidden: hiddenSources.has(source.id),
                 })),
-            };
+            });
         });
-        await act(async () => {
+        act(() => {
             root.render(<ResourcesPluginConfig />);
         });
         await act(async () => {
@@ -186,6 +186,7 @@ describe('ResourcesPluginConfig', () => {
         if (!(toggle instanceof HTMLButtonElement)) throw new TypeError('Missing switch');
         await act(async () => {
             toggle.click();
+            await Promise.resolve();
         });
         expect(testState.updateConfiguration).toHaveBeenCalledWith({
             source_defaults: { crossref: false },
@@ -226,6 +227,7 @@ describe('ResourcesPluginConfig', () => {
         }
         await act(async () => {
             cancelButton.click();
+            await Promise.resolve();
         });
         expect(testState.cancelSynchronization).toHaveBeenCalledWith(
             'dialnet-articles',
@@ -237,6 +239,7 @@ describe('ResourcesPluginConfig', () => {
         const addButton = findButton('literature.settings.add_repository');
         await act(async () => {
             addButton.click();
+            await Promise.resolve();
         });
         container.querySelectorAll('button').forEach((button) => {
             expect(
@@ -257,6 +260,7 @@ describe('ResourcesPluginConfig', () => {
         );
         await act(async () => {
             credentialsButton.click();
+            await Promise.resolve();
         });
         expect(container.querySelector('.resources-plugin-config__credentials-box'))
             .not.toBeNull();
@@ -282,6 +286,7 @@ describe('ResourcesPluginConfig', () => {
         );
         await act(async () => {
             restoreButton.click();
+            await Promise.resolve();
         });
         expect(testState.updateConfiguration).toHaveBeenCalledWith({
             hidden_sources: [],
