@@ -10826,6 +10826,13 @@ export interface components {
             /** Rsvp */
             rsvp: string;
         };
+        /**
+         * CalendarSelectionRequest
+         * @description Legacy calendar selection accepted as a list or wrapped object.
+         */
+        CalendarSelectionRequest: string[] | {
+            [key: string]: string[];
+        };
         /** CalendarStatusMessageResponse */
         CalendarStatusMessageResponse: {
             /** Message */
@@ -11529,6 +11536,22 @@ export interface components {
              * @default
              */
             reason: string;
+        };
+        /** DefaultAccountRequest */
+        DefaultAccountRequest: {
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+        };
+        /** DefaultCalendarRequest */
+        DefaultCalendarRequest: {
+            /**
+             * Source
+             * @default
+             */
+            source: string;
         };
         /**
          * DirectiveAnalyticsPageResponse
@@ -12307,6 +12330,30 @@ export interface components {
              * @default
              */
             quote: string;
+        };
+        /**
+         * IntegrationsDocument
+         * @description Extensible integration configuration with all credentials masked.
+         */
+        IntegrationsDocument: {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /**
+         * IntegrationsUpdateRequest
+         * @description Provider-neutral partial or bulk integration settings update.
+         */
+        IntegrationsUpdateRequest: {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** IntegrationUpdateResponse */
+        IntegrationUpdateResponse: {
+            /** Message */
+            message?: string | null;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
         };
         /** InteractionRequest */
         InteractionRequest: {
@@ -21103,7 +21150,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationsDocument"];
                 };
             };
         };
@@ -21126,9 +21173,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["IntegrationsUpdateRequest"];
             };
         };
         responses: {
@@ -21138,7 +21183,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21168,9 +21213,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["IntegrationsUpdateRequest"];
             };
         };
         responses: {
@@ -21180,7 +21223,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21210,9 +21253,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["IntegrationsUpdateRequest"];
             };
         };
         responses: {
@@ -21222,7 +21263,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21252,9 +21293,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["IntegrationsUpdateRequest"];
             };
         };
         responses: {
@@ -21264,7 +21303,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21294,7 +21333,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["CalendarSelectionRequest"];
             };
         };
         responses: {
@@ -21304,7 +21343,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21334,9 +21373,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["DefaultCalendarRequest"];
             };
         };
         responses: {
@@ -21346,7 +21383,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21376,9 +21413,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["DefaultAccountRequest"];
             };
         };
         responses: {
@@ -21388,7 +21423,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21418,9 +21453,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["DefaultAccountRequest"];
             };
         };
         responses: {
@@ -21430,7 +21463,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegrationUpdateResponse"];
                 };
             };
             /** @description Validation Error */

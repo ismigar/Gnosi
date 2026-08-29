@@ -2701,6 +2701,27 @@
         "title": "CalendarRsvpResponse",
         "type": "object"
       },
+      "CalendarSelectionRequest": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object"
+          }
+        ],
+        "description": "Legacy calendar selection accepted as a list or wrapped object.",
+        "title": "CalendarSelectionRequest"
+      },
       "CalendarStatusMessageResponse": {
         "properties": {
           "message": {
@@ -4558,6 +4579,28 @@
           "decision"
         ],
         "title": "DecisionRequest",
+        "type": "object"
+      },
+      "DefaultAccountRequest": {
+        "properties": {
+          "email": {
+            "default": "",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "title": "DefaultAccountRequest",
+        "type": "object"
+      },
+      "DefaultCalendarRequest": {
+        "properties": {
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "title": "DefaultCalendarRequest",
         "type": "object"
       },
       "DirectiveAnalyticsPageResponse": {
@@ -6773,6 +6816,47 @@
           "comment"
         ],
         "title": "InlineCommentRequest",
+        "type": "object"
+      },
+      "IntegrationUpdateResponse": {
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "IntegrationUpdateResponse",
+        "type": "object"
+      },
+      "IntegrationsDocument": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Extensible integration configuration with all credentials masked.",
+        "title": "IntegrationsDocument",
+        "type": "object"
+      },
+      "IntegrationsUpdateRequest": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Provider-neutral partial or bulk integration settings update.",
+        "title": "IntegrationsUpdateRequest",
         "type": "object"
       },
       "InteractionRequest": {
@@ -30623,7 +30707,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationsDocument"
+                }
               }
             },
             "description": "Successful Response"
@@ -30726,9 +30812,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/IntegrationsUpdateRequest"
               }
             }
           },
@@ -30738,7 +30822,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30851,9 +30937,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/IntegrationsUpdateRequest"
               }
             }
           },
@@ -30863,7 +30947,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30976,9 +31062,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/IntegrationsUpdateRequest"
               }
             }
           },
@@ -30988,7 +31072,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31101,7 +31187,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "title": "Payload"
+                "$ref": "#/components/schemas/CalendarSelectionRequest"
               }
             }
           },
@@ -31111,7 +31197,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31224,9 +31312,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/DefaultCalendarRequest"
               }
             }
           },
@@ -31236,7 +31322,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31349,9 +31437,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/DefaultAccountRequest"
               }
             }
           },
@@ -31361,7 +31447,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31474,9 +31562,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/DefaultAccountRequest"
               }
             }
           },
@@ -31486,7 +31572,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31983,9 +32071,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/IntegrationsUpdateRequest"
               }
             }
           },
@@ -31995,7 +32081,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
