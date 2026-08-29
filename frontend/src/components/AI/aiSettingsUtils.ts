@@ -13,7 +13,7 @@ interface NormalizedOrigin extends RawOrigin {
     type: string;
 }
 
-interface RawCatalogRecord extends UnknownRecord {
+export interface RawCatalogRecord extends UnknownRecord {
     activation?: string;
     activation_policy?: string;
     agent_assignable?: boolean;
@@ -119,7 +119,7 @@ interface ModelSelection {
     provider?: string;
 }
 
-interface SkillDraft {
+export interface SkillDraft {
     activation: string;
     description: string;
     instructions: string;
