@@ -4,7 +4,6 @@
       "frontend/src/components/AgentChat.jsx": 11,
       "frontend/src/components/AppSidebar.test.jsx": 1,
       "frontend/src/components/CommandPalette.jsx": 1,
-      "frontend/src/components/FilesystemPickerModal.jsx": 3,
       "frontend/src/components/GlobalSettingsModal.jsx": 14,
       "frontend/src/components/Mail/MailComposer.jsx": 1,
       "frontend/src/components/Mail/MailList.jsx": 9,
@@ -148,7 +147,6 @@
       "frontend/src/components/AppSidebar.test.jsx": 164,
       "frontend/src/components/CommandPalette.jsx": 203,
       "frontend/src/components/FeedManagerModal.jsx": 386,
-      "frontend/src/components/FilesystemPickerModal.jsx": 747,
       "frontend/src/components/FolderPickerModal.jsx": 201,
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,
       "frontend/src/components/GraphViewer.jsx": 1016,
@@ -237,7 +235,6 @@
     },
     "oversized_files": {
       "frontend/src/components/AgentChat.jsx": 2723,
-      "frontend/src/components/FilesystemPickerModal.jsx": 747,
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,
       "frontend/src/components/GraphViewer.jsx": 1016,
       "frontend/src/components/Mail/MailComposer.jsx": 649,
