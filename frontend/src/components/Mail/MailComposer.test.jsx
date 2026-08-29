@@ -37,10 +37,6 @@ vi.mock('../../shared/api/mail-specialized', () => ({
     sendMailMultipart: mocks.sendMailMultipart,
 }));
 
-vi.mock('../../shared/api/legacy-http', () => ({
-    default: { get: vi.fn() },
-}));
-
 vi.mock('./MailAddressInput', () => ({
     AddressInput: ({ label, onChange, value }) => (
         <input
