@@ -83,7 +83,7 @@
     "global_events": {
       "frontend/src/App.jsx": 6,
       "frontend/src/components/AgentChat.jsx": 2,
-      "frontend/src/components/AgentConfirmations.test.js": 1,
+      "frontend/src/components/AgentConfirmations.test.tsx": 1,
       "frontend/src/components/GlobalSettingsModal.jsx": 9,
       "frontend/src/components/GlobalTooltip.tsx": 4,
       "frontend/src/components/GraphViewer.jsx": 2,
@@ -124,7 +124,6 @@
     "legacy_js_jsx": {
       "frontend/src/App.jsx": 404,
       "frontend/src/components/AgentChat.jsx": 2723,
-      "frontend/src/components/AgentConfirmations.test.js": 231,
       "frontend/src/components/FeedManagerModal.jsx": 386,
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,
       "frontend/src/components/GraphViewer.jsx": 1016,

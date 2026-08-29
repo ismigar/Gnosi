@@ -1,5 +1,7 @@
-import React, { act } from 'react';
+import { act } from 'react';
+import type { ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import AgentChat from './AgentChat';
@@ -11,10 +13,31 @@ import {
     mergeConfirmationRecords,
     startConfirmationRefresh,
 } from './agentConfirmationUtils';
+import type { ConfirmationRecord } from './agentConfirmationUtils';
+
+interface MountedRoot {
+    readonly container: HTMLDivElement;
+    readonly root: Root;
+}
+
+interface TestConfirmation extends ConfirmationRecord {
+    readonly action: string;
+    readonly status?: string;
+}
+
+interface ScheduledRefresh {
+    readonly callback: Parameters<
+        NonNullable<Parameters<typeof startConfirmationRefresh>[1]>
+    >[0];
+    readonly delay: number;
+}
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (key, options) => (
+        t: (
+            key: string,
+            options?: string | { readonly defaultValue?: string },
+        ) => (
             typeof options === 'string'
                 ? options
                 : options?.defaultValue || key
@@ -22,27 +45,45 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-const mountedRoots = [];
+const mountedRoots: MountedRoot[] = [];
 
-const render = async element => {
+const render = async (element: ReactElement): Promise<HTMLDivElement> => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
     mountedRoots.push({ root, container });
     await act(async () => {
         root.render(element);
+        await Promise.resolve();
     });
     return container;
 };
 
+const getButton = (container: HTMLElement, label: string): HTMLButtonElement => {
+    const button = Array.from(container.querySelectorAll('button'))
+        .find((candidate) => candidate.textContent === label);
+    if (!(button instanceof HTMLButtonElement)) {
+        throw new Error(`Button not found: ${label}`);
+    }
+    return button;
+};
+
 beforeAll(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    const reactTestGlobal = globalThis as typeof globalThis & {
+        IS_REACT_ACT_ENVIRONMENT?: boolean;
+    };
+    reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
 afterEach(async () => {
     while (mountedRoots.length > 0) {
-        const { root, container } = mountedRoots.pop();
-        await act(async () => root.unmount());
+        const mounted = mountedRoots.pop();
+        if (!mounted) continue;
+        const { root, container } = mounted;
+        await act(async () => {
+            root.unmount();
+            await Promise.resolve();
+        });
         container.remove();
     }
     vi.useRealTimers();
@@ -75,7 +116,9 @@ describe('agent action confirmations', () => {
     });
 
     it('keeps independent cards and reconciles each status by id', () => {
-        const summaryFor = confirmation => confirmation.action;
+        const summaryFor = (confirmation: TestConfirmation): string => (
+            confirmation.action
+        );
         const firstPass = mergeConfirmationRecords(
             [],
             [
@@ -110,7 +153,7 @@ describe('agent action confirmations', () => {
         );
 
         expect(reconciled).toHaveLength(2);
-        expect(reconciled.map(message => message.confirmation.status)).toEqual([
+        expect(reconciled.map((message) => message.confirmation?.status)).toEqual([
             'completed',
             'partial',
         ]);
@@ -134,46 +177,51 @@ describe('agent action confirmations', () => {
     });
 
     it('refreshes confirmation state immediately and on the fixed interval', () => {
-        const refresh = vi.fn();
-        const clearIntervalFn = vi.fn();
-        let scheduled;
+        const refresh = vi.fn<() => void>();
+        const clearIntervalFn = vi.fn<
+            (handle: ReturnType<typeof globalThis.setInterval>) => void
+        >();
+        let scheduled: ScheduledRefresh | undefined;
+        const timerHandle = 42 as unknown as ReturnType<
+            typeof globalThis.setInterval
+        >;
         const stop = startConfirmationRefresh(
             refresh,
             (callback, delay) => {
                 scheduled = { callback, delay };
-                return 42;
+                return timerHandle;
             },
             clearIntervalFn,
         );
 
         expect(refresh).toHaveBeenCalledTimes(1);
-        expect(scheduled.delay).toBe(CONFIRMATION_REFRESH_MS);
-        scheduled.callback();
+        expect(scheduled?.delay).toBe(CONFIRMATION_REFRESH_MS);
+        if (!scheduled) throw new Error('Refresh interval was not scheduled');
+        void scheduled.callback();
         expect(refresh).toHaveBeenCalledTimes(2);
         stop();
-        expect(clearIntervalFn).toHaveBeenCalledWith(42);
+        expect(clearIntervalFn).toHaveBeenCalledWith(timerHandle);
     });
 
     it('focuses cancel and disables global Enter confirmation', async () => {
         const onClose = vi.fn();
         const onConfirm = vi.fn().mockResolvedValue(undefined);
         const container = await render(
-            React.createElement(ConfirmModal, {
-                isOpen: true,
-                onClose,
-                onConfirm,
-                title: 'Review',
-                message: 'Exact action',
-                confirmText: 'Execute',
-                cancelText: 'Cancel',
-                confirmOnEnter: false,
-                autofocusConfirm: false,
-            }),
+            <ConfirmModal
+                isOpen
+                onClose={onClose}
+                onConfirm={onConfirm}
+                title="Review"
+                message="Exact action"
+                confirmText="Execute"
+                cancelText="Cancel"
+                confirmOnEnter={false}
+                autofocusConfirm={false}
+            />,
         );
 
-        const buttons = [...container.querySelectorAll('button')];
-        const cancel = buttons.find(button => button.textContent === 'Cancel');
-        const execute = buttons.find(button => button.textContent === 'Execute');
+        const cancel = getButton(container, 'Cancel');
+        const execute = getButton(container, 'Execute');
         expect(document.activeElement).toBe(cancel);
         expect(cancel.dataset.autofocus).toBe('true');
         expect(execute.dataset.autofocus).toBeUndefined();
@@ -183,11 +231,13 @@ describe('agent action confirmations', () => {
                 key: 'Enter',
                 bubbles: true,
             }));
+            await Promise.resolve();
         });
         expect(onConfirm).not.toHaveBeenCalled();
 
         await act(async () => {
             execute.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await Promise.resolve();
         });
         expect(onConfirm).toHaveBeenCalledTimes(1);
     });
@@ -195,32 +245,36 @@ describe('agent action confirmations', () => {
     it('requires the acknowledgement checkbox before confirming', async () => {
         const onConfirm = vi.fn().mockResolvedValue(undefined);
         const container = await render(
-            React.createElement(ConfirmModal, {
-                isOpen: true,
-                onClose: vi.fn(),
-                onConfirm,
-                title: 'Review',
-                message: 'Exact action',
-                confirmText: 'Execute',
-                cancelText: 'Cancel',
-                requireAcknowledgement: true,
-                acknowledgementLabel: 'I reviewed it',
-            }),
+            <ConfirmModal
+                isOpen
+                onClose={vi.fn()}
+                onConfirm={onConfirm}
+                title="Review"
+                message="Exact action"
+                confirmText="Execute"
+                cancelText="Cancel"
+                requireAcknowledgement
+                acknowledgementLabel="I reviewed it"
+            />,
         );
 
-        const checkbox = container.querySelector('input[type="checkbox"]');
-        const execute = [...container.querySelectorAll('button')]
-            .find(button => button.textContent === 'Execute');
+        const checkbox = container.querySelector<HTMLInputElement>(
+            'input[type="checkbox"]',
+        );
+        const execute = getButton(container, 'Execute');
         expect(checkbox).not.toBeNull();
         expect(execute.disabled).toBe(true);
+        if (!checkbox) throw new Error('Acknowledgement checkbox not found');
 
         await act(async () => {
             checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await Promise.resolve();
         });
         expect(execute.disabled).toBe(false);
 
         await act(async () => {
             execute.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await Promise.resolve();
         });
         expect(onConfirm).toHaveBeenCalledTimes(1);
     });
