@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import axios from '../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import {
     Archive, ArrowLeft, BookOpenCheck, Bot, Check, ChevronDown, ChevronRight,
@@ -11,6 +10,31 @@ import { usePlugins } from '../plugins/usePlugins';
 import { useKeyboardScroll } from '../hooks/useKeyboardScroll';
 import { toast } from '../lib/toast';
 import { AppHeader } from '../components/AppHeader';
+import { apiErrorDetail } from '../shared/api/errors';
+import {
+    addLiteratureCandidates,
+    cancelLiteratureSearch,
+    captureLiteratureWork,
+    createLiteratureActivity,
+    createLiteratureReview,
+    createLiteratureSearch,
+    discoverLiteratureCitations,
+    fetchLiteratureReview,
+    fetchLiteratureReviews,
+    fetchLiteratureSearch,
+    fetchLiteratureSearches,
+    importLiteratureWorks,
+    resolveLiteratureConflict,
+    runLiteratureAi,
+    submitLiteratureDecision,
+    updateLiteratureFullText,
+    updateLiteratureReviewSchedule,
+} from '../shared/api/literature';
+import {
+    fetchLiteratureConfiguration,
+    updateLiteratureConfiguration,
+} from '../shared/api/literature-resources';
+import { downloadLiteratureReview } from '../shared/api/literature-specialized';
 import { openEventStream, supportsEventStreams } from '../shared/api/specialized-transports';
 import './LiteraturePage.css';
 
@@ -242,29 +266,29 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
 
     const loadReviews = useCallback(async () => {
         try {
-            const response = await axios.get('/api/vault/literature/reviews');
-            setReviews(response.data?.reviews || []);
+            const nextReviews = await fetchLiteratureReviews();
+            setReviews(nextReviews || []);
         } catch (requestError) {
             console.error('Could not load literature reviews:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.load_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.load_error')));
         }
     }, [t]);
 
     const loadDetail = useCallback(async (reviewId) => {
         if (!reviewId) { setDetail(null); return; }
         try {
-            const response = await axios.get(`/api/vault/literature/reviews/${encodeURIComponent(reviewId)}`);
-            setDetail(response.data);
-            const schedule = response.data?.review?.configuration?.schedule || {};
+            const nextDetail = await fetchLiteratureReview(reviewId);
+            setDetail(nextDetail);
+            const schedule = nextDetail?.review?.configuration?.schedule || {};
             setScheduleEnabled(Boolean(schedule.enabled));
             setScheduleDays(Number(schedule.interval_days || 7));
             setSnowballSeedIds((current) => {
-                const available = new Set((response.data?.candidates || []).map((candidate) => candidate.id));
+                const available = new Set((nextDetail?.candidates || []).map((candidate) => candidate.id));
                 return new Set([...current].filter((candidateId) => available.has(candidateId)));
             });
         } catch (requestError) {
             console.error('Could not load the literature review:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.load_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.load_error')));
         }
     }, [t]);
 
@@ -274,7 +298,7 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
     const createReview = async () => {
         setBusy('create');
         try {
-            const response = await axios.post('/api/vault/literature/reviews', {
+            const createdReview = await createLiteratureReview({
                 question, title: question, reviewer_mode: mode,
                 reviewers: reviewers.split(',').map((value) => value.trim()).filter(Boolean),
                 protocol,
@@ -289,10 +313,10 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
             setIncludeCriteria('');
             setExcludeCriteria('');
             await loadReviews();
-            setSelectedReviewId(response.data.id);
+            setSelectedReviewId(createdReview.id);
         } catch (requestError) {
             console.error('Could not create the literature review:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.create_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.create_error')));
         } finally { setBusy(''); }
     };
 
@@ -300,56 +324,56 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
         if (!selectedReviewId || !selectedWorks.length) return;
         setBusy('candidates');
         try {
-            await axios.post(`/api/vault/literature/reviews/${encodeURIComponent(selectedReviewId)}/candidates`, { works: selectedWorks });
+            await addLiteratureCandidates(selectedReviewId, { works: selectedWorks });
             await loadDetail(selectedReviewId);
             toast.success(t('literature.review.candidates_added'));
         } catch (requestError) {
             console.error('Could not add literature candidates:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.candidates_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.candidates_error')));
         } finally { setBusy(''); }
     };
 
     const decide = async (candidate, decision, reason, notes) => {
         setBusy(candidate.id);
         try {
-            await axios.post(`/api/vault/literature/reviews/${encodeURIComponent(selectedReviewId)}/candidates/${encodeURIComponent(candidate.id)}/decisions`, { phase: candidate.phase, decision, reason, notes });
+            await submitLiteratureDecision(selectedReviewId, candidate.id, { phase: candidate.phase, decision, reason, notes });
             await loadDetail(selectedReviewId);
         } catch (requestError) {
             console.error('Could not save the screening decision:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.decision_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.decision_error')));
         } finally { setBusy(''); }
     };
 
     const resolve = async (candidate, decision, reason, notes) => {
         setBusy(candidate.id);
         try {
-            await axios.post(`/api/vault/literature/reviews/${encodeURIComponent(selectedReviewId)}/candidates/${encodeURIComponent(candidate.id)}/consensus`, { decision, reason: reason || t('literature.review.consensus_reason'), notes });
+            await resolveLiteratureConflict(selectedReviewId, candidate.id, { decision, reason: reason || t('literature.review.consensus_reason'), notes });
             await loadDetail(selectedReviewId);
         } catch (requestError) {
             console.error('Could not resolve the screening conflict:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.decision_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.decision_error')));
         } finally { setBusy(''); }
     };
 
     const updateFullText = async (candidate, payload) => {
         setBusy(`full-text:${candidate.id}`);
         try {
-            await axios.put(`/api/vault/literature/reviews/${encodeURIComponent(selectedReviewId)}/candidates/${encodeURIComponent(candidate.id)}/full-text`, payload);
+            await updateLiteratureFullText(selectedReviewId, candidate.id, payload);
             await loadDetail(selectedReviewId);
             toast.success(t('literature.review.full_text_saved'));
         } catch (requestError) {
             console.error('Could not update the full-text workflow:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.full_text_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.full_text_error')));
         } finally { setBusy(''); }
     };
 
     const exportReview = async (format) => {
         try {
-            const response = await axios.get(`/api/vault/literature/reviews/${encodeURIComponent(selectedReviewId)}/exports/${format}`, { responseType: 'blob' });
-            const url = URL.createObjectURL(response.data);
+            const download = await downloadLiteratureReview(selectedReviewId, format);
+            const url = URL.createObjectURL(download.blob);
             const anchor = document.createElement('a');
             anchor.href = url;
-            anchor.download = response.headers['content-disposition']?.match(/filename="([^"]+)"/)?.[1] || `literature-review.${format === 'prisma-svg' ? 'svg' : format}`;
+            anchor.download = download.contentDisposition.match(/filename="([^"]+)"/)?.[1] || `literature-review.${format === 'prisma-svg' ? 'svg' : format}`;
             anchor.click();
             URL.revokeObjectURL(url);
         } catch (requestError) {
@@ -362,7 +386,7 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
         if (!selectedReviewId || !currentSearch?.id) return;
         setBusy('strategy');
         try {
-            await axios.post(`/api/vault/literature/reviews/${encodeURIComponent(selectedReviewId)}/activities`, {
+            await createLiteratureActivity(selectedReviewId, {
                 activity_type: 'search_strategy',
                 strategy: { query: currentSearch.query, filters: currentSearch.filters, source_ids: currentSearch.source_ids, source_queries: currentSearch.source_queries || {} },
                 exact_queries: currentSearch.exact_queries || {},
@@ -373,7 +397,7 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
             toast.success(t('literature.review.strategy_saved'));
         } catch (requestError) {
             console.error('Could not save the literature search strategy:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.strategy_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.strategy_error')));
         } finally { setBusy(''); }
     };
 
@@ -381,14 +405,14 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
         if (!detail?.candidates?.length) return;
         setBusy(`ai:${operation}`);
         try {
-            const response = await axios.post('/api/vault/literature/ai', {
+            const aiResult = await runLiteratureAi({
                 operation, review_id: selectedReviewId,
                 payload: { question: detail.review.question, criteria: detail.review.criteria, works: detail.candidates.map((candidate) => candidate.work) },
             });
-            setAiInsight(response.data);
+            setAiInsight(aiResult);
         } catch (requestError) {
             console.error('Literature review AI operation failed:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.ai.error'));
+            setError(apiErrorDetail(requestError, t('literature.ai.error')));
         } finally { setBusy(''); }
     };
 
@@ -397,12 +421,12 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
         if (!seeds.length) return;
         setBusy('snowball');
         try {
-            const response = await axios.post(`/api/vault/literature/reviews/${encodeURIComponent(selectedReviewId)}/snowball`, { seeds, direction: snowballDirection, limit_per_seed: 25 });
-            setSnowballResult(response.data);
+            const result = await discoverLiteratureCitations(selectedReviewId, { seeds, direction: snowballDirection, limit_per_seed: 25 });
+            setSnowballResult(result);
             setSnowballSelectedIds(new Set());
         } catch (requestError) {
             console.error('Citation expansion failed:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.snowball_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.snowball_error')));
         } finally { setBusy(''); }
     };
 
@@ -411,14 +435,14 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
         if (!works.length) return;
         setBusy('snowball-add');
         try {
-            await axios.post(`/api/vault/literature/reviews/${encodeURIComponent(selectedReviewId)}/candidates`, { works, activity_id: snowballResult.activity_id || '' });
+            await addLiteratureCandidates(selectedReviewId, { works, activity_id: snowballResult.activity_id || '' });
             await loadDetail(selectedReviewId);
             setSnowballResult(null);
             setSnowballSelectedIds(new Set());
             toast.success(t('literature.review.candidates_added'));
         } catch (requestError) {
             console.error('Could not add citation candidates:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.candidates_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.candidates_error')));
         } finally { setBusy(''); }
     };
 
@@ -436,12 +460,12 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
         }
         setBusy('schedule');
         try {
-            await axios.put(`/api/vault/literature/reviews/${encodeURIComponent(selectedReviewId)}/schedule`, { enabled: scheduleEnabled, interval_days: scheduleDays, strategy });
+            await updateLiteratureReviewSchedule(selectedReviewId, { enabled: scheduleEnabled, interval_days: scheduleDays, strategy });
             await loadDetail(selectedReviewId);
             toast.success(t('literature.review.schedule_saved'));
         } catch (requestError) {
             console.error('Could not save the literature review schedule:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.review.schedule_error'));
+            setError(apiErrorDetail(requestError, t('literature.review.schedule_error')));
         } finally { setBusy(''); }
     };
 
@@ -514,21 +538,20 @@ export default function LiteraturePage() {
 
     const loadConfiguration = useCallback(async () => {
         try {
-            const response = await axios.get('/api/vault/literature/configuration');
-            const next = response.data || { sources: [] };
+            const next = await fetchLiteratureConfiguration();
             setConfiguration(next);
             setAiAgentId((current) => current || next.ai_agent_id || next.ai_agents?.[0]?.id || '');
             setSelectedSources((current) => current.size ? current : new Set((next.sources || []).filter((source) => source.enabled && source.available && source.automated && !source.hidden).map((source) => source.id)));
         } catch (requestError) {
             console.error('Could not load literature search configuration:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.search.load_error'));
+            setError(apiErrorDetail(requestError, t('literature.search.load_error')));
         }
     }, [t]);
 
     const loadSearchHistory = useCallback(async () => {
         try {
-            const response = await axios.get('/api/vault/literature/searches', { params: { limit: 50 } });
-            setSearchHistory(response.data?.searches || []);
+            const searches = await fetchLiteratureSearches(50);
+            setSearchHistory(searches || []);
         } catch (requestError) {
             console.error('Could not load literature search history:', requestError);
         }
@@ -551,13 +574,13 @@ export default function LiteraturePage() {
 
     const refreshSearch = useCallback(async (searchId, offset = resultOffsetRef.current) => {
         try {
-            const response = await axios.get(`/api/vault/literature/searches/${encodeURIComponent(searchId)}`, { params: { offset, limit: SEARCH_PAGE_SIZE } });
-            setSearchResult(response.data);
-            if (TERMINAL_SEARCH_STATES.has(response.data?.state)) {
+            const nextSearch = await fetchLiteratureSearch(searchId, offset, SEARCH_PAGE_SIZE);
+            setSearchResult(nextSearch);
+            if (TERMINAL_SEARCH_STATES.has(nextSearch?.state)) {
                 stopProgress();
                 void loadSearchHistory();
             }
-            return response.data;
+            return nextSearch;
         } catch (requestError) {
             console.error('Could not refresh the literature search:', requestError);
             return null;
@@ -621,13 +644,13 @@ export default function LiteraturePage() {
         setResultOffset(0);
         eventCursorRef.current = 0;
         try {
-            const response = await axios.post('/api/vault/literature/searches', { query: normalizedQuery, filters, source_ids: Array.from(selectedSources), source_queries: sourceQueries, ai_audits: aiAudits, limit_per_source: 25 });
-            setSearchResult(response.data);
-            const refreshed = await refreshSearch(response.data.id, 0);
-            if (!TERMINAL_SEARCH_STATES.has(refreshed?.state)) followSearch(response.data.id);
+            const createdSearch = await createLiteratureSearch({ query: normalizedQuery, filters, source_ids: Array.from(selectedSources), source_queries: sourceQueries, ai_audits: aiAudits, limit_per_source: 25 });
+            setSearchResult(createdSearch);
+            const refreshed = await refreshSearch(createdSearch.id, 0);
+            if (!TERMINAL_SEARCH_STATES.has(refreshed?.state)) followSearch(createdSearch.id);
         } catch (requestError) {
             console.error('Could not start the literature search:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.search.start_error'));
+            setError(apiErrorDetail(requestError, t('literature.search.start_error')));
         } finally { setBusy(''); }
     };
 
@@ -640,11 +663,11 @@ export default function LiteraturePage() {
         if (!searchResult?.id || TERMINAL_SEARCH_STATES.has(searchResult.state)) return;
         setBusy('cancel');
         try {
-            await axios.delete(`/api/vault/literature/searches/${encodeURIComponent(searchResult.id)}`);
+            await cancelLiteratureSearch(searchResult.id);
             await refreshSearch(searchResult.id);
         } catch (requestError) {
             console.error('Could not cancel the literature search:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.search.cancel_error'));
+            setError(apiErrorDetail(requestError, t('literature.search.cancel_error')));
         } finally { setBusy(''); }
     };
 
@@ -664,12 +687,12 @@ export default function LiteraturePage() {
         }
         setBusy('ai');
         try {
-            const response = await axios.post('/api/vault/literature/ai', { operation: 'query_strategy', agent_id: aiAgentId, payload: { question: query, framework: 'AUTO', languages: ['ca', 'es', 'en', 'fr'] } });
-            setAiProposal(response.data);
-            setAiAudits((current) => [...current, { operation: response.data?.operation, ...(response.data?.audit || {}) }].slice(-50));
+            const aiResult = await runLiteratureAi({ operation: 'query_strategy', agent_id: aiAgentId, payload: { question: query, framework: 'AUTO', languages: ['ca', 'es', 'en', 'fr'] } });
+            setAiProposal(aiResult);
+            setAiAudits((current) => [...current, { operation: aiResult?.operation, ...(aiResult?.audit || {}) }].slice(-50));
         } catch (requestError) {
             console.error('Literature AI query assistance failed:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.ai.error'));
+            setError(apiErrorDetail(requestError, t('literature.ai.error')));
         } finally { setBusy(''); }
     };
 
@@ -677,19 +700,19 @@ export default function LiteraturePage() {
         if (!query.trim()) return;
         setBusy(`translate:${sourceId}`);
         try {
-            const response = await axios.post('/api/vault/literature/ai', { operation: 'translate_query', agent_id: aiAgentId, payload: { query, source_id: sourceId } });
-            setAiProposal(response.data);
-            setAiAudits((current) => [...current, { operation: response.data?.operation, ...(response.data?.audit || {}) }].slice(-50));
+            const aiResult = await runLiteratureAi({ operation: 'translate_query', agent_id: aiAgentId, payload: { query, source_id: sourceId } });
+            setAiProposal(aiResult);
+            setAiAudits((current) => [...current, { operation: aiResult?.operation, ...(aiResult?.audit || {}) }].slice(-50));
         } catch (requestError) {
             console.error('Literature source query translation failed:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.ai.error'));
+            setError(apiErrorDetail(requestError, t('literature.ai.error')));
         } finally { setBusy(''); }
     };
 
     const changeAiAgent = async (agentId) => {
         setAiAgentId(agentId);
         try {
-            await axios.put('/api/vault/literature/configuration', { ai_agent_id: agentId });
+            await updateLiteratureConfiguration({ ai_agent_id: agentId });
             setConfiguration((current) => ({ ...current, ai_agent_id: agentId }));
         } catch (requestError) {
             console.error('Could not save the literature AI agent:', requestError);
@@ -701,19 +724,19 @@ export default function LiteraturePage() {
         if (!results.length || !searchResult?.query) return;
         setBusy('rerank');
         try {
-            const response = await axios.post('/api/vault/literature/ai', { operation: 'rerank', search_id: searchResult.id, payload: { mode: 'local', query: searchResult.query, works: results } });
-            const ranks = new Map((response.data?.result?.ranking || []).map((item) => [item.id, item]));
-            const auditEntry = { operation: response.data?.operation, ...(response.data?.audit || {}) };
+            const aiResult = await runLiteratureAi({ operation: 'rerank', search_id: searchResult.id, payload: { mode: 'local', query: searchResult.query, works: results } });
+            const ranks = new Map((aiResult?.result?.ranking || []).map((item) => [item.id, item]));
+            const auditEntry = { operation: aiResult?.operation, ...(aiResult?.audit || {}) };
             setAiAudits((current) => [...current, auditEntry].slice(-50));
             setSearchResult((current) => ({
                 ...current,
                 ai_audits: [...(current?.ai_audits || []), auditEntry].slice(-50),
                 results: [...(current?.results || [])].map((work) => ({ ...work, semantic_rank: ranks.get(work.id)?.semantic_rank, original_rank: ranks.get(work.id)?.original_rank })).sort((left, right) => (left.semantic_rank || Number.MAX_SAFE_INTEGER) - (right.semantic_rank || Number.MAX_SAFE_INTEGER)),
             }));
-            setRerankAudit(response.data?.audit || null);
+            setRerankAudit(aiResult?.audit || null);
         } catch (requestError) {
             console.error('Local literature reranking failed:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.ai.rerank_error'));
+            setError(apiErrorDetail(requestError, t('literature.ai.rerank_error')));
         } finally { setBusy(''); }
     };
 
@@ -723,11 +746,11 @@ export default function LiteraturePage() {
         setBusy('manual');
         setError('');
         try {
-            const response = await axios.post('/api/vault/literature/manual-capture', { value: manualValue.trim(), kind: manualKind });
-            setManualWork(response.data?.work || null);
+            const work = await captureLiteratureWork(manualValue.trim(), manualKind);
+            setManualWork(work || null);
         } catch (requestError) {
             console.error('Could not capture the manually discovered work:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.manual.error'));
+            setError(apiErrorDetail(requestError, t('literature.manual.error')));
         } finally { setBusy(''); }
     };
 
@@ -735,13 +758,13 @@ export default function LiteraturePage() {
         if (!works.length) return;
         setBusy(sendToNotebook ? 'notebook' : 'import');
         try {
-            const response = await axios.post('/api/vault/literature/imports', { works });
-            const resourceIds = response.data?.resource_ids || [];
-            toast.success(t('literature.import.success', { imported: response.data?.imported_count || 0, existing: response.data?.existing_count || 0 }));
+            const result = await importLiteratureWorks(works);
+            const resourceIds = result?.resource_ids || [];
+            toast.success(t('literature.import.success', { imported: result?.imported_count || 0, existing: result?.existing_count || 0 }));
             if (sendToNotebook && resourceIds.length) {
                 window.dispatchEvent(new CustomEvent('gnosi:create-notebook', { detail: { resourceIds } }));
             }
-            const manualMembership = [...(response.data?.imported || []), ...(response.data?.existing || [])].find((item) => item.work_id === manualWork?.id);
+            const manualMembership = [...(result?.imported || []), ...(result?.existing || [])].find((item) => item.work_id === manualWork?.id);
             if (manualMembership) {
                 setManualWork((current) => current ? { ...current, in_resources: true, resource_id: manualMembership.resource_id } : current);
                 setPreview((current) => current?.id === manualMembership.work_id ? { ...current, in_resources: true, resource_id: manualMembership.resource_id } : current);
@@ -749,7 +772,7 @@ export default function LiteraturePage() {
             if (searchResult?.id) await refreshSearch(searchResult.id);
         } catch (requestError) {
             console.error('Could not import academic works:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.import.error'));
+            setError(apiErrorDetail(requestError, t('literature.import.error')));
         } finally { setBusy(''); }
     };
 

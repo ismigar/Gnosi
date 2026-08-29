@@ -12,6 +12,26 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Qu
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from backend.domains.literature.schemas import (
+    LiteratureActivityResponse,
+    LiteratureAiResponse,
+    LiteratureCandidateMutationResponse,
+    LiteratureCandidateResponse,
+    LiteratureConfigurationResponse,
+    LiteratureDecisionMutationResponse,
+    LiteratureImportResponse,
+    LiteratureManualCaptureResponse,
+    LiteratureRepositoryDeletionResponse,
+    LiteratureRepositoryResponse,
+    LiteratureRepositoryTestResponse,
+    LiteratureReviewDetailResponse,
+    LiteratureReviewResponse,
+    LiteratureReviewsResponse,
+    LiteratureSearchResponse,
+    LiteratureSearchesResponse,
+    LiteratureSnowballResponse,
+    LiteratureSyncResponse,
+)
 from backend.services import (
     literature_ai_service,
     literature_import_service,
@@ -148,14 +168,22 @@ class AiOperationRequest(BaseModel):
     agent_id: str = Field(default="", max_length=160)
 
 
-@router.get("/configuration", response_model=None)
+@router.get(
+    "/configuration",
+    response_model=LiteratureConfigurationResponse,
+    response_model_exclude_unset=True,
+)
 def get_configuration(
     context: WorkspaceContext = Depends(require_role("viewer")),
 ) -> Any:
     return literature_service.public_configuration(context.vault_path)
 
 
-@router.put("/configuration", response_model=None)
+@router.put(
+    "/configuration",
+    response_model=LiteratureConfigurationResponse,
+    response_model_exclude_unset=True,
+)
 def update_configuration(
     payload: ConfigurationPatch,
     context: WorkspaceContext = Depends(require_role("admin")),
@@ -169,7 +197,11 @@ def get_catalog(context: WorkspaceContext = Depends(require_role("viewer"))) -> 
     return {"sources": literature_service.catalog(context.vault_path)}
 
 
-@router.post("/repositories/test", response_model=None)
+@router.post(
+    "/repositories/test",
+    response_model=LiteratureRepositoryTestResponse,
+    response_model_exclude_unset=True,
+)
 async def test_repository(
     payload: RepositoryTestPayload,
     context: WorkspaceContext = Depends(require_role("admin")),
@@ -180,7 +212,12 @@ async def test_repository(
     )
 
 
-@router.post("/repositories", status_code=201, response_model=None)
+@router.post(
+    "/repositories",
+    status_code=201,
+    response_model=LiteratureRepositoryResponse,
+    response_model_exclude_unset=True,
+)
 def create_repository(
     payload: RepositoryPayload,
     context: WorkspaceContext = Depends(require_role("admin")),
@@ -188,7 +225,11 @@ def create_repository(
     return literature_service.save_repository(context.vault_path, payload.model_dump())
 
 
-@router.put("/repositories/{repository_id}", response_model=None)
+@router.put(
+    "/repositories/{repository_id}",
+    response_model=LiteratureRepositoryResponse,
+    response_model_exclude_unset=True,
+)
 def update_repository(
     repository_id: str,
     payload: RepositoryPayload,
@@ -199,7 +240,11 @@ def update_repository(
     )
 
 
-@router.delete("/repositories/{repository_id}", response_model=None)
+@router.delete(
+    "/repositories/{repository_id}",
+    response_model=LiteratureRepositoryDeletionResponse,
+    response_model_exclude_unset=True,
+)
 def delete_repository(
     repository_id: str,
     delete_index: bool = Query(default=False),
@@ -215,7 +260,12 @@ def delete_repository(
     )
 
 
-@router.post("/synchronizations/{source_id}", status_code=202, response_model=None)
+@router.post(
+    "/synchronizations/{source_id}",
+    status_code=202,
+    response_model=LiteratureSyncResponse,
+    response_model_exclude_unset=True,
+)
 def start_synchronization(
     source_id: str,
     full: bool = Body(default=False, embed=True),
@@ -232,7 +282,11 @@ def get_synchronization(
     return literature_service.sync_status(context.vault_path, source_id)
 
 
-@router.delete("/synchronizations/{source_id}", response_model=None)
+@router.delete(
+    "/synchronizations/{source_id}",
+    response_model=LiteratureSyncResponse,
+    response_model_exclude_unset=True,
+)
 def cancel_synchronization(
     source_id: str,
     context: WorkspaceContext = Depends(require_role("admin")),
@@ -240,7 +294,12 @@ def cancel_synchronization(
     return literature_service.cancel_sync(context.vault_path, source_id)
 
 
-@router.post("/synchronizations/{source_id}/resume", status_code=202, response_model=None)
+@router.post(
+    "/synchronizations/{source_id}/resume",
+    status_code=202,
+    response_model=LiteratureSyncResponse,
+    response_model_exclude_unset=True,
+)
 def resume_synchronization(
     source_id: str,
     context: WorkspaceContext = Depends(require_role("admin")),
@@ -248,7 +307,11 @@ def resume_synchronization(
     return literature_service.enqueue_sync(context.vault_path, source_id, full=False)
 
 
-@router.get("/searches", response_model=None)
+@router.get(
+    "/searches",
+    response_model=LiteratureSearchesResponse,
+    response_model_exclude_unset=True,
+)
 def list_searches(
     limit: int = Query(default=50, ge=1, le=200),
     context: WorkspaceContext = Depends(require_role("viewer")),
@@ -256,7 +319,12 @@ def list_searches(
     return {"searches": literature_service.list_searches(context.vault_path, limit)}
 
 
-@router.post("/searches", status_code=202, response_model=None)
+@router.post(
+    "/searches",
+    status_code=202,
+    response_model=LiteratureSearchResponse,
+    response_model_exclude_unset=True,
+)
 async def create_search(
     payload: SearchRequest,
     context: WorkspaceContext = Depends(require_role("viewer")),
@@ -273,7 +341,11 @@ async def create_search(
     )
 
 
-@router.get("/searches/{search_id}", response_model=None)
+@router.get(
+    "/searches/{search_id}",
+    response_model=LiteratureSearchResponse,
+    response_model_exclude_unset=True,
+)
 def get_search(
     search_id: str,
     offset: int = Query(default=0, ge=0),
@@ -289,7 +361,11 @@ def get_search(
     return payload
 
 
-@router.delete("/searches/{search_id}", response_model=None)
+@router.delete(
+    "/searches/{search_id}",
+    response_model=LiteratureSearchResponse,
+    response_model_exclude_unset=True,
+)
 def cancel_search(
     search_id: str,
     context: WorkspaceContext = Depends(require_role("viewer")),
@@ -338,7 +414,11 @@ async def stream_search_events(
     )
 
 
-@router.post("/imports", response_model=None)
+@router.post(
+    "/imports",
+    response_model=LiteratureImportResponse,
+    response_model_exclude_unset=True,
+)
 async def import_results(
     payload: ImportRequest,
     background_tasks: BackgroundTasks,
@@ -361,13 +441,22 @@ async def ensure_review_tables(
     return await literature_review_service.ensure_tables()
 
 
-@router.get("/reviews", response_model=None)
+@router.get(
+    "/reviews",
+    response_model=LiteratureReviewsResponse,
+    response_model_exclude_unset=True,
+)
 def list_reviews(context: WorkspaceContext = Depends(require_role("viewer"))) -> Any:
     del context
     return {"reviews": literature_review_service.list_reviews()}
 
 
-@router.post("/reviews", status_code=201, response_model=None)
+@router.post(
+    "/reviews",
+    status_code=201,
+    response_model=LiteratureReviewResponse,
+    response_model_exclude_unset=True,
+)
 async def create_review(
     payload: ReviewCreateRequest,
     background_tasks: BackgroundTasks,
@@ -378,7 +467,11 @@ async def create_review(
     )
 
 
-@router.get("/reviews/{review_id}", response_model=None)
+@router.get(
+    "/reviews/{review_id}",
+    response_model=LiteratureReviewDetailResponse,
+    response_model_exclude_unset=True,
+)
 def get_review(
     review_id: str,
     context: WorkspaceContext = Depends(require_role("viewer")),
@@ -392,7 +485,12 @@ def get_review(
     }
 
 
-@router.post("/reviews/{review_id}/activities", status_code=201, response_model=None)
+@router.post(
+    "/reviews/{review_id}/activities",
+    status_code=201,
+    response_model=LiteratureActivityResponse,
+    response_model_exclude_unset=True,
+)
 async def create_activity(
     review_id: str,
     payload: ActivityRequest,
@@ -408,7 +506,11 @@ async def create_activity(
     )
 
 
-@router.put("/reviews/{review_id}/schedule", response_model=None)
+@router.put(
+    "/reviews/{review_id}/schedule",
+    response_model=LiteratureReviewResponse,
+    response_model_exclude_unset=True,
+)
 async def update_review_schedule(
     review_id: str,
     payload: ReviewScheduleRequest,
@@ -422,7 +524,12 @@ async def update_review_schedule(
     )
 
 
-@router.post("/reviews/{review_id}/candidates", status_code=201, response_model=None)
+@router.post(
+    "/reviews/{review_id}/candidates",
+    status_code=201,
+    response_model=LiteratureCandidateMutationResponse,
+    response_model_exclude_unset=True,
+)
 async def add_candidates(
     review_id: str,
     payload: CandidateRequest,
@@ -446,7 +553,8 @@ def list_candidates(
 @router.post(
     "/reviews/{review_id}/candidates/{candidate_id}/decisions",
     status_code=201,
-    response_model=None,
+    response_model=LiteratureDecisionMutationResponse,
+    response_model_exclude_unset=True,
 )
 async def submit_decision(
     review_id: str,
@@ -463,7 +571,8 @@ async def submit_decision(
 @router.post(
     "/reviews/{review_id}/candidates/{candidate_id}/consensus",
     status_code=201,
-    response_model=None,
+    response_model=LiteratureDecisionMutationResponse,
+    response_model_exclude_unset=True,
 )
 async def resolve_conflict(
     review_id: str,
@@ -477,7 +586,11 @@ async def resolve_conflict(
     )
 
 
-@router.put("/reviews/{review_id}/candidates/{candidate_id}/full-text", response_model=None)
+@router.put(
+    "/reviews/{review_id}/candidates/{candidate_id}/full-text",
+    response_model=LiteratureCandidateResponse,
+    response_model_exclude_unset=True,
+)
 async def update_candidate_full_text(
     review_id: str,
     candidate_id: str,
@@ -490,7 +603,11 @@ async def update_candidate_full_text(
     )
 
 
-@router.post("/reviews/{review_id}/snowball", response_model=None)
+@router.post(
+    "/reviews/{review_id}/snowball",
+    response_model=LiteratureSnowballResponse,
+    response_model_exclude_unset=True,
+)
 async def discover_review_citations(
     review_id: str,
     payload: SnowballRequest,
@@ -523,7 +640,11 @@ async def discover_review_citations(
     return {**result, "activity_id": activity.get("id")}
 
 
-@router.post("/manual-capture", response_model=None)
+@router.post(
+    "/manual-capture",
+    response_model=LiteratureManualCaptureResponse,
+    response_model_exclude_unset=True,
+)
 async def manual_capture(
     payload: ManualCaptureRequest,
     context: WorkspaceContext = Depends(require_role("viewer")),
@@ -558,7 +679,11 @@ async def manual_capture(
     }
 
 
-@router.post("/ai", response_model=None)
+@router.post(
+    "/ai",
+    response_model=LiteratureAiResponse,
+    response_model_exclude_unset=True,
+)
 async def run_ai_operation(
     payload: AiOperationRequest,
     background_tasks: BackgroundTasks,
@@ -585,7 +710,11 @@ async def run_ai_operation(
     return result
 
 
-@router.get("/reviews/{review_id}/exports/{export_format}", response_model=None)
+@router.get(
+    "/reviews/{review_id}/exports/{export_format}",
+    response_class=Response,
+    response_model=None,
+)
 def export_review(
     review_id: str,
     export_format: str,

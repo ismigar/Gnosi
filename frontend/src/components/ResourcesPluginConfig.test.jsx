@@ -1,11 +1,38 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import axios from '../shared/api/legacy-http';
+import { fetchCredentials } from '../shared/api/credentials';
+import {
+    cancelLiteratureSynchronization,
+    fetchLiteratureConfiguration,
+    fetchReferenceTable,
+    updateLiteratureConfiguration,
+} from '../shared/api/literature-resources';
+import { fetchVaultTables } from '../shared/api/vaults';
 
 import ResourcesPluginConfig from './ResourcesPluginConfig';
 
-vi.mock('../shared/api/legacy-http', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }));
+vi.mock('../shared/api/credentials', () => ({
+    deleteCredential: vi.fn(),
+    fetchCredentials: vi.fn(),
+    saveCredential: vi.fn(),
+}));
+vi.mock('../shared/api/literature-resources', () => ({
+    cancelLiteratureSynchronization: vi.fn(),
+    clearReferenceTable: vi.fn(),
+    createLiteratureRepository: vi.fn(),
+    createReferenceTable: vi.fn(),
+    deleteLiteratureRepository: vi.fn(),
+    fetchLiteratureConfiguration: vi.fn(),
+    fetchReferenceTable: vi.fn(),
+    resumeLiteratureSynchronization: vi.fn(),
+    setReferenceTable: vi.fn(),
+    startLiteratureSynchronization: vi.fn(),
+    testLiteratureRepository: vi.fn(),
+    updateLiteratureConfiguration: vi.fn(),
+    updateLiteratureRepository: vi.fn(),
+}));
+vi.mock('../shared/api/vaults', () => ({ fetchVaultTables: vi.fn() }));
 const translate = vi.hoisted(() => (key) => key);
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: translate }) }));
 
@@ -27,15 +54,14 @@ async function renderConfig(extraSources = []) {
         { id: 'google-scholar', name: 'Google Scholar', kind: 'external', group: 'external', automated: false, implemented: false, available: false, enabled: false, hidden: false, search_url: 'https://scholar.google.com/scholar?q={query}' },
         ...extraSources,
     ] };
-    axios.get.mockImplementation((url) => {
-        if (url === '/api/vault/literature/configuration') return Promise.resolve({ data: configuration });
-        if (url === '/api/vault/tables') return Promise.resolve({ data: [{ id: 'resources', name: 'Resources' }] });
-        return Promise.resolve({ data: { table_id: 'resources', configured: true } });
-    });
-    axios.put.mockImplementation((_url, patch) => {
+    fetchCredentials.mockResolvedValue([]);
+    fetchLiteratureConfiguration.mockResolvedValue(configuration);
+    fetchVaultTables.mockResolvedValue([{ id: 'resources', name: 'Resources' }]);
+    fetchReferenceTable.mockResolvedValue({ table_id: 'resources', configured: true });
+    updateLiteratureConfiguration.mockImplementation((patch) => {
         const hiddenSources = new Set(patch.hidden_sources ?? configuration.hidden_sources);
         const sourceDefaults = patch.source_defaults ?? configuration.source_defaults;
-        return Promise.resolve({ data: {
+        return Promise.resolve({
             ...configuration,
             ...patch,
             source_defaults: sourceDefaults,
@@ -44,7 +70,7 @@ async function renderConfig(extraSources = []) {
                 enabled: source.id in sourceDefaults ? sourceDefaults[source.id] : source.enabled,
                 hidden: hiddenSources.has(source.id),
             })),
-        } });
+        });
     });
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -59,18 +85,18 @@ describe('ResourcesPluginConfig', () => {
         const toggle = container.querySelector('[role="switch"]');
         expect(toggle.getAttribute('aria-checked')).toBe('true');
         await act(async () => toggle.click());
-        expect(axios.put).toHaveBeenCalledWith('/api/vault/literature/configuration', { source_defaults: { crossref: false } });
+        expect(updateLiteratureConfiguration).toHaveBeenCalledWith({ source_defaults: { crossref: false } });
         const external = container.querySelector('a[href^="https://scholar.google.com"]');
         expect(external).not.toBeNull();
     });
 
     it('shows live OAI progress and requests cancellation', async () => {
-        axios.delete.mockResolvedValue({ data: {} });
+        cancelLiteratureSynchronization.mockResolvedValue({ source_id: 'dialnet-articles', state: 'cancelled' });
         await renderConfig([{ id: 'dialnet-articles', name: 'Dialnet Articles', kind: 'oai', group: 'open', automated: true, implemented: true, available: true, enabled: true, hidden: false, sync: { state: 'running', index_size: 120, received_count: 150, indexed_count: 120, deleted_count: 2 } }]);
         expect(container.textContent).toContain('literature.settings.sync_progress');
         const cancel = container.querySelector('[aria-label="literature.settings.cancel_sync"]');
         await act(async () => cancel.click());
-        expect(axios.delete).toHaveBeenCalledWith('/api/vault/literature/synchronizations/dialnet-articles');
+        expect(cancelLiteratureSynchronization).toHaveBeenCalledWith('dialnet-articles');
     });
 
     it('uses the shared application styles for every control and keeps add action content together', async () => {
@@ -118,7 +144,7 @@ describe('ResourcesPluginConfig', () => {
 
         await act(async () => restoreButton.click());
 
-        expect(axios.put).toHaveBeenCalledWith('/api/vault/literature/configuration', { hidden_sources: [] });
+        expect(updateLiteratureConfiguration).toHaveBeenCalledWith({ hidden_sources: [] });
         expect(container.textContent).toContain('literature.settings.sources_restored');
         expect(container.textContent).toContain('Hidden source');
     });

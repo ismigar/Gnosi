@@ -13,6 +13,11 @@ export class GnosiApiError extends Error {
 }
 
 
+export function apiErrorDetail(error: unknown, fallback: string): string {
+  return error instanceof GnosiApiError ? error.message : fallback;
+}
+
+
 function apiErrorMessage(payload: unknown, fallback: string): string {
   if (typeof payload === 'string' && payload.trim()) return payload;
   if (payload && typeof payload === 'object' && 'detail' in payload) {
