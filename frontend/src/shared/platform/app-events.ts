@@ -45,6 +45,20 @@ export type OpenSettingsEventDetail =
       readonly tab: string;
     };
 
+export interface DocumentLocationEventDetail {
+  readonly [key: string]: unknown;
+  readonly highlightText?: unknown;
+  readonly pageNumber?: unknown;
+}
+
+export interface OpenDocumentEventDetail {
+  readonly documentKey: string;
+  readonly kind: 'epub' | 'pdf' | 'snapshot';
+  readonly location: DocumentLocationEventDetail | null;
+  readonly src: string;
+  readonly title: string;
+}
+
 
 export interface AppEventMap {
   readonly 'app-error': AppErrorEventDetail;
@@ -53,6 +67,7 @@ export interface AppEventMap {
   readonly 'gnosi:floating-dock-change': { readonly isOpen: boolean };
   readonly 'gnosi:floating-panel-open': { readonly panelId: string };
   readonly 'gnosi:invalidatePreview': { readonly pageId?: string };
+  readonly 'gnosi:open-pdf': OpenDocumentEventDetail;
   readonly 'gnosi:relation-unlinked': RelationUnlinkedEventDetail;
   readonly 'gnosi:relation-value-applied': RelationValueAppliedEventDetail;
   readonly 'gnosi:vault-name-changed': null;
@@ -83,6 +98,20 @@ export function emitAppEvent<K extends keyof AppEventMap>(
   if (!target || typeof CustomEvent === 'undefined') return false;
   const detail = (args.length ? args[0] : null) as AppEventMap[K];
   return target.dispatchEvent(new CustomEvent<AppEventMap[K]>(name, { detail }));
+}
+
+
+export function emitCancelableAppEvent<K extends keyof AppEventMap>(
+  name: K,
+  ...args: EventArguments<K>
+): boolean {
+  const target = runtimeEventTarget();
+  if (!target || typeof CustomEvent === 'undefined') return false;
+  const detail = (args.length ? args[0] : null) as AppEventMap[K];
+  return target.dispatchEvent(new CustomEvent<AppEventMap[K]>(name, {
+    cancelable: true,
+    detail,
+  }));
 }
 
 

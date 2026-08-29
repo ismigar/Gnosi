@@ -1,0 +1,47 @@
+export {
+  interpolateNamePattern,
+  parseAuthorsString,
+  type StructuredAuthor,
+} from './fileResourceNaming';
+
+export {
+  findCitationAttachment,
+  findDocAttachment,
+  openCitation,
+  openFileResource,
+  type CitationDescriptor,
+  type FileResourceLocation,
+  type FileResourceNavigate,
+  type FileResourceTranslate,
+  type OpenCitationOptions,
+  type OpenFileResourceOptions,
+} from './fileResourceOpen';
+
+export {
+  ACTIVE_VAULT_KEY,
+  buildImageValue,
+  canonicalStorageFolder,
+  documentKindForHref,
+  documentResourceKey,
+  documentTabId,
+  documentWindowName,
+  fileKindFromValue,
+  filenameFromTarget,
+  fileTargetKey,
+  getActiveVaultId,
+  getImageSrc,
+  isImageFieldName,
+  parseFileEntries,
+  parseImageField,
+  servedUrlToVaultPath,
+  setActiveVaultCookie,
+  syncActiveVaultCookie,
+  toAssetPreviewUrl,
+  toServedAssetUrl,
+  withActiveVault,
+  type DocumentKind,
+  type FileEntry,
+  type FileKind,
+  type ImageFieldExtras,
+  type ImageFieldValue,
+} from './fileResourcePaths';
