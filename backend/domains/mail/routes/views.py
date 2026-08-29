@@ -13,6 +13,7 @@ from backend.data.db import get_db
 from backend.domains.mail.routing import router
 from backend.domains.mail.schemas import (
     MailViewCreateSchema,
+    MailViewResponse,
     MailViewUpdateSchema,
 )
 from backend.models.mail import MailView
@@ -37,13 +38,22 @@ def _view_to_dict(view: MailView) -> dict[str, Any]:
     }
 
 
-@router.get("/views")
+@router.get(
+    "/views",
+    response_model=list[MailViewResponse],
+    response_model_exclude_unset=True,
+)
 async def list_views(db: Session = Depends(get_db)) -> Any:
     views = db.query(MailView).order_by(MailView.created_at).all()
     return [_view_to_dict(v) for v in views]
 
 
-@router.post("/views", status_code=201)
+@router.post(
+    "/views",
+    status_code=201,
+    response_model=MailViewResponse,
+    response_model_exclude_unset=True,
+)
 async def create_view(payload: MailViewCreateSchema, db: Session = Depends(get_db)) -> Any:
     view = MailView(
         name=payload.name,
@@ -61,7 +71,11 @@ async def create_view(payload: MailViewCreateSchema, db: Session = Depends(get_d
     return _view_to_dict(view)
 
 
-@router.put("/views/{view_id}")
+@router.put(
+    "/views/{view_id}",
+    response_model=MailViewResponse,
+    response_model_exclude_unset=True,
+)
 async def update_view(
     view_id: str, payload: MailViewUpdateSchema, db: Session = Depends(get_db)
 ) -> Any:

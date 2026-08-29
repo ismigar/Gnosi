@@ -1,10 +1,20 @@
-from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey
-from pydantic import BaseModel, ConfigDict, field_serializer
-from typing import Optional, List, Any
 from datetime import datetime, timezone
 import uuid
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+
 from backend.data.db import Base
-from backend.models._datetime_utils import normalize_utc
+from backend.domains.mail.schemas import MailMessageSchema as MailMessageSchema
+from backend.domains.mail.schemas import MailMessageTagsSetSchema as MailMessageTagsSetSchema
+from backend.domains.mail.schemas import MailTagCreateSchema as MailTagCreateSchema
+from backend.domains.mail.schemas import MailTagSchema as MailTagSchema
+from backend.domains.mail.schemas import MailTagUpdateSchema as MailTagUpdateSchema
+from backend.domains.mail.schemas import MailUpdateSchema as MailUpdateSchema
+from backend.domains.mail.schemas import MailViewCreateSchema as MailViewCreateSchema
+from backend.domains.mail.schemas import MailViewFieldSchema as MailViewFieldSchema
+from backend.domains.mail.schemas import MailViewFilterSchema as MailViewFilterSchema
+from backend.domains.mail.schemas import MailViewSchema as MailViewSchema
+from backend.domains.mail.schemas import MailViewUpdateSchema as MailViewUpdateSchema
 
 
 class MailMessage(Base):
@@ -68,127 +78,3 @@ class MailView(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-
-
-# ── Pydantic Schemas ────────────────────────────────────────────────────────────
-
-
-class MailMessageSchema(BaseModel):
-    id: str
-    thread_id: str
-    account_email: str
-    subject: str
-    sender: str
-    recipient: str
-    cc: Optional[str]
-    bcc: Optional[str]
-    date: str
-    timestamp: int
-    body_text: Optional[str]
-    body_html: Optional[str]
-    snippet: Optional[str]
-    is_read: bool
-    is_starred: bool
-    category: Optional[str]
-    labels: Optional[str]
-
-    # Pydantic v2: ConfigDict instead of class Config
-    model_config = ConfigDict(from_attributes=True)
-
-
-class MailUpdateSchema(BaseModel):
-    is_read: Optional[bool] = None
-    is_starred: Optional[bool] = None
-    category: Optional[str] = None
-    labels: Optional[str] = None
-
-
-class MailViewFieldSchema(BaseModel):
-    key: str
-    visible: bool = True
-    order: int
-    width: Optional[int] = None
-
-
-class MailViewFilterSchema(BaseModel):
-    field: str
-    operator: str  # contains | starts_with | equals | is | is_not | before | after
-    value: Any
-
-
-class MailViewCreateSchema(BaseModel):
-    name: str
-    fields: List[MailViewFieldSchema] = []
-    filters: List[MailViewFilterSchema] = []
-    filter_logic: str = "AND"
-    group_by: str = "none"
-    sort_by: str = "date"
-    sort_dir: str = "desc"
-    actions: List[str] = ["archive", "trash", "mark_read"]
-
-
-class MailViewUpdateSchema(BaseModel):
-    name: Optional[str] = None
-    fields: List[MailViewFieldSchema] = []
-    filters: List[MailViewFilterSchema] = []
-    filter_logic: str = "AND"
-    group_by: str = "none"
-    sort_by: str = "date"
-    sort_dir: str = "desc"
-    actions: List[str] = ["archive", "trash", "mark_read"]
-
-
-class MailViewSchema(BaseModel):
-    id: str
-    name: str
-    fields: List[MailViewFieldSchema]
-    filters: List[MailViewFilterSchema]
-    filter_logic: str
-    group_by: str
-    sort_by: str
-    sort_dir: str
-    actions: List[str]
-    created_at: datetime
-    updated_at: datetime
-
-    # Pydantic v2: ConfigDict instead of class Config
-    model_config = ConfigDict(from_attributes=True)
-
-    @field_serializer("created_at", "updated_at")
-    def _ser_dt(self, v: datetime) -> str:
-        return normalize_utc(v)
-
-
-# ── Tag Schemas ─────────────────────────────────────────────────────────────────
-
-
-class MailTagCreateSchema(BaseModel):
-    name: str
-    color: str = "#3b82f6"
-
-
-class MailTagUpdateSchema(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
-
-
-class MailTagSchema(BaseModel):
-    id: str
-    name: str
-    color: str
-    created_at: datetime
-
-    # Pydantic v2: ConfigDict instead of class Config
-    model_config = ConfigDict(from_attributes=True)
-
-    @field_serializer("created_at")
-    def _ser_dt(self, v: datetime) -> str:
-        return normalize_utc(v)
-
-
-class MailMessageTagsSetSchema(BaseModel):
-    tag_ids: List[str]
-    account_email: str = ""
-    subject: str = ""
-    sender: str = ""
-    date_str: str = ""
