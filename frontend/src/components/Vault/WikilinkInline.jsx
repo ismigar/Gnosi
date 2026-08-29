@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import axios from '../../shared/api/legacy-http';
+import { resolveVaultTitle } from '../../shared/api/vaults';
 import { WikilinkHoverPreview } from './WikilinkHoverPreview';
 import { WikilinkContextMenu } from './WikilinkContextMenu';
 import { VaultEditorContext } from './VaultEditorContext';
@@ -62,8 +62,8 @@ async function resolveTargetWithBackend(raw, idToTitle) {
     const cached = readResolveCache(cacheKey);
     if (cached !== undefined) return cached || local;
     try {
-        const res = await axios.get('/api/vault/resolve-by-title', { params: { title: local } });
-        const id = res?.data?.id;
+        const result = await resolveVaultTitle(local);
+        const id = result.id;
         writeResolveCache(cacheKey, id || null);
         return id || local;
     } catch {

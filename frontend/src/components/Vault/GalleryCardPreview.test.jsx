@@ -1,16 +1,16 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import axios from '../../shared/api/legacy-http';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { fetchVaultPagePreview } from '../../shared/api/vaults';
 import {
     GalleryContentPreview,
     GalleryOpenButton,
 } from './GalleryCardPreview';
 import { getGalleryMarkdown } from './galleryCardPreviewUtils';
 
-vi.mock('../../shared/api/legacy-http', () => ({
-    default: { get: vi.fn() },
+vi.mock('../../shared/api/vaults', () => ({
+    fetchVaultPagePreview: vi.fn(),
 }));
 
 const mountedRoots = [];
@@ -51,10 +51,8 @@ describe('GalleryCardPreview', () => {
         const parentClick = vi.fn();
         const targetId = '2bb611b6-3d66-4be5-b8c0-381c60834361';
         const fifthId = 'c3f95019-8d44-4ef2-8d7d-0ebc6c2a47ce';
-        axios.get.mockResolvedValueOnce({
-            data: {
-                body_md: `<!-- gnosi:llm-wiki:start resource:source-page -->\n1. [[${targetId}|Definition]]\n2. [[${fifthId}|Difference]]\n<!-- gnosi:llm-wiki:end resource:source-page -->`,
-            },
+        fetchVaultPagePreview.mockResolvedValueOnce({
+            body_md: `<!-- gnosi:llm-wiki:start resource:source-page -->\n1. [[${targetId}|Definition]]\n2. [[${fifthId}|Difference]]\n<!-- gnosi:llm-wiki:end resource:source-page -->`,
         });
         const container = await render(
             <div onClick={parentClick}>
@@ -82,9 +80,10 @@ describe('GalleryCardPreview', () => {
         expect(container.textContent).not.toContain('gnosi:llm-wiki');
         expect(container.querySelector('ol')).not.toBeNull();
         expect(container.querySelector('[data-gallery-content-source]').dataset.galleryContentSource).toBe('full');
-        expect(axios.get).toHaveBeenCalledWith(
-            '/api/vault/pages/source-page/preview?full=true',
-            expect.objectContaining({ signal: expect.any(AbortSignal) }),
+        expect(fetchVaultPagePreview).toHaveBeenCalledWith(
+            'source-page',
+            { full: true },
+            expect.any(AbortSignal),
         );
 
         await act(async () => {
