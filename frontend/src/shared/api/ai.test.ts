@@ -5,6 +5,7 @@ import {
   fetchAiCatalog,
   fetchAiModelCatalog,
   fetchAiModelComparison,
+  fetchAiModelReliability,
   fetchAiModels,
   fetchAiUsage,
   fetchAiUsageHistory,
@@ -15,6 +16,7 @@ import {
   type AiGenerateInput,
   type AiModelCatalog,
   type AiModelComparison,
+  type AiModelReliability,
   type AiModelRegistry,
   type AiModelsPayload,
   type AiUsage,
@@ -47,6 +49,31 @@ const currency = {
 };
 
 describe('AI API', () => {
+  it('loads scoped model reliability evidence', async () => {
+    const reliability: AiModelReliability = {
+      models: [{
+        model_fault_total: 2,
+        model_id: 'model-1',
+        provider: 'local',
+        reasons: { tool_use_failed: 2 },
+        top_model_reason: 'tool_use_failed',
+        total: 2,
+        window_days: 14,
+      }],
+      window_days: 14,
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json(reliability),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchAiModelReliability(14)).resolves.toEqual(reliability);
+
+    expect(new URL(requestAt(fetchMock).url).searchParams.get('window_days')).toBe(
+      '14',
+    );
+  });
+
   it('generates and corrects editor content through typed requests', async () => {
     const generatePayload: AiGenerateInput = {
       context: 'Current page',

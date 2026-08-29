@@ -13,6 +13,7 @@ from backend.domains.vault.citations.state import citation_index_state
 from backend.domains.vault.comments import schemas as comment_schemas
 from backend.domains.vault.comments import state as comment_state
 from backend.domains.vault.links import schemas as link_schemas
+from backend.domains.vault.links.api import preview as link_preview
 from backend.domains.vault.links.state import link_index_state
 
 
@@ -254,7 +255,8 @@ def test_extracted_routes_preserve_order_contract_and_facade_identity() -> None:
             "delete_inline_comment": comment_schemas.CommentDeleteResponse,
             "delete_page_comment": comment_schemas.CommentDeleteResponse,
             "get_alias_index": link_schemas.AliasIndexResponse,
-            "get_global_index": link_schemas.GlobalIndexResponse,
+                "get_global_index": link_schemas.GlobalIndexResponse,
+                "get_link_preview": link_preview.LinkPreviewResponse,
             "list_inline_comments": list[comment_schemas.InlineComment],
                 "list_page_comments": comment_schemas.PageCommentThread,
                 "resolve_by_citation_key": citation_search.CitationResolutionResponse,

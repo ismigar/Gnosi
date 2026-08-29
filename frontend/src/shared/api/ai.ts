@@ -10,6 +10,8 @@ export type AiModelRegistry = components['schemas']['ModelRegistryResponse'];
 export type AiModelsPayload = components['schemas']['ModelsPayload'];
 export type AiModelRegistryUpdate =
   components['schemas']['ModelRegistryUpdateResponse'];
+export type AiModelReliability =
+  components['schemas']['ModelReliabilityResponse'];
 export type AiUsage = components['schemas']['AiUsageResponse'];
 export type AiUsageHistory = components['schemas']['AiUsageHistoryResponse'];
 export type AiGenerateInput = components['schemas']['GeneratePayload'];
@@ -79,6 +81,19 @@ export async function fetchAiModelComparison(
 ): Promise<AiModelComparison> {
   return unwrapApiResult<AiModelComparison, unknown>(
     await apiClient.GET('/api/ai/model-comparison', { signal }),
+  );
+}
+
+
+export async function fetchAiModelReliability(
+  windowDays = 30,
+  signal?: AbortSignal,
+): Promise<AiModelReliability> {
+  return unwrapApiResult<AiModelReliability, unknown>(
+    await apiClient.GET('/api/ai/model-reliability', {
+      params: { query: { window_days: windowDays } },
+      signal,
+    }),
   );
 }
 

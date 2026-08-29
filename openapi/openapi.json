@@ -7755,6 +7755,45 @@
         "title": "LinkMentionsRequest",
         "type": "object"
       },
+      "LinkPreviewResponse": {
+        "description": "Public metadata returned for an external-link preview.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "favicon": {
+            "title": "Favicon",
+            "type": "string"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "site_name": {
+            "title": "Site Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "title",
+          "description",
+          "image",
+          "site_name",
+          "favicon"
+        ],
+        "title": "LinkPreviewResponse",
+        "type": "object"
+      },
       "LlmWikiLifecycleRequest": {
         "description": "Backward-compatible lifecycle request for LLM Wiki.",
         "properties": {
@@ -10433,6 +10472,84 @@
           "count"
         ],
         "title": "ModelRegistryUpdateResponse",
+        "type": "object"
+      },
+      "ModelReliabilityEntryResponse": {
+        "additionalProperties": false,
+        "description": "Recorded failure evidence for one provider model.",
+        "properties": {
+          "model_fault_total": {
+            "title": "Model Fault Total",
+            "type": "integer"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Reasons",
+            "type": "object"
+          },
+          "top_model_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Model Reason"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider",
+          "model_id",
+          "window_days",
+          "reasons",
+          "model_fault_total",
+          "total",
+          "top_model_reason"
+        ],
+        "title": "ModelReliabilityEntryResponse",
+        "type": "object"
+      },
+      "ModelReliabilityResponse": {
+        "additionalProperties": false,
+        "description": "Failure evidence returned for the requested reporting window.",
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelReliabilityEntryResponse"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_days",
+          "models"
+        ],
+        "title": "ModelReliabilityResponse",
         "type": "object"
       },
       "ModelsPayload": {
@@ -16730,6 +16847,24 @@
         "title": "Stream",
         "type": "object"
       },
+      "SyncedBlockResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "sync_id": {
+            "title": "Sync Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sync_id",
+          "content"
+        ],
+        "title": "SyncedBlockResponse",
+        "type": "object"
+      },
       "SyncedBlockSave": {
         "properties": {
           "content": {
@@ -16739,6 +16874,29 @@
           }
         },
         "title": "SyncedBlockSave",
+        "type": "object"
+      },
+      "SyncedBlockSaveResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "sync_id": {
+            "title": "Sync Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sync_id",
+          "content",
+          "saved"
+        ],
+        "title": "SyncedBlockSaveResponse",
         "type": "object"
       },
       "SystemGraphVisualizationResponse": {
@@ -22203,7 +22361,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelReliabilityResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58097,7 +58257,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LinkPreviewResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -76992,7 +77154,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SyncedBlockResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77121,7 +77285,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SyncedBlockSaveResponse"
+                }
               }
             },
             "description": "Successful Response"

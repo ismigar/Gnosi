@@ -13,6 +13,7 @@ export {
   fetchAiCatalog,
   fetchAiModelCatalog,
   fetchAiModelComparison,
+  fetchAiModelReliability,
   fetchAiModels,
   fetchAiUsage,
   fetchAiUsageHistory,
@@ -27,6 +28,7 @@ export type {
   AiGenerateResult,
   AiModelCatalog,
   AiModelComparison,
+  AiModelReliability,
   AiModelRegistry,
   AiModelRegistryUpdate,
   AiModelsPayload,
@@ -91,6 +93,8 @@ export {
   updateDefaultMail,
   updateIntegration,
 } from './integrations';
+export { fetchLinkPreview } from './links';
+export type { LinkPreview } from './links';
 export type {
   CalendarSelection,
   DavConnectionTestInput,
@@ -111,6 +115,11 @@ export {
   fetchShareLinks,
   revokeShareLink,
 } from './sharing';
+export { fetchSyncedBlock, saveSyncedBlock } from './synced-blocks';
+export type {
+  SyncedBlockDocument,
+  SyncedBlockSaveResult,
+} from './synced-blocks';
 export type {
   ShareCreateInput,
   ShareLink,

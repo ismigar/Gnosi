@@ -12672,6 +12672,24 @@ export interface components {
             target_id: string;
         };
         /**
+         * LinkPreviewResponse
+         * @description Public metadata returned for an external-link preview.
+         */
+        LinkPreviewResponse: {
+            /** Description */
+            description: string;
+            /** Favicon */
+            favicon: string;
+            /** Image */
+            image: string;
+            /** Site Name */
+            site_name: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /**
          * LlmWikiLifecycleRequest
          * @description Backward-compatible lifecycle request for LLM Wiki.
          */
@@ -13653,6 +13671,38 @@ export interface components {
              * @constant
              */
             status: "success";
+        };
+        /**
+         * ModelReliabilityEntryResponse
+         * @description Recorded failure evidence for one provider model.
+         */
+        ModelReliabilityEntryResponse: {
+            /** Model Fault Total */
+            model_fault_total: number;
+            /** Model Id */
+            model_id: string;
+            /** Provider */
+            provider: string;
+            /** Reasons */
+            reasons: {
+                [key: string]: number;
+            };
+            /** Top Model Reason */
+            top_model_reason: string | null;
+            /** Total */
+            total: number;
+            /** Window Days */
+            window_days: number;
+        };
+        /**
+         * ModelReliabilityResponse
+         * @description Failure evidence returned for the requested reporting window.
+         */
+        ModelReliabilityResponse: {
+            /** Models */
+            models: components["schemas"]["ModelReliabilityEntryResponse"][];
+            /** Window Days */
+            window_days: number;
         };
         /**
          * ModelsPayload
@@ -16331,6 +16381,13 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** SyncedBlockResponse */
+        SyncedBlockResponse: {
+            /** Content */
+            content: string;
+            /** Sync Id */
+            sync_id: string;
+        };
         /** SyncedBlockSave */
         SyncedBlockSave: {
             /**
@@ -16338,6 +16395,15 @@ export interface components {
              * @default
              */
             content: string;
+        };
+        /** SyncedBlockSaveResponse */
+        SyncedBlockSaveResponse: {
+            /** Content */
+            content: string;
+            /** Saved */
+            saved: boolean;
+            /** Sync Id */
+            sync_id: string;
         };
         /**
          * SystemGraphVisualizationResponse
@@ -18202,7 +18268,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelReliabilityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30059,7 +30125,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LinkPreviewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36020,7 +36086,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SyncedBlockResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36062,7 +36128,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SyncedBlockSaveResponse"];
                 };
             };
             /** @description Validation Error */
