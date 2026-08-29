@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Palette, Calendar, HardDrive, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import toast from '../../lib/toast';
+import { logError } from '../../lib/notifyError';
 import {
     deleteDrawing,
     listDrawings,
@@ -25,7 +26,7 @@ const VaultDrawings = ({ onDrawingSelect }: VaultDrawingsProps) => {
             setDrawings(await listDrawings());
         } catch (error) {
             toast.error(t('drawings.load_error', "Error loading drawings"));
-            console.error(error);
+            logError('vault-drawings-load', error);
         } finally {
             setLoading(false);
         }
@@ -49,7 +50,7 @@ const VaultDrawings = ({ onDrawingSelect }: VaultDrawingsProps) => {
             toast.success(t('drawings.deleted', "Drawing deleted"));
             void fetchDrawings();
         } catch (error) {
-            console.error(error);
+            logError('vault-drawings-delete', error);
             toast.error(t('drawings.delete_error', "Error deleting the drawing"));
         } finally {
             setDrawingToDelete(null);
