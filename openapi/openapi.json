@@ -141,6 +141,31 @@
         "title": "AgentSkillAssignmentPayload",
         "type": "object"
       },
+      "AiCatalogResponse": {
+        "description": "Live provider catalog paired with sanitized persisted configuration.",
+        "properties": {
+          "catalog": {
+            "$ref": "#/components/schemas/AiProviderCatalog"
+          },
+          "config": {
+            "$ref": "#/components/schemas/AiConfigurationDocument"
+          }
+        },
+        "required": [
+          "catalog",
+          "config"
+        ],
+        "title": "AiCatalogResponse",
+        "type": "object"
+      },
+      "AiConfigurationDocument": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Sanitized AI configuration with provider-specific JSON extensions.",
+        "title": "AiConfigurationDocument",
+        "type": "object"
+      },
       "AiOperationRequest": {
         "properties": {
           "agent_id": {
@@ -183,6 +208,314 @@
           "operation"
         ],
         "title": "AiOperationRequest",
+        "type": "object"
+      },
+      "AiProviderCatalog": {
+        "description": "Provider list used by the connection settings UI.",
+        "properties": {
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/AiProviderCatalogEntry"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "title": "AiProviderCatalog",
+        "type": "object"
+      },
+      "AiProviderCatalogEntry": {
+        "description": "One provider offered by the AI connection catalog.",
+        "properties": {
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "base_url_hint": {
+            "title": "Base Url Hint",
+            "type": "string"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "credential_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Ref"
+          },
+          "doc": {
+            "title": "Doc",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "env": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Env",
+            "type": "array"
+          },
+          "has_api_key": {
+            "title": "Has Api Key",
+            "type": "boolean"
+          },
+          "icon": {
+            "title": "Icon",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_local": {
+            "title": "Is Local",
+            "type": "boolean"
+          },
+          "live": {
+            "title": "Live",
+            "type": "boolean"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "models_count": {
+            "title": "Models Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "icon",
+          "models",
+          "models_count",
+          "is_local",
+          "live",
+          "env",
+          "doc",
+          "base_url",
+          "base_url_hint",
+          "model_name",
+          "credential_ref",
+          "has_api_key",
+          "connected",
+          "configured",
+          "enabled"
+        ],
+        "title": "AiProviderCatalogEntry",
+        "type": "object"
+      },
+      "AiUsageHistoryPeriodResponse": {
+        "description": "Aggregated model usage for one historical billing period.",
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageModelResponse"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "total_ccy": {
+            "title": "Total Ccy",
+            "type": "number"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "number"
+          }
+        },
+        "required": [
+          "period",
+          "total_usd",
+          "total_ccy",
+          "models"
+        ],
+        "title": "AiUsageHistoryPeriodResponse",
+        "type": "object"
+      },
+      "AiUsageHistoryResponse": {
+        "description": "All persisted AI usage periods in the configured currency.",
+        "properties": {
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyInfoResponse"
+          },
+          "periods": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AiUsageHistoryPeriodResponse"
+            },
+            "title": "Periods",
+            "type": "object"
+          }
+        },
+        "required": [
+          "currency",
+          "periods"
+        ],
+        "title": "AiUsageHistoryResponse",
+        "type": "object"
+      },
+      "AiUsageModelResponse": {
+        "description": "Token and spend totals for one provider/model pair.",
+        "properties": {
+          "cost_ccy": {
+            "title": "Cost Ccy",
+            "type": "number"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "in": {
+            "title": "In",
+            "type": "integer"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "out": {
+            "title": "Out",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model_id",
+          "in",
+          "out",
+          "cost_usd",
+          "cost_ccy"
+        ],
+        "title": "AiUsageModelResponse",
+        "type": "object"
+      },
+      "AiUsageResponse": {
+        "description": "Current-period AI spend and budget status.",
+        "properties": {
+          "budget": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Budget",
+            "type": "object"
+          },
+          "cap_ccy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap Ccy"
+          },
+          "cap_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap Usd"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyInfoResponse"
+          },
+          "over_cap": {
+            "title": "Over Cap",
+            "type": "boolean"
+          },
+          "per_model": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageModelResponse"
+            },
+            "title": "Per Model",
+            "type": "array"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio"
+          },
+          "spent_ccy": {
+            "title": "Spent Ccy",
+            "type": "number"
+          },
+          "spent_usd": {
+            "title": "Spent Usd",
+            "type": "number"
+          }
+        },
+        "required": [
+          "period",
+          "currency",
+          "spent_usd",
+          "spent_ccy",
+          "cap_ccy",
+          "cap_usd",
+          "ratio",
+          "over_cap",
+          "budget",
+          "per_model"
+        ],
+        "title": "AiUsageResponse",
         "type": "object"
       },
       "AliasIndexResponse": {
@@ -463,6 +796,30 @@
           "created_at"
         ],
         "title": "ArticleResponse",
+        "type": "object"
+      },
+      "AssetUploadResponse": {
+        "description": "Stored asset location returned to editors after a multipart upload.",
+        "properties": {
+          "is_image": {
+            "title": "Is Image",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "path",
+          "is_image"
+        ],
+        "title": "AssetUploadResponse",
         "type": "object"
       },
       "AssignmentMutationResponse": {
@@ -1669,6 +2026,35 @@
           }
         },
         "title": "BrowseRequest",
+        "type": "object"
+      },
+      "BulkPreviewWarmResponse": {
+        "description": "Counters from a best-effort preview cache warmup.",
+        "properties": {
+          "cached": {
+            "title": "Cached",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "requested": {
+            "title": "Requested",
+            "type": "integer"
+          },
+          "warmed": {
+            "title": "Warmed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested",
+          "cached",
+          "warmed",
+          "failed"
+        ],
+        "title": "BulkPreviewWarmResponse",
         "type": "object"
       },
       "CalendarAttendeeResponse": {
@@ -4071,6 +4457,40 @@
         "title": "CredentialStatus",
         "type": "object"
       },
+      "CurrencyInfoResponse": {
+        "description": "Currency conversion metadata shared by registry and usage views.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "fetched_at": {
+            "title": "Fetched At",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "usd_rate": {
+            "title": "Usd Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "code",
+          "symbol",
+          "usd_rate",
+          "source",
+          "fetched_at"
+        ],
+        "title": "CurrencyInfoResponse",
+        "type": "object"
+      },
       "CustomIconsRequest": {
         "properties": {
           "icons": {
@@ -5452,6 +5872,107 @@
         "title": "GoogleEventTimeResponse",
         "type": "object"
       },
+      "GoogleOAuthHealthResponse": {
+        "additionalProperties": false,
+        "description": "Google OAuth configuration and connected-account diagnostics.",
+        "properties": {
+          "app_status": {
+            "enum": [
+              "testing-likely",
+              "healthy",
+              "unknown"
+            ],
+            "title": "App Status",
+            "type": "string"
+          },
+          "client_id_present": {
+            "title": "Client Id Present",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "google_accounts_recently_failed": {
+            "minimum": 0.0,
+            "title": "Google Accounts Recently Failed",
+            "type": "integer"
+          },
+          "google_accounts_total": {
+            "minimum": 0.0,
+            "title": "Google Accounts Total",
+            "type": "integer"
+          },
+          "google_accounts_with_refresh_token": {
+            "minimum": 0.0,
+            "title": "Google Accounts With Refresh Token",
+            "type": "integer"
+          },
+          "hint": {
+            "title": "Hint",
+            "type": "string"
+          },
+          "publish_guide": {
+            "const": "/docs/dev_memory/directives/publish_google_app.md",
+            "title": "Publish Guide",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "https://www.googleapis.com/auth/calendar",
+                "https://mail.google.com/",
+                "https://www.googleapis.com/auth/contacts",
+                "openid",
+                "https://www.googleapis.com/auth/userinfo.email"
+              ],
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "configured",
+          "client_id_present",
+          "scopes",
+          "google_accounts_total",
+          "google_accounts_with_refresh_token",
+          "google_accounts_recently_failed",
+          "app_status",
+          "hint",
+          "publish_guide"
+        ],
+        "title": "GoogleOAuthHealthResponse",
+        "type": "object"
+      },
+      "GoogleOAuthStatusResponse": {
+        "additionalProperties": false,
+        "description": "Minimal Google OAuth configuration status exposed to the UI.",
+        "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "configured",
+          "client_id"
+        ],
+        "title": "GoogleOAuthStatusResponse",
+        "type": "object"
+      },
       "GraphEdgeResponse": {
         "additionalProperties": true,
         "description": "One structural, relation, link, or suggestion graph edge.",
@@ -5858,6 +6379,43 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "description": "Public liveness and deployment-mode payload.",
+        "properties": {
+          "gnosi_mode": {
+            "title": "Gnosi Mode",
+            "type": "string"
+          },
+          "mode": {
+            "const": "FastAPI",
+            "title": "Mode",
+            "type": "string"
+          },
+          "require_auth": {
+            "title": "Require Auth",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "vault_configured": {
+            "title": "Vault Configured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "mode",
+          "gnosi_mode",
+          "require_auth",
+          "vault_configured"
+        ],
+        "title": "HealthResponse",
         "type": "object"
       },
       "IconUrlImportRequest": {
@@ -6512,6 +7070,64 @@
           "enabled"
         ],
         "title": "LlmWikiLifecycleRequest",
+        "type": "object"
+      },
+      "LocalPathOpenRequest": {
+        "description": "A local path or file URL accepted by the compatibility endpoint.",
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "LocalPathOpenRequest",
+        "type": "object"
+      },
+      "LocalPathOpenResponse": {
+        "description": "Resolved host path passed to the default application.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "dir",
+              "file"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "target",
+          "kind"
+        ],
+        "title": "LocalPathOpenResponse",
         "type": "object"
       },
       "LoginPayload": {
@@ -8280,12 +8896,777 @@
         "title": "MentionRef",
         "type": "object"
       },
+      "ModelCatalogModel": {
+        "additionalProperties": true,
+        "description": "Normalized model metadata from models.dev or the local Ollama overlay.",
+        "properties": {
+          "context_window": {
+            "title": "Context Window",
+            "type": "integer"
+          },
+          "cost_in": {
+            "title": "Cost In",
+            "type": "number"
+          },
+          "cost_out": {
+            "title": "Cost Out",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "modes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modes"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "quality": {
+            "title": "Quality",
+            "type": "integer"
+          },
+          "release_date": {
+            "title": "Release Date",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "cost_in",
+          "cost_out",
+          "context_window",
+          "tags",
+          "quality",
+          "release_date"
+        ],
+        "title": "ModelCatalogModel",
+        "type": "object"
+      },
+      "ModelCatalogProvider": {
+        "additionalProperties": true,
+        "description": "One catalog provider annotated with the current connection state.",
+        "properties": {
+          "api": {
+            "title": "Api",
+            "type": "string"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "doc": {
+            "title": "Doc",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "env": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Env",
+            "type": "array"
+          },
+          "has_api_key": {
+            "title": "Has Api Key",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_local": {
+            "title": "Is Local",
+            "type": "boolean"
+          },
+          "live": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelCatalogModel"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "npm": {
+            "title": "Npm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "is_local",
+          "env",
+          "api",
+          "npm",
+          "doc",
+          "models",
+          "connected",
+          "configured",
+          "enabled",
+          "has_api_key",
+          "base_url"
+        ],
+        "title": "ModelCatalogProvider",
+        "type": "object"
+      },
+      "ModelCatalogResponse": {
+        "additionalProperties": true,
+        "description": "Normalized provider and model catalog used by the registry editor.",
+        "properties": {
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ModelCatalogProvider"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "schema": {
+            "title": "Schema",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema",
+          "source",
+          "providers"
+        ],
+        "title": "ModelCatalogResponse",
+        "type": "object"
+      },
+      "ModelComparisonEntry": {
+        "additionalProperties": true,
+        "description": "Normalized Artificial Analysis row enriched with Gnosi routes.",
+        "properties": {
+          "agentic": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agentic"
+          },
+          "coding": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coding"
+          },
+          "context_window": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Window"
+          },
+          "creator": {
+            "title": "Creator",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "input_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Price"
+          },
+          "intelligence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intelligence"
+          },
+          "latency": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency"
+          },
+          "metric_sources": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metric Sources"
+          },
+          "modes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Modes",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "output_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Price"
+          },
+          "profile": {
+            "title": "Profile",
+            "type": "string"
+          },
+          "release_date": {
+            "title": "Release Date",
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ModelComparisonRoute"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "speed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "creator",
+          "release_date",
+          "input_price",
+          "output_price",
+          "context_window",
+          "speed",
+          "latency",
+          "intelligence",
+          "coding",
+          "agentic",
+          "tags",
+          "modes",
+          "routes",
+          "profile"
+        ],
+        "title": "ModelComparisonEntry",
+        "type": "object"
+      },
+      "ModelComparisonResponse": {
+        "additionalProperties": true,
+        "description": "Normalized external comparison feed with documented open version data.\n\n``intelligence_index_version`` is intentionally ``JsonValue`` because the\nexternal provider owns that version marker and has emitted more than one\nJSON scalar representation. All model rows consumed by Gnosi stay typed.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyInfoResponse"
+          },
+          "fallback": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback"
+          },
+          "fallback_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Reason"
+          },
+          "fetched_at": {
+            "title": "Fetched At",
+            "type": "string"
+          },
+          "intelligence_index_version": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelComparisonEntry"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "retry_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry At"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_url": {
+            "title": "Source Url",
+            "type": "string"
+          },
+          "stale": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale"
+          }
+        },
+        "required": [
+          "source",
+          "source_url",
+          "fetched_at",
+          "intelligence_index_version",
+          "count",
+          "models",
+          "currency"
+        ],
+        "title": "ModelComparisonResponse",
+        "type": "object"
+      },
+      "ModelComparisonRoute": {
+        "description": "One usable Gnosi route for an externally benchmarked model.",
+        "properties": {
+          "context_window": {
+            "title": "Context Window",
+            "type": "integer"
+          },
+          "cost_in": {
+            "title": "Cost In",
+            "type": "number"
+          },
+          "cost_out": {
+            "title": "Cost Out",
+            "type": "number"
+          },
+          "is_local": {
+            "title": "Is Local",
+            "type": "boolean"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_name": {
+            "title": "Provider Name",
+            "type": "string"
+          },
+          "quality": {
+            "title": "Quality",
+            "type": "integer"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "provider",
+          "provider_name",
+          "model_id",
+          "model_name",
+          "is_local",
+          "cost_in",
+          "cost_out",
+          "context_window",
+          "quality",
+          "tags"
+        ],
+        "title": "ModelComparisonRoute",
+        "type": "object"
+      },
+      "ModelRegistryEntry": {
+        "additionalProperties": true,
+        "description": "One configured router model, preserving provider-specific JSON metadata.",
+        "properties": {
+          "context_window": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Window"
+          },
+          "cost_in": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost In"
+          },
+          "cost_out": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Out"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint"
+          },
+          "is_local": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Local"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "monthly_quota": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Quota"
+          },
+          "price_from_catalog": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price From Catalog"
+          },
+          "price_unknown": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Unknown"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "required": [
+          "provider",
+          "model_id"
+        ],
+        "title": "ModelRegistryEntry",
+        "type": "object"
+      },
+      "ModelRegistryResponse": {
+        "description": "Effective and explicitly configured model registries.",
+        "properties": {
+          "budget": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Budget",
+            "type": "object"
+          },
+          "configured_models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelRegistryEntry"
+            },
+            "title": "Configured Models",
+            "type": "array"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyInfoResponse"
+          },
+          "default": {
+            "items": {
+              "$ref": "#/components/schemas/ModelRegistryEntry"
+            },
+            "title": "Default",
+            "type": "array"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelRegistryEntry"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "models",
+          "configured_models",
+          "budget",
+          "default",
+          "currency"
+        ],
+        "title": "ModelRegistryResponse",
+        "type": "object"
+      },
+      "ModelRegistryUpdateResponse": {
+        "description": "Acknowledgement after atomically replacing the model registry.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "count"
+        ],
+        "title": "ModelRegistryUpdateResponse",
+        "type": "object"
+      },
       "ModelsPayload": {
+        "description": "Registry update retaining the legacy manual 400 validation boundary.\n\nIndividual rows remain JSON values so malformed rows reach the existing\nroute validation and keep its status code and localized error detail.",
         "properties": {
           "budget": {
             "anyOf": [
               {
-                "additionalProperties": true,
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
                 "type": "object"
               },
               {
@@ -8295,7 +9676,9 @@
             "title": "Budget"
           },
           "models": {
-            "items": {},
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "title": "Models",
             "type": "array"
           }
@@ -10169,6 +11552,56 @@
         "title": "OpenResourceRequest",
         "type": "object"
       },
+      "PageDetailResponse": {
+        "description": "Full page document; metadata remains open for user-defined frontmatter.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "etag": {
+            "title": "Etag",
+            "type": "string"
+          },
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "resolved_table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Table Id"
+          },
+          "title": {
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "metadata",
+          "content",
+          "folder",
+          "etag"
+        ],
+        "title": "PageDetailResponse",
+        "type": "object"
+      },
       "PageInfo": {
         "properties": {
           "created_time": {
@@ -10255,6 +11688,72 @@
           "size"
         ],
         "title": "PageInfo",
+        "type": "object"
+      },
+      "PageMutationResponse": {
+        "description": "Canonical page document returned after create, save or patch.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etag"
+          },
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "resolved_table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Table Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "title",
+          "metadata",
+          "content",
+          "folder",
+          "message"
+        ],
+        "title": "PageMutationResponse",
         "type": "object"
       },
       "PagePatchRequest": {
@@ -10345,6 +11844,60 @@
           }
         },
         "title": "PagePatchRequest",
+        "type": "object"
+      },
+      "PagePreviewResponse": {
+        "description": "Compact page preview, optionally including full Markdown and images.",
+        "properties": {
+          "body_md": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body Md"
+          },
+          "cover": {
+            "title": "Cover"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "icon": {
+            "title": "Icon"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "images": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Images"
+          },
+          "title": {
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "excerpt"
+        ],
+        "title": "PagePreviewResponse",
         "type": "object"
       },
       "PageSaveRequest": {
@@ -12747,6 +14300,35 @@
           "revision"
         ],
         "title": "ResourceMutationResponse",
+        "type": "object"
+      },
+      "ResourceOpenResponse": {
+        "description": "Zotero URI or attachment path opened by the host.",
+        "properties": {
+          "opened_with": {
+            "enum": [
+              "zotero_uri",
+              "file_path"
+            ],
+            "title": "Opened With",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "opened_with",
+          "target"
+        ],
+        "title": "ResourceOpenResponse",
         "type": "object"
       },
       "ResourcePayload": {
@@ -17410,7 +18992,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AiCatalogResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18742,7 +20326,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelCatalogResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18773,7 +20359,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelComparisonResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18913,7 +20501,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelRegistryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -19024,7 +20614,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelRegistryUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -21165,7 +22757,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AiUsageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -21186,7 +22780,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AiUsageHistoryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -21747,7 +23343,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleOAuthHealthResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -21808,7 +23406,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleOAuthStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28770,7 +30370,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -49672,7 +51274,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AssetUploadResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -51436,7 +53040,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RegistryRecord"
+                  },
+                  "title": "Response List Databases Api Vault Databases Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -51557,7 +53167,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -51677,7 +53289,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -62944,9 +64558,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/LocalPathOpenRequest"
               }
             }
           },
@@ -62956,7 +64568,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LocalPathOpenResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63078,7 +64692,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceOpenResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -63859,7 +65475,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64241,7 +65859,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BulkPreviewWarmResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64481,7 +66101,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64610,7 +66232,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64739,7 +66363,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -66523,7 +68149,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PagePreviewResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -73926,7 +75554,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -74095,7 +75725,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -74225,7 +75857,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"

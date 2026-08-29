@@ -9716,6 +9716,21 @@ export interface components {
             /** Skill Ids */
             skill_ids?: string[];
         };
+        /**
+         * AiCatalogResponse
+         * @description Live provider catalog paired with sanitized persisted configuration.
+         */
+        AiCatalogResponse: {
+            catalog: components["schemas"]["AiProviderCatalog"];
+            config: components["schemas"]["AiConfigurationDocument"];
+        };
+        /**
+         * AiConfigurationDocument
+         * @description Sanitized AI configuration with provider-specific JSON extensions.
+         */
+        AiConfigurationDocument: {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
         /** AiOperationRequest */
         AiOperationRequest: {
             /**
@@ -9742,6 +9757,124 @@ export interface components {
              * @default
              */
             search_id: string;
+        };
+        /**
+         * AiProviderCatalog
+         * @description Provider list used by the connection settings UI.
+         */
+        AiProviderCatalog: {
+            /** Providers */
+            providers: components["schemas"]["AiProviderCatalogEntry"][];
+        };
+        /**
+         * AiProviderCatalogEntry
+         * @description One provider offered by the AI connection catalog.
+         */
+        AiProviderCatalogEntry: {
+            /** Base Url */
+            base_url: string | null;
+            /** Base Url Hint */
+            base_url_hint: string;
+            /** Configured */
+            configured: boolean;
+            /** Connected */
+            connected: boolean;
+            /** Credential Ref */
+            credential_ref: string | null;
+            /** Doc */
+            doc: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Env */
+            env: string[];
+            /** Has Api Key */
+            has_api_key: boolean;
+            /** Icon */
+            icon: string;
+            /** Id */
+            id: string;
+            /** Is Local */
+            is_local: boolean;
+            /** Live */
+            live: boolean;
+            /** Model Name */
+            model_name: string;
+            /** Models */
+            models: string[];
+            /** Models Count */
+            models_count: number;
+            /** Name */
+            name: string;
+        };
+        /**
+         * AiUsageHistoryPeriodResponse
+         * @description Aggregated model usage for one historical billing period.
+         */
+        AiUsageHistoryPeriodResponse: {
+            /** Models */
+            models: components["schemas"]["AiUsageModelResponse"][];
+            /** Period */
+            period: string;
+            /** Total Ccy */
+            total_ccy: number;
+            /** Total Usd */
+            total_usd: number;
+        };
+        /**
+         * AiUsageHistoryResponse
+         * @description All persisted AI usage periods in the configured currency.
+         */
+        AiUsageHistoryResponse: {
+            currency: components["schemas"]["CurrencyInfoResponse"];
+            /** Periods */
+            periods: {
+                [key: string]: components["schemas"]["AiUsageHistoryPeriodResponse"];
+            };
+        };
+        /**
+         * AiUsageModelResponse
+         * @description Token and spend totals for one provider/model pair.
+         */
+        AiUsageModelResponse: {
+            /** Cost Ccy */
+            cost_ccy: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** In */
+            in: number;
+            /** Model Id */
+            model_id: string;
+            /** Out */
+            out: number;
+            /** Provider */
+            provider: string;
+        };
+        /**
+         * AiUsageResponse
+         * @description Current-period AI spend and budget status.
+         */
+        AiUsageResponse: {
+            /** Budget */
+            budget: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Cap Ccy */
+            cap_ccy: number | null;
+            /** Cap Usd */
+            cap_usd: number | null;
+            currency: components["schemas"]["CurrencyInfoResponse"];
+            /** Over Cap */
+            over_cap: boolean;
+            /** Per Model */
+            per_model: components["schemas"]["AiUsageModelResponse"][];
+            /** Period */
+            period: string;
+            /** Ratio */
+            ratio: number | null;
+            /** Spent Ccy */
+            spent_ccy: number;
+            /** Spent Usd */
+            spent_usd: number;
         };
         /**
          * AliasIndexResponse
@@ -9849,6 +9982,18 @@ export interface components {
             source_name?: string | null;
             /** Title */
             title: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * AssetUploadResponse
+         * @description Stored asset location returned to editors after a multipart upload.
+         */
+        AssetUploadResponse: {
+            /** Is Image */
+            is_image: boolean;
+            /** Path */
+            path: string;
             /** Url */
             url: string;
         };
@@ -10364,6 +10509,20 @@ export interface components {
              * @default /
              */
             path: string;
+        };
+        /**
+         * BulkPreviewWarmResponse
+         * @description Counters from a best-effort preview cache warmup.
+         */
+        BulkPreviewWarmResponse: {
+            /** Cached */
+            cached: number;
+            /** Failed */
+            failed: number;
+            /** Requested */
+            requested: number;
+            /** Warmed */
+            warmed: number;
         };
         /**
          * CalendarAttendeeResponse
@@ -11322,6 +11481,22 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * CurrencyInfoResponse
+         * @description Currency conversion metadata shared by registry and usage views.
+         */
+        CurrencyInfoResponse: {
+            /** Code */
+            code: string;
+            /** Fetched At */
+            fetched_at: string;
+            /** Source */
+            source: string;
+            /** Symbol */
+            symbol: string;
+            /** Usd Rate */
+            usd_rate: number;
+        };
         /** CustomIconsRequest */
         CustomIconsRequest: {
             /**
@@ -11803,6 +11978,46 @@ export interface components {
             [key: string]: unknown;
         };
         /**
+         * GoogleOAuthHealthResponse
+         * @description Google OAuth configuration and connected-account diagnostics.
+         */
+        GoogleOAuthHealthResponse: {
+            /**
+             * App Status
+             * @enum {string}
+             */
+            app_status: "testing-likely" | "healthy" | "unknown";
+            /** Client Id Present */
+            client_id_present: boolean;
+            /** Configured */
+            configured: boolean;
+            /** Google Accounts Recently Failed */
+            google_accounts_recently_failed: number;
+            /** Google Accounts Total */
+            google_accounts_total: number;
+            /** Google Accounts With Refresh Token */
+            google_accounts_with_refresh_token: number;
+            /** Hint */
+            hint: string;
+            /**
+             * Publish Guide
+             * @constant
+             */
+            publish_guide: "/docs/dev_memory/directives/publish_google_app.md";
+            /** Scopes */
+            scopes: ("https://www.googleapis.com/auth/calendar" | "https://mail.google.com/" | "https://www.googleapis.com/auth/contacts" | "openid" | "https://www.googleapis.com/auth/userinfo.email")[];
+        };
+        /**
+         * GoogleOAuthStatusResponse
+         * @description Minimal Google OAuth configuration status exposed to the UI.
+         */
+        GoogleOAuthStatusResponse: {
+            /** Client Id */
+            client_id: string | null;
+            /** Configured */
+            configured: boolean;
+        };
+        /**
          * GraphEdgeResponse
          * @description One structural, relation, link, or suggestion graph edge.
          */
@@ -11912,6 +12127,28 @@ export interface components {
             skipped_dirs?: string[] | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * HealthResponse
+         * @description Public liveness and deployment-mode payload.
+         */
+        HealthResponse: {
+            /** Gnosi Mode */
+            gnosi_mode: string;
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "FastAPI";
+            /** Require Auth */
+            require_auth: boolean;
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Vault Configured */
+            vault_configured: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -12207,6 +12444,34 @@ export interface components {
             confirm_disable: boolean;
             /** Enabled */
             enabled: boolean;
+        };
+        /**
+         * LocalPathOpenRequest
+         * @description A local path or file URL accepted by the compatibility endpoint.
+         */
+        LocalPathOpenRequest: {
+            /** Path */
+            path?: string | null;
+            /** Url */
+            url?: string | null;
+        };
+        /**
+         * LocalPathOpenResponse
+         * @description Resolved host path passed to the default application.
+         */
+        LocalPathOpenResponse: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "dir" | "file";
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Target */
+            target: string;
         };
         /** LoginPayload */
         LoginPayload: {
@@ -12873,14 +13138,270 @@ export interface components {
             /** Type */
             type: string;
         };
-        /** ModelsPayload */
+        /**
+         * ModelCatalogModel
+         * @description Normalized model metadata from models.dev or the local Ollama overlay.
+         */
+        ModelCatalogModel: {
+            /** Context Window */
+            context_window: number;
+            /** Cost In */
+            cost_in: number;
+            /** Cost Out */
+            cost_out: number;
+            /** Id */
+            id: string;
+            /** Modes */
+            modes?: string[] | null;
+            /** Name */
+            name: string;
+            /** Quality */
+            quality: number;
+            /** Release Date */
+            release_date: string;
+            /** Tags */
+            tags: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ModelCatalogProvider
+         * @description One catalog provider annotated with the current connection state.
+         */
+        ModelCatalogProvider: {
+            /** Api */
+            api: string;
+            /** Base Url */
+            base_url: string | null;
+            /** Configured */
+            configured: boolean;
+            /** Connected */
+            connected: boolean;
+            /** Doc */
+            doc: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Env */
+            env: string[];
+            /** Has Api Key */
+            has_api_key: boolean;
+            /** Id */
+            id: string;
+            /** Is Local */
+            is_local: boolean;
+            /** Live */
+            live?: boolean | null;
+            /** Models */
+            models: components["schemas"]["ModelCatalogModel"][];
+            /** Name */
+            name: string;
+            /** Npm */
+            npm: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ModelCatalogResponse
+         * @description Normalized provider and model catalog used by the registry editor.
+         */
+        ModelCatalogResponse: {
+            /** Fetched At */
+            fetched_at?: string | null;
+            /** Generated At */
+            generated_at?: string | null;
+            /** Providers */
+            providers: components["schemas"]["ModelCatalogProvider"][];
+            /** Schema */
+            schema: number;
+            /** Source */
+            source: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ModelComparisonEntry
+         * @description Normalized Artificial Analysis row enriched with Gnosi routes.
+         */
+        ModelComparisonEntry: {
+            /** Agentic */
+            agentic: number | null;
+            /** Coding */
+            coding: number | null;
+            /** Context Window */
+            context_window: number | null;
+            /** Creator */
+            creator: string;
+            /** Id */
+            id: string;
+            /** Input Price */
+            input_price: number | null;
+            /** Intelligence */
+            intelligence: number | null;
+            /** Latency */
+            latency: number | null;
+            /** Metric Sources */
+            metric_sources?: {
+                [key: string]: string;
+            } | null;
+            /** Modes */
+            modes: string[];
+            /** Name */
+            name: string;
+            /** Output Price */
+            output_price: number | null;
+            /** Profile */
+            profile: string;
+            /** Release Date */
+            release_date: string;
+            /** Routes */
+            routes: components["schemas"]["ModelComparisonRoute"][];
+            /** Slug */
+            slug: string;
+            /** Speed */
+            speed: number | null;
+            /** Tags */
+            tags: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ModelComparisonResponse
+         * @description Normalized external comparison feed with documented open version data.
+         *
+         *     ``intelligence_index_version`` is intentionally ``JsonValue`` because the
+         *     external provider owns that version marker and has emitted more than one
+         *     JSON scalar representation. All model rows consumed by Gnosi stay typed.
+         */
+        ModelComparisonResponse: {
+            /** Count */
+            count: number;
+            currency: components["schemas"]["CurrencyInfoResponse"];
+            /** Fallback */
+            fallback?: boolean | null;
+            /** Fallback Reason */
+            fallback_reason?: string | null;
+            /** Fetched At */
+            fetched_at: string;
+            intelligence_index_version: components["schemas"]["JsonValue"];
+            /** Models */
+            models: components["schemas"]["ModelComparisonEntry"][];
+            /** Retry At */
+            retry_at?: string | null;
+            /** Source */
+            source: string;
+            /** Source Url */
+            source_url: string;
+            /** Stale */
+            stale?: boolean | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ModelComparisonRoute
+         * @description One usable Gnosi route for an externally benchmarked model.
+         */
+        ModelComparisonRoute: {
+            /** Context Window */
+            context_window: number;
+            /** Cost In */
+            cost_in: number;
+            /** Cost Out */
+            cost_out: number;
+            /** Is Local */
+            is_local: boolean;
+            /** Model Id */
+            model_id: string;
+            /** Model Name */
+            model_name: string;
+            /** Provider */
+            provider: string;
+            /** Provider Name */
+            provider_name: string;
+            /** Quality */
+            quality: number;
+            /** Tags */
+            tags: string[];
+        };
+        /**
+         * ModelRegistryEntry
+         * @description One configured router model, preserving provider-specific JSON metadata.
+         */
+        ModelRegistryEntry: {
+            /** Context Window */
+            context_window?: number | null;
+            /** Cost In */
+            cost_in?: number | null;
+            /** Cost Out */
+            cost_out?: number | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Endpoint */
+            endpoint?: string | null;
+            /** Is Local */
+            is_local?: boolean | null;
+            /** Model Id */
+            model_id: string;
+            /** Monthly Quota */
+            monthly_quota?: number | null;
+            /** Price From Catalog */
+            price_from_catalog?: boolean | null;
+            /** Price Unknown */
+            price_unknown?: boolean | null;
+            /** Priority */
+            priority?: number | null;
+            /** Provider */
+            provider: string;
+            /** Quality */
+            quality?: number | null;
+            /** Tags */
+            tags?: string[] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ModelRegistryResponse
+         * @description Effective and explicitly configured model registries.
+         */
+        ModelRegistryResponse: {
+            /** Budget */
+            budget: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Configured Models */
+            configured_models: components["schemas"]["ModelRegistryEntry"][];
+            currency: components["schemas"]["CurrencyInfoResponse"];
+            /** Default */
+            default: components["schemas"]["ModelRegistryEntry"][];
+            /** Models */
+            models: components["schemas"]["ModelRegistryEntry"][];
+        };
+        /**
+         * ModelRegistryUpdateResponse
+         * @description Acknowledgement after atomically replacing the model registry.
+         */
+        ModelRegistryUpdateResponse: {
+            /** Count */
+            count: number;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
+        /**
+         * ModelsPayload
+         * @description Registry update retaining the legacy manual 400 validation boundary.
+         *
+         *     Individual rows remain JSON values so malformed rows reach the existing
+         *     route validation and keep its status code and localized error detail.
+         */
         ModelsPayload: {
             /** Budget */
             budget?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             } | null;
             /** Models */
-            models: unknown[];
+            models: components["schemas"]["JsonValue"][];
         };
         /**
          * NativePickAvailabilityResponse
@@ -13600,6 +14121,28 @@ export interface components {
             /** Zotero Uri */
             zotero_uri?: string | null;
         };
+        /**
+         * PageDetailResponse
+         * @description Full page document; metadata remains open for user-defined frontmatter.
+         */
+        PageDetailResponse: {
+            /** Content */
+            content: string;
+            /** Etag */
+            etag: string;
+            /** Folder */
+            folder: string;
+            /** Id */
+            id: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** Resolved Table Id */
+            resolved_table_id?: string | null;
+            /** Title */
+            title: unknown;
+        };
         /** PageInfo */
         PageInfo: {
             /** Created Time */
@@ -13636,6 +14179,32 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * PageMutationResponse
+         * @description Canonical page document returned after create, save or patch.
+         */
+        PageMutationResponse: {
+            /** Content */
+            content: string;
+            /** Etag */
+            etag?: string | null;
+            /** Folder */
+            folder: string;
+            /** Id */
+            id: string;
+            /** Message */
+            message: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** Resolved Table Id */
+            resolved_table_id?: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: unknown;
+        };
         /** PagePatchRequest */
         PagePatchRequest: {
             /** Content */
@@ -13659,6 +14228,26 @@ export interface components {
             remove_metadata_keys?: unknown[] | null;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * PagePreviewResponse
+         * @description Compact page preview, optionally including full Markdown and images.
+         */
+        PagePreviewResponse: {
+            /** Body Md */
+            body_md?: string | null;
+            /** Cover */
+            cover?: unknown;
+            /** Excerpt */
+            excerpt: string;
+            /** Icon */
+            icon?: unknown;
+            /** Id */
+            id: string;
+            /** Images */
+            images?: string[] | null;
+            /** Title */
+            title: unknown;
         };
         /** PageSaveRequest */
         PageSaveRequest: {
@@ -14843,6 +15432,24 @@ export interface components {
             resource: components["schemas"]["ResourceResponse"];
             /** Revision */
             revision: number;
+        };
+        /**
+         * ResourceOpenResponse
+         * @description Zotero URI or attachment path opened by the host.
+         */
+        ResourceOpenResponse: {
+            /**
+             * Opened With
+             * @enum {string}
+             */
+            opened_with: "zotero_uri" | "file_path";
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Target */
+            target: string;
         };
         /**
          * ResourcePayload
@@ -16507,7 +17114,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AiCatalogResponse"];
                 };
             };
         };
@@ -16975,7 +17582,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelCatalogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17004,7 +17611,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelComparisonResponse"];
                 };
             };
         };
@@ -17062,7 +17669,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelRegistryResponse"];
                 };
             };
         };
@@ -17093,7 +17700,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelRegistryUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17790,7 +18397,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AiUsageResponse"];
                 };
             };
         };
@@ -17810,7 +18417,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AiUsageHistoryResponse"];
                 };
             };
         };
@@ -18100,7 +18707,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GoogleOAuthHealthResponse"];
                 };
             };
         };
@@ -18151,7 +18758,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GoogleOAuthStatusResponse"];
                 };
             };
         };
@@ -20400,7 +21007,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HealthResponse"];
                 };
             };
         };
@@ -27274,7 +27881,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssetUploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -27816,7 +28423,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"][];
                 };
             };
             /** @description Validation Error */
@@ -27858,7 +28465,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -27896,7 +28503,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -31472,9 +32079,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["LocalPathOpenRequest"];
             };
         };
         responses: {
@@ -31484,7 +32089,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LocalPathOpenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31524,7 +32129,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceOpenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31763,7 +32368,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31801,7 +32406,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31843,7 +32448,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31923,7 +32528,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32479,7 +33084,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PagePreviewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32715,7 +33320,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BulkPreviewWarmResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34995,7 +35600,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -35039,7 +35644,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -35081,7 +35686,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
