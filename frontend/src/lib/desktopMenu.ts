@@ -1,3 +1,5 @@
+import { emitAppEvent } from '../shared/platform/app-events';
+
 const MENU_LABEL_KEYS = Object.freeze([
     'about',
     'checkForUpdates',
@@ -35,28 +37,36 @@ const MENU_LABEL_KEYS = Object.freeze([
     'documentation',
 ]);
 
-export function getDesktopMenuLabels(i18n) {
+interface DesktopMenuTranslator {
+    t(key: string): string;
+}
+
+interface DesktopMenuI18n extends DesktopMenuTranslator {
+    on(event: 'languageChanged', listener: () => void): unknown;
+}
+
+export function getDesktopMenuLabels(i18n: DesktopMenuTranslator): Record<string, string> {
     return Object.fromEntries(
-        MENU_LABEL_KEYS.map((key) => [key, i18n.t(`desktop_menu.${key}`)]),
+        MENU_LABEL_KEYS.map((key) => [key, i18n.t(`desktop_menu.${key}`)] as const),
     );
 }
 
-export async function syncDesktopApplicationMenu(i18n) {
+export async function syncDesktopApplicationMenu(i18n: DesktopMenuTranslator): Promise<boolean> {
     if (!window.electronAPI?.setApplicationMenu) return false;
     await window.electronAPI.setApplicationMenu(getDesktopMenuLabels(i18n));
     return true;
 }
 
-export function installDesktopApplicationMenu(i18n) {
+export function installDesktopApplicationMenu(i18n: DesktopMenuI18n): void {
     if (!window.electronAPI) return;
 
     const sync = () => {
-        void syncDesktopApplicationMenu(i18n).catch((error) => {
+        void syncDesktopApplicationMenu(i18n).catch((error: unknown) => {
             console.error('Failed to synchronize the desktop application menu:', error);
         });
     };
     const openSettings = () => {
-        window.dispatchEvent(new CustomEvent('open-settings'));
+        emitAppEvent('open-settings', null);
     };
 
     window.electronAPI.onOpenSettings?.(openSettings);

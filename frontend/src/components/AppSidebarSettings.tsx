@@ -1,8 +1,22 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, PanelLeft, Pin, PinOff, Search } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-export function AppSidebarSettings({ items, pinnedRoutes, onTogglePinned, onMovePinned }) {
+export interface AppSidebarItem {
+    readonly icon: LucideIcon;
+    readonly labelKey: string;
+    readonly to: string;
+}
+
+export interface AppSidebarSettingsProps {
+    readonly items: readonly AppSidebarItem[];
+    readonly onMovePinned: (route: string, direction: -1 | 1) => void;
+    readonly onTogglePinned: (route: string) => void;
+    readonly pinnedRoutes: readonly string[];
+}
+
+export function AppSidebarSettings({ items, pinnedRoutes, onTogglePinned, onMovePinned }: AppSidebarSettingsProps) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -27,7 +41,9 @@ export function AppSidebarSettings({ items, pinnedRoutes, onTogglePinned, onMove
                 <span className="sr-only">{t('sidebar.search_applications', 'Search applications')}</span>
                 <input
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={(event) => {
+                        setQuery(event.target.value);
+                    }}
                     placeholder={t('sidebar.search_applications', 'Search applications')}
                 />
             </label>
@@ -51,15 +67,15 @@ export function AppSidebarSettings({ items, pinnedRoutes, onTogglePinned, onMove
                             <span className="app-menu-settings__actions">
                                 {pinned && (
                                     <>
-                                        <button type="button" onClick={() => onMovePinned(to, -1)} disabled={pinnedIndex === 0} aria-label={t('sidebar.move_application_up', 'Move {{application}} up', { application: label })}>
+                                        <button type="button" onClick={() => { onMovePinned(to, -1); }} disabled={pinnedIndex === 0} aria-label={t('sidebar.move_application_up', 'Move {{application}} up', { application: label })}>
                                             <ChevronUp size={17} />
                                         </button>
-                                        <button type="button" onClick={() => onMovePinned(to, 1)} disabled={pinnedIndex === pinnedRoutes.length - 1} aria-label={t('sidebar.move_application_down', 'Move {{application}} down', { application: label })}>
+                                        <button type="button" onClick={() => { onMovePinned(to, 1); }} disabled={pinnedIndex === pinnedRoutes.length - 1} aria-label={t('sidebar.move_application_down', 'Move {{application}} down', { application: label })}>
                                             <ChevronDown size={17} />
                                         </button>
                                     </>
                                 )}
-                                <button type="button" onClick={() => onTogglePinned(to)} aria-pressed={pinned} aria-label={pinned ? t('sidebar.unpin_application', 'Unpin {{application}}', { application: label }) : t('sidebar.pin_application', 'Pin {{application}}', { application: label })}>
+                                <button type="button" onClick={() => { onTogglePinned(to); }} aria-pressed={pinned} aria-label={pinned ? t('sidebar.unpin_application', 'Unpin {{application}}', { application: label }) : t('sidebar.pin_application', 'Pin {{application}}', { application: label })}>
                                     {pinned ? <PinOff size={17} /> : <Pin size={17} />}
                                 </button>
                             </span>

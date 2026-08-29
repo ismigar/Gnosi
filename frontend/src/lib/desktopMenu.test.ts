@@ -7,6 +7,7 @@ import {
     installDesktopApplicationMenu,
     syncDesktopApplicationMenu,
 } from './desktopMenu';
+import { subscribeAppEvent } from '../shared/platform/app-events';
 
 afterEach(() => {
     delete window.electronAPI;
@@ -14,7 +15,7 @@ afterEach(() => {
 
 describe('desktop application menu integration', () => {
     it('builds every label from the active i18n catalog', () => {
-        const i18n = { t: vi.fn((key) => `translated:${key}`) };
+        const i18n = { t: vi.fn((key: string) => `translated:${key}`) };
         const labels = getDesktopMenuLabels(i18n);
 
         expect(labels.settings).toBe('translated:desktop_menu.settings');
@@ -24,7 +25,7 @@ describe('desktop application menu integration', () => {
     });
 
     it('sends translated labels only when the Electron bridge exists', async () => {
-        const i18n = { t: (key) => key };
+        const i18n = { t: (key: string) => key };
         expect(await syncDesktopApplicationMenu(i18n)).toBe(false);
 
         const setApplicationMenu = vi.fn().mockResolvedValue(true);
@@ -36,7 +37,7 @@ describe('desktop application menu integration', () => {
     });
 
     it('connects the native Settings command and language changes', () => {
-        let nativeSettingsHandler;
+        let nativeSettingsHandler: (() => void) | undefined;
         const setApplicationMenu = vi.fn().mockResolvedValue(true);
         window.electronAPI = {
             setApplicationMenu,
@@ -45,17 +46,19 @@ describe('desktop application menu integration', () => {
             },
         };
         const i18n = {
-            t: (key) => key,
+            t: (key: string) => key,
             on: vi.fn(),
         };
         const settingsListener = vi.fn();
-        window.addEventListener('open-settings', settingsListener, { once: true });
+        const unsubscribe = subscribeAppEvent('open-settings', settingsListener);
 
         installDesktopApplicationMenu(i18n);
+        if (!nativeSettingsHandler) throw new Error('Expected native Settings handler.');
         nativeSettingsHandler();
 
         expect(settingsListener).toHaveBeenCalledOnce();
         expect(i18n.on).toHaveBeenCalledWith('languageChanged', expect.any(Function));
         expect(setApplicationMenu).toHaveBeenCalledOnce();
+        unsubscribe();
     });
 });
