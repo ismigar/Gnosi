@@ -14,6 +14,8 @@ import {
   fetchVaultPage,
   fetchVaultPagePreview,
   fetchVaultPages,
+  fetchVaultPagesByTable,
+  fetchVaultTablePagesSnapshot,
   fetchVaultTables,
   fetchVaultTrash,
   openVaultLocalPath,
@@ -173,6 +175,34 @@ describe('vault pages API', () => {
     controller.abort();
     expect(listRequest.signal.aborted).toBe(true);
     expect(pageRequest.signal.aborted).toBe(true);
+  });
+
+
+  it('loads table pages and their canonical snapshot', async () => {
+    const pages = [{ id: 'page-1', title: 'Page one' }];
+    const snapshot = {
+      pages,
+      raw_count: 1,
+      table_id: 'table-1',
+      visible_count: 1,
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(pages))
+      .mockResolvedValueOnce(Response.json(snapshot));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      fetchVaultPagesByTable('table-1', { include_templates: false }),
+    ).resolves.toEqual(pages);
+    await expect(fetchVaultTablePagesSnapshot('table-1')).resolves.toEqual(snapshot);
+
+    const pagesUrl = new URL(requestAt(fetchMock.mock.calls, 0).url);
+    expect(pagesUrl.pathname).toBe('/api/vault/pages/by-table/table-1');
+    expect(pagesUrl.searchParams.get('include_templates')).toBe('false');
+    expect(new URL(requestAt(fetchMock.mock.calls, 1).url).pathname).toBe(
+      '/api/vault/pages/by-table/table-1/snapshot',
+    );
   });
 
 

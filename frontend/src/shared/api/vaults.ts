@@ -44,6 +44,13 @@ export type VaultPagePatchInput = Partial<VaultPagePatchRequest>;
 export type VaultPagesQuery = NonNullable<
   operations['list_pages_api_vault_pages_get']['parameters']['query']
 >;
+export type VaultTablePagesQuery = NonNullable<
+  operations[
+    'list_pages_by_table_api_vault_pages_by_table__table_id__get'
+  ]['parameters']['query']
+>;
+export type VaultTablePagesSnapshot =
+  components['schemas']['TablePagesSnapshot'];
 export type VaultPagePreviewQuery = NonNullable<
   operations[
     'get_page_preview_api_vault_pages__page_id__preview_get'
@@ -193,6 +200,33 @@ export async function fetchVaultPage(
   return unwrapApiResult<VaultPage, unknown>(
     await apiClient.GET('/api/vault/pages/{page_id}', {
       params: { path: { page_id: pageId } },
+      signal,
+    }),
+  );
+}
+
+
+export async function fetchVaultPagesByTable(
+  tableId: string,
+  query: VaultTablePagesQuery = {},
+  signal?: AbortSignal,
+): Promise<VaultPageSummary[]> {
+  return unwrapApiResult<VaultPageSummary[], unknown>(
+    await apiClient.GET('/api/vault/pages/by-table/{table_id}', {
+      params: { path: { table_id: tableId }, query },
+      signal,
+    }),
+  );
+}
+
+
+export async function fetchVaultTablePagesSnapshot(
+  tableId: string,
+  signal?: AbortSignal,
+): Promise<VaultTablePagesSnapshot> {
+  return unwrapApiResult<VaultTablePagesSnapshot, unknown>(
+    await apiClient.GET('/api/vault/pages/by-table/{table_id}/snapshot', {
+      params: { path: { table_id: tableId } },
       signal,
     }),
   );
