@@ -73,7 +73,7 @@ def _fingerprint() -> tuple[RouteFingerprint, ...]:
                 handler_name,
                 len(route.dependant.dependencies),
             )
-            for method in sorted(route.methods)
+            for method in sorted(route.methods or ())
         )
     return tuple(output)
 
@@ -93,10 +93,21 @@ def test_registry_table_view_routes_keep_legacy_facade_identity() -> None:
         assert route.endpoint is getattr(vault_routes, handler_name)
 
 
-def test_list_tables_exposes_the_typed_registry_contract() -> None:
-    route = next(
-        route
-        for route in vault_routes.router.routes
-        if isinstance(route, APIRoute) and route.endpoint.__name__ == "list_tables"
+def test_collection_routes_expose_typed_registry_contracts() -> None:
+    expected_response_models: tuple[tuple[str, object], ...] = (
+        ("list_databases", list[RegistryRecord]),
+        ("create_database", RegistryRecord),
+        ("delete_database", RegistryRecord),
+        ("list_tables", list[RegistryRecord]),
+        ("create_table", RegistryRecord),
+        ("delete_table", RegistryRecord),
+        ("rename_table", RegistryRecord),
     )
-    assert route.response_model == list[RegistryRecord]
+
+    routes = {
+        route.endpoint.__name__: route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+    }
+    for handler_name, response_model in expected_response_models:
+        assert routes[handler_name].response_model == response_model

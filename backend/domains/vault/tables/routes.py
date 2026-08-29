@@ -45,7 +45,7 @@ def register_routes(parent_router: APIRouter) -> None:
         parent_router._mark_routes_changed()
 
 
-@router.get("/databases", response_model=None)
+@router.get("/databases", response_model=list[RegistryRecord])
 async def list_databases() -> list[RegistryData]:
     return await table_collection_api.list_databases(_configured().collections)
 
@@ -53,7 +53,7 @@ async def list_databases() -> list[RegistryData]:
 @router.post(
     "/databases",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def create_database(db: RegistryData = Body(...)) -> RegistryData:
     return await table_collection_api.create_database(db, _configured().collections)
@@ -62,7 +62,7 @@ async def create_database(db: RegistryData = Body(...)) -> RegistryData:
 @router.delete(
     "/databases/{database_id}",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def delete_database(database_id: str) -> RegistryData:
     return await table_collection_api.delete_database(
@@ -90,7 +90,7 @@ def _ensure_main_view(
 @router.post(
     "/tables",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def create_table(table: RegistryData = Body(...)) -> RegistryData:
     return await table_lifecycle.create_table(table, _configured().create_table)
@@ -121,7 +121,7 @@ def _create_table_locked(table: RegistryData) -> RegistryData:
 @router.delete(
     "/tables/{table_id}",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def delete_table(
     table_id: str,
@@ -153,7 +153,7 @@ async def delete_table(
 @router.put(
     "/tables/{table_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def rename_table(
     table_id: str,
