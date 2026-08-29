@@ -17,7 +17,11 @@ from backend.domains.vault.links.parsing import (
     first_unlinked_mention_snippet,
     link_mentions_in_plain_segments,
 )
-from backend.domains.vault.links.schemas import LinkMentionsRequest
+from backend.domains.vault.links.schemas import (
+    LinkMentionsRequest,
+    VaultLinkMentionsResponse,
+    VaultUnlinkedMentionResponse,
+)
 
 
 log = logging.getLogger(__name__)
@@ -268,14 +272,14 @@ def register_routes(
         "/unlinked-mentions",
         get_unlinked_mentions,
         methods=["GET"],
-        response_model=None,
+        response_model=list[VaultUnlinkedMentionResponse],
     )
     router.add_api_route(
         "/link-unlinked-mentions",
         link_unlinked_mentions,
         methods=["POST"],
         dependencies=list(editor_dependencies),
-        response_model=None,
+        response_model=VaultLinkMentionsResponse,
     )
     return get_unlinked_mentions, link_unlinked_mentions
 

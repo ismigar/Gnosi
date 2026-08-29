@@ -15,6 +15,10 @@ from fastapi.params import Depends as DependsParameter
 
 from backend.domains.vault.links.api.dependencies import LinkApiDependencies
 from backend.domains.vault.links.index_service import LINK_INDEX_SCHEMA_VERSION
+from backend.domains.vault.links.schemas import (
+    VaultBacklinkResponse,
+    VaultOutlinksResponse,
+)
 
 
 log = logging.getLogger(__name__)
@@ -317,13 +321,13 @@ def register_routes(
         "/backlinks",
         get_backlinks,
         methods=["GET"],
-        response_model=None,
+        response_model=list[VaultBacklinkResponse],
     )
     router.add_api_route(
         "/outlinks",
         get_outlinks,
         methods=["GET"],
-        response_model=None,
+        response_model=VaultOutlinksResponse,
     )
     return get_link_index_stats, post_link_index_rebuild, get_backlinks, get_outlinks
 

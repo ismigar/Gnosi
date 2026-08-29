@@ -258,10 +258,14 @@ def test_extracted_routes_preserve_order_contract_and_facade_identity() -> None:
             "clear_reference_table": citation_references.ReferenceTableResponse,
             "create_reference_table": citation_references.ReferenceTableResponse,
             "get_alias_index": link_schemas.AliasIndexResponse,
+            "get_backlinks": list[link_schemas.VaultBacklinkResponse],
             "get_global_index": link_schemas.GlobalIndexResponse,
             "get_link_preview": link_preview.LinkPreviewResponse,
+            "get_outlinks": link_schemas.VaultOutlinksResponse,
             "get_reference_table": citation_references.ReferenceTableResponse,
+            "get_unlinked_mentions": list[link_schemas.VaultUnlinkedMentionResponse],
             "import_references": citation_io.ImportReferencesResponse,
+            "link_unlinked_mentions": link_schemas.VaultLinkMentionsResponse,
             "list_inline_comments": list[comment_schemas.InlineComment],
             "list_page_comments": comment_schemas.PageCommentThread,
             "list_csl_styles": citation_io.CslStylesResponse,
@@ -288,6 +292,58 @@ def test_extracted_request_models_keep_legacy_identity() -> None:
         assert getattr(legacy_vault, model_name) is getattr(comment_schemas, model_name)
     assert legacy_vault.LinkMentionsRequest is link_schemas.LinkMentionsRequest
     assert legacy_vault._REFERENCE_SCHEMA is citation_references.REFERENCE_SCHEMA
+
+
+def test_editor_link_panel_response_models_preserve_payloads() -> None:
+    backlinks = [
+        {"id": "source-1", "title": "Source", "kind": "link"},
+        {"id": "source-2", "title": "Related", "kind": "relation"},
+    ]
+    parsed_backlinks = [
+        link_schemas.VaultBacklinkResponse.model_validate(item).model_dump()
+        for item in backlinks
+    ]
+    assert parsed_backlinks == backlinks
+
+    outlinks = {
+        "links": [{"id": "target-1", "title": "Target"}],
+        "relations": [{"id": "target-2", "title": "Related"}],
+        "unresolved": [{"title": "Missing"}],
+    }
+    assert (
+        link_schemas.VaultOutlinksResponse.model_validate(outlinks).model_dump()
+        == outlinks
+    )
+
+    mention = {
+        "id": "source-3",
+        "title": "Mentioning page",
+        "count": 2,
+        "snippet": "A plain Target mention",
+    }
+    assert (
+        link_schemas.VaultUnlinkedMentionResponse.model_validate(mention).model_dump()
+        == mention
+    )
+
+    linked = {
+        "status": "success",
+        "target_id": "target-1",
+        "target_title": "Target",
+        "notes_changed": 1,
+        "total_replacements": 2,
+        "changed_notes": [
+            {
+                "id": "source-3",
+                "title": "Mentioning page",
+                "replacements": 2,
+            }
+        ],
+    }
+    assert (
+        link_schemas.VaultLinkMentionsResponse.model_validate(linked).model_dump()
+        == linked
+    )
 
 
 def test_extracted_domains_are_the_single_mutable_state_owners() -> None:
