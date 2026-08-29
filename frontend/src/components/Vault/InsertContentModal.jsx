@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import axios from '../../shared/api/legacy-http';
 import {
     X,
     Database as DatabaseIcon,
@@ -25,6 +24,11 @@ import { FilesystemPickerModal } from '../FilesystemPickerModal';
 import { fileUrlToSentinel } from './markdown-mapper';
 import { toast } from '../../lib/toast';
 import { interpolateNamePattern, toAssetPreviewUrl } from '../../lib/fileResource';
+import {
+    linkExistingVaultFile,
+    registerLocalVaultFile,
+    uploadVaultInsertFile,
+} from '../../shared/api/vault-content';
 
 /**
  * Ensure a File's bytes are readable before uploading, DOWNLOADING it first if
@@ -372,32 +376,19 @@ export const InsertContentModal = ({
         } finally {
             setMaterializing(false);
         }
-        const formData = new FormData();
-        formData.append('file', file);
-        let url;
-        if (isFieldUpload) {
-            const params = new URLSearchParams({
-                table_id: tableId,
-                property_name: fileField.propertyName,
-                storage_folder: fileField.storageFolder || 'assets',
-            });
-            if (resolvedName) params.set('target_name', resolvedName);
-            if (destFolder) formData.append('dest_folder', destFolder);
-            url = `/api/vault/upload-property-file?${params.toString()}`;
-        } else {
-            url = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
-        }
-        const { data } = await axios.post(url, formData, {
+        const data = await uploadVaultInsertFile(file, {
+            destFolder: isFieldUpload ? destFolder : undefined,
             // File uploads carry an unbounded payload and the backend writes it
             // straight to disk — slow when the Vault lives on OneDrive (warmup +
-            // materialization). The global 30s cap in pageEtagInterceptor targets
-            // slow external/IMAP calls, not local uploads, so a ~20MB PDF was
-            // aborting with "timeout of 30000ms exceeded". Disable the cap here;
-            // onUploadProgress already gives the UI a liveness signal.
-            timeout: 0,
-            onUploadProgress: (evt) => {
+            // materialization). The specialized upload transport remains
+            // unbounded and reports progress, matching the former timeout: 0.
+            onProgress: (evt) => {
                 if (evt.total) setUploadProgress(Math.round((evt.loaded / evt.total) * 100));
             },
+            propertyName: isFieldUpload ? fileField.propertyName : undefined,
+            storageFolder: isFieldUpload ? (fileField.storageFolder || 'assets') : undefined,
+            tableId,
+            targetName: isFieldUpload && resolvedName ? resolvedName : undefined,
         });
         // Library/free return an absolute path (url=null); assets returns a served URL.
         return data?.url || data?.path;
@@ -408,16 +399,13 @@ export const InsertContentModal = ({
         // (Zotero style), preserving the original destination. Otherwise, it only records
         // the file to serve it (inline content / image fields).
         // The backend may materialize (download) an online-only file here, which
-        // can take tens of seconds — bypass the global 30s axios cap (see
-        // pageEtagInterceptor) so the request isn't aborted mid-download.
+        // can take tens of seconds. The shared OpenAPI client has no request cap,
+        // preserving the former explicit timeout: 0 behavior.
         if (isFieldUpload) {
-            const { data } = await axios.post('/api/vault/link-existing-file', {
-                file_path: path,
-                target_name: resolvedName,
-            }, { timeout: 0 });
+            const data = await linkExistingVaultFile(path, resolvedName);
             return data?.url || data?.path;
         }
-        const { data } = await axios.post('/api/vault/local-file/register', { file_path: path }, { timeout: 0 });
+        const data = await registerLocalVaultFile(path);
         return data?.url;
     }, [isFieldUpload, resolvedName]);
 

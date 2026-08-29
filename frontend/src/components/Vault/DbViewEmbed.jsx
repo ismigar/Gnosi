@@ -1,6 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from '../../shared/api/legacy-http';
 import { Accessibility, AlertCircle, Focus, HelpCircle, LayoutTemplate, ListTree, MoreHorizontal, Plus, Search, Settings, SlidersHorizontal, ChevronDown, ChevronUp, X, Edit2, Copy, Trash2, Rows3 } from 'lucide-react';
 import { compareFieldValues, matchesRule, normalizeForSearch } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
@@ -14,6 +13,29 @@ import { toast } from '../../lib/toast';
 import { IconRenderer } from './IconRenderer';
 import { getTemplateMenuIcon } from './templateMenuUtils';
 import { ReferenceImportExport } from './ReferenceImportExport';
+import {
+    deleteVaultPage,
+    fetchVaultPage,
+    fetchVaultPagesByTable,
+} from '../../shared/api/vaults';
+import {
+    applyVaultTemplate,
+    createEmbeddedVaultPage,
+    createVaultView,
+    deleteVaultView,
+    fetchPageViews,
+    fetchVaultViews,
+    fetchVaultViewUsage,
+    patchEmbeddedVaultPageMetadata,
+    updateVaultView,
+    upsertPageView,
+} from '../../shared/api/vault-views';
+
+const apiErrorDetail = (error, fallback) => (
+    error?.payload?.detail || error?.response?.data?.detail || error?.message || fallback
+);
+
+const apiErrorStatus = (error) => error?.status ?? error?.response?.status;
 
 // Scrollable container to fit the full view components (which
 // assume a height) within the embed's document flow. At module level
@@ -167,8 +189,7 @@ async function createPageInTable({ tableId, title = 'Nou registre', content = ''
         content,
         metadata: { table_id: tableId, ...extraMetadata },
     };
-    const res = await axios.post('/api/vault/pages', body);
-    return res.data;
+    return createEmbeddedVaultPage(body);
 }
 
 async function patchPageMetadata(pageId, partialMetadata) {
@@ -177,10 +198,7 @@ async function patchPageMetadata(pageId, partialMetadata) {
     // PATCH (2 round-trips serialized, 400-700 ms) to build a
     // full payload "for safety"; the current backend accepts partials
     // so we save the GET and its corresponding latency.
-    await axios.patch(
-        `/api/vault/pages/${encodeURIComponent(pageId)}`,
-        { metadata: partialMetadata }
-    );
+    await patchEmbeddedVaultPageMetadata(pageId, partialMetadata);
     return partialMetadata;
 }
 
@@ -189,7 +207,7 @@ async function patchSectionConfig(pageId, section, patch) {
     // the full section (preserving all legacy fields) with the patch
     // applied. Requires ConfigDict(extra='allow') on the ViewSection model.
     const next = { ...section, ...patch };
-    await axios.post(`/api/pages/${encodeURIComponent(pageId)}/views`, next);
+    await upsertPageView(pageId, next);
     return next;
 }
 
@@ -972,7 +990,7 @@ export function DbViewEmbed({ block }) {
     const persistQuickPresets = useCallback((next) => {
         try { localStorage.setItem(presetStorageKey, JSON.stringify(next)); } catch { /* noop */ }
         if (viewId) {
-            axios.put(`/api/vault/views/${encodeURIComponent(viewId)}`, { quickPresets: next })
+            updateVaultView(viewId, { quickPresets: next })
                 .catch(() => { /* offline/local fallback remains available */ });
         }
     }, [presetStorageKey, viewId]);
@@ -1090,7 +1108,7 @@ export function DbViewEmbed({ block }) {
     // isn't in the registry (a legacy section without a view), it fails silently and
     // localStorage still calls the shots.
     const persistServerTabs = useCallback((set) => {
-        axios.put(`/api/vault/views/${encodeURIComponent(viewId)}`, { tabs: [...set] })
+        updateVaultView(viewId, { tabs: [...set] })
             .catch(() => { /* anchor outside the registry: localStorage only */ });
     }, [viewId]);
 
@@ -1110,8 +1128,8 @@ export function DbViewEmbed({ block }) {
             try {
                 let section = null;
                 if (viewId) {
-                    const viewsRes = await axios.get(`/api/pages/${encodeURIComponent(pageId)}/views`);
-                    const sections = viewsRes.data?.sections || [];
+                    const viewsData = await fetchPageViews(pageId);
+                    const sections = viewsData.sections || [];
                     section = sections.find(s => s.view_id === viewId)
                         || (headingProp ? sections.find(s => s.heading === headingProp) : null);
                 // Fallback: if this block has no registered section (e.g. because
@@ -1124,8 +1142,7 @@ export function DbViewEmbed({ block }) {
                     let regView = (ctx.registry?.views || []).find(v => String(v.id) === String(viewId));
                     if (!regView) {
                         try {
-                            const vr = await axios.get('/api/vault/views');
-                            const allViews = Array.isArray(vr.data) ? vr.data : (vr.data?.views || []);
+                            const allViews = await fetchVaultViews();
                             regView = allViews.find(v => String(v.id) === String(viewId));
                         } catch { /* registry inaccessible: it will fall to the error below */ }
                     }
@@ -1174,8 +1191,7 @@ export function DbViewEmbed({ block }) {
                 const cached = _byTableGet(tableId);
                 let all = cached;
                 if (!all) {
-                    const pagesRes = await axios.get(`/api/vault/pages/by-table/${encodeURIComponent(tableId)}`);
-                    all = Array.isArray(pagesRes.data) ? pagesRes.data : [];
+                    all = await fetchVaultPagesByTable(tableId);
                     _byTableSet(tableId, all);
                 }
 
@@ -1195,8 +1211,7 @@ export function DbViewEmbed({ block }) {
                     const loadJoined = async (tid) => {
                         let rows = _byTableGet(tid);
                         if (!rows) {
-                            const jr = await axios.get(`/api/vault/pages/by-table/${encodeURIComponent(tid)}`);
-                            rows = Array.isArray(jr.data) ? jr.data : [];
+                            rows = await fetchVaultPagesByTable(tid);
                             _byTableSet(tid, rows);
                         }
                         return rows.filter(p => !p.metadata?.is_template);
@@ -1218,8 +1233,7 @@ export function DbViewEmbed({ block }) {
                 if (ctx.viewSectionNonce !== lastSavedNonceRef.current) {
                     lastSavedNonceRef.current = ctx.viewSectionNonce;
                     try {
-                        const vr = await axios.get('/api/vault/views');
-                        const fresh = Array.isArray(vr.data) ? vr.data : vr.data?.views;
+                        const fresh = await fetchVaultViews();
                         if (Array.isArray(fresh)) registryViews = fresh;
                     } catch { /* fallback: ctx.registry */ }
                 }
@@ -1294,7 +1308,7 @@ export function DbViewEmbed({ block }) {
                 }
             } catch (e) {
                 if (!cancelled) {
-                    setError(e?.response?.data?.detail || e?.message || t('errors.load_view', "Error loading the view"));
+                    setError(apiErrorDetail(e, t('errors.load_view', "Error loading the view")));
                     setRawRecords([]);
                     setTemplates([]);
                     setLoading(false);
@@ -1405,11 +1419,11 @@ export function DbViewEmbed({ block }) {
 
             if (template?.id) {
                 try {
-                    const getRes = await axios.get(`/api/vault/pages/${template.id}`);
-                    if (getRes.data) {
-                        initialContent = getRes.data.content || '';
-                        if (getRes.data.title) title = getRes.data.title;
-                        baseMeta = { ...getRes.data.metadata, ...baseMeta };
+                    const pageData = await fetchVaultPage(template.id);
+                    if (pageData) {
+                        initialContent = pageData.content || '';
+                        if (pageData.title) title = pageData.title;
+                        baseMeta = { ...pageData.metadata, ...baseMeta };
                     }
                 } catch (e) {
                     console.warn('Failed to fetch template content', e);
@@ -1515,8 +1529,7 @@ export function DbViewEmbed({ block }) {
     // --- PHASE 3: CRUD for the view tabs (registry.views) ---
     const refetchTableViews = useCallback(async () => {
         try {
-            const res = await axios.get('/api/vault/views');
-            const all = Array.isArray(res.data) ? res.data : (res.data?.views || []);
+            const all = await fetchVaultViews();
             setTableViews(all.filter(v => String(v.table_id) === String(tableId)
                 || (Array.isArray(v.joins) && v.joins.some(j => String(j && j.tableId) === String(tableId)))));
         } catch { /* keep the current state */ }
@@ -1542,8 +1555,8 @@ export function DbViewEmbed({ block }) {
         if (tableViews.length <= 1) { toast.error(t('errors.delete_only_view', "Cannot delete the only view.")); return; }
         setConfirmDeleteView(v);
         setDeleteViewUsage(null);
-        axios.get(`/api/vault/views/${encodeURIComponent(v.id)}/usage`)
-            .then(res => { if (res.data) setDeleteViewUsage(res.data); })
+        fetchVaultViewUsage(v.id)
+            .then(data => { if (data) setDeleteViewUsage(data); })
             .catch(() => {});
     }, [tableViews, t]);
 
@@ -1553,7 +1566,7 @@ export function DbViewEmbed({ block }) {
         setDeleteViewUsage(null);
         if (!v?.id) return;
         try {
-            await axios.delete(`/api/vault/views/${encodeURIComponent(v.id)}`);
+            await deleteVaultView(v.id);
             await refetchTableViews();
             if (activeViewId === v.id) setActiveViewId(view?.view_id || '');
         } catch (e) { console.warn('delete view failed', e); }
@@ -1578,7 +1591,7 @@ export function DbViewEmbed({ block }) {
         if (!v?.id) return;
         if (!name || name === (v.name || v.heading)) return;
         try {
-            await axios.put(`/api/vault/views/${encodeURIComponent(v.id)}`, { ...v, name });
+            await updateVaultView(v.id, { ...v, name });
             await refetchTableViews();
         } catch (e) { console.warn('rename view failed', e); }
     }, [renameView, refetchTableViews]);
@@ -1612,7 +1625,7 @@ export function DbViewEmbed({ block }) {
             // rewrite their own.
             const { id: _id, is_main: _im, is_default: _idf, ...rest } = v;
             const sorts = v.sorts || (v.sort ? [v.sort] : []);
-            const res = await axios.post('/api/vault/views', {
+            const data = await createVaultView({
                 ...rest,
                 table_id: tableId,
                 name: `${v.name || v.heading || 'Vista'} (còpia)`,
@@ -1626,7 +1639,7 @@ export function DbViewEmbed({ block }) {
                 embedded: true,
             });
             await refetchTableViews();
-            if (res.data?.id) { pinView(res.data.id); setActiveViewId(res.data.id); }
+            if (data.id) { pinView(data.id); setActiveViewId(data.id); }
         } catch (e) { console.warn('duplicate view failed', e); }
     }, [tableId, columns, refetchTableViews, pinView]);
 
@@ -1761,7 +1774,7 @@ export function DbViewEmbed({ block }) {
     };
     // We notify VaultDashboard of the deleted ids so it records them in the
     // its undo stack (the global Cmd+Z lives there). The soft-delete of the view
-    // embedded one goes through direct axios and, without this signal, it wasn't undoable.
+    // embedded one goes through the shared client and, without this signal, it wasn't undoable.
     const announceDeleted = (ids) => {
         const clean = [...(ids || [])].filter(Boolean);
         if (!clean.length) return;
@@ -1769,19 +1782,16 @@ export function DbViewEmbed({ block }) {
     };
     const onDeletePageAdapter = (id, title) => { ctx.onDeletePage?.(id, title); if (id) announceDeleted([id]); setTimeout(reload, 400); };
     const onDeleteSelectedAdapter = (ids) => {
-        Promise.allSettled([...ids].map(id => axios.delete(`/api/vault/pages/${encodeURIComponent(id)}`)))
+        Promise.allSettled([...ids].map(id => deleteVaultPage(id)))
             .then((results) => {
                 const ok = [...ids].filter((_, i) => results[i]?.status === 'fulfilled'
-                    || results[i]?.reason?.response?.status === 404);
+                    || apiErrorStatus(results[i]?.reason) === 404);
                 announceDeleted(ok);
                 reload();
             });
     };
     const onApplyTemplateAdapter = async (ids, templateId) => {
-        await axios.post('/api/vault/bulk-apply-template', {
-            page_ids: [...ids],
-            template_id: templateId,
-        });
+        await applyVaultTemplate([...ids], templateId);
         reload();
     };
     const onUpdateViewAdapter = async (nextView) => {
@@ -1813,7 +1823,7 @@ export function DbViewEmbed({ block }) {
             // Tab of a registry view → direct PUT to /api/vault/views.
             const current = tableViews.find(v => v.id === activeViewId) || {};
             try {
-                await axios.put(`/api/vault/views/${encodeURIComponent(activeViewId)}`, {
+                await updateVaultView(activeViewId, {
                     ...current,
                     visibleProperties: newVisible,
                     sorts,

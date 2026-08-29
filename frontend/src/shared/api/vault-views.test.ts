@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { GnosiApiError } from './errors';
 import {
+  applyVaultTemplate,
+  createEmbeddedVaultPage,
   createVaultView,
   deleteVaultView,
+  fetchPageViews,
   fetchVaultViewUsage,
   fetchVaultViews,
+  patchEmbeddedVaultPageMetadata,
   reorderVaultViews,
   updateVaultView,
+  upsertPageView,
 } from './vault-views';
 
 
@@ -96,5 +102,93 @@ describe('Vault views API', () => {
     expect(requestAt(fetchMock, 0).url).toContain('/views/view-1/usage');
     expect(requestAt(fetchMock, 1).url).toContain('/views/order');
     expect(requestAt(fetchMock, 2).method).toBe('DELETE');
+  });
+
+  it('preserves page create, partial patch, and section upsert bodies', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ id: 'page-1' }))
+      .mockResolvedValueOnce(Response.json({ id: 'page-1' }))
+      .mockResolvedValueOnce(
+        Response.json({ page_id: 'page-1', sections: [] }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ action: 'updated', ok: true, page_id: 'page-1' }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createEmbeddedVaultPage({
+      content: '# Body',
+      metadata: { Status: 'Draft', table_id: 'table-1' },
+      title: 'New row',
+    });
+    await patchEmbeddedVaultPageMetadata('page/1', { Status: 'Done' });
+    await fetchPageViews('page/1');
+    await upsertPageView('page/1', {
+      heading: 'Related',
+      source_table_id: 'table-1',
+      view_id: 'view-1',
+    });
+
+    const create = requestAt(fetchMock, 0);
+    expect(create.method).toBe('POST');
+    expect(new URL(create.url).pathname).toBe('/api/vault/pages');
+    await expect(create.json()).resolves.toEqual({
+      content: '# Body',
+      metadata: { Status: 'Draft', table_id: 'table-1' },
+      title: 'New row',
+    });
+
+    const patch = requestAt(fetchMock, 1);
+    expect(patch.method).toBe('PATCH');
+    expect(new URL(patch.url).pathname).toBe('/api/vault/pages/page%2F1');
+    await expect(patch.json()).resolves.toEqual({
+      metadata: { Status: 'Done' },
+    });
+
+    const list = requestAt(fetchMock, 2);
+    expect(list.method).toBe('GET');
+    expect(new URL(list.url).pathname).toBe('/api/pages/page%2F1/views');
+
+    const upsert = requestAt(fetchMock, 3);
+    expect(upsert.method).toBe('POST');
+    expect(new URL(upsert.url).pathname).toBe('/api/pages/page%2F1/views');
+    await expect(upsert.json()).resolves.toEqual({
+      heading: 'Related',
+      source_table_id: 'table-1',
+      view_id: 'view-1',
+    });
+  });
+
+  it('keeps the bulk template payload and normalizes API failures', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ conflicts: [], errors: [], updated: 2 }),
+      )
+      .mockResolvedValueOnce(
+        Response.json(
+          { detail: 'View is still in use' },
+          { status: 409, statusText: 'Conflict' },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await applyVaultTemplate(['page-1', 'page-2'], 'template-1');
+    const apply = requestAt(fetchMock, 0);
+    expect(apply.method).toBe('POST');
+    expect(new URL(apply.url).pathname).toBe(
+      '/api/vault/bulk-apply-template',
+    );
+    await expect(apply.json()).resolves.toEqual({
+      page_ids: ['page-1', 'page-2'],
+      template_id: 'template-1',
+    });
+
+    await expect(deleteVaultView('view-1')).rejects.toMatchObject({
+      message: 'View is still in use',
+      name: 'GnosiApiError',
+      status: 409,
+    } satisfies Partial<GnosiApiError>);
   });
 });

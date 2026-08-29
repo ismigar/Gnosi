@@ -5,6 +5,7 @@ from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
 from fastapi import APIRouter
+from pydantic import BaseModel, ConfigDict
 
 from backend.domains.vault.daily.contracts import (
     DailyNoteDocumentResponse,
@@ -16,7 +17,24 @@ _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes"
 router = _strict_cast(APIRouter, _legacy.router)
 
 
-@router.get("/virtual-fields", response_model=None)
+class VirtualFieldComputerResponse(BaseModel):
+    """One read-only virtual-field computer exposed to schema configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    compute: str
+    label: str
+    description: str
+    value_type: str
+
+
+class VirtualFieldsResponse(BaseModel):
+    """Virtual-field catalog envelope."""
+
+    computers: list[VirtualFieldComputerResponse]
+
+
+@router.get("/virtual-fields", response_model=VirtualFieldsResponse)
 async def list_virtual_fields() -> _LegacyAny:
     """Catalogue of virtual field computers available for the schema config UI."""
     return {"computers": _legacy._vf_list_specs()}

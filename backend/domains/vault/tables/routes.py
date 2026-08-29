@@ -301,7 +301,7 @@ async def _rewrite_option_in_rows(
     )
 
 
-@router.get("/tables/{table_id}/options/usage", response_model=None)
+@router.get("/tables/{table_id}/options/usage", response_model=RegistryRecord)
 async def table_option_usage(table_id: str, field_id: str) -> RegistryData:
     """Usage counter per option (how many rows use each value) — feeds
     the option editor of the SchemaConfigModal."""
@@ -315,7 +315,7 @@ async def table_option_usage(table_id: str, field_id: str) -> RegistryData:
 @router.post(
     "/tables/{table_id}/options/rename",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def rename_table_option(
     table_id: str,
@@ -337,7 +337,7 @@ async def rename_table_option(
 @router.post(
     "/tables/{table_id}/options/remove",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def remove_table_option(
     table_id: str,
@@ -356,7 +356,7 @@ async def remove_table_option(
     )
 
 
-@router.get("/option-catalogs", response_model=None)
+@router.get("/option-catalogs", response_model=RegistryRecord)
 async def list_option_catalogs() -> RegistryData:
     return await table_options.list_option_catalogs(_configured().options)
 
@@ -364,7 +364,7 @@ async def list_option_catalogs() -> RegistryData:
 @router.put(
     "/option-catalogs/{name}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def put_option_catalog(
     name: str,
@@ -494,7 +494,7 @@ def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
 @router.post(
     "/schema",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def save_schema(
     folder: str,
