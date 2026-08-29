@@ -24006,6 +24006,33 @@
         "title": "VaultAccessResponse",
         "type": "object"
       },
+      "VaultBacklinkResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "link",
+              "relation"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind"
+        ],
+        "title": "VaultBacklinkResponse",
+        "type": "object"
+      },
       "VaultDeleteResponse": {
         "properties": {
           "deleted": {
@@ -24022,6 +24049,71 @@
           "deleted"
         ],
         "title": "VaultDeleteResponse",
+        "type": "object"
+      },
+      "VaultLinkMentionsResponse": {
+        "properties": {
+          "changed_notes": {
+            "items": {
+              "$ref": "#/components/schemas/VaultLinkedMentionChangeResponse"
+            },
+            "title": "Changed Notes",
+            "type": "array"
+          },
+          "notes_changed": {
+            "title": "Notes Changed",
+            "type": "integer"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_title": {
+            "title": "Target Title",
+            "type": "string"
+          },
+          "total_replacements": {
+            "title": "Total Replacements",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "target_id",
+          "target_title",
+          "notes_changed",
+          "total_replacements",
+          "changed_notes"
+        ],
+        "title": "VaultLinkMentionsResponse",
+        "type": "object"
+      },
+      "VaultLinkedMentionChangeResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "replacements": {
+            "title": "Replacements",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "replacements"
+        ],
+        "title": "VaultLinkedMentionChangeResponse",
         "type": "object"
       },
       "VaultListResponse": {
@@ -24078,6 +24170,56 @@
           "path"
         ],
         "title": "VaultMutationResponse",
+        "type": "object"
+      },
+      "VaultOutlinksResponse": {
+        "properties": {
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/VaultPageLinkResponse"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/VaultPageLinkResponse"
+            },
+            "title": "Relations",
+            "type": "array"
+          },
+          "unresolved": {
+            "items": {
+              "$ref": "#/components/schemas/VaultUnresolvedLinkResponse"
+            },
+            "title": "Unresolved",
+            "type": "array"
+          }
+        },
+        "required": [
+          "links",
+          "relations",
+          "unresolved"
+        ],
+        "title": "VaultOutlinksResponse",
+        "type": "object"
+      },
+      "VaultPageLinkResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "VaultPageLinkResponse",
         "type": "object"
       },
       "VaultPluginSummaryResponse": {
@@ -24284,6 +24426,47 @@
           "tags"
         ],
         "title": "VaultTagsResponse",
+        "type": "object"
+      },
+      "VaultUnlinkedMentionResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "count",
+          "snippet"
+        ],
+        "title": "VaultUnlinkedMentionResponse",
+        "type": "object"
+      },
+      "VaultUnresolvedLinkResponse": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "VaultUnresolvedLinkResponse",
         "type": "object"
       },
       "VaultViewInput": {
@@ -60033,7 +60216,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VaultBacklinkResponse"
+                  },
+                  "title": "Response Get Backlinks Api Vault Backlinks Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -65032,7 +65221,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VaultLinkMentionsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -73845,7 +74036,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VaultOutlinksResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -86063,7 +86256,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VaultUnlinkedMentionResponse"
+                  },
+                  "title": "Response Get Unlinked Mentions Api Vault Unlinked Mentions Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"

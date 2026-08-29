@@ -4,7 +4,6 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
-import { installPageEtagInterceptor } from './lib/pageEtagInterceptor.js'
 import { syncActiveVaultCookie } from './lib/fileResource.js'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { initializeInterfaceLanguage } from './lib/interfaceLanguage.js'
@@ -22,11 +21,6 @@ import { ApiProvider } from './shared/api/ApiProvider'
 // depend on the axios header. Without this, all these channels fall back to the
 // default vault. See setActiveVaultCookie in lib/fileResource.js.
 syncActiveVaultCookie();
-
-// Optimistic concurrency for /api/vault/pages — auto-attaches `expected_etag`
-// to PATCH/PUT and broadcasts `pageEtagConflict` DOM events on 409. See
-// lib/pageEtagInterceptor.js for the rationale.
-installPageEtagInterceptor();
 
 async function bootstrap() {
     await initializeVaultRouting();

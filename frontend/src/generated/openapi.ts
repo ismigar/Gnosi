@@ -19076,12 +19076,51 @@ export interface components {
             /** Vault Name */
             vault_name: string;
         };
+        /** VaultBacklinkResponse */
+        VaultBacklinkResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "link" | "relation";
+            /** Title */
+            title: string;
+        };
         /** VaultDeleteResponse */
         VaultDeleteResponse: {
             /** Deleted */
             deleted: string;
             /** Status */
             status: string;
+        };
+        /** VaultLinkedMentionChangeResponse */
+        VaultLinkedMentionChangeResponse: {
+            /** Id */
+            id: string;
+            /** Replacements */
+            replacements: number;
+            /** Title */
+            title: string;
+        };
+        /** VaultLinkMentionsResponse */
+        VaultLinkMentionsResponse: {
+            /** Changed Notes */
+            changed_notes: components["schemas"]["VaultLinkedMentionChangeResponse"][];
+            /** Notes Changed */
+            notes_changed: number;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+            /** Target Id */
+            target_id: string;
+            /** Target Title */
+            target_title: string;
+            /** Total Replacements */
+            total_replacements: number;
         };
         /** VaultListResponse */
         VaultListResponse: {
@@ -19100,6 +19139,22 @@ export interface components {
             path: string;
             /** Slug */
             slug: string | null;
+        };
+        /** VaultOutlinksResponse */
+        VaultOutlinksResponse: {
+            /** Links */
+            links: components["schemas"]["VaultPageLinkResponse"][];
+            /** Relations */
+            relations: components["schemas"]["VaultPageLinkResponse"][];
+            /** Unresolved */
+            unresolved: components["schemas"]["VaultUnresolvedLinkResponse"][];
+        };
+        /** VaultPageLinkResponse */
+        VaultPageLinkResponse: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
         };
         /**
          * VaultPluginSummaryResponse
@@ -19185,6 +19240,22 @@ export interface components {
             name: string;
             /** Pages */
             pages: components["schemas"]["VaultTagPage"][];
+        };
+        /** VaultUnlinkedMentionResponse */
+        VaultUnlinkedMentionResponse: {
+            /** Count */
+            count: number;
+            /** Id */
+            id: string;
+            /** Snippet */
+            snippet: string;
+            /** Title */
+            title: string;
+        };
+        /** VaultUnresolvedLinkResponse */
+        VaultUnresolvedLinkResponse: {
+            /** Title */
+            title: string;
         };
         /**
          * VaultViewInput
@@ -30941,7 +31012,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultBacklinkResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -32571,7 +32642,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultLinkMentionsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35291,7 +35362,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultOutlinksResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39130,7 +39201,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultUnlinkedMentionResponse"][];
                 };
             };
             /** @description Validation Error */

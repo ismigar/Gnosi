@@ -18,7 +18,7 @@ import {
 /**
  * Vault selector (personal multi-vault mode). Lists the vaults, allows creating new ones, and
  * switching the active one (saved to localStorage as `gnosi_active_vault` and propagated via X-Vault-Id on
- * every request — see pageEtagInterceptor). Useful for cloning Notion into a separate vault,
+ * every request — see the shared request-context middleware). Useful for cloning Notion into a separate vault,
  * validating it in isolation, and adopting or discarding it.
  */
 export default function VaultSwitcher() {

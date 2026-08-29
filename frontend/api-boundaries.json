@@ -13,7 +13,6 @@
     "frontend/src/shared/api/specialized-transports.ts": "Typed WebSocket constructor boundary shared by collaboration providers."
   },
   "xmlHttpRequest": {
-    "frontend/src/shared/api/legacy-http.ts": "Upload progress requires XMLHttpRequest until all upload endpoints expose a generated streaming contract.",
     "frontend/src/shared/api/vault-content.ts": "The reviewed typed Vault upload adapter preserves browser upload-progress events, which Fetch does not expose."
   }
 }
