@@ -33,6 +33,10 @@ describe('notebook Resource catalog', () => {
     });
 
     it('normalizes an older response without facets', () => {
-        expect(normalizeResourceFacets()).toEqual({ types: [], authors: [], tags: [] });
+        expect(normalizeResourceFacets()).toEqual({
+            types: [],
+            authors: [],
+            tags: [],
+        });
     });
 });

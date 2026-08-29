@@ -35,9 +35,9 @@ describe('buildVaultSidebarTrees', () => {
         const tree = buildVaultSidebarTrees([area, food, futureCare, foodChild]);
 
         expect(tree.rootPages).toEqual([]);
-        expect(tree.dataChildrenMap.areas.roots).toEqual([area]);
-        expect(tree.dataChildrenMap.areas.children[area.id]).toEqual([food, futureCare]);
-        expect(tree.dataChildrenMap.areas.children[food.id]).toEqual([foodChild]);
+        expect(tree.dataChildrenMap.areas?.roots).toEqual([area]);
+        expect(tree.dataChildrenMap.areas?.children[area.id]).toEqual([food, futureCare]);
+        expect(tree.dataChildrenMap.areas?.children[food.id]).toEqual([foodChild]);
     });
 
     it('keeps a Wiki page visible at the Wiki root when its parent is missing', () => {

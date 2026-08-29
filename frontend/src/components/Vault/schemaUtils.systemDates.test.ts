@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveSystemDateValue, withResolvedSystemDates } from './schemaUtils';
-
-
 const schema = {
     Title: 'title',
     'Data de creació': 'created_time',

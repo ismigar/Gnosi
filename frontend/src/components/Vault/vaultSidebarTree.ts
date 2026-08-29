@@ -1,5 +1,46 @@
 import { isAppContent, isCalendarPage } from './schemaUtils';
 
+interface SidebarMetadata {
+    database_table_id?: string | null;
+    is_dashboard?: boolean;
+    is_template?: boolean;
+    table_id?: string | null;
+    [key: string]: unknown;
+}
+
+interface SidebarPage {
+    folder?: string | null;
+    id: string;
+    is_database?: boolean;
+    metadata?: SidebarMetadata;
+    parent_id?: string | null;
+    resolved_table_id?: string | null;
+    title?: string;
+    [key: string]: unknown;
+}
+
+type SidebarSection =
+    | { kind: 'dashboard' }
+    | { kind: 'data'; tableId: string | null }
+    | { kind: 'wiki' };
+
+interface DataTree<Page extends SidebarPage> {
+    children: Record<string, Page[]>;
+    roots: Page[];
+}
+
+interface VaultSidebarTrees<Page extends SidebarPage> {
+    childrenMap: Record<string, Page[]>;
+    dashboardChildrenMap: Record<string, Page[]>;
+    dashboardRootPages: Page[];
+    dataChildrenMap: Record<string, DataTree<Page>>;
+    rootPages: Page[];
+}
+
+function stringifySidebarValue(value: unknown): string {
+    return Reflect.apply(String, undefined, [value]);
+}
+
 /**
  * Builds the page trees used by the Vault sidebar.
  *
@@ -7,19 +48,30 @@ import { isAppContent, isCalendarPage } from './schemaUtils';
  * file below a database row stays a Wiki file, while its sidebar node is placed
  * below that row in the Data tree.
  */
-export const buildVaultSidebarTrees = (pages = []) => {
-    const childrenMap = {};
-    const rootPages = [];
-    const dataChildrenMap = {};
-    const dashboardChildrenMap = {};
-    const dashboardRootPages = [];
+export const buildVaultSidebarTrees = <Page extends SidebarPage>(
+    pages: readonly Page[] = [],
+): VaultSidebarTrees<Page> => {
+    const childrenMap: Record<string, Page[]> = {};
+    const rootPages: Page[] = [];
+    const dataChildrenMap: Record<string, DataTree<Page>> = {};
+    const dashboardChildrenMap: Record<string, Page[]> = {};
+    const dashboardRootPages: Page[] = [];
 
-    const pagesById = {};
+    const dataTreeFor = (tableId: string): DataTree<Page> => {
+        const tableTree = dataChildrenMap[tableId] ?? {
+            roots: [],
+            children: {},
+        };
+        dataChildrenMap[tableId] = tableTree;
+        return tableTree;
+    };
+
+    const pagesById: Record<string, Page> = {};
     pages.forEach((page) => { pagesById[page.id] = page; });
 
-    const isDashboardPage = (page) => {
+    const isDashboardPage = (page: Page | undefined): boolean => {
         if (!page) return false;
-        const folder = String(page.folder || '');
+        const folder = stringifySidebarValue(page.folder || '');
         return page.metadata?.is_dashboard === true
             || folder === 'Dashboard'
             || folder.startsWith('Dashboard/')
@@ -27,9 +79,9 @@ export const buildVaultSidebarTrees = (pages = []) => {
             || folder.startsWith('.Dashboards/');
     };
 
-    const ownTableId = (page) =>
+    const ownTableId = (page: Page): string | null | undefined =>
         page.resolved_table_id || page.metadata?.table_id || page.metadata?.database_table_id;
-    const hasOwnDataMarkers = (page) => {
+    const hasOwnDataMarkers = (page: Page): boolean => {
         const tableId = ownTableId(page);
         return page.is_database || (!!tableId && tableId !== 'wiki') || page.folder?.startsWith('BD/');
     };
@@ -37,16 +89,19 @@ export const buildVaultSidebarTrees = (pages = []) => {
     // This resolves sidebar placement, not storage membership. Wiki descendants
     // inherit a database parent's Data placement so the complete hierarchy is
     // rendered below the row. Their own metadata remains unchanged.
-    const sectionCache = {};
-    const sectionOf = (page, visiting) => {
+    const sectionCache: Record<string, SidebarSection> = {};
+    const sectionOf = (
+        page: Page | undefined,
+        visiting?: Set<string>,
+    ): SidebarSection => {
         if (!page) return { kind: 'wiki' };
         const cached = sectionCache[page.id];
         if (cached) return cached;
-        const seen = visiting || new Set();
+        const seen = visiting || new Set<string>();
         if (seen.has(page.id)) return { kind: 'wiki' };
         seen.add(page.id);
 
-        let section;
+        let section: SidebarSection;
         if (isDashboardPage(page)) {
             section = { kind: 'dashboard' };
         } else if (hasOwnDataMarkers(page)) {
@@ -72,13 +127,15 @@ export const buildVaultSidebarTrees = (pages = []) => {
             || isCalendarPage(page)
             || (isAppContent(page) && !hasOwnDataMarkers(page))) return;
 
-        const parent = page.parent_id ? pagesById[page.parent_id] : null;
+        const parentId = page.parent_id;
+        const parent = parentId ? pagesById[parentId] : undefined;
         const section = sectionOf(page);
 
         if (section.kind === 'dashboard') {
-            if (parent && sectionOf(parent).kind === 'dashboard') {
-                if (!dashboardChildrenMap[page.parent_id]) dashboardChildrenMap[page.parent_id] = [];
-                dashboardChildrenMap[page.parent_id].push(page);
+            if (parentId && parent && sectionOf(parent).kind === 'dashboard') {
+                const siblings = dashboardChildrenMap[parentId] ?? [];
+                siblings.push(page);
+                dashboardChildrenMap[parentId] = siblings;
             } else {
                 dashboardRootPages.push(page);
             }
@@ -88,18 +145,14 @@ export const buildVaultSidebarTrees = (pages = []) => {
         if (section.kind === 'data') {
             if (!section.tableId) return;
             const parentSection = parent ? sectionOf(parent) : null;
-            if (parentSection?.kind === 'data' && parentSection.tableId === section.tableId) {
-                if (!dataChildrenMap[section.tableId]) {
-                    dataChildrenMap[section.tableId] = { roots: [], children: {} };
-                }
-                const tableTree = dataChildrenMap[section.tableId];
-                if (!tableTree.children[page.parent_id]) tableTree.children[page.parent_id] = [];
-                tableTree.children[page.parent_id].push(page);
+            if (parentId && parentSection?.kind === 'data'
+                && parentSection.tableId === section.tableId) {
+                const tableTree = dataTreeFor(section.tableId);
+                const siblings = tableTree.children[parentId] ?? [];
+                siblings.push(page);
+                tableTree.children[parentId] = siblings;
             } else if (hasOwnDataMarkers(page)) {
-                if (!dataChildrenMap[section.tableId]) {
-                    dataChildrenMap[section.tableId] = { roots: [], children: {} };
-                }
-                dataChildrenMap[section.tableId].roots.push(page);
+                dataTreeFor(section.tableId).roots.push(page);
             } else {
                 // A Wiki page whose database parent disappeared remains visible.
                 rootPages.push(page);
@@ -107,9 +160,10 @@ export const buildVaultSidebarTrees = (pages = []) => {
             return;
         }
 
-        if (parent && sectionOf(parent).kind === 'wiki') {
-            if (!childrenMap[page.parent_id]) childrenMap[page.parent_id] = [];
-            childrenMap[page.parent_id].push(page);
+        if (parentId && parent && sectionOf(parent).kind === 'wiki') {
+            const siblings = childrenMap[parentId] ?? [];
+            siblings.push(page);
+            childrenMap[parentId] = siblings;
         } else {
             rootPages.push(page);
         }

@@ -1,9 +1,72 @@
 /**
- * slashMenuUtils.js
+ * slashMenuUtils.ts
  * Utilities for building BlockNote Slash menu command catalogs.
- * IMPORTANT: This file MUST NOT contain JSX (pure .js extension).
+ * IMPORTANT: This file MUST NOT contain JSX (pure .ts extension).
  */
 import i18n from '../../i18n';
+
+interface SlashTable {
+    id: string;
+    name?: string | null;
+}
+
+interface SlashCommandCatalogOptions {
+    allTables?: readonly SlashTable[];
+    onOpenPageView?: (tableId?: string) => unknown;
+}
+
+interface TextCursorPosition {
+    block: unknown;
+}
+
+interface TurnIntoEditor {
+    focus(): void;
+    getTextCursorPosition(): TextCursorPosition;
+    setTextCursorPosition(block: unknown, placement: 'end'): void;
+    updateBlock(
+        block: unknown,
+        update: { props: Readonly<Record<string, unknown>>; type: string },
+    ): void;
+}
+
+interface TurnIntoCatalogOptions {
+    editor?: TurnIntoEditor;
+}
+
+interface ColumnBlock {
+    children: readonly [{ type: 'paragraph' }];
+    type: 'column';
+}
+
+interface ColumnListBlock {
+    children: readonly ColumnBlock[];
+    type: 'columnList';
+}
+
+interface ColumnLayoutEditor {
+    getTextCursorPosition(): TextCursorPosition;
+    insertBlocks(
+        blocks: readonly ColumnListBlock[],
+        referenceBlock: unknown,
+        placement: 'after',
+    ): void;
+}
+
+interface ColumnLayoutCatalogOptions {
+    editor?: ColumnLayoutEditor;
+}
+
+interface TurnIntoTarget {
+    aliases: readonly string[];
+    iconKey: string;
+    props?: Readonly<Record<string, unknown>>;
+    title: string;
+    type: string;
+}
+
+function isString(value: string | null | undefined): value is string {
+    return Boolean(value);
+}
 
 /**
  * Builds the catalog of custom Slash menu items.
@@ -12,14 +75,17 @@ import i18n from '../../i18n';
  * @param {Function} params.onOpenPageView - Callback(tableId?) to open the view modal
  * @returns {Array} - List of Slash menu groups
  */
-export function buildSlashCommandCatalog({ allTables = [], onOpenPageView } = {}) {
+export function buildSlashCommandCatalog({
+    allTables = [],
+    onOpenPageView,
+}: SlashCommandCatalogOptions = {}) {
     if (!onOpenPageView) return [];
 
     // One entry per table that opens the modal, pre-selecting it
     const tableItems = allTables.map(table => ({
         title: table.name || table.id,
         description: i18n.t('editor.slash_add_table_view', "Add a view of this table to the page"),
-        aliases: ['vault', 'vista', 'view', table.name].filter(Boolean),
+        aliases: ['vault', 'vista', 'view', table.name].filter(isString),
         group: i18n.t('editor.slash_group_knowledge', "Knowledge"),
         onItemClick: () => onOpenPageView(table.id),
     }));
@@ -45,10 +111,10 @@ export function buildSlashCommandCatalog({ allTables = [], onOpenPageView } = {}
  * @param {Function} params.editor - BlockNote editor instance
  * @returns {Array}
  */
-export function buildTurnIntoCatalog({ editor } = {}) {
+export function buildTurnIntoCatalog({ editor }: TurnIntoCatalogOptions = {}) {
     // target type + props, title, icon and alias. The "tur"/"convertir" alias
     // is common to all of them; the specific ones allow filtering within the list.
-    const targets = [
+    const targets: readonly TurnIntoTarget[] = [
         { type: 'paragraph', iconKey: 'paragraph', title: i18n.t('editor.block_type_paragraph', "Paragraph"), aliases: ['paragraf', 'paragraph', 'text', 'p'] },
         { type: 'heading', props: { level: 1 }, iconKey: 'heading1', title: i18n.t('editor.block_type_heading1', "Heading 1"), aliases: ['encapcalament', 'h1', 'titol', 'heading'] },
         { type: 'heading', props: { level: 2 }, iconKey: 'heading2', title: i18n.t('editor.block_type_heading2', "Heading 2"), aliases: ['encapcalament', 'h2', 'subtitol', 'heading'] },
@@ -93,24 +159,30 @@ export function buildTurnIntoCatalog({ editor } = {}) {
  * @param {Function} params.editor - BlockNote editor instance
  * @returns {Array}
  */
-export function buildColumnLayoutCatalog({ editor } = {}) {
+export function buildColumnLayoutCatalog({ editor }: ColumnLayoutCatalogOptions = {}) {
     const layouts = [2, 3, 4, 5].map(columns => ({
-        title: i18n.t(`editor.column_layout_${columns}`, `${columns} columns`),
+        title: i18n.t(
+            `editor.column_layout_${String(columns)}`,
+            `${String(columns)} columns`,
+        ),
         columns,
     }));
 
     return layouts.map(layout => ({
         title: layout.title,
         subtext: i18n.t('editor.column_layout_subtext', "Insert a column layout"),
-        aliases: ['columna', 'column', 'layout', `${layout.columns}col`],
+        aliases: ['columna', 'column', 'layout', `${String(layout.columns)}col`],
         group: 'Layout',
         onItemClick: () => {
             if (!editor) return;
             try {
-                const cols = Array.from({ length: layout.columns }, () => ({
-                    type: 'column',
-                    children: [{ type: 'paragraph' }],
-                }));
+                const cols: ColumnBlock[] = Array.from(
+                    { length: layout.columns },
+                    () => ({
+                        type: 'column',
+                        children: [{ type: 'paragraph' }],
+                    }),
+                );
                 editor.insertBlocks(
                     [{ type: 'columnList', children: cols }],
                     editor.getTextCursorPosition().block,

@@ -11,6 +11,19 @@ import {
     richMarkdownToBlocks,
 } from '../components/Vault/markdown-mapper';
 
+async function parseBlocks(markdown: string, editor: unknown): Promise<unknown> {
+    const blocks: unknown = await richMarkdownToBlocks(markdown, editor);
+    return blocks;
+}
+
+function serializeBlocks(blocks: unknown, editor: unknown): string {
+    const markdown: unknown = blocksToRichMarkdown(blocks, editor);
+    if (typeof markdown !== 'string') {
+        throw new Error('Expected the Markdown mapper to return text');
+    }
+    return markdown;
+}
+
 describe('citation deep links', () => {
     it('protects custom protocols for BlockNote and restores them for Markdown', () => {
         const original = '[p. 7, ¶ 2](gnosi-cite:?res=resource-1&page=7&paragraph=2)';
@@ -38,22 +51,22 @@ describe('citation deep links', () => {
         const original = '[p. 7](gnosi-cite:?res=resource-1&page=7)';
         let parsedMarkdown = '';
         const editor = {
-            tryParseMarkdownToBlocks: async (markdown) => {
+            tryParseMarkdownToBlocks: (markdown: string) => {
                 parsedMarkdown = markdown;
-                return [{
+                return Promise.resolve([{
                     type: 'paragraph',
                     content: [{
                         type: 'link',
                         href: `${CITATION_PROTOCOL_SENTINEL}?res=resource-1&page=7`,
                         content: [{ type: 'text', text: 'p. 7', styles: {} }],
                     }],
-                }];
+                }]);
             },
         };
 
-        const blocks = await richMarkdownToBlocks(original, editor);
+        const blocks = await parseBlocks(original, editor);
 
         expect(parsedMarkdown).toContain(CITATION_PROTOCOL_SENTINEL);
-        expect(blocksToRichMarkdown(blocks, editor)).toBe(original);
+        expect(serializeBlocks(blocks, editor)).toBe(original);
     });
 });

@@ -45,7 +45,11 @@ describe('global search utilities', () => {
             { id: 'title', title: 'Methodology handbook', metadata: {} },
         ];
 
-        expect(searchGlobalNotes({ notes, query: 'methodology', limit: 1 })).toEqual([notes[2]]);
+        expect(searchGlobalNotes({
+            notes,
+            query: 'methodology',
+            limit: 1,
+        })).toEqual([notes[2]]);
     });
 
     it('finds a page by alias as well as by its canonical title', () => {
