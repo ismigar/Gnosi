@@ -6,6 +6,10 @@ export type DocumentEventHandler<K extends keyof DocumentEventMap> = (
     event: DocumentEventMap[K],
 ) => void;
 
+export type ElementEventHandler<K extends keyof HTMLElementEventMap> = (
+    event: HTMLElementEventMap[K],
+) => void;
+
 export function subscribeWindowEvent<K extends keyof WindowEventMap>(
     type: K,
     handler: WindowEventHandler<K>,
@@ -28,8 +32,24 @@ export function subscribeDocumentEvent<K extends keyof DocumentEventMap>(
     };
 }
 
+export function subscribeElementEvent<K extends keyof HTMLElementEventMap>(
+    element: HTMLElement,
+    type: K,
+    handler: ElementEventHandler<K>,
+    options?: boolean | AddEventListenerOptions,
+): () => void {
+    element.addEventListener(type, handler, options);
+    return () => {
+        element.removeEventListener(type, handler, options);
+    };
+}
+
 export function currentBrowserOrigin(): string {
     return window.location.origin;
+}
+
+export function browserHasTouchPoints(): boolean {
+    return navigator.maxTouchPoints > 0;
 }
 
 export function openBrowserWindow(

@@ -59,6 +59,10 @@ export interface OpenDocumentEventDetail {
   readonly title: string;
 }
 
+export interface PageDeletedEventDetail {
+  readonly pageId: string;
+}
+
 
 export interface AppEventMap {
   readonly 'app-error': AppErrorEventDetail;
@@ -69,6 +73,7 @@ export interface AppEventMap {
   readonly 'gnosi:invalidatePreview': { readonly pageId?: string };
   readonly 'gnosi:open-pdf': OpenDocumentEventDetail;
   readonly 'gnosi:open-settings': null;
+  readonly 'gnosi:page-deleted': PageDeletedEventDetail;
   readonly 'gnosi-ai-models-changed': { readonly source: string };
   readonly 'gnosi:relation-unlinked': RelationUnlinkedEventDetail;
   readonly 'gnosi:relation-value-applied': RelationValueAppliedEventDetail;
