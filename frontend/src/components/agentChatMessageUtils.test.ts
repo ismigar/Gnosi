@@ -44,7 +44,6 @@ describe('assistant message presentation metadata', () => {
         expect(boundedProcessingMs(Number.POSITIVE_INFINITY)).toBeNull();
         expect(boundedProcessingMs(90_000_000)).toBe(86_400_000);
     });
-
     it('keeps only bounded numeric server timing fields', () => {
         expect(boundedTurnMetrics({
             total_ms: 1_250.4,
@@ -61,7 +60,6 @@ describe('assistant message presentation metadata', () => {
         });
         expect(boundedTurnMetrics(null)).toBeNull();
     });
-
     it('bounds the universal turn budget before displaying it', () => {
         const plan = requiredValue(boundedTurnPlan({
             budgets: {
@@ -78,7 +76,6 @@ describe('assistant message presentation metadata', () => {
             max_read_tool_results: 256,
         });
     });
-
     it('keeps semantic interpretation and capability metadata bounded', () => {
         const plan = requiredValue(boundedTurnPlan({
             interpretation: {
@@ -146,12 +143,10 @@ describe('assistant message presentation metadata', () => {
             historical_tool_payloads_excluded: true,
         });
     });
-
     it('classifies only bounded transient errors as retryable', () => {
         expect(isRetryableErrorCode(' agent_loop_exhausted ')).toBe(true);
         expect(isRetryableErrorCode('agent_model_unavailable')).toBe(false);
     });
-
     it('keeps only bounded operational transparency metadata', () => {
         const metadata = boundedTransparencyMetadata({
             plan: {
@@ -276,7 +271,6 @@ describe('assistant message presentation metadata', () => {
         });
         expect(evidenceSecurity.categories[0]).not.toHaveProperty('source_text');
     });
-
     it('rewinds the complete turn containing either message', () => {
         const messages = [
             { role: 'user', content: 'First', turnId: 'turn-1' },
@@ -297,7 +291,6 @@ describe('assistant message presentation metadata', () => {
             localKeepCount: 0,
         });
     });
-
     it('rewinds using legacy turn_id fields too', () => {
         const messages = [
             { role: 'user', content: 'Legacy turn', turn_id: 'turn-legacy' },
@@ -311,7 +304,6 @@ describe('assistant message presentation metadata', () => {
             prompt: 'Legacy turn',
         });
     });
-
     it('rewinds using alternative turn identifier fields', () => {
         const messages = [
             { role: 'user', content: 'Alternatiu', turn_ref: 't-1' },
@@ -325,7 +317,6 @@ describe('assistant message presentation metadata', () => {
             prompt: 'Alternatiu',
         });
     });
-
     it('merges only local presentation fields into canonical content', () => {
         const canonical = [
             { role: 'user', content: 'Question', turn_id: 'server-turn' },
@@ -355,7 +346,6 @@ describe('assistant message presentation metadata', () => {
             },
         ]);
     });
-
     it('reconciles cached metadata by turn id even when message content differs', () => {
         const canonical = [
             { role: 'user', content: 'Current user prompt', turn_id: 'turn-1' },
@@ -395,7 +385,6 @@ describe('assistant message presentation metadata', () => {
             },
         ]);
     });
-
     it('reconciles using alternate turn id keys when no strict key matches', () => {
         const canonical = [
             { role: 'user', content: 'Prompt nou', turn_ref: 't-2' },
@@ -434,7 +423,6 @@ describe('assistant message presentation metadata', () => {
             },
         ]);
     });
-
     it('uses duration-like aliases when timings are not available', () => {
         const canonical = [
             { role: 'assistant', content: 'Server timed answer' },
@@ -454,7 +442,6 @@ describe('assistant message presentation metadata', () => {
             processingMs: 2500,
         }]);
     });
-
     it('accepts alternative timing aliases from object payloads', () => {
         const canonical = [
             { role: 'assistant', content: 'Answer with alternate timing fields' },
@@ -480,7 +467,6 @@ describe('assistant message presentation metadata', () => {
             processingMs: 2_500,
         }]);
     });
-
     it('resolves effective timing from alias fields', () => {
         expect(effectiveMessageTimingMs({ processingMs: 1200 })).toBe(1200);
         expect(effectiveMessageTimingMs({ timings: { total_ms: 2400 } })).toBe(2400);
