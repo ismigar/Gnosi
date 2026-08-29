@@ -1,9 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  createVaultDatabase,
+  createVaultPage,
+  createVaultTable,
+  deleteVaultDatabase,
+  deleteVaultTable,
   fetchVaultAliasIndex,
+  fetchVaultDatabases,
   fetchVaultGlobalIndex,
+  fetchVaultPage,
+  fetchVaultPagePreview,
+  fetchVaultPages,
   fetchVaultTables,
+  openVaultLocalPath,
+  openVaultResource,
+  patchVaultPage,
+  renameVaultTable,
+  saveVaultPage,
+  warmVaultPagePreviews,
 } from './vaults';
 
 
@@ -13,18 +28,288 @@ afterEach(() => {
 });
 
 
-describe('vault registry API', () => {
-  it('loads table metadata with its optional database filter', async () => {
-    const payload = [{ id: 'notes', name: 'Notes' }];
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(payload));
+function requestAt(
+  calls: [RequestInfo | URL, RequestInit?][],
+  index: number,
+): Request {
+  const call = calls[index];
+  if (!call) throw new Error(`Expected fetch call ${String(index)}`);
+  const [input, init] = call;
+  return input instanceof Request
+    ? input
+    : new Request(new URL(String(input), window.location.origin), init);
+}
+
+
+describe('vault collections API', () => {
+  it('lists, creates and deletes databases with exact paths and bodies', async () => {
+    const databases = [{ id: 'brain', name: 'Brain' }];
+    const created = { id: 'research', name: 'Research' };
+    const deleted = { id: 'research', name: 'Research' };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(databases))
+      .mockResolvedValueOnce(Response.json(created))
+      .mockResolvedValueOnce(Response.json(deleted));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(fetchVaultTables('brain')).resolves.toEqual(payload);
+    const controller = new AbortController();
+    await expect(fetchVaultDatabases(controller.signal)).resolves.toEqual(databases);
+    await expect(createVaultDatabase({ name: 'Research' })).resolves.toEqual(created);
+    await expect(deleteVaultDatabase('research')).resolves.toEqual(deleted);
 
-    const input: RequestInfo | URL | undefined = fetchMock.mock.calls[0]?.[0];
-    if (!(input instanceof Request)) throw new Error('Expected a Request instance');
-    expect(new URL(input.url).searchParams.get('database_id')).toBe('brain');
+    const listRequest = requestAt(fetchMock.mock.calls, 0);
+    expect(new URL(listRequest.url).pathname).toBe('/api/vault/databases');
+    controller.abort();
+    expect(listRequest.signal.aborted).toBe(true);
+
+    const createRequest = requestAt(fetchMock.mock.calls, 1);
+    expect(createRequest.method).toBe('POST');
+    expect(new URL(createRequest.url).pathname).toBe('/api/vault/databases');
+    await expect(createRequest.json()).resolves.toEqual({ name: 'Research' });
+
+    const deleteRequest = requestAt(fetchMock.mock.calls, 2);
+    expect(deleteRequest.method).toBe('DELETE');
+    expect(new URL(deleteRequest.url).pathname).toBe(
+      '/api/vault/databases/research',
+    );
   });
+
+
+  it('uses generated table filters, revision queries and mutation bodies', async () => {
+    const tables = [{ id: 'notes', name: 'Notes' }];
+    const created = { id: 'sources', name: 'Sources' };
+    const renamed = { id: 'sources', name: 'References' };
+    const deleted = { id: 'sources', name: 'References' };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(tables))
+      .mockResolvedValueOnce(Response.json(created))
+      .mockResolvedValueOnce(Response.json(renamed))
+      .mockResolvedValueOnce(Response.json(deleted));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchVaultTables('brain')).resolves.toEqual(tables);
+    await expect(
+      createVaultTable({ database_id: 'brain', name: 'Sources' }),
+    ).resolves.toEqual(created);
+    await expect(
+      renameVaultTable('sources', { name: 'References' }),
+    ).resolves.toEqual(renamed);
+    await expect(
+      deleteVaultTable('sources', {
+        expected_asset_revision: 'asset-3',
+        expected_table_revision: 'table-2',
+        expected_views_revision: 'views-1',
+      }),
+    ).resolves.toEqual(deleted);
+
+    const listUrl = new URL(requestAt(fetchMock.mock.calls, 0).url);
+    expect(listUrl.pathname).toBe('/api/vault/tables');
+    expect(listUrl.searchParams.get('database_id')).toBe('brain');
+
+    const createRequest = requestAt(fetchMock.mock.calls, 1);
+    expect(createRequest.method).toBe('POST');
+    await expect(createRequest.json()).resolves.toEqual({
+      database_id: 'brain',
+      name: 'Sources',
+    });
+
+    const renameRequest = requestAt(fetchMock.mock.calls, 2);
+    expect(renameRequest.method).toBe('PUT');
+    expect(new URL(renameRequest.url).pathname).toBe('/api/vault/tables/sources');
+    await expect(renameRequest.json()).resolves.toEqual({ name: 'References' });
+
+    const deleteRequest = requestAt(fetchMock.mock.calls, 3);
+    const deleteUrl = new URL(deleteRequest.url);
+    expect(deleteRequest.method).toBe('DELETE');
+    expect(deleteUrl.pathname).toBe('/api/vault/tables/sources');
+    expect(Object.fromEntries(deleteUrl.searchParams)).toEqual({
+      expected_asset_revision: 'asset-3',
+      expected_table_revision: 'table-2',
+      expected_views_revision: 'views-1',
+    });
+  });
+});
+
+
+describe('vault pages API', () => {
+  it('loads page lists and details with exact query, path and abort signal', async () => {
+    const pages = [{ id: 'page-1', title: 'Page one' }];
+    const page = { content: '# Page one', id: 'page-1', title: 'Page one' };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(pages))
+      .mockResolvedValueOnce(Response.json(page));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    await expect(
+      fetchVaultPages(
+        { folder: 'Projects', limit: 25, offset: 5, only_calendar: true },
+        controller.signal,
+      ),
+    ).resolves.toEqual(pages);
+    await expect(fetchVaultPage('page-1', controller.signal)).resolves.toEqual(page);
+
+    const listRequest = requestAt(fetchMock.mock.calls, 0);
+    const listUrl = new URL(listRequest.url);
+    expect(listUrl.pathname).toBe('/api/vault/pages');
+    expect(Object.fromEntries(listUrl.searchParams)).toEqual({
+      folder: 'Projects',
+      limit: '25',
+      offset: '5',
+      only_calendar: 'true',
+    });
+
+    const pageRequest = requestAt(fetchMock.mock.calls, 1);
+    expect(new URL(pageRequest.url).pathname).toBe('/api/vault/pages/page-1');
+    controller.abort();
+    expect(listRequest.signal.aborted).toBe(true);
+    expect(pageRequest.signal.aborted).toBe(true);
+  });
+
+
+  it('loads full previews and warms their cache with exact payloads', async () => {
+    const preview = {
+      body_md: '# Preview',
+      excerpt: 'Preview',
+      id: 'page-1',
+      images: [],
+      title: 'Page one',
+    };
+    const warmed = { cached: 1, failed: 0, requested: 2, warmed: 1 };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(preview))
+      .mockResolvedValueOnce(Response.json(warmed));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchVaultPagePreview('page-1', { full: true })).resolves.toEqual(
+      preview,
+    );
+    await expect(
+      warmVaultPagePreviews({ ids: ['page-1', 'page-2'] }),
+    ).resolves.toEqual(warmed);
+
+    const previewRequest = requestAt(fetchMock.mock.calls, 0);
+    const previewUrl = new URL(previewRequest.url);
+    expect(previewUrl.pathname).toBe('/api/vault/pages/page-1/preview');
+    expect(previewUrl.searchParams.get('full')).toBe('true');
+
+    const warmRequest = requestAt(fetchMock.mock.calls, 1);
+    expect(warmRequest.method).toBe('POST');
+    expect(new URL(warmRequest.url).pathname).toBe(
+      '/api/vault/pages/preview/warm',
+    );
+    await expect(warmRequest.json()).resolves.toEqual({
+      ids: ['page-1', 'page-2'],
+    });
+  });
+
+
+  it('materializes page defaults for create, save and patch mutations', async () => {
+    const created = { id: 'page-1', message: 'created', status: 'ok' };
+    const saved = { id: 'page-1', message: 'saved', status: 'ok' };
+    const patched = { id: 'page-1', message: 'patched', status: 'ok' };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(created))
+      .mockResolvedValueOnce(Response.json(saved))
+      .mockResolvedValueOnce(Response.json(patched));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      createVaultPage({ content: '', title: 'New page' }),
+    ).resolves.toEqual(created);
+    await expect(
+      saveVaultPage('page-1', {
+        content: '# Saved',
+        force: true,
+        metadata: { type: 'note' },
+        title: 'Saved page',
+      }),
+    ).resolves.toEqual(saved);
+    await expect(
+      patchVaultPage('page-1', { metadata: { archived: true } }),
+    ).resolves.toEqual(patched);
+
+    const createRequest = requestAt(fetchMock.mock.calls, 0);
+    expect(createRequest.method).toBe('POST');
+    expect(new URL(createRequest.url).pathname).toBe('/api/vault/pages');
+    await expect(createRequest.json()).resolves.toEqual({
+      content: '',
+      force: false,
+      is_database: false,
+      metadata: {},
+      title: 'New page',
+    });
+
+    const saveRequest = requestAt(fetchMock.mock.calls, 1);
+    expect(saveRequest.method).toBe('PUT');
+    expect(new URL(saveRequest.url).pathname).toBe('/api/vault/pages/page-1');
+    await expect(saveRequest.json()).resolves.toEqual({
+      content: '# Saved',
+      force: true,
+      is_database: false,
+      metadata: { type: 'note' },
+      title: 'Saved page',
+    });
+
+    const patchRequest = requestAt(fetchMock.mock.calls, 2);
+    expect(patchRequest.method).toBe('PATCH');
+    expect(new URL(patchRequest.url).pathname).toBe('/api/vault/pages/page-1');
+    await expect(patchRequest.json()).resolves.toEqual({
+      force: false,
+      metadata: { archived: true },
+    });
+  });
+});
+
+
+describe('vault host-open API', () => {
+  it('opens local paths and resources through typed JSON operations', async () => {
+    const localResult = {
+      kind: 'file',
+      status: 'ok',
+      target: '/Users/test/document.pdf',
+    };
+    const resourceResult = {
+      opened_with: 'zotero_uri',
+      status: 'ok',
+      target: 'zotero://select/items/1_ABC',
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(localResult))
+      .mockResolvedValueOnce(Response.json(resourceResult));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      openVaultLocalPath({ url: 'file:///Users/test/document.pdf' }),
+    ).resolves.toEqual(localResult);
+    await expect(
+      openVaultResource({ zotero_uri: 'zotero://select/items/1_ABC' }),
+    ).resolves.toEqual(resourceResult);
+
+    const localRequest = requestAt(fetchMock.mock.calls, 0);
+    expect(localRequest.method).toBe('POST');
+    expect(new URL(localRequest.url).pathname).toBe('/api/vault/open-local-path');
+    await expect(localRequest.json()).resolves.toEqual({
+      url: 'file:///Users/test/document.pdf',
+    });
+
+    const resourceRequest = requestAt(fetchMock.mock.calls, 1);
+    expect(resourceRequest.method).toBe('POST');
+    expect(new URL(resourceRequest.url).pathname).toBe('/api/vault/open-resource');
+    await expect(resourceRequest.json()).resolves.toEqual({
+      zotero_uri: 'zotero://select/items/1_ABC',
+    });
+  });
+});
+
+
+describe('vault index API', () => {
 
   it('loads global page titles and aliases', async () => {
     const fetchMock = vi
