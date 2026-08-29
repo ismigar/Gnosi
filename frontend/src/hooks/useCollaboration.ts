@@ -22,8 +22,40 @@ import { ensureBackendOrigin } from '../lib/electron';
 import { canonicalizeVaultApiUrl } from '../lib/vaultRouting';
 import { openWebSocket, WEB_SOCKET_OPEN_STATE } from '../shared/api/specialized-transports';
 import { fetchSystemHealth } from '../shared/api/system';
+import {
+    defineStorageKey,
+    readStorage,
+    stringStorageCodec,
+} from '../shared/platform/browser-storage';
 
-async function buildWsUrl(pageId) {
+export interface CollaborationPeer {
+    readonly id: string;
+    readonly name: string;
+}
+
+const USER_ID_KEY = defineStorageKey('gnosi_user_id', stringStorageCodec);
+const USER_EMAIL_KEY = defineStorageKey('gnosi_user_email', stringStorageCodec);
+
+function presenceUsers(data: unknown): CollaborationPeer[] | null {
+    if (typeof data !== 'string') return null;
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(data);
+    } catch {
+        return null;
+    }
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const message = parsed as Record<string, unknown>;
+    if (message.type !== 'presence' || !Array.isArray(message.users)) return null;
+    return message.users.filter((user): user is CollaborationPeer => (
+        typeof user === 'object'
+        && user !== null
+        && typeof (user as Partial<CollaborationPeer>).id === 'string'
+        && typeof (user as Partial<CollaborationPeer>).name === 'string'
+    ));
+}
+
+async function buildWsUrl(pageId: string): Promise<string> {
     // In the Electron shell the `app://` scheme does not intercept WebSocket
     // upgrades, so connect directly to the backend host instead of relying on
     // window.location.host (which is empty under `app://`).
@@ -32,25 +64,25 @@ async function buildWsUrl(pageId) {
     const proto = base.startsWith('https') ? 'wss' : 'ws';
     const host = backendOrigin ? backendOrigin.replace(/^https?:\/\//, '') : window.location.host;
     const params = new URLSearchParams({
-        user_id: localStorage.getItem('gnosi_user_id') || 'anon',
-        name: localStorage.getItem('gnosi_user_email') || 'Anònim',
+        user_id: readStorage(USER_ID_KEY) || 'anon',
+        name: readStorage(USER_EMAIL_KEY) || 'Anònim',
     });
     const path = canonicalizeVaultApiUrl(`/api/vault/collab/${encodeURIComponent(pageId)}`);
     return `${proto}://${host}${path}?${params.toString()}`;
 }
 
-export function useCollaboration(pageId) {
-    const [peers, setPeers] = useState([]);
+export function useCollaboration(pageId: string | null | undefined) {
+    const [peers, setPeers] = useState<CollaborationPeer[]>([]);
     // The mode (personal/org) is resolved via /api/health. Defaults to 'personal'
     // → disabled, so a network error changes nothing for the single user.
     const [gnosiMode, setGnosiMode] = useState('personal');
-    const wsRef = useRef(null);
+    const wsRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
         let cancelled = false;
         fetchSystemHealth()
             .then((data) => {
-                if (!cancelled && data?.gnosi_mode) setGnosiMode(data.gnosi_mode);
+                if (!cancelled && data.gnosi_mode) setGnosiMode(data.gnosi_mode);
             })
             .catch(() => {
                 /* network down → stays 'personal' (collaboration disabled) */
@@ -61,7 +93,7 @@ export function useCollaboration(pageId) {
     }, []);
 
     const enabled = gnosiMode === 'org' && !!pageId;
-    const selfId = localStorage.getItem('gnosi_user_id') || 'anon';
+    const selfId = readStorage(USER_ID_KEY) || 'anon';
 
     useEffect(() => {
         // When disabled (personal mode or no page) we don't open anything.
@@ -72,10 +104,10 @@ export function useCollaboration(pageId) {
         }
 
         let closed = false;
-        let retryTimer = null;
+        let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-        const connect = async () => {
-            let ws;
+        const connect = async (): Promise<void> => {
+            let ws: WebSocket;
             try {
                 ws = openWebSocket(await buildWsUrl(pageId));
             } catch {
@@ -83,24 +115,18 @@ export function useCollaboration(pageId) {
             }
             wsRef.current = ws;
 
-            ws.onmessage = (event) => {
-                let msg;
-                try {
-                    msg = JSON.parse(event.data);
-                } catch {
-                    return;
-                }
-                if (msg?.type === 'presence') {
-                    // We exclude the user themselves: the indicator shows "the others".
-                    setPeers((msg.users || []).filter((u) => u.id !== selfId));
-                }
+            ws.onmessage = (event: MessageEvent<unknown>) => {
+                const users = presenceUsers(event.data);
+                if (users) setPeers(users.filter((user) => user.id !== selfId));
             };
 
             ws.onclose = () => {
                 if (!closed) {
                     // Simple reconnection with a fixed backoff (3s). Enough for
                     // the skeleton; an exponential backoff would be the next step.
-                    retryTimer = setTimeout(connect, 3000);
+                    retryTimer = setTimeout(() => {
+                        void connect();
+                    }, 3000);
                 }
             };
 
@@ -113,7 +139,7 @@ export function useCollaboration(pageId) {
             };
         };
 
-        connect();
+        void connect();
 
         return () => {
             closed = true;
@@ -130,7 +156,7 @@ export function useCollaboration(pageId) {
         // selfId is derived from localStorage; we reconnect if the page or state changes.
     }, [enabled, pageId, selfId]);
 
-    const send = useCallback((message) => {
+    const send = useCallback((message: unknown): void => {
         const ws = wsRef.current;
         if (ws && ws.readyState === WEB_SOCKET_OPEN_STATE) {
             ws.send(JSON.stringify(message));

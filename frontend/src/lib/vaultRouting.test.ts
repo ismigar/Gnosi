@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+// Contract coverage for the typed canonical and legacy routing boundary.
+
 import {
     activateVault,
     canonicalizeVaultApiUrl,

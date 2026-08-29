@@ -14,6 +14,11 @@ export interface AppEventMap {
   readonly 'gnosi:floating-panel-open': { readonly panelId: string };
   readonly 'gnosi:invalidatePreview': { readonly pageId: string };
   readonly 'gnosi:vault-name-changed': null;
+  readonly 'gnosi:vault-changed': {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  };
   readonly pageEtagConflict: PageEtagConflictEventDetail;
 }
 

@@ -12,7 +12,7 @@
 /** True when running inside the Electron renderer (packaged or `--dev`). */
 export const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
-let backendOriginPromise = null;
+let backendOriginPromise: Promise<string | null> | null = null;
 
 /**
  * Resolves the backend origin (e.g. `http://localhost:5002`) for direct
@@ -24,15 +24,17 @@ let backendOriginPromise = null;
  *
  * @returns {string|null} cached backend origin, or null if not yet known / not Electron
  */
-export function getBackendOrigin() {
+export function getBackendOrigin(): string | null {
   if (!isElectron) return null;
   if (backendOriginPromise) {
     // Best-effort synchronous read of the cached value.
-    let cached = null;
-    backendOriginPromise.then((v) => { cached = v; }).catch(() => {});
+    let cached: string | null = null;
+    void backendOriginPromise.then((value) => {
+      cached = value;
+    }).catch(() => undefined);
     return cached;
   }
-  ensureBackendOrigin();
+  void ensureBackendOrigin();
   return null;
 }
 
@@ -42,12 +44,15 @@ export function getBackendOrigin() {
  *
  * @returns {Promise<string|null>}
  */
-export async function ensureBackendOrigin() {
+export async function ensureBackendOrigin(): Promise<string | null> {
   if (!isElectron) return null;
   if (!backendOriginPromise) {
-    backendOriginPromise = window.electronAPI
-      .getBackendURL()
-      .catch(() => null);
+    const getBackendUrl = window.electronAPI?.getBackendURL;
+    backendOriginPromise = getBackendUrl
+      ? getBackendUrl()
+          .then((origin) => typeof origin === 'string' && origin ? origin : null)
+          .catch(() => null)
+      : Promise.resolve(null);
   }
   return backendOriginPromise;
 }
