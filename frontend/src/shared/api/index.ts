@@ -144,13 +144,19 @@ export { useVaultCatalog } from './useVaultCatalog';
 export {
   createVault,
   deleteVault,
+  fetchVaultAliasIndex,
   fetchVaultCatalog,
+  fetchVaultGlobalIndex,
+  fetchVaultTables,
   renameVault,
 } from './vaults';
 export type {
+  VaultAliasIndex,
   VaultCatalog,
   VaultDeletion,
+  VaultGlobalIndex,
   VaultMutation,
+  VaultRegistryRecord,
   VaultSummary,
 } from './vaults';
 export {
