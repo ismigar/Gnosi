@@ -149,7 +149,6 @@
       "frontend/src/components/AI/AIResourcesSettings.jsx": 883,
       "frontend/src/components/AI/AIResourcesSettings.test.jsx": 153,
       "frontend/src/components/AIModelComparisonModal.jsx": 918,
-      "frontend/src/components/AIUsageHistoryModal.jsx": 324,
       "frontend/src/components/AgentChat.jsx": 2723,
       "frontend/src/components/AgentConfirmations.test.js": 231,
       "frontend/src/components/AgentContextSources.jsx": 569,
