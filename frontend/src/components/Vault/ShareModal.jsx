@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from '../../shared/api/legacy-http';
 import { Share2, X, Link2, Copy, Trash2, Check, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import {
+    createShareLink,
+    fetchShareLinks,
+    revokeShareLink,
+} from '../../shared/api/sharing';
 import { ConfirmModal } from '../ConfirmModal';
 
 const PERMISSIONS = [
@@ -31,8 +35,8 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
         if (!pageId) return;
         setLoading(true);
         try {
-            const res = await axios.get(`/api/vault/pages/${pageId}/shares`);
-            setShares(res.data?.shares || []);
+            const data = await fetchShareLinks(pageId);
+            setShares(data?.shares || []);
         } catch (err) {
             console.error('Error loading shared links:', err);
             toast.error(t('errors.shares_load', { defaultValue: "Could not load the links" }));
@@ -60,12 +64,12 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
             const body = { permission };
             const days = parseInt(expiresInDays, 10);
             if (!Number.isNaN(days) && days > 0) body.expires_in_days = days;
-            const res = await axios.post(`/api/vault/pages/${pageId}/share`, body);
-            setShares(prev => [...prev, res.data]);
+            const share = await createShareLink(pageId, body);
+            setShares(prev => [...prev, share]);
             // Copy the fresh link straight away — the common next action.
             try {
-                await navigator.clipboard.writeText(publicUrl(res.data.token));
-                setCopiedToken(res.data.token);
+                await navigator.clipboard.writeText(publicUrl(share.token));
+                setCopiedToken(share.token);
                 setTimeout(() => setCopiedToken(null), 2000);
             } catch { /* clipboard may be blocked; link is still listed */ }
             toast.success(t('share.created', { defaultValue: "Link created and copied" }));
@@ -91,7 +95,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
         const target = revokeTarget;
         if (!target) return;
         try {
-            await axios.delete(`/api/vault/share/${target.token}`);
+            await revokeShareLink(target.token);
             setShares(prev => prev.filter(s => s.token !== target.token));
         } catch (err) {
             console.error('Error revoking link:', err);
