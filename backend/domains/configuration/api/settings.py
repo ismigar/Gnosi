@@ -8,6 +8,11 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from backend.config.app_config import load_params
+from backend.domains.configuration.settings_schemas import (
+    ConfigurationDocument,
+    ConfigurationUpdateRequest,
+    ConfigurationUpdateResponse,
+)
 from backend.security.ai_credentials import migrate_ai_provider_secrets, sanitize_ai_config
 from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
@@ -22,7 +27,7 @@ log = logging.getLogger(__name__)
 # Note: We now fetch the dynamic path from app_config at runtime
 
 
-@router.get("/config", response_model=None)
+@router.get("/config", response_model=ConfigurationDocument)
 async def get_config() -> Any:
     try:
         # Reload params to get the latest version from disk
@@ -82,14 +87,14 @@ def deep_merge(
     return dict1
 
 
-async def _request_config(request: Request) -> dict[str, Any]:
+def _request_config(payload: ConfigurationUpdateRequest) -> dict[str, Any]:
     """Read one non-empty JSON object while retaining legacy error handling."""
-    payload: object = await request.json()
-    if not payload:
+    value = payload.root
+    if not value:
         raise HTTPException(status_code=400, detail="No data provided")
-    if not isinstance(payload, dict):
+    if not isinstance(value, dict):
         raise TypeError("Configuration payload must be a JSON object")
-    return {str(key): value for key, value in payload.items()}
+    return {str(key): item for key, item in value.items()}
 
 
 def _validate_llm_wiki_agent(current_ai: object, new_config: dict[str, Any]) -> None:
@@ -206,10 +211,10 @@ def _evict_agent_cache(request: Request, new_config: dict[str, Any]) -> None:
         log.info("Agent graph cache evicted after an AI configuration change.")
 
 
-@router.post("/config", response_model=None)
-async def update_config(request: Request) -> Any:
+@router.post("/config", response_model=ConfigurationUpdateResponse)
+async def update_config(payload: ConfigurationUpdateRequest, request: Request) -> Any:
     try:
-        new_config = await _request_config(request)
+        new_config = _request_config(payload)
 
         # Never log the raw payload: it carries the system password and AI API
         # keys in cleartext. Log only which top-level sections were sent.

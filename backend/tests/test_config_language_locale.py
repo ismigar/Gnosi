@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import yaml
 
 from backend.domains.configuration.api import settings as config_routes
+from backend.domains.configuration.settings_schemas import ConfigurationUpdateRequest
 
 
 class _Request:
@@ -36,9 +37,14 @@ def test_config_update_preserves_unknown_valid_bcp47_locale(
         lambda value: (value, False),
     )
 
-    response = asyncio.run(config_routes.update_config(_Request({
-        "settings": {"language": "pt-BR"},
-    })))
+    response = asyncio.run(
+        config_routes.update_config(
+            ConfigurationUpdateRequest(
+                root={"settings": {"language": "pt-BR"}},
+            ),
+            _Request({"settings": {"language": "pt-BR"}}),
+        )
+    )
 
     saved = yaml.safe_load(params_path.read_text(encoding="utf-8"))
     assert response["status"] == "success"
