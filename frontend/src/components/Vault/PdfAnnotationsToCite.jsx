@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { Highlighter, Quote, Copy, Loader2 } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { fetchPdfAnnotations } from '../../shared/api/citations';
 
 /**
  * List of PDF annotations for a Resource with a "copy as citation" action.
@@ -51,16 +51,21 @@ export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false 
             setAnnotations([]);
             return;
         }
+        const controller = new AbortController();
         let cancelled = false;
         setLoading(true);
-        axios.get('/api/vault/pdf-annotations', { params: { source_uri: sourceUri } })
-            .then((r) => { if (!cancelled) setAnnotations(Array.isArray(r.data) ? r.data : []); })
+        fetchPdfAnnotations(sourceUri, controller.signal)
+            .then((data) => { if (!cancelled) setAnnotations(data); })
             .catch((err) => {
+                if (controller.signal.aborted) return;
                 console.warn('PdfAnnotationsToCite: load failed', err?.message);
                 if (!cancelled) setAnnotations([]);
             })
             .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
     }, [sourceUri]);
 
     const highlights = useMemo(

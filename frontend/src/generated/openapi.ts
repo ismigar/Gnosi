@@ -11021,6 +11021,38 @@ export interface components {
              */
             keep_messages: number;
         };
+        /** CitationResolutionResponse */
+        CitationResolutionResponse: {
+            /** Author */
+            author?: string | null;
+            /** Citation Key */
+            citation_key: string;
+            /** Folder */
+            folder: string | null;
+            /** Id */
+            id: string | null;
+            /** Title */
+            title: string | null;
+            /** Year */
+            year?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CitationSearchItemResponse */
+        CitationSearchItemResponse: {
+            /** Author */
+            author: string | null;
+            /** Citation Key */
+            citation_key: string | null;
+            /** Folder */
+            folder: string | null;
+            /** Id */
+            id: string | null;
+            /** Title */
+            title: string | null;
+            /** Year */
+            year: string | null;
+        };
         /**
          * ClearNotificationsResponse
          * @description Acknowledgement after clearing the notification log.
@@ -14603,6 +14635,40 @@ export interface components {
             parent_id?: string | null;
             /** Title */
             title: string;
+        };
+        /** PdfAnnotationDeletedResponse */
+        PdfAnnotationDeletedResponse: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
+        };
+        /** PdfAnnotationResponse */
+        PdfAnnotationResponse: {
+            /** Color */
+            color: string | null;
+            /** Comment */
+            comment: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Id */
+            id: number;
+            /** Page */
+            page: number;
+            /** Rects */
+            rects: {
+                [key: string]: number;
+            }[];
+            /** Source Uri */
+            source_uri: string;
+            /** Tags */
+            tags: string | null;
+            /** Text */
+            text: string | null;
+            /** Type */
+            type: string;
+            /** Updated At */
+            updated_at: string | null;
         };
         /**
          * PersonalMemoryPayload
@@ -33834,7 +33900,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PdfAnnotationResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -33874,7 +33940,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PdfAnnotationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33912,7 +33978,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PdfAnnotationDeletedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33954,7 +34020,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PdfAnnotationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35311,7 +35377,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CitationResolutionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35470,7 +35536,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CitationSearchItemResponse"][];
                 };
             };
             /** @description Validation Error */

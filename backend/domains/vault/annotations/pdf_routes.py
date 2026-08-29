@@ -37,6 +37,25 @@ class _PdfAnnotationUpdate(BaseModel):
     tags: _legacy.Optional[str] = None
 
 
+class PdfAnnotationResponse(BaseModel):
+    id: int
+    source_uri: str
+    page: int
+    type: str
+    color: str | None
+    rects: list[dict[str, float]]
+    text: str | None
+    comment: str | None
+    tags: str | None
+    created_at: str | None
+    updated_at: str | None
+
+
+class PdfAnnotationDeletedResponse(BaseModel):
+    status: str
+    id: int
+
+
 def _pdf_annotation_to_dict(ann: _PdfAnnotation) -> _legacy.Dict[str, _legacy.Any]:
     return {
         "id": ann.id,
@@ -53,7 +72,7 @@ def _pdf_annotation_to_dict(ann: _PdfAnnotation) -> _legacy.Dict[str, _legacy.An
     }
 
 
-@router.get("/pdf-annotations", response_model=None)
+@router.get("/pdf-annotations", response_model=list[PdfAnnotationResponse])
 def list_pdf_annotations(
     source_uri: str = _legacy.Query(..., min_length=1),
     db: _AnnSession = _legacy.Depends(_ann_get_db),
@@ -76,7 +95,7 @@ def list_pdf_annotations(
 @router.post(
     "/pdf-annotations",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=PdfAnnotationResponse,
 )
 def create_pdf_annotation(
     body: _PdfAnnotationCreate, db: _AnnSession = _legacy.Depends(_ann_get_db)
@@ -114,7 +133,7 @@ def create_pdf_annotation(
 @router.patch(
     "/pdf-annotations/{ann_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=PdfAnnotationResponse,
 )
 def update_pdf_annotation(
     ann_id: int, body: _PdfAnnotationUpdate, db: _AnnSession = _legacy.Depends(_ann_get_db)
@@ -140,7 +159,7 @@ def update_pdf_annotation(
 @router.delete(
     "/pdf-annotations/{ann_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=PdfAnnotationDeletedResponse,
 )
 def delete_pdf_annotation(
     ann_id: int, db: _AnnSession = _legacy.Depends(_ann_get_db)

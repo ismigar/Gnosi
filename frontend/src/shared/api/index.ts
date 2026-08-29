@@ -34,6 +34,22 @@ export type {
   AiUsageHistory,
 } from './ai';
 export {
+  createPdfAnnotation,
+  deletePdfAnnotation,
+  fetchPdfAnnotations,
+  resolveCitationKey,
+  searchCitations,
+  updatePdfAnnotation,
+} from './citations';
+export type {
+  CitationResolution,
+  CitationSearchItem,
+  PdfAnnotation,
+  PdfAnnotationCreateInput,
+  PdfAnnotationDeletion,
+  PdfAnnotationUpdateInput,
+} from './citations';
+export {
   fetchConfiguration,
   updateConfiguration,
 } from './configuration';

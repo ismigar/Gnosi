@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, ConfigDict
 
 from backend.domains.vault.citations.authors import find_structured_authors
 from backend.domains.vault.citations.state import CitationIndexState
@@ -23,6 +24,26 @@ class CitationSearchDependencies:
     canonicalize_id: Callable[[str], str]
     active_vault_path: Callable[[], str | Path | None]
     resolve_ensure_index: Callable[[], Callable[[str], dict[str, dict[str, Any]]]]
+
+
+class CitationSearchItemResponse(BaseModel):
+    id: str | None
+    title: str | None
+    citation_key: str | None
+    folder: str | None
+    author: str | None
+    year: str | None
+
+
+class CitationResolutionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str | None
+    title: str | None
+    folder: str | None
+    citation_key: str
+    author: str | None = None
+    year: str | None = None
 
 
 def fold_accents(value: object) -> str:
@@ -397,19 +418,22 @@ def register_routes(
         "/search-citations",
         search_citations,
         methods=["GET"],
-        response_model=None,
+        response_model=list[CitationSearchItemResponse],
     )
     router.add_api_route(
         "/resolve-by-citation-key",
         resolve_by_citation_key,
         methods=["GET"],
-        response_model=None,
+        response_model=CitationResolutionResponse,
+        response_model_exclude_unset=True,
     )
     return search_citations, resolve_by_citation_key
 
 
 __all__ = [
+    "CitationResolutionResponse",
     "CitationSearchDependencies",
+    "CitationSearchItemResponse",
     "cite_author_from_metadata",
     "cite_search_blob",
     "cite_year_from_metadata",
