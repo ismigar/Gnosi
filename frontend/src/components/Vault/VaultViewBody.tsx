@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { VaultTable } from './VaultTable';
 import { VaultKanban } from './VaultKanban';
 import { VaultGallery } from './VaultGallery';
@@ -9,6 +9,68 @@ import { DigitalBrainCalendar } from './DigitalBrainCalendar';
 import { VaultViewErrorBoundary } from './VaultViewErrorBoundary';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { resolveViewSorts, resolveViewFilters } from './schemaUtils';
+import type {
+    VaultViewConfig,
+    VaultViewPage,
+} from '../../hooks/useVaultViewData';
+import type { FilterNode } from '../../utils/vaultFilters';
+
+type RendererProps = Record<string, unknown>;
+
+const TableRenderer = VaultTable as unknown as ComponentType<RendererProps>;
+const KanbanRenderer = VaultKanban as unknown as ComponentType<RendererProps>;
+const GalleryRenderer = VaultGallery as unknown as ComponentType<RendererProps>;
+const TimelineRenderer = VaultTimeline as unknown as ComponentType<RendererProps>;
+const FeedRenderer = VaultFeed as unknown as ComponentType<RendererProps>;
+const ChartRenderer = VaultChart as unknown as ComponentType<RendererProps>;
+const CalendarRenderer = DigitalBrainCalendar as unknown as ComponentType<RendererProps>;
+
+interface VaultBodyView extends VaultViewConfig {
+    readonly calendarView?: string;
+    readonly dateField?: string;
+    readonly endDateField?: string;
+    readonly id?: string;
+}
+
+export interface VaultViewBodyProps {
+    readonly actionRules?: unknown;
+    readonly activeView?: VaultBodyView;
+    readonly allNotes?: readonly VaultViewPage[];
+    readonly feedDensity?: string;
+    readonly feedGroupMode?: string;
+    readonly functionalities?: unknown;
+    readonly idToTitle?: Readonly<Record<string, string>>;
+    readonly isEmbedded?: boolean;
+    readonly maxHeight?: number | string | null;
+    readonly notes?: readonly VaultViewPage[];
+    readonly onApplyTemplate?: (selectedIds: Set<string>, templateId: string) => void;
+    readonly onCellSaved?: () => void;
+    readonly onCreateNotebook?: (resourceIds: readonly string[]) => void;
+    readonly onCreateRecord?: () => void;
+    readonly onDeletePage?: (pageId: string, title?: string) => void;
+    readonly onDeleteSelected?: (selectedIds: Set<string>) => void;
+    readonly onEditSchema?: (section?: string) => void;
+    readonly onEscape?: () => void;
+    readonly onExitBottom?: () => void;
+    readonly onExitTop?: () => void;
+    readonly onFocusShell?: () => void;
+    readonly onNoteSelect?: (noteId: string) => void;
+    readonly onOpenParallel?: (noteId: string) => void;
+    readonly onRecordFocusRestored?: () => void;
+    readonly onSearchChange?: (value: string) => void;
+    readonly onTranslated?: () => void;
+    readonly onUpdateFieldOptions?: (...args: readonly unknown[]) => unknown;
+    readonly onUpdateNote?: (...args: readonly unknown[]) => unknown;
+    readonly onUpdateView?: (...args: readonly unknown[]) => unknown;
+    readonly registerNavApi?: (api: unknown) => void;
+    readonly restoreRecordFocus?: unknown;
+    readonly schema?: Readonly<Record<string, unknown>>;
+    readonly searchTerm?: string;
+    readonly templates?: readonly Readonly<Record<string, unknown>>[];
+    readonly type?: string;
+}
+
+const readViewFilters = resolveViewFilters as (view: VaultBodyView) => FilterNode[];
 
 /**
  * VaultViewBody — shared render of the BODY of a DB view according to its
@@ -59,8 +121,8 @@ export function VaultViewBody({
     onFocusShell,
     feedDensity = 'comfortable',
     feedGroupMode = 'none',
-}) {
-    const t = String(type || 'table').toLowerCase();
+}: VaultViewBodyProps) {
+    const t = type.toLowerCase();
 
     // Props common to components that share the same signature.
     const common = {
@@ -89,7 +151,7 @@ export function VaultViewBody({
     // modal — with a fallback to the legacy `sort`). Memoized because the resolvers
     // return new arrays on each call.
     const filteredViewConfig = useMemo(() => ({
-        filters: resolveViewFilters(activeView),
+        filters: readViewFilters(activeView),
         sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }),
         search: searchTerm,
     }), [activeView, searchTerm]);
@@ -100,14 +162,14 @@ export function VaultViewBody({
         searchTerm,
     });
 
-    let body;
+    let body: ReactNode;
     if (t === 'board') {
         // `onUpdateNote` enables drag & drop of cards between columns
         // (writes the record's grouping field on drop).
-        body = <VaultKanban {...common} isEmbedded={isEmbedded} onUpdateNote={onUpdateNote} />;
+        body = <KanbanRenderer {...common} isEmbedded={isEmbedded} onUpdateNote={onUpdateNote} />;
     } else if (t === 'gallery') {
         body = (
-            <VaultGallery
+            <GalleryRenderer
                 {...common}
                 registerNavApi={registerNavApi}
                 onExitTop={onExitTop}
@@ -117,13 +179,13 @@ export function VaultViewBody({
             />
         );
     } else if (t === 'timeline') {
-        body = <VaultTimeline {...common} onUpdateNote={onUpdateNote} />;
+        body = <TimelineRenderer {...common} onUpdateNote={onUpdateNote} />;
     } else if (t === 'chart') {
-        body = <VaultChart notes={viewFilteredNotes} schema={schema} activeView={activeView} />;
+        body = <ChartRenderer notes={viewFilteredNotes} schema={schema} activeView={activeView} />;
     } else if (t === 'feed') {
         body = (
-            <VaultFeed
-                key={activeView?.id || 'default'}
+            <FeedRenderer
+                key={activeView.id || 'default'}
                 notes={notes}
                 schema={schema}
                 idToTitle={idToTitle}
@@ -148,20 +210,20 @@ export function VaultViewBody({
         );
     } else if (t === 'calendar') {
         body = (
-            <DigitalBrainCalendar
+            <CalendarRenderer
                 // `key`: FullCalendar only reads initialView on mount; changing
                 // the "initial view" in the modal with the calendar open did nothing
                 // until you left and came back. Remounting is cheap here.
-                key={activeView?.calendarView || 'dayGridMonth'}
+                key={activeView.calendarView || 'dayGridMonth'}
                 allNotes={viewFilteredNotes}
                 onNoteSelect={onNoteSelect}
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
                 onApplyTemplate={onApplyTemplate}
                 templates={templates}
-                dateField={activeView?.dateField || ''}
-                endDateField={activeView?.endDateField || ''}
-                initialView={activeView?.calendarView || 'dayGridMonth'}
+                dateField={activeView.dateField || ''}
+                endDateField={activeView.endDateField || ''}
+                initialView={activeView.calendarView || 'dayGridMonth'}
                 // Forward the row-refresh callback so a drag/resize re-fetches
                 // the parent's notes; otherwise the event snaps back to its old
                 // date from the stale allNotes prop even though the save succeeded.
@@ -173,7 +235,7 @@ export function VaultViewBody({
     } else {
         // table / list
         body = (
-            <VaultTable
+            <TableRenderer
                 {...common}
                 templates={templates}
                 isEmbedded={isEmbedded}
@@ -202,7 +264,7 @@ export function VaultViewBody({
     // `schema`/`notes` references (which change when the data arrives) and the
     // view/type identity (view or table change).
     return (
-        <VaultViewErrorBoundary resetKeys={[t, activeView?.id, schema, notes, allNotes, isEmbedded]}>
+        <VaultViewErrorBoundary resetKeys={[t, activeView.id, schema, notes, allNotes, isEmbedded]}>
             {body}
         </VaultViewErrorBoundary>
     );
