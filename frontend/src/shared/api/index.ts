@@ -1,5 +1,14 @@
 export { $api, apiClient } from './client';
 export { ApiProvider } from './ApiProvider';
+export {
+  fetchConfiguration,
+  updateConfiguration,
+} from './configuration';
+export type {
+  ConfigurationDocument,
+  ConfigurationUpdateInput,
+  ConfigurationUpdateResponse,
+} from './configuration';
 export { assertApiSuccess, GnosiApiError, unwrapApiResult } from './errors';
 export { queryClient } from './query-client';
 export {

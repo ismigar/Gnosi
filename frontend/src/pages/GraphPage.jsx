@@ -26,6 +26,10 @@ import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
 import { GraphLoadingState } from '../components/GraphLoadingState';
 import '../viewer/style.css';
 import { transportFetch } from '../shared/api/transports';
+import {
+    fetchConfiguration,
+    updateConfiguration,
+} from '../shared/api/configuration';
 import { fetchVaultGraph } from '../shared/api/graph';
 
 const MINIMUM_LOADING_DURATION_MS = 900;
@@ -209,8 +213,7 @@ function GraphPage() {
     }, [graphData]);
 
     const fetchConfigData = () => {
-        transportFetch('/api/config')
-            .then(res => res.json())
+        fetchConfiguration()
             .then(data => setConfig(data))
             .catch(err => console.error("Error loading config:", err));
     };
@@ -363,16 +366,12 @@ function GraphPage() {
         setVisibleTables(seededTables);
         setSourcesInitialized(true);
 
-        transportFetch('/api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                graph: {
-                    sources_initialized: true,
-                    visible_databases: seededDbs,
-                    visible_tables: seededTables,
-                },
-            }),
+        updateConfiguration({
+            graph: {
+                sources_initialized: true,
+                visible_databases: seededDbs,
+                visible_tables: seededTables,
+            },
         })
             .then(() => setConfig(c => (c ? { ...c, graph: { ...c.graph, sources_initialized: true, visible_databases: seededDbs, visible_tables: seededTables } } : c)))
             .catch(e => console.error('Error seeding the graph sources:', e));
