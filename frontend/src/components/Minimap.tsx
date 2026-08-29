@@ -1,4 +1,7 @@
 import React, { useEffect, useRef } from 'react';
+import type Graph from 'graphology';
+import type Sigma from 'sigma';
+
 import {
     createMinimapTransform,
     getCameraGraphBounds,
@@ -8,12 +11,111 @@ import {
     mergeGraphBounds,
 } from '../utils/graphViewGeometry';
 
-export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanToNode, onCenter }) => {
-    const canvasRef = useRef(null);
-    const viewportRef = useRef(null);
+interface GraphPoint {
+    x: number;
+    y: number;
+}
+
+interface MinimapNodeAttributes {
+    [key: string]: unknown;
+    hidden?: boolean;
+    x: number;
+    y: number;
+}
+
+type MinimapGraph = Graph<MinimapNodeAttributes>;
+type MinimapRenderer = Sigma<MinimapNodeAttributes>;
+type MinimapTransform = NonNullable<ReturnType<typeof createMinimapTransform>>;
+
+interface NormalizationFunction {
+    (point: GraphPoint): GraphPoint;
+    ratio?: unknown;
+}
+
+interface SigmaRuntimeAccess {
+    killed?: unknown;
+    normalizationFunction?: unknown;
+}
+
+interface MinimapProps {
+    graph: MinimapGraph | null;
+    isDarkMode: boolean;
+    mainRenderer: MinimapRenderer | null;
+    onCenter?: () => void;
+    onPanToGraph?: (x: number, y: number, ratio: number) => void;
+    onPanToNode?: (nodeId: string, ratio: number) => void;
+}
+
+function sigmaRuntime(renderer: MinimapRenderer): SigmaRuntimeAccess {
+    return renderer as unknown as SigmaRuntimeAccess;
+}
+
+function isNormalizationFunction(value: unknown): value is NormalizationFunction {
+    return typeof value === 'function';
+}
+
+function normalizeGraphPoint(
+    renderer: MinimapRenderer,
+    point: GraphPoint,
+): GraphPoint {
+    const normalizationFunction = sigmaRuntime(renderer).normalizationFunction;
+    if (!isNormalizationFunction(normalizationFunction)) {
+        throw new TypeError('Sigma normalization function is unavailable');
+    }
+    return normalizationFunction.call(renderer, point);
+}
+
+function isRendererKilled(renderer: MinimapRenderer): boolean {
+    return sigmaRuntime(renderer).killed === true;
+}
+
+function visibleCameraRatio(
+    renderer: MinimapRenderer,
+    bounds: Parameters<typeof getVisibleCameraRatio>[1],
+): number {
+    const normalizationFunction = sigmaRuntime(renderer).normalizationFunction;
+    return getVisibleCameraRatio({
+        getCamera: () => renderer.getCamera(),
+        getDimensions: () => renderer.getDimensions(),
+        getGraphToViewportRatio: () => renderer.getGraphToViewportRatio(),
+        normalizationFunction: isNormalizationFunction(normalizationFunction)
+            ? { ratio: normalizationFunction.ratio }
+            : undefined,
+    }, bounds);
+}
+
+function findClosestVisibleNode(
+    graph: MinimapGraph,
+    graphPosition: GraphPoint,
+): string | null {
+    let closestNode: string | null = null;
+    let minimumDistance = Infinity;
+    graph.forEachNode((node, attributes) => {
+        if (attributes.hidden) return;
+        const dx = attributes.x - graphPosition.x;
+        const dy = attributes.y - graphPosition.y;
+        const distance = dx * dx + dy * dy;
+        if (distance < minimumDistance) {
+            minimumDistance = distance;
+            closestNode = node;
+        }
+    });
+    return closestNode;
+}
+
+export const Minimap = ({
+    graph,
+    mainRenderer,
+    isDarkMode,
+    onPanToGraph,
+    onPanToNode,
+    onCenter,
+}: MinimapProps) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const viewportRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
-    const containerRef = useRef(null);
-    const dragOffset = useRef({ x: 0, y: 0 });
+    const containerRef = useRef<HTMLDivElement>(null);
+    const dragOffset = useRef<GraphPoint>({ x: 0, y: 0 });
     const hasDragged = useRef(false);
 
     useEffect(() => {
@@ -23,9 +125,9 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
         const ctx = canvas.getContext('2d');
 
         // Store transform in ref to share between draw and click without closure staleness
-        const transformRef = { current: null };
+        const transformRef: { current: MinimapTransform | null } = { current: null };
 
-        const updateTransform = () => {
+        const updateTransform = (): MinimapTransform | null => {
             if (!containerRef.current || !canvasRef.current) return null;
 
             const { width, height } = containerRef.current.getBoundingClientRect();
@@ -42,16 +144,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
             return transformRef.current;
         };
 
-        const graphToMinimap = (gx, gy) => {
-            return transformRef.current.graphToMinimap(gx, gy);
-        };
-
-        const minimapToGraph = (mx, my) => {
-            return transformRef.current.minimapToGraph(mx, my);
-        };
-
-        // ... (inside draw function)
-        const draw = () => {
+        const draw = (): MinimapTransform | undefined => {
             if (!ctx || !containerRef.current || !canvasRef.current) return;
             const t = updateTransform();
             if (!t) return;
@@ -65,7 +158,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
 
             graph.forEachNode((_, attr) => {
                 if (attr.hidden) return;
-                const pos = graphToMinimap(attr.x, attr.y);
+                const pos = t.graphToMinimap(attr.x, attr.y);
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, 1.5, 0, Math.PI * 2);
                 ctx.fill();
@@ -74,23 +167,22 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
             return t;
         };
 
-        // 3. Sync Viewport Rect
-        const syncViewport = (currentTransform) => {
+        const syncViewport = (currentTransform?: MinimapTransform): void => {
             if (!viewportRef.current || !containerRef.current || !canvasRef.current) return;
-            if (!mainRenderer || mainRenderer.killed) return;
+            if (isRendererKilled(mainRenderer)) return;
 
             const transform = currentTransform || transformRef.current || updateTransform();
             const rect = getCameraViewportRect(mainRenderer, transform);
             if (!rect) return;
 
             const vp = viewportRef.current;
-            vp.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
-            vp.style.width = `${rect.width}px`;
-            vp.style.height = `${rect.height}px`;
+            vp.style.transform = `translate(${String(rect.x)}px, ${String(rect.y)}px)`;
+            vp.style.width = `${String(rect.width)}px`;
+            vp.style.height = `${String(rect.height)}px`;
             vp.style.display = 'block';
         };
 
-        const renderMinimap = () => {
+        const renderMinimap = (): void => {
             const transform = draw();
             if (transform) syncViewport(transform);
         };
@@ -102,12 +194,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
         mainRenderer.on('afterRender', renderMinimap);
 
         const camera = mainRenderer.getCamera();
-        if (camera) {
-            camera.on('updated', renderMinimap);
-        }
-
-        // Polling fallback to ensure smooth updates even if events are missed
-        // Removed aggressive polling: const pollInterval = setInterval(syncViewport, 50);
+        camera.on('updated', renderMinimap);
 
         // Also listen for graph changes (like visibility updates)
         // Sigma/Graphology emits 'nodeAttributesUpdated' if we use setNodeAttribute
@@ -116,66 +203,43 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
             requestAnimationFrame(renderMinimap);
         };
 
-        // If the graph instance supports events (Graphology does)
-        if (graph.on) {
-            graph.on('nodeAttributesUpdated', handleGraphUpdate);
-            graph.on('eachNodeAttributesUpdated', handleGraphUpdate);
-            graph.on('cleared', handleGraphUpdate);
-            graph.on('nodeAdded', handleGraphUpdate);
-            graph.on('nodeDropped', handleGraphUpdate);
-        }
+        graph.on('nodeAttributesUpdated', handleGraphUpdate);
+        graph.on('eachNodeAttributesUpdated', handleGraphUpdate);
+        graph.on('cleared', handleGraphUpdate);
+        graph.on('nodeAdded', handleGraphUpdate);
+        graph.on('nodeDropped', handleGraphUpdate);
 
         // Interaction
-        const handleMinimapClick = (e) => {
+        const handleMinimapClick = (event: MouseEvent): void => {
             if (isDragging.current || hasDragged.current) return;
             if (!containerRef.current) return;
 
             // Ensure transform is up to date
             const t = updateTransform();
             if (!t) {
-                console.warn("Minimap: Transform update failed (empty graph?)");
+                console.warn('Minimap: Transform update failed (empty graph?)');
                 return;
             }
 
             const rect = containerRef.current.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            const graphPos = minimapToGraph(x, y);
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const graphPos = t.minimapToGraph(x, y);
 
             // Use the live graph from renderer to ensure we have latest attributes (hidden, etc)
             const liveGraph = mainRenderer.getGraph();
 
-            // Find closest node to click to ensure we look at data
-            let closestNode = null;
-            let minDist = Infinity;
+            const closestNode = findClosestVisibleNode(liveGraph, graphPos);
 
-            liveGraph.forEachNode((node, attr) => {
-                if (attr.hidden) return;
-                const dx = attr.x - graphPos.x;
-                const dy = attr.y - graphPos.y;
-                const dist = dx * dx + dy * dy;
-                if (dist < minDist) {
-                    minDist = dist;
-                    closestNode = { ...attr, key: node }; // Store node key for attribute setting
-                }
-            });
-
-
-
-            // Re-enable Snap-to-Node
             // Keep clicks relative to the filtered graph. An absolute Sigma
             // ratio refers to the full graph, including hidden distant nodes.
             const visibleBounds = getVisibleGraphBounds(liveGraph);
-            const overviewRatio = getVisibleCameraRatio(mainRenderer, visibleBounds);
+            const overviewRatio = visibleCameraRatio(mainRenderer, visibleBounds);
             const currentRatio = mainRenderer.getCamera().getState().ratio;
             const targetRatio = Math.max(0.02, Math.min(currentRatio, overviewRatio) * 0.8);
 
-            
-
-            // Use the callback which will handle coordinate transformation
             if (closestNode && onPanToNode) {
-                onPanToNode(closestNode.key, targetRatio);
+                onPanToNode(closestNode, targetRatio);
             } else if (onPanToGraph) {
                 onPanToGraph(graphPos.x, graphPos.y, targetRatio);
             }
@@ -184,54 +248,56 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
             renderMinimap();
         };
 
-        const handleMinimapDoubleClick = () => {
+        const handleMinimapDoubleClick = (): void => {
             if (onCenter) onCenter();
         };
 
-        const handleMouseDown = (e) => {
-            if (e.target === viewportRef.current) {
+        const handleMouseDown = (event: MouseEvent): void => {
+            if (event.target === viewportRef.current) {
                 if (!containerRef.current) return;
                 isDragging.current = true;
                 hasDragged.current = false;
 
                 // Calculate offset in Sigma's normalized camera coordinates.
                 const rect = containerRef.current.getBoundingClientRect();
-                const mx = e.clientX - rect.left;
-                const my = e.clientY - rect.top;
+                const mx = event.clientX - rect.left;
+                const my = event.clientY - rect.top;
 
-                updateTransform();
-                const mouseGraphPos = minimapToGraph(mx, my);
-                const mouseCamPos = mainRenderer.normalizationFunction(mouseGraphPos);
+                const transform = updateTransform();
+                if (!transform) return;
+                const mouseGraphPos = transform.minimapToGraph(mx, my);
+                const mouseCamPos = normalizeGraphPoint(mainRenderer, mouseGraphPos);
 
                 const cameraState = mainRenderer.getCamera().getState();
                 dragOffset.current = {
                     x: cameraState.x - mouseCamPos.x,
-                    y: cameraState.y - mouseCamPos.y
+                    y: cameraState.y - mouseCamPos.y,
                 };
 
-                e.stopPropagation();
+                event.stopPropagation();
             }
         };
 
-        const handleMouseMove = (e) => {
+        const handleMouseMove = (event: MouseEvent): void => {
             if (!isDragging.current) return;
-            if (!containerRef.current || !mainRenderer || mainRenderer.killed) return;
+            if (!containerRef.current || isRendererKilled(mainRenderer)) return;
             hasDragged.current = true;
-            updateTransform(); // Ensure transform is fresh
+            const transform = updateTransform();
+            if (!transform) return;
             const rect = containerRef.current.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const graphPos = minimapToGraph(x, y);
-            const camPos = mainRenderer.normalizationFunction(graphPos);
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const graphPos = transform.minimapToGraph(x, y);
+            const camPos = normalizeGraphPoint(mainRenderer, graphPos);
 
             // Move center to mouse with offset
             mainRenderer.getCamera().setState({
                 x: camPos.x + dragOffset.current.x,
-                y: camPos.y + dragOffset.current.y
+                y: camPos.y + dragOffset.current.y,
             });
         };
 
-        const handleMouseUp = () => {
+        const handleMouseUp = (): void => {
             isDragging.current = false;
         };
 
@@ -243,27 +309,21 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
         window.addEventListener('mouseup', handleMouseUp);
 
         return () => {
-            if (mainRenderer && !mainRenderer.killed) {
+            if (!isRendererKilled(mainRenderer)) {
                 mainRenderer.off('afterRender', renderMinimap);
-            }
-            const camera = mainRenderer && !mainRenderer.killed ? mainRenderer.getCamera() : null;
-            if (camera) {
                 camera.off('updated', renderMinimap);
             }
-            if (graph.off) {
-                graph.off('nodeAttributesUpdated', handleGraphUpdate);
-                graph.off('eachNodeAttributesUpdated', handleGraphUpdate);
-                graph.off('cleared', handleGraphUpdate);
-                graph.off('nodeAdded', handleGraphUpdate);
-                graph.off('nodeDropped', handleGraphUpdate);
-            }
+            graph.off('nodeAttributesUpdated', handleGraphUpdate);
+            graph.off('eachNodeAttributesUpdated', handleGraphUpdate);
+            graph.off('cleared', handleGraphUpdate);
+            graph.off('nodeAdded', handleGraphUpdate);
+            graph.off('nodeDropped', handleGraphUpdate);
             container.removeEventListener('click', handleMinimapClick);
             container.removeEventListener('dblclick', handleMinimapDoubleClick);
             container.removeEventListener('mousedown', handleMouseDown);
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-
     }, [graph, mainRenderer, isDarkMode, onCenter, onPanToGraph, onPanToNode]);
 
     return (
