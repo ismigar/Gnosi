@@ -11,13 +11,17 @@
  * InsertContentModal, "Vault" tab).
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import {
     Image as ImageIcon, Folder, FolderOpen, ChevronRight, ChevronDown,
     FileText, Film, Music, File as FileIcon, Library, Database, Search, X,
 } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import {
+    fetchMediaPage,
+    fetchMediaRoots,
+    fetchMediaTree,
+} from '../../shared/api/media-browser';
 
 const ROOT_ICONS = {
     images: ImageIcon,
@@ -54,13 +58,9 @@ const TreeNode = React.memo(function TreeNode({ node, depth, root, activePath, o
         if (!expanded && children === null) {
             setLoading(true);
             try {
-                const res = await axios.get('/api/vault/media/tree', {
-                    params: { path: node.path, root },
-                    timeout: 30000,
-                });
-                setChildren(res.data || []);
-            } catch (err) {
-                console.error('Error loading subfolders:', err);
+                const response = await fetchMediaTree(root, node.path);
+                setChildren(response || []);
+            } catch {
                 setChildren([]);
             } finally {
                 setLoading(false);
@@ -136,15 +136,15 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
         let cancelled = false;
         (async () => {
             try {
-                const res = await axios.get('/api/vault/media/roots', { timeout: 15000 });
+                const response = await fetchMediaRoots();
                 if (cancelled) return;
-                const available = (res.data || []).filter(r => r.available);
+                const available = (response || []).filter(r => r.available);
                 setRoots(available);
                 if (available.length && !available.find(r => r.key === activeRoot)) {
                     setActiveRoot(available[0].key);
                 }
-            } catch (err) {
-                console.error('Could not load the roots:', err);
+            } catch {
+                if (!cancelled) setRoots([]);
             }
         })();
         return () => { cancelled = true; };
@@ -156,16 +156,12 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
         let cancelled = false;
         (async () => {
             try {
-                const res = await axios.get('/api/vault/media/tree', {
-                    params: { root: activeRoot },
-                    timeout: 30000,
-                });
+                const response = await fetchMediaTree(activeRoot);
                 if (cancelled) return;
-                setTree(res.data || []);
+                setTree(response || []);
                 setActivePath(null);
                 setItems([]);
-            } catch (err) {
-                console.error('Error loading tree:', err);
+            } catch {
                 if (!cancelled) setTree([]);
             }
         })();
@@ -183,10 +179,9 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
             const params = { root: activeRoot, limit: 200, offset: 0 };
             if (activePath) params.album = activePath;
             // Recursive can take a while the first time (large vault).
-            const res = await axios.get('/api/vault/media', { params, timeout: 300000 });
-            setItems(res.data?.items || []);
-        } catch (err) {
-            console.error('Error loading files:', err);
+            const response = await fetchMediaPage(params);
+            setItems(response.items || []);
+        } catch {
             toast.error(t('media_picker.load_error', "Files could not be loaded"));
             setItems([]);
         } finally {

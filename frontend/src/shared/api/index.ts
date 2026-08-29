@@ -114,6 +114,12 @@ export { uploadMeetingRecording } from './meeting-specialized';
 export type { MeetingMode } from './meeting-specialized';
 export { fetchMeetingStatus } from './meetings';
 export type { MeetingStart, MeetingStatus } from './meetings';
+export {
+  clearPageEtag,
+  getCachedPageEtag,
+  pageEtagMiddleware,
+} from './page-etag';
+export type { PageEtagConflictEventDetail } from './page-etag';
 export { queryClient } from './query-client';
 export {
   fetchResourceProcessingStatus,
@@ -596,3 +602,28 @@ export type {
   VaultSummaryResult,
   VaultSummarySettings,
 } from './vault-summary';
+export { fetchMediaPage, fetchMediaRoots, fetchMediaTree } from './media-browser';
+export type {
+  MediaItem,
+  MediaPage,
+  MediaPageQuery,
+  MediaRoot,
+  MediaTreeNode,
+} from './media-browser';
+export { importVaultMarkdown } from './markdown-import';
+export type { MarkdownImportInput, MarkdownImportResult } from './markdown-import';
+export {
+  createVaultFromTemplate,
+  downloadVaultTemplate,
+  fetchVaultTemplateCatalog,
+  fetchVaultTemplateExportPreview,
+  submitVaultTemplate,
+} from './vault-templates';
+export type {
+  VaultTemplateCatalog,
+  VaultTemplateCreation,
+  VaultTemplateCreationInput,
+  VaultTemplateExportInput,
+  VaultTemplateExportPreview,
+  VaultTemplateSubmission,
+} from './vault-templates';

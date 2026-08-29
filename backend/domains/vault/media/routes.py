@@ -7,6 +7,12 @@ from typing import cast as _strict_cast
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from backend.domains.vault.media.schemas import (
+    MediaPageResponse,
+    MediaRootResponse,
+    MediaTreeNodeResponse,
+)
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 _VALID_MEDIA_ROOTS = {"images", "assets", "library", "vault"}
@@ -31,7 +37,7 @@ def _validate_root(root: str) -> str:
     return root
 
 
-@router.get("/media/roots", response_model=None)
+@router.get("/media/roots", response_model=list[MediaRootResponse])
 async def get_media_roots() -> _LegacyAny:
     """Returns the roots available for media search (Images, Assets,
     Library, Vault). Each element indicates `available` based on whether the folder
@@ -39,7 +45,7 @@ async def get_media_roots() -> _LegacyAny:
     return _legacy.media_service.get_roots()
 
 
-@router.get("/media", response_model=None)
+@router.get("/media", response_model=MediaPageResponse)
 async def get_all_media(
     album: str | None = _legacy.Query(None),
     limit: int = _legacy.Query(50, ge=1, le=500),
@@ -100,7 +106,7 @@ async def get_albums() -> _LegacyAny:
     return _legacy.media_service.get_albums()
 
 
-@router.get("/media/tree", response_model=None)
+@router.get("/media/tree", response_model=list[MediaTreeNodeResponse])
 async def get_media_tree(
     path: str | None = _legacy.Query(None), root: str = _legacy.Query("images")
 ) -> _LegacyAny:

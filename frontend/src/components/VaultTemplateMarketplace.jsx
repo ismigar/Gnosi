@@ -1,12 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from '../shared/api/legacy-http';
 import './VaultTemplateMarketplace.css';
 import {
     AlertTriangle, CheckCircle2, Download, FileArchive, Loader,
     PackagePlus, Send, ShieldCheck, Store, X,
 } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
+import {
+    createVaultFromTemplate,
+    downloadVaultTemplate,
+    fetchVaultTemplateCatalog,
+    fetchVaultTemplateExportPreview,
+    submitVaultTemplate,
+} from '../shared/api/vault-templates';
 
 const inputStyle = {
     width: '100%', padding: '9px 11px', borderRadius: 9,
@@ -33,6 +39,10 @@ function slugify(value) {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
         .slice(0, 64) || 'vault-template';
+}
+
+function requestErrorMessage(error, fallback) {
+    return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export default function VaultTemplateMarketplace({ vaults, initialSection = 'catalog', onClose, onCreated }) {
@@ -66,13 +76,13 @@ export default function VaultTemplateMarketplace({ vaults, initialSection = 'cat
 
     useEffect(() => {
         let cancelled = false;
-        axios.get('/api/vaults/templates/catalog').then(({ data }) => {
+        fetchVaultTemplateCatalog().then((data) => {
             if (cancelled) return;
             setCatalog(data?.templates || []);
             setCatalogError(data?.unavailable || '');
             setSubmissionConfigured(Boolean(data?.submissionConfigured));
         }).catch((requestError) => {
-            if (!cancelled) setCatalogError(requestError?.response?.data?.detail || t('vault_templates.catalog_unavailable'));
+            if (!cancelled) setCatalogError(requestErrorMessage(requestError, t('vault_templates.catalog_unavailable')));
         });
         return () => { cancelled = true; };
     }, [t]);
@@ -80,9 +90,9 @@ export default function VaultTemplateMarketplace({ vaults, initialSection = 'cat
     useEffect(() => {
         if (section !== 'publish' || !activeVault || preview) return;
         setBusy('preview');
-        axios.get(`/api/vaults/${encodeURIComponent(activeVault.id)}/template-export/preview`)
-            .then(({ data }) => setPreview(data))
-            .catch((requestError) => setError(requestError?.response?.data?.detail || t('vault_templates.preview_error')))
+        fetchVaultTemplateExportPreview(activeVault.id)
+            .then((data) => setPreview(data))
+            .catch((requestError) => setError(requestErrorMessage(requestError, t('vault_templates.preview_error'))))
             .finally(() => setBusy(''));
     }, [activeVault, preview, section, t]);
 
@@ -90,7 +100,7 @@ export default function VaultTemplateMarketplace({ vaults, initialSection = 'cat
         if (!selected || !newName.trim()) return;
         setBusy('create'); setError(''); setSuccess('');
         try {
-            await axios.post('/api/vaults/from-template', {
+            await createVaultFromTemplate({
                 name: newName.trim(),
                 template_id: selected.id,
                 version: selected.version,
@@ -98,7 +108,7 @@ export default function VaultTemplateMarketplace({ vaults, initialSection = 'cat
             setSuccess(t('vault_templates.created'));
             await onCreated?.();
         } catch (requestError) {
-            setError(requestError?.response?.data?.detail || t('vault_templates.create_error'));
+            setError(requestErrorMessage(requestError, t('vault_templates.create_error')));
         } finally {
             setBusy('');
         }
@@ -108,15 +118,11 @@ export default function VaultTemplateMarketplace({ vaults, initialSection = 'cat
         if (!activeVault) return;
         setBusy('export'); setError(''); setSuccess('');
         try {
-            const response = await axios.post(
-                `/api/vaults/${encodeURIComponent(activeVault.id)}/template-export`,
-                form,
-                { responseType: 'blob' },
-            );
-            downloadBlob(response.data, `${form.id}-${form.version}.gnosi-vault.zip`);
+            const blob = await downloadVaultTemplate(activeVault.id, form);
+            downloadBlob(blob, `${form.id}-${form.version}.gnosi-vault.zip`);
             setSuccess(t('vault_templates.exported'));
         } catch (requestError) {
-            setError(requestError?.response?.data?.detail || t('vault_templates.export_error'));
+            setError(requestErrorMessage(requestError, t('vault_templates.export_error')));
         } finally {
             setBusy('');
         }
@@ -126,13 +132,10 @@ export default function VaultTemplateMarketplace({ vaults, initialSection = 'cat
         if (!activeVault) return;
         setBusy('submit'); setError(''); setSuccess('');
         try {
-            await axios.post(
-                `/api/vaults/${encodeURIComponent(activeVault.id)}/template-submissions`,
-                form,
-            );
+            await submitVaultTemplate(activeVault.id, form);
             setSuccess(t('vault_templates.submitted'));
         } catch (requestError) {
-            setError(requestError?.response?.data?.detail || t('vault_templates.submit_error'));
+            setError(requestErrorMessage(requestError, t('vault_templates.submit_error')));
         } finally {
             setBusy('');
         }

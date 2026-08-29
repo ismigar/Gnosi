@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from '../shared/api/legacy-http';
 import {
     Command, Search, FileText, Network, Users, Mail, Calendar, BookOpen,
     Share2, Image as ImageIcon, Clock, Plus, Sun, Moon, Monitor, Settings, Hash, Presentation, Upload, MessageSquare, LayoutPanelLeft, Puzzle,
@@ -10,6 +9,8 @@ import { usePluginHost } from '../plugins/usePluginHost';
 import { runCommand } from '../plugins/host';
 import { usePlugins } from '../plugins/usePlugins';
 import { vaultPath } from '../lib/vaultRouting';
+import { importVaultMarkdown } from '../shared/api/markdown-import';
+import { createVaultPage } from '../shared/api/vaults';
 
 /**
  * CommandPalette
@@ -48,10 +49,11 @@ export default function CommandPalette() {
             if (!files.length) return;
             try {
                 const payload = await Promise.all(files.map(async (f) => ({ name: f.name, content: await f.text() })));
-                const res = await axios.post('/api/vault/import', { files: payload, folder: 'Importades' });
-                window.dispatchEvent(new CustomEvent('gnosi:imported', { detail: res.data }));
+                const result = await importVaultMarkdown({ files: payload, folder: 'Importades' });
+                window.dispatchEvent(new CustomEvent('gnosi:imported', { detail: result }));
             } catch (e) {
-                window.dispatchEvent(new CustomEvent('gnosi:imported', { detail: { error: String(e?.message || e) } }));
+                const message = e instanceof Error ? e.message : String(e);
+                window.dispatchEvent(new CustomEvent('gnosi:imported', { detail: { error: message } }));
             }
         };
         inp.click();
@@ -59,8 +61,8 @@ export default function CommandPalette() {
 
     const createNote = useCallback(async () => {
         try {
-            const res = await axios.post('/api/vault/pages', { title: 'Sense títol', content: '', metadata: {} });
-            const id = res?.data?.id;
+            const page = await createVaultPage({ title: 'Sense títol', content: '', metadata: {} });
+            const id = page.id;
             if (id) navigate(vaultPath('knowledge', `page/${id}`));
         } catch { /* noop */ }
     }, [navigate]);

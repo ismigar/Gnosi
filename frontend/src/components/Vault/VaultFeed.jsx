@@ -25,7 +25,7 @@ import {
     normalizeRelationValues,
     unlinkRelationFromRecord,
 } from './relationItemUtils';
-import { transportFetch } from '../../shared/api/transports';
+import { openVaultResource } from '../../shared/api/vaults';
 import {
     fetchVaultSummarySettings,
     summarizeVaultRecord,
@@ -578,14 +578,10 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
-                            transportFetch('/api/vault/open-resource', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    zotero_uri: String(value).trim().startsWith('zotero://') ? String(value).trim() : null,
-                                    file_path: String(value).trim().startsWith('zotero://') ? null : String(value).trim(),
-                                }),
-                            });
+                            openVaultResource({
+                                zotero_uri: String(value).trim().startsWith('zotero://') ? String(value).trim() : null,
+                                file_path: String(value).trim().startsWith('zotero://') ? null : String(value).trim(),
+                            }).catch(() => undefined);
                         }}
                         className="inline-flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/20"
                         title={String(value)}

@@ -23,8 +23,21 @@ class ImportRequest(BaseModel):
     folder: str = "Importades"
 
 
+class ImportErrorResponse(BaseModel):
+    name: str
+    error: str
+
+
+class ImportResponse(BaseModel):
+    imported: int
+    errors: list[ImportErrorResponse]
+    folder: str
+
+
 @router.post(
-    "/import", dependencies=[_legacy.Depends(_legacy.require_role("editor"))], response_model=None
+    "/import",
+    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    response_model=ImportResponse,
 )
 async def import_markdown(body: ImportRequest) -> _LegacyAny:
     """Imports Markdown/Obsidian files into the vault (importer style with UI).

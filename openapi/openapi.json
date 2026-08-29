@@ -4784,6 +4784,38 @@
         "title": "CreatedTokenResponse",
         "type": "object"
       },
+      "CreatedVaultTemplateResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "signedBy": {
+            "title": "Signedby",
+            "type": "string"
+          },
+          "template": {
+            "$ref": "#/components/schemas/InstalledTemplateResponse"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "path",
+          "template",
+          "signedBy"
+        ],
+        "title": "CreatedVaultTemplateResponse",
+        "type": "object"
+      },
       "CredentialMigrationResponse": {
         "properties": {
           "failed": {
@@ -5277,6 +5309,51 @@
         "title": "DirectiveSummaryResponse",
         "type": "object"
       },
+      "DrawingDeleteResponse": {
+        "additionalProperties": true,
+        "description": "Recoverable deletion result returned by the shared Vault trash.",
+        "properties": {
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "deleted_at",
+          "title"
+        ],
+        "title": "DrawingDeleteResponse",
+        "type": "object"
+      },
+      "DrawingDocumentResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Arbitrary JSON document understood by Tldraw or legacy Excalidraw.",
+        "title": "DrawingDocumentResponse",
+        "type": "object"
+      },
       "DrawingSaveRequest": {
         "properties": {
           "data": {
@@ -5300,6 +5377,54 @@
           "data"
         ],
         "title": "DrawingSaveRequest",
+        "type": "object"
+      },
+      "DrawingSaveResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id"
+        ],
+        "title": "DrawingSaveResponse",
+        "type": "object"
+      },
+      "DrawingSummaryResponse": {
+        "additionalProperties": true,
+        "description": "Stable catalog entry for current and legacy drawing files.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_modified": {
+            "title": "Last Modified",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "last_modified",
+          "size"
+        ],
+        "title": "DrawingSummaryResponse",
         "type": "object"
       },
       "EmailConnectionTestRequest": {
@@ -7096,6 +7221,83 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HandwritingRecognitionResponse": {
+        "properties": {
+          "corrected": {
+            "title": "Corrected",
+            "type": "boolean"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "raw": {
+            "title": "Raw",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "raw",
+          "lines",
+          "model",
+          "corrected"
+        ],
+        "title": "HandwritingRecognitionResponse",
+        "type": "object"
+      },
+      "HandwritingStatusResponse": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "loaded": {
+            "title": "Loaded",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "loaded",
+          "model"
+        ],
+        "title": "HandwritingStatusResponse",
+        "type": "object"
+      },
+      "HandwritingWarmupResponse": {
+        "properties": {
+          "loaded": {
+            "title": "Loaded",
+            "type": "boolean"
+          },
+          "warming": {
+            "title": "Warming",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "warming",
+          "loaded"
+        ],
+        "title": "HandwritingWarmupResponse",
+        "type": "object"
+      },
       "HealthResponse": {
         "additionalProperties": false,
         "description": "Public liveness and deployment-mode payload.",
@@ -7477,6 +7679,24 @@
         "title": "ImageAssetResponse",
         "type": "object"
       },
+      "ImportErrorResponse": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "error"
+        ],
+        "title": "ImportErrorResponse",
+        "type": "object"
+      },
       "ImportFile": {
         "properties": {
           "content": {
@@ -7594,6 +7814,32 @@
           "format"
         ],
         "title": "ImportReferencesResponse",
+        "type": "object"
+      },
+      "ImportResponse": {
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ImportErrorResponse"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "imported": {
+            "title": "Imported",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "imported",
+          "errors",
+          "folder"
+        ],
+        "title": "ImportResponse",
         "type": "object"
       },
       "ImportedReferenceItemResponse": {
@@ -7731,6 +7977,24 @@
           "comment"
         ],
         "title": "InlineCommentRequest",
+        "type": "object"
+      },
+      "InstalledTemplateResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ],
+        "title": "InstalledTemplateResponse",
         "type": "object"
       },
       "IntegrationConnectionTestResponse": {
@@ -10061,6 +10325,224 @@
           "title"
         ],
         "title": "MaterializedTaskResponse",
+        "type": "object"
+      },
+      "MediaCoordinatesResponse": {
+        "properties": {
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          }
+        },
+        "required": [
+          "lat",
+          "lng"
+        ],
+        "title": "MediaCoordinatesResponse",
+        "type": "object"
+      },
+      "MediaItemResponse": {
+        "properties": {
+          "album": {
+            "title": "Album",
+            "type": "string"
+          },
+          "date_taken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Taken"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "extension": {
+            "title": "Extension",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_modified": {
+            "title": "Last Modified",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaCoordinatesResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "path_in_root": {
+            "title": "Path In Root",
+            "type": "string"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "url",
+          "path",
+          "path_in_root",
+          "album",
+          "root",
+          "kind",
+          "size",
+          "last_modified",
+          "extension",
+          "date_taken",
+          "location",
+          "tags",
+          "description"
+        ],
+        "title": "MediaItemResponse",
+        "type": "object"
+      },
+      "MediaPageResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MediaItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "root"
+        ],
+        "title": "MediaPageResponse",
+        "type": "object"
+      },
+      "MediaRootResponse": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "url_prefix": {
+            "title": "Url Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "url_prefix",
+          "available"
+        ],
+        "title": "MediaRootResponse",
+        "type": "object"
+      },
+      "MediaTreeNodeResponse": {
+        "properties": {
+          "has_children": {
+            "title": "Has Children",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "has_children"
+        ],
+        "title": "MediaTreeNodeResponse",
         "type": "object"
       },
       "MeetingReminderResponse": {
@@ -13158,6 +13640,658 @@
           "created_at"
         ],
         "title": "NotificationResponse",
+        "type": "object"
+      },
+      "NotionCloneAbortResponse": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "NotionCloneAbortResponse",
+        "type": "object"
+      },
+      "NotionCloneProgressResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "attachments": {
+            "title": "Attachments",
+            "type": "integer"
+          },
+          "collected": {
+            "title": "Collected",
+            "type": "integer"
+          },
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "pages_total": {
+            "title": "Pages Total",
+            "type": "integer"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "scan_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Done"
+          },
+          "scan_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Total"
+          },
+          "tables": {
+            "title": "Tables",
+            "type": "integer"
+          },
+          "tables_total": {
+            "title": "Tables Total",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id"
+          },
+          "views": {
+            "title": "Views",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "running",
+          "phase",
+          "done",
+          "total",
+          "pages",
+          "tables",
+          "views",
+          "attachments",
+          "collected",
+          "tables_total",
+          "pages_total",
+          "vault_id"
+        ],
+        "title": "NotionCloneProgressResponse",
+        "type": "object"
+      },
+      "NotionCloneResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "attachments": {
+            "title": "Attachments",
+            "type": "integer"
+          },
+          "collected": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "orphan_rows_pruned": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orphan Rows Pruned"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "pages_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages Total"
+          },
+          "scan_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Done"
+          },
+          "scan_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Total"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tables": {
+            "title": "Tables",
+            "type": "integer"
+          },
+          "tables_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tables Total"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "views": {
+            "title": "Views",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "tables",
+          "pages",
+          "views",
+          "attachments",
+          "errors",
+          "warnings",
+          "truncated"
+        ],
+        "title": "NotionCloneResponse",
+        "type": "object"
+      },
+      "NotionDatabaseResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "NotionDatabaseResponse",
+        "type": "object"
+      },
+      "NotionDatabaseSchemaResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "schema": {
+            "additionalProperties": true,
+            "title": "Schema",
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema"
+        ],
+        "title": "NotionDatabaseSchemaResponse",
+        "type": "object"
+      },
+      "NotionDatabasesResponse": {
+        "properties": {
+          "databases": {
+            "items": {
+              "$ref": "#/components/schemas/NotionDatabaseResponse"
+            },
+            "title": "Databases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "databases"
+        ],
+        "title": "NotionDatabasesResponse",
+        "type": "object"
+      },
+      "NotionImportConfigResponse": {
+        "properties": {
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          }
+        },
+        "required": [
+          "config"
+        ],
+        "title": "NotionImportConfigResponse",
+        "type": "object"
+      },
+      "NotionLinkedDatabaseResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_title": {
+            "title": "Page Title",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "page_title",
+          "kind"
+        ],
+        "title": "NotionLinkedDatabaseResponse",
+        "type": "object"
+      },
+      "NotionLinkedDatabasesResponse": {
+        "properties": {
+          "capped": {
+            "title": "Capped",
+            "type": "boolean"
+          },
+          "linked": {
+            "items": {
+              "$ref": "#/components/schemas/NotionLinkedDatabaseResponse"
+            },
+            "title": "Linked",
+            "type": "array"
+          },
+          "scanned": {
+            "title": "Scanned",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "linked",
+          "scanned",
+          "capped"
+        ],
+        "title": "NotionLinkedDatabasesResponse",
+        "type": "object"
+      },
+      "NotionLoosePageResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "NotionLoosePageResponse",
+        "type": "object"
+      },
+      "NotionLoosePagesResponse": {
+        "properties": {
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/NotionLoosePageResponse"
+            },
+            "title": "Pages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pages"
+        ],
+        "title": "NotionLoosePagesResponse",
+        "type": "object"
+      },
+      "NotionMissingAssetResponse": {
+        "properties": {
+          "asset": {
+            "title": "Asset",
+            "type": "string"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          }
+        },
+        "required": [
+          "asset"
+        ],
+        "title": "NotionMissingAssetResponse",
+        "type": "object"
+      },
+      "NotionMutationResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "NotionMutationResponse",
+        "type": "object"
+      },
+      "NotionOAuthStatusResponse": {
+        "properties": {
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "connected"
+        ],
+        "title": "NotionOAuthStatusResponse",
+        "type": "object"
+      },
+      "NotionOrphanRelationResponse": {
+        "properties": {
+          "page": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "rel": {
+            "title": "Rel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rel"
+        ],
+        "title": "NotionOrphanRelationResponse",
+        "type": "object"
+      },
+      "NotionStatusResponse": {
+        "properties": {
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "connected"
+        ],
+        "title": "NotionStatusResponse",
+        "type": "object"
+      },
+      "NotionTokenResponse": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "name"
+        ],
+        "title": "NotionTokenResponse",
+        "type": "object"
+      },
+      "NotionVerificationResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "empty_bodies": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Empty Bodies",
+            "type": "array"
+          },
+          "missing_assets": {
+            "items": {
+              "$ref": "#/components/schemas/NotionMissingAssetResponse"
+            },
+            "title": "Missing Assets",
+            "type": "array"
+          },
+          "orphan_relations": {
+            "items": {
+              "$ref": "#/components/schemas/NotionOrphanRelationResponse"
+            },
+            "title": "Orphan Relations",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/NotionVerificationSummaryResponse"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/NotionVerificationTableResponse"
+            },
+            "title": "Tables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "summary",
+          "tables",
+          "empty_bodies",
+          "orphan_relations",
+          "missing_assets"
+        ],
+        "title": "NotionVerificationResponse",
+        "type": "object"
+      },
+      "NotionVerificationSummaryResponse": {
+        "properties": {
+          "empty_bodies": {
+            "title": "Empty Bodies",
+            "type": "integer"
+          },
+          "healthy": {
+            "title": "Healthy",
+            "type": "boolean"
+          },
+          "missing_assets": {
+            "title": "Missing Assets",
+            "type": "integer"
+          },
+          "orphan_relations": {
+            "title": "Orphan Relations",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "tables_ok": {
+            "title": "Tables Ok",
+            "type": "integer"
+          },
+          "tables_total": {
+            "title": "Tables Total",
+            "type": "integer"
+          },
+          "views": {
+            "title": "Views",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "healthy",
+          "tables_ok",
+          "tables_total",
+          "pages",
+          "empty_bodies",
+          "views",
+          "orphan_relations",
+          "missing_assets"
+        ],
+        "title": "NotionVerificationSummaryResponse",
+        "type": "object"
+      },
+      "NotionVerificationTableResponse": {
+        "properties": {
+          "clone": {
+            "title": "Clone",
+            "type": "integer"
+          },
+          "missing": {
+            "title": "Missing",
+            "type": "integer"
+          },
+          "notion": {
+            "title": "Notion",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table_id",
+          "notion",
+          "clone",
+          "ok",
+          "missing"
+        ],
+        "title": "NotionVerificationTableResponse",
         "type": "object"
       },
       "OpenResourceRequest": {
@@ -18181,6 +19315,62 @@
         "title": "TaskUpdateResponse",
         "type": "object"
       },
+      "TemplateCatalogResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "signedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signedby"
+          },
+          "submissionConfigured": {
+            "title": "Submissionconfigured",
+            "type": "boolean"
+          },
+          "templates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Templates",
+            "type": "array"
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "templates",
+          "submissionConfigured"
+        ],
+        "title": "TemplateCatalogResponse",
+        "type": "object"
+      },
       "TemplateExportPayload": {
         "description": "Public metadata and privacy acknowledgement for a template export.",
         "properties": {
@@ -18254,6 +19444,64 @@
           "name"
         ],
         "title": "TemplateExportPayload",
+        "type": "object"
+      },
+      "TemplateExportPreviewResponse": {
+        "properties": {
+          "excluded": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "included": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Included",
+            "type": "array"
+          },
+          "totalSize": {
+            "title": "Totalsize",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "included",
+          "excluded",
+          "findings",
+          "totalSize"
+        ],
+        "title": "TemplateExportPreviewResponse",
+        "type": "object"
+      },
+      "TemplateSubmissionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "TemplateSubmissionResponse",
         "type": "object"
       },
       "TokenPayload": {
@@ -19766,6 +21014,46 @@
           "name"
         ],
         "title": "WorkspaceBase",
+        "type": "object"
+      },
+      "WorkspaceMemberOperationResponse": {
+        "additionalProperties": true,
+        "description": "Stable JSON envelope returned by workspace member mutations.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "WorkspaceMemberOperationResponse",
+        "type": "object"
+      },
+      "WorkspaceMemberVaultResponse": {
+        "additionalProperties": true,
+        "description": "Vault summary exposed by the workspace member-access panel.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "WorkspaceMemberVaultResponse",
         "type": "object"
       },
       "WorkspaceResponse": {
@@ -42826,7 +44114,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionOAuthStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -43051,7 +44341,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionCloneResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -43164,7 +44456,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionCloneAbortResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -43277,7 +44571,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionCloneProgressResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -43390,7 +44686,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionDatabasesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -43512,7 +44810,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionDatabaseSchemaResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -43625,7 +44925,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionImportConfigResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -43748,7 +45050,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -43861,7 +45165,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionLinkedDatabasesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -43974,7 +45280,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionLoosePagesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -44004,7 +45312,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -44106,7 +45416,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -44227,7 +45539,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionTokenResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -44350,7 +45664,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionVerificationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -56766,7 +58082,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DrawingSummaryResponse"
+                  },
+                  "title": "Response List Drawings Api Vault Drawings Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -56887,7 +58209,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DrawingDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -57006,7 +58330,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DrawingDocumentResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -57135,7 +58461,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DrawingSaveResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58323,7 +59651,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HandwritingRecognitionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58354,7 +59684,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HandwritingStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58375,7 +59707,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HandwritingWarmupResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58609,7 +59943,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -66594,7 +67930,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MediaPageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -66940,7 +68278,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaRootResponse"
+                  },
+                  "title": "Response Get Media Roots Api Vault Media Roots Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -67078,7 +68422,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaTreeNodeResponse"
+                  },
+                  "title": "Response Get Media Tree Api Vault Media Tree Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -82480,7 +83830,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedVaultTemplateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -82593,7 +83945,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateCatalogResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -82989,11 +84343,6 @@
         },
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -83113,7 +84462,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateExportPreviewResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83245,7 +84596,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateSubmissionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83720,7 +85073,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMemberOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83850,7 +85205,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMemberOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83990,7 +85347,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMemberOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -84264,7 +85623,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMemberOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -84403,7 +85764,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMemberOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -84524,7 +85887,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceMemberVaultResponse"
+                  },
+                  "title": "Response List Workspace Vaults Api Workspaces  Workspace Id  Vaults Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"

@@ -11527,6 +11527,18 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** CreatedVaultTemplateResponse */
+        CreatedVaultTemplateResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Signedby */
+            signedBy: string;
+            template: components["schemas"]["InstalledTemplateResponse"];
+        };
         /**
          * CreateFromTemplatePayload
          * @description Select an immutable template catalog entry for a new Vault.
@@ -11784,6 +11796,29 @@ export interface components {
             /** Traps Documented */
             traps_documented: number;
         };
+        /**
+         * DrawingDeleteResponse
+         * @description Recoverable deletion result returned by the shared Vault trash.
+         */
+        DrawingDeleteResponse: {
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Id */
+            id: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * DrawingDocumentResponse
+         * @description Arbitrary JSON document understood by Tldraw or legacy Excalidraw.
+         */
+        DrawingDocumentResponse: {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
         /** DrawingSaveRequest */
         DrawingSaveRequest: {
             /** Data */
@@ -11799,6 +11834,29 @@ export interface components {
             };
             /** Title */
             title: string;
+        };
+        /** DrawingSaveResponse */
+        DrawingSaveResponse: {
+            /** Id */
+            id: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * DrawingSummaryResponse
+         * @description Stable catalog entry for current and legacy drawing files.
+         */
+        DrawingSummaryResponse: {
+            /** Id */
+            id: string;
+            /** Last Modified */
+            last_modified: string;
+            /** Size */
+            size: number;
+            /** Title */
+            title: string;
+        } & {
+            [key: string]: unknown;
         };
         /** EmailConnectionTestRequest */
         EmailConnectionTestRequest: {
@@ -12355,6 +12413,35 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** HandwritingRecognitionResponse */
+        HandwritingRecognitionResponse: {
+            /** Corrected */
+            corrected: boolean;
+            /** Lines */
+            lines: string[];
+            /** Model */
+            model: string;
+            /** Raw */
+            raw: string;
+            /** Text */
+            text: string;
+        };
+        /** HandwritingStatusResponse */
+        HandwritingStatusResponse: {
+            /** Available */
+            available: boolean;
+            /** Loaded */
+            loaded: boolean;
+            /** Model */
+            model: string;
+        };
+        /** HandwritingWarmupResponse */
+        HandwritingWarmupResponse: {
+            /** Loaded */
+            loaded: boolean;
+            /** Warming */
+            warming: boolean;
+        };
         /**
          * HealthResponse
          * @description Public liveness and deployment-mode payload.
@@ -12544,6 +12631,13 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ImportErrorResponse */
+        ImportErrorResponse: {
+            /** Error */
+            error: string;
+            /** Name */
+            name: string;
+        };
         /** ImportFile */
         ImportFile: {
             /** Content */
@@ -12585,6 +12679,15 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ImportResponse */
+        ImportResponse: {
+            /** Errors */
+            errors: components["schemas"]["ImportErrorResponse"][];
+            /** Folder */
+            folder: string;
+            /** Imported */
+            imported: number;
+        };
         /** InlineComment */
         InlineComment: {
             /** Author Id */
@@ -12623,6 +12726,13 @@ export interface components {
              * @default
              */
             quote: string;
+        };
+        /** InstalledTemplateResponse */
+        InstalledTemplateResponse: {
+            /** Id */
+            id: string;
+            /** Version */
+            version: string;
         };
         /** IntegrationConnectionTestResponse */
         IntegrationConnectionTestResponse: {
@@ -13549,6 +13659,78 @@ export interface components {
             occurrence: string;
             /** Title */
             title: string;
+        };
+        /** MediaCoordinatesResponse */
+        MediaCoordinatesResponse: {
+            /** Lat */
+            lat: number | null;
+            /** Lng */
+            lng: number | null;
+        };
+        /** MediaItemResponse */
+        MediaItemResponse: {
+            /** Album */
+            album: string;
+            /** Date Taken */
+            date_taken: string | null;
+            /** Description */
+            description: string;
+            /** Extension */
+            extension: string;
+            /** Filename */
+            filename: string;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Last Modified */
+            last_modified: string;
+            location: components["schemas"]["MediaCoordinatesResponse"] | null;
+            /** Path */
+            path: string;
+            /** Path In Root */
+            path_in_root: string;
+            /** Root */
+            root: string;
+            /** Size */
+            size: number;
+            /** Tags */
+            tags: string[];
+            /** Url */
+            url: string;
+        };
+        /** MediaPageResponse */
+        MediaPageResponse: {
+            /** Items */
+            items: components["schemas"]["MediaItemResponse"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Root */
+            root: string;
+            /** Total */
+            total: number;
+        };
+        /** MediaRootResponse */
+        MediaRootResponse: {
+            /** Available */
+            available: boolean;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Url Prefix */
+            url_prefix: string;
+        };
+        /** MediaTreeNodeResponse */
+        MediaTreeNodeResponse: {
+            /** Has Children */
+            has_children: boolean;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
         };
         /**
          * MeetingReminderResponse
@@ -14667,6 +14849,227 @@ export interface components {
             title: string;
             /** Workspace Id */
             workspace_id: string;
+        };
+        /** NotionCloneAbortResponse */
+        NotionCloneAbortResponse: {
+            /** Detail */
+            detail?: string | null;
+            /** Status */
+            status: string;
+        };
+        /** NotionCloneProgressResponse */
+        NotionCloneProgressResponse: {
+            /** Attachments */
+            attachments: number;
+            /** Collected */
+            collected: number;
+            /** Done */
+            done: number;
+            /** Pages */
+            pages: number;
+            /** Pages Total */
+            pages_total: number;
+            /** Phase */
+            phase: string;
+            /** Running */
+            running: boolean;
+            /** Scan Done */
+            scan_done?: number | null;
+            /** Scan Total */
+            scan_total?: number | null;
+            /** Tables */
+            tables: number;
+            /** Tables Total */
+            tables_total: number;
+            /** Total */
+            total: number;
+            /** Vault Id */
+            vault_id: string | null;
+            /** Views */
+            views: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** NotionCloneResponse */
+        NotionCloneResponse: {
+            /** Attachments */
+            attachments: number;
+            /** Collected */
+            collected?: number | null;
+            /** Errors */
+            errors: {
+                [key: string]: unknown;
+            }[];
+            /** Orphan Rows Pruned */
+            orphan_rows_pruned?: number | null;
+            /** Pages */
+            pages: number;
+            /** Pages Total */
+            pages_total?: number | null;
+            /** Scan Done */
+            scan_done?: number | null;
+            /** Scan Total */
+            scan_total?: number | null;
+            /** Status */
+            status: string;
+            /** Tables */
+            tables: number;
+            /** Tables Total */
+            tables_total?: number | null;
+            /** Truncated */
+            truncated: boolean;
+            /** Views */
+            views: number;
+            /** Warnings */
+            warnings: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** NotionDatabaseResponse */
+        NotionDatabaseResponse: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /** NotionDatabaseSchemaResponse */
+        NotionDatabaseSchemaResponse: {
+            /** Name */
+            name?: string | null;
+            /** Schema */
+            schema: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /** NotionDatabasesResponse */
+        NotionDatabasesResponse: {
+            /** Databases */
+            databases: components["schemas"]["NotionDatabaseResponse"][];
+        };
+        /** NotionImportConfigResponse */
+        NotionImportConfigResponse: {
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** NotionLinkedDatabaseResponse */
+        NotionLinkedDatabaseResponse: {
+            /** Kind */
+            kind: string;
+            /** Page Title */
+            page_title: string;
+            /** Title */
+            title: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** NotionLinkedDatabasesResponse */
+        NotionLinkedDatabasesResponse: {
+            /** Capped */
+            capped: boolean;
+            /** Linked */
+            linked: components["schemas"]["NotionLinkedDatabaseResponse"][];
+            /** Scanned */
+            scanned: number;
+        };
+        /** NotionLoosePageResponse */
+        NotionLoosePageResponse: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /** NotionLoosePagesResponse */
+        NotionLoosePagesResponse: {
+            /** Pages */
+            pages: components["schemas"]["NotionLoosePageResponse"][];
+        };
+        /** NotionMissingAssetResponse */
+        NotionMissingAssetResponse: {
+            /** Asset */
+            asset: string;
+            /** Page */
+            page?: string | null;
+        };
+        /** NotionMutationResponse */
+        NotionMutationResponse: {
+            /** Status */
+            status: string;
+        };
+        /** NotionOAuthStatusResponse */
+        NotionOAuthStatusResponse: {
+            /** Connected */
+            connected: boolean;
+        };
+        /** NotionOrphanRelationResponse */
+        NotionOrphanRelationResponse: {
+            /** Page */
+            page?: string | null;
+            /** Rel */
+            rel: string;
+        };
+        /** NotionStatusResponse */
+        NotionStatusResponse: {
+            /** Connected */
+            connected: boolean;
+        };
+        /** NotionTokenResponse */
+        NotionTokenResponse: {
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+        };
+        /** NotionVerificationResponse */
+        NotionVerificationResponse: {
+            /** Empty Bodies */
+            empty_bodies: (string | null)[];
+            /** Missing Assets */
+            missing_assets: components["schemas"]["NotionMissingAssetResponse"][];
+            /** Orphan Relations */
+            orphan_relations: components["schemas"]["NotionOrphanRelationResponse"][];
+            /** Status */
+            status: string;
+            summary: components["schemas"]["NotionVerificationSummaryResponse"];
+            /** Tables */
+            tables: components["schemas"]["NotionVerificationTableResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** NotionVerificationSummaryResponse */
+        NotionVerificationSummaryResponse: {
+            /** Empty Bodies */
+            empty_bodies: number;
+            /** Healthy */
+            healthy: boolean;
+            /** Missing Assets */
+            missing_assets: number;
+            /** Orphan Relations */
+            orphan_relations: number;
+            /** Pages */
+            pages: number;
+            /** Tables Ok */
+            tables_ok: number;
+            /** Tables Total */
+            tables_total: number;
+            /** Views */
+            views: number;
+        };
+        /** NotionVerificationTableResponse */
+        NotionVerificationTableResponse: {
+            /** Clone */
+            clone: number;
+            /** Missing */
+            missing: number;
+            /** Notion */
+            notion: number;
+            /** Ok */
+            ok: boolean;
+            /** Table Id */
+            table_id: string;
         };
         /** OpenResourceRequest */
         OpenResourceRequest: {
@@ -16858,6 +17261,23 @@ export interface components {
             success: true;
             task: components["schemas"]["ScheduledTaskResponse"];
         };
+        /** TemplateCatalogResponse */
+        TemplateCatalogResponse: {
+            /** Signedby */
+            signedBy?: string | null;
+            /** Submissionconfigured */
+            submissionConfigured: boolean;
+            /** Templates */
+            templates: {
+                [key: string]: unknown;
+            }[];
+            /** Unavailable */
+            unavailable?: string | null;
+            /** Url */
+            url?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * TemplateExportPayload
          * @description Public metadata and privacy acknowledgement for a template export.
@@ -16908,6 +17328,30 @@ export interface components {
              * @default 1.0.0
              */
             version: string;
+        };
+        /** TemplateExportPreviewResponse */
+        TemplateExportPreviewResponse: {
+            /** Excluded */
+            excluded: {
+                [key: string]: unknown;
+            }[];
+            /** Findings */
+            findings: {
+                [key: string]: unknown;
+            }[];
+            /** Included */
+            included: {
+                [key: string]: unknown;
+            }[];
+            /** Totalsize */
+            totalSize: number;
+        };
+        /** TemplateSubmissionResponse */
+        TemplateSubmissionResponse: {
+            /** Status */
+            status?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** TokenPayload */
         TokenPayload: {
@@ -17504,6 +17948,30 @@ export interface components {
             name: string;
             /** Slug */
             slug?: string | null;
+        };
+        /**
+         * WorkspaceMemberOperationResponse
+         * @description Stable JSON envelope returned by workspace member mutations.
+         */
+        WorkspaceMemberOperationResponse: {
+            /** Message */
+            message: string;
+            /** Status */
+            status: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * WorkspaceMemberVaultResponse
+         * @description Vault summary exposed by the workspace member-access panel.
+         */
+        WorkspaceMemberVaultResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        } & {
+            [key: string]: unknown;
         };
         /** WorkspaceResponse */
         WorkspaceResponse: {
@@ -24978,7 +25446,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionOAuthStatusResponse"];
                 };
             };
         };
@@ -25045,7 +25513,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionCloneResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25081,7 +25549,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionCloneAbortResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25117,7 +25585,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionCloneProgressResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25153,7 +25621,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionDatabasesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25191,7 +25659,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionDatabaseSchemaResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25227,7 +25695,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionImportConfigResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25269,7 +25737,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25305,7 +25773,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionLinkedDatabasesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25341,7 +25809,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionLoosePagesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25370,7 +25838,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionStatusResponse"];
                 };
             };
         };
@@ -25401,7 +25869,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionTokenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25437,7 +25905,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25477,7 +25945,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionVerificationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29663,7 +30131,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DrawingSummaryResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -29701,7 +30169,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DrawingDocumentResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29743,7 +30211,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DrawingSaveResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29781,7 +30249,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DrawingDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30170,7 +30638,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HandwritingRecognitionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30199,7 +30667,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HandwritingStatusResponse"];
                 };
             };
         };
@@ -30219,7 +30687,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HandwritingWarmupResponse"];
                 };
             };
         };
@@ -30288,7 +30756,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ImportResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32774,7 +33242,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MediaPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32886,7 +33354,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MediaRootResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -32925,7 +33393,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MediaTreeNodeResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -37885,9 +38353,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -37924,7 +38390,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TemplateExportPreviewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37966,7 +38432,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TemplateSubmissionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38006,7 +38472,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CreatedVaultTemplateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38042,7 +38508,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TemplateCatalogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38227,7 +38693,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorkspaceMemberOperationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38266,7 +38732,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorkspaceMemberOperationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38309,7 +38775,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorkspaceMemberOperationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38391,7 +38857,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorkspaceMemberOperationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38431,7 +38897,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorkspaceMemberOperationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38469,7 +38935,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorkspaceMemberVaultResponse"][];
                 };
             };
             /** @description Validation Error */

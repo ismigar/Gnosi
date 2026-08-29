@@ -2,6 +2,7 @@ import createFetchClient from 'openapi-fetch';
 import createReactQueryClient from 'openapi-react-query';
 
 import type { paths } from '../../generated/openapi';
+import { pageEtagMiddleware } from './page-etag';
 import { requestContextMiddleware } from './request-context';
 import { transportFetch } from './transports';
 
@@ -13,5 +14,6 @@ export const apiClient = createFetchClient<paths>({
 });
 
 apiClient.use(requestContextMiddleware);
+apiClient.use(pageEtagMiddleware);
 
 export const $api = createReactQueryClient(apiClient);

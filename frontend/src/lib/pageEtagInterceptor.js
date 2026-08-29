@@ -136,51 +136,11 @@ export function installPageEtagInterceptor() {
                     (detail?.error === 'etag_mismatch' || detail?.error === 'etag_mismatch_force');
                 if (isEtagConflict) {
                     const pageId = extractPageId(error?.config?.url);
-                    // Update cache to the server's current etag so subsequent
-                    // saves won't keep failing if the user picks "overwrite".
-                    if (pageId && detail?.current_etag) {
-                        etagByPage.set(pageId, detail.current_etag);
-                    }
-                    // Auto-retry ONCE per request with the new etag. Without
-                    // this, when several PATCHes end up overlapping (autosave
-                    // with a timeout that unhooks the chain, OneDrive touching the
-                    // mtime with no real changes), they all carry the old etag and all
-                    // return 409 — the user sees the toast but the changes are not
-                    // saved. Here we retry with `current_etag` so that the
-                    // Let the PATCH "win" if it's still valid; we only broadcast
-                    // the conflict if the retry also fails.
-                    const cfg = error?.config;
-                    const canRetry = cfg && !cfg._etagRetried && pageId && detail?.current_etag;
-                    if (canRetry) {
-                        cfg._etagRetried = true;
-                        // By the time the RESPONSE interceptor runs, axios has already
-                        // applied transformRequest, so cfg.data is a JSON STRING — the
-                        // old `typeof === 'object'` check was false, so the retry
-                        // re-sent the STALE etag and 409'd again. Parse, inject the
-                        // fresh etag, re-stringify. Skip the retry if it isn't JSON.
-                        let nextBody = null;
-                        if (cfg.data && typeof cfg.data === 'object') {
-                            nextBody = { ...cfg.data, expected_etag: detail.current_etag };
-                        } else if (typeof cfg.data === 'string') {
-                            try {
-                                const parsed = JSON.parse(cfg.data);
-                                parsed.expected_etag = detail.current_etag;
-                                nextBody = JSON.stringify(parsed);
-                            } catch {
-                                nextBody = null;
-                            }
-                        }
-                        if (nextBody !== null) {
-                            cfg.data = nextBody;
-                            try {
-                                return await axios.request(cfg);
-                            } catch (retryErr) {
-                                // If the retry also fails with etag, let it go
-                                // through the normal path (conflict toast).
-                                error = retryErr;
-                            }
-                        }
-                    }
+                    // Keep the previously observed ETag in cache. Updating it and
+                    // retrying automatically would turn optimistic concurrency into
+                    // a silent last-writer-wins overwrite. Repeated autosaves remain
+                    // rejected until the page is reloaded or the caller explicitly
+                    // sends `force: true` after the user chooses to overwrite.
                     window.dispatchEvent(
                         new CustomEvent('pageEtagConflict', {
                             detail: {
