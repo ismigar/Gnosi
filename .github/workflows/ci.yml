@@ -33,6 +33,8 @@ jobs:
       - run: uv sync --frozen
       - name: Check deterministic OpenAPI and generated frontend client
         run: pnpm check:api-client
+      - name: Enforce frontend migration guardrails
+        run: pnpm guardrails:frontend
       - run: pnpm lint:frontend
       - run: pnpm --filter @gnosi/frontend typecheck
       - run: pnpm test:frontend

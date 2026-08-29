@@ -100,6 +100,18 @@ export default defineConfig([
     },
   },
   {
+    files: ['src/**/*.tsx'],
+    ignores: ['src/**/*.test.tsx', 'src/**/*.spec.tsx', 'src/**/__tests__/**'],
+    rules: {
+      'max-lines-per-function': ['error', {
+        max: 300,
+        skipBlankLines: true,
+        skipComments: true,
+        IIFEs: true,
+      }],
+    },
+  },
+  {
     files: ['vite.config.js', 'test_*.js', 'tests/**/*.js'],
     languageOptions: {
       globals: globals.node,
