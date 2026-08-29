@@ -9,7 +9,7 @@ import {
     isSignedDateValue,
     toLocalDateString,
 } from './dateModel';
-import { TypedRecurrenceEditor } from './recurrenceBridge';
+import { RecurrenceEditor } from '../RecurrenceEditor';
 import type { VaultDatePropertyProps } from './types';
 
 type ScalarDateEditorProps = Pick<
@@ -162,7 +162,7 @@ export function VaultScalarDateEditor({
                                     event.stopPropagation();
                                 }}
                             >
-                                <TypedRecurrenceEditor
+                                <RecurrenceEditor
                                     value={rruleValue}
                                     onChange={onRruleChange}
                                 />

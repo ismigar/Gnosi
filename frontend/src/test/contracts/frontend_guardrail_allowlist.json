@@ -162,7 +162,6 @@
       "frontend/src/components/Vault/PageViewModal.jsx": 3203,
       "frontend/src/components/Vault/PageViewModal.test.jsx": 174,
       "frontend/src/components/Vault/ProcessResourceModal.jsx": 253,
-      "frontend/src/components/Vault/RecurrenceEditor.jsx": 205,
       "frontend/src/components/Vault/ReferenceImportExport.jsx": 163,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2976,
       "frontend/src/components/Vault/ShareModal.jsx": 230,
