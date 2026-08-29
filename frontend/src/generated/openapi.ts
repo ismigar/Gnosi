@@ -13699,6 +13699,11 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** MediaMutationResponse */
+        MediaMutationResponse: {
+            /** Status */
+            status: string;
+        };
         /** MediaPageResponse */
         MediaPageResponse: {
             /** Items */
@@ -13731,6 +13736,105 @@ export interface components {
             name: string;
             /** Path */
             path: string;
+        };
+        /** MediaViewFilters */
+        MediaViewFilters: {
+            /**
+             * Datepreset
+             * @default all
+             */
+            datePreset: string;
+            /** Kinds */
+            kinds?: components["schemas"]["JsonValue"][];
+            /**
+             * Mtimefrom
+             * @default
+             */
+            mtimeFrom: string;
+            /**
+             * Mtimeto
+             * @default
+             */
+            mtimeTo: string;
+            /**
+             * Q
+             * @default
+             */
+            q: string;
+            /**
+             * Sizepreset
+             * @default all
+             */
+            sizePreset: string;
+            /** Tagsany */
+            tagsAny?: components["schemas"]["JsonValue"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * MediaViewInput
+         * @description Mutable saved-view fields accepted by create and update routes.
+         */
+        MediaViewInput: {
+            filters?: components["schemas"]["MediaViewFilters"];
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            scope?: components["schemas"]["MediaViewScope"];
+            sort?: components["schemas"]["MediaViewSort"];
+        } & {
+            [key: string]: unknown;
+        };
+        /** MediaViewResponse */
+        MediaViewResponse: {
+            /** Created At */
+            created_at: string;
+            filters?: components["schemas"]["MediaViewFilters"];
+            /** Id */
+            id: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            scope?: components["schemas"]["MediaViewScope"];
+            sort?: components["schemas"]["MediaViewSort"];
+            /** Updated At */
+            updated_at: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MediaViewScope */
+        MediaViewScope: {
+            /**
+             * Album
+             * @default
+             */
+            album: string;
+            /**
+             * Root
+             * @default images
+             */
+            root: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MediaViewSort */
+        MediaViewSort: {
+            /**
+             * Dir
+             * @default desc
+             */
+            dir: string;
+            /**
+             * Field
+             * @default mtime
+             */
+            field: string;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * MeetingReminderResponse
@@ -33318,7 +33422,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MediaMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33435,7 +33539,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MediaItemResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33471,7 +33575,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MediaViewResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -33501,9 +33605,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MediaViewInput"];
             };
         };
         responses: {
@@ -33513,7 +33615,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MediaViewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33551,7 +33653,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MediaMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33583,9 +33685,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MediaViewInput"];
             };
         };
         responses: {
@@ -33595,7 +33695,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MediaViewResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1,6 +1,7 @@
-import type { components, paths } from '../../generated/openapi';
+import type { components, operations, paths } from '../../generated/openapi';
 import { apiClient } from './client';
-import { unwrapApiResult } from './errors';
+import { GnosiApiError, unwrapApiResult } from './errors';
+import { transportFetch } from './transports';
 
 
 export type MediaRoot = components['schemas']['MediaRootResponse'];
@@ -10,11 +11,18 @@ export type MediaPage = components['schemas']['MediaPageResponse'];
 export type MediaPageQuery = NonNullable<
   paths['/api/vault/media']['get']['parameters']['query']
 >;
+export type MediaMutation = components['schemas']['MediaMutationResponse'];
+export type MediaView = components['schemas']['MediaViewResponse'];
+export type MediaViewInput = components['schemas']['MediaViewInput'];
+export type MediaMetadataInput = operations[
+  'update_media_metadata_api_vault_media_metadata_patch'
+]['requestBody']['content']['application/json'];
 
 
 export const MEDIA_ROOTS_TIMEOUT_MS = 15_000;
 export const MEDIA_TREE_TIMEOUT_MS = 30_000;
 export const MEDIA_PAGE_TIMEOUT_MS = 300_000;
+export const MEDIA_VIEW_TIMEOUT_MS = 15_000;
 
 
 async function withTimeout<T>(
@@ -71,8 +79,9 @@ export async function fetchMediaTree(
 export async function fetchMediaPage(
   query: MediaPageQuery,
   signal?: AbortSignal,
+  timeoutMs = MEDIA_PAGE_TIMEOUT_MS,
 ): Promise<MediaPage> {
-  return withTimeout(MEDIA_PAGE_TIMEOUT_MS, signal, async (timedSignal) => (
+  return withTimeout(timeoutMs, signal, async (timedSignal) => (
     unwrapApiResult<MediaPage, unknown>(
       await apiClient.GET('/api/vault/media', {
         params: { query },
@@ -80,4 +89,93 @@ export async function fetchMediaPage(
       }),
     )
   ));
+}
+
+
+export async function fetchMediaViews(
+  signal?: AbortSignal,
+): Promise<MediaView[]> {
+  return withTimeout(MEDIA_VIEW_TIMEOUT_MS, signal, async (timedSignal) => (
+    unwrapApiResult<MediaView[], unknown>(
+      await apiClient.GET('/api/vault/media/views', { signal: timedSignal }),
+    )
+  ));
+}
+
+
+export async function createMediaView(
+  input: MediaViewInput,
+  signal?: AbortSignal,
+): Promise<MediaView> {
+  return unwrapApiResult<MediaView, unknown>(
+    await apiClient.POST('/api/vault/media/views', { body: input, signal }),
+  );
+}
+
+
+export async function updateMediaView(
+  viewId: string,
+  input: MediaViewInput,
+  signal?: AbortSignal,
+): Promise<MediaView> {
+  return unwrapApiResult<MediaView, unknown>(
+    await apiClient.PATCH('/api/vault/media/views/{view_id}', {
+      body: input,
+      params: { path: { view_id: viewId } },
+      signal,
+    }),
+  );
+}
+
+
+export async function deleteMediaView(
+  viewId: string,
+  signal?: AbortSignal,
+): Promise<MediaMutation> {
+  return unwrapApiResult<MediaMutation, unknown>(
+    await apiClient.DELETE('/api/vault/media/views/{view_id}', {
+      params: { path: { view_id: viewId } },
+      signal,
+    }),
+  );
+}
+
+
+export async function updateMediaMetadata(
+  input: MediaMetadataInput,
+  signal?: AbortSignal,
+): Promise<MediaMutation> {
+  return unwrapApiResult<MediaMutation, unknown>(
+    await apiClient.PATCH('/api/vault/media/metadata', { body: input, signal }),
+  );
+}
+
+
+function isMediaItem(value: unknown): value is MediaItem {
+  if (value === null || typeof value !== 'object') return false;
+  return 'id' in value
+    && 'filename' in value
+    && 'url' in value;
+}
+
+
+export async function uploadMediaFile(
+  file: File,
+  album: string,
+  signal?: AbortSignal,
+): Promise<MediaItem> {
+  const body = new FormData();
+  body.set('file', file);
+  const query = new URLSearchParams({ album });
+  const response = await transportFetch(`/api/vault/media/upload?${query}`, {
+    body,
+    method: 'POST',
+    signal,
+  });
+  const payload: unknown = await response.json().catch(() => undefined);
+  if (!response.ok) throw new GnosiApiError(response, payload);
+  if (!isMediaItem(payload)) {
+    throw new GnosiApiError(response, 'The API returned an invalid media upload');
+  }
+  return payload;
 }

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from '../shared/api/legacy-http';
 import { AppHeader } from '../components/AppHeader';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import {
@@ -48,6 +47,18 @@ import {
 import { toast } from '../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
+import {
+  createMediaView,
+  deleteMediaView,
+  fetchMediaPage,
+  fetchMediaRoots,
+  fetchMediaTree,
+  fetchMediaViews,
+  updateMediaMetadata,
+  updateMediaView,
+  uploadMediaFile,
+} from '../shared/api/media-browser';
+import { uploadVaultAsset } from '../shared/api/vault-specialized';
 
 const PERSPECTIVES = [ // We keep it for reference or inbox, but we prioritize albums
   { id: 'General', label: 'General', icon: FolderOpen, color: 'text-blue-500' },
@@ -78,11 +89,7 @@ const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSele
     if (!expanded && children === null) {
       setLoading(true);
       try {
-        const res = await axios.get('/api/vault/media/tree', {
-          params: { path: node.path, root },
-          timeout: 30000,
-        });
-        setChildren(res.data || []);
+        setChildren(await fetchMediaTree(root, node.path));
       } catch (err) {
         console.error('Error loading subfolders:', err);
         setChildren([]);
@@ -687,11 +694,7 @@ export default function MediaCenter() {
 
   const fetchAlbums = useCallback(async (root = activeRoot) => {
     try {
-      const res = await axios.get('/api/vault/media/tree', {
-        params: { root },
-        timeout: 30000,
-      });
-      setAlbums(res.data || []);
+      setAlbums(await fetchMediaTree(root));
     } catch (err) {
       console.error('Error loading tree:', err);
     }
@@ -733,8 +736,11 @@ export default function MediaCenter() {
 
       // 'All photos' can take minutes the first time on OneDrive,
       // especially for root="vault" (scans the entire archive).
-      const res = await axios.get('/api/vault/media', { params, timeout: 600000 });
-      const { items, total: totalCount } = res.data;
+      const { items, total: totalCount } = await fetchMediaPage(
+        params,
+        undefined,
+        600_000,
+      );
 
       if (reset) {
         setMedia(items);
@@ -759,9 +765,9 @@ export default function MediaCenter() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await axios.get('/api/vault/media/roots', { timeout: 15000 });
+        const rootsResponse = await fetchMediaRoots();
         if (cancelled) return;
-        const all = (res.data || []).filter(r => r.available);
+        const all = rootsResponse.filter(r => r.available);
         setRoots(all);
       } catch (err) {
         console.error('Could not load the roots:', err);
@@ -791,8 +797,8 @@ export default function MediaCenter() {
   // Initial load of saved views.
   const fetchViews = useCallback(async () => {
     try {
-      const r = await axios.get('/api/vault/media/views', { timeout: 15000 });
-      setViews(Array.isArray(r.data) ? r.data : []);
+      const data = await fetchMediaViews();
+      setViews(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading views:', err);
     }
@@ -823,14 +829,14 @@ export default function MediaCenter() {
   const submitNewView = useCallback(async (label) => {
     setViewPromptOpen(false);
     try {
-      const r = await axios.post('/api/vault/media/views', {
+      const data = await createMediaView({
         label,
         scope: { root: activeRoot, album: activeAlbum || '' },
         filters,
         sort,
       });
-      setViews(prev => [...prev, r.data]);
-      setActiveViewId(r.data.id);
+      setViews(prev => [...prev, data]);
+      setActiveViewId(data.id);
       toast.success(t('media.view_saved'));
     } catch (err) {
       console.error('Error saving view:', err);
@@ -842,13 +848,13 @@ export default function MediaCenter() {
     if (!activeViewId) return;
     const current = views.find(v => v.id === activeViewId);
     try {
-      const r = await axios.patch(`/api/vault/media/views/${activeViewId}`, {
+      const data = await updateMediaView(activeViewId, {
         label: current?.label || '',
         scope: { root: activeRoot, album: activeAlbum || '' },
         filters,
         sort,
       });
-      setViews(prev => prev.map(v => v.id === activeViewId ? r.data : v));
+      setViews(prev => prev.map(v => v.id === activeViewId ? data : v));
       toast.success(t('media.view_updated'));
     } catch (err) {
       console.error('Error updating view:', err);
@@ -870,7 +876,7 @@ export default function MediaCenter() {
       onConfirm: async () => {
         setConfirmDialog(null);
         try {
-          await axios.delete(`/api/vault/media/views/${id}`);
+          await deleteMediaView(id);
           setViews(prev => prev.filter(v => v.id !== id));
           if (activeViewId === id) setActiveViewId(null);
         } catch (err) {
@@ -892,24 +898,19 @@ export default function MediaCenter() {
     const file = e.target.files[0];
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
       setIsUploading(true);
       toast.loading(t('media.uploading'), { id: 'upload' });
       // For the "images" root we keep the old flow (gallery with albums).
       // For the rest, defer to /assets/upload (there's no notion of album).
-      let url;
       if (activeRoot === 'images') {
         const album = activeAlbum || 'General';
-        url = `/api/vault/media/upload?album=${encodeURIComponent(album)}`;
+        await uploadMediaFile(file, album);
       } else {
-        url = '/api/vault/assets/upload';
+        await uploadVaultAsset(file);
       }
-      // timeout: 0 — large video/image uploads must not be aborted by the
-      // global 30s axios timeout while the server is still receiving them (#812).
-      await axios.post(url, formData, { timeout: 0 });
+      // Fetch has no implicit client timeout: large video/image uploads remain
+      // unbounded, preserving the historical `timeout: 0` behavior (#812).
       toast.success(t('media.upload_success'), { id: 'upload' });
       fetchMedia(true);
     } catch (err) {
@@ -945,13 +946,13 @@ export default function MediaCenter() {
     saveAbortRef.current = ctrl;
     setSaveStatus('saving');
     try {
-      await axios.patch('/api/vault/media/metadata', {
+      await updateMediaMetadata({
         root: photo.root || activeRoot,
         path_in_root: photo.path_in_root,
         filename: photo.filename,
         album: photo.album,
         metadata: meta,
-      }, { signal: ctrl.signal });
+      }, ctrl.signal);
       // We sync the snapshot so the next diff starts from the saved value.
       initialMetaRef.current = {
         id: photo.id,
@@ -964,7 +965,7 @@ export default function MediaCenter() {
         : m
       ));
     } catch (err) {
-      if (axios.isCancel(err) || err?.name === 'CanceledError') return;
+      if (err?.name === 'AbortError') return;
       console.error('Error saving metadata:', err);
       setSaveStatus('error');
     }

@@ -602,13 +602,27 @@ export type {
   VaultSummaryResult,
   VaultSummarySettings,
 } from './vault-summary';
-export { fetchMediaPage, fetchMediaRoots, fetchMediaTree } from './media-browser';
+export {
+  createMediaView,
+  deleteMediaView,
+  fetchMediaPage,
+  fetchMediaRoots,
+  fetchMediaTree,
+  fetchMediaViews,
+  updateMediaMetadata,
+  updateMediaView,
+  uploadMediaFile,
+} from './media-browser';
 export type {
   MediaItem,
+  MediaMetadataInput,
+  MediaMutation,
   MediaPage,
   MediaPageQuery,
   MediaRoot,
   MediaTreeNode,
+  MediaView,
+  MediaViewInput,
 } from './media-browser';
 export { importVaultMarkdown } from './markdown-import';
 export type { MarkdownImportInput, MarkdownImportResult } from './markdown-import';

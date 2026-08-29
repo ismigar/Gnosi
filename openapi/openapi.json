@@ -10458,6 +10458,19 @@
         "title": "MediaItemResponse",
         "type": "object"
       },
+      "MediaMutationResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "MediaMutationResponse",
+        "type": "object"
+      },
       "MediaPageResponse": {
         "properties": {
           "items": {
@@ -10543,6 +10556,146 @@
           "has_children"
         ],
         "title": "MediaTreeNodeResponse",
+        "type": "object"
+      },
+      "MediaViewFilters": {
+        "additionalProperties": true,
+        "properties": {
+          "datePreset": {
+            "default": "all",
+            "title": "Datepreset",
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "mtimeFrom": {
+            "default": "",
+            "title": "Mtimefrom",
+            "type": "string"
+          },
+          "mtimeTo": {
+            "default": "",
+            "title": "Mtimeto",
+            "type": "string"
+          },
+          "q": {
+            "default": "",
+            "title": "Q",
+            "type": "string"
+          },
+          "sizePreset": {
+            "default": "all",
+            "title": "Sizepreset",
+            "type": "string"
+          },
+          "tagsAny": {
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Tagsany",
+            "type": "array"
+          }
+        },
+        "title": "MediaViewFilters",
+        "type": "object"
+      },
+      "MediaViewInput": {
+        "additionalProperties": true,
+        "description": "Mutable saved-view fields accepted by create and update routes.",
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/MediaViewFilters"
+          },
+          "label": {
+            "default": "",
+            "title": "Label",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/MediaViewScope"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/MediaViewSort"
+          }
+        },
+        "title": "MediaViewInput",
+        "type": "object"
+      },
+      "MediaViewResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/MediaViewFilters"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "title": "Label",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/MediaViewScope"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/MediaViewSort"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MediaViewResponse",
+        "type": "object"
+      },
+      "MediaViewScope": {
+        "additionalProperties": true,
+        "properties": {
+          "album": {
+            "default": "",
+            "title": "Album",
+            "type": "string"
+          },
+          "root": {
+            "default": "images",
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "title": "MediaViewScope",
+        "type": "object"
+      },
+      "MediaViewSort": {
+        "additionalProperties": true,
+        "properties": {
+          "dir": {
+            "default": "desc",
+            "title": "Dir",
+            "type": "string"
+          },
+          "field": {
+            "default": "mtime",
+            "title": "Field",
+            "type": "string"
+          }
+        },
+        "title": "MediaViewSort",
         "type": "object"
       },
       "MeetingReminderResponse": {
@@ -68166,7 +68319,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MediaMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68560,7 +68715,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MediaItemResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68672,7 +68829,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaViewResponse"
+                  },
+                  "title": "Response List Media Views Api Vault Media Views Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -68782,9 +68945,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MediaViewInput"
               }
             }
           },
@@ -68794,7 +68955,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MediaViewResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68915,7 +69078,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MediaMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -69034,9 +69199,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MediaViewInput"
               }
             }
           },
@@ -69046,7 +69209,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MediaViewResponse"
+                }
               }
             },
             "description": "Successful Response"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 
 class MediaRootResponse(BaseModel):
@@ -49,10 +49,63 @@ class MediaPageResponse(BaseModel):
     root: str
 
 
+class MediaViewScope(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    root: str = "images"
+    album: str = ""
+
+
+class MediaViewFilters(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    kinds: list[JsonValue] = Field(default_factory=list)
+    q: str = ""
+    tagsAny: list[JsonValue] = Field(default_factory=list)
+    datePreset: str = "all"
+    mtimeFrom: str = ""
+    mtimeTo: str = ""
+    sizePreset: str = "all"
+
+
+class MediaViewSort(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    field: str = "mtime"
+    dir: str = "desc"
+
+
+class MediaViewInput(BaseModel):
+    """Mutable saved-view fields accepted by create and update routes."""
+
+    model_config = ConfigDict(extra="allow")
+
+    label: str = ""
+    scope: MediaViewScope = Field(default_factory=MediaViewScope)
+    filters: MediaViewFilters = Field(default_factory=MediaViewFilters)
+    sort: MediaViewSort = Field(default_factory=MediaViewSort)
+
+
+class MediaViewResponse(MediaViewInput):
+    id: str
+    created_at: str
+    updated_at: str
+
+
+class MediaMutationResponse(BaseModel):
+    status: str
+
+
 __all__ = [
     "MediaCoordinatesResponse",
     "MediaItemResponse",
+    "MediaMutationResponse",
     "MediaPageResponse",
     "MediaRootResponse",
     "MediaTreeNodeResponse",
+    "MediaViewFilters",
+    "MediaViewInput",
+    "MediaViewResponse",
+    "MediaViewScope",
+    "MediaViewSort",
 ]
