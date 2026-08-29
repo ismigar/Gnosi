@@ -2016,6 +2016,124 @@
         "title": "Body_upload_property_file_api_vault_upload_property_file_post",
         "type": "object"
       },
+      "BrainSuggestionListResponse": {
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/BrainSuggestionResponse"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suggestions"
+        ],
+        "title": "BrainSuggestionListResponse",
+        "type": "object"
+      },
+      "BrainSuggestionRejectedResponse": {
+        "properties": {
+          "rejected": {
+            "title": "Rejected",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rejected"
+        ],
+        "title": "BrainSuggestionRejectedResponse",
+        "type": "object"
+      },
+      "BrainSuggestionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "evidence": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "member_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Ids"
+          },
+          "member_titles": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Titles"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "why": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Why"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "BrainSuggestionResponse",
+        "type": "object"
+      },
       "BrowseRequest": {
         "description": "Directory requested by the in-app filesystem picker.",
         "properties": {
@@ -63730,7 +63848,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainSuggestionListResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64114,7 +64234,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainSuggestionRejectedResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64356,7 +64478,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainSuggestionRejectedResponse"
+                }
               }
             },
             "description": "Successful Response"

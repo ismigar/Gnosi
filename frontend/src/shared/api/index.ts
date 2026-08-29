@@ -1,5 +1,11 @@
 export { $api, apiClient } from './client';
 export { ApiProvider } from './ApiProvider';
+export { dismissBrainSuggestion, fetchBrainSuggestions } from './brain';
+export type {
+  BrainSuggestion,
+  BrainSuggestionList,
+  BrainSuggestionRejection,
+} from './brain';
 export {
   fetchExternalContextSources,
   fetchInternalContextSources,

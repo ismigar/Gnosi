@@ -10499,6 +10499,35 @@ export interface components {
             /** File */
             file: string;
         };
+        /** BrainSuggestionListResponse */
+        BrainSuggestionListResponse: {
+            /** Suggestions */
+            suggestions: components["schemas"]["BrainSuggestionResponse"][];
+        };
+        /** BrainSuggestionRejectedResponse */
+        BrainSuggestionRejectedResponse: {
+            /** Rejected */
+            rejected: string;
+        };
+        /** BrainSuggestionResponse */
+        BrainSuggestionResponse: {
+            /** Evidence */
+            evidence?: string[] | null;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind?: string | null;
+            /** Member Ids */
+            member_ids?: string[] | null;
+            /** Member Titles */
+            member_titles?: string[] | null;
+            /** Title */
+            title?: string | null;
+            /** Why */
+            why?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * BrowseRequest
          * @description Directory requested by the in-app filesystem picker.
@@ -31874,7 +31903,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainSuggestionListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31998,7 +32027,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainSuggestionRejectedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32074,7 +32103,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainSuggestionRejectedResponse"];
                 };
             };
             /** @description Validation Error */

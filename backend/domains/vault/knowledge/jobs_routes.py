@@ -5,10 +5,31 @@ from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
 from fastapi import APIRouter
+from pydantic import BaseModel, ConfigDict
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 LLM_WIKI_PROCESSED_COL = "Processat pel Cervell"
+
+
+class BrainSuggestionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    title: str | None = None
+    kind: str | None = None
+    why: str | None = None
+    evidence: list[str] | None = None
+    member_ids: list[str] | None = None
+    member_titles: list[str] | None = None
+
+
+class BrainSuggestionListResponse(BaseModel):
+    suggestions: list[BrainSuggestionResponse]
+
+
+class BrainSuggestionRejectedResponse(BaseModel):
+    rejected: str
 
 
 def ensure_llm_wiki_column(reference_table_id: str) -> bool:
@@ -214,7 +235,8 @@ async def llm_wiki_lint(suggest: bool = _legacy.Query(default=False)) -> _Legacy
 @router.get(
     "/llm-wiki/suggestions",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainSuggestionListResponse,
+    response_model_exclude_unset=True,
 )
 async def llm_wiki_list_suggestions() -> _LegacyAny:
     """Return pending read-only connection proposals for the Brain inbox."""
@@ -240,7 +262,7 @@ async def llm_wiki_accept_suggestion(
 @router.post(
     "/llm-wiki/suggestions/{suggestion_id}/reject",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainSuggestionRejectedResponse,
 )
 async def llm_wiki_reject_suggestion(suggestion_id: str) -> _LegacyAny:
     """Discards a pending suggestion (no note is created)."""
@@ -257,7 +279,7 @@ async def llm_wiki_reject_suggestion(suggestion_id: str) -> _LegacyAny:
 @router.post(
     "/llm-wiki/suggestions/{suggestion_id}/dismiss",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainSuggestionRejectedResponse,
 )
 async def llm_wiki_dismiss_suggestion(suggestion_id: str) -> _LegacyAny:
     """Dismiss a read-only connection proposal."""
