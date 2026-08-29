@@ -1,4 +1,6 @@
-export const blocknoteCa = {
+import type { Dictionary } from '@blocknote/core';
+
+export const blocknoteCa: Dictionary = {
   slash_menu: {
     heading: {
       title: "Encapçalament 1",
@@ -198,6 +200,10 @@ export const blocknoteCa = {
   toggle_blocks: {
     add_block_button: "Plegable buit. Fes clic per afegir un bloc.",
   },
+  code_block: {
+    add_source_button_text: "Afegeix codi font",
+    ok_button_text: "D'acord",
+  },
   side_menu: {
     add_block_label: "Afegir bloc",
     drag_handle_label: "Obrir menú del bloc",
@@ -380,9 +386,12 @@ export const blocknoteCa = {
     edited: "editat",
     save_button_text: "Desa",
     cancel_button_text: "Cancel·la",
+    deleted_reference_text: "S'ha suprimit el contingut original",
+    discard_pending_comment: "Segur que vols descartar aquest comentari?",
     actions: {
       add_reaction: "Afegeix una reacció",
       resolve: "Resol",
+      reopen: "Torna a obrir",
       edit_comment: "Edita el comentari",
       delete_comment: "Elimina el comentari",
       more_actions: "Més accions",
@@ -392,8 +401,21 @@ export const blocknoteCa = {
     },
     sidebar: {
       marked_as_resolved: "Marcat com a resolt",
-      more_replies: (count) => `${count} respostes més`,
+      more_replies: (count) => `${String(count)} respostes més`,
     },
+  },
+  suggestion_changes: {
+    formatting_change: "Canvi de format",
+    deleted: "Suprimit",
+    inserted_by: (users) => `Inserit per: ${users}`,
+    deleted_by: (users) => `Suprimit per: ${users}`,
+    formatting_change_by: (formats, users) =>
+      `Canvi de format (${formats}) fet per: ${users}`,
+  },
+  exporter: {
+    open_file: "Obre el fitxer",
+    open_video_file: "Obre el vídeo",
+    open_audio_file: "Obre l'àudio",
   },
   generic: {
     ctrl_shortcut: "Ctrl",

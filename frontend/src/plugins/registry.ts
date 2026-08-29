@@ -6,7 +6,18 @@
  * parity is covered by backend and frontend registry tests.
  */
 
-export const BUILTIN_PLUGINS = [
+export interface BuiltinPluginDefinition {
+    readonly description: string;
+    readonly group: string;
+    readonly icon: string;
+    readonly id: string;
+    readonly name: string;
+    readonly requires: readonly string[];
+    readonly routes: readonly string[];
+    readonly settingsTab?: string;
+}
+
+export const BUILTIN_PLUGINS: readonly BuiltinPluginDefinition[] = [
     { id: 'daily-notes', name: 'Daily notes', description: 'Quick access to daily notes and date navigation.', icon: 'CalendarDays', group: 'knowledge', settingsTab: 'daily-notes', requires: [], routes: [] },
     { id: 'tags-page', name: 'Tags page', description: 'Index of every vault tag with counts and navigation.', icon: 'Hash', group: 'vault', requires: [], routes: [] },
     { id: 'page-comments', name: 'Comments', description: 'Per-page comment threads.', icon: 'MessageSquare', group: 'vault', requires: [], routes: [] },
@@ -29,19 +40,17 @@ export const BUILTIN_PLUGINS = [
 ];
 
 export const PLUGIN_IDS = BUILTIN_PLUGINS.map((plugin) => plugin.id);
-export const BUILTIN_PLUGIN_BY_ID = Object.fromEntries(
+export const BUILTIN_PLUGIN_BY_ID: Readonly<Record<string, BuiltinPluginDefinition>> = Object.fromEntries(
     BUILTIN_PLUGINS.map((plugin) => [plugin.id, plugin]),
 );
 
-export const ROUTE_PLUGIN_IDS = Object.fromEntries(
-    BUILTIN_PLUGINS.flatMap((plugin) => (
-        plugin.routes || []
-    ).map((route) => [route, plugin.id])),
+export const ROUTE_PLUGIN_IDS: Readonly<Record<string, string>> = Object.fromEntries(
+    BUILTIN_PLUGINS.flatMap((plugin) => plugin.routes.map((route) => [route, plugin.id])),
 );
 
-export function pluginForPath(pathname) {
+export function pluginForPath(pathname: string): string | null {
     const canonicalApp = pathname.match(/^\/@[^/]+\/([^/]+)/)?.[1];
-    const canonicalPlugins = {
+    const canonicalPlugins: Readonly<Record<string, string>> = {
         planning: 'project-planning',
         resources: 'resources',
         reader: 'feeds-reader',
@@ -53,7 +62,10 @@ export function pluginForPath(pathname) {
         notebooks: 'grounded-notebooks',
         automations: 'automations',
     };
-    if (canonicalApp && canonicalPlugins[canonicalApp]) return canonicalPlugins[canonicalApp];
+    if (canonicalApp) {
+        const canonicalPlugin = canonicalPlugins[canonicalApp];
+        if (canonicalPlugin) return canonicalPlugin;
+    }
     const exact = ROUTE_PLUGIN_IDS[pathname];
     if (exact) return exact;
     if (pathname.startsWith('/notebooks/')) return 'grounded-notebooks';

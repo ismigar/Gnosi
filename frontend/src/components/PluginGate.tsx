@@ -1,17 +1,21 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Puzzle, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { BUILTIN_PLUGIN_BY_ID } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
+import { emitAppEvent } from '../shared/platform/app-events';
 
-function openPluginSettings(pluginId) {
-    window.dispatchEvent(new CustomEvent('open-settings', {
-        detail: { tab: 'plugins', pluginId },
-    }));
+function openPluginSettings(pluginId: string): void {
+    emitAppEvent('open-settings', { tab: 'plugins', pluginId });
 }
 
-export function PluginRoute({ pluginId, children }) {
+export interface PluginRouteProps {
+    readonly children: ReactNode;
+    readonly pluginId: string;
+}
+
+export function PluginRoute({ pluginId, children }: PluginRouteProps) {
     const { t } = useTranslation();
     const { isEnabled, loaded } = usePlugins();
 
@@ -44,7 +48,9 @@ export function PluginRoute({ pluginId, children }) {
                 <button
                     type="button"
                     className="btn-gnosi btn-gnosi-primary inline-flex items-center gap-2"
-                    onClick={() => openPluginSettings(pluginId)}
+                    onClick={() => {
+                        openPluginSettings(pluginId);
+                    }}
                 >
                     <Settings size={16} aria-hidden="true" />
                     {t('settings.plugins.open_plugins_settings', 'Open plugin settings')}
@@ -54,7 +60,12 @@ export function PluginRoute({ pluginId, children }) {
     );
 }
 
-export function PluginSurface({ pluginIds, children }) {
+export interface PluginSurfaceProps {
+    readonly children: ReactNode;
+    readonly pluginIds: readonly string[] | string;
+}
+
+export function PluginSurface({ pluginIds, children }: PluginSurfaceProps) {
     const { isEnabled, loaded } = usePlugins();
     const required = Array.isArray(pluginIds) ? pluginIds : [pluginIds];
     if (!loaded || !required.every(isEnabled)) return null;

@@ -15,8 +15,8 @@ describe('built-in capability registry', () => {
     it('keeps every optional capability explicit and unique', () => {
         expect(BUILTIN_PLUGINS).toHaveLength(19);
         expect(new Set(BUILTIN_PLUGINS.map((plugin) => plugin.id)).size).toBe(19);
-        expect(BUILTIN_PLUGIN_BY_ID['grounded-notebooks'].requires).toEqual(['ai-platform']);
-        expect(BUILTIN_PLUGIN_BY_ID['llm-wiki'].requires).toEqual(['ai-platform']);
+        expect(BUILTIN_PLUGIN_BY_ID['grounded-notebooks']?.requires).toEqual(['ai-platform']);
+        expect(BUILTIN_PLUGIN_BY_ID['llm-wiki']?.requires).toEqual(['ai-platform']);
     });
 
     it('maps protected routes before their lazy package is rendered', () => {
@@ -31,8 +31,11 @@ describe('built-in capability registry', () => {
 
     it('provides a localized catalogue entry for every built-in capability', () => {
         for (const catalogue of [ca, en, es, fr]) {
+            const catalog = catalogue.settings.plugins.catalog as Readonly<
+                Record<string, { readonly description?: string; readonly name?: string }>
+            >;
             for (const plugin of BUILTIN_PLUGINS) {
-                const entry = catalogue.settings?.plugins?.catalog?.[plugin.id];
+                const entry = catalog[plugin.id];
                 expect(entry?.name, `${plugin.id} name`).toBeTruthy();
                 expect(entry?.description, `${plugin.id} description`).toBeTruthy();
             }

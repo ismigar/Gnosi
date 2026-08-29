@@ -30,6 +30,14 @@ export interface RelationValueAppliedEventDetail {
   readonly value: unknown;
 }
 
+export type OpenSettingsEventDetail =
+  | null
+  | string
+  | {
+      readonly pluginId?: string;
+      readonly tab: string;
+    };
+
 
 export interface AppEventMap {
   readonly 'db-theme-changed': null;
@@ -45,6 +53,7 @@ export interface AppEventMap {
     readonly name: string;
     readonly slug: string;
   };
+  readonly 'open-settings': OpenSettingsEventDetail;
   readonly pageEtagConflict: PageEtagConflictEventDetail;
 }
 

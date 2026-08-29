@@ -1,9 +1,20 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { mountSettingsPanel } from '../plugins/host';
 
-export function PluginSettingsPanel({ panel }) {
-    const containerRef = useRef(null);
+export interface PluginSettingsPanelDefinition {
+    readonly height?: number;
+    readonly id: string;
+    readonly pluginId: string;
+    readonly title: string;
+}
+
+export interface PluginSettingsPanelProps {
+    readonly panel?: PluginSettingsPanelDefinition | null;
+}
+
+export function PluginSettingsPanel({ panel }: PluginSettingsPanelProps) {
+    const containerRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         if (!panel || !containerRef.current) return undefined;
