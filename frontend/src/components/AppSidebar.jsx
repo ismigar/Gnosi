@@ -11,7 +11,7 @@ const GlobalSettingsModal = lazy(() =>
 );
 import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
 import VaultMenu from './VaultMenu';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import { toast } from '../lib/toast';
 import { usePlugins } from '../plugins/usePlugins';
 import { useMediaQuery } from '../hooks/useMediaQuery';

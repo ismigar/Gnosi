@@ -10,7 +10,7 @@
 import React, { useState } from 'react';
 import { KeyRound, Save, Loader2, UserCog } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/auth-context';
 import { toast } from '../../lib/toast';
 import { Section, FormGroup } from '../GlobalSettingsModal';
 

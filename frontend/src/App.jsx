@@ -40,7 +40,7 @@ import CommandPalette from './components/CommandPalette';
 import { useTheme } from './hooks/useTheme';
 import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
 import { useFocusModality } from './hooks/useFocusModality';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './context/auth-context';
 import { LoginPage } from './components/Auth/LoginPage';
 import { GraphLoadingState } from './components/GraphLoadingState';
 import { DesktopUpdateNotice } from './components/DesktopUpdateNotice';

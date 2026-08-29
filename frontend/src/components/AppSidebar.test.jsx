@@ -15,7 +15,7 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-vi.mock('../context/AuthContext', () => ({
+vi.mock('../context/auth-context', () => ({
     useAuth: () => ({ user: null, logout: vi.fn() }),
 }));
 

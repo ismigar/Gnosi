@@ -5,7 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
 import { syncActiveVaultCookie } from './lib/fileResource.js'
-import { AuthProvider } from './context/AuthContext.jsx'
+import { AuthProvider } from './context/AuthProvider'
 import { initializeInterfaceLanguage } from './lib/interfaceLanguage'
 import { installDesktopApplicationMenu } from './lib/desktopMenu.js'
 import {
