@@ -21,6 +21,14 @@ import {
     rsvpCalendarEvent,
 } from '../shared/api/calendar';
 import {
+    fetchIntegrations,
+    updateCalendarAliases,
+    updateCalendarColors,
+    updateCalendarSelection,
+    updateDefaultCalendar,
+} from '../shared/api/integrations';
+import { fetchVaultPages, fetchVaultTables } from '../shared/api/vaults';
+import {
     useCalendarList,
     useMeetingReminderSettings,
     useUpdateMeetingReminderSettings,
@@ -298,28 +306,29 @@ export default function CalendarPage() {
         setLoading(true);
         try {
             const timeout = 120000;
+            const signal = AbortSignal.timeout(timeout);
             const [pagesRes, integrationsRes, tablesRes] = await Promise.allSettled([
-                axios.get('/api/vault/pages', { params: { only_calendar: true }, timeout }),
-                axios.get('/api/integrations', { timeout }),
-                axios.get('/api/vault/tables', { timeout }),
+                fetchVaultPages({ only_calendar: true }, signal),
+                fetchIntegrations(signal),
+                fetchVaultTables(undefined, signal),
             ]);
 
             if (pagesRes.status !== 'fulfilled') throw pagesRes.reason;
 
             const integrationsData = integrationsRes.status === 'fulfilled'
-                ? (integrationsRes.value.data || {}) : null;
+                ? (integrationsRes.value || {}) : null;
             const hasIntegrations = integrationsData !== null;
             const safeIntegrations = integrationsData || {};
             setIntegrations(safeIntegrations);
 
             const enabledTableIds = safeIntegrations.vault_calendar?.enabled_tables || [];
-            const allTables = tablesRes.status === 'fulfilled' ? (tablesRes.value.data || []) : [];
+            const allTables = tablesRes.status === 'fulfilled' ? (tablesRes.value || []) : [];
             const tables = allTables
                 .filter(tbl => !hasIntegrations || enabledTableIds.includes(tbl.id))
                 .map(tbl => ({ id: tbl.id, name: tbl.name, type: 'table' }));
             setEnabledTables(tables);
 
-            const allData = pagesRes.value.data || [];
+            const allData = pagesRes.value || [];
             const dated = [];
             const undated = [];
 
@@ -418,7 +427,7 @@ export default function CalendarPage() {
 
             const updatedIntegrations = { ...integrations, calendar_aliases: updatedAliases };
 
-            await axios.put('/api/integrations/calendar_aliases', updatedAliases);
+            await updateCalendarAliases(updatedAliases);
             setIntegrations(updatedIntegrations);
             toast.success(t('calendar.calendar_renamed_success'));
         } catch (err) {
@@ -434,7 +443,7 @@ export default function CalendarPage() {
 
             const updatedIntegrations = { ...integrations, calendar_colors: updatedColors };
 
-            await axios.put('/api/integrations/calendar_colors', updatedColors);
+            await updateCalendarColors(updatedColors);
             setIntegrations(updatedIntegrations);
             toast.success(t('calendar.calendar_color_updated_success'));
         } catch (err) {
@@ -1004,7 +1013,7 @@ export default function CalendarPage() {
                                 setSelectedCalendars(next);
                                 // Sync the ref to prevent the effect from resetting hidden calendars
                                 savedCalendarSelectionRef.current = new Set(next);
-                                axios.put('/api/integrations/calendar_selection', {
+                                updateCalendarSelection({
                                     selection: Array.from(next)
                                 }).catch(err => console.error('Error saving calendar selection:', err));
                             }}
@@ -1013,7 +1022,7 @@ export default function CalendarPage() {
                             onToggleSidebar={() => setShowLeftSidebar(false)}
                             onSetDefaultCalendar={async (source) => {
                                 try {
-                                    await axios.put('/api/integrations/default_calendar', { source });
+                                    await updateDefaultCalendar(source);
                                     setIntegrations(prev => ({ ...prev, default_calendar: source }));
                                 } catch (err) {
                                     console.error('Error saving default calendar:', err);
