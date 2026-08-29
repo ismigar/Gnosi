@@ -1,7 +1,38 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {
+    useCallback,
+    useEffect,
+    useState,
+    type ReactNode,
+    type SetStateAction,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, ChevronRight, ChevronLeft, PanelLeft, Plus, X } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { subscribeWindowEvent } from '../../shared/platform/browser-events';
+
+
+export interface VaultShellBreadcrumb {
+    readonly label: ReactNode;
+    readonly onClick: () => void;
+}
+
+export interface VaultShellProps {
+    readonly breadcrumbs?: readonly VaultShellBreadcrumb[];
+    readonly canGoBack?: boolean;
+    readonly canGoForward?: boolean;
+    readonly children?: ReactNode;
+    readonly onBack?: () => void;
+    readonly onCloseDocument?: () => void;
+    readonly onForward?: () => void;
+    readonly onNewDocument?: () => void;
+    readonly onSearch?: () => void;
+    readonly showDocumentControls?: boolean;
+    readonly sidebarContent: ReactNode;
+}
+
+type SidebarMode = 'drawer' | 'wide';
+type SidebarOverrides = Partial<Record<SidebarMode, boolean>>;
+
 
 export const VaultShell = ({
     sidebarContent,
@@ -14,17 +45,17 @@ export const VaultShell = ({
     showDocumentControls = false,
     onNewDocument,
     onCloseDocument,
-    children
-}) => {
+    children,
+}: VaultShellProps) => {
     const { t } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 768px)');
     const isUltraCompact = useMediaQuery('(max-width: 359px)');
     const isNarrow = useMediaQuery('(max-width: 1023px)');
     const sidebarMode = isNarrow ? 'drawer' : 'wide';
-    const [sidebarOverrides, setSidebarOverrides] = useState({});
+    const [sidebarOverrides, setSidebarOverrides] = useState<SidebarOverrides>({});
     const isSidebarOpen = sidebarOverrides[sidebarMode] ?? !isNarrow;
-    const setIsSidebarOpen = useCallback((nextValue) => {
-        setSidebarOverrides(currentOverrides => {
+    const setIsSidebarOpen = useCallback((nextValue: SetStateAction<boolean>): void => {
+        setSidebarOverrides((currentOverrides) => {
             const currentValue = currentOverrides[sidebarMode] ?? !isNarrow;
             const resolvedValue = typeof nextValue === 'function'
                 ? nextValue(currentValue)
@@ -44,10 +75,11 @@ export const VaultShell = ({
     const visibleBreadcrumbs = isCompact ? [] : breadcrumbs;
     const staleCheckout = import.meta.env.DEV
         && import.meta.env.VITE_GNOSI_STALE_CHECKOUT === '1';
-    const checkoutLabel = import.meta.env.VITE_GNOSI_CHECKOUT_LABEL || '';
+    const checkoutLabelValue: unknown = import.meta.env.VITE_GNOSI_CHECKOUT_LABEL;
+    const checkoutLabel = typeof checkoutLabelValue === 'string' ? checkoutLabelValue : '';
     const [isWarningDismissed, setIsWarningDismissed] = useState(false);
     const isMac = typeof navigator !== 'undefined'
-        && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        && /Mac|iPhone|iPad|iPod/u.test(navigator.userAgent);
     const newTabShortcut = isMac ? '⌘T' : 'Ctrl+T';
     const switchTabShortcut = isMac ? '⌘1–9' : 'Ctrl+1–9';
     const newTabLabel = t('doc_tabs.new_tab_tooltip', {
@@ -58,11 +90,10 @@ export const VaultShell = ({
 
     useEffect(() => {
         if (!isNarrow || !isSidebarOpen) return undefined;
-        const closeOnEscape = (event) => {
+        const closeOnEscape = (event: KeyboardEvent): void => {
             if (event.key === 'Escape') setIsSidebarOpen(false);
         };
-        window.addEventListener('keydown', closeOnEscape);
-        return () => window.removeEventListener('keydown', closeOnEscape);
+        return subscribeWindowEvent('keydown', closeOnEscape);
     }, [isNarrow, isSidebarOpen, setIsSidebarOpen]);
 
     return (
@@ -71,7 +102,7 @@ export const VaultShell = ({
                 <button
                     type="button"
                     className="vault-shell__backdrop"
-                    onClick={() => setIsSidebarOpen(false)}
+                    onClick={() => { setIsSidebarOpen(false); }}
                     aria-label={t('shell.hide_sidebar', 'Hide sidebar')}
                 />
             )}
@@ -83,7 +114,7 @@ export const VaultShell = ({
                     <button
                         type="button"
                         className="vault-shell__drawer-close"
-                        onClick={() => setIsSidebarOpen(false)}
+                        onClick={() => { setIsSidebarOpen(false); }}
                         title={t('shell.hide_sidebar', 'Hide sidebar')}
                         aria-label={t('shell.hide_sidebar', 'Hide sidebar')}
                     >
@@ -103,7 +134,7 @@ export const VaultShell = ({
 
                         {/* Sidebar toggle (always visible) */}
                         <button
-                            onClick={() => setIsSidebarOpen(prev => !prev)}
+                            onClick={() => { setIsSidebarOpen((previous) => !previous); }}
                             className="vault-shell__icon-button p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors shrink-0"
                             title={isSidebarOpen ? t('shell.hide_sidebar', "Hide sidebar") : t('shell.show_sidebar', "Show sidebar")}
                             aria-label={isSidebarOpen ? t('shell.hide_sidebar', "Hide sidebar") : t('shell.show_sidebar', "Show sidebar")}
@@ -212,7 +243,7 @@ export const VaultShell = ({
                         </span>
                         <button
                             type="button"
-                            onClick={() => setIsWarningDismissed(true)}
+                            onClick={() => { setIsWarningDismissed(true); }}
                             aria-label={t('shell.dismiss_checkout_warning', 'Dismiss checkout warning')}
                             title={t('shell.dismiss_checkout_warning', 'Dismiss checkout warning')}
                         >
