@@ -22,6 +22,7 @@ APPROVED_STORAGE_ADAPTERS = {
 }
 APPROVED_EVENT_ADAPTERS = {
     "frontend/src/shared/platform/app-events.ts",
+    "frontend/src/shared/platform/browser-events.ts",
 }
 IMPORT_PATTERN = re.compile(
     r"(?:import|export)\s+(?:type\s+)?(?:[^'\"]*?\s+from\s+)?['\"]([^'\"]+)['\"]"
