@@ -4210,7 +4210,7 @@ export function EditorInner({
 
 export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onCreateTemplate, onCreateFromSource, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig, pageActions = null, isActivePage = true }) {
     const { t } = useTranslation();
-    const { apiFetch, role } = useApi();
+    const { role } = useApi();
     const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
     const projectPlanningEnabled = isPluginEnabled('project-planning');
     const projectPlanningSettings = getPluginSettings('project-planning');
@@ -6214,7 +6214,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 }}
                 pageId={noteFilename}
                 allTables={allTables}
-                apiFetch={apiFetch}
                 preselectedTableId={pageViewPreselectedTable}
                 editingBlock={pageViewEditingBlock}
             />

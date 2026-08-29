@@ -46,13 +46,21 @@ async function settle() {
 }
 
 async function renderModal(onClose = vi.fn()) {
-    const apiFetch = vi.fn(async (url, options = {}) => {
-        if (url.endsWith('/usage')) return { count: 0, pages: [] };
-        if (url === '/api/vault/views/view-1') return existingView;
-        if (url.startsWith('/api/vault/views?')) return [existingView];
-        if (options.method === 'POST') return {};
-        return [];
-    });
+    const api = {
+        createVaultView: vi.fn(async view => ({ ...view, id: view.id || 'view-2' })),
+        deleteVaultView: vi.fn(async () => ({ status: 'success' })),
+        fetchAiModels: vi.fn(async () => ({ models: [] })),
+        fetchVaultPages: vi.fn(async () => []),
+        fetchVaultPagesByTable: vi.fn(async () => []),
+        fetchVaultSummarySettings: vi.fn(async () => ({})),
+        fetchVaultView: vi.fn(async viewId => (
+            viewId === existingView.id ? existingView : null
+        )),
+        fetchVaultViews: vi.fn(async () => [existingView]),
+        fetchVaultViewUsage: vi.fn(async () => ({ count: 0, pages: [] })),
+        updateVaultView: vi.fn(async () => ({ status: 'success' })),
+        upsertPageView: vi.fn(async () => ({ status: 'success' })),
+    };
 
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -67,7 +75,7 @@ async function renderModal(onClose = vi.fn()) {
                 name: 'Resources',
                 properties: [{ name: 'title', type: 'title' }],
             }]}
-            apiFetch={apiFetch}
+            api={api}
             preselectedTableId="resources"
             editingBlock={{ props: { view_id: 'view-1' } }}
         />,
@@ -75,7 +83,7 @@ async function renderModal(onClose = vi.fn()) {
     await settle();
     await settle();
 
-    return { apiFetch, onClose };
+    return { api, onClose };
 }
 
 function updateInput(input, value) {
@@ -102,7 +110,7 @@ describe('PageViewModal editing', () => {
 
     it('asks before Cancel discards edits and closes without saving after confirmation', async () => {
         const onClose = vi.fn();
-        const { apiFetch } = await renderModal(onClose);
+        const { api } = await renderModal(onClose);
         const nameInput = container.querySelector('input[placeholder="e.g. By area"]');
 
         await act(async () => updateInput(nameInput, 'Research'));
@@ -118,7 +126,8 @@ describe('PageViewModal editing', () => {
         await act(async () => discardButton.click());
 
         expect(onClose).toHaveBeenCalledWith(false);
-        expect(apiFetch.mock.calls.some(([, options]) => options?.method === 'POST' || options?.method === 'PUT')).toBe(false);
+        expect(api.createVaultView).not.toHaveBeenCalled();
+        expect(api.updateVaultView).not.toHaveBeenCalled();
     });
 
     it('lets the close button discard an unchanged form without a warning', async () => {
@@ -147,7 +156,7 @@ describe('PageViewModal editing', () => {
 
     it('persists the renamed existing view when Insert is confirmed', async () => {
         const onClose = vi.fn();
-        const { apiFetch } = await renderModal(onClose);
+        const { api } = await renderModal(onClose);
         const nameInput = container.querySelector('input[placeholder="e.g. By area"]');
         await act(async () => updateInput(nameInput, 'Research'));
 
@@ -156,10 +165,10 @@ describe('PageViewModal editing', () => {
         await act(async () => insertButton.click());
         await settle();
 
-        const updateCall = apiFetch.mock.calls.find(([url, options]) => (
-            url === '/api/vault/views' && options?.method === 'POST'
+        const createCall = api.createVaultView.mock.calls.find(([view]) => (
+            view.name === 'Research'
         ));
-        expect(JSON.parse(updateCall[1].body).name).toBe('Research');
+        expect(createCall?.[0].name).toBe('Research');
         expect(onClose).toHaveBeenCalledWith(true, expect.any(Object));
     });
 });

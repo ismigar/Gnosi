@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
-import axios from '../shared/api/legacy-http';
 import { fetchBrainTableStatus, fetchLlmWikiConfig } from '../shared/api/brain';
 import { openDailyNote } from '../shared/api/daily-notes';
 import { saveDrawing } from '../shared/api/drawings';
@@ -385,7 +384,6 @@ export default function VaultDashboard() {
 
     const isAbortLikeError = useCallback((err) => {
         if (!err) return false;
-        if (axios.isCancel?.(err)) return true;
 
         const code = String(err.code || '').toUpperCase();
         const name = String(err.name || '').toLowerCase();
@@ -1614,15 +1612,6 @@ export default function VaultDashboard() {
             toast.error(t('errors.daily_note', { defaultValue: "Error opening the daily note" }));
         }
     }, [fetchPages, loadPage, t]);
-
-    // `fetch`-style adapter over axios for PageViewModal (which expects
-    // `apiFetch(url, {method, headers, body}) -> JSON`).
-    const viewModalApiFetch = useCallback(async (url, opts = {}) => {
-        const method = (opts.method || 'GET').toUpperCase();
-        const data = opts.body ? JSON.parse(opts.body) : undefined;
-        const res = await axios({ url, method, data });
-        return res.data;
-    }, []);
 
     const onViewConfigSavedRef = useRef(null);
 
@@ -4660,7 +4649,6 @@ export default function VaultDashboard() {
                         mode="table"
                         pageId={null}
                         allTables={registry.tables}
-                        apiFetch={viewModalApiFetch}
                         preselectedTableId={activeTableId}
                         editingView={viewToConfigure}
                         initialTab={viewConfigTab}
