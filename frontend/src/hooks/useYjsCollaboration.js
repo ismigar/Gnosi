@@ -10,13 +10,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { GnosiCollabProvider } from '../lib/collabProvider';
-import { transportFetch } from '../shared/api/transports';
+import { fetchSystemHealth } from '../shared/api/system';
 
 let _modePromise = null;
 function resolveMode() {
     if (!_modePromise) {
-        _modePromise = transportFetch('/api/health', { credentials: 'include' })
-            .then((r) => (r.ok ? r.json() : null))
+        _modePromise = fetchSystemHealth()
             .then((d) => d?.gnosi_mode || 'personal')
             .catch(() => 'personal');
     }

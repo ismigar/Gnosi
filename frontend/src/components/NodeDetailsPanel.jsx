@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { VaultMarkdown } from './Vault/VaultMarkdown';
-import { transportFetch } from '../shared/api/transports';
+import { fetchVaultPage } from '../shared/api/vaults';
 
 export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
     const { t } = useTranslation();
@@ -23,29 +23,31 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
 
         setLoading(true);
         setError(null);
+        const controller = new AbortController();
 
         // A graph node is a Vault page: we request its content with
         // the real endpoint. It used to call `/api/node/{id}`, which doesn't exist in the
         // native backend → 404 on every click (panel with no content + error in the
         // console). Nodes that aren't pages (404) fall back to `initialData`.
-        transportFetch(`/api/vault/pages/${encodeURIComponent(nodeId)}`)
-            .then(res => {
-                if (!res.ok) throw new Error("Node not found");
-                return res.json();
-            })
+        fetchVaultPage(nodeId, controller.signal)
             .then(serverData => {
                 // Merge server data (content) with existing (initialData has url/label)
                 // Priority: Server data > Initial Data
                 setData(prev => ({ ...prev, ...serverData }));
             })
             .catch(err => {
+                if (controller.signal.aborted) return;
                 console.error(err);
                 // Don't clear data if we have initialData, just show error toast or subtle message?
                 // For now, setting error only if we have NO data.
                 // Actually, let's keep the initial data visible even on error
                 if (!initialData) setError(t('failed_to_load_node_details') || "Failed to load");
             })
-            .finally(() => setLoading(false));
+            .finally(() => {
+                if (!controller.signal.aborted) setLoading(false);
+            });
+
+        return () => controller.abort();
 
     }, [nodeId, isOpen, t, initialData]); // Include initialData in deps? Careful with ref stability. Actually, App.jsx creates it on every render.
     // Ideally we shouldn't rely on initialData changing. App.jsx passes it fresh.

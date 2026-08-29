@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useApi } from '../hooks/use-api';
 import { Users, Plus } from 'lucide-react';
 import ContactList from '../components/Contacts/ContactList';
 import ContactDetail from '../components/Contacts/ContactDetail';
@@ -13,11 +12,23 @@ import {
     deleteContact,
     updateContact,
 } from '../shared/api/contacts';
+import { fetchIntegrations } from '../shared/api/integrations';
+import { queryClient } from '../shared/api/query-client';
 import { useContacts } from '../shared/api/useContactsData';
+
+const INTEGRATIONS_QUERY_KEY = ['integrations'];
+
+function fetchCachedIntegrations() {
+    return queryClient.fetchQuery({
+        queryKey: INTEGRATIONS_QUERY_KEY,
+        queryFn: ({ signal }) => fetchIntegrations(signal),
+        retry: false,
+        staleTime: 500,
+    });
+}
 
 export default function ContactsPage() {
     const { t } = useTranslation();
-    const { apiGet } = useApi();
     const [selectedContact, setSelectedContact] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -38,7 +49,7 @@ export default function ContactsPage() {
 
     const loadIntegrations = async () => {
         try {
-            const data = await apiGet('/api/integrations');
+            const data = await fetchCachedIntegrations();
             if (data) {
                 setContactAccounts(data.contacts || []);
                 const defaultEmail = data.default_contacts;

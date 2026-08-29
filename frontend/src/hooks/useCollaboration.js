@@ -21,7 +21,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { ensureBackendOrigin } from '../lib/electron';
 import { canonicalizeVaultApiUrl } from '../lib/vaultRouting';
 import { openWebSocket, WEB_SOCKET_OPEN_STATE } from '../shared/api/specialized-transports';
-import { transportFetch } from '../shared/api/transports';
+import { fetchSystemHealth } from '../shared/api/system';
 
 async function buildWsUrl(pageId) {
     // In the Electron shell the `app://` scheme does not intercept WebSocket
@@ -48,8 +48,7 @@ export function useCollaboration(pageId) {
 
     useEffect(() => {
         let cancelled = false;
-        transportFetch('/api/health', { credentials: 'include' })
-            .then((r) => (r.ok ? r.json() : null))
+        fetchSystemHealth()
             .then((data) => {
                 if (!cancelled && data?.gnosi_mode) setGnosiMode(data.gnosi_mode);
             })

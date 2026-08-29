@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, Image as ImageIcon, Users, LogOut, CalendarRange, CircleHelp, NotebookTabs, LibraryBig, PanelTopOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { transportFetch } from '../shared/api/transports';
+import { fetchSystemHealth } from '../shared/api/system';
 // The Settings modal drags in the BlockEditor (blocknote/tiptap) and other
 // heavy views. By lazy-loading it we avoid these libraries
 // entering the initial bundle just because the sidebar references the modal.
@@ -164,8 +164,7 @@ export function AppSidebar() {
 
     useEffect(() => {
         // Fetch health to get gnosi_mode
-        transportFetch('/api/health')
-            .then(res => res.json())
+        fetchSystemHealth()
             .then(data => {
                 if (data.gnosi_mode) setGnosiMode(data.gnosi_mode);
             })

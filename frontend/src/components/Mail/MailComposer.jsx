@@ -17,10 +17,23 @@ import {
     generateMailDraft,
     saveMailDraft,
 } from '../../shared/api/mail';
+import { fetchIntegrations } from '../../shared/api/integrations';
 import {
     replyMailMultipart,
     sendMailMultipart,
 } from '../../shared/api/mail-specialized';
+import { queryClient } from '../../shared/api/query-client';
+
+const INTEGRATIONS_QUERY_KEY = ['integrations'];
+
+function fetchCachedIntegrations() {
+    return queryClient.fetchQuery({
+        queryKey: INTEGRATIONS_QUERY_KEY,
+        queryFn: ({ signal }) => fetchIntegrations(signal),
+        retry: false,
+        staleTime: 500,
+    });
+}
 
 // ─── AttachmentBadge ──────────────────────────────────────────────────────────
 function AttachmentBadge({ file, onRemove }) {
@@ -230,12 +243,12 @@ export default function MailComposer({
 
     const fetchCalendarResources = useCallback(async () => {
         try {
-            const [pagesRes, integrationsRes, tablesRes] = await Promise.all([
+            const [pagesRes, integrations, tablesRes] = await Promise.all([
                 axios.get('/api/vault/pages'),
-                axios.get('/api/integrations'),
+                fetchCachedIntegrations(),
                 axios.get('/api/vault/tables'),
             ]);
-            setCalendarData({ pages: pagesRes.data, integrations: integrationsRes.data, tables: tablesRes.data });
+            setCalendarData({ pages: pagesRes.data, integrations, tables: tablesRes.data });
         } catch {
             toast.error(t('mail.calendar_load_error', "Error loading the calendar"));
         }

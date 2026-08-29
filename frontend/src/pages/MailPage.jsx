@@ -6,11 +6,23 @@ import MailList from '../components/Mail/MailList';
 import MailViewer from '../components/Mail/MailViewer';
 import MailComposer from '../components/Mail/MailComposer';
 import { MailTagsProvider } from '../hooks/useMailTags';
-import { cachedJson } from '../lib/cachedJson';
 import { AppHeader } from '../components/AppHeader';
 import { Inbox, PanelLeft } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { fetchIntegrations } from '../shared/api/integrations';
 import { fetchMailCounts, moveMailMessage } from '../shared/api/mail';
+import { queryClient } from '../shared/api/query-client';
+
+const INTEGRATIONS_QUERY_KEY = ['integrations'];
+
+function fetchCachedIntegrations() {
+    return queryClient.fetchQuery({
+        queryKey: INTEGRATIONS_QUERY_KEY,
+        queryFn: ({ signal }) => fetchIntegrations(signal),
+        retry: false,
+        staleTime: 500,
+    });
+}
 
 export default function MailPage() {
     return (
@@ -53,10 +65,9 @@ function MailPageInner() {
     }, [isCompact]);
 
     useEffect(() => {
-        // Use a short-TTL cache so MailPage, MailComposer and CalendarPage
-        // don't each hit /api/integrations independently when they happen to
-        // mount close together.
-        cachedJson('/api/integrations')
+        // Use the shared short-TTL query so account consumers collapse
+        // concurrent integration reads when they mount close together.
+        fetchCachedIntegrations()
             .then(data => {
                 const allMail = [...(data.mail_accounts || []), ...(data.emails || [])];
                 const seen = new Set();
