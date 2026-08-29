@@ -1,17 +1,42 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AtSign, Bookmark, Code2, Link2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { AtSign, Bookmark, Code2, Link2, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const MENU_WIDTH = 320;
 const VIEWPORT_GAP = 12;
 
-export function ContextualLinkPasteMenu({ position, onChoose, onClose }) {
+export type ContextualLinkPasteMode = 'mention' | 'embed' | 'bookmark' | 'url';
+
+interface ContextualLinkPastePosition {
+    readonly left: number;
+    readonly top: number;
+}
+
+export interface ContextualLinkPasteMenuProps {
+    readonly onChoose?: (mode: ContextualLinkPasteMode) => unknown;
+    readonly onClose?: () => unknown;
+    readonly position: ContextualLinkPastePosition;
+}
+
+interface ContextualLinkPasteItem {
+    readonly description: string;
+    readonly icon: LucideIcon;
+    readonly key: ContextualLinkPasteMode;
+    readonly label: string;
+}
+
+export function ContextualLinkPasteMenu({
+    position,
+    onChoose,
+    onClose,
+}: ContextualLinkPasteMenuProps) {
     const { t } = useTranslation();
-    const menuRef = useRef(null);
-    const itemRefs = useRef([]);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
     const [activeIndex, setActiveIndex] = useState(0);
 
-    const items = useMemo(() => [
+    const items = useMemo<readonly ContextualLinkPasteItem[]>(() => [
         {
             key: 'mention',
             icon: AtSign,
@@ -40,15 +65,21 @@ export function ContextualLinkPasteMenu({ position, onChoose, onClose }) {
 
     useEffect(() => {
         itemRefs.current[0]?.focus();
-        const handlePointerDown = (event) => {
-            if (!menuRef.current?.contains(event.target)) onClose?.();
+        const handlePointerDown = (event: PointerEvent): void => {
+            if (!(event.target instanceof Node) || !menuRef.current?.contains(event.target)) {
+                onClose?.();
+            }
         };
         document.addEventListener('pointerdown', handlePointerDown, true);
-        return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown, true);
+        };
     }, [onClose]);
 
-    const choose = (key) => onChoose?.(key);
-    const handleKeyDown = (event) => {
+    const choose = (key: ContextualLinkPasteMode): void => {
+        onChoose?.(key);
+    };
+    const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
         if (event.key === 'Escape') {
             event.preventDefault();
             onClose?.();
@@ -92,8 +123,12 @@ export function ContextualLinkPasteMenu({ position, onChoose, onClose }) {
                         ref={(node) => { itemRefs.current[index] = node; }}
                         type="button"
                         role="menuitem"
-                        onFocus={() => setActiveIndex(index)}
-                        onClick={() => choose(key)}
+                        onFocus={() => {
+                            setActiveIndex(index);
+                        }}
+                        onClick={() => {
+                            choose(key);
+                        }}
                         className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors ${activeIndex === index ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-secondary)]'}`}
                     >
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-secondary)]">

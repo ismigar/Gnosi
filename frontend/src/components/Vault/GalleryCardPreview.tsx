@@ -1,12 +1,57 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { fetchVaultPagePreview } from '../../shared/api/vaults';
+import { fetchVaultPagePreview, type VaultPagePreview } from '../../shared/api/vaults';
 import { getGalleryMarkdown, getGalleryPageUrl, openGalleryPageWindow } from './galleryCardPreviewUtils';
 import { VaultMarkdown } from './VaultMarkdown';
 
-export function GalleryOpenButton({ pageId }) {
+type GalleryMarkdownValue = string | number | bigint | boolean | null | undefined;
+
+interface GalleryNote {
+    readonly body_md?: GalleryMarkdownValue;
+    readonly content?: GalleryMarkdownValue;
+    readonly excerpt?: GalleryMarkdownValue;
+    readonly id?: string | null;
+    readonly metadata?: {
+        readonly description?: GalleryMarkdownValue;
+        readonly summary?: GalleryMarkdownValue;
+    } | null;
+    readonly title?: string | null;
+}
+
+interface GalleryOpenButtonProps {
+    readonly pageId?: string | null;
+}
+
+interface GalleryContentPreviewProps {
+    readonly idToTitle?: Record<string, string>;
+    readonly note?: GalleryNote | null;
+    readonly onNoteSelect?: (pageId?: string | null) => void;
+    readonly onOpenParallel?: (pageId: string) => void;
+}
+
+interface LoadedGalleryContent {
+    readonly markdown: string;
+    readonly pageId: string;
+}
+
+function getFullPreviewMarkdown(preview: VaultPagePreview): string {
+    if (preview.body_md) return preview.body_md;
+    if ('content' in preview && typeof preview.content === 'string') {
+        return preview.content;
+    }
+    return '';
+}
+
+function isCanceledRequest(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false;
+    const code = 'code' in error ? error.code : undefined;
+    const name = 'name' in error ? error.name : undefined;
+    return code === 'ERR_CANCELED' || name === 'CanceledError';
+}
+
+export function GalleryOpenButton({ pageId }: GalleryOpenButtonProps) {
     const { t } = useTranslation();
     const label = t('editor.open_in_new_tab', { defaultValue: 'Open in a new tab' });
 
@@ -17,7 +62,9 @@ export function GalleryOpenButton({ pageId }) {
             rel="noopener noreferrer"
             aria-label={label}
             title={label}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+                event.stopPropagation();
+            }}
             className="absolute right-2 top-2 z-20 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)]/90 text-[var(--text-tertiary)] opacity-80 shadow-sm backdrop-blur-sm transition hover:text-[var(--gnosi-primary)] hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gnosi-primary)]"
         >
             <ExternalLink size={13} aria-hidden="true" />
@@ -25,12 +72,17 @@ export function GalleryOpenButton({ pageId }) {
     );
 }
 
-export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect, onOpenParallel }) {
+export function GalleryContentPreview({
+    note,
+    idToTitle = {},
+    onNoteSelect,
+    onOpenParallel,
+}: GalleryContentPreviewProps) {
     const { t } = useTranslation();
-    const previewRef = useRef(null);
+    const previewRef = useRef<HTMLDivElement>(null);
     const fallbackMarkdown = getGalleryMarkdown(note);
-    const [visiblePageId, setVisiblePageId] = useState(null);
-    const [fullContent, setFullContent] = useState(null);
+    const [visiblePageId, setVisiblePageId] = useState<string | null>(null);
+    const [fullContent, setFullContent] = useState<LoadedGalleryContent | null>(null);
     const pageId = note?.id || null;
     const markdown = fullContent?.pageId === pageId
         ? fullContent.markdown
@@ -40,34 +92,42 @@ export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect, onOp
         const element = previewRef.current;
         if (!pageId || !element) return undefined;
         if (typeof IntersectionObserver === 'undefined') {
-            const timer = window.setTimeout(() => setVisiblePageId(pageId), 0);
-            return () => window.clearTimeout(timer);
+            const timer = window.setTimeout(() => {
+                setVisiblePageId(pageId);
+            }, 0);
+            return () => {
+                window.clearTimeout(timer);
+            };
         }
 
         const observer = new IntersectionObserver((entries) => {
-            if (entries.some(entry => entry.isIntersecting)) {
+            if (entries.some((entry) => entry.isIntersecting)) {
                 setVisiblePageId(pageId);
                 observer.disconnect();
             }
         }, { rootMargin: '160px' });
         observer.observe(element);
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+        };
     }, [pageId]);
 
     useEffect(() => {
         if (!pageId || visiblePageId !== pageId || fullContent?.pageId === pageId) return undefined;
         const controller = new AbortController();
-        fetchVaultPagePreview(pageId, { full: true }, controller.signal).then((preview) => {
-            const fullMarkdown = preview?.body_md || preview?.content || '';
+        void fetchVaultPagePreview(pageId, { full: true }, controller.signal).then((preview) => {
+            const fullMarkdown = getFullPreviewMarkdown(preview);
             if (fullMarkdown) {
                 setFullContent({ pageId, markdown: getGalleryMarkdown({ body_md: fullMarkdown }) });
             }
-        }).catch((error) => {
-            if (error?.code !== 'ERR_CANCELED' && error?.name !== 'CanceledError') {
+        }).catch((error: unknown) => {
+            if (!isCanceledRequest(error)) {
                 // The summary remains usable when the lazy full-content request fails.
             }
         });
-        return () => controller.abort();
+        return () => {
+            controller.abort();
+        };
     }, [fullContent?.pageId, pageId, visiblePageId]);
 
     return (
@@ -76,7 +136,9 @@ export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect, onOp
             tabIndex={0}
             aria-label={t('common.gallery_content_preview', { defaultValue: 'Page content preview' })}
             data-gallery-content-source={fullContent?.pageId === pageId ? 'full' : 'summary'}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+                event.stopPropagation();
+            }}
             onKeyDown={(event) => {
                 if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
                     event.stopPropagation();
@@ -86,7 +148,7 @@ export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect, onOp
         >
             {markdown ? (
                 <VaultMarkdown
-                    md={String(markdown)}
+                    md={markdown}
                     imageTitle={note?.title || ''}
                     idToTitle={idToTitle}
                     onActivate={() => onNoteSelect?.(note?.id)}
