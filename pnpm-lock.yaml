@@ -171,6 +171,9 @@ importers:
       openapi-react-query:
         specifier: 0.5.4
         version: 0.5.4(@tanstack/react-query@5.102.8(react@19.2.8))(openapi-fetch@0.17.0)
+      pdfjs-dist:
+        specifier: 5.4.296
+        version: 5.4.296
       prosemirror-state:
         specifier: 1.4.4
         version: 1.4.4

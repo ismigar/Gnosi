@@ -17,6 +17,7 @@ import MailTagPicker, { TagPill } from './MailTagPicker';
 import { useMailTags } from '../../hooks/useMailTags';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { Document, Page, pdfjs } from 'react-pdf';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { translateFolderName } from './mailFolderUtils';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -40,10 +41,7 @@ import { createContact } from '../../shared/api/contacts';
 import { fetchIdentity } from '../../shared/api/identity';
 import { createVaultPage } from '../../shared/api/vaults';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url,
-).toString();
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const cleanName = (addr) =>
     (addr || '').split('<')[0].trim().replace(/^["']+|["']+$/g, '').trim() || addr || '';

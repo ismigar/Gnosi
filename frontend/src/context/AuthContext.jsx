@@ -18,6 +18,7 @@
  *     App gates behind <LoginPage> too.
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { initializeVaultRouting } from '../lib/vaultRouting.js';
 import { transportFetch } from '../shared/api/transports';
 
 const AuthContext = createContext(null);
@@ -119,7 +120,6 @@ export function AuthProvider({ children }) {
         });
         setUser(me);
         persistUser(me);
-        const { initializeVaultRouting } = await import('../lib/vaultRouting.js');
         await initializeVaultRouting({ force: true });
         window.dispatchEvent(new CustomEvent('gnosi:vault-changed'));
         return me;
@@ -132,7 +132,6 @@ export function AuthProvider({ children }) {
         });
         setUser(me);
         persistUser(me);
-        const { initializeVaultRouting } = await import('../lib/vaultRouting.js');
         await initializeVaultRouting({ force: true });
         window.dispatchEvent(new CustomEvent('gnosi:vault-changed'));
         return me;
