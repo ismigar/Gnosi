@@ -139,7 +139,6 @@
       "frontend/src/components/Mail/MailViewer.jsx": 1307,
       "frontend/src/components/Notebooks/NotebookCreateDialog.jsx": 235,
       "frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx": 304,
-      "frontend/src/components/Vault/AutoriaField.jsx": 186,
       "frontend/src/components/Vault/BibliographyBlock.jsx": 202,
       "frontend/src/components/Vault/BlockEditor.jsx": 6292,
       "frontend/src/components/Vault/CalendarSidebarLeft.jsx": 317,

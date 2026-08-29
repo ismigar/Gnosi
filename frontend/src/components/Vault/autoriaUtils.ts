@@ -1,11 +1,11 @@
 /** Pure helpers for ordered author lists used by the autoria field type. */
-interface AuthorLike {
+export interface AuthorLike {
   cognom1?: string | null;
   cognom2?: string | null;
   nom?: string | null;
 }
 
-interface Author {
+export interface Author {
   cognom1: string;
   cognom2: string;
   nom: string;
