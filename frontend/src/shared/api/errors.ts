@@ -1,11 +1,13 @@
 export class GnosiApiError extends Error {
   readonly payload: unknown;
+  readonly response: Response;
   readonly status: number;
 
   constructor(response: Response, payload: unknown) {
     super(apiErrorMessage(payload, response.statusText));
     this.name = 'GnosiApiError';
     this.payload = payload;
+    this.response = response;
     this.status = response.status;
   }
 }

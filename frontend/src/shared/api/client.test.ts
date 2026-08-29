@@ -42,7 +42,11 @@ describe('apiClient', () => {
 
 describe('unwrapApiResult', () => {
   it('normalizes typed API failures', () => {
-    const response = new Response(null, { status: 409, statusText: 'Conflict' });
+    const response = new Response(null, {
+      headers: { 'Retry-After': '3' },
+      status: 409,
+      statusText: 'Conflict',
+    });
 
     expect(() =>
       unwrapApiResult({
@@ -50,5 +54,14 @@ describe('unwrapApiResult', () => {
         response,
       }),
     ).toThrowError(new GnosiApiError(response, { detail: { message: 'The page changed' } }));
+
+    try {
+      unwrapApiResult({ error: { detail: 'retry' }, response });
+    } catch (error) {
+      expect(error).toBeInstanceOf(GnosiApiError);
+      if (!(error instanceof GnosiApiError)) throw error;
+      expect(error.response).toBe(response);
+      expect(error.response.headers.get('Retry-After')).toBe('3');
+    }
   });
 });

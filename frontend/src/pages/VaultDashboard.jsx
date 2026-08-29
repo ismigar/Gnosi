@@ -6,8 +6,14 @@ import { openDailyNote } from '../shared/api/daily-notes';
 import { fetchResourceProcessingStatus } from '../shared/api/resource-processing';
 import {
     createVaultPage,
+    fetchVaultAliasIndex,
+    fetchVaultGlobalIndex,
     fetchVaultPage,
+    fetchVaultPages,
+    fetchVaultPagesByTable,
     fetchVaultRegistry,
+    fetchVaultTablePagesSnapshot,
+    resolveVaultTitle,
 } from '../shared/api/vaults';
 import {
     createVaultView,
@@ -406,8 +412,8 @@ export default function VaultDashboard() {
             let lastErr = null;
             for (let attempt = 0; attempt <= maxAbortRetries; attempt += 1) {
                 try {
-                    const res = await axios.get(`/api/vault/pages/${pageId}`, { signal: controller.signal });
-                    return res;
+                    const page = await fetchVaultPage(pageId, controller.signal);
+                    return { data: page };
                 } catch (err) {
                     lastErr = err;
                     // If the external caller aborted, propagate immediately.
@@ -748,8 +754,8 @@ export default function VaultDashboard() {
     const fetchPages = useCallback(async (attempt = 0) => {
         try {
             setLoading(true);
-            const res = await axios.get('/api/vault/pages');
-            if (res.data.length === 0 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
+            const nextPages = await fetchVaultPages();
+            if (nextPages.length === 0 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
                 // Backend cache may still be warming up — retry with backoff
                 if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
                 fetchPagesRetryTimerRef.current = setTimeout(
@@ -758,9 +764,9 @@ export default function VaultDashboard() {
                 );
                 return [];
             }
-            syncPagesState(res.data);
+            syncPagesState(nextPages);
             setLoading(false);
-            return res.data;
+            return nextPages;
         } catch (err) {
             if (isAbortLikeError(err) && attempt < 2) {
                 if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
@@ -773,7 +779,7 @@ export default function VaultDashboard() {
             // 503 with Retry-After: the backend tells us the index is still
             // warming up. We retry honoring the header (fallback 2s).
             if (err?.response?.status === 503 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
-                const retryAfter = Number(err.response.headers?.['retry-after']) || 2;
+                const retryAfter = Number(err.response.headers.get('retry-after')) || 2;
                 if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
                 fetchPagesRetryTimerRef.current = setTimeout(
                     () => fetchPages(attempt + 1),
@@ -859,8 +865,7 @@ export default function VaultDashboard() {
     const fetchPagesByTable = useCallback(async (tableId) => {
         if (!tableId) return [];
         try {
-            const res = await axios.get(`/api/vault/pages/by-table/${tableId}`);
-            const tablePages = res.data || [];
+            const tablePages = await fetchVaultPagesByTable(tableId);
             const templates = tablePages.filter(p => p.metadata?.is_template);
             setTableTemplates(templates);
 
@@ -877,8 +882,7 @@ export default function VaultDashboard() {
             fetchGlobalIndex();
 
             try {
-                const snapshotRes = await axios.get(`/api/vault/pages/by-table/${tableId}/snapshot`);
-                const snapshot = snapshotRes.data || {};
+                const snapshot = await fetchVaultTablePagesSnapshot(tableId);
                 const visiblePages = snapshot.pages || [];
                 setVisibleTableRecordsById(prev => ({ ...prev, [tableId]: visiblePages }));
                 setTableCountsById(prev => ({
@@ -969,8 +973,8 @@ export default function VaultDashboard() {
             // 3) Backend (/resolve-by-title) — tolerant a moves recents.
             if (!resolved) {
                 try {
-                    const r = await axios.get('/api/vault/resolve-by-title', { params: { title: pageId } });
-                    if (r?.data?.id) resolved = r.data.id;
+                    const match = await resolveVaultTitle(pageId);
+                    if (match?.id) resolved = match.id;
                 } catch { /* ignore — we'll fall back to the standard 404 */ }
             }
             if (resolved && resolved !== pageId) {
@@ -1259,16 +1263,16 @@ export default function VaultDashboard() {
 
     const fetchGlobalIndex = async () => {
         try {
-            const res = await axios.get('/api/vault/global-index');
-            setGlobalIndex(res.data);
+            const index = await fetchVaultGlobalIndex();
+            setGlobalIndex(index);
         } catch (err) {
             console.error("Error loading global index:", err);
         }
         // The alias index is secondary: if it fails, title-based wikilinks
         // keep working (and `[[alias]]` still resolves via /resolve-by-title).
         try {
-            const aliasRes = await axios.get('/api/vault/alias-index');
-            setAliasIndex(aliasRes.data || {});
+            const index = await fetchVaultAliasIndex();
+            setAliasIndex(index || {});
         } catch (err) {
             console.warn("Error loading alias index:", err?.message || err);
         }
