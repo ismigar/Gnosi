@@ -8,13 +8,24 @@ import {
   type SocialStream,
 } from '../../shared/api/social';
 import AddStreamModal from './AddStreamModal';
+import Composer from './Composer';
 import PostCard from './PostCard';
 import Scheduler from './Scheduler';
 
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
+    t: (
+      key: string,
+      fallback?: string,
+      values: Record<string, string | number> = {},
+    ) => Object.entries(values).reduce(
+      (message, [name, value]) => message.replaceAll(
+        `{{${name}}}`,
+        typeof value === 'number' ? String(value) : value,
+      ),
+      fallback ?? key,
+    ),
   }),
 }));
 
@@ -26,6 +37,51 @@ vi.mock('../../hooks/useModalKeyboard', () => ({
 
 vi.mock('../../shared/api/social', () => ({
   interactSocialPost: vi.fn(),
+}));
+
+
+const composerMocks = vi.hoisted(() => ({
+  createPost: vi.fn(),
+  schedulePosts: vi.fn(),
+  toastSuccess: vi.fn(),
+}));
+
+
+vi.mock('../../shared/api/useSocialData', () => ({
+  useCreateSocialPost: () => ({
+    isPending: false,
+    mutateAsync: composerMocks.createPost,
+  }),
+  useScheduleSocialPosts: () => ({
+    isPending: false,
+    mutateAsync: composerMocks.schedulePosts,
+  }),
+  useSocialNetworks: () => ({
+    data: [
+      {
+        char_limit: 500,
+        enabled: true,
+        icon: 'M',
+        id: 'mastodon',
+        name: 'Mastodon',
+      },
+      {
+        char_limit: 300,
+        enabled: true,
+        icon: 'B',
+        id: 'bluesky',
+        name: 'Bluesky',
+      },
+    ],
+  }),
+}));
+
+
+vi.mock('../../lib/toast', () => ({
+  toast: {
+    error: vi.fn(),
+    success: composerMocks.toastSuccess,
+  },
 }));
 
 
@@ -61,6 +117,18 @@ function buttonWithText(text: string): HTMLButtonElement {
     .find((candidate) => candidate.textContent.includes(text));
   if (!button) throw new Error(`Button not found: ${text}`);
   return button;
+}
+
+
+function setInputValue(input: HTMLTextAreaElement, value: string): void {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype,
+    'value',
+  );
+  const boundSetter = descriptor?.set?.bind(input);
+  if (!boundSetter) throw new Error('Native textarea setter is unavailable');
+  boundSetter(value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 
@@ -150,5 +218,31 @@ describe('social controls', () => {
       type: 'home',
     });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('publishes composer content to every enabled network', async () => {
+    composerMocks.createPost.mockResolvedValue({ status: 'published' });
+    act(() => {
+      root.render(<Composer />);
+    });
+    const textarea = container.querySelector('textarea');
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('Composer textarea was not rendered');
+    }
+    act(() => {
+      setInputValue(textarea, 'A typed social update');
+    });
+    expect(container.textContent).toContain('21 / 300 characters');
+
+    await act(async () => {
+      buttonWithText('Publish Now').click();
+      await Promise.resolve();
+    });
+
+    expect(composerMocks.createPost).toHaveBeenCalledWith({
+      content: 'A typed social update',
+      networks: ['mastodon', 'bluesky'],
+    });
+    expect(composerMocks.toastSuccess).toHaveBeenCalledOnce();
   });
 });

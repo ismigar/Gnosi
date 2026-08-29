@@ -272,7 +272,6 @@
       "frontend/src/components/VaultTemplateMarketplace.test.jsx": 127,
       "frontend/src/components/VisualizationSection.jsx": 141,
       "frontend/src/components/Workspace/WorkspaceMembersPanel.jsx": 342,
-      "frontend/src/components/social/Composer.jsx": 198,
       "frontend/src/hooks/useFileLinkInterceptor.js": 157,
       "frontend/src/lib/fileResource.js": 691,
       "frontend/src/lib/fileResourceCitation.test.js": 151,

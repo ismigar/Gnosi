@@ -7,11 +7,13 @@ import {
 
 import {
   cancelScheduledSocialPost,
+  createSocialPost,
   fetchScheduledSocialPosts,
   fetchSocialFeed,
   fetchSocialNetworks,
   fetchSocialPostHistory,
   fetchSocialStreams,
+  scheduleSocialPosts,
   updateSocialStreams,
   type ScheduledSocialPost,
   type SocialStream,
@@ -73,6 +75,28 @@ export function useSocialNetworks() {
   return useQuery({
     queryFn: fetchSocialNetworks,
     queryKey: socialQueryKeys.networks,
+  });
+}
+
+
+export function useCreateSocialPost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createSocialPost,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: socialQueryKeys.all });
+    },
+  });
+}
+
+
+export function useScheduleSocialPosts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: scheduleSocialPosts,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: socialQueryKeys.all });
+    },
   });
 }
 
