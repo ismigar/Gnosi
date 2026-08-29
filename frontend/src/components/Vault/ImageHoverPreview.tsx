@@ -1,19 +1,34 @@
-import React, { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 
 const PREVIEW_SIZE = 320;
 const VIEWPORT_MARGIN = 8;
+
+interface PreviewPosition {
+    readonly left: number;
+    readonly top: number;
+}
+
+export interface ImageHoverPreviewProps {
+    readonly alt?: string;
+    readonly href?: string;
+    readonly src: string;
+    readonly thumbClassName?: string;
+}
 
 export const ImageHoverPreview = ({
     src,
     alt = '',
     href,
     thumbClassName = 'w-14 h-10 object-cover rounded border border-[var(--border-primary)]',
-}) => {
+}: ImageHoverPreviewProps) => {
     const [show, setShow] = useState(false);
-    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const [pos, setPos] = useState<PreviewPosition>({ top: 0, left: 0 });
     const [loaded, setLoaded] = useState(false);
-    const anchorRef = useRef(null);
+    const anchorRef = useRef<HTMLElement | null>(null);
+    const setAnchor = useCallback((node: HTMLElement | null): void => {
+        anchorRef.current = node;
+    }, []);
 
     const updatePosition = useCallback(() => {
         if (!anchorRef.current) return;
@@ -48,28 +63,37 @@ export const ImageHoverPreview = ({
         setLoaded(false);
     }, []);
 
-    const linkProps = href
-        ? {
-            href,
-            target: '_blank',
-            rel: 'noreferrer',
-            onClick: (e) => e.stopPropagation(),
-        }
-        : {};
+    const stopLinkClick = useCallback((event: MouseEvent<HTMLAnchorElement>): void => {
+        event.stopPropagation();
+    }, []);
 
-    const Tag = href ? 'a' : 'span';
+    const thumbnail = <img src={src} alt={alt} className={thumbClassName} />;
 
     return (
         <>
-            <Tag
-                ref={anchorRef}
-                className="inline-flex items-center"
-                onMouseEnter={handleEnter}
-                onMouseLeave={handleLeave}
-                {...linkProps}
-            >
-                <img src={src} alt={alt} className={thumbClassName} />
-            </Tag>
+            {href ? (
+                <a
+                    ref={setAnchor}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center"
+                    onClick={stopLinkClick}
+                    onMouseEnter={handleEnter}
+                    onMouseLeave={handleLeave}
+                >
+                    {thumbnail}
+                </a>
+            ) : (
+                <span
+                    ref={setAnchor}
+                    className="inline-flex items-center"
+                    onMouseEnter={handleEnter}
+                    onMouseLeave={handleLeave}
+                >
+                    {thumbnail}
+                </span>
+            )}
             {show && createPortal(
                 <div
                     style={{
@@ -91,7 +115,9 @@ export const ImageHoverPreview = ({
                     <img
                         src={src}
                         alt={alt}
-                        onLoad={() => setLoaded(true)}
+                        onLoad={() => {
+                            setLoaded(true);
+                        }}
                         className="w-full h-full object-contain bg-[var(--bg-secondary)]"
                     />
                 </div>,

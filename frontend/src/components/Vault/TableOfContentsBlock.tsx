@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,14 +12,42 @@ import { useTranslation } from 'react-i18next';
  */
 
 // Extracts the plain text from a BlockNote inline content array.
-const inlineText = (content) => {
-    if (!Array.isArray(content)) return '';
+interface TocHeading {
+    readonly id: string;
+    readonly level: number;
+    readonly text: string;
+}
+
+interface TocEditor {
+    readonly document?: unknown;
+    readonly onChange?: (listener: () => void) => (() => void) | undefined;
+}
+
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+    return Array.isArray(value);
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function scalarText(value: unknown): string {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'bigint' || typeof value === 'boolean') {
+        return String(value);
+    }
+    return '';
+}
+
+const inlineText = (content: unknown): string => {
+    if (!isUnknownArray(content)) return '';
     return content
         .map((it) => {
-            if (!it || typeof it !== 'object') return '';
+            if (!isUnknownRecord(it)) return '';
             if (typeof it.text === 'string') return it.text;
             // wikilink / cite / mention: uses the visible title if there is one
-            return String(it.props?.title || it.props?.label || '');
+            const props = isUnknownRecord(it.props) ? it.props : {};
+            return scalarText(props.title) || scalarText(props.label);
         })
         .join('')
         .trim();
@@ -27,38 +55,48 @@ const inlineText = (content) => {
 
 // Traverses the document (including children of columns/toggles) and collects the
 // headings in order with their level, text, and block id (to scroll to).
-const extractHeadings = (editor) => {
-    const out = [];
-    const walk = (blocks) => {
-        for (const b of blocks || []) {
-            if (b?.type === 'heading') {
-                const text = inlineText(b.content);
-                if (text) out.push({ id: b.id, level: Number(b.props?.level) || 1, text });
+const extractHeadings = (editor?: TocEditor | null): TocHeading[] => {
+    const out: TocHeading[] = [];
+    const walk = (blocks: unknown): void => {
+        if (!isUnknownArray(blocks)) return;
+        for (const block of blocks) {
+            if (!isUnknownRecord(block)) continue;
+            if (block.type === 'heading') {
+                const text = inlineText(block.content);
+                const props = isUnknownRecord(block.props) ? block.props : {};
+                if (text) out.push({ id: scalarText(block.id), level: Number(props.level) || 1, text });
             }
-            if (Array.isArray(b?.children) && b.children.length) walk(b.children);
+            walk(block.children);
         }
     };
     try { walk(editor?.document || []); } catch { /* editor not ready yet */ }
     return out;
 };
 
-export default function TableOfContentsBlock({ editor }) {
+export interface TableOfContentsBlockProps {
+    readonly editor?: TocEditor | null;
+}
+
+export default function TableOfContentsBlock({ editor }: TableOfContentsBlockProps) {
     const { t } = useTranslation();
     const [headings, setHeadings] = useState(() => extractHeadings(editor));
 
     useEffect(() => {
         if (!editor?.onChange) return undefined;
         // onChange returns an unsubscribe function in BlockNote >= 0.25.
-        let unsub;
+        let unsubscribe: (() => void) | undefined;
         try {
-            unsub = editor.onChange(() => setHeadings(extractHeadings(editor)));
+            const result = editor.onChange(() => {
+                setHeadings(extractHeadings(editor));
+            });
+            unsubscribe = typeof result === 'function' ? result : undefined;
         } catch { /* noop */ }
         // Also recalculates on mount in case the document already had headings.
         setHeadings(extractHeadings(editor));
-        return () => { try { unsub?.(); } catch { /* noop */ } };
+        return () => { try { unsubscribe?.(); } catch { /* noop */ } };
     }, [editor]);
 
-    const scrollTo = useCallback((id) => {
+    const scrollTo = useCallback((id: string): void => {
         try {
             const el = document.querySelector(`[data-id="${id}"]`);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -85,10 +123,12 @@ export default function TableOfContentsBlock({ editor }) {
             ) : (
                 <ul className="space-y-0.5">
                     {headings.map((h, i) => (
-                        <li key={`${h.id}-${i}`} style={{ paddingLeft: `${(h.level - minLevel) * 16}px` }}>
+                        <li key={`${h.id}-${String(i)}`} style={{ paddingLeft: `${String((h.level - minLevel) * 16)}px` }}>
                             <button
                                 type="button"
-                                onClick={() => scrollTo(h.id)}
+                                onClick={() => {
+                                    scrollTo(h.id);
+                                }}
                                 className="text-left text-sm text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:underline transition-colors"
                             >
                                 {h.text}

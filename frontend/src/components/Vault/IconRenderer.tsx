@@ -1,15 +1,12 @@
-import React from 'react';
-import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
+import { DynamicIcon, iconNames, type IconName } from 'lucide-react/dynamic';
 import { withActiveVault } from '../../lib/fileResource';
 
-const DYNAMIC_ICON_NAMES = new Set(iconNames);
-const normalizeLucideIconName = (name) => name
+const DYNAMIC_ICON_NAMES: ReadonlySet<string> = new Set(iconNames);
+const normalizeLucideIconName = (name: string): string => name
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .toLowerCase();
 
-const normalizeVaultAssetUrl = (value) => {
-    if (typeof value !== 'string') return value;
-
+const normalizeVaultAssetUrl = (value: string): string => {
     if (value.startsWith('Assets/')) {
         return `/api/vault/assets/${value.substring(7)}`;
     }
@@ -35,7 +32,14 @@ const normalizeVaultAssetUrl = (value) => {
  * 2. Lucide Icon (format "lucide:IconName:color")
  * 3. URL/Image (https://... or Assets/...)
  */
-export const IconRenderer = ({ icon, size = 16, className = "", color }) => {
+export interface IconRendererProps {
+    readonly className?: string;
+    readonly color?: string;
+    readonly icon?: string | null;
+    readonly size?: number;
+}
+
+export const IconRenderer = ({ icon, size = 16, className = '', color }: IconRendererProps) => {
     if (!icon) return null;
 
     // 1. Check if it's a Lucide Icon string "lucide:IconName:color"
@@ -45,7 +49,7 @@ export const IconRenderer = ({ icon, size = 16, className = "", color }) => {
         const colorName = parts[2] || 'default';
 
         // Color map for icons
-        const colorMap = {
+        const colorMap: Readonly<Record<string, string>> = {
             'default': 'currentColor',
             'gray': '#787774',
             'brown': '#976d57',
@@ -60,13 +64,15 @@ export const IconRenderer = ({ icon, size = 16, className = "", color }) => {
 
         const normalizedName = normalizeLucideIconName(iconName || '');
         if (DYNAMIC_ICON_NAMES.has(normalizedName)) {
-            return <DynamicIcon name={normalizedName} size={size} color={color || colorMap[colorName]} className={className} />;
+            return <DynamicIcon name={normalizedName as IconName} size={size} color={color || colorMap[colorName] || 'currentColor'} className={className} />;
         }
     }
 
     // 2. Check if it's a URL or path
     if (typeof icon === 'string' && (icon.startsWith('http') || icon.startsWith('/') || icon.includes('.'))) {
-        const src = withActiveVault(normalizeVaultAssetUrl(icon));
+        const normalizedUrl = normalizeVaultAssetUrl(icon);
+        const activeVaultUrl: unknown = withActiveVault(normalizedUrl);
+        const src = typeof activeVaultUrl === 'string' ? activeVaultUrl : normalizedUrl;
 
         return (
             <img
@@ -82,7 +88,7 @@ export const IconRenderer = ({ icon, size = 16, className = "", color }) => {
     return (
         <span
             className={`flex items-center justify-center shrink-0 ${className}`}
-            style={{ fontSize: `${size * 0.8}px`, width: size, height: size }}
+            style={{ fontSize: `${String(size * 0.8)}px`, width: size, height: size }}
         >
             {icon}
         </span>

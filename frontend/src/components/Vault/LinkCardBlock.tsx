@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link2, Loader2, ExternalLink } from 'lucide-react';
-import { fetchLinkPreview } from '../../shared/api/links';
+import { fetchLinkPreview, type LinkPreview } from '../../shared/api/links';
 
 /**
  * LinkCardBlock
@@ -11,25 +11,33 @@ import { fetchLinkPreview } from '../../shared/api/links';
  */
 
 // In-memory cache of previews by URL (avoids refetch on re-render).
-const _previewCache = new Map();
+const previewCache = new Map<string, LinkPreview>();
 
-export default function LinkCardBlock({ block }) {
+interface LinkCardBlockValue {
+    readonly props?: { readonly url?: string | null };
+}
+
+export interface LinkCardBlockProps {
+    readonly block?: LinkCardBlockValue | null;
+}
+
+export default function LinkCardBlock({ block }: LinkCardBlockProps) {
     const { t } = useTranslation();
-    const url = String(block?.props?.url || '').trim();
-    const [data, setData] = useState(() => _previewCache.get(url) || null);
-    const [loading, setLoading] = useState(!_previewCache.has(url));
+    const url = (block?.props?.url || '').trim();
+    const [data, setData] = useState<LinkPreview | null>(() => previewCache.get(url) || null);
+    const [loading, setLoading] = useState(!previewCache.has(url));
     const [error, setError] = useState('');
 
     useEffect(() => {
         if (!url) { setLoading(false); return undefined; }
-        if (_previewCache.has(url)) { setData(_previewCache.get(url)); setLoading(false); return undefined; }
+        if (previewCache.has(url)) { setData(previewCache.get(url) || null); setLoading(false); return undefined; }
         let cancelled = false;
         const controller = new AbortController();
         setLoading(true);
-        fetchLinkPreview(url, controller.signal)
+        void fetchLinkPreview(url, controller.signal)
             .then((preview) => {
                 if (cancelled) return;
-                _previewCache.set(url, preview);
+                previewCache.set(url, preview);
                 setData(preview);
             })
             .catch(() => {
@@ -37,12 +45,14 @@ export default function LinkCardBlock({ block }) {
                     setError(t('link_card.preview_error', "Couldn't load the preview."));
                 }
             })
-            .finally(() => { if (!cancelled) setLoading(false); });
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
         return () => {
             cancelled = true;
             controller.abort();
         };
-    }, [url]);
+    }, [t, url]);
 
     let host = url;
     try { host = new URL(url).host; } catch { /* noop */ }

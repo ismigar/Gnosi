@@ -14,5 +14,10 @@ interface GnosiElectronApi {
 }
 
 interface Window {
+  __vaultViewError?: {
+    readonly componentStack: string | null;
+    readonly message: string;
+    readonly stack: string | null;
+  };
   electronAPI?: GnosiElectronApi;
 }

@@ -61,6 +61,18 @@ export function RetryableImage({ src, title, onClick }) {
 /*  Shared between the feed (DbViewEmbed) and the preview pop-up.     */
 /* -------------------------------------------------------------------------- */
 /**
+ * @typedef {Object} VaultMarkdownProps
+ * @property {string} md
+ * @property {(() => void) | undefined} [onActivate]
+ * @property {string | undefined} [imageTitle]
+ * @property {string | null | undefined} [vaultId]
+ * @property {Record<string, string> | undefined} [idToTitle]
+ * @property {((pageId: string) => void) | undefined} [onOpenInCurrentTab]
+ * @property {((pageId: string) => void) | undefined} [onOpenInNewTab]
+ * @property {((pageId: string) => void) | undefined} [onOpenParallel]
+ */
+
+/**
  * Renders Vault Markdown with the same treatment as the page:
  * clickable `[[…]]` wikilinks (with hover preview) and Assets images with retry.
  * Does not wrap with any container: the parent provides wrapper, classes, and ref if
@@ -70,6 +82,8 @@ export function RetryableImage({ src, title, onClick }) {
  *  - md: Markdown string to render.
  *  - onActivate: optional callback when clicking an image (typically opens the page).
  *  - imageTitle: fallback title/alt for the images.
+ *
+ * @param {VaultMarkdownProps} props
  */
 export function VaultMarkdown({
     md,

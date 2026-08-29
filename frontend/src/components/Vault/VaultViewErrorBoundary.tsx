@@ -1,4 +1,4 @@
-import React from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import i18n from '../../i18n';
 
@@ -24,29 +24,42 @@ import i18n from '../../i18n';
  * It is the pattern React's own message recommends. Reused by
  * VaultViewBody, so it covers the Dashboard's 3 render points and the embed.
  */
-export class VaultViewErrorBoundary extends React.Component {
-    constructor(props) {
+export interface VaultViewErrorBoundaryProps {
+    readonly children?: ReactNode;
+    readonly resetKeys?: readonly unknown[];
+}
+
+interface VaultViewErrorBoundaryState {
+    readonly error: Error | null;
+    readonly hasError: boolean;
+}
+
+export class VaultViewErrorBoundary extends Component<
+    VaultViewErrorBoundaryProps,
+    VaultViewErrorBoundaryState
+> {
+    constructor(props: VaultViewErrorBoundaryProps) {
         super(props);
         this.state = { hasError: false, error: null };
         this.handleRetry = this.handleRetry.bind(this);
     }
 
-    static getDerivedStateFromError(error) {
+    static getDerivedStateFromError(error: Error): VaultViewErrorBoundaryState {
         return { hasError: true, error };
     }
 
-    componentDidCatch(error, errorInfo) {
+    componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
         try {
             window.__vaultViewError = {
-                message: error?.message ?? String(error),
-                stack: error?.stack ?? null,
-                componentStack: errorInfo?.componentStack ?? null,
+                message: error.message,
+                stack: error.stack ?? null,
+                componentStack: errorInfo.componentStack ?? null,
             };
         } catch { /* noop */ }
         console.error('VaultViewErrorBoundary caught an error', error, errorInfo);
     }
 
-    componentDidUpdate(prevProps) {
+    componentDidUpdate(prevProps: VaultViewErrorBoundaryProps): void {
         if (!this.state.hasError) return;
         // Reset ONLY when a resetKey has changed in VALUE (not because of the new
         // array reference, which is created on every render): this avoids a
@@ -59,11 +72,11 @@ export class VaultViewErrorBoundary extends React.Component {
         }
     }
 
-    handleRetry() {
+    handleRetry(): void {
         this.setState({ hasError: false, error: null });
     }
 
-    render() {
+    render(): ReactNode {
         if (!this.state.hasError) return this.props.children;
 
         return (
@@ -81,7 +94,9 @@ export class VaultViewErrorBoundary extends React.Component {
                 </div>
                 <button
                     type="button"
-                    onClick={this.handleRetry}
+                    onClick={() => {
+                        this.handleRetry();
+                    }}
                     className="px-3 py-1.5 text-xs font-medium rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
                 >
                     {i18n.t('view_error.retry', "Retry")}
