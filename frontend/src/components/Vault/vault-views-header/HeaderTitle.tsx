@@ -52,7 +52,9 @@ export function HeaderTitle({
             </div>
             <div className="flex items-center gap-2 shrink-0">
                 {brainTableId && (
-                    <BrainInbox onAccepted={onReferencesImported} />
+                    <BrainInbox onAccepted={onReferencesImported ? () => {
+                        onReferencesImported();
+                    } : undefined} />
                 )}
                 {referenceTableId && (
                     <ReferenceImportExport
