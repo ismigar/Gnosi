@@ -15,10 +15,14 @@ from fastapi.params import Depends as DependsParameter
 
 from backend.domains.vault.comments.repository import Comment, PageCommentMap
 from backend.domains.vault.comments.schemas import (
+    CommentDeleteResponse,
     CommentCreateRequest,
     CommentUpdateRequest,
+    InlineComment,
     InlineCommentPatch,
     InlineCommentRequest,
+    PageComment,
+    PageCommentThread,
 )
 from backend.domains.vault.comments.state import (
     inline_comments_mutation_lock,
@@ -135,28 +139,28 @@ def register_page_comment_routes(
         list_page_comments,
         methods=["GET"],
         dependencies=list(get_dependencies),
-        response_model=None,
+        response_model=PageCommentThread,
     )
     router.add_api_route(
         "/pages/{page_id}/comments",
         add_page_comment,
         methods=["POST"],
         dependencies=list(post_dependencies),
-        response_model=None,
+        response_model=PageComment,
     )
     router.add_api_route(
         "/pages/{page_id}/comments/{comment_id}",
         update_page_comment,
         methods=["PATCH"],
         dependencies=list(patch_dependencies),
-        response_model=None,
+        response_model=PageComment,
     )
     router.add_api_route(
         "/pages/{page_id}/comments/{comment_id}",
         delete_page_comment,
         methods=["DELETE"],
         dependencies=list(delete_dependencies),
-        response_model=None,
+        response_model=CommentDeleteResponse,
     )
     return (
         list_page_comments,
@@ -241,26 +245,29 @@ def register_inline_comment_routes(
         "/pages/{page_id}/inline-comments",
         list_inline_comments,
         methods=["GET"],
-        response_model=None,
+        response_model=list[InlineComment],
     )
-    for path, endpoint, method, route_dependencies in (
+    for path, endpoint, method, route_dependencies, response_model in (
         (
             "/pages/{page_id}/inline-comments",
             create_inline_comment,
             "POST",
             post_dependencies,
+            InlineComment,
         ),
         (
             "/pages/{page_id}/inline-comments/{comment_id}",
             update_inline_comment,
             "PATCH",
             patch_dependencies,
+            InlineComment,
         ),
         (
             "/pages/{page_id}/inline-comments/{comment_id}",
             delete_inline_comment,
             "DELETE",
             delete_dependencies,
+            CommentDeleteResponse,
         ),
     ):
         router.add_api_route(
@@ -268,7 +275,7 @@ def register_inline_comment_routes(
             endpoint,
             methods=[method],
             dependencies=list(route_dependencies),
-            response_model=None,
+            response_model=response_model,
         )
     return (
         list_inline_comments,

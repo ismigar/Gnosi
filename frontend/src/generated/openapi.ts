@@ -11110,6 +11110,16 @@ export interface components {
             /** Body */
             body: string;
         };
+        /** CommentDeleteResponse */
+        CommentDeleteResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "deleted";
+        };
         /** CommentUpdateRequest */
         CommentUpdateRequest: {
             /** Body */
@@ -12380,6 +12390,26 @@ export interface components {
             content: string;
             /** Name */
             name: string;
+        };
+        /** InlineComment */
+        InlineComment: {
+            /** Author Id */
+            author_id?: string | null;
+            /** Block Id */
+            block_id: string;
+            /** Comment */
+            comment: string;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Quote */
+            quote: string;
+            /**
+             * Resolved
+             * @default false
+             */
+            resolved: boolean;
         };
         /** InlineCommentPatch */
         InlineCommentPatch: {
@@ -14247,6 +14277,31 @@ export interface components {
             file_path?: string | null;
             /** Zotero Uri */
             zotero_uri?: string | null;
+        };
+        /** PageComment */
+        PageComment: {
+            /** Author */
+            author: string;
+            /** Author Id */
+            author_id?: string | null;
+            /** Body */
+            body: string;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /**
+             * Resolved
+             * @default false
+             */
+            resolved: boolean;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** PageCommentThread */
+        PageCommentThread: {
+            /** Comments */
+            comments: components["schemas"]["PageComment"][];
         };
         /**
          * PageDeleteResponse
@@ -32813,7 +32868,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageCommentThread"];
                 };
             };
             /** @description Validation Error */
@@ -32855,7 +32910,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageComment"];
                 };
             };
             /** @description Validation Error */
@@ -32894,7 +32949,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CommentDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32937,7 +32992,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageComment"];
                 };
             };
             /** @description Validation Error */
@@ -33167,7 +33222,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InlineComment"][];
                 };
             };
             /** @description Validation Error */
@@ -33209,7 +33264,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InlineComment"];
                 };
             };
             /** @description Validation Error */
@@ -33248,7 +33303,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CommentDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33291,7 +33346,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InlineComment"];
                 };
             };
             /** @description Validation Error */

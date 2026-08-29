@@ -202,6 +202,26 @@ export {
 } from './useReaderData';
 export { useVaultCatalog } from './useVaultCatalog';
 export {
+  createVaultInlineComment,
+  createVaultPageComment,
+  deleteVaultInlineComment,
+  deleteVaultPageComment,
+  fetchVaultInlineComments,
+  fetchVaultPageComments,
+  updateVaultInlineComment,
+  updateVaultPageComment,
+} from './vault-comments';
+export type {
+  VaultCommentDeletion,
+  VaultInlineComment,
+  VaultInlineCommentInput,
+  VaultInlineCommentPatch,
+  VaultPageComment,
+  VaultPageCommentInput,
+  VaultPageCommentPatch,
+  VaultPageCommentThread,
+} from './vault-comments';
+export {
   fetchVaultPageHistory,
   fetchVaultPageHistoryVersion,
   purgeVaultPageHistory,

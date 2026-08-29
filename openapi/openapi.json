@@ -3368,6 +3368,25 @@
         "title": "CommentCreateRequest",
         "type": "object"
       },
+      "CommentDeleteResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "deleted",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id"
+        ],
+        "title": "CommentDeleteResponse",
+        "type": "object"
+      },
       "CommentUpdateRequest": {
         "properties": {
           "body": {
@@ -6973,6 +6992,55 @@
           "content"
         ],
         "title": "ImportFile",
+        "type": "object"
+      },
+      "InlineComment": {
+        "properties": {
+          "author_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Id"
+          },
+          "block_id": {
+            "title": "Block Id",
+            "type": "string"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "quote": {
+            "title": "Quote",
+            "type": "string"
+          },
+          "resolved": {
+            "default": false,
+            "title": "Resolved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "quote",
+          "comment",
+          "block_id",
+          "created_at"
+        ],
+        "title": "InlineComment",
         "type": "object"
       },
       "InlineCommentPatch": {
@@ -11894,6 +11962,77 @@
           }
         },
         "title": "OpenResourceRequest",
+        "type": "object"
+      },
+      "PageComment": {
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "author_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Id"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "resolved": {
+            "default": false,
+            "title": "Resolved",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "body",
+          "author",
+          "created_at"
+        ],
+        "title": "PageComment",
+        "type": "object"
+      },
+      "PageCommentThread": {
+        "properties": {
+          "comments": {
+            "items": {
+              "$ref": "#/components/schemas/PageComment"
+            },
+            "title": "Comments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "comments"
+        ],
+        "title": "PageCommentThread",
         "type": "object"
       },
       "PageDeleteResponse": {
@@ -67263,7 +67402,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageCommentThread"
+                }
               }
             },
             "description": "Successful Response"
@@ -67392,7 +67533,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageComment"
+                }
               }
             },
             "description": "Successful Response"
@@ -67522,7 +67665,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -67660,7 +67805,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageComment"
+                }
               }
             },
             "description": "Successful Response"
@@ -68413,7 +68560,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InlineComment"
+                  },
+                  "title": "Response List Inline Comments Api Vault Pages  Page Id  Inline Comments Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -68541,7 +68694,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/InlineComment"
+                }
               }
             },
             "description": "Successful Response"
@@ -68670,7 +68825,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68807,7 +68964,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/InlineComment"
+                }
               }
             },
             "description": "Successful Response"

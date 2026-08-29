@@ -248,10 +248,18 @@ def test_extracted_routes_preserve_order_contract_and_facade_identity() -> None:
         assert route.endpoint.__module__ == expected.module
         assert route.endpoint is getattr(legacy_vault, expected.endpoint)
         expected_response_model = {
-            "/global-index": link_schemas.GlobalIndexResponse,
-            "/alias-index": link_schemas.AliasIndexResponse,
-        }.get(route.path)
-        assert route.response_model is expected_response_model
+            "add_page_comment": comment_schemas.PageComment,
+            "create_inline_comment": comment_schemas.InlineComment,
+            "delete_inline_comment": comment_schemas.CommentDeleteResponse,
+            "delete_page_comment": comment_schemas.CommentDeleteResponse,
+            "get_alias_index": link_schemas.AliasIndexResponse,
+            "get_global_index": link_schemas.GlobalIndexResponse,
+            "list_inline_comments": list[comment_schemas.InlineComment],
+            "list_page_comments": comment_schemas.PageCommentThread,
+            "update_inline_comment": comment_schemas.InlineComment,
+            "update_page_comment": comment_schemas.PageComment,
+        }.get(route.endpoint.__name__)
+        assert route.response_model == expected_response_model
         # APIRouter contributes get_workspace_context to every route; the
         # frozen count records only the route-local dependencies above it.
         assert len(route.dependencies) == expected.dependency_count + 1
