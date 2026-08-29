@@ -21,7 +21,21 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { translateFolderName } from './mailFolderUtils';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { transportFetch } from '../../shared/api/transports';
+import {
+    archiveMailMessage,
+    deleteMailDraft,
+    extractMailEntities,
+    fetchMailFolders,
+    fetchMailMessage,
+    fetchMailThread,
+    markMailRead,
+    moveMailMessage,
+    snoozeMailMessage,
+    spamMailMessage,
+    starMailMessage,
+    trashMailMessage,
+} from '../../shared/api/mail';
+import { mailAttachmentUrl, mailCidUrl } from '../../shared/api/mail-specialized';
 import { createCalendarEvent, fetchCalendarList } from '../../shared/api/calendar';
 import { createContact } from '../../shared/api/contacts';
 import { fetchIdentity } from '../../shared/api/identity';
@@ -221,13 +235,12 @@ function AttachmentList({ attachments, messageId, email, folder }) {
 
     const attUrl = (att, { forInline = false } = {}) => {
         const id = att.attachment_id ?? att.part_index;
-        let url = `/api/mail/messages/${messageId}/attachments/${encodeURIComponent(id)}?email=${encodeURIComponent(email)}&folder=${encodeURIComponent(folder || 'INBOX')}`;
-        if (att.filename) url += `&filename=${encodeURIComponent(att.filename)}`;
-        if (forInline) {
-            url += `&inline=true`;
-            if (att.content_type) url += `&content_type=${encodeURIComponent(att.content_type)}`;
-        }
-        return url;
+        return mailAttachmentUrl(String(messageId), String(id), email, {
+            contentType: forInline ? att.content_type : undefined,
+            filename: att.filename,
+            folder: folder || 'INBOX',
+            inline: forInline || undefined,
+        });
     };
 
     const fmtSize = (s) => s > 1024 * 1024 ? `${(s / 1024 / 1024).toFixed(1)} MB` : `${Math.round(s / 1024)} KB`;
@@ -331,7 +344,7 @@ function MailBody({ bodyHtml, bodyText, messageId, email, folder }) {
         const sanitized = sanitizeHtml(bodyHtml);
         const withCid = messageId && email
             ? sanitized.replace(/cid:([^"'\s>)]+)/gi, (_, cid) =>
-                `/api/mail/messages/${messageId}/cid/${encodeURIComponent(cid)}?email=${encodeURIComponent(email)}&folder=${encodeURIComponent(folder || 'INBOX')}`)
+                mailCidUrl(String(messageId), cid, email, folder || 'INBOX'))
             : sanitized;
         const css = darkBody ? EMAIL_CSS_DARK : EMAIL_CSS_LIGHT;
         const src = `<style>${css}</style>${withCid}`;
@@ -435,8 +448,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         // Race guard: if the message changes while this fetch is in flight, the
         // late response must not write to the previous message's thread.
         let cancelled = false;
-        transportFetch(`/api/mail/threads/${encodeURIComponent(tid)}?email=${encodeURIComponent(email)}`)
-            .then(r => r.json())
+        fetchMailThread(String(tid), email)
             .then(data => {
                 if (cancelled) return;
                 const msgs = (data.messages || []).slice().reverse(); // newest first
@@ -477,11 +489,10 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         if (willExpand && id !== mailData?.id && !threadMsgData[id]) {
             const msgEmail = msg.account || account?.email || '';
             const msgFolder = msg.imap_folder || '';
-            const params = new URLSearchParams();
-            if (msgEmail) params.set('email', msgEmail);
-            if (msgFolder) params.set('folder', msgFolder);
-            transportFetch(`/api/mail/messages/${id}?${params}`)
-                .then(r => r.json())
+            fetchMailMessage(String(id), {
+                email: msgEmail || undefined,
+                folder: msgFolder || undefined,
+            })
                 .then(data => setThreadMsgData(prev => ({ ...prev, [id]: data })))
                 .catch(() => {});
         }
@@ -503,11 +514,10 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         setLoading(true);
         const msgEmail = selectedMail.account || account?.email || '';
         const msgFolder = selectedMail.imap_folder || '';
-        const params = new URLSearchParams();
-        if (msgEmail) params.set('email', msgEmail);
-        if (msgFolder) params.set('folder', msgFolder);
-        transportFetch(`/api/mail/messages/${selectedMail.id}?${params}`)
-            .then(res => res.json())
+        fetchMailMessage(String(selectedMail.id), {
+            email: msgEmail || undefined,
+            folder: msgFolder || undefined,
+        })
             .then(data => {
                 if (cancelled) return;
                 setMailData(data);
@@ -527,12 +537,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         if (!context) return;
         setExtractedEntities(null);
         try {
-            const res = await transportFetch('/api/mail/ai/extract_entities', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ context })
-            });
-            const data = await res.json();
+            const data = await extractMailEntities(context);
             if (data.events?.length > 0 || data.contacts?.length > 0) {
                 setExtractedEntities(data);
                 toast.success(t('mail.smart_suggestions_found', "Smart suggestions found"));
@@ -605,10 +610,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         // vault (without this fallback, mark_read would return False, the cache
         // of counts wasn't invalidated and the sidebar kept the old counter).
         const folder = mailData?.imap_folder || selectedMail?.imap_folder || '';
-        const folderQuery = folder ? `&folder=${encodeURIComponent(folder)}` : '';
-        transportFetch(`/api/mail/messages/${id}/read?email=${encodeURIComponent(email)}${folderQuery}`, {
-            method: 'POST'
-        })
+        markMailRead(String(id), email, folder || undefined)
         .then(() => {
             if (onMailRead) onMailRead(id);
         })
@@ -678,11 +680,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         const snooze_until = snoozeMap[option]?.toISOString();
         if (!snooze_until) return;
         try {
-            await transportFetch(`/api/mail/messages/${mailData.id}/snooze`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ snooze_until })
-            });
+            await snoozeMailMessage(String(mailData.id), snooze_until);
             toast.success(t('mail.snooze_ok'));
         } catch {
             toast.error(t('mail.snooze_error', "Error setting reminder"));
@@ -702,7 +700,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         const msgEmail = data.account || account?.email || '';
         if (data.body_html && data.id && msgEmail) {
             content = content.replace(/src=(["'])cid:([^"']+)\1/gi, (_, q, cid) =>
-                `src=${q}/api/mail/messages/${data.id}/cid/${encodeURIComponent(cid)}?email=${encodeURIComponent(msgEmail)}&folder=${encodeURIComponent(data.imap_folder || 'INBOX')}${q}`);
+                `src=${q}${mailCidUrl(String(data.id), cid, msgEmail, data.imap_folder || 'INBOX')}${q}`);
         }
         return `<div style="font-size:12px;margin-bottom:6px;opacity:0.7">${header}</div><hr style="opacity:0.2;margin:6px 0">${content}`;
     };
@@ -749,20 +747,15 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         if (!mailData || !effectiveEmail) return;
         const newValue = !mailData.is_starred;
         setMailData(prev => ({ ...prev, is_starred: newValue }));
-        transportFetch(`/api/mail/messages/${mailData.id}/star?email=${encodeURIComponent(effectiveEmail)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ starred: newValue })
-        }).catch(() => toast.error(t('mail.mark_error', "Error marking")));
+        starMailMessage(String(mailData.id), effectiveEmail, newValue)
+            .catch(() => toast.error(t('mail.mark_error', "Error marking")));
         toast.success(newValue ? t('mail.starred_added') : t('mail.starred_removed'));
     };
 
     const handleArchive = () => {
         if (!mailData?.id || !effectiveEmail) return;
-        const folderParam = mailData.imap_folder ? `&folder=${encodeURIComponent(mailData.imap_folder)}` : '';
-        transportFetch(`/api/mail/messages/${mailData.id}/archive?email=${encodeURIComponent(effectiveEmail)}${folderParam}`, { method: 'POST' })
-            .then(res => {
-                if (!res.ok) throw new Error('archive_failed');
+        archiveMailMessage(String(mailData.id), effectiveEmail, mailData.imap_folder || undefined)
+            .then(() => {
                 onActionDone?.(mailData.id, 'archive', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder });
             })
             .catch(() => toast.error(t('mail.archive_error')));
@@ -776,9 +769,8 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         // markdown remains on disk (it reappears when the list is reloaded).
         const isVaultDraft = (mailData.source === 'vault') || (selectedMail?.source === 'vault');
         if (isVaultDraft) {
-            transportFetch(`/api/mail/drafts/${mailData.id}`, { method: 'DELETE' })
-                .then(res => {
-                    if (!res.ok) throw new Error('delete_draft_failed');
+            deleteMailDraft(String(mailData.id))
+                .then(() => {
                     // We pass actionType='delete_draft' (not 'trash') so that
                     // handleActionDone does NOT trigger the undo: a vault draft
                     // is deleted from disk, not moved to the server's Trash,
@@ -789,10 +781,8 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
             return;
         }
         if (!effectiveEmail) return;
-        const folderParam = mailData.imap_folder ? `&folder=${encodeURIComponent(mailData.imap_folder)}` : '';
-        transportFetch(`/api/mail/messages/${mailData.id}/trash?email=${encodeURIComponent(effectiveEmail)}${folderParam}`, { method: 'POST' })
-            .then(res => {
-                if (!res.ok) throw new Error('trash_failed');
+        trashMailMessage(String(mailData.id), effectiveEmail, mailData.imap_folder || undefined)
+            .then(() => {
                 onActionDone?.(mailData.id, 'trash', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder });
             })
             .catch(() => toast.error(t('mail.delete_error')));
@@ -810,11 +800,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         
         setMailData(prev => ({ ...prev, is_spam: newValue, category: newValue ? 'SPAM' : 'Main' }));
         
-        transportFetch(`/api/mail/messages/${mailData.id}/spam?email=${encodeURIComponent(effectiveEmail)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ spam: newValue })
-        })
+        spamMailMessage(String(mailData.id), effectiveEmail, newValue)
         .then(() => {
             toast.success(newValue ? t('mail.spam_added') : t('mail.spam_removed'));
             onActionDone?.();
@@ -835,8 +821,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         setShowMove(v => !v);
         if (moveFolders.length === 0) {
             try {
-                const res = await transportFetch(`/api/mail/folders?email=${encodeURIComponent(effectiveEmail)}`);
-                const data = await res.json();
+                const data = await fetchMailFolders(effectiveEmail);
                 setMoveFolders(data.folders || []);
             } catch {
                 setMoveFolders([]);
@@ -849,19 +834,16 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         setMoving(true);
         setShowMove(false);
         try {
-            const res = await transportFetch(
-                `/api/mail/messages/${mailData.id}/move?email=${encodeURIComponent(effectiveEmail)}`,
-                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target_folder: folderName, imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }) }
-            );
-            if (res.ok) {
-                toast.success(t('mail.moved_to_folder', "Moved to {{folder}}", { folder: folderName }));
-                onMoved ? onMoved(mailData.id) : onClose?.();
-            } else {
-                const err = await res.json().catch(() => ({}));
-                toast.error(err.detail || t('mail.move_message_error', "Error moving the message"));
-            }
-        } catch {
-            toast.error(t('mail.move_message_error', "Error moving the message"));
+            await moveMailMessage(String(mailData.id), effectiveEmail, {
+                target_folder: folderName,
+                imap_uid: mailData.imap_uid,
+                imap_folder: mailData.imap_folder,
+            });
+            toast.success(t('mail.moved_to_folder', "Moved to {{folder}}", { folder: folderName }));
+            onMoved ? onMoved(mailData.id) : onClose?.();
+        } catch (error) {
+            const detail = typeof error?.payload?.detail === 'string' ? error.payload.detail : '';
+            toast.error(detail || t('mail.move_message_error', "Error moving the message"));
         } finally {
             setMoving(false);
         }
