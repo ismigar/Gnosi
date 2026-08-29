@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 
+
 const MODALITY_ATTRIBUTE = 'data-focus-modality';
 
+
 /** Tracks whether focus was reached with a keyboard or a pointing device. */
-export function useFocusModality() {
+export function useFocusModality(): void {
   useEffect(() => {
     const root = document.documentElement;
-    const setKeyboardModality = (event) => {
+    const setKeyboardModality = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       root.setAttribute(MODALITY_ATTRIBUTE, 'keyboard');
     };
