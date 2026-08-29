@@ -322,7 +322,6 @@
       "frontend/src/components/Vault/cellGridUtils.js": 281,
       "frontend/src/components/Vault/cslEngine.js": 390,
       "frontend/src/components/Vault/markdown-mapper.js": 1896,
-      "frontend/src/components/Vault/optionCatalogUtils.js": 231,
       "frontend/src/components/Vault/schemaUtils.js": 508,
       "frontend/src/components/Vault/useTitlePreview.jsx": 86,
       "frontend/src/components/Vault/zoteroSchema.js": 517,
