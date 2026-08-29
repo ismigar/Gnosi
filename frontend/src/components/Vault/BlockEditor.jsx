@@ -81,6 +81,7 @@ import { formatNumber, formatDate, resolveFieldFormat } from './formatUtils';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useTheme } from '../../hooks/useTheme';
 import { useYjsCollaboration } from '../../hooks/useYjsCollaboration';
+import { fetchContacts } from '../../shared/api/contacts';
 import PageHistory from './PageHistory';
 import { IconPicker } from './IconPicker';
 import { CoverPicker } from './CoverPicker';
@@ -4123,8 +4124,7 @@ export function EditorInner({
                         }
                         // Contacts (people).
                         try {
-                            const res = await axios.get('/api/contacts', { params: q ? { search: q } : {} });
-                            const contacts = Array.isArray(res.data) ? res.data : [];
+                            const contacts = await fetchContacts(q ? { search: q } : {});
                             for (const c of contacts.slice(0, 8)) {
                                 const name = String(c?.name || '').trim();
                                 if (!name) continue;

@@ -11043,6 +11043,200 @@ export interface components {
              */
             reason: string;
         };
+        /**
+         * ContactDeleteResponse
+         * @description Acknowledgement returned after deleting one contact.
+         */
+        ContactDeleteResponse: {
+            /** Message */
+            message: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * ContactPullResultResponse
+         * @description Local mutations produced by one inbound synchronization.
+         */
+        ContactPullResultResponse: {
+            /** Errors */
+            errors?: string[];
+            /** Imported */
+            imported: number;
+            /** Updated */
+            updated: number;
+        };
+        /**
+         * ContactPushResultResponse
+         * @description Remote mutations produced by one outbound synchronization.
+         */
+        ContactPushResultResponse: {
+            /** Created */
+            created: number;
+            /** Deleted */
+            deleted: number;
+            /** Errors */
+            errors?: string[];
+            /** Skipped */
+            skipped: number;
+            /** Updated */
+            updated: number;
+        };
+        /**
+         * ContactResponse
+         * @description Serialized local contact, including provider synchronization metadata.
+         */
+        ContactResponse: {
+            /** Address */
+            address: string | null;
+            addresses: components["schemas"]["JsonValue"];
+            /** Apple Resource Id */
+            apple_resource_id: string | null;
+            /** Company */
+            company: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Email */
+            email: string;
+            emails: components["schemas"]["JsonValue"];
+            /** Google Resource Name */
+            google_resource_name: string | null;
+            /** Id */
+            id: string;
+            /** Job Title */
+            job_title: string | null;
+            /** Last Synced At */
+            last_synced_at: string | null;
+            /** Name */
+            name: string;
+            /** Notes */
+            notes: string | null;
+            /** Phone */
+            phone: string | null;
+            phones: components["schemas"]["JsonValue"];
+            /** Photo Url */
+            photo_url: string | null;
+            /** Source */
+            source: string;
+            tags: components["schemas"]["JsonValue"];
+            /** Type */
+            type: string;
+            /** Updated At */
+            updated_at: string | null;
+            /** Workspace Id */
+            workspace_id: string;
+        };
+        /**
+         * ContactSyncRequest
+         * @description Provider credentials and account selectors for a manual contact sync.
+         */
+        ContactSyncRequest: {
+            /** Email */
+            email?: string | null;
+            /** Password */
+            password?: string | null;
+            /** Provider */
+            provider?: string | null;
+            /** Server Url */
+            server_url?: string | null;
+            /** Username */
+            username?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ContactSyncResponse
+         * @description Manual synchronization acknowledgement and report.
+         */
+        ContactSyncResponse: {
+            result: components["schemas"]["ContactSyncResultResponse"];
+            /** Status */
+            status: string;
+        };
+        /**
+         * ContactSyncResultResponse
+         * @description Complete bidirectional synchronization report.
+         */
+        ContactSyncResultResponse: {
+            gnosi_to_remote: components["schemas"]["ContactPushResultResponse"];
+            remote_to_gnosi: components["schemas"]["ContactPullResultResponse"];
+            /** Timestamp */
+            timestamp: string;
+            vault_export: components["schemas"]["ContactVaultExportResponse"];
+        };
+        /**
+         * ContactSyncStatusResponse
+         * @description Current local synchronization counters.
+         */
+        ContactSyncStatusResponse: {
+            /** Contacts Count */
+            contacts_count: number;
+            /** Google Synced Count */
+            google_synced_count: number;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Sync */
+            last_sync?: string | null;
+            /** Last Sync At */
+            last_sync_at?: string | null;
+            /** Pending Sync Count */
+            pending_sync_count: number;
+        };
+        /**
+         * ContactVaultExportResponse
+         * @description Vault files written while completing synchronization.
+         */
+        ContactVaultExportResponse: {
+            /** Errors */
+            errors?: string[];
+            /** Exported */
+            exported: number;
+        };
+        /**
+         * ContactWriteRequest
+         * @description Backward-compatible fields accepted when creating or updating a contact.
+         */
+        ContactWriteRequest: {
+            /** Address */
+            address?: string | null;
+            /** Addresses */
+            addresses?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Apple Resource Id */
+            apple_resource_id?: string | null;
+            /** Company */
+            company?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Emails */
+            emails?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Google Resource Name */
+            google_resource_name?: string | null;
+            /** Job Title */
+            job_title?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Phones */
+            phones?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Photo Url */
+            photo_url?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Type */
+            type?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** CorrectPayload */
         CorrectPayload: {
             /** Language */
@@ -19122,7 +19316,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ContactResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -19152,9 +19346,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["ContactWriteRequest"];
             };
         };
         responses: {
@@ -19164,7 +19356,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ContactResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19202,7 +19394,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ContactResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19234,9 +19426,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["ContactWriteRequest"];
             };
         };
         responses: {
@@ -19246,7 +19436,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ContactResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19285,7 +19475,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ContactDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19316,9 +19506,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                } | null;
+                "application/json": components["schemas"]["ContactSyncRequest"] | null;
             };
         };
         responses: {
@@ -19328,7 +19516,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ContactSyncResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19364,7 +19552,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ContactSyncStatusResponse"];
                 };
             };
             /** @description Validation Error */

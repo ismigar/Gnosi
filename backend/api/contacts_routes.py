@@ -1,5 +1,13 @@
 from fastapi import APIRouter, Header, HTTPException, Depends, BackgroundTasks
 from backend.config.logger_config import get_logger
+from backend.domains.contacts.schemas import (
+    ContactDeleteResponse,
+    ContactResponse,
+    ContactSyncRequest,
+    ContactSyncResponse,
+    ContactSyncStatusResponse,
+    ContactWriteRequest,
+)
 from backend.utils.errors import safe_error_detail
 from backend.data.management_db import get_mgmt_db
 from backend.services.contacts_service import ContactsService
@@ -86,7 +94,7 @@ def contacts_response(contact: Contact) -> dict[str, Any]:
     }
 
 
-@router.get("/contacts", response_model=None)
+@router.get("/contacts", response_model=list[ContactResponse])
 async def list_contacts(
     type: str | None = None,
     search: str | None = None,
@@ -119,7 +127,7 @@ async def list_contacts(
         )
 
 
-@router.get("/contacts/{contact_id}", response_model=None)
+@router.get("/contacts/{contact_id}", response_model=ContactResponse)
 async def get_contact(
     contact_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
@@ -141,14 +149,15 @@ async def get_contact(
         )
 
 
-@router.post("/contacts", status_code=201, response_model=None)
+@router.post("/contacts", status_code=201, response_model=ContactResponse)
 async def create_contact(
-    data: dict[str, Any],
+    payload: ContactWriteRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
     db: Session = Depends(get_mgmt_db),
 ) -> Any:
     try:
+        data = payload.model_dump(exclude_unset=True)
         if not data.get("name") or not data.get("email"):
             raise HTTPException(status_code=400, detail="Name and email are required")
 
@@ -158,9 +167,7 @@ async def create_contact(
         _contacts_cache.clear()
 
         if contact.source and contact.source != "local":
-            background_tasks.add_task(
-                background_sync_contact, x_workspace_id, contact.source
-            )
+            background_tasks.add_task(background_sync_contact, x_workspace_id, contact.source)
 
         return contacts_response(contact)
     except HTTPException:
@@ -173,15 +180,16 @@ async def create_contact(
         )
 
 
-@router.put("/contacts/{contact_id}", response_model=None)
+@router.put("/contacts/{contact_id}", response_model=ContactResponse)
 async def update_contact(
     contact_id: str,
-    data: dict[str, Any],
+    payload: ContactWriteRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
     db: Session = Depends(get_mgmt_db),
 ) -> Any:
     try:
+        data = payload.model_dump(exclude_unset=True)
         x_workspace_id = context.workspace_id
         service = ContactsService(db, x_workspace_id)
         contact = service.update_contact(contact_id, data)
@@ -190,9 +198,7 @@ async def update_contact(
         _contacts_cache.clear()
 
         if contact.source and contact.source != "local":
-            background_tasks.add_task(
-                background_sync_contact, x_workspace_id, contact.source
-            )
+            background_tasks.add_task(background_sync_contact, x_workspace_id, contact.source)
 
         return contacts_response(contact)
     except HTTPException:
@@ -205,7 +211,7 @@ async def update_contact(
         )
 
 
-@router.delete("/contacts/{contact_id}", response_model=None)
+@router.delete("/contacts/{contact_id}", response_model=ContactDeleteResponse)
 async def delete_contact(
     contact_id: str,
     x_user_email: str = Header("", alias="X-User-Email"),
@@ -241,9 +247,9 @@ async def delete_contact(
         )
 
 
-@router.post("/contacts/sync", response_model=None)
+@router.post("/contacts/sync", response_model=ContactSyncResponse)
 async def sync_contacts(
-    data: dict[str, Any] | None = None,
+    payload: ContactSyncRequest | None = None,
     x_user_email: str = Header("", alias="X-User-Email"),
     context: WorkspaceContext = Depends(require_role("editor")),
     db: Session = Depends(get_mgmt_db),
@@ -251,7 +257,7 @@ async def sync_contacts(
     try:
         x_workspace_id = context.workspace_id
         # 1. Prepare integration data
-        integration = data or {}
+        integration = payload.model_dump(exclude_unset=True) if payload else {}
 
         # If no specific account info in body, try to use X-User-Email to find a Google account
         if not integration.get("provider") and x_user_email:
@@ -289,7 +295,11 @@ async def sync_contacts(
         )
 
 
-@router.get("/contacts/sync/status", response_model=None)
+@router.get(
+    "/contacts/sync/status",
+    response_model=ContactSyncStatusResponse,
+    response_model_exclude_unset=True,
+)
 async def sync_status(
     context: WorkspaceContext = Depends(get_workspace_context), db: Session = Depends(get_mgmt_db)
 ) -> Any:

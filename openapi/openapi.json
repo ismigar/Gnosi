@@ -3226,6 +3226,659 @@
         "title": "ConflictRequest",
         "type": "object"
       },
+      "ContactDeleteResponse": {
+        "description": "Acknowledgement returned after deleting one contact.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "ContactDeleteResponse",
+        "type": "object"
+      },
+      "ContactPullResultResponse": {
+        "description": "Local mutations produced by one inbound synchronization.",
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "imported": {
+            "title": "Imported",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "imported",
+          "updated"
+        ],
+        "title": "ContactPullResultResponse",
+        "type": "object"
+      },
+      "ContactPushResultResponse": {
+        "description": "Remote mutations produced by one outbound synchronization.",
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "updated",
+          "deleted",
+          "skipped"
+        ],
+        "title": "ContactPushResultResponse",
+        "type": "object"
+      },
+      "ContactResponse": {
+        "description": "Serialized local contact, including provider synchronization metadata.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "addresses": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "apple_resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apple Resource Id"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "emails": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "google_resource_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Resource Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "job_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Title"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "phones": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "tags": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "workspace_id": {
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "type",
+          "name",
+          "email",
+          "phone",
+          "company",
+          "job_title",
+          "address",
+          "notes",
+          "google_resource_name",
+          "apple_resource_id",
+          "last_synced_at",
+          "source",
+          "photo_url",
+          "tags",
+          "emails",
+          "phones",
+          "addresses",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ContactResponse",
+        "type": "object"
+      },
+      "ContactSyncRequest": {
+        "additionalProperties": true,
+        "description": "Provider credentials and account selectors for a manual contact sync.",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "server_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Url"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "ContactSyncRequest",
+        "type": "object"
+      },
+      "ContactSyncResponse": {
+        "description": "Manual synchronization acknowledgement and report.",
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/ContactSyncResultResponse"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "result"
+        ],
+        "title": "ContactSyncResponse",
+        "type": "object"
+      },
+      "ContactSyncResultResponse": {
+        "description": "Complete bidirectional synchronization report.",
+        "properties": {
+          "gnosi_to_remote": {
+            "$ref": "#/components/schemas/ContactPushResultResponse"
+          },
+          "remote_to_gnosi": {
+            "$ref": "#/components/schemas/ContactPullResultResponse"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "vault_export": {
+            "$ref": "#/components/schemas/ContactVaultExportResponse"
+          }
+        },
+        "required": [
+          "gnosi_to_remote",
+          "remote_to_gnosi",
+          "vault_export",
+          "timestamp"
+        ],
+        "title": "ContactSyncResultResponse",
+        "type": "object"
+      },
+      "ContactSyncStatusResponse": {
+        "description": "Current local synchronization counters.",
+        "properties": {
+          "contacts_count": {
+            "title": "Contacts Count",
+            "type": "integer"
+          },
+          "google_synced_count": {
+            "title": "Google Synced Count",
+            "type": "integer"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_sync": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync At"
+          },
+          "pending_sync_count": {
+            "title": "Pending Sync Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contacts_count",
+          "google_synced_count",
+          "pending_sync_count"
+        ],
+        "title": "ContactSyncStatusResponse",
+        "type": "object"
+      },
+      "ContactVaultExportResponse": {
+        "description": "Vault files written while completing synchronization.",
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "exported": {
+            "title": "Exported",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "exported"
+        ],
+        "title": "ContactVaultExportResponse",
+        "type": "object"
+      },
+      "ContactWriteRequest": {
+        "additionalProperties": true,
+        "description": "Backward-compatible fields accepted when creating or updating a contact.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "addresses": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Addresses"
+          },
+          "apple_resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apple Resource Id"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "emails": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emails"
+          },
+          "google_resource_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Resource Name"
+          },
+          "job_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Title"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "phones": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phones"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "title": "ContactWriteRequest",
+        "type": "object"
+      },
       "CorrectPayload": {
         "properties": {
           "language": {
@@ -25087,7 +25740,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContactResponse"
+                  },
+                  "title": "Response List Contacts Api Contacts Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -25196,9 +25855,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Data",
-                "type": "object"
+                "$ref": "#/components/schemas/ContactWriteRequest"
               }
             }
           },
@@ -25208,7 +25865,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ContactResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -25331,14 +25990,13 @@
               "schema": {
                 "anyOf": [
                   {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/ContactSyncRequest"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "title": "Data"
+                "title": "Payload"
               }
             }
           }
@@ -25347,7 +26005,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ContactSyncResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -25458,7 +26118,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ContactSyncStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -25588,7 +26250,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -25706,7 +26370,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ContactResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -25824,9 +26490,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Data",
-                "type": "object"
+                "$ref": "#/components/schemas/ContactWriteRequest"
               }
             }
           },
@@ -25836,7 +26500,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ContactResponse"
+                }
               }
             },
             "description": "Successful Response"

@@ -54,6 +54,7 @@ import './AI/AIResourcesSettings.css';
 import { transportFetch } from '../shared/api/transports';
 import { fetchCalendarList, syncCalendar } from '../shared/api/calendar';
 import { fetchVaultGraph } from '../shared/api/graph';
+import { syncContacts as requestContactsSync } from '../shared/api/contacts';
 import {
     fetchSocialNetworks,
     fetchSocialStreams,
@@ -2082,7 +2083,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             let data;
             if (category === 'contacts') {
                 const provider = account?.provider || 'manual';
-                data = (await axios.post('/api/contacts/sync', { provider, email, server_url: account?.server_url, password: account?.password, username: account?.username })).data;
+                data = await requestContactsSync({
+                    provider,
+                    email,
+                    server_url: account?.server_url,
+                    password: account?.password,
+                    username: account?.username,
+                });
             } else if (category === 'calendar') {
                 data = await syncCalendar(email);
             } else {

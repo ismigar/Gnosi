@@ -23,6 +23,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { transportFetch } from '../../shared/api/transports';
 import { createCalendarEvent, fetchCalendarList } from '../../shared/api/calendar';
+import { createContact } from '../../shared/api/contacts';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -542,7 +543,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
 
     const handleAddExtractedContact = async (contact) => {
         try {
-            await axios.post('/api/contacts', {
+            await createContact({
                 name: contact.name,
                 email: contact.email,
                 phone: contact.phone,

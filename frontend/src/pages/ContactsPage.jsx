@@ -8,38 +8,33 @@ import ContactForm from '../components/Contacts/ContactForm';
 import { AppHeader } from '../components/AppHeader';
 import ConfirmModal from '../components/ConfirmModal';
 import { toast } from '../lib/toast';
+import {
+    createContact,
+    deleteContact,
+    updateContact,
+} from '../shared/api/contacts';
+import { useContacts } from '../shared/api/useContactsData';
 
 export default function ContactsPage() {
     const { t } = useTranslation();
-    const { apiPost, apiGet } = useApi();
-    const [contacts, setContacts] = useState([]);
+    const { apiGet } = useApi();
     const [selectedContact, setSelectedContact] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [filter, setFilter] = useState({ type: '', search: '' });
-    const [loading, setLoading] = useState(false);
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, contactId: null });
     const [contactAccounts, setContactAccounts] = useState([]);
     const [defaultContactAccount, setDefaultContactAccount] = useState(null);
     const hasActivePane = isEditing || Boolean(selectedContact);
+    const contactsQuery = useContacts(filter);
+    const contacts = contactsQuery.data || [];
+    const loading = contactsQuery.isFetching;
 
-    const loadContacts = async () => {
-        setLoading(true);
-        try {
-            const params = new URLSearchParams();
-            if (filter.type) params.append('type', filter.type);
-            if (filter.search) params.append('search', filter.search);
-            
-            const url = `/api/contacts${params.toString() ? '?' + params.toString() : ''}`;
-            const data = await apiGet(url);
-            setContacts(data);
-        } catch (error) {
-            console.error('Error loading contacts:', error);
-            toast.error(t('contacts.load_error', 'Could not load contacts'));
-        } finally {
-            setLoading(false);
-        }
-    };
+    useEffect(() => {
+        if (!contactsQuery.error) return;
+        console.error('Error loading contacts:', contactsQuery.error);
+        toast.error(t('contacts.load_error', 'Could not load contacts'));
+    }, [contactsQuery.error, t]);
 
     const loadIntegrations = async () => {
         try {
@@ -59,7 +54,6 @@ export default function ContactsPage() {
     };
 
     useEffect(() => {
-        loadContacts();
         loadIntegrations();
     }, [filter]);
 
@@ -87,13 +81,13 @@ export default function ContactsPage() {
     const handleSave = async (formData) => {
         try {
             if (isCreating) {
-                await apiPost('/api/contacts', formData);
+                await createContact(formData);
             } else if (selectedContact) {
-                await apiPost(`/api/contacts/${selectedContact.id}`, formData, 'PUT');
+                await updateContact(selectedContact.id, formData);
             }
             setIsEditing(false);
             setIsCreating(false);
-            await loadContacts();
+            await contactsQuery.refetch();
         } catch (error) {
             console.error('Error saving contact:', error);
             toast.error(t('contacts.save_error', 'Could not save the contact'));
@@ -109,9 +103,9 @@ export default function ContactsPage() {
         if (!contactId) return;
 
         try {
-            await apiPost(`/api/contacts/${contactId}`, {}, 'DELETE');
+            await deleteContact(contactId);
             setSelectedContact(null);
-            await loadContacts();
+            await contactsQuery.refetch();
             setDeleteModal({ isOpen: false, contactId: null });
         } catch (error) {
             console.error('Error deleting contact:', error);
