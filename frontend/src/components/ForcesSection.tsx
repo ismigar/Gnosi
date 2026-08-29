@@ -1,4 +1,4 @@
-import React from 'react';
+import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from './CollapsibleSection';
 
@@ -6,6 +6,23 @@ import { CollapsibleSection } from './CollapsibleSection';
  * Physics/Forces controls section for the graph.
  * Includes: gravity, repulsion (scaling), friction (slowDown).
  */
+export interface ForcesSectionProps {
+    readonly edgeInfluence?: number;
+    readonly friction: number;
+    readonly gravity: number;
+    readonly linLogMode?: boolean;
+    readonly onEdgeInfluenceChange?: (value: number) => unknown;
+    readonly onFrictionChange: (value: number) => unknown;
+    readonly onGravityChange: (value: number) => unknown;
+    readonly onLinLogModeChange?: (enabled: boolean) => unknown;
+    readonly onOutboundAttractionDistributionChange?: (enabled: boolean) => unknown;
+    readonly onRepulsionChange: (value: number) => unknown;
+    readonly onStrongGravityModeChange?: (enabled: boolean) => unknown;
+    readonly outboundAttractionDistribution?: boolean;
+    readonly repulsion: number;
+    readonly strongGravityMode?: boolean;
+}
+
 export function ForcesSection({
     gravity,
     onGravityChange,
@@ -21,27 +38,27 @@ export function ForcesSection({
     onStrongGravityModeChange = () => { },
     outboundAttractionDistribution = false,
     onOutboundAttractionDistributionChange = () => { }
-}) {
+}: ForcesSectionProps) {
     const { t } = useTranslation();
-    const sliderStyle = {
+    const sliderStyle: CSSProperties = {
         width: '100%',
         cursor: 'pointer'
     };
 
-    const labelStyle = {
+    const labelStyle: CSSProperties = {
         fontSize: '0.85rem',
         color: 'var(--text-secondary)',
         display: 'block',
         marginBottom: '4px'
     };
 
-    const valueStyle = {
+    const valueStyle: CSSProperties = {
         fontSize: '0.75rem',
         color: 'var(--text-tertiary)',
         marginLeft: '8px'
     };
 
-    const sliderContainerStyle = {
+    const sliderContainerStyle: CSSProperties = {
         marginBottom: '12px'
     };
 
@@ -53,7 +70,9 @@ export function ForcesSection({
                     type="checkbox"
                     id="graph-force-linlog"
                     checked={linLogMode}
-                    onChange={(e) => onLinLogModeChange(e.target.checked)}
+                    onChange={(e) => {
+                        onLinLogModeChange(e.target.checked);
+                    }}
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
                 <label htmlFor="graph-force-linlog" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
@@ -74,7 +93,9 @@ export function ForcesSection({
                     max="2"
                     step="0.01"
                     value={gravity}
-                    onChange={(e) => onGravityChange(Number(e.target.value))}
+                    onChange={(e) => {
+                        onGravityChange(Number(e.target.value));
+                    }}
                     style={sliderStyle}
                 />
             </div>
@@ -92,7 +113,9 @@ export function ForcesSection({
                     max="50000"
                     step="10"
                     value={repulsion}
-                    onChange={(e) => onRepulsionChange(Number(e.target.value))}
+                    onChange={(e) => {
+                        onRepulsionChange(Number(e.target.value));
+                    }}
                     style={sliderStyle}
                 />
             </div>
@@ -111,7 +134,9 @@ export function ForcesSection({
                     max="10"
                     step="0.5"
                     value={friction}
-                    onChange={(e) => onFrictionChange(Number(e.target.value))}
+                    onChange={(e) => {
+                        onFrictionChange(Number(e.target.value));
+                    }}
                     style={sliderStyle}
                 />
             </div>
@@ -131,7 +156,9 @@ export function ForcesSection({
                     max="2"
                     step="0.1"
                     value={edgeInfluence}
-                    onChange={(e) => onEdgeInfluenceChange(Number(e.target.value))}
+                    onChange={(e) => {
+                        onEdgeInfluenceChange(Number(e.target.value));
+                    }}
                     style={sliderStyle}
                 />
             </div>
@@ -142,7 +169,9 @@ export function ForcesSection({
                     type="checkbox"
                     id="graph-force-strong-gravity"
                     checked={strongGravityMode}
-                    onChange={(e) => onStrongGravityModeChange(e.target.checked)}
+                    onChange={(e) => {
+                        onStrongGravityModeChange(e.target.checked);
+                    }}
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
                 <label htmlFor="graph-force-strong-gravity" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
@@ -156,7 +185,9 @@ export function ForcesSection({
                     type="checkbox"
                     id="graph-force-outbound"
                     checked={outboundAttractionDistribution}
-                    onChange={(e) => onOutboundAttractionDistributionChange(e.target.checked)}
+                    onChange={(e) => {
+                        onOutboundAttractionDistributionChange(e.target.checked);
+                    }}
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
                 <label htmlFor="graph-force-outbound" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>

@@ -1,4 +1,4 @@
-import React from 'react';
+import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from './CollapsibleSection';
 
@@ -6,6 +6,17 @@ import { CollapsibleSection } from './CollapsibleSection';
  * Visualization controls section for the graph.
  * Includes: arrows toggle, label threshold, node size, edge thickness
  */
+export interface VisualizationSectionProps {
+    readonly edgeThickness: number;
+    readonly labelThreshold: number;
+    readonly nodeSize: number;
+    readonly onEdgeThicknessChange: (value: number) => unknown;
+    readonly onLabelThresholdChange: (value: number) => unknown;
+    readonly onNodeSizeChange: (value: number) => unknown;
+    readonly onShowArrowsChange: (showArrows: boolean) => unknown;
+    readonly showArrows: boolean;
+}
+
 export function VisualizationSection({
     showArrows,
     onShowArrowsChange,
@@ -15,34 +26,34 @@ export function VisualizationSection({
     onNodeSizeChange,
     edgeThickness,
     onEdgeThicknessChange
-}) {
+}: VisualizationSectionProps) {
     const { t } = useTranslation();
-    const sliderStyle = {
+    const sliderStyle: CSSProperties = {
         width: '100%',
         cursor: 'pointer'
     };
 
-    const labelStyle = {
+    const labelStyle: CSSProperties = {
         fontSize: '0.85rem',
         color: 'var(--text-secondary)',
         display: 'block',
         marginBottom: '4px'
     };
 
-    const valueStyle = {
+    const valueStyle: CSSProperties = {
         fontSize: '0.75rem',
         color: 'var(--text-tertiary)',
         marginLeft: '8px'
     };
 
-    const toggleContainerStyle = {
+    const toggleContainerStyle: CSSProperties = {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '12px'
     };
 
-    const toggleStyle = {
+    const toggleStyle: CSSProperties = {
         width: '48px',
         height: '24px',
         backgroundColor: showArrows ? '#3498db' : '#ccc',
@@ -52,7 +63,7 @@ export function VisualizationSection({
         transition: 'background-color 0.2s'
     };
 
-    const toggleKnobStyle = {
+    const toggleKnobStyle: CSSProperties = {
         width: '20px',
         height: '20px',
         backgroundColor: 'white',
@@ -64,7 +75,7 @@ export function VisualizationSection({
         boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
     };
 
-    const sliderContainerStyle = {
+    const sliderContainerStyle: CSSProperties = {
         marginBottom: '12px'
     };
 
@@ -76,7 +87,9 @@ export function VisualizationSection({
                 <button
                     type="button"
                     style={toggleStyle}
-                    onClick={() => onShowArrowsChange(!showArrows)}
+                    onClick={() => {
+                        onShowArrowsChange(!showArrows);
+                    }}
                     aria-label={t('graph.visualization.arrows', 'Arrows')}
                     aria-pressed={showArrows}
                 >
@@ -96,7 +109,9 @@ export function VisualizationSection({
                     min="1"
                     max="50"
                     value={labelThreshold}
-                    onChange={(e) => onLabelThresholdChange(Number(e.target.value))}
+                    onChange={(e) => {
+                        onLabelThresholdChange(Number(e.target.value));
+                    }}
                     style={sliderStyle}
                 />
             </div>
@@ -114,7 +129,9 @@ export function VisualizationSection({
                     max="3"
                     step="0.05"
                     value={nodeSize}
-                    onChange={(e) => onNodeSizeChange(Number(e.target.value))}
+                    onChange={(e) => {
+                        onNodeSizeChange(Number(e.target.value));
+                    }}
                     style={sliderStyle}
                 />
             </div>
@@ -132,7 +149,9 @@ export function VisualizationSection({
                     max="3"
                     step="0.05"
                     value={edgeThickness}
-                    onChange={(e) => onEdgeThicknessChange(Number(e.target.value))}
+                    onChange={(e) => {
+                        onEdgeThicknessChange(Number(e.target.value));
+                    }}
                     style={sliderStyle}
                 />
             </div>
