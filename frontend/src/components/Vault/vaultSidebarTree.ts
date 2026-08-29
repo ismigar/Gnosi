@@ -83,7 +83,9 @@ export const buildVaultSidebarTrees = <Page extends SidebarPage>(
         page.resolved_table_id || page.metadata?.table_id || page.metadata?.database_table_id;
     const hasOwnDataMarkers = (page: Page): boolean => {
         const tableId = ownTableId(page);
-        return page.is_database || (!!tableId && tableId !== 'wiki') || page.folder?.startsWith('BD/');
+        return page.is_database === true
+            || (!!tableId && tableId !== 'wiki')
+            || page.folder?.startsWith('BD/') === true;
     };
 
     // This resolves sidebar placement, not storage membership. Wiki descendants

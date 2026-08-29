@@ -90,7 +90,7 @@ export function mergeGlobalSearchNotes<Note extends SearchNote>(
     notes: readonly (Note | null | undefined)[] | null = [],
     globalIndex: Readonly<Record<string, FilterValue>> | null = {},
 ): Array<Note | SearchNote | null | undefined> {
-    const merged = [...(notes || [])];
+    const merged: Array<Note | SearchNote | null | undefined> = [...(notes || [])];
     const knownIds = new Set(
         merged.map(note => stringifySearchValue(note?.id || '')).filter(Boolean),
     );
