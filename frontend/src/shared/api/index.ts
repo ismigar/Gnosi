@@ -202,6 +202,17 @@ export {
 } from './useReaderData';
 export { useVaultCatalog } from './useVaultCatalog';
 export {
+  fetchVaultPageHistory,
+  fetchVaultPageHistoryVersion,
+  purgeVaultPageHistory,
+  restoreVaultPageHistoryVersion,
+} from './vault-history';
+export type {
+  VaultPageHistoryContent,
+  VaultPageHistoryMutation,
+  VaultPageHistoryVersion,
+} from './vault-history';
+export {
   createVaultDatabase,
   createVaultPage,
   createVaultTable,

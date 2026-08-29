@@ -14290,6 +14290,40 @@ export interface components {
             /** Title */
             title: unknown;
         };
+        /** PageHistoryContent */
+        PageHistoryContent: {
+            /** Content */
+            content: string;
+            /** Id */
+            id: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** Version Id */
+            version_id: string;
+        };
+        /** PageHistoryMutationResponse */
+        PageHistoryMutationResponse: {
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
+        /** PageHistoryVersion */
+        PageHistoryVersion: {
+            /** Author */
+            author?: string | null;
+            /** Id */
+            id: string;
+            /** Size */
+            size: number;
+            /** Timestamp */
+            timestamp: string;
+        };
         /** PageInfo */
         PageInfo: {
             /** Created Time */
@@ -32979,7 +33013,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageHistoryVersion"][];
                 };
             };
             /** @description Validation Error */
@@ -33017,7 +33051,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageHistoryMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33056,7 +33090,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageHistoryContent"];
                 };
             };
             /** @description Validation Error */
@@ -33095,7 +33129,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageHistoryMutationResponse"];
                 };
             };
             /** @description Validation Error */

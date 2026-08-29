@@ -12014,6 +12014,88 @@
         "title": "PageDetailResponse",
         "type": "object"
       },
+      "PageHistoryContent": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "version_id": {
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version_id",
+          "metadata",
+          "content"
+        ],
+        "title": "PageHistoryContent",
+        "type": "object"
+      },
+      "PageHistoryMutationResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "PageHistoryMutationResponse",
+        "type": "object"
+      },
+      "PageHistoryVersion": {
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "timestamp",
+          "size"
+        ],
+        "title": "PageHistoryVersion",
+        "type": "object"
+      },
       "PageInfo": {
         "properties": {
           "created_time": {
@@ -67820,7 +67902,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageHistoryMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -67939,7 +68023,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PageHistoryVersion"
+                  },
+                  "title": "Response Get Page History Api Vault Pages  Page Id  History Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -68069,7 +68159,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageHistoryMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68199,7 +68291,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageHistoryContent"
+                }
               }
             },
             "description": "Successful Response"

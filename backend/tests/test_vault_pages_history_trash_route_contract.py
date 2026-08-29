@@ -15,6 +15,11 @@ from backend.domains.vault.schemas.pages import (
     PageMutationResponse,
     PagePreviewResponse,
 )
+from backend.domains.vault.schemas.history import (
+    PageHistoryContent,
+    PageHistoryMutationResponse,
+    PageHistoryVersion,
+)
 from backend.domains.vault.schemas.trash import (
     PageRestoreResponse,
     ResolveByTitleResponse,
@@ -150,6 +155,26 @@ def test_page_resolution_and_trash_routes_expose_typed_contracts() -> None:
     assert routes["list_trash"].response_model is TrashListResponse
     assert routes["empty_trash"].response_model is TrashEmptyResponse
     assert routes["purge_trash_entry"].response_model is TrashPurgeResponse
+
+
+def test_page_history_routes_expose_typed_contracts() -> None:
+    routes = [
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+        and route.endpoint.__name__
+        in {
+            "get_page_history",
+            "get_page_version_content",
+            "purge_page_history",
+            "restore_page_version",
+        }
+    ]
+    response_models = {route.endpoint.__name__: route.response_model for route in routes}
+    assert response_models["get_page_history"] == list[PageHistoryVersion]
+    assert response_models["get_page_version_content"] is PageHistoryContent
+    assert response_models["restore_page_version"] is PageHistoryMutationResponse
+    assert response_models["purge_page_history"] is PageHistoryMutationResponse
 
 
 def test_trash_purge_domain_does_not_import_http_facade() -> None:
