@@ -9744,6 +9744,13 @@ export interface components {
             search_id: string;
         };
         /**
+         * AliasIndexResponse
+         * @description Global page identifier to declared aliases lookup.
+         */
+        AliasIndexResponse: {
+            [key: string]: string[];
+        };
+        /**
          * AllocationBucketResponse
          * @description One resource/day capacity bucket.
          */
@@ -11662,6 +11669,13 @@ export interface components {
              * @default
              */
             prompt: string | null;
+        };
+        /**
+         * GlobalIndexResponse
+         * @description Global page identifier to title lookup.
+         */
+        GlobalIndexResponse: {
+            [key: string]: string;
         };
         /** GoogleApiErrorResponse */
         GoogleApiErrorResponse: {
@@ -14614,6 +14628,13 @@ export interface components {
             name?: string | null;
             /** Password */
             password: string;
+        };
+        /**
+         * RegistryRecord
+         * @description One JSON-compatible database or table registry record.
+         */
+        RegistryRecord: {
+            [key: string]: components["schemas"]["JsonValue"];
         };
         /** RegistryUrlRequest */
         RegistryUrlRequest: {
@@ -27172,7 +27193,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AliasIndexResponse"];
                 };
             };
             /** @description Validation Error */
@@ -28429,7 +28450,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GlobalIndexResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34932,7 +34953,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"][];
                 };
             };
             /** @description Validation Error */

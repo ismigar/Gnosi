@@ -185,6 +185,17 @@
         "title": "AiOperationRequest",
         "type": "object"
       },
+      "AliasIndexResponse": {
+        "additionalProperties": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "description": "Global page identifier to declared aliases lookup.",
+        "title": "AliasIndexResponse",
+        "type": "object"
+      },
       "AllocationBucketResponse": {
         "description": "One resource/day capacity bucket.",
         "properties": {
@@ -4887,6 +4898,14 @@
           }
         },
         "title": "GeneratePayload",
+        "type": "object"
+      },
+      "GlobalIndexResponse": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "Global page identifier to title lookup.",
+        "title": "GlobalIndexResponse",
         "type": "object"
       },
       "GoogleApiErrorResponse": {
@@ -12381,6 +12400,14 @@
           "password"
         ],
         "title": "RegisterPayload",
+        "type": "object"
+      },
+      "RegistryRecord": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "One JSON-compatible database or table registry record.",
+        "title": "RegistryRecord",
         "type": "object"
       },
       "RegistryUrlRequest": {
@@ -49489,7 +49516,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AliasIndexResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -53404,7 +53433,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/GlobalIndexResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -73768,7 +73799,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RegistryRecord"
+                  },
+                  "title": "Response List Tables Api Vault Tables Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
