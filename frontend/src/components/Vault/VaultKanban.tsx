@@ -1,4 +1,4 @@
-import type { ComponentType, DragEvent } from 'react';
+import type { DragEvent } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Columns, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +12,7 @@ import {
     type VaultViewConfig,
 } from '../../hooks/useVaultViewData';
 import type { FilterNode, FilterValue } from '../../utils/vaultFilters';
-import { VaultBulkActionsBar as LegacyVaultBulkActionsBar } from './VaultBulkActionsBar';
+import { VaultBulkActionsBar, type BulkActionTemplate } from './VaultBulkActionsBar';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { getFieldType, getSchemaFieldNames, resolveViewFilters, resolveViewSorts } from './schemaUtils';
 import { useTitlePreview } from './useTitlePreview';
@@ -63,18 +63,7 @@ export interface VaultKanbanProps {
     readonly onUpdateNote?: (pageId: string, patch: KanbanUpdatePatch) => Promise<unknown>;
     readonly schema?: KanbanSchema;
     readonly searchTerm?: string;
-    readonly templates?: readonly unknown[];
-}
-
-
-interface BulkActionsProps {
-    readonly onApplyTemplate: ((templateId: string) => void) | null;
-    readonly onClearSelection: () => void;
-    readonly onDeleteSelected: (() => void) | null;
-    readonly onSelectAll: () => void;
-    readonly selectedIds: ReadonlySet<string>;
-    readonly templates: readonly unknown[];
-    readonly totalCount: number;
+    readonly templates?: readonly BulkActionTemplate[];
 }
 
 
@@ -84,9 +73,6 @@ interface DragPayload {
 }
 
 
-const VaultBulkActionsBar = LegacyVaultBulkActionsBar as unknown as ComponentType<
-    BulkActionsProps
->;
 const readFieldNames = getSchemaFieldNames as (schema: KanbanSchema) => string[];
 const readFieldType = getFieldType as (schema: KanbanSchema, field: string) => string;
 const readFilters = resolveViewFilters as (view: KanbanView) => FilterNode[];

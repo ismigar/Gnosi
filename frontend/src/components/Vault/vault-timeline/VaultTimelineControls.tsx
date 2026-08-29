@@ -1,11 +1,10 @@
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 
-import { VaultBulkActionsBar as LegacyBulkActions } from '../VaultBulkActionsBar';
+import { VaultBulkActionsBar } from '../VaultBulkActionsBar';
 import { VaultViewToolbar as CurrentToolbar } from '../VaultViewToolbar';
 
 import type {
-    LegacyTimelineBulkActions,
     LegacyTimelineToolbar,
     TimelineController,
     TimelineTemplate,
@@ -13,7 +12,6 @@ import type {
 } from './types';
 
 
-const VaultBulkActionsBar = LegacyBulkActions as unknown as LegacyTimelineBulkActions;
 const VaultViewToolbar = CurrentToolbar as unknown as LegacyTimelineToolbar;
 const ZOOM_LEVELS: readonly TimelineZoom[] = ['day', 'week', 'month'];
 

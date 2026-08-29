@@ -1,4 +1,4 @@
-import type { ComponentType, Dispatch, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +12,7 @@ import {
     type VaultViewConfig,
 } from '../../hooks/useVaultViewData';
 import type { FilterNode } from '../../utils/vaultFilters';
-import { VaultBulkActionsBar as LegacyVaultBulkActionsBar } from './VaultBulkActionsBar';
+import { VaultBulkActionsBar, type BulkActionTemplate } from './VaultBulkActionsBar';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { getFieldType, getSchemaFieldNames, resolveViewFilters, resolveViewSorts } from './schemaUtils';
 import { useTitlePreview } from './useTitlePreview';
@@ -55,24 +55,10 @@ interface VaultGalleryProps {
     readonly registerNavApi?: (api: VaultGalleryNavigationApi | null) => void;
     readonly schema?: GallerySchema;
     readonly searchTerm?: string;
-    readonly templates?: readonly unknown[];
+    readonly templates?: readonly BulkActionTemplate[];
 }
 
 
-interface BulkActionsProps {
-    readonly onApplyTemplate: ((templateId: string) => void) | null;
-    readonly onClearSelection: () => void;
-    readonly onDeleteSelected: (() => void) | null;
-    readonly onSelectAll: () => void;
-    readonly selectedIds: ReadonlySet<string>;
-    readonly templates: readonly unknown[];
-    readonly totalCount: number;
-}
-
-
-const VaultBulkActionsBar = LegacyVaultBulkActionsBar as unknown as ComponentType<
-    BulkActionsProps
->;
 const readFieldNames = getSchemaFieldNames as (schema: GallerySchema) => string[];
 const readFieldType = getFieldType as (schema: GallerySchema, field: string) => string;
 const readFilters = resolveViewFilters as (view: GalleryView) => FilterNode[];

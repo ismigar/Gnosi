@@ -126,17 +126,6 @@ export interface TimelineSchemaReaders {
 }
 
 
-export interface TimelineBulkActionsProps {
-    readonly onApplyTemplate: ((templateId: string) => void) | null;
-    readonly onClearSelection: () => void;
-    readonly onDeleteSelected: (() => void) | null;
-    readonly onSelectAll: () => void;
-    readonly selectedIds: ReadonlySet<string>;
-    readonly templates: readonly TimelineTemplate[];
-    readonly totalCount: number;
-}
-
-
 export interface TimelineToolbarProps {
     readonly activeFiltersCount: number;
     readonly activeSortsCount: number;
@@ -189,4 +178,3 @@ export interface TimelineController {
 
 
 export type LegacyTimelineToolbar = ComponentType<TimelineToolbarProps>;
-export type LegacyTimelineBulkActions = ComponentType<TimelineBulkActionsProps>;
