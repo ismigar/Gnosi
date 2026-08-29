@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import axios from '../../shared/api/legacy-http';
 import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { fetchVaultPagePreview } from '../../shared/api/vaults';
 import { IconRenderer } from './IconRenderer';
 import { VaultMarkdown } from './VaultMarkdown';
 import {
@@ -99,11 +99,11 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
         setData(null);
         setLoading(true);
         setError(false);
-        axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}/preview?full=true`)
-            .then(res => {
+        fetchVaultPagePreview(pageId, { full: true })
+            .then(preview => {
                 if (cancelled) return;
-                writeCache(pageId, res.data);
-                setData(res.data);
+                writeCache(pageId, preview);
+                setData(preview);
                 setLoading(false);
             })
             .catch(() => {

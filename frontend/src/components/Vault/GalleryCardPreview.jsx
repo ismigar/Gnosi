@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import axios from '../../shared/api/legacy-http';
 import { ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { fetchVaultPagePreview } from '../../shared/api/vaults';
 import { getGalleryMarkdown, getGalleryPageUrl, openGalleryPageWindow } from './galleryCardPreviewUtils';
 import { VaultMarkdown } from './VaultMarkdown';
 
@@ -57,10 +57,8 @@ export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect, onOp
     useEffect(() => {
         if (!pageId || visiblePageId !== pageId || fullContent?.pageId === pageId) return undefined;
         const controller = new AbortController();
-        axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}/preview?full=true`, {
-            signal: controller.signal,
-        }).then((response) => {
-            const fullMarkdown = response.data?.body_md || response.data?.content || '';
+        fetchVaultPagePreview(pageId, { full: true }, controller.signal).then((preview) => {
+            const fullMarkdown = preview?.body_md || preview?.content || '';
             if (fullMarkdown) {
                 setFullContent({ pageId, markdown: getGalleryMarkdown({ body_md: fullMarkdown }) });
             }
