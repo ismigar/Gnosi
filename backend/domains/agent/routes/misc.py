@@ -5,7 +5,11 @@ from fastapi import Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from backend.agent.model_reliability import reliability_report
-from backend.domains.agent.routes.contracts import ChatFeedbackRequest
+from backend.domains.agent.routes.contracts import (
+    ChatFeedbackRequest,
+    ExternalContextSourceResponse,
+    InternalContextSourceResponse,
+)
 from backend.domains.agent.routes.router import router
 from backend.domains.agent.routes.shared import _validated_identifier, _vault_scope
 from backend.services.agent_cancellation import cancel_stream as cancel_agent_stream
@@ -39,7 +43,10 @@ async def model_reliability(
     }
 
 
-@router.get("/agent/context-sources", response_model=None)
+@router.get(
+    "/agent/context-sources",
+    response_model=list[ExternalContextSourceResponse],
+)
 async def list_context_sources() -> Any:
     """Catalogue of large external sources an agent can attach to its context.
 
@@ -51,7 +58,10 @@ async def list_context_sources() -> Any:
     return list_sources()
 
 
-@router.get("/agent/internal-sources", response_model=None)
+@router.get(
+    "/agent/internal-sources",
+    response_model=list[InternalContextSourceResponse],
+)
 async def list_internal_context_sources(
     workspace_context: WorkspaceContext = Depends(require_role("viewer")),
 ) -> Any:

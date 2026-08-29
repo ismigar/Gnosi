@@ -11752,6 +11752,15 @@ export interface components {
             /** Decision */
             decision: string;
         };
+        /** ExternalContextSourceResponse */
+        ExternalContextSourceResponse: {
+            /** Description */
+            description: string;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
         /** FeedSourceCreate */
         FeedSourceCreate: {
             /**
@@ -12487,6 +12496,23 @@ export interface components {
              * @constant
              */
             status: "success";
+        };
+        /** InternalContextSourceResponse */
+        InternalContextSourceResponse: {
+            /** Description */
+            description: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Options */
+            options: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Scope */
+            scope: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
         };
         JsonValue: unknown;
         /**
@@ -16638,6 +16664,27 @@ export interface components {
             /** Slug */
             slug: string | null;
         };
+        /** VaultTagPage */
+        VaultTagPage: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /** VaultTagsResponse */
+        VaultTagsResponse: {
+            /** Tags */
+            tags: components["schemas"]["VaultTagSummary"][];
+        };
+        /** VaultTagSummary */
+        VaultTagSummary: {
+            /** Count */
+            count: number;
+            /** Name */
+            name: string;
+            /** Pages */
+            pages: components["schemas"]["VaultTagPage"][];
+        };
         /** VerifyPayload */
         VerifyPayload: {
             /** Database Ids */
@@ -16792,7 +16839,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExternalContextSourceResponse"][];
                 };
             };
         };
@@ -16819,7 +16866,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InternalContextSourceResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -36197,7 +36244,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultTagsResponse"];
                 };
             };
             /** @description Validation Error */

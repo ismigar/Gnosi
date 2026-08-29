@@ -5,10 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fastapi.routing import APIRoute
 
 from backend.api import vault_routes
 from backend.domains.vault.pages import index_entries, index_service, resolver, tags
 from backend.domains.vault.schemas.pages import PageInfo
+from backend.domains.vault.schemas.tags import VaultTagsResponse
 
 
 def test_legacy_facade_exports_canonical_page_index_callables() -> None:
@@ -24,6 +26,15 @@ def test_page_index_domain_does_not_import_the_http_facade() -> None:
         source_path = Path(module.__file__ or "")
         assert source_path.is_file()
         assert "backend.api.vault_routes" not in source_path.read_text(encoding="utf-8")
+
+
+def test_vault_tag_route_publishes_the_aggregated_response_contract() -> None:
+    route = next(
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute) and route.endpoint.__name__ == "list_vault_tags"
+    )
+    assert route.response_model is VaultTagsResponse
 
 
 def test_tag_query_deduplicates_sources_and_excludes_templates(

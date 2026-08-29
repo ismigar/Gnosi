@@ -1,7 +1,7 @@
 import re
 from typing import Any, Dict, List, Optional, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 FAILURE_MESSAGES = {
     "tool_use_failed": (
@@ -23,6 +23,20 @@ FAILURE_MESSAGES = {
     "timeout": "The provider did not respond in time. Try again.",
     "server_error": "Provider error. Try again later.",
 }
+
+
+class ExternalContextSourceResponse(BaseModel):
+    id: str
+    label: str
+    description: str
+
+
+class InternalContextSourceResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    scope: Dict[str, JsonValue]
+    options: Dict[str, JsonValue]
 
 
 class MentionRef(BaseModel):

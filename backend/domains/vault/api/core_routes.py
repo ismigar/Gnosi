@@ -6,6 +6,8 @@ from typing import cast as _strict_cast
 
 from fastapi import APIRouter
 
+from backend.domains.vault.schemas.tags import VaultTagsResponse
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 
@@ -356,7 +358,7 @@ def _extract_tags(raw: _LegacyAny) -> list[_LegacyAny]:
     return _strict_cast(list[_LegacyAny], _legacy.tags_query.extract_tags(raw))
 
 
-@router.get("/tags", response_model=None)
+@router.get("/tags", response_model=VaultTagsResponse)
 async def list_vault_tags() -> _LegacyAny:
     """Aggregates all `tags` across the vault with their page counts.
 

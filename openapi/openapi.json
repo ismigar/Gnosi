@@ -5066,6 +5066,29 @@
         "title": "EvaluationCandidateReviewPayload",
         "type": "object"
       },
+      "ExternalContextSourceResponse": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description"
+        ],
+        "title": "ExternalContextSourceResponse",
+        "type": "object"
+      },
       "FeedSourceCreate": {
         "properties": {
           "category": {
@@ -7243,6 +7266,45 @@
           "post_id"
         ],
         "title": "InteractionResponse",
+        "type": "object"
+      },
+      "InternalContextSourceResponse": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Options",
+            "type": "object"
+          },
+          "scope": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Scope",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "scope",
+          "options"
+        ],
+        "title": "InternalContextSourceResponse",
         "type": "object"
       },
       "JsonValue": {},
@@ -17276,6 +17338,66 @@
         "title": "VaultSummaryResponse",
         "type": "object"
       },
+      "VaultTagPage": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "VaultTagPage",
+        "type": "object"
+      },
+      "VaultTagSummary": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/VaultTagPage"
+            },
+            "title": "Pages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "count",
+          "pages"
+        ],
+        "title": "VaultTagSummary",
+        "type": "object"
+      },
+      "VaultTagsResponse": {
+        "properties": {
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/VaultTagSummary"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tags"
+        ],
+        "title": "VaultTagsResponse",
+        "type": "object"
+      },
       "VerifyPayload": {
         "properties": {
           "database_ids": {
@@ -17907,7 +18029,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExternalContextSourceResponse"
+                  },
+                  "title": "Response List Context Sources Api Agent Context Sources Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -18006,7 +18134,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InternalContextSourceResponse"
+                  },
+                  "title": "Response List Internal Context Sources Api Agent Internal Sources Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -77461,7 +77595,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VaultTagsResponse"
+                }
               }
             },
             "description": "Successful Response"

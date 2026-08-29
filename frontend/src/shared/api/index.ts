@@ -1,6 +1,14 @@
 export { $api, apiClient } from './client';
 export { ApiProvider } from './ApiProvider';
 export {
+  fetchExternalContextSources,
+  fetchInternalContextSources,
+} from './agent-context';
+export type {
+  ExternalContextSource,
+  InternalContextSource,
+} from './agent-context';
+export {
   fetchAiCatalog,
   fetchAiModelCatalog,
   fetchAiModelComparison,
@@ -201,6 +209,8 @@ export {
   useUpdateNewsletterAccount,
 } from './useReaderData';
 export { useVaultCatalog } from './useVaultCatalog';
+export { fetchVaultTags } from './vault-tags';
+export type { VaultTagPage, VaultTags, VaultTagSummary } from './vault-tags';
 export {
   createVaultInlineComment,
   createVaultPageComment,
