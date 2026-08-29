@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from '../../shared/api/legacy-http';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, Pencil, Check, Loader2 } from 'lucide-react';
 import { VaultMarkdown } from './VaultMarkdown';
 import { openEventStream, supportsEventStreams } from '../../shared/api/specialized-transports';
+import { fetchSyncedBlock, saveSyncedBlock } from '../../shared/api/synced-blocks';
 
 /**
  * SyncedBlock
@@ -46,7 +46,7 @@ export default function SyncedBlock({ block }) {
     const load = useCallback(async () => {
         if (!syncId) { setLoading(false); return; }
         setLoading(true);
-        try { const r = await axios.get(`/api/vault/synced/${syncId}`); setContent(r.data?.content || ''); }
+        try { const result = await fetchSyncedBlock(syncId); setContent(result?.content || ''); }
         catch { setContent(''); }
         finally { setLoading(false); }
     }, [syncId]);
@@ -57,7 +57,7 @@ export default function SyncedBlock({ block }) {
     const save = async () => {
         setSaving(true);
         try {
-            await axios.put(`/api/vault/synced/${syncId}`, { content: draft });
+            await saveSyncedBlock(syncId, draft);
             setContent(draft);
             setEditing(false);
             // Same window (other instances) + other tabs/windows.
