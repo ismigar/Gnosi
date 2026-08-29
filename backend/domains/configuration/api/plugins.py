@@ -21,10 +21,12 @@ from backend.domains.configuration.api.plugin_models import (
     PluginNetworkFetchRequest,
     PluginPermissionsRequest,
     PluginSettingsRequest,
+    PluginSettingsResponse,
     PluginsUpdateRequest,
     RegistryUrlRequest,
     TrustedKeyRequest,
     VaultSummaryRequest,
+    VaultPluginSummaryResponse,
 )
 from backend.services import builtin_plugins
 
@@ -780,11 +782,16 @@ def register_routes(
         ("GET", "/plugins/registry-url", get_registry_url, ()),
         ("PUT", "/plugins/registry-url", set_registry_url, admin),
     )
+    response_models = {
+        get_plugin_settings: PluginSettingsResponse,
+        set_plugin_settings: PluginSettingsResponse,
+        summarize_with_vault_plugin: VaultPluginSummaryResponse,
+    }
     for method, path, endpoint, dependencies in routes:
         router.add_api_route(
             path,
             endpoint,
             methods=[method],
             dependencies=list(dependencies),
-            response_model=None,
+            response_model=response_models.get(endpoint),
         )

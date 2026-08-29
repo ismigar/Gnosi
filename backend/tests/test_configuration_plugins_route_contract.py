@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes
+from backend.domains.configuration.api import plugin_models
 from backend.domains.configuration.api import plugins as plugins_api
 
 RouteFingerprint = tuple[str, str, str, str]
@@ -176,12 +177,17 @@ def test_plugin_route_fingerprint_and_order_are_unchanged() -> None:
 
 
 def test_plugin_route_status_models_and_dependencies_are_unchanged() -> None:
+    response_models = {
+        "get_plugin_settings": plugin_models.PluginSettingsResponse,
+        "set_plugin_settings": plugin_models.PluginSettingsResponse,
+        "summarize_with_vault_plugin": plugin_models.VaultPluginSummaryResponse,
+    }
     routes = _plugin_routes()
     assert len(routes) == len(EXPECTED_ROUTES)
     for route in routes:
         assert route.operation_id is None
         assert route.status_code is None
-        assert route.response_model is None
+        assert route.response_model is response_models.get(route.endpoint.__name__)
         assert len(route.methods) == 1
         method = next(iter(route.methods))
         expected_count = PROTECTED_DEPENDENCY_COUNTS.get(

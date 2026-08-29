@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PluginsUpdateRequest(BaseModel):
@@ -50,6 +50,21 @@ class VaultSummaryRequest(BaseModel):
 
     content: str
     language: str = "en"
+
+
+class PluginSettingsResponse(BaseModel):
+    """Dynamic settings document owned by one plugin."""
+
+    model_config = ConfigDict(extra="allow")
+
+    settings: dict[str, Any]
+
+
+class VaultPluginSummaryResponse(BaseModel):
+    """Generated summary and the governed model that produced it."""
+
+    summary: str
+    model: str
 
 
 class CatalogInstallRequest(BaseModel):

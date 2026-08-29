@@ -14,6 +14,9 @@ from backend.domains.vault.assets import service
 from backend.domains.vault.assets.schemas import (
     AssetUploadResponse,
     CustomIconsRequest,
+    CustomIconsResponse,
+    ImageAssetResponse,
+    IconAssetResponse,
     IconUrlImportRequest,
 )
 from backend.domains.vault.assets.state import CustomIconStore
@@ -192,21 +195,21 @@ def register_primary_routes(
         upload_cover,
         methods=["POST"],
         dependencies=protected,
-        response_model=None,
+        response_model=ImageAssetResponse,
     )
     router.add_api_route(
         "/upload-icon",
         upload_icon,
         methods=["POST"],
         dependencies=protected,
-        response_model=None,
+        response_model=IconAssetResponse,
     )
     router.add_api_route(
         "/import-icon-url",
         import_icon_from_url,
         methods=["POST"],
         dependencies=protected,
-        response_model=None,
+        response_model=IconAssetResponse,
     )
     router.add_api_route(
         "/assets/upload",
@@ -243,14 +246,14 @@ def register_custom_icon_routes(
         "/custom-icons",
         get_custom_icons,
         methods=["GET"],
-        response_model=None,
+        response_model=CustomIconsResponse,
     )
     router.add_api_route(
         "/custom-icons",
         save_custom_icons,
         methods=["PUT"],
         dependencies=list(editor_dependencies),
-        response_model=None,
+        response_model=CustomIconsResponse,
     )
 
 

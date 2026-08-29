@@ -5,10 +5,24 @@ from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 _VALID_MEDIA_ROOTS = {"images", "assets", "library", "vault"}
+
+
+class UnsplashPhotoResponse(BaseModel):
+    id: str
+    url: str
+    thumb: str
+    author: str
+    author_url: str
+
+
+class UnsplashSearchResponse(BaseModel):
+    results: list[UnsplashPhotoResponse]
+    total_pages: int
 
 
 def _validate_root(root: str) -> str:
@@ -387,7 +401,7 @@ async def pick_file() -> _LegacyAny:
         )
 
 
-@router.get("/unsplash/search", response_model=None)
+@router.get("/unsplash/search", response_model=UnsplashSearchResponse)
 async def unsplash_search(
     query: str = _legacy.Query(...), page: int = _legacy.Query(1)
 ) -> _LegacyAny:

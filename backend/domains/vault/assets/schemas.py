@@ -21,4 +21,33 @@ class AssetUploadResponse(BaseModel):
     is_image: bool
 
 
-__all__ = ["AssetUploadResponse", "CustomIconsRequest", "IconUrlImportRequest"]
+class ImageAssetResponse(BaseModel):
+    """Stored image location returned by a cover upload."""
+
+    url: str
+    path: str
+
+
+class IconAssetResponse(BaseModel):
+    """Stored icon location returned by upload and URL import routes."""
+
+    url: str
+    path: str
+    thumbnail_url: str | None
+    thumbnail_path: str | None
+
+
+class CustomIconsResponse(BaseModel):
+    """Shared custom-icon library persisted for the active Vault."""
+
+    icons: list[str]
+
+
+__all__ = [
+    "AssetUploadResponse",
+    "CustomIconsRequest",
+    "CustomIconsResponse",
+    "ImageAssetResponse",
+    "IconAssetResponse",
+    "IconUrlImportRequest",
+]
