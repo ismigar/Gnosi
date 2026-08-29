@@ -187,8 +187,6 @@
       "frontend/src/components/Mail/MailList.jsx": 1323,
       "frontend/src/components/Mail/MailViewEditor.jsx": 500,
       "frontend/src/components/Mail/MailViewer.jsx": 1307,
-      "frontend/src/components/MeetingRecorder.jsx": 323,
-      "frontend/src/components/MeetingReminderWatcher.jsx": 117,
       "frontend/src/components/Notebooks/NotebookCreateDialog.jsx": 235,
       "frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx": 304,
       "frontend/src/components/NotionImportSettings.jsx": 855,
