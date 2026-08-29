@@ -4895,6 +4895,54 @@
         "title": "CredentialStatus",
         "type": "object"
       },
+      "CslStyleResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "file",
+          "title"
+        ],
+        "title": "CslStyleResponse",
+        "type": "object"
+      },
+      "CslStylesResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "styles": {
+            "items": {
+              "$ref": "#/components/schemas/CslStyleResponse"
+            },
+            "title": "Styles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "styles"
+        ],
+        "title": "CslStylesResponse",
+        "type": "object"
+      },
       "CurrencyInfoResponse": {
         "description": "Currency conversion metadata shared by registry and usage views.",
         "properties": {
@@ -7366,6 +7414,138 @@
           "content"
         ],
         "title": "ImportFile",
+        "type": "object"
+      },
+      "ImportReferenceErrorResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "title",
+          "error"
+        ],
+        "title": "ImportReferenceErrorResponse",
+        "type": "object"
+      },
+      "ImportReferencesResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ImportReferenceErrorResponse"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImportedReferenceItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "skip_summary": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Skip Summary",
+            "type": "object"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "skipped_details": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedReferenceDetailResponse"
+            },
+            "title": "Skipped Details",
+            "type": "array"
+          },
+          "skipped_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "created",
+          "skipped",
+          "items",
+          "skipped_details",
+          "skipped_keys",
+          "skip_summary",
+          "errors",
+          "format"
+        ],
+        "title": "ImportReferencesResponse",
+        "type": "object"
+      },
+      "ImportedReferenceItemResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "citation_key": {
+            "title": "Citation Key",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "citation_key",
+          "title"
+        ],
+        "title": "ImportedReferenceItemResponse",
         "type": "object"
       },
       "InlineComment": {
@@ -10144,6 +10324,64 @@
           "id"
         ],
         "title": "MentionRef",
+        "type": "object"
+      },
+      "MetadataLookupResponse": {
+        "description": "Metadata suggestion returned for one external identifier.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identifier"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "crossref",
+                  "arxiv",
+                  "pubmed",
+                  "openlibrary",
+                  "url"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "suggested": {
+            "additionalProperties": true,
+            "title": "Suggested",
+            "type": "object"
+          }
+        },
+        "required": [
+          "source",
+          "identifier",
+          "suggested",
+          "error"
+        ],
+        "title": "MetadataLookupResponse",
         "type": "object"
       },
       "ModelCatalogModel": {
@@ -13675,6 +13913,64 @@
         "title": "PdfAnnotationResponse",
         "type": "object"
       },
+      "PdfRecognitionResponse": {
+        "description": "Metadata recognized from an uploaded PDF.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "identifiers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Identifiers",
+            "type": "object"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "crossref",
+                  "arxiv",
+                  "pubmed",
+                  "openlibrary",
+                  "url"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "pdf",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "suggested": {
+            "additionalProperties": true,
+            "title": "Suggested",
+            "type": "object"
+          }
+        },
+        "required": [
+          "identifiers",
+          "source",
+          "suggested",
+          "error"
+        ],
+        "title": "PdfRecognitionResponse",
+        "type": "object"
+      },
       "PersonalMemoryPayload": {
         "additionalProperties": false,
         "description": "Explicit user-owned memory fields.",
@@ -16951,6 +17247,42 @@
         "title": "SkillKind",
         "type": "string"
       },
+      "SkippedReferenceDetailResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "existing_key": {
+            "title": "Existing Key",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "key",
+          "reason",
+          "existing_key",
+          "title"
+        ],
+        "title": "SkippedReferenceDetailResponse",
+        "type": "object"
+      },
       "SnowballRequest": {
         "properties": {
           "direction": {
@@ -17279,6 +17611,108 @@
           "network"
         ],
         "title": "Stream",
+        "type": "object"
+      },
+      "SyncDrupalRowResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "media_pushed": {
+            "title": "Media Pushed",
+            "type": "boolean"
+          },
+          "nid": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "scope": {
+            "enum": [
+              "all",
+              "lang_only"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "skipped_fields": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Skipped Fields",
+            "type": "array"
+          },
+          "source_lang": {
+            "title": "Source Lang",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "translations": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Translations",
+            "type": "array"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uuid"
+          }
+        },
+        "required": [
+          "status",
+          "item_id",
+          "uuid",
+          "nid",
+          "url",
+          "created",
+          "media_pushed",
+          "source_lang",
+          "scope",
+          "languages",
+          "translations",
+          "skipped_fields"
+        ],
+        "title": "SyncDrupalRowResponse",
         "type": "object"
       },
       "SyncedBlockResponse": {
@@ -17920,6 +18354,164 @@
         "title": "ToolResponse",
         "type": "object"
       },
+      "TranslatePageResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "created": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "source_lang": {
+            "title": "Source Lang",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "updated": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Updated",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "page_id",
+          "source_lang",
+          "created",
+          "updated",
+          "skipped"
+        ],
+        "title": "TranslatePageResponse",
+        "type": "object"
+      },
+      "TranslateRowResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "created": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "source_lang": {
+            "title": "Source Lang",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "updated": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Updated",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "item_id",
+          "source_lang",
+          "created",
+          "updated",
+          "skipped"
+        ],
+        "title": "TranslateRowResponse",
+        "type": "object"
+      },
+      "TranslateRowsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "results": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "count",
+          "results",
+          "errors"
+        ],
+        "title": "TranslateRowsResponse",
+        "type": "object"
+      },
       "TrapAnalyticsPageResponse": {
         "description": "Paginated development-trap inventory.",
         "properties": {
@@ -18270,6 +18862,55 @@
           }
         },
         "title": "UpdateProfilePayload",
+        "type": "object"
+      },
+      "UrlTranslationResponse": {
+        "description": "Zotero web-capture result, including a count only on success.",
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "identifier": {
+            "title": "Identifier",
+            "type": "string"
+          },
+          "source": {
+            "const": "web",
+            "title": "Source",
+            "type": "string"
+          },
+          "suggested": {
+            "additionalProperties": true,
+            "title": "Suggested",
+            "type": "object"
+          }
+        },
+        "required": [
+          "source",
+          "identifier",
+          "suggested",
+          "error"
+        ],
+        "title": "UrlTranslationResponse",
         "type": "object"
       },
       "UserRole": {
@@ -19002,6 +19643,77 @@
           "created_at"
         ],
         "title": "WorkspaceResponse",
+        "type": "object"
+      },
+      "ZoteroExtraPromotionResponse": {
+        "description": "Summary of promoting one dynamic Zotero extra field.",
+        "properties": {
+          "column_created": {
+            "title": "Column Created",
+            "type": "boolean"
+          },
+          "column_id": {
+            "title": "Column Id"
+          },
+          "column_name": {
+            "title": "Column Name",
+            "type": "string"
+          },
+          "conflicts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "migrated": {
+            "title": "Migrated",
+            "type": "integer"
+          },
+          "migrated_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Migrated Ids",
+            "type": "array"
+          },
+          "migrated_with_etags": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Migrated With Etags",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "column_created",
+          "column_id",
+          "column_name",
+          "migrated",
+          "migrated_ids",
+          "migrated_with_etags",
+          "skipped",
+          "conflicts",
+          "errors"
+        ],
+        "title": "ZoteroExtraPromotionResponse",
         "type": "object"
       },
       "_BulkWarmPayload": {
@@ -54696,7 +55408,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CslStylesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -54816,7 +55530,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CslStyleResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -56619,11 +57335,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -57989,7 +58700,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ImportReferencesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -65320,7 +66033,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataLookupResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -74551,7 +75266,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ZoteroExtraPromotionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -74794,7 +75511,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PdfRecognitionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -76867,7 +77586,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SyncDrupalRowResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77115,7 +77836,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TranslatePageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77239,7 +77962,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TranslateRowResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77363,7 +78088,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TranslateRowsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -79211,7 +79938,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UrlTranslationResponse"
+                }
               }
             },
             "description": "Successful Response"

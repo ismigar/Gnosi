@@ -11612,6 +11612,24 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CslStyleResponse */
+        CslStyleResponse: {
+            /** File */
+            file: string;
+            /** Id */
+            id: string;
+            /** Title */
+            title: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CslStylesResponse */
+        CslStylesResponse: {
+            /** Styles */
+            styles: components["schemas"]["CslStyleResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * CurrencyInfoResponse
          * @description Currency conversion metadata shared by registry and usage views.
@@ -12483,12 +12501,57 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** ImportedReferenceItemResponse */
+        ImportedReferenceItemResponse: {
+            /** Citation Key */
+            citation_key: string;
+            /** Id */
+            id: string | null;
+            /** Title */
+            title: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** ImportFile */
         ImportFile: {
             /** Content */
             content: string;
             /** Name */
             name: string;
+        };
+        /** ImportReferenceErrorResponse */
+        ImportReferenceErrorResponse: {
+            /** Error */
+            error: string;
+            /** Title */
+            title: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ImportReferencesResponse */
+        ImportReferencesResponse: {
+            /** Created */
+            created: number;
+            /** Errors */
+            errors: components["schemas"]["ImportReferenceErrorResponse"][];
+            /** Format */
+            format: string;
+            /** Items */
+            items: components["schemas"]["ImportedReferenceItemResponse"][];
+            /** Message */
+            message?: string | null;
+            /** Skip Summary */
+            skip_summary: {
+                [key: string]: number;
+            };
+            /** Skipped */
+            skipped: number;
+            /** Skipped Details */
+            skipped_details: components["schemas"]["SkippedReferenceDetailResponse"][];
+            /** Skipped Keys */
+            skipped_keys: string[];
+        } & {
+            [key: string]: unknown;
         };
         /** InlineComment */
         InlineComment: {
@@ -13550,6 +13613,22 @@ export interface components {
             label?: string | null;
             /** Type */
             type: string;
+        };
+        /**
+         * MetadataLookupResponse
+         * @description Metadata suggestion returned for one external identifier.
+         */
+        MetadataLookupResponse: {
+            /** Error */
+            error: string | null;
+            /** Identifier */
+            identifier: string | null;
+            /** Source */
+            source: ("crossref" | "arxiv" | "pubmed" | "openlibrary" | "url") | null;
+            /** Suggested */
+            suggested: {
+                [key: string]: unknown;
+            };
         };
         /**
          * ModelCatalogModel
@@ -14848,6 +14927,24 @@ export interface components {
             type: string;
             /** Updated At */
             updated_at: string | null;
+        };
+        /**
+         * PdfRecognitionResponse
+         * @description Metadata recognized from an uploaded PDF.
+         */
+        PdfRecognitionResponse: {
+            /** Error */
+            error: string | null;
+            /** Identifiers */
+            identifiers: {
+                [key: string]: string;
+            };
+            /** Source */
+            source: ("crossref" | "arxiv" | "pubmed" | "openlibrary" | "url") | "pdf" | null;
+            /** Suggested */
+            suggested: {
+                [key: string]: unknown;
+            };
         };
         /**
          * PersonalMemoryPayload
@@ -16357,6 +16454,19 @@ export interface components {
          * @enum {string}
          */
         SkillKind: "agent" | "action" | "automation" | "developer";
+        /** SkippedReferenceDetailResponse */
+        SkippedReferenceDetailResponse: {
+            /** Existing Key */
+            existing_key: string;
+            /** Key */
+            key: string;
+            /** Reason */
+            reason: string;
+            /** Title */
+            title: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** SnowballRequest */
         SnowballRequest: {
             /**
@@ -16509,6 +16619,44 @@ export interface components {
             network: string;
             /** Title */
             title: string;
+        };
+        /** SyncDrupalRowResponse */
+        SyncDrupalRowResponse: {
+            /** Created */
+            created: boolean;
+            /** Item Id */
+            item_id: string;
+            /** Languages */
+            languages: string[];
+            /** Media Pushed */
+            media_pushed: boolean;
+            nid: components["schemas"]["JsonValue"];
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "all" | "lang_only";
+            /** Skipped Fields */
+            skipped_fields: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Source Lang */
+            source_lang: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Translations */
+            translations: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Url */
+            url: string | null;
+            /** Uuid */
+            uuid: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** SyncedBlockResponse */
         SyncedBlockResponse: {
@@ -16782,6 +16930,78 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** TranslatePageResponse */
+        TranslatePageResponse: {
+            /** Created */
+            created: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Page Id */
+            page_id: string;
+            /** Skipped */
+            skipped: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Source Lang */
+            source_lang: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Updated */
+            updated: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** TranslateRowResponse */
+        TranslateRowResponse: {
+            /** Created */
+            created: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Item Id */
+            item_id: string;
+            /** Skipped */
+            skipped: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Source Lang */
+            source_lang: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Updated */
+            updated: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** TranslateRowsResponse */
+        TranslateRowsResponse: {
+            /** Count */
+            count: number;
+            /** Errors */
+            errors: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Results */
+            results: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * TrapAnalyticsPageResponse
          * @description Paginated development-trap inventory.
@@ -16911,6 +17131,27 @@ export interface components {
             email?: string | null;
             /** Name */
             name?: string | null;
+        };
+        /**
+         * UrlTranslationResponse
+         * @description Zotero web-capture result, including a count only on success.
+         */
+        UrlTranslationResponse: {
+            /** Count */
+            count?: number | null;
+            /** Error */
+            error: string | null;
+            /** Identifier */
+            identifier: string;
+            /**
+             * Source
+             * @constant
+             */
+            source: "web";
+            /** Suggested */
+            suggested: {
+                [key: string]: unknown;
+            };
         };
         /**
          * UserRole
@@ -17202,6 +17443,36 @@ export interface components {
             role?: string | null;
             /** Slug */
             slug?: string | null;
+        };
+        /**
+         * ZoteroExtraPromotionResponse
+         * @description Summary of promoting one dynamic Zotero extra field.
+         */
+        ZoteroExtraPromotionResponse: {
+            /** Column Created */
+            column_created: boolean;
+            /** Column Id */
+            column_id: unknown;
+            /** Column Name */
+            column_name: string;
+            /** Conflicts */
+            conflicts: {
+                [key: string]: unknown;
+            }[];
+            /** Errors */
+            errors: {
+                [key: string]: unknown;
+            }[];
+            /** Migrated */
+            migrated: number;
+            /** Migrated Ids */
+            migrated_ids: string[];
+            /** Migrated With Etags */
+            migrated_with_etags: {
+                [key: string]: unknown;
+            }[];
+            /** Skipped */
+            skipped: string[];
         };
     };
     responses: never;
@@ -28932,7 +29203,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CslStylesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -28972,7 +29243,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CslStyleResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29549,9 +29820,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -30028,7 +30297,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ImportReferencesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32364,7 +32633,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MetadataLookupResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35220,7 +35489,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ZoteroExtraPromotionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35298,7 +35567,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PdfRecognitionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35971,7 +36240,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SyncDrupalRowResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36055,7 +36324,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TranslatePageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36097,7 +36366,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TranslateRowResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36139,7 +36408,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TranslateRowsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36713,7 +36982,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UrlTranslationResponse"];
                 };
             };
             /** @description Validation Error */
