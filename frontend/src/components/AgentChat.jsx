@@ -34,6 +34,11 @@ import { streamFetch } from '../shared/api/specialized-transports';
 import { transportFetch } from '../shared/api/transports';
 import { fetchNotebookConversation } from '../shared/api/notebooks';
 import { fetchConfiguration } from '../shared/api/configuration';
+import {
+    fetchVaultDatabases,
+    fetchVaultPages,
+    fetchVaultTables,
+} from '../shared/api/vaults';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -555,16 +560,10 @@ const AgentChat = ({
 
     const loadMentionCatalog = useCallback(async () => {
         try {
-            const [pagesRes, tablesRes, dbsRes] = await Promise.all([
-                transportFetch('/api/vault/pages'),
-                transportFetch('/api/vault/tables'),
-                transportFetch('/api/vault/databases'),
-            ]);
-
             const [pages, tables, dbs] = await Promise.all([
-                pagesRes.ok ? pagesRes.json() : [],
-                tablesRes.ok ? tablesRes.json() : [],
-                dbsRes.ok ? dbsRes.json() : [],
+                fetchVaultPages(),
+                fetchVaultTables(),
+                fetchVaultDatabases(),
             ]);
 
             const pageItems = (Array.isArray(pages) ? pages : []).map((p) => {
