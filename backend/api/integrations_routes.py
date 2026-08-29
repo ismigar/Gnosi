@@ -2,7 +2,14 @@ from fastapi import Depends, APIRouter, HTTPException, Body, Request
 import asyncio
 import logging
 from backend.services.integration_manager import integration_manager
-from backend.domains.integrations.contracts import IntegrationsDocument
+from backend.domains.integrations.contracts import (
+    CalendarSelectionRequest,
+    DefaultAccountRequest,
+    DefaultCalendarRequest,
+    IntegrationsDocument,
+    IntegrationUpdateResponse,
+    IntegrationsUpdateRequest,
+)
 from backend.utils.errors import safe_error_detail
 from backend.services.workspace_service import require_role
 from backend.services.plugin_access import require_plugins
@@ -399,15 +406,15 @@ async def test_calendar_connection(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/{integration_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_integration(integration_id: str, payload: dict[str, Any] = Body(...)) -> Any:
+async def update_integration(integration_id: str, payload: IntegrationsUpdateRequest) -> Any:
     """Updates a specific integration (e.g. 'email', 'ai')"""
     try:
         before = (
             _snapshot_mail_credentials() if integration_id in ("mail_accounts", "emails") else {}
         )
-        integration_manager.update(integration_id, payload)
+        integration_manager.update(integration_id, payload.root)
         if before:
             _invalidate_imap_state(_diff_mail_credentials(before, _snapshot_mail_credentials()))
         return {"status": "success", "message": f"Integration {integration_id} updated"}
@@ -422,12 +429,12 @@ async def update_integration(integration_id: str, payload: dict[str, Any] = Body
 @router.put(
     "/calendar_colors",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_calendar_colors(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_calendar_colors(payload: IntegrationsUpdateRequest) -> Any:
     """Saves custom colors for specific calendar sources."""
     try:
-        integration_manager.update("calendar_colors", payload)
+        integration_manager.update("calendar_colors", payload.root)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating calendar colors: {e}")
@@ -440,12 +447,12 @@ async def update_calendar_colors(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/calendar_aliases",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_calendar_aliases(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_calendar_aliases(payload: IntegrationsUpdateRequest) -> Any:
     """Saves custom names/aliases for specific calendar sources."""
     try:
-        integration_manager.update("calendar_aliases", payload)
+        integration_manager.update("calendar_aliases", payload.root)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating calendar aliases: {e}")
@@ -458,14 +465,14 @@ async def update_calendar_aliases(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/calendar_selection",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_calendar_selection(payload: Any = Body(...)) -> Any:
+async def update_calendar_selection(payload: CalendarSelectionRequest) -> Any:
     """Saves the list of visible/selected calendar sources."""
     try:
-        data = payload
-        if isinstance(payload, dict) and "selection" in payload:
-            data = payload["selection"]
+        data = payload.root
+        if isinstance(data, dict) and "selection" in data:
+            data = data["selection"]
 
         integration_manager.update("calendar_selection", data)
         return {"status": "success"}
@@ -480,12 +487,12 @@ async def update_calendar_selection(payload: Any = Body(...)) -> Any:
 @router.put(
     "/default_calendar",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_default_calendar(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_default_calendar(payload: DefaultCalendarRequest) -> Any:
     """Save the default calendar for new appointments."""
     try:
-        integration_manager.update("default_calendar", payload.get("source", ""))
+        integration_manager.update("default_calendar", payload.source)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating default calendar: {e}")
@@ -498,12 +505,12 @@ async def update_default_calendar(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/default_mail",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_default_mail(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_default_mail(payload: DefaultAccountRequest) -> Any:
     """Save the default mail account."""
     try:
-        integration_manager.update("default_mail", payload.get("email", ""))
+        integration_manager.update("default_mail", payload.email)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating default mail: {e}")
@@ -516,12 +523,12 @@ async def update_default_mail(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/default_contacts",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_default_contacts(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_default_contacts(payload: DefaultAccountRequest) -> Any:
     """Save the default contacts account."""
     try:
-        integration_manager.update("default_contacts", payload.get("email", ""))
+        integration_manager.update("default_contacts", payload.email)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating default contacts: {e}")
@@ -531,12 +538,16 @@ async def update_default_contacts(payload: dict[str, Any] = Body(...)) -> Any:
         )
 
 
-@router.post("/bulk", dependencies=[Depends(require_role("editor"))], response_model=None)
-async def bulk_update_integrations(payload: dict[str, Any] = Body(...)) -> Any:
+@router.post(
+    "/bulk",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=IntegrationUpdateResponse,
+)
+async def bulk_update_integrations(payload: IntegrationsUpdateRequest) -> Any:
     """Updates multiple integrations at once."""
     try:
         before = _snapshot_mail_credentials()
-        integration_manager.bulk_update(payload)
+        integration_manager.bulk_update(payload.root)
         _invalidate_imap_state(_diff_mail_credentials(before, _snapshot_mail_credentials()))
         return {"status": "success", "message": "Integrations updated in bulk"}
     except Exception as e:
