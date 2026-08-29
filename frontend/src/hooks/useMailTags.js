@@ -1,9 +1,34 @@
 import { createContext, createElement, useContext, useState, useEffect, useCallback } from 'react';
-import { transportFetch } from '../shared/api/transports';
-
-const API = '/api/mail/tags';
+import {
+    createMailTag,
+    deleteMailTag,
+    fetchMailMessageTags,
+    fetchMailTags,
+    fetchTaggedMailMessages,
+    fetchTagsForMailMessages,
+    setMailMessageTags,
+    updateMailTag,
+} from '../shared/api/mail';
+import { GnosiApiError } from '../shared/api/errors';
 
 const MailTagsContext = createContext(null);
+
+function legacyHttpError(error, message) {
+    return error instanceof GnosiApiError ? new Error(message, { cause: error }) : error;
+}
+
+function rethrowLegacyHttpError(error, message) {
+    throw legacyHttpError(error, message);
+}
+
+async function fallbackOnHttpError(operation, fallback) {
+    try {
+        return await operation();
+    } catch (error) {
+        if (error instanceof GnosiApiError) return fallback;
+        throw error;
+    }
+}
 
 function useMailTagsImpl() {
     const [tags, setTags] = useState([]);
@@ -12,11 +37,9 @@ function useMailTagsImpl() {
     const fetchTags = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await transportFetch(API);
-            if (!res.ok) throw new Error('Error carregant etiquetes');
-            setTags(await res.json());
+            setTags(await fetchMailTags());
         } catch (e) {
-            console.error(e);
+            console.error(legacyHttpError(e, 'Error carregant etiquetes'));
         } finally {
             setLoading(false);
         }
@@ -25,72 +48,64 @@ function useMailTagsImpl() {
     useEffect(() => { fetchTags(); }, [fetchTags]);
 
     const createTag = useCallback(async ({ name, color }) => {
-        const res = await transportFetch(API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, color }),
-        });
-        if (!res.ok) throw new Error('Error creant etiqueta');
-        const created = await res.json();
+        let created;
+        try {
+            created = await createMailTag({ name, color });
+        } catch (error) {
+            rethrowLegacyHttpError(error, 'Error creant etiqueta');
+        }
         setTags(prev => [...prev, created]);
         return created;
     }, []);
 
     const updateTag = useCallback(async (id, { name, color }) => {
-        const res = await transportFetch(`${API}/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, color }),
-        });
-        if (!res.ok) throw new Error('Error actualitzant etiqueta');
-        const updated = await res.json();
+        let updated;
+        try {
+            updated = await updateMailTag(id, { name, color });
+        } catch (error) {
+            rethrowLegacyHttpError(error, 'Error actualitzant etiqueta');
+        }
         setTags(prev => prev.map(t => t.id === id ? updated : t));
         return updated;
     }, []);
 
     const deleteTag = useCallback(async (id) => {
-        const res = await transportFetch(`${API}/${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Error eliminant etiqueta');
+        try {
+            await deleteMailTag(id);
+        } catch (error) {
+            rethrowLegacyHttpError(error, 'Error eliminant etiqueta');
+        }
         setTags(prev => prev.filter(t => t.id !== id));
     }, []);
 
     const getMessageTags = useCallback(async (messageId) => {
-        const res = await transportFetch(`/api/mail/messages/${encodeURIComponent(messageId)}/tags`);
-        if (!res.ok) return [];
-        return await res.json();
+        return fallbackOnHttpError(() => fetchMailMessageTags(messageId), []);
     }, []);
 
     const setMessageTags = useCallback(async (messageId, tagIds, metadata = {}) => {
-        const res = await transportFetch(`/api/mail/messages/${encodeURIComponent(messageId)}/tags`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        try {
+            return await setMailMessageTags(messageId, {
                 tag_ids: tagIds,
                 account_email: metadata.account_email || '',
                 subject: metadata.subject || '',
                 sender: metadata.sender || '',
                 date_str: metadata.date || '',
-            }),
-        });
-        if (!res.ok) throw new Error('Error assignant etiquetes');
-        return await res.json();
+            });
+        } catch (error) {
+            rethrowLegacyHttpError(error, 'Error assignant etiquetes');
+        }
     }, []);
 
     const getTaggedMessages = useCallback(async (tagId) => {
-        const res = await transportFetch(`${API}/${encodeURIComponent(tagId)}/messages`);
-        if (!res.ok) return { tag: null, messages: [] };
-        return await res.json();
+        return fallbackOnHttpError(
+            () => fetchTaggedMailMessages(tagId),
+            { tag: null, messages: [] },
+        );
     }, []);
 
     const getBatchMessageTags = useCallback(async (messageIds) => {
         if (!messageIds.length) return {};
-        const res = await transportFetch('/api/mail/tags/messages/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message_ids: messageIds }),
-        });
-        if (!res.ok) return {};
-        return await res.json();
+        return fallbackOnHttpError(() => fetchTagsForMailMessages(messageIds), {});
     }, []);
 
     return {
