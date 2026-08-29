@@ -6,31 +6,37 @@ import asyncio
 
 import pytest
 from fastapi.routing import APIRoute
+from pydantic import BaseModel
 
-from backend.domains.vault.citations import lookup_routes
 
+def _route_models() -> dict[str, type[BaseModel]]:
+    from backend.domains.vault.citations import lookup_routes
 
-ROUTE_MODELS = {
-    "/lookup-metadata": lookup_routes.MetadataLookupResponse,
-    "/translate-url": lookup_routes.UrlTranslationResponse,
-    "/recognize-pdf": lookup_routes.PdfRecognitionResponse,
-    "/promote-zotero-extra": lookup_routes.ZoteroExtraPromotionResponse,
-}
+    return {
+        "/lookup-metadata": lookup_routes.MetadataLookupResponse,
+        "/translate-url": lookup_routes.UrlTranslationResponse,
+        "/recognize-pdf": lookup_routes.PdfRecognitionResponse,
+        "/promote-zotero-extra": lookup_routes.ZoteroExtraPromotionResponse,
+    }
 
 
 def _resource_lookup_routes() -> dict[str, APIRoute]:
+    from backend.domains.vault.citations import lookup_routes
+
+    route_models = _route_models()
     return {
         route.path: route
         for route in lookup_routes.router.routes
-        if isinstance(route, APIRoute) and route.path in ROUTE_MODELS
+        if isinstance(route, APIRoute) and route.path in route_models
     }
 
 
 def test_resource_lookup_routes_publish_typed_response_models() -> None:
     routes = _resource_lookup_routes()
+    route_models = _route_models()
 
-    assert set(routes) == set(ROUTE_MODELS)
-    for path, response_model in ROUTE_MODELS.items():
+    assert set(routes) == set(route_models)
+    for path, response_model in route_models.items():
         route = routes[path]
         assert route.methods == {"POST"}
         assert route.status_code is None
@@ -49,6 +55,8 @@ def test_pdf_recognition_route_keeps_required_multipart_upload() -> None:
 
 
 def test_resource_lookup_models_preserve_historical_json_shapes() -> None:
+    from backend.domains.vault.citations import lookup_routes
+
     suggested = {
         "Title": "A typed resource",
         "Authors": [{"family": "Garcia", "given": "Ismael"}],
@@ -122,6 +130,8 @@ def test_resource_lookup_models_preserve_historical_json_shapes() -> None:
 def test_lookup_handler_keeps_mapping_semantics_for_internal_consumers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from backend.domains.vault.citations import lookup_routes
+
     payload = {
         "source": "crossref",
         "identifier": "10.1000/typed",
