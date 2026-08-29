@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Database, FileText, Paperclip, Layers, Globe, Landmark, X, Plus, Loader2, Blocks, SlidersHorizontal } from 'lucide-react';
 import axios from '../shared/api/legacy-http';
 import { toast } from '../lib/toast';
+import { uploadVaultAsset } from '../shared/api/vault-specialized';
+import { fetchVaultPages, fetchVaultTables } from '../shared/api/vaults';
 
 /**
  * Picker for the sources attached to a Cognition agent's context.
@@ -48,16 +50,16 @@ export default function AgentContextSources({ value, onChange }) {
 
     useEffect(() => {
         if (picking === 'table' && tables === null) {
-            axios.get('/api/vault/tables')
-                .then(res => setTables(res.data || []))
+            fetchVaultTables()
+                .then(data => setTables(data || []))
                 .catch(err => {
                     console.error('Could not load the vault tables', err);
                     setTables([]);
                 });
         }
         if (picking === 'page' && pages === null) {
-            axios.get('/api/vault/pages')
-                .then(res => setPages(res.data || []))
+            fetchVaultPages()
+                .then(data => setPages(data || []))
                 .catch(err => {
                     console.error('Could not load the vault pages', err);
                     setPages([]);
@@ -107,12 +109,10 @@ export default function AgentContextSources({ value, onChange }) {
         if (!file) return;
         setUploading(true);
         try {
-            const form = new FormData();
-            form.append('file', file);
-            // timeout 0: an upload into an online-only OneDrive folder can take
-            // far longer than the global axios timeout.
-            const res = await axios.post('/api/vault/assets/upload', form, { timeout: 0 });
-            addRef('file', res.data.path, file.name);
+            // The typed upload client builds the same FormData and has no
+            // application timeout, preserving uploads to online-only folders.
+            const result = await uploadVaultAsset(file);
+            addRef('file', result.path, file.name);
         } catch (err) {
             console.error('Asset upload failed', err);
             toast.error(t('settings.ai.context_upload_error', "The file could not be uploaded."));
