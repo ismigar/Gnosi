@@ -2,9 +2,21 @@
  * VaultViewToolbar.jsx
  * Toolbar for Vault views (filters, sorting, search, settings).
  */
-import React from 'react';
 import { Search, SlidersHorizontal, ArrowUpDown, Filter, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+interface VaultViewToolbarProps {
+    readonly activeFiltersCount?: number;
+    readonly activeSortsCount?: number;
+    readonly className?: string;
+    readonly onOpenConfig?: () => void;
+    readonly onOpenFilters?: () => void;
+    readonly onOpenSort?: () => void;
+    readonly searchTerm?: string;
+    readonly setSearchTerm?: (value: string) => void;
+    readonly setShowSearch?: (value: boolean) => void;
+    readonly showSearch?: boolean;
+}
 
 export function VaultViewToolbar({
     searchTerm = '',
@@ -17,7 +29,7 @@ export function VaultViewToolbar({
     activeFiltersCount = 0,
     activeSortsCount = 0,
     className = '',
-}) {
+}: VaultViewToolbarProps) {
     const { t } = useTranslation();
     return (
         <div className={`flex items-center gap-1 ${className}`}>

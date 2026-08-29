@@ -1,7 +1,21 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { Trash2, CalendarPlus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+
+interface RecurrenceChoiceModalProps {
+    readonly actionType?: 'delete' | 'modify';
+    readonly isOpen: boolean;
+    readonly message: string;
+    readonly onClose: () => unknown;
+    readonly onConfirm: (
+        isSeries: boolean,
+        isInstanceOnly: boolean,
+        isFollowing: boolean,
+    ) => unknown;
+    readonly title: string;
+}
 
 export const RecurrenceChoiceModal = ({
     isOpen,
@@ -9,10 +23,10 @@ export const RecurrenceChoiceModal = ({
     onConfirm,
     title,
     message,
-    actionType = 'delete', // 'delete' | 'modify'
-}) => {
+    actionType = 'delete',
+}: RecurrenceChoiceModalProps) => {
     const { t } = useTranslation();
-    const modalRef = useRef(null);
+    const modalRef = useRef<HTMLDivElement>(null);
 
     // Rich keyboard logic: Esc closes, Enter confirms the default option
     // (only this instance), Tab focus-trap, focus restoration. See
