@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes as legacy_vault
+from backend.domains.vault.citations import io_api as citation_io
 from backend.domains.vault.citations import references_api as citation_references
 from backend.domains.vault.citations import search as citation_search
 from backend.domains.vault.citations.state import citation_index_state
@@ -257,12 +258,15 @@ def test_extracted_routes_preserve_order_contract_and_facade_identity() -> None:
             "get_alias_index": link_schemas.AliasIndexResponse,
                 "get_global_index": link_schemas.GlobalIndexResponse,
                 "get_link_preview": link_preview.LinkPreviewResponse,
+            "import_references": citation_io.ImportReferencesResponse,
             "list_inline_comments": list[comment_schemas.InlineComment],
                 "list_page_comments": comment_schemas.PageCommentThread,
+            "list_csl_styles": citation_io.CslStylesResponse,
                 "resolve_by_citation_key": citation_search.CitationResolutionResponse,
                 "search_citations": list[citation_search.CitationSearchItemResponse],
                 "update_inline_comment": comment_schemas.InlineComment,
             "update_page_comment": comment_schemas.PageComment,
+            "upload_csl_style": citation_io.CslStyleResponse,
         }.get(route.endpoint.__name__)
         assert route.response_model == expected_response_model
         # APIRouter contributes get_workspace_context to every route; the
