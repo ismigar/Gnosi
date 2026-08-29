@@ -1,4 +1,30 @@
-const BUNDLED_DOMAINS = new Set([
+import type { TFunction } from 'i18next';
+
+type DisplayScalar = string | number | boolean | null | undefined;
+
+interface ResourceOrigin {
+    id?: string;
+    type?: string;
+}
+
+interface ResourceMetadata {
+    domain?: string;
+    [key: string]: unknown;
+}
+
+interface DisplayResource {
+    description?: string;
+    id?: string;
+    instructions?: string;
+    metadata?: ResourceMetadata;
+    name?: string;
+    origin?: ResourceOrigin;
+    [key: string]: unknown;
+}
+
+type ResourceKind = 'skill' | 'tool';
+
+const BUNDLED_DOMAINS = new Set<string>([
     'brain',
     'calendar',
     'contacts',
@@ -13,7 +39,7 @@ const BUNDLED_DOMAINS = new Set([
     'vault',
 ]);
 
-const KNOWN_ACTIONS = [
+const KNOWN_ACTIONS: readonly string[] = [
     'add',
     'append',
     'archive',
@@ -63,7 +89,7 @@ const KNOWN_ACTIONS = [
     'update',
 ];
 
-const WORKFLOW_IDS = new Set([
+const WORKFLOW_IDS = new Set<string>([
     'core.gnosi-daily-briefing',
     'core.gnosi-follow-up-manager',
     'core.gnosi-inbox-triage',
@@ -79,58 +105,65 @@ const WORKFLOW_IDS = new Set([
     'core.gnosi-weekly-review',
 ]);
 
-const safeKey = value => String(value || '').replace(/[^a-zA-Z0-9]+/g, '_');
+const safeKey = (value: DisplayScalar): string => (
+    String(value || '').replace(/[^a-zA-Z0-9]+/g, '_')
+);
 
-const isBundled = resource => (
+const isBundled = (resource: DisplayResource | null | undefined): boolean => (
     resource?.origin?.type === 'core'
-    || (resource?.origin?.type === 'plugin' && resource?.origin?.id === 'llm-wiki')
-    || String(resource?.id || '').startsWith('plugin.llm-wiki.')
+    || (resource?.origin?.type === 'plugin' && resource.origin.id === 'llm-wiki')
+    || (resource?.id || '').startsWith('plugin.llm-wiki.')
 );
 
-const resourceTokens = resource => (
-    String(resource?.id || '').split('.').at(-1).split('-').filter(Boolean)
+const resourceTokens = (resource: DisplayResource | null | undefined): string[] => (
+    ((resource?.id || '').split('.').at(-1) ?? '').split('-').filter(Boolean)
 );
 
-export const resourceDomain = resource => {
-    if (String(resource?.id || '').startsWith('plugin.llm-wiki.')) return 'brain';
+export const resourceDomain = (
+    resource: DisplayResource | null | undefined,
+): string => {
+    if ((resource?.id || '').startsWith('plugin.llm-wiki.')) return 'brain';
     const metadataDomain = resource?.metadata?.domain;
-    if (BUNDLED_DOMAINS.has(metadataDomain)) return metadataDomain;
+    if (metadataDomain && BUNDLED_DOMAINS.has(metadataDomain)) return metadataDomain;
     const tokenDomain = resourceTokens(resource).find(token => BUNDLED_DOMAINS.has(token));
     return tokenDomain || 'vault';
 };
 
-const actionFor = resource => {
+const actionFor = (resource: DisplayResource | null | undefined): string => {
     const tokens = resourceTokens(resource);
     if (tokens.includes('free') && tokens.includes('busy')) return 'status';
     if (tokens.at(-1) === 'status') return 'status';
     return KNOWN_ACTIONS.find(action => tokens.includes(action)) || 'manage';
 };
 
-export const domainLabel = (t, domain) => t(
+export const domainLabel = (t: TFunction, domain: string): string => t(
     `settings.ai.catalog.domains.${domain}`,
     { defaultValue: domain },
 );
 
-export const resourceRoleLabel = (t, role) => t(
+export const resourceRoleLabel = (t: TFunction, role: string): string => t(
     `settings.ai.resources.roles.${role}`,
     { defaultValue: role },
 );
 
-export const resourceStatusLabel = (t, status) => t(
+export const resourceStatusLabel = (t: TFunction, status: string): string => t(
     `settings.ai.resources.status_${status}`,
     { defaultValue: status },
 );
 
-export const operationStatusLabel = (t, status) => {
+export const operationStatusLabel = (t: TFunction, status?: string | null): string => {
     if (!status) return t('settings.ai.operations.statuses.never');
     return t(`settings.ai.operations.statuses.${safeKey(status)}`, {
         defaultValue: status,
     });
 };
 
-export const skillDisplayName = (t, skill) => {
+export const skillDisplayName = (
+    t: TFunction,
+    skill: DisplayResource | null | undefined,
+): string => {
     if (!isBundled(skill)) return skill?.name || skill?.id || '';
-    const id = String(skill?.id || '');
+    const id = skill?.id || '';
     if (id.startsWith('core.gnosi-') && !WORKFLOW_IDS.has(id) && id !== 'core.legacy-default-v1') {
         return t('settings.ai.catalog.domain_skill_name', {
             domain: domainLabel(t, resourceDomain(skill)),
@@ -148,9 +181,12 @@ export const skillDisplayName = (t, skill) => {
     });
 };
 
-export const skillDisplayDescription = (t, skill) => {
+export const skillDisplayDescription = (
+    t: TFunction,
+    skill: DisplayResource | null | undefined,
+): string => {
     if (!isBundled(skill)) return skill?.description || '';
-    const id = String(skill?.id || '');
+    const id = skill?.id || '';
     if (id.startsWith('core.gnosi-') && !WORKFLOW_IDS.has(id) && id !== 'core.legacy-default-v1') {
         return t('settings.ai.catalog.domain_skill_description', {
             domain: domainLabel(t, resourceDomain(skill)),
@@ -161,14 +197,20 @@ export const skillDisplayDescription = (t, skill) => {
     });
 };
 
-export const skillDisplayInstructions = (t, skill) => {
+export const skillDisplayInstructions = (
+    t: TFunction,
+    skill: DisplayResource | null | undefined,
+): string => {
     if (!isBundled(skill)) return skill?.instructions || '';
     return t('settings.ai.catalog.bundled_instructions', {
         name: skillDisplayName(t, skill),
     });
 };
 
-export const toolDisplayName = (t, tool) => {
+export const toolDisplayName = (
+    t: TFunction,
+    tool: DisplayResource | null | undefined,
+): string => {
     if (!isBundled(tool)) return tool?.name || tool?.id || '';
     const action = actionFor(tool);
     return t('settings.ai.catalog.tool_name', {
@@ -177,14 +219,21 @@ export const toolDisplayName = (t, tool) => {
     });
 };
 
-export const toolDisplayDescription = (t, tool) => {
+export const toolDisplayDescription = (
+    t: TFunction,
+    tool: DisplayResource | null | undefined,
+): string => {
     if (!isBundled(tool)) return tool?.description || '';
     return t('settings.ai.catalog.tool_description', {
         domain: domainLabel(t, resourceDomain(tool)),
     });
 };
 
-export const localizedResourceSearchText = (t, resource, kind) => {
+export const localizedResourceSearchText = (
+    t: TFunction,
+    resource: DisplayResource | null | undefined,
+    kind: ResourceKind,
+): string => {
     const localizedName = kind === 'skill'
         ? skillDisplayName(t, resource)
         : toolDisplayName(t, resource);
@@ -197,5 +246,5 @@ export const localizedResourceSearchText = (t, resource, kind) => {
         resource?.name,
         resource?.description,
         resource?.id,
-    ].filter(Boolean).join(' ').toLowerCase();
+    ].filter((value): value is string => Boolean(value)).join(' ').toLowerCase();
 };

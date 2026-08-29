@@ -13,6 +13,16 @@ import {
     isRetryableErrorCode,
 } from './agentChatMessageUtils';
 
+function requiredValue<Value>(
+    value: Value | null | undefined,
+    label: string,
+): Value {
+    if (value === null || value === undefined) {
+        throw new Error(`Expected ${label}`);
+    }
+    return value;
+}
+
 describe('notebook canonical transcript merge', () => {
     it('keeps a local failed turn while the canonical checkpoint is still empty', () => {
         const local = [{ role: 'assistant', content: 'Provider unavailable', retryable: true }];
@@ -53,14 +63,15 @@ describe('assistant message presentation metadata', () => {
     });
 
     it('bounds the universal turn budget before displaying it', () => {
-        expect(boundedTurnPlan({
+        const plan = requiredValue(boundedTurnPlan({
             budgets: {
                 timeout_seconds: 99999,
                 max_model_calls: 999,
                 max_tool_calls: 999,
                 max_read_tool_results: 999,
             },
-        }).budgets).toEqual({
+        }), 'bounded turn plan');
+        expect(plan.budgets).toEqual({
             timeout_seconds: 3600,
             max_model_calls: 128,
             max_tool_calls: 256,
@@ -69,7 +80,7 @@ describe('assistant message presentation metadata', () => {
     });
 
     it('keeps semantic interpretation and capability metadata bounded', () => {
-        const plan = boundedTurnPlan({
+        const plan = requiredValue(boundedTurnPlan({
             interpretation: {
                 operation: 'inventory',
                 confidence: 3,
@@ -105,7 +116,16 @@ describe('assistant message presentation metadata', () => {
                 historical_tool_payloads_excluded: true,
                 raw_payload: 'ignored',
             },
-        });
+        }), 'bounded semantic turn plan');
+        const capabilityBroker = requiredValue(
+            plan.capability_broker,
+            'capability broker',
+        );
+        const discovery = requiredValue(
+            capabilityBroker.discovery,
+            'capability discovery',
+        );
+        const deadline = requiredValue(plan.deadline, 'turn deadline');
 
         expect(plan.interpretation).toMatchObject({
             operation: 'inventory',
@@ -114,12 +134,12 @@ describe('assistant message presentation metadata', () => {
         });
         expect(plan.interpretation).not.toHaveProperty('query_digest');
         expect(plan.interpretation).not.toHaveProperty('normalized_query');
-        expect(plan.capability_broker.candidate_tools).toEqual(['inventory_context']);
-        expect(plan.capability_broker.discovery.domains[0]).toMatchObject({
+        expect(capabilityBroker.candidate_tools).toEqual(['inventory_context']);
+        expect(discovery.domains[0]).toMatchObject({
             domain: 'calendar',
             status: 'missing_capability',
         });
-        expect(plan.deadline.soft_seconds).toBe(100);
+        expect(deadline.soft_seconds).toBe(100);
         expect(plan.memory).toEqual({
             checkpointed: true,
             scope: 'agent_session',
@@ -137,7 +157,7 @@ describe('assistant message presentation metadata', () => {
             plan: {
                 plan_id: 'plan-1',
                 mode: 'analysis',
-                domains: ['reader', ...Array(20).fill('ignored')],
+                domains: ['reader', ...Array.from({ length: 20 }, () => 'ignored')],
                 route: 'Brain',
                 execution: 'background',
                 allowed_tool_names: ['must-not-be-persisted'],
@@ -201,30 +221,41 @@ describe('assistant message presentation metadata', () => {
             },
         });
 
-        expect(metadata.plan).toMatchObject({
+        const metadataPlan = requiredValue(metadata.plan, 'metadata plan');
+        const citations = requiredValue(metadata.citations, 'metadata citations');
+        const conflicts = requiredValue(metadata.conflicts, 'metadata conflicts');
+        const evidenceSecurity = requiredValue(
+            metadata.evidenceSecurity,
+            'metadata evidence security',
+        );
+        expect(metadataPlan).toMatchObject({
             plan_id: 'plan-1',
             mode: 'analysis',
             route: 'Brain',
             execution: 'background',
         });
-        expect(metadata.plan.domains).toHaveLength(12);
-        expect(metadata.plan).not.toHaveProperty('allowed_tool_names');
+        expect(metadataPlan.domains).toHaveLength(12);
+        expect(metadataPlan).not.toHaveProperty('allowed_tool_names');
         expect(metadata.privacy).not.toHaveProperty('raw_evidence');
         expect(metadata.verification).not.toHaveProperty('raw_payload');
-        expect(metadata.citations).toMatchObject({
+        expect(citations).toMatchObject({
             status: 'complete',
             claim_count: 1,
             source_count: 1,
         });
-        expect(metadata.citations.claims[0].citation_ids).toEqual(['src-1']);
-        expect(metadata.citations.sources[0]).not.toHaveProperty('raw_excerpt');
-        expect(metadata.citations.sources[0]).toMatchObject({
+        const firstClaim = requiredValue(citations.claims[0], 'first citation claim');
+        const firstSource = requiredValue(citations.sources[0], 'first citation source');
+        const secondSource = requiredValue(citations.sources[1], 'second citation source');
+        const thirdSource = requiredValue(citations.sources[2], 'third citation source');
+        expect(firstClaim.citation_ids).toEqual(['src-1']);
+        expect(firstSource).not.toHaveProperty('raw_excerpt');
+        expect(firstSource).toMatchObject({
             source_version: 'abc123',
             version_status: 'exact',
         });
-        expect(metadata.citations.sources[1].href).toBe('');
-        expect(metadata.citations.sources[2].href).toContain('gnosi-cite:?');
-        expect(metadata.citations).not.toHaveProperty('raw_payload');
+        expect(secondSource.href).toBe('');
+        expect(thirdSource.href).toContain('gnosi-cite:?');
+        expect(citations).not.toHaveProperty('raw_payload');
         expect(metadata.job).toMatchObject({
             status: 'failed',
             result_available: false,
@@ -237,13 +268,13 @@ describe('assistant message presentation metadata', () => {
             failed_checks: ['inventory_complete'],
         });
         expect(metadata.quality).not.toHaveProperty('response');
-        expect(metadata.conflicts.conflicts[0]).not.toHaveProperty('raw_values');
-        expect(metadata.evidenceSecurity).toMatchObject({
+        expect(conflicts.conflicts[0]).not.toHaveProperty('raw_values');
+        expect(evidenceSecurity).toMatchObject({
             status: 'tainted',
             severity: 'high',
             authorization_changed: false,
         });
-        expect(metadata.evidenceSecurity.categories[0]).not.toHaveProperty('source_text');
+        expect(evidenceSecurity.categories[0]).not.toHaveProperty('source_text');
     });
 
     it('rewinds the complete turn containing either message', () => {

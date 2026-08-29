@@ -3,25 +3,62 @@ import { useCallback, useEffect, useState } from 'react';
 import {
     fetchPluginState,
     setPluginLifecycle,
+    type PluginState,
 } from '../shared/api/plugins';
 import { updatePluginSettings } from '../shared/api/plugin-runtime';
 
 import { BUILTIN_PLUGINS } from './registry';
+import type { BuiltinPluginDefinition } from './registry';
 
-const EMPTY_STATE = {
-    disabled: new Set(),
-    enabledBuiltin: new Set(),
-    enabledThirdParty: new Set(),
+type UnknownRecord = Record<string, unknown>;
+
+interface PluginSnapshot {
+    builtins: readonly (BuiltinPluginDefinition | UnknownRecord)[];
+    disabled: Set<string>;
+    enabledBuiltin: Set<string>;
+    enabledThirdParty: Set<string>;
+    loaded: boolean;
+    settings: Readonly<Record<string, unknown>>;
+}
+
+interface PluginLifecycleOptions {
+    confirmDependencies?: boolean;
+    confirmDisable?: boolean;
+}
+
+export interface PluginsState extends PluginSnapshot {
+    getPluginSettings: (id: string) => unknown;
+    isEnabled: (id: string) => boolean;
+    reload: () => Promise<PluginSnapshot>;
+    setPluginEnabled: (
+        id: string,
+        enabled: boolean,
+        options?: PluginLifecycleOptions,
+    ) => Promise<PluginState>;
+    setPluginSettings: (
+        id: string,
+        patch: Readonly<Record<string, unknown>>,
+    ) => Promise<void>;
+}
+
+function isRecord(value: unknown): value is UnknownRecord {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+const EMPTY_STATE: PluginSnapshot = {
+    disabled: new Set<string>(),
+    enabledBuiltin: new Set<string>(),
+    enabledThirdParty: new Set<string>(),
     settings: {},
     builtins: BUILTIN_PLUGINS,
     loaded: false,
 };
 
 let _state = EMPTY_STATE;
-let _loading = null;
-const _subs = new Set();
+let _loading: Promise<PluginSnapshot> | null = null;
+const _subs = new Set<(state: PluginSnapshot) => void>();
 
-function _snapshot(payload = {}) {
+function _snapshot(payload: PluginState = {}): PluginSnapshot {
     return {
         disabled: new Set(payload.disabled || []),
         enabledBuiltin: new Set(payload.enabled_builtin || []),
@@ -34,21 +71,21 @@ function _snapshot(payload = {}) {
     };
 }
 
-function _notify() {
+function _notify(): void {
     for (const subscriber of _subs) subscriber(_state);
 }
 
-function _apply(payload) {
+function _apply(payload: PluginState): PluginSnapshot {
     _state = _snapshot(payload);
     _notify();
     return _state;
 }
 
-async function _load(force = false) {
+async function _load(force = false): Promise<PluginSnapshot> {
     if (_state.loaded && !force) return _state;
     if (!_loading) {
         _loading = fetchPluginState()
-            .then((payload) => _apply(payload || {}))
+            .then((payload) => _apply(payload))
             .catch(() => {
                 _state = { ...EMPTY_STATE, loaded: true };
                 _notify();
@@ -59,11 +96,11 @@ async function _load(force = false) {
     return _loading;
 }
 
-export function reloadPluginState() {
+export function reloadPluginState(): Promise<PluginSnapshot> {
     return _load(true);
 }
 
-export function usePlugins() {
+export function usePlugins(): PluginsState {
     const [state, setState] = useState(_state);
 
     useEffect(() => {
@@ -81,40 +118,48 @@ export function usePlugins() {
         };
     }, []);
 
-    const isEnabled = useCallback((id) => (
+    const isEnabled = useCallback((id: string) => (
         state.enabledBuiltin.has(id) || state.enabledThirdParty.has(id)
     ), [state.enabledBuiltin, state.enabledThirdParty]);
 
-    const setPluginEnabled = useCallback(async (id, enabled, options = {}) => {
+    const setPluginEnabled = useCallback(async (
+        id: string,
+        enabled: boolean,
+        options: PluginLifecycleOptions = {},
+    ) => {
         const payload = await setPluginLifecycle(id, {
             enabled,
             confirm_dependencies: options.confirmDependencies === true,
             confirm_disable: options.confirmDisable === true,
         });
-        _apply(payload || {});
+        _apply(payload);
         return payload;
     }, []);
 
     const getPluginSettings = useCallback(
-        (id) => state.settings?.[id] || {},
+        (id: string): unknown => state.settings[id] || {},
         [state.settings],
     );
 
-    const setPluginSettings = useCallback(async (id, patch) => {
+    const setPluginSettings = useCallback(async (
+        id: string,
+        patch: Readonly<Record<string, unknown>>,
+    ): Promise<void> => {
         const previous = _state;
-        const merged = { ...(_state.settings?.[id] || {}), ...(patch || {}) };
+        const current = _state.settings[id];
+        const merged = { ...(isRecord(current) ? current : {}), ...patch };
         _state = {
             ..._state,
             settings: { ..._state.settings, [id]: merged },
         };
         _notify();
         try {
-            const response = await updatePluginSettings(id, patch || {});
+            const response = await updatePluginSettings(id, patch);
             _state = {
                 ..._state,
                 settings: {
                     ..._state.settings,
-                    [id]: response.settings || merged,
+                    [id]: response.settings,
                 },
             };
             _notify();

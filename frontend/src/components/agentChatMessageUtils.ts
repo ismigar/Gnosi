@@ -1,13 +1,45 @@
 import { isCitationHref } from '../lib/citationDeepLink';
 
+type LoosePrimitive = string | number | boolean | null | undefined;
+type LooseValue = LoosePrimitive | LooseRecord | LooseValue[];
+interface LooseRecord { [key: string]: LooseValue; }
+
+interface CandidateEntry {
+    unitHint?: DurationUnit | null;
+    value: LooseValue;
+}
+
+type DurationUnit = 'm' | 'ms' | 's';
+type TurnId = LooseValue;
+
+function isRecord(value: unknown): value is LooseRecord {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isLooseArray(value: unknown): value is LooseValue[] {
+    return Array.isArray(value);
+}
+
+function asLooseArray(value: LooseValue): LooseValue[] {
+    return isLooseArray(value) ? value : [];
+}
+
+function recordValue(value: LooseValue, key: string): LooseValue {
+    return isRecord(value) ? value[key] : undefined;
+}
+
+function stringifyLooseValue(value: LooseValue): string {
+    return Reflect.apply(String, undefined, [value]);
+}
+
 const MAX_PROCESSING_MS = 24 * 60 * 60 * 1000;
-const TURN_TIMING_MS_FIELDS = [
+const TURN_TIMING_MS_FIELDS: readonly string[] = [
     'setup_ms', 'routing_ms', 'model_ms', 'tools_ms', 'other_ms', 'total_ms',
 ];
-const TURN_TIMING_COUNT_FIELDS = [
+const TURN_TIMING_COUNT_FIELDS: readonly string[] = [
     'input_tokens', 'output_tokens', 'model_calls', 'tool_calls',
 ];
-const TIMING_OBJECT_TOTAL_FIELDS = [
+const TIMING_OBJECT_TOTAL_FIELDS: readonly string[] = [
     'total_ms',
     'total',
     'total_ms_value',
@@ -64,14 +96,14 @@ const TIMING_OBJECT_TOTAL_FIELDS = [
     'timingSecs',
     'timingSec',
 ];
-const PRESENTATION_FIELDS = [
+const PRESENTATION_FIELDS: readonly string[] = [
     'turnId', 'turn_id', 'processingMs', 'timings',
     'feedback', 'saved', 'plan', 'privacy',
     'verification', 'citations', 'freshness', 'job', 'explanation',
     'errorCode', 'retryable', 'recovery', 'processingPhase',
 ];
 
-const normalizeTurnIdCandidateKey = (value) => {
+const normalizeTurnIdCandidateKey = (value: unknown): string => {
     if (typeof value !== 'string') return '';
     const normalized = value.trim().toLowerCase();
     if (!normalized) return '';
@@ -82,7 +114,7 @@ const normalizeTurnIdCandidateKey = (value) => {
         .replace(/^_|_$/g, '');
 };
 
-const isTurnIdCandidateField = (normalizedKey) => {
+const isTurnIdCandidateField = (normalizedKey: string): boolean => {
     if (!normalizedKey) return false;
     if (normalizedKey === 'turn') return true;
     if (
@@ -101,12 +133,15 @@ const isTurnIdCandidateField = (normalizedKey) => {
     );
 };
 
-const extractTurnCandidateId = (candidate, seen = new Set()) => {
+const extractTurnCandidateId = (
+    candidate: LooseValue,
+    seen = new Set<object>(),
+): TurnId => {
     if (candidate === null || candidate === undefined || candidate === '') return null;
     if (typeof candidate === 'string' || typeof candidate === 'number') {
         return candidate;
     }
-    if (typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+    if (!isRecord(candidate)) return null;
     const objectId = candidate.id
         || candidate.turnId
         || candidate.turn_id
@@ -122,11 +157,11 @@ const extractTurnCandidateId = (candidate, seen = new Set()) => {
         if (typeof value === 'string' || typeof value === 'number') {
             return value;
         }
-        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        if (isRecord(value)) {
             if (seen.has(value)) continue;
             seen.add(value);
             const nested = extractTurnCandidateId(value, seen);
-            if (nested !== null && nested !== '' && nested !== undefined && nested !== null) {
+            if (nested !== null && nested !== '' && nested !== undefined) {
                 return nested;
             }
         }
@@ -134,9 +169,9 @@ const extractTurnCandidateId = (candidate, seen = new Set()) => {
     return null;
 };
 
-const collectTurnCandidateEntries = (payload) => {
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
-    const candidates = [];
+const collectTurnCandidateEntries = (payload: LooseValue): CandidateEntry[] => {
+    if (!isRecord(payload)) return [];
+    const candidates: CandidateEntry[] = [];
     for (const [field, value] of Object.entries(payload)) {
         const normalized = normalizeTurnIdCandidateKey(field);
         if (!isTurnIdCandidateField(normalized)) continue;
@@ -145,8 +180,8 @@ const collectTurnCandidateEntries = (payload) => {
     return candidates;
 };
 
-export const getTurnId = (message) => {
-    if (!message || typeof message !== 'object' || Array.isArray(message)) return null;
+export const getTurnId = (message: LooseValue): TurnId => {
+    if (!isRecord(message)) return null;
     if (message.turnId !== undefined && message.turnId !== null && message.turnId !== '') {
         return message.turnId;
     }
@@ -157,7 +192,7 @@ export const getTurnId = (message) => {
     if (typeof turnValue === 'string' || typeof turnValue === 'number') {
         return turnValue;
     }
-    if (turnValue && typeof turnValue === 'object' && !Array.isArray(turnValue)) {
+    if (isRecord(turnValue)) {
         return (
             turnValue.id
             || turnValue.turn_id
@@ -174,9 +209,9 @@ export const getTurnId = (message) => {
         }
     }
     const nestedContainers = [
-        message?.metadata,
-        message?.additional_kwargs,
-        message?.turn_metadata,
+        message.metadata,
+        message.additional_kwargs,
+        message.turn_metadata,
     ];
     for (const nested of nestedContainers) {
         for (const candidate of collectTurnCandidateEntries(nested || {})) {
@@ -190,7 +225,7 @@ export const getTurnId = (message) => {
 };
 
 
-const normalizeTimingCandidateKey = (value) => {
+const normalizeTimingCandidateKey = (value: unknown): string => {
     if (typeof value !== 'string') return '';
     const normalized = value.trim();
     if (!normalized) return '';
@@ -201,7 +236,7 @@ const normalizeTimingCandidateKey = (value) => {
     return withUnderscore;
 };
 
-const timingCandidateUnitHint = (normalizedKey) => {
+const timingCandidateUnitHint = (normalizedKey: string): DurationUnit | null => {
     const key = normalizeTimingCandidateKey(normalizedKey);
     if (!key) return null;
     if (key.includes('ms') || key.includes('millisecond')) {
@@ -227,10 +262,10 @@ const timingCandidateUnitHint = (normalizedKey) => {
     return null;
 };
 
-const collectTimingCandidateEntries = (payload) => {
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
+const collectTimingCandidateEntries = (payload: LooseValue): CandidateEntry[] => {
+    if (!isRecord(payload)) return [];
     const timingPrefixes = /(?:^|_)(?:total|duration|elapsed|latency|response|processing|timing|time)_[a-z0-9_]+$/;
-    const candidates = [];
+    const candidates: CandidateEntry[] = [];
     for (const [field, value] of Object.entries(payload)) {
         const normalized = normalizeTimingCandidateKey(field);
         if (!normalized) continue;
@@ -248,7 +283,10 @@ const collectTimingCandidateEntries = (payload) => {
     return candidates;
 };
 
-const applyDurationUnit = (rawNumeric, unitHint = null) => {
+const applyDurationUnit = (
+    rawNumeric: LooseValue,
+    unitHint: string | null = null,
+): number | null => {
     const numeric = Number(rawNumeric);
     if (!Number.isFinite(numeric) || numeric < 0) return null;
     const normalizedUnit = unitHint ? unitHint.trim().toLowerCase() : null;
@@ -283,12 +321,14 @@ const applyDurationUnit = (rawNumeric, unitHint = null) => {
     return boundedProcessingMs(numeric);
 };
 
-const hasCandidatePayload = (message) => {
-    if (!message || typeof message !== 'object' || Array.isArray(message)) return false;
-    return true;
-};
+const hasCandidatePayload = (message: LooseValue): message is LooseRecord => (
+    isRecord(message)
+);
 
-const parseDurationToMs = (value, unitHint = null) => {
+const parseDurationToMs = (
+    value: LooseValue,
+    unitHint: string | null = null,
+): number | null => {
     if (value === null || value === undefined || value === '') return null;
     if (typeof value === 'number') {
         return applyDurationUnit(value, unitHint);
@@ -304,9 +344,12 @@ const parseDurationToMs = (value, unitHint = null) => {
             /^([0-9]+(?:\.[0-9]+)?)\s*(ms|millisecond|milliseconds|s|sec|secs|second|seconds|m|min|mins|minutes)$/i,
         );
         if (!withUnit) return null;
-        const magnitude = Number(withUnit[1]);
+        const magnitudeText = withUnit[1];
+        const parsedUnit = withUnit[2];
+        if (magnitudeText === undefined || parsedUnit === undefined) return null;
+        const magnitude = Number(magnitudeText);
         if (!Number.isFinite(magnitude)) return null;
-        return parseDurationToMs(magnitude, withUnit[2]);
+        return parseDurationToMs(magnitude, parsedUnit);
     }
     if (unitHint && typeof unitHint === 'string') {
         const normalizedUnit = unitHint.trim().toLowerCase();
@@ -343,8 +386,8 @@ const parseDurationToMs = (value, unitHint = null) => {
     return null;
 };
 
-const parseTimingObjectMs = (value) => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+const parseTimingObjectMs = (value: LooseValue): number | null => {
+    if (!isRecord(value)) return null;
     for (const key of TIMING_OBJECT_TOTAL_FIELDS) {
         const lowered = key.toLowerCase();
         const unitHint = lowered.endsWith('_ms') || lowered.endsWith('_ms_value')
@@ -372,13 +415,16 @@ const parseTimingObjectMs = (value) => {
             const parsed = parseDurationToMs(candidateValue, unitHint);
             if (parsed !== null) return parsed;
         }
-        if (candidateValue && typeof candidateValue === 'object' && !Array.isArray(candidateValue)) {
+        if (isRecord(candidateValue)) {
             const parsed = parseTimingObjectMs(candidateValue);
             if (parsed !== null) return parsed;
         }
     }
     if (value.value !== undefined && value.unit !== undefined) {
-        return parseDurationToMs(value.value, value.unit);
+        return parseDurationToMs(
+            value.value,
+            typeof value.unit === 'string' ? value.unit : null,
+        );
     }
     if (value.value !== undefined) {
         const parsedValue = parseDurationToMs(value.value);
@@ -387,18 +433,23 @@ const parseTimingObjectMs = (value) => {
     return null;
 };
 
-const firstUnusedCandidateIndex = (indices, candidateUsed, fromIndex) => {
-    if (!Array.isArray(indices)) return null;
+const firstUnusedCandidateIndex = (
+    indices: readonly number[] | undefined,
+    candidateUsed: ReadonlySet<number>,
+    fromIndex: number,
+): number | null => {
+    if (!indices) return null;
     for (let i = fromIndex; i < indices.length; i += 1) {
         const candidateIndex = indices[i];
+        if (candidateIndex === undefined) continue;
         if (!candidateUsed.has(candidateIndex)) return candidateIndex;
     }
     return null;
 };
 
-const timedPayloadFromMessage = (message) => {
+const timedPayloadFromMessage = (message: LooseValue): LooseRecord | null => {
     if (!hasCandidatePayload(message)) return null;
-    const candidateValues = [
+    const candidateValues: CandidateEntry[] = [
         { value: message.timings, unitHint: null },
         { value: message.turn_metrics, unitHint: null },
         { value: message.turnMetrics, unitHint: null },
@@ -477,32 +528,32 @@ const timedPayloadFromMessage = (message) => {
     return null;
 };
 
-const normalizeMessageTurnId = (message) => {
+const normalizeMessageTurnId = (message: LooseValue): LooseValue => {
     if (!hasCandidatePayload(message)) return message;
     const turnId = getTurnId(message);
-    if (turnId && message?.turnId == null) {
-        return { ...message, turnId: String(turnId) };
+    if (turnId && message.turnId == null) {
+        return { ...message, turnId: stringifyLooseValue(turnId) };
     }
     return message;
 };
 
-const boundedString = (value, max = 128) => (
+const boundedString = (value: LooseValue, max = 128): string => (
     typeof value === 'string' ? value.trim().slice(0, max) : ''
 );
-const boundedStrings = (value, maxItems = 16, maxChars = 128) => (
-    Array.isArray(value)
+const boundedStrings = (value: LooseValue, maxItems = 16, maxChars = 128): string[] => (
+    isLooseArray(value)
         ? value.slice(0, maxItems).map(item => boundedString(item, maxChars)).filter(Boolean)
         : []
 );
-const boundedCount = value => {
+const boundedCount = (value: LooseValue): number => {
     const numeric = Number(value);
     return Number.isFinite(numeric) && numeric >= 0
         ? Math.min(Number.MAX_SAFE_INTEGER, Math.floor(numeric))
         : 0;
 };
 
-const boundedBudget = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+const boundedBudget = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
     return {
         timeout_seconds: Math.min(3600, boundedCount(value.timeout_seconds)),
         max_model_calls: Math.min(128, boundedCount(value.max_model_calls)),
@@ -511,8 +562,8 @@ const boundedBudget = value => {
     };
 };
 
-const boundedIntent = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+const boundedIntent = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
     return {
         operation: boundedString(value.operation, 32),
         domains: boundedStrings(value.domains, 8, 32),
@@ -528,15 +579,19 @@ const boundedIntent = value => {
     };
 };
 
-const boundedCapabilityBroker = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const discoveryDomains = Array.isArray(value.discovery?.domains)
-        ? value.discovery.domains.slice(0, 8).map(item => ({
-            domain: boundedString(item?.domain, 32),
-            status: boundedString(item?.status, 48),
-            candidate_tools: boundedStrings(item?.candidate_tools, 8, 128),
-            recommended_action: boundedString(item?.recommended_action, 64),
-        })).filter(item => item.domain)
+const boundedCapabilityBroker = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
+    const discovery = isRecord(value.discovery) ? value.discovery : null;
+    const discoveryDomains = isLooseArray(discovery?.domains)
+        ? discovery.domains.slice(0, 8).map(item => {
+            const record = isRecord(item) ? item : {};
+            return {
+                domain: boundedString(record.domain, 32),
+                status: boundedString(record.status, 48),
+                candidate_tools: boundedStrings(record.candidate_tools, 8, 128),
+                recommended_action: boundedString(record.recommended_action, 64),
+            };
+        }).filter(item => item.domain)
         : [];
     return {
         broker_version: boundedString(value.broker_version, 64),
@@ -544,19 +599,21 @@ const boundedCapabilityBroker = value => {
         candidate_tools: boundedStrings(value.candidate_tools, 24, 128),
         guarded_tools: boundedStrings(value.guarded_tools, 24, 128),
         selection_policy: boundedString(value.selection_policy, 128),
-        discovery: value.discovery && typeof value.discovery === 'object'
+        discovery: discovery
             ? {
-                status: boundedString(value.discovery.status, 48),
+                status: boundedString(discovery.status, 48),
                 domains: discoveryDomains,
-                automatic_install: Boolean(value.discovery.automatic_install),
-                automatic_permission_grant: Boolean(value.discovery.automatic_permission_grant),
+                automatic_install: Boolean(discovery.automatic_install),
+                automatic_permission_grant: Boolean(discovery.automatic_permission_grant),
             }
             : null,
     };
 };
 
-export const boundedTurnPlan = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+export const boundedTurnPlan = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
+    const deadline = isRecord(value.deadline) ? value.deadline : null;
+    const memory = isRecord(value.memory) ? value.memory : null;
     return {
         schema_version: boundedCount(value.schema_version),
         planner_version: boundedString(value.planner_version),
@@ -569,28 +626,28 @@ export const boundedTurnPlan = value => {
         required_tool: boundedString(value.required_tool, 128),
         allowed_tool_count: boundedCount(value.allowed_tool_count),
         budgets: boundedBudget(value.budgets),
-        deadline: value.deadline && typeof value.deadline === 'object' && !Array.isArray(value.deadline)
+        deadline: deadline
             ? {
-                hard_seconds: Math.min(3600, boundedCount(value.deadline.hard_seconds)),
-                soft_seconds: Math.min(3600, boundedCount(value.deadline.soft_seconds)),
-                synthesis_reserve_seconds: Math.min(600, boundedCount(value.deadline.synthesis_reserve_seconds)),
-                policy: boundedString(value.deadline.policy, 96),
+                hard_seconds: Math.min(3600, boundedCount(deadline.hard_seconds)),
+                soft_seconds: Math.min(3600, boundedCount(deadline.soft_seconds)),
+                synthesis_reserve_seconds: Math.min(600, boundedCount(deadline.synthesis_reserve_seconds)),
+                policy: boundedString(deadline.policy, 96),
             }
             : null,
         interpretation: boundedIntent(value.interpretation),
         capability_broker: boundedCapabilityBroker(value.capability_broker),
-        memory: value.memory && typeof value.memory === 'object' && !Array.isArray(value.memory)
+        memory: memory
             ? {
-                checkpointed: Boolean(value.memory.checkpointed),
-                scope: boundedString(value.memory.scope, 64),
-                historical_tool_payloads_excluded: Boolean(value.memory.historical_tool_payloads_excluded),
+                checkpointed: Boolean(memory.checkpointed),
+                scope: boundedString(memory.scope, 64),
+                historical_tool_payloads_excluded: Boolean(memory.historical_tool_payloads_excluded),
             }
             : null,
     };
 };
 
-export const boundedPrivacy = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+export const boundedPrivacy = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
     return {
         classification: boundedString(value.classification, 64),
         private_source_count: boundedCount(value.private_source_count),
@@ -601,9 +658,9 @@ export const boundedPrivacy = value => {
     };
 };
 
-export const boundedVerification = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const checks = value.checks && typeof value.checks === 'object' && !Array.isArray(value.checks)
+export const boundedVerification = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
+    const checks = isRecord(value.checks)
         ? {
             required_source_inspected: Boolean(value.checks.required_source_inspected),
             tool_results_successful: Boolean(value.checks.tool_results_successful),
@@ -621,7 +678,7 @@ export const boundedVerification = value => {
     };
 };
 
-const boundedSourceHref = value => {
+const boundedSourceHref = (value: LooseValue): string => {
     const href = boundedString(value, 2000);
     if (
         href.startsWith('/vault/page/')
@@ -634,28 +691,34 @@ const boundedSourceHref = value => {
     return '';
 };
 
-export const boundedCitations = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const sources = Array.isArray(value.sources)
-        ? value.sources.slice(0, 96).map(source => ({
-            citation_id: boundedString(source?.citation_id, 64),
-            source_id: boundedString(source?.source_id, 192),
-            title: boundedString(source?.title, 240),
-            source_type: boundedString(source?.source_type, 64),
-            href: boundedSourceHref(source?.href),
-            source_version: boundedString(source?.source_version, 128),
-            version_status: boundedString(source?.version_status, 32),
-        })).filter(source => source.citation_id && source.title)
+export const boundedCitations = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
+    const sources = isLooseArray(value.sources)
+        ? value.sources.slice(0, 96).map(source => {
+            const record = isRecord(source) ? source : {};
+            return {
+                citation_id: boundedString(record.citation_id, 64),
+                source_id: boundedString(record.source_id, 192),
+                title: boundedString(record.title, 240),
+                source_type: boundedString(record.source_type, 64),
+                href: boundedSourceHref(record.href),
+                source_version: boundedString(record.source_version, 128),
+                version_status: boundedString(record.version_status, 32),
+            };
+        }).filter(source => source.citation_id && source.title)
         : [];
     const knownIds = new Set(sources.map(source => source.citation_id));
-    const claims = Array.isArray(value.claims)
-        ? value.claims.slice(0, 128).map(claim => ({
-            claim_id: boundedString(claim?.claim_id, 64),
-            line_index: boundedCount(claim?.line_index),
-            text: boundedString(claim?.text, 320),
-            citation_ids: boundedStrings(claim?.citation_ids, 12, 64)
+    const claims = isLooseArray(value.claims)
+        ? value.claims.slice(0, 128).map(claim => {
+            const record = isRecord(claim) ? claim : {};
+            return {
+            claim_id: boundedString(record.claim_id, 64),
+            line_index: boundedCount(record.line_index),
+            text: boundedString(record.text, 320),
+            citation_ids: boundedStrings(record.citation_ids, 12, 64)
                 .filter(citationId => knownIds.has(citationId)),
-        })).filter(claim => claim.claim_id && claim.text && claim.citation_ids.length)
+            };
+        }).filter(claim => claim.claim_id && claim.text && claim.citation_ids.length)
         : [];
     return {
         schema_version: boundedCount(value.schema_version),
@@ -670,8 +733,8 @@ export const boundedCitations = value => {
     };
 };
 
-export const boundedFreshness = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+export const boundedFreshness = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
     const ratio = Number(value.coverage_ratio);
     return {
         status: boundedString(value.status, 64),
@@ -688,8 +751,10 @@ export const boundedFreshness = value => {
     };
 };
 
-export const boundedJob = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value) || !value.job_id) return null;
+export const boundedJob = (value: LooseValue) => {
+    if (!isRecord(value) || !value.job_id) return null;
+    const retry = isRecord(value.retry) ? value.retry : null;
+    const capabilities = isRecord(value.capabilities) ? value.capabilities : {};
     const progress = Number(value.progress);
     return {
         job_id: boundedString(value.job_id, 256),
@@ -697,30 +762,30 @@ export const boundedJob = value => {
         status: boundedString(value.status || value.state, 64),
         progress: Number.isFinite(progress) ? Math.max(0, Math.min(100, progress)) : null,
         result_available: Boolean(value.result_available),
-        retry: value.retry && typeof value.retry === 'object' && !Array.isArray(value.retry)
+        retry: retry
             ? {
-                automatic_enabled: Boolean(value.retry.automatic_enabled),
-                attempt: boundedCount(value.retry.attempt),
-                max_attempts: boundedCount(value.retry.max_attempts),
-                next_retry_at: boundedString(value.retry.next_retry_at, 64) || null,
-                model_call_budget: boundedCount(value.retry.model_call_budget),
-                model_calls_used: boundedCount(value.retry.model_calls_used),
-                last_retry_reason: boundedString(value.retry.last_retry_reason, 128) || null,
-                budget_exhausted: Boolean(value.retry.budget_exhausted),
+                automatic_enabled: Boolean(retry.automatic_enabled),
+                attempt: boundedCount(retry.attempt),
+                max_attempts: boundedCount(retry.max_attempts),
+                next_retry_at: boundedString(retry.next_retry_at, 64) || null,
+                model_call_budget: boundedCount(retry.model_call_budget),
+                model_calls_used: boundedCount(retry.model_calls_used),
+                last_retry_reason: boundedString(retry.last_retry_reason, 128) || null,
+                budget_exhausted: Boolean(retry.budget_exhausted),
             }
             : null,
         capabilities: {
-            status: value.capabilities?.status !== false,
-            result: Boolean(value.capabilities?.result),
-            resume: Boolean(value.capabilities?.resume),
-            cancel: Boolean(value.capabilities?.cancel),
-            automatic_retry: Boolean(value.capabilities?.automatic_retry),
+            status: capabilities.status !== false,
+            result: Boolean(capabilities.result),
+            resume: Boolean(capabilities.resume),
+            cancel: Boolean(capabilities.cancel),
+            automatic_retry: Boolean(capabilities.automatic_retry),
         },
     };
 };
 
-export const boundedExplanation = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+export const boundedExplanation = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
     return {
         mode: boundedString(value.mode, 32),
         route: boundedString(value.route, 32),
@@ -734,13 +799,15 @@ export const boundedExplanation = value => {
     };
 };
 
-export const boundedQuality = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const checks = value.checks && typeof value.checks === 'object' && !Array.isArray(value.checks)
-        ? Object.fromEntries(Object.entries(value.checks).slice(0, 12).map(([key, passed]) => [
-            boundedString(key, 64), Boolean(passed),
-        ]).filter(([key]) => key))
-        : {};
+export const boundedQuality = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
+    const checks: Record<string, boolean> = {};
+    if (isRecord(value.checks)) {
+        for (const [key, passed] of Object.entries(value.checks).slice(0, 12)) {
+            const boundedKey = boundedString(key, 64);
+            if (boundedKey) checks[boundedKey] = Boolean(passed);
+        }
+    }
     return {
         schema_version: boundedCount(value.schema_version),
         score: Math.min(100, boundedCount(value.score)),
@@ -750,16 +817,19 @@ export const boundedQuality = value => {
     };
 };
 
-export const boundedConflicts = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const conflicts = Array.isArray(value.conflicts)
-        ? value.conflicts.slice(0, 12).map(item => ({
-            conflict_id: boundedString(item?.conflict_id, 64),
-            entity_id: boundedString(item?.entity_id, 192),
-            field: boundedString(item?.field, 96),
-            source_names: boundedStrings(item?.source_names, 8, 128),
-            value_count: boundedCount(item?.value_count),
-        })).filter(item => item.conflict_id)
+export const boundedConflicts = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
+    const conflicts = isLooseArray(value.conflicts)
+        ? value.conflicts.slice(0, 12).map(item => {
+            const record = isRecord(item) ? item : {};
+            return {
+                conflict_id: boundedString(record.conflict_id, 64),
+                entity_id: boundedString(record.entity_id, 192),
+                field: boundedString(record.field, 96),
+                source_names: boundedStrings(record.source_names, 8, 128),
+                value_count: boundedCount(record.value_count),
+            };
+        }).filter(item => item.conflict_id)
         : [];
     return {
         schema_version: boundedCount(value.schema_version),
@@ -770,37 +840,45 @@ export const boundedConflicts = value => {
     };
 };
 
-export const boundedEvidenceSecurity = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+export const boundedEvidenceSecurity = (value: LooseValue) => {
+    if (!isRecord(value)) return null;
     return {
         schema_version: boundedCount(value.schema_version),
         status: boundedString(value.status, 32),
         severity: boundedString(value.severity, 32),
-        categories: Array.isArray(value.categories)
-            ? value.categories.slice(0, 8).map(item => ({
-                category: boundedString(item?.category, 64),
-                count: boundedCount(item?.count),
-            })).filter(item => item.category)
+        categories: isLooseArray(value.categories)
+            ? value.categories.slice(0, 8).map(item => {
+                const record = isRecord(item) ? item : {};
+                return {
+                    category: boundedString(record.category, 64),
+                    count: boundedCount(record.count),
+                };
+            }).filter(item => item.category)
             : [],
         scanned_char_bucket: boundedCount(value.scanned_char_bucket),
         authorization_changed: Boolean(value.authorization_changed),
     };
 };
 
-export const boundedTransparencyMetadata = value => ({
-    plan: boundedTurnPlan(value?.plan),
-    privacy: boundedPrivacy(value?.privacy),
-    verification: boundedVerification(value?.verification),
-    citations: boundedCitations(value?.citations),
-    freshness: boundedFreshness(value?.freshness),
-    job: boundedJob(value?.job),
-    explanation: boundedExplanation(value?.explanation),
-    quality: boundedQuality(value?.quality),
-    conflicts: boundedConflicts(value?.conflicts),
-    evidenceSecurity: boundedEvidenceSecurity(value?.evidence_security || value?.evidenceSecurity),
-});
+export const boundedTransparencyMetadata = (value: LooseValue) => {
+    const record = isRecord(value) ? value : {};
+    return {
+        plan: boundedTurnPlan(record.plan),
+        privacy: boundedPrivacy(record.privacy),
+        verification: boundedVerification(record.verification),
+        citations: boundedCitations(record.citations),
+        freshness: boundedFreshness(record.freshness),
+        job: boundedJob(record.job),
+        explanation: boundedExplanation(record.explanation),
+        quality: boundedQuality(record.quality),
+        conflicts: boundedConflicts(record.conflicts),
+        evidenceSecurity: boundedEvidenceSecurity(
+            record.evidence_security || record.evidenceSecurity,
+        ),
+    };
+};
 
-export const isRetryableErrorCode = (value) => new Set([
+export const isRetryableErrorCode = (value: LooseValue): boolean => new Set([
     'agent_loop_exhausted',
     'agent_turn_timeout',
     'timeout',
@@ -809,24 +887,24 @@ export const isRetryableErrorCode = (value) => new Set([
     'rate_limit',
     'rate_limit_exceeded',
     'network_error',
-]).has(String(value || '').trim().toLowerCase());
+]).has(stringifyLooseValue(value || '').trim().toLowerCase());
 
-export const boundedProcessingMs = (value) => {
+export const boundedProcessingMs = (value: LooseValue): number | null => {
     if (value === null || value === undefined || value === '') return null;
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || numeric < 0) return null;
     return Math.min(MAX_PROCESSING_MS, Math.round(numeric));
 };
 
-export const processingSeconds = (processingMs) => {
+export const processingSeconds = (processingMs: LooseValue): number | null => {
     const bounded = boundedProcessingMs(processingMs);
     if (bounded === null) return null;
     return Math.max(0, Math.round((bounded / 1000) * 10) / 10);
 };
 
-export const boundedTurnMetrics = (value) => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const metrics = {};
+export const boundedTurnMetrics = (value: LooseValue): LooseRecord | null => {
+    if (!isRecord(value)) return null;
+    const metrics: LooseRecord = {};
     TURN_TIMING_MS_FIELDS.forEach((field) => {
         const bounded = boundedProcessingMs(value[field]);
         if (bounded !== null) metrics[field] = bounded;
@@ -843,7 +921,7 @@ export const boundedTurnMetrics = (value) => {
     }
     const budget = boundedBudget(value.budget);
     if (budget) metrics.budget = budget;
-    if (value.budget_exhausted && typeof value.budget_exhausted === 'object') {
+    if (isRecord(value.budget_exhausted)) {
         metrics.budget_exhausted = {
             model_calls: Boolean(value.budget_exhausted.model_calls),
             tool_calls: Boolean(value.budget_exhausted.tool_calls),
@@ -852,22 +930,25 @@ export const boundedTurnMetrics = (value) => {
     return Object.keys(metrics).length ? metrics : null;
 };
 
-export const effectiveMessageTimingMs = (message) => {
+export const effectiveMessageTimingMs = (message: LooseValue): number | null => {
     const timings = timedPayloadFromMessage(message);
-    if (timings && timings.total_ms !== undefined) {
+    if (timings && typeof timings.total_ms === 'number') {
         return timings.total_ms;
     }
     return boundedProcessingMs(
-        message?.processingMs
-            ?? message?.duration_ms
-            ?? message?.durationMs
-            ?? message?.duration,
+        recordValue(message, 'processingMs')
+            ?? recordValue(message, 'duration_ms')
+            ?? recordValue(message, 'durationMs')
+            ?? recordValue(message, 'duration'),
     );
 };
 
-export const conversationRewindPlan = (messages, messageIndex) => {
+export const conversationRewindPlan = (
+    messages: LooseValue,
+    messageIndex: number,
+) => {
     if (
-        !Array.isArray(messages)
+        !isLooseArray(messages)
         || !Number.isInteger(messageIndex)
         || messageIndex < 0
         || messageIndex >= messages.length
@@ -876,36 +957,40 @@ export const conversationRewindPlan = (messages, messageIndex) => {
     }
 
     let turnStart = messageIndex;
-    while (turnStart > 0 && messages[turnStart]?.role !== 'user') {
+    while (turnStart > 0 && recordValue(messages[turnStart], 'role') !== 'user') {
         turnStart -= 1;
     }
-    if (messages[turnStart]?.role !== 'user') turnStart = 0;
+    if (recordValue(messages[turnStart], 'role') !== 'user') turnStart = 0;
 
     const turn = messages.slice(turnStart, messageIndex + 1);
-    const userMessage = turn.find((message) => message?.role === 'user');
+    const userMessage = turn.find((message) => recordValue(message, 'role') === 'user');
     const prefix = messages.slice(0, turnStart);
     return {
         beforeTurnId: getTurnId(userMessage),
         keepMessages: prefix.filter(
-            (message) => message?.role === 'user' || message?.role === 'assistant',
+            (message) => recordValue(message, 'role') === 'user'
+                || recordValue(message, 'role') === 'assistant',
         ).length,
         localKeepCount: turnStart,
-        prompt: String(userMessage?.content || ''),
+        prompt: stringifyLooseValue(recordValue(userMessage, 'content') || ''),
     };
 };
 
-export const mergeCanonicalMessageMetadata = (canonical, cached) => {
-    if (!Array.isArray(canonical)) return [];
-    const localMessages = Array.isArray(cached)
+export const mergeCanonicalMessageMetadata = (
+    canonical: LooseValue,
+    cached: LooseValue,
+): LooseValue[] => {
+    if (!isLooseArray(canonical)) return [];
+    const localMessages = isLooseArray(cached)
         ? cached.map(normalizeMessageTurnId)
         : [];
-    const localTurnMap = new Map();
+    const localTurnMap = new Map<string, number[]>();
 
     localMessages.forEach((message, index) => {
-        const role = message?.role;
+        const role = recordValue(message, 'role');
         const turnId = getTurnId(message);
         if (!role || !turnId) return;
-        const key = `${role}:${String(turnId)}`;
+        const key = `${stringifyLooseValue(role)}:${stringifyLooseValue(turnId)}`;
         const bucket = localTurnMap.get(key);
         if (bucket) {
             bucket.push(index);
@@ -914,16 +999,20 @@ export const mergeCanonicalMessageMetadata = (canonical, cached) => {
         }
     });
 
-    const usedLocalIndices = new Set();
+    const usedLocalIndices = new Set<number>();
     let localCursor = 0;
 
-    const findByRoleAndContent = (message, startFrom = localCursor) => {
+    const findByRoleAndContent = (
+        message: LooseValue,
+        startFrom = localCursor,
+    ): number | null => {
         for (let index = startFrom; index < localMessages.length; index += 1) {
             if (usedLocalIndices.has(index)) continue;
             const candidate = localMessages[index];
             if (
-                candidate?.role === message?.role
-                && String(candidate?.content || '') === String(message?.content || '')
+                recordValue(candidate, 'role') === recordValue(message, 'role')
+                && stringifyLooseValue(recordValue(candidate, 'content') || '')
+                    === stringifyLooseValue(recordValue(message, 'content') || '')
             ) {
                 return index;
             }
@@ -931,10 +1020,13 @@ export const mergeCanonicalMessageMetadata = (canonical, cached) => {
         return null;
     };
 
-    const findByRoleOnly = (message, startFrom = localCursor) => {
+    const findByRoleOnly = (
+        message: LooseValue,
+        startFrom = localCursor,
+    ): number | null => {
         for (let index = startFrom; index < localMessages.length; index += 1) {
             if (usedLocalIndices.has(index)) continue;
-            if (localMessages[index]?.role === message?.role) {
+            if (recordValue(localMessages[index], 'role') === recordValue(message, 'role')) {
                 return index;
             }
         }
@@ -943,11 +1035,11 @@ export const mergeCanonicalMessageMetadata = (canonical, cached) => {
 
     return canonical.map((message) => {
         const normalizedMessage = normalizeMessageTurnId(message);
-        let matchIndex = null;
+        let matchIndex: number | null = null;
         const messageTurnId = getTurnId(normalizedMessage);
         if (messageTurnId) {
             const matchCandidates = localTurnMap.get(
-                `${normalizedMessage?.role}:${String(messageTurnId)}`,
+                `${stringifyLooseValue(recordValue(normalizedMessage, 'role'))}:${stringifyLooseValue(messageTurnId)}`,
             );
             matchIndex = firstUnusedCandidateIndex(
                 matchCandidates,
@@ -966,27 +1058,37 @@ export const mergeCanonicalMessageMetadata = (canonical, cached) => {
         usedLocalIndices.add(matchIndex);
         localCursor = Math.max(localCursor, matchIndex + 1);
 
-        const metadata = {};
+        const matchRecord = isRecord(match) ? match : {};
+        const normalizedRecord = isRecord(normalizedMessage) ? normalizedMessage : {};
+        const metadata: LooseRecord = {};
         PRESENTATION_FIELDS.forEach((field) => {
-            if (match[field] !== undefined) metadata[field] = match[field];
+            if (matchRecord[field] !== undefined) metadata[field] = matchRecord[field];
         });
 
         const sourceTiming = timedPayloadFromMessage(match);
-        if (sourceTiming && metadata.timings === undefined && normalizedMessage?.role === 'assistant') {
+        if (sourceTiming
+            && metadata.timings === undefined
+            && normalizedRecord.role === 'assistant') {
             metadata.timings = sourceTiming;
         }
 
         if (metadata.timings !== undefined) {
             metadata.timings = timedPayloadFromMessage(metadata);
-            if (metadata.processingMs === undefined && metadata.timings?.total_ms !== undefined) {
-                metadata.processingMs = boundedProcessingMs(metadata.timings.total_ms);
+            const normalizedTimings = isRecord(metadata.timings)
+                ? metadata.timings
+                : null;
+            if (metadata.processingMs === undefined && normalizedTimings?.total_ms !== undefined) {
+                metadata.processingMs = boundedProcessingMs(normalizedTimings.total_ms);
             }
         }
         if (metadata.processingMs !== undefined) {
             metadata.processingMs = boundedProcessingMs(metadata.processingMs);
         } else {
             const fromMatchProcessing = boundedProcessingMs(
-                match?.processingMs ?? match?.duration_ms ?? match?.durationMs ?? match?.duration,
+                matchRecord.processingMs
+                    ?? matchRecord.duration_ms
+                    ?? matchRecord.durationMs
+                    ?? matchRecord.duration,
             );
             if (fromMatchProcessing !== null) {
                 metadata.processingMs = fromMatchProcessing;
@@ -995,13 +1097,16 @@ export const mergeCanonicalMessageMetadata = (canonical, cached) => {
         Object.entries(boundedTransparencyMetadata(metadata)).forEach(([field, value]) => {
             if (value !== null) metadata[field] = value;
         });
-        return { ...normalizedMessage, ...metadata };
+        return { ...normalizedRecord, ...metadata };
     });
 };
 
-export const mergeNotebookConversation = (canonical, cached) => {
-    const canonicalMessages = Array.isArray(canonical) ? canonical : [];
-    const cachedMessages = Array.isArray(cached) ? cached : [];
+export const mergeNotebookConversation = (
+    canonical: LooseValue,
+    cached: LooseValue,
+): LooseValue[] => {
+    const canonicalMessages = asLooseArray(canonical);
+    const cachedMessages = asLooseArray(cached);
     if (!canonicalMessages.length && cachedMessages.length) return cachedMessages;
     return mergeCanonicalMessageMetadata(canonicalMessages, cachedMessages);
 };

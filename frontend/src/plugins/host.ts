@@ -1,5 +1,5 @@
 /**
- * host.js — host for THIRD-PARTY plugins in the frontend (phases 1-2 and 4 of
+ * host.ts — host for THIRD-PARTY plugins in the frontend (phases 1-2 and 4 of
  * plugin_system.md).
  *
  * Loads each UI plugin inside a sandboxed IFRAME (`sandbox="allow-scripts"`,
@@ -30,44 +30,106 @@ import {
     fetchPluginSettings,
     patchPluginHostPage,
     updatePluginSettings,
+    type PluginHostPagePatchInput,
 } from '../shared/api/plugin-runtime';
 import { fetchInstalledPlugins } from '../shared/api/plugins';
+import type { InstalledPlugin, PluginManifest } from '../shared/api/plugins';
 import { fetchVaultPagesByTable, fetchVaultTables } from '../shared/api/vaults';
 
-const _frames = new Map();        // pluginId → { iframe, manifest, granted }
-let _commands = [];               // { pluginId, id, title, icon }
-let _views = [];                  // { pluginId, id, title, icon }
-let _sidebar = [];                // { pluginId, id, title }
-let _settingsPanels = [];         // { pluginId, id, title, height }
-let _loaded = false;
-const _subs = new Set();
+type HostArguments = Record<string, unknown>;
 
-function _notify() {
-    const snapshot = {
+export interface PluginCommandContribution {
+    icon: unknown;
+    id: unknown;
+    pluginId: string;
+    title: unknown;
+}
+
+export type PluginViewContribution = PluginCommandContribution;
+
+export interface PluginSidebarContribution {
+    id: unknown;
+    pluginId: string;
+    title: unknown;
+}
+
+export interface PluginSettingsContribution extends PluginSidebarContribution {
+    height: unknown;
+}
+
+export interface PluginHostContributions {
+    commands: PluginCommandContribution[];
+    settingsPanels: PluginSettingsContribution[];
+    sidebar: PluginSidebarContribution[];
+    views: PluginViewContribution[];
+}
+
+interface PluginFrameEntry {
+    granted: readonly string[];
+    iframe: HTMLIFrameElement;
+    listener?: (event: MessageEvent<unknown>) => void;
+    manifest: PluginManifest;
+}
+
+interface HostMethod {
+    perm: string;
+    run: (args: HostArguments, pluginId: string) => Promise<unknown>;
+}
+
+type HostSubscriber = (snapshot: PluginHostContributions) => void;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: unknown): string {
+    return Reflect.apply(String, undefined, [value || '']);
+}
+
+function iframeWindow(iframe: HTMLIFrameElement): Window {
+    const target = iframe.contentWindow;
+    if (!target) throw new Error('Plugin iframe has no content window');
+    return target;
+}
+
+const _frames = new Map<string, PluginFrameEntry>();
+let _commands: PluginCommandContribution[] = [];
+let _views: PluginViewContribution[] = [];
+let _sidebar: PluginSidebarContribution[] = [];
+let _settingsPanels: PluginSettingsContribution[] = [];
+let _loaded = false;
+const _subs = new Set<HostSubscriber>();
+
+function _snapshot(): PluginHostContributions {
+    return {
         commands: [..._commands],
         views: [..._views],
         sidebar: [..._sidebar],
         settingsPanels: [..._settingsPanels],
     };
+}
+
+function _notify(): void {
+    const snapshot = _snapshot();
     for (const fn of _subs) {
         try { fn(snapshot); } catch { /* noop */ }
     }
 }
 
-export function subscribeHost(fn) {
+export function subscribeHost(fn: HostSubscriber): () => boolean {
     _subs.add(fn);
     fn({ commands: [..._commands], views: [..._views], sidebar: [..._sidebar], settingsPanels: [..._settingsPanels] });
     return () => _subs.delete(fn);
 }
 
-export function getContributions() {
-    return { commands: [..._commands], views: [..._views], sidebar: [..._sidebar], settingsPanels: [..._settingsPanels] };
+export function getContributions(): PluginHostContributions {
+    return _snapshot();
 }
 
 // --- Runtime injected INSIDE the iframe --------------------------------------
 // Runs in the sandbox's opaque origin. Exposes `gnosi` and acts as a bridge with the
 // host via postMessage. Kept small and without dependencies.
-function _runtimeSource() {
+function _runtimeSource(): string {
     return `
     (function () {
       var _cbs = {};            // command/view/panel callbacks per id
@@ -142,7 +204,7 @@ function _runtimeSource() {
     })();`;
 }
 
-function _buildSrcdoc(pluginCode) {
+function _buildSrcdoc(pluginCode: unknown): string {
     // Direct network access is always blocked. A plugin with the network
     // capability uses the host bridge, which applies the backend SSRF guard.
     const csp = [
@@ -154,7 +216,7 @@ function _buildSrcdoc(pluginCode) {
     ].join('; ');
     // Prevents a `</script>` inside the plugin's code from breaking the document.
     const safeRuntime = _runtimeSource().replace(/<\/(script)/gi, '<\\/$1');
-    const safeCode = String(pluginCode || '').replace(/<\/(script)/gi, '<\\/$1');
+    const safeCode = stringValue(pluginCode).replace(/<\/(script)/gi, '<\\/$1');
     return `<!doctype html><html><head><meta charset="utf-8">`
         + `<meta http-equiv="Content-Security-Policy" content="${csp}">`
         + `</head><body>`
@@ -164,64 +226,92 @@ function _buildSrcdoc(pluginCode) {
 }
 
 // --- Host handlers for the plugin's calls (gated by permission) --------
-const _HOST_METHODS = {
+const _HOST_METHODS: Readonly<Record<string, HostMethod>> = {
     'vault.readPage': { perm: 'vault:read', run: async (args) => {
-        const id = String(args.pageId || '');
+        const id = stringValue(args.pageId);
         const d = await fetchPluginHostPage(id);
         // Unified shape with the data sandbox: {pageId, title, content, metadata}.
-        return { pageId: d.id, title: d.title || '', content: d.content || '', metadata: d.metadata || {} };
+        return { pageId: d.id, title: d.title, content: d.content, metadata: d.metadata };
     } },
     'vault.writePage': { perm: 'vault:write', run: async (args) => {
-        const id = String(args.pageId || '');
+        const id = stringValue(args.pageId);
         // Partial update (PATCH preserves the frontmatter): content and/or metadata.
-        const payload = {};
-        if (args.content !== undefined) payload.content = args.content;
-        if (args.metadata !== undefined) payload.metadata = args.metadata;
+        const payload: PluginHostPagePatchInput = {};
+        if (typeof args.content === 'string') payload.content = args.content;
+        if (isRecord(args.metadata)) payload.metadata = args.metadata;
         await patchPluginHostPage(id, payload, { knownEtag: getCachedPageEtag(id) });
-        return { pageId: id, written: (args.content || '').length };
+        return { pageId: id, written: typeof args.content === 'string' ? args.content.length : 0 };
     } },
     'vault.queryDB': { perm: 'vault:read', run: async (args) => {
-        const id = String(args.tableId || '');
+        const id = stringValue(args.tableId);
         const limit = Math.max(1, Math.min(Number(args.limit) || 200, 1000));
-        const response = await fetchVaultPagesByTable(id);
+        const response: unknown = await fetchVaultPagesByTable(id);
         const all = Array.isArray(response) ? response : [];
         // Templates (is_template) are not data: no other consumer of
         // by-table shows them as rows (DbViewEmbed, PageViewModal,
         // dashboard, sidebar). Without this filter a plugin would receive them
         // mixed in with the records — and `total`/`truncated` counted them.
-        const records = all.filter((p) => !(p.metadata || {}).is_template);
-        const rows = records.slice(0, limit).map((p) => ({ id: p.id, title: p.title, metadata: p.metadata || {} }));
+        const records = all.filter((page) => (
+            !isRecord(page)
+            || !isRecord(page.metadata)
+            || page.metadata.is_template !== true
+        ));
+        const rows = records.slice(0, limit).map((page) => {
+            const record = isRecord(page) ? page : {};
+            return {
+                id: record.id,
+                title: record.title,
+                metadata: isRecord(record.metadata) ? record.metadata : {},
+            };
+        });
         return { tableId: id, rows, total: records.length, truncated: records.length > limit };
     } },
     'vault.listTables': { perm: 'vault:read', run: async () => {
-        const response = await fetchVaultTables();
+        const response: unknown = await fetchVaultTables();
         const all = Array.isArray(response) ? response : [];
-        return { tables: all.map((t) => ({ id: t.id, name: t.name || t.id, fields: (t.properties || []).length })) };
+        return { tables: all.map((table) => {
+            const record = isRecord(table) ? table : {};
+            return {
+                id: record.id,
+                name: record.name || record.id,
+                fields: Array.isArray(record.properties) ? record.properties.length : 0,
+            };
+        }) };
     } },
     'vault.createPage': { perm: 'vault:write', run: async (args) => {
         const response = await createPluginHostPage({
-            title: args.title || 'Sense títol',
-            content: args.content || '',
+            title: typeof args.title === 'string' && args.title ? args.title : 'Sense títol',
+            content: typeof args.content === 'string' ? args.content : '',
             metadata: {},
-            ...(args.parent_id ? { parent_id: args.parent_id } : {}),
+            ...(typeof args.parent_id === 'string' && args.parent_id
+                ? { parent_id: args.parent_id }
+                : {}),
         });
         return { pageId: response.id, title: response.title };
     } },
     'settings.get': { perm: 'settings', run: async (args, pluginId) => {
         const response = await fetchPluginSettings(pluginId);
-        return { settings: response.settings || {} };
+        return { settings: response.settings };
     } },
     'settings.set': { perm: 'settings', run: async (args, pluginId) => {
-        const response = await updatePluginSettings(pluginId, args.settings || {});
-        return { settings: response.settings || {} };
+        const response = await updatePluginSettings(
+            pluginId,
+            isRecord(args.settings) ? args.settings : {},
+        );
+        return { settings: response.settings };
     } },
     'network.fetch': { perm: 'network', run: async (args, pluginId) => {
-        return fetchForUiPlugin(pluginId, args.url, args.opts || {});
+        return fetchForUiPlugin(
+            pluginId,
+            typeof args.url === 'string' ? args.url : '',
+            isRecord(args.opts) ? args.opts : {},
+        );
     } },
 };
 
-function _onMessage(entry, ev) {
-    const m = ev.data || {};
+function _onMessage(entry: PluginFrameEntry, ev: MessageEvent<unknown>): void {
+    if (!isRecord(ev.data)) return;
+    const m = ev.data;
     if (!m.__gnosi) return;
     // Ensures the message comes from THIS plugin's iframe.
     if (ev.source !== entry.iframe.contentWindow) return;
@@ -251,16 +341,30 @@ function _onMessage(entry, ev) {
     } else if (m.type === 'log') {
         console[m.level === 'error' ? 'error' : m.level === 'warn' ? 'warn' : 'log'](`[plugin ${pid}]`, m.message);
     } else if (m.type === 'host-call') {
+        if (typeof m.method !== 'string') return;
         const def = _HOST_METHODS[m.method];
-        const reply = (ok, payload) => iframe.contentWindow.postMessage(
-            { __gnosi_host: true, type: 'host-result', id: m.id, ok, ...(ok ? { result: payload } : { error: payload }) }, '*');
+        const reply = (ok: boolean, payload: unknown): void => {
+            iframeWindow(iframe).postMessage(
+                { __gnosi_host: true, type: 'host-result', id: m.id, ok, ...(ok ? { result: payload } : { error: payload }) },
+                '*',
+            );
+        };
         if (!def) { reply(false, `mètode desconegut: ${m.method}`); return; }
         if (!granted.includes(def.perm)) { reply(false, `permís denegat: ${def.perm}`); return; }
-        def.run(m.args || {}, pid).then((r) => reply(true, r)).catch((e) => reply(false, String(e?.message || e)));
+        const args = isRecord(m.args) ? m.args : {};
+        def.run(args, pid).then((result) => {
+            reply(true, result);
+        }).catch((error: unknown) => {
+            reply(false, error instanceof Error ? error.message : stringValue(error));
+        });
     }
 }
 
-function _mountPlugin(manifest, granted, code) {
+function _mountPlugin(
+    manifest: PluginManifest,
+    granted: readonly string[],
+    code: unknown,
+): void {
     const pid = manifest.id;
     _unmountPlugin(pid);
     const iframe = document.createElement('iframe');
@@ -269,18 +373,20 @@ function _mountPlugin(manifest, granted, code) {
     iframe.setAttribute('aria-hidden', 'true');
     iframe.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden;';
     iframe.srcdoc = _buildSrcdoc(code);
-    const entry = { iframe, manifest, granted };
-    const listener = (ev) => _onMessage(entry, ev);
+    const entry: PluginFrameEntry = { iframe, manifest, granted };
+    const listener = (ev: MessageEvent<unknown>): void => {
+        _onMessage(entry, ev);
+    };
     entry.listener = listener;
     window.addEventListener('message', listener);
     document.body.appendChild(iframe);
     _frames.set(pid, entry);
 }
 
-function _unmountPlugin(pid) {
+function _unmountPlugin(pid: string): void {
     const entry = _frames.get(pid);
     if (!entry) return;
-    window.removeEventListener('message', entry.listener);
+    if (entry.listener) window.removeEventListener('message', entry.listener);
     try { entry.iframe.remove(); } catch { /* noop */ }
     _frames.delete(pid);
     _commands = _commands.filter((c) => c.pluginId !== pid);
@@ -291,22 +397,28 @@ function _unmountPlugin(pid) {
 }
 
 /** Sends an execution call (command/view/panel) to the plugin's iframe. */
-export function runCommand(pluginId, commandId, arg) {
+export function runCommand(pluginId: string, commandId: string, arg?: unknown): void {
     const entry = _frames.get(pluginId);
     if (!entry) return;
-    entry.iframe.contentWindow.postMessage(
+    iframeWindow(entry.iframe).postMessage(
         { __gnosi_host: true, type: 'run', kind: 'cmd', id: commandId, arg: arg || null }, '*');
 }
 
 /** Mounts a registered Settings panel's sandbox in a visible host container. */
-export function mountSettingsPanel(pluginId, panelId, container, height = 420) {
+export function mountSettingsPanel(
+    pluginId: string,
+    panelId: string,
+    container: HTMLElement | null | undefined,
+    height = 420,
+): () => void {
     const entry = _frames.get(pluginId);
     if (!entry || !container) return () => {};
     const { iframe } = entry;
     iframe.removeAttribute('aria-hidden');
-    iframe.style.cssText = `display:block;width:100%;height:${Math.max(160, Math.min(Number(height) || 420, 1200))}px;border:0;background:transparent;`;
+    const panelHeight = Math.max(160, Math.min(height || 420, 1200));
+    iframe.style.cssText = `display:block;width:100%;height:${String(panelHeight)}px;border:0;background:transparent;`;
     container.appendChild(iframe);
-    iframe.contentWindow.postMessage(
+    iframeWindow(iframe).postMessage(
         { __gnosi_host: true, type: 'run', kind: 'settings', id: panelId, arg: null }, '*');
     return () => {
         if (!_frames.has(pluginId)) return;
@@ -317,15 +429,15 @@ export function mountSettingsPanel(pluginId, panelId, container, height = 420) {
 }
 
 /** Loads (or reloads) all installed and active third-party plugins. */
-export async function loadPlugins() {
-    let installed;
+export async function loadPlugins(): Promise<void> {
+    let installed: readonly InstalledPlugin[];
     try {
         const response = await fetchInstalledPlugins();
-        installed = response.plugins || [];
+        installed = response.plugins;
     } catch {
         return;
     }
-    const seen = new Set();
+    const seen = new Set<string>();
     for (const p of installed) {
         const manifest = p.manifest;
         if (!manifest || !p.enabled) continue;
@@ -336,8 +448,11 @@ export async function loadPlugins() {
         try {
             const code = await fetchPluginAssetText(manifest.id, manifest.main);
             _mountPlugin(manifest, granted, code);
-        } catch (e) {
-            console.warn(`[plugins] could not load ${manifest.id}:`, e?.message || e);
+        } catch (error: unknown) {
+            console.warn(
+                `[plugins] could not load ${manifest.id}:`,
+                error instanceof Error ? error.message : error,
+            );
         }
     }
     // Unmounts the ones that no longer apply (disabled or uninstalled).
@@ -347,4 +462,4 @@ export async function loadPlugins() {
     _loaded = true;
 }
 
-export function isLoaded() { return _loaded; }
+export function isLoaded(): boolean { return _loaded; }

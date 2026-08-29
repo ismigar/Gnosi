@@ -7,18 +7,24 @@
  * active contributions from it and re-render when they change.
  */
 import { useEffect, useState } from 'react';
-import { subscribeHost, loadPlugins, isLoaded, getContributions } from './host';
+import {
+    subscribeHost,
+    loadPlugins,
+    isLoaded,
+    getContributions,
+    type PluginHostContributions,
+} from './host';
 
-let _kickoff = null;
+let _kickoff: Promise<void> | null = null;
 
-function kickoffPluginLoad() {
+function kickoffPluginLoad(): Promise<void> {
     if (!_kickoff) {
         _kickoff = loadPlugins().finally(() => { _kickoff = null; });
     }
     return _kickoff;
 }
 
-export function usePluginHost() {
+export function usePluginHost(): PluginHostContributions {
     const [state, setState] = useState(getContributions());
 
     useEffect(() => {
@@ -36,7 +42,7 @@ export function usePluginHost() {
 }
 
 /** Forces a plugin reload (e.g. after changing permissions). */
-export function reloadPlugins() {
+export function reloadPlugins(): Promise<void> {
     return kickoffPluginLoad();
 }
 

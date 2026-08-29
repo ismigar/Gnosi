@@ -1,4 +1,4 @@
-import i18next from 'i18next';
+import i18next, { type Resource, type TFunction } from 'i18next';
 import { describe, expect, it } from 'vitest';
 
 import ca from '../../locales/ca/translation.json';
@@ -15,16 +15,19 @@ import {
     toolDisplayName,
 } from './aiResourceI18n';
 
-const catalogs = { ca, en, es, fr };
+const resources: Resource = {
+    ca: { translation: ca },
+    en: { translation: en },
+    es: { translation: es },
+    fr: { translation: fr },
+};
 
-const translator = async language => {
+const translator = async (language: string): Promise<TFunction> => {
     const instance = i18next.createInstance();
     await instance.init({
         lng: language,
         fallbackLng: 'en',
-        resources: Object.fromEntries(Object.entries(catalogs).map(([locale, translation]) => (
-            [locale, { translation }]
-        ))),
+        resources,
     });
     return instance.t.bind(instance);
 };

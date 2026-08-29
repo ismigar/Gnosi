@@ -61,8 +61,11 @@ describe('third-party Settings panels', () => {
         updatePluginSettings.mockResolvedValue({ settings: { accent: 'blue' } });
 
         await loadPlugins();
-        const iframe = document.querySelector('iframe[title="plugin:settings-example"]');
+        const iframe = document.querySelector<HTMLIFrameElement>(
+            'iframe[title="plugin:settings-example"]',
+        );
         expect(iframe).not.toBeNull();
+        if (!iframe) throw new Error('Expected the plugin iframe');
         expect(iframe.getAttribute('sandbox')).toBe('allow-scripts');
         expect(iframe.getAttribute('sandbox')).not.toContain('allow-same-origin');
 
@@ -90,7 +93,9 @@ describe('third-party Settings panels', () => {
         restore();
         expect(document.body.contains(iframe)).toBe(true);
 
-        const postMessage = vi.spyOn(iframe.contentWindow, 'postMessage');
+        const pluginWindow = iframe.contentWindow;
+        if (!pluginWindow) throw new Error('Expected the plugin iframe window');
+        const postMessage = vi.spyOn(pluginWindow, 'postMessage');
         window.dispatchEvent(new MessageEvent('message', {
             source: iframe.contentWindow,
             data: {
