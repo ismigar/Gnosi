@@ -1,10 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Lock, FileText } from 'lucide-react';
 import { VaultMarkdown } from '../components/Vault/VaultMarkdown';
 import { GnosiApiError } from '../shared/api/errors';
-import { fetchSharedPage } from '../shared/api/sharing';
+import {
+    fetchSharedPage,
+    type SharedPageDocument,
+} from '../shared/api/sharing';
+
+interface SharedPageState {
+    readonly data: SharedPageDocument | null;
+    readonly error: 'error' | 'not_found' | null;
+    readonly loading: boolean;
+}
 
 /**
  * Public read-only view of a shared page (`/s/:token`). Renders OUTSIDE the
@@ -14,20 +23,25 @@ import { fetchSharedPage } from '../shared/api/sharing';
 export default function SharedPage() {
     const { t } = useTranslation();
     const { token } = useParams();
-    const [state, setState] = useState({ loading: true, error: null, data: null });
+    const [state, setState] = useState<SharedPageState>({
+        loading: true,
+        error: null,
+        data: null,
+    });
 
     useEffect(() => {
-        let cancelled = false;
         const controller = new AbortController();
-        (async () => {
+        void (async () => {
             try {
                 const data = await fetchSharedPage(token || '', controller.signal);
-                if (!cancelled) setState({ loading: false, error: null, data });
-            } catch (err) {
-                if (cancelled || controller.signal.aborted) return;
+                if (!controller.signal.aborted) {
+                    setState({ loading: false, error: null, data });
+                }
+            } catch (error: unknown) {
+                if (controller.signal.aborted) return;
                 setState({
                     loading: false,
-                    error: err instanceof GnosiApiError && err.status === 404
+                    error: error instanceof GnosiApiError && error.status === 404
                         ? 'not_found'
                         : 'error',
                     data: null,
@@ -35,7 +49,6 @@ export default function SharedPage() {
             }
         })();
         return () => {
-            cancelled = true;
             controller.abort();
         };
     }, [token]);
@@ -61,7 +74,8 @@ export default function SharedPage() {
         );
     }
 
-    const page = state.data?.page || {};
+    const page = state.data?.page;
+    if (!page) return null;
     return (
         <div className="min-h-screen bg-[var(--bg-secondary)] py-10 px-4">
             <div className="max-w-3xl mx-auto bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-sm p-8">

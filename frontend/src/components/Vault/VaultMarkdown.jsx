@@ -73,13 +73,13 @@ export function RetryableImage({ src, title, onClick }) {
  */
 export function VaultMarkdown({
     md,
-    onActivate,
+    onActivate = undefined,
     imageTitle = '',
     vaultId,
-    idToTitle,
-    onOpenInCurrentTab,
-    onOpenInNewTab,
-    onOpenParallel,
+    idToTitle = undefined,
+    onOpenInCurrentTab = undefined,
+    onOpenInNewTab = undefined,
+    onOpenParallel = undefined,
 }) {
     const { t } = useTranslation();
     const [evidence, setEvidence] = useState(null);

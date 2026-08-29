@@ -6,29 +6,34 @@
  *   - there is no one else on the page.
  * So, in everyday personal use, it is invisible and has no cost.
  */
-import React from 'react';
 import { useCollaboration } from '../../hooks/useCollaboration';
 
 // Stable palette derived from the name so each user always has the same
 // color (no shared state). Simple hash → palette index.
 const AVATAR_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
-function colorFor(id) {
+function colorFor(id: string): string {
     let hash = 0;
-    const s = String(id || '');
+    const s = id;
     for (let i = 0; i < s.length; i += 1) {
         hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
     }
-    return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+    return AVATAR_COLORS[hash % AVATAR_COLORS.length] ?? AVATAR_COLORS[0] ?? '#3b82f6';
 }
 
-function initials(name) {
-    const parts = String(name || '?').trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+function initials(name: string): string {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return (parts[0] ?? '?').charAt(0).toUpperCase();
+    const first = parts[0] ?? '?';
+    const last = parts.at(-1) ?? first;
+    return (first.charAt(0) + last.charAt(0)).toUpperCase();
 }
 
-export function CollaborationPresence({ pageId }) {
+export interface CollaborationPresenceProps {
+    readonly pageId?: string | null;
+}
+
+export function CollaborationPresence({ pageId }: CollaborationPresenceProps) {
     const { peers, enabled } = useCollaboration(pageId);
 
     if (!enabled || peers.length === 0) return null;

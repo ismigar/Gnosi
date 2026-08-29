@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 import Composer from '../components/social/Composer';
 import { PenTool, Share2 } from 'lucide-react';
