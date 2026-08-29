@@ -14,8 +14,10 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.params import Depends as DependsParameter
 
 from backend.domains.vault.schemas.pages import (
+    BulkPreviewWarmResponse,
     PageDetailResponse,
     PageInfo,
+    PagePreviewResponse,
     SidebarPageInfo,
     TablePagesSnapshot,
     _BulkWarmPayload,
@@ -428,13 +430,13 @@ def register_preview_routes(router: APIRouter) -> None:
         "/pages/{page_id}/preview",
         get_page_preview,
         methods=["GET"],
-        response_model=None,
+        response_model=PagePreviewResponse,
     )
     router.add_api_route(
         "/pages/preview/warm",
         bulk_warm_previews,
         methods=["POST"],
-        response_model=None,
+        response_model=BulkPreviewWarmResponse,
     )
 
 

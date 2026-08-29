@@ -8,7 +8,11 @@ from pathlib import Path
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes
-from backend.domains.vault.schemas.pages import PageDetailResponse
+from backend.domains.vault.schemas.pages import (
+    BulkPreviewWarmResponse,
+    PageDetailResponse,
+    PagePreviewResponse,
+)
 from backend.domains.vault.trash import purge as trash_purge
 
 
@@ -85,6 +89,17 @@ def test_page_detail_route_exposes_its_typed_response_contract() -> None:
         if isinstance(route, APIRoute) and route.endpoint.__name__ == "get_page"
     )
     assert route.response_model is PageDetailResponse
+
+
+def test_page_preview_routes_expose_typed_response_contracts() -> None:
+    routes = {
+        route.endpoint.__name__: route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+        and route.endpoint.__name__ in {"get_page_preview", "bulk_warm_previews"}
+    }
+    assert routes["get_page_preview"].response_model is PagePreviewResponse
+    assert routes["bulk_warm_previews"].response_model is BulkPreviewWarmResponse
 
 
 def test_trash_purge_domain_does_not_import_http_facade() -> None:

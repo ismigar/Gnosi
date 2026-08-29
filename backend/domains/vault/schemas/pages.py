@@ -41,6 +41,27 @@ class PageDetailResponse(BaseModel):
     etag: str
 
 
+class PagePreviewResponse(BaseModel):
+    """Compact page preview, optionally including full Markdown and images."""
+
+    id: str
+    title: Any
+    excerpt: str
+    icon: Any = None
+    cover: Any = None
+    body_md: Optional[str] = None
+    images: Optional[list[str]] = None
+
+
+class BulkPreviewWarmResponse(BaseModel):
+    """Counters from a best-effort preview cache warmup."""
+
+    requested: int
+    cached: int
+    warmed: int
+    failed: int
+
+
 class PagePatchRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
@@ -77,6 +98,8 @@ class _BulkWarmPayload(BaseModel):
 __all__ = [
     "PageInfo",
     "PageDetailResponse",
+    "PagePreviewResponse",
+    "BulkPreviewWarmResponse",
     "PagePatchRequest",
     "PageSaveRequest",
     "SidebarPageInfo",
