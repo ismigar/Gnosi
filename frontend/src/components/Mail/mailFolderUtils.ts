@@ -1,4 +1,4 @@
-const FOLDER_KEY_MAP = {
+const FOLDER_KEY_MAP: Readonly<Record<string, string>> = {
     // Entrada
     'inbox': 'mail.inbox',
     // Enviats
@@ -39,7 +39,10 @@ const FOLDER_KEY_MAP = {
  * @param {string} name  Raw IMAP folder name
  * @param {Function} t   i18next translation function
  */
-export function translateFolderName(name, t) {
+export function translateFolderName(
+    name: string | null | undefined,
+    t: (key: string) => string,
+): string {
     if (!name) return '';
     const key = FOLDER_KEY_MAP[name.toLowerCase()];
     return key ? t(key) : name;

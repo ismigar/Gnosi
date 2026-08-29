@@ -7,14 +7,21 @@ import {
     getIntlLocale,
     getLocaleMeta,
     resolveLocale,
+    type LocaleDirection,
+    type TranslationCatalogue,
 } from './registry';
 
-const syntheticLocaleModules = import.meta.glob(
+const syntheticLocaleModules = import.meta.glob<TranslationCatalogue>(
     './__fixtures__/*/translation.json',
     { eager: true, import: 'default' },
 );
 
-function catalogue(nativeName, intlLocale, direction = 'ltr', translation = {}) {
+function catalogue(
+    nativeName: string,
+    intlLocale: string,
+    direction: LocaleDirection = 'ltr',
+    translation: TranslationCatalogue = {},
+): TranslationCatalogue {
     return {
         _meta: {
             nativeName,
@@ -46,9 +53,9 @@ describe('locale registry', () => {
         expect(registry.availableLocales.map(({ code }) => code)).toEqual(
             expect.arrayContaining(['en', 'de', 'pt-BR', 'ar']),
         );
-        expect(registry.localeResources.de.translation.greeting).toBe('Hallo');
-        expect(registry.localeResources['pt-BR'].translation).toEqual({ greeting: 'Olá' });
-        expect(registry.localeResources['pt-BR'].translation).not.toHaveProperty('_meta');
+        expect(registry.localeResources.de?.translation.greeting).toBe('Hallo');
+        expect(registry.localeResources['pt-BR']?.translation).toEqual({ greeting: 'Olá' });
+        expect(registry.localeResources['pt-BR']?.translation).not.toHaveProperty('_meta');
         expect(registry.getLocaleMeta('ar').direction).toBe('rtl');
     });
 

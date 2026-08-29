@@ -10,7 +10,7 @@ import {
     resolveLocale,
 } from './locales/registry';
 
-i18n
+void i18n
     // detect user language
     // learn more: https://github.com/i18next/i18next-browser-languageDetector
     .use(LanguageDetector)
@@ -31,9 +31,9 @@ i18n
         resources: localeResources,
     });
 
-const syncDocumentLocale = (language) => applyDocumentLocale(
-    i18n.resolvedLanguage || language || FALLBACK_LOCALE
-);
+const syncDocumentLocale = (language?: string): void => {
+    applyDocumentLocale(i18n.resolvedLanguage || language || FALLBACK_LOCALE);
+};
 
 i18n.on('languageChanged', syncDocumentLocale);
 syncDocumentLocale(i18n.language);

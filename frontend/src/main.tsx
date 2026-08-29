@@ -1,6 +1,6 @@
-import React from 'react'
+import { StrictMode } from 'react'
 import i18n from './i18n';
-import ReactDOM from 'react-dom/client'
+import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
@@ -22,7 +22,7 @@ import { ApiProvider } from './shared/api/ApiProvider'
 // default vault. See setActiveVaultCookie in lib/fileResource.js.
 syncActiveVaultCookie();
 
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
     await initializeVaultRouting();
     const canonicalPath = legacyBrowserPathToCanonical(window.location.pathname);
     if (canonicalPath !== window.location.pathname && canonicalPath.startsWith('/@')) {
@@ -34,18 +34,20 @@ async function bootstrap() {
     }
     await initializeInterfaceLanguage(i18n);
     installDesktopApplicationMenu(i18n);
-    ReactDOM.createRoot(document.getElementById('root')).render(
-        <React.StrictMode>
+    const rootElement = document.getElementById('root');
+    if (!rootElement) throw new Error('Gnosi root element was not found.');
+    createRoot(rootElement).render(
+        <StrictMode>
             <ApiProvider>
-                <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <BrowserRouter>
                     <AuthProvider>
                         <App />
                         <GlobalTooltip />
                     </AuthProvider>
                 </BrowserRouter>
             </ApiProvider>
-        </React.StrictMode>,
-    )
+        </StrictMode>,
+    );
 }
 
 void bootstrap();
