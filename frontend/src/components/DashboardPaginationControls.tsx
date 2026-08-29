@@ -1,13 +1,21 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+export interface DashboardPaginationControlsProps {
+    readonly limit: number;
+    readonly loading?: boolean;
+    readonly onPageChange: (page: number) => void;
+    readonly page: number;
+    readonly total: number;
+}
+
 export function DashboardPaginationControls({
     total,
     limit,
     page,
     onPageChange,
-    loading
-}) {
+    loading = false,
+}: DashboardPaginationControlsProps) {
     const { t } = useTranslation();
     const totalPages = Math.ceil((total || 0) / (limit || 1));
 
@@ -25,7 +33,9 @@ export function DashboardPaginationControls({
             <div className="flex items-center gap-1">
                 <button
                     type="button"
-                    onClick={() => onPageChange(page - 1)}
+                    onClick={() => {
+                        onPageChange(page - 1);
+                    }}
                     disabled={page === 0 || loading}
                     aria-label={t('common.previous')}
                     className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] disabled:opacity-30 transition-all text-[var(--text-secondary)]"
@@ -34,7 +44,7 @@ export function DashboardPaginationControls({
                 </button>
 
                 <div className="flex items-center gap-1">
-                    {[...Array(totalPages)].map((_, index) => {
+                    {Array.from({ length: totalPages }, (_, index) => index).map((index) => {
                         if (
                             totalPages > 7
                             && index > 0
@@ -51,7 +61,9 @@ export function DashboardPaginationControls({
                             <button
                                 key={index}
                                 type="button"
-                                onClick={() => onPageChange(index)}
+                                onClick={() => {
+                                    onPageChange(index);
+                                }}
                                 disabled={loading}
                                 aria-label={t('dashboard.pagination_page', { page: index + 1 })}
                                 aria-current={page === index ? 'page' : undefined}
@@ -69,7 +81,9 @@ export function DashboardPaginationControls({
 
                 <button
                     type="button"
-                    onClick={() => onPageChange(page + 1)}
+                    onClick={() => {
+                        onPageChange(page + 1);
+                    }}
                     disabled={page >= totalPages - 1 || loading}
                     aria-label={t('common.next')}
                     className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] disabled:opacity-30 transition-all text-[var(--text-secondary)]"

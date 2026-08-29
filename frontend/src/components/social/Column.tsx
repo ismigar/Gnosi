@@ -1,10 +1,31 @@
-import React from 'react';
+import type { Key, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal } from 'lucide-react';
 import PostCard from './PostCard';
 import { SocialNetworkIcon, isKnownSocialNetwork } from './SocialNetworkIcon';
 
-const Column = ({ title, icon, network, posts = [], onDelete, onRefresh }) => {
+interface SocialPost {
+    readonly [key: string]: unknown;
+    readonly id: Key;
+}
+
+export interface SocialColumnProps {
+    readonly icon?: ReactNode;
+    readonly network: string;
+    readonly onDelete?: () => void;
+    readonly onRefresh?: () => void;
+    readonly posts?: readonly SocialPost[];
+    readonly title: ReactNode;
+}
+
+const Column = ({
+    title,
+    icon,
+    network,
+    posts = [],
+    onDelete,
+    onRefresh,
+}: SocialColumnProps) => {
     const { t } = useTranslation();
     const streamIcon = isKnownSocialNetwork(network)
         ? <SocialNetworkIcon network={network} size={22} />

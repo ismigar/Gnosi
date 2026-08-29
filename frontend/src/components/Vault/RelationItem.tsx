@@ -1,6 +1,16 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { ExternalLink, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+type RelationScalar = string | number | boolean | null | undefined;
+
+export interface RelationItemProps {
+    readonly className?: string;
+    readonly onOpen?: (relationId: string) => void;
+    readonly onRemove?: (relationId: string) => Promise<void> | void;
+    readonly relationId: string;
+    readonly title?: RelationScalar;
+}
 
 export function RelationItem({
     relationId,
@@ -8,18 +18,18 @@ export function RelationItem({
     onOpen,
     onRemove,
     className = '',
-}) {
+}: RelationItemProps) {
     const { t } = useTranslation();
     const [isRemoving, setIsRemoving] = useState(false);
     const fullTitle = String(title || relationId || t('common.untitled', 'Untitled'));
 
-    const stopAndOpen = (event) => {
+    const stopAndOpen = (event: MouseEvent<HTMLButtonElement>) => {
         event.preventDefault();
         event.stopPropagation();
         onOpen?.(relationId);
     };
 
-    const stopAndRemove = async (event) => {
+    const stopAndRemove = async (event: MouseEvent<HTMLButtonElement>) => {
         event.preventDefault();
         event.stopPropagation();
         if (!onRemove || isRemoving) return;
@@ -54,7 +64,9 @@ export function RelationItem({
             {onRemove && (
                 <button
                     type="button"
-                    onClick={stopAndRemove}
+                    onClick={(event) => {
+                        void stopAndRemove(event);
+                    }}
                     disabled={isRemoving}
                     className="inline-flex h-full w-6 shrink-0 items-center justify-center border-l border-[var(--gnosi-primary)]/15 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--status-error)]/10 hover:text-[var(--status-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--status-error)] disabled:cursor-wait disabled:opacity-40"
                     title={t('relation_item.remove', 'Remove from this record')}

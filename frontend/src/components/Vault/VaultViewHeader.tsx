@@ -3,9 +3,25 @@
  * View header for displaying Vault tables inside the BlockEditor.
  * Lets you select views and search records.
  */
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react';
+
+export interface VaultDisplayView {
+    readonly id: string;
+    readonly name?: string | null;
+}
+
+export interface VaultViewHeaderProps {
+    readonly DatabaseTabsContainer?: unknown;
+    readonly ViewTab?: unknown;
+    readonly currentViewId?: string | null;
+    readonly displayViews?: readonly VaultDisplayView[];
+    readonly searchTerm?: string;
+    readonly setActiveViewId?: (id: string) => void;
+    readonly setSearchTerm?: (term: string) => void;
+    readonly setShowSearch?: (show: boolean) => void;
+    readonly showSearch?: boolean;
+}
 
 export function VaultViewHeader({
     displayViews = [],
@@ -15,18 +31,18 @@ export function VaultViewHeader({
     setShowSearch,
     searchTerm,
     setSearchTerm,
-    DatabaseTabsContainer,
-    ViewTab,
-}) {
+}: VaultViewHeaderProps) {
     const { t } = useTranslation();
     return (
         <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/60 min-h-[40px]">
             {/* View tabs */}
             <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto scrollbar-none">
-                {displayViews.map(view => (
+                {displayViews.map((view) => (
                     <button
                         key={view.id}
-                        onClick={() => setActiveViewId && setActiveViewId(view.id)}
+                        onClick={() => {
+                            setActiveViewId?.(view.id);
+                        }}
                         className={`shrink-0 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                             currentViewId === view.id
                                 ? 'bg-[var(--bg-primary)] text-indigo-700 dark:text-indigo-400 shadow-sm border border-[var(--border-primary)]'
@@ -47,14 +63,16 @@ export function VaultViewHeader({
                             autoFocus
                             type="text"
                             value={searchTerm || ''}
-                            onChange={e => setSearchTerm && setSearchTerm(e.target.value)}
+                            onChange={(event) => {
+                                setSearchTerm?.(event.target.value);
+                            }}
                             placeholder={t('common.search_placeholder', "Search...")}
                             className="text-xs outline-none w-28 text-[var(--text-primary)] bg-transparent"
                         />
                         <button
                             onClick={() => {
-                                setSearchTerm && setSearchTerm('');
-                                setShowSearch && setShowSearch(false);
+                                setSearchTerm?.('');
+                                setShowSearch?.(false);
                             }}
                             className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         >
@@ -63,7 +81,9 @@ export function VaultViewHeader({
                     </div>
                 ) : (
                     <button
-                        onClick={() => setShowSearch && setShowSearch(true)}
+                        onClick={() => {
+                            setShowSearch?.(true);
+                        }}
                         className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] transition-colors"
                         title={t('common.search', "Search")}
                     >

@@ -1,24 +1,42 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { CalendarPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
  * Floating context menu for the calendar (right-click).
  */
-export const CalendarContextMenu = ({ isOpen, position, onClose, onNewEvent, onDeleteEvent }) => {
+export interface CalendarContextMenuProps {
+    readonly isOpen: boolean;
+    readonly onClose: () => void;
+    readonly onDeleteEvent?: () => void;
+    readonly onNewEvent: () => void;
+    readonly position: { readonly x: number; readonly y: number };
+}
+
+export const CalendarContextMenu = ({
+    isOpen,
+    position,
+    onClose,
+    onNewEvent,
+    onDeleteEvent,
+}: CalendarContextMenuProps) => {
     const { t } = useTranslation();
-    const menuRef = useRef(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     // Close when clicking outside
     useEffect(() => {
         if (!isOpen) return;
-        const handleClick = (e) => {
-            if (menuRef.current && !menuRef.current.contains(e.target)) {
+        const handleClick = (event: MouseEvent) => {
+            if (
+                menuRef.current
+                && event.target instanceof Node
+                && !menuRef.current.contains(event.target)
+            ) {
                 onClose();
             }
         };
-        const handleKey = (e) => {
-            if (e.key === 'Escape') onClose();
+        const handleKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onClose();
         };
         // Defer to avoid closing immediately with the same click
         setTimeout(() => {
