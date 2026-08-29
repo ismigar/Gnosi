@@ -57,6 +57,7 @@ import { fetchVaultGraph } from '../shared/api/graph';
 import { syncContacts as requestContactsSync } from '../shared/api/contacts';
 import { fetchIdentity, saveIdentity } from '../shared/api/identity';
 import { fetchEnvironment, updateEnvironment } from '../shared/api/environment';
+import { fetchConfiguration, updateConfiguration } from '../shared/api/configuration';
 import {
     fetchMailCounts,
     setMailAccountEnabled,
@@ -1405,7 +1406,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                     // Save general config, integrations, and identity
                     if (hasConfigChanges || hasIdentityChanges) {
                         promises.push(
-                            axios.post('/api/config', {
+                            updateConfiguration({
                                 settings: draft.settings,
                                 paths: draft.paths,
                                 graph: draft.graph,
@@ -1478,26 +1479,23 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadConfig = async (hydrationGeneration = null) => {
         try {
-            const res = await transportFetch('/api/config');
-            if (res.ok) {
-                const cfg = await res.json();
-                setDraft(prev => ({
-                    ...prev,
-                    settings: { ...prev.settings, ...(cfg.settings || {}) },
-                    paths: { ...prev.paths, ...(cfg.paths || {}) },
-                    graph: { ...prev.graph, ...(cfg.graph || {}) },
-                    ai: {
-                        ...prev.ai,
-                        agents: cfg.ai?.agents || [],
-                        active_agent_id: cfg.ai?.active_agent_id || ''
-                    }
-                }));
-                // Sync the backend-persisted theme into the localStorage channel the
-                // theme engine reads, so the saved preference survives a reload.
-                if (cfg.settings?.theme && cfg.settings.theme !== localStorage.getItem('db-theme')) {
-                    localStorage.setItem('db-theme', cfg.settings.theme);
-                    window.dispatchEvent(new Event('db-theme-changed'));
+            const cfg = await fetchConfiguration();
+            setDraft(prev => ({
+                ...prev,
+                settings: { ...prev.settings, ...(cfg.settings || {}) },
+                paths: { ...prev.paths, ...(cfg.paths || {}) },
+                graph: { ...prev.graph, ...(cfg.graph || {}) },
+                ai: {
+                    ...prev.ai,
+                    agents: cfg.ai?.agents || [],
+                    active_agent_id: cfg.ai?.active_agent_id || ''
                 }
+            }));
+            // Sync the backend-persisted theme into the localStorage channel the
+            // theme engine reads, so the saved preference survives a reload.
+            if (cfg.settings?.theme && cfg.settings.theme !== localStorage.getItem('db-theme')) {
+                localStorage.setItem('db-theme', cfg.settings.theme);
+                window.dispatchEvent(new Event('db-theme-changed'));
             }
         } catch (err) {
             console.error("Error loading config:", err);
@@ -1858,7 +1856,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         
         try {
             await Promise.all([
-                axios.post('/api/config', {
+                updateConfiguration({
                     settings: draft.settings,
                     paths: draft.paths,
                     graph: draft.graph,
