@@ -1,7 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { VaultMarkdown } from './VaultMarkdown';
+
+
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({
+        t: (key: string, fallback?: string) => fallback ?? key,
+    }),
+}));
 
 describe('VaultMarkdown', () => {
     it('renders custom toggle fences as interactive disclosure sections', () => {

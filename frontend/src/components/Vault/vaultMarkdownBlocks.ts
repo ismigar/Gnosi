@@ -17,16 +17,16 @@ interface ToggleHeader {
   type: ToggleBlockType;
 }
 
-interface MarkdownBlock {
+export interface MarkdownBlock {
   content: string;
   type: 'markdown';
 }
 
-interface ToggleBlock extends ToggleHeader {
+export interface ToggleBlock extends ToggleHeader {
   children: VaultMarkdownBlock[];
 }
 
-type VaultMarkdownBlock = MarkdownBlock | ToggleBlock;
+export type VaultMarkdownBlock = MarkdownBlock | ToggleBlock;
 
 interface ParseRangeResult {
   blocks: VaultMarkdownBlock[];
