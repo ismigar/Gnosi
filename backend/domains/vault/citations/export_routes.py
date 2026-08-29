@@ -229,7 +229,7 @@ def _extract_csl_entries(html_out: str) -> list[str]:
 @router.get("/export/{page_id}", response_model=None)
 async def export_page(
     page_id: str,
-    format: str = _legacy.Query("docx", regex="^(docx|odt|html|pdf|tex|markdown)$"),
+    format: str = _legacy.Query("docx", pattern="^(docx|odt|html|pdf|tex|markdown)$"),
     csl: str = _legacy.Query("apa"),
     locale: str = _legacy.Query("en-US"),
 ) -> _LegacyAny:
