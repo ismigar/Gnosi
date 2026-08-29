@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
 import axios from '../shared/api/legacy-http';
+import { fetchBrainTableStatus } from '../shared/api/brain';
+import { fetchVaultRegistry } from '../shared/api/vaults';
 import {
     createVaultView,
     deleteVaultView,
@@ -665,8 +667,8 @@ export default function VaultDashboard() {
     // (pending permanent-note suggestions) in that table's header.
     const [brainTableId, setBrainTableId] = useState(null);
     useEffect(() => {
-        axios.get('/api/vault/brain-table')
-            .then(({ data }) => setBrainTableId(data?.table_id || null))
+        fetchBrainTableStatus()
+            .then(status => setBrainTableId(status?.table_id || null))
             .catch(() => { /* no designation → gating disabled */ });
     }, []);
 
@@ -831,8 +833,8 @@ export default function VaultDashboard() {
             setIsRegistryLoading(true);
         }
         try {
-            const res = await axios.get('/api/vault/registry');
-            setRegistry(res.data);
+            const nextRegistry = await fetchVaultRegistry();
+            setRegistry(nextRegistry);
             setIsRegistryLoading(false);
         } catch (err) {
             // Log every retry attempt; only toast on the final failure to avoid

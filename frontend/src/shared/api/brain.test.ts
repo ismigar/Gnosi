@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { dismissBrainSuggestion, fetchBrainSuggestions } from './brain';
+import {
+  dismissBrainSuggestion,
+  fetchBrainSuggestions,
+  fetchBrainTableStatus,
+} from './brain';
 
 
 afterEach(() => {
@@ -10,6 +14,24 @@ afterEach(() => {
 
 
 describe('Brain inbox API', () => {
+  it('loads the configured Brain table through the generated contract', async () => {
+    const status = {
+      table_id: 'brain-1',
+      configured: true,
+      name: 'Brain',
+      source_table_ids: ['references'],
+      index_field_ids: ['areas'],
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(status));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchBrainTableStatus()).resolves.toEqual(status);
+
+    const request = fetchMock.mock.calls[0]?.[0];
+    if (!(request instanceof Request)) throw new Error('Expected a Request');
+    expect(new URL(request.url).pathname).toBe('/api/vault/brain-table');
+  });
+
   it('lists and dismisses read-only connection proposals', async () => {
     const suggestion = {
       evidence: ['Excerpt'],

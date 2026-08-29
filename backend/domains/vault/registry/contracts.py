@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+from backend.domains.vault.tables.contracts import RegistryRecord
 
 
 class LocalPathOpenRequest(BaseModel):
@@ -30,4 +32,29 @@ class ResourceOpenResponse(BaseModel):
     target: str
 
 
-__all__ = ["LocalPathOpenRequest", "LocalPathOpenResponse", "ResourceOpenResponse"]
+class VaultRegistryResponse(BaseModel):
+    """Full public registry while preserving extension-owned top-level keys."""
+
+    model_config = ConfigDict(extra="allow")
+
+    databases: list[RegistryRecord]
+    tables: list[RegistryRecord]
+    views: list[RegistryRecord]
+
+
+class VaultRegistryUpdateRequest(VaultRegistryResponse):
+    """Administrator-only full-registry replacement payload."""
+
+
+class RegistryMutationResponse(BaseModel):
+    status: Literal["success"]
+
+
+__all__ = [
+    "LocalPathOpenRequest",
+    "LocalPathOpenResponse",
+    "RegistryMutationResponse",
+    "ResourceOpenResponse",
+    "VaultRegistryResponse",
+    "VaultRegistryUpdateRequest",
+]

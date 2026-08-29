@@ -10528,6 +10528,78 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** BrainTableClearResponse */
+        BrainTableClearResponse: {
+            /**
+             * Configured
+             * @constant
+             */
+            configured: false;
+            /** Table Id */
+            table_id: null;
+        };
+        /** BrainTableCreateRequest */
+        BrainTableCreateRequest: {
+            /** Language */
+            language?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Ui Locale */
+            ui_locale?: string | null;
+        };
+        /** BrainTableCreateResponse */
+        BrainTableCreateResponse: {
+            /**
+             * Configured
+             * @constant
+             */
+            configured: true;
+            /**
+             * Created
+             * @constant
+             */
+            created: true;
+            /** Name */
+            name: string | null;
+            /** Table Id */
+            table_id: string;
+        };
+        /** BrainTableSelectionRequest */
+        BrainTableSelectionRequest: {
+            /** Language */
+            language?: string | null;
+            /** Table Id */
+            table_id: string;
+            /** Ui Locale */
+            ui_locale?: string | null;
+        };
+        /** BrainTableSelectionResponse */
+        BrainTableSelectionResponse: {
+            /** Columns Added */
+            columns_added: number;
+            /**
+             * Configured
+             * @constant
+             */
+            configured: true;
+            /** Name */
+            name: string | null;
+            /** Table Id */
+            table_id: string;
+        };
+        /** BrainTableStatusResponse */
+        BrainTableStatusResponse: {
+            /** Configured */
+            configured: boolean;
+            /** Index Field Ids */
+            index_field_ids: string[];
+            /** Name */
+            name: string | null;
+            /** Source Table Ids */
+            source_table_ids: string[];
+            /** Table Id */
+            table_id: string | null;
+        };
         /**
          * BrowseRequest
          * @description Directory requested by the in-app filesystem picker.
@@ -16438,6 +16510,14 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** RegistryMutationResponse */
+        RegistryMutationResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
         /**
          * RegistryRecord
          * @description One JSON-compatible database or table registry record.
@@ -17888,6 +17968,34 @@ export interface components {
             model: string;
             /** Summary */
             summary: string;
+        };
+        /**
+         * VaultRegistryResponse
+         * @description Full public registry while preserving extension-owned top-level keys.
+         */
+        VaultRegistryResponse: {
+            /** Databases */
+            databases: components["schemas"]["RegistryRecord"][];
+            /** Tables */
+            tables: components["schemas"]["RegistryRecord"][];
+            /** Views */
+            views: components["schemas"]["RegistryRecord"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * VaultRegistryUpdateRequest
+         * @description Administrator-only full-registry replacement payload.
+         */
+        VaultRegistryUpdateRequest: {
+            /** Databases */
+            databases: components["schemas"]["RegistryRecord"][];
+            /** Tables */
+            tables: components["schemas"]["RegistryRecord"][];
+            /** Views */
+            views: components["schemas"]["RegistryRecord"][];
+        } & {
+            [key: string]: unknown;
         };
         /**
          * VaultSummaryRequest
@@ -29705,7 +29813,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainTableStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29735,9 +29843,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["BrainTableSelectionRequest"];
             };
         };
         responses: {
@@ -29747,7 +29853,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainTableSelectionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29783,7 +29889,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainTableClearResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29813,9 +29919,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["BrainTableCreateRequest"] | null;
             };
         };
         responses: {
@@ -29825,7 +29929,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainTableCreateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36497,7 +36601,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultRegistryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36527,9 +36631,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["VaultRegistryUpdateRequest"];
             };
         };
         responses: {
@@ -36539,7 +36641,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryMutationResponse"];
                 };
             };
             /** @description Validation Error */

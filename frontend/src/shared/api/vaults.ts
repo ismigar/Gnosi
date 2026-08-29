@@ -7,6 +7,7 @@ export type VaultCatalog = components['schemas']['VaultListResponse'];
 export type VaultMutation = components['schemas']['VaultMutationResponse'];
 export type VaultDeletion = components['schemas']['VaultDeleteResponse'];
 export type VaultSummary = components['schemas']['VaultSummaryResponse'];
+export type VaultRegistry = components['schemas']['VaultRegistryResponse'];
 export type VaultRegistryRecord = components['schemas']['RegistryRecord'];
 export type VaultGlobalIndex = components['schemas']['GlobalIndexResponse'];
 export type VaultAliasIndex = components['schemas']['AliasIndexResponse'];
@@ -142,6 +143,15 @@ export async function fetchVaultTables(
       params: { query: { database_id: databaseId } },
       signal,
     }),
+  );
+}
+
+
+export async function fetchVaultRegistry(
+  signal?: AbortSignal,
+): Promise<VaultRegistry> {
+  return unwrapApiResult<VaultRegistry, unknown>(
+    await apiClient.GET('/api/vault/registry', { signal }),
   );
 }
 

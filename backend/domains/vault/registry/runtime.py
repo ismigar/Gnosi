@@ -10,7 +10,10 @@ from fastapi import APIRouter
 from backend.domains.vault.registry.contracts import (
     LocalPathOpenRequest,
     LocalPathOpenResponse,
+    RegistryMutationResponse,
     ResourceOpenResponse,
+    VaultRegistryResponse,
+    VaultRegistryUpdateRequest,
 )
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
@@ -334,16 +337,18 @@ def _pick_existing_path(file_path: str | None, attachments: object | None) -> st
     return None
 
 
-@router.get("/registry", response_model=None)
+@router.get("/registry", response_model=VaultRegistryResponse)
 async def get_registry() -> _LegacyAny:
     """Returns the full registry of databases, tables, and views (sorted alphabetically)."""
     return await _legacy.registry_api.get_registry(_legacy.registry_api_dependencies)
 
 
 @router.post(
-    "/registry", dependencies=[_legacy.Depends(_legacy.require_role("admin"))], response_model=None
+    "/registry",
+    dependencies=[_legacy.Depends(_legacy.require_role("admin"))],
+    response_model=RegistryMutationResponse,
 )
-async def update_registry(data: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
+async def update_registry(data: VaultRegistryUpdateRequest = _legacy.Body(...)) -> _LegacyAny:
     """Updates the entire registry (use with care).
 
     Auth: admin-only. Overwrites the ENTIRE registry at once, so an
@@ -351,7 +356,8 @@ async def update_registry(data: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)
     databases/tables/views of a workspace in a single call.
 
     """
-    return await _legacy.registry_api.update_registry(data, _legacy.registry_api_dependencies)
+    payload = data.model_dump() if isinstance(data, VaultRegistryUpdateRequest) else data
+    return await _legacy.registry_api.update_registry(payload, _legacy.registry_api_dependencies)
 
 
 @router.post(

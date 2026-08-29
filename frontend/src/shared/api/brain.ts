@@ -8,6 +8,16 @@ export type BrainSuggestionList =
   components['schemas']['BrainSuggestionListResponse'];
 export type BrainSuggestionRejection =
   components['schemas']['BrainSuggestionRejectedResponse'];
+export type BrainTableStatus = components['schemas']['BrainTableStatusResponse'];
+
+
+export async function fetchBrainTableStatus(
+  signal?: AbortSignal,
+): Promise<BrainTableStatus> {
+  return unwrapApiResult<BrainTableStatus, unknown>(
+    await apiClient.GET('/api/vault/brain-table', { signal }),
+  );
+}
 
 
 export async function fetchBrainSuggestions(

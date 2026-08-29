@@ -2134,6 +2134,225 @@
         "title": "BrainSuggestionResponse",
         "type": "object"
       },
+      "BrainTableClearResponse": {
+        "properties": {
+          "configured": {
+            "const": false,
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "null"
+          }
+        },
+        "required": [
+          "table_id",
+          "configured"
+        ],
+        "title": "BrainTableClearResponse",
+        "type": "object"
+      },
+      "BrainTableCreateRequest": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
+          }
+        },
+        "title": "BrainTableCreateRequest",
+        "type": "object"
+      },
+      "BrainTableCreateResponse": {
+        "properties": {
+          "configured": {
+            "const": true,
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "created": {
+            "const": true,
+            "title": "Created",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table_id",
+          "configured",
+          "name",
+          "created"
+        ],
+        "title": "BrainTableCreateResponse",
+        "type": "object"
+      },
+      "BrainTableSelectionRequest": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
+          }
+        },
+        "required": [
+          "table_id"
+        ],
+        "title": "BrainTableSelectionRequest",
+        "type": "object"
+      },
+      "BrainTableSelectionResponse": {
+        "properties": {
+          "columns_added": {
+            "title": "Columns Added",
+            "type": "integer"
+          },
+          "configured": {
+            "const": true,
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table_id",
+          "configured",
+          "name",
+          "columns_added"
+        ],
+        "title": "BrainTableSelectionResponse",
+        "type": "object"
+      },
+      "BrainTableStatusResponse": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "index_field_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Index Field Ids",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "source_table_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Table Ids",
+            "type": "array"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          }
+        },
+        "required": [
+          "table_id",
+          "configured",
+          "name",
+          "source_table_ids",
+          "index_field_ids"
+        ],
+        "title": "BrainTableStatusResponse",
+        "type": "object"
+      },
       "BrowseRequest": {
         "description": "Directory requested by the in-app filesystem picker.",
         "properties": {
@@ -17352,6 +17571,20 @@
         "title": "RegisterPayload",
         "type": "object"
       },
+      "RegistryMutationResponse": {
+        "properties": {
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RegistryMutationResponse",
+        "type": "object"
+      },
       "RegistryRecord": {
         "additionalProperties": {
           "$ref": "#/components/schemas/JsonValue"
@@ -20768,6 +21001,74 @@
           "model"
         ],
         "title": "VaultPluginSummaryResponse",
+        "type": "object"
+      },
+      "VaultRegistryResponse": {
+        "additionalProperties": true,
+        "description": "Full public registry while preserving extension-owned top-level keys.",
+        "properties": {
+          "databases": {
+            "items": {
+              "$ref": "#/components/schemas/RegistryRecord"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/RegistryRecord"
+            },
+            "title": "Tables",
+            "type": "array"
+          },
+          "views": {
+            "items": {
+              "$ref": "#/components/schemas/RegistryRecord"
+            },
+            "title": "Views",
+            "type": "array"
+          }
+        },
+        "required": [
+          "databases",
+          "tables",
+          "views"
+        ],
+        "title": "VaultRegistryResponse",
+        "type": "object"
+      },
+      "VaultRegistryUpdateRequest": {
+        "additionalProperties": true,
+        "description": "Administrator-only full-registry replacement payload.",
+        "properties": {
+          "databases": {
+            "items": {
+              "$ref": "#/components/schemas/RegistryRecord"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/RegistryRecord"
+            },
+            "title": "Tables",
+            "type": "array"
+          },
+          "views": {
+            "items": {
+              "$ref": "#/components/schemas/RegistryRecord"
+            },
+            "title": "Views",
+            "type": "array"
+          }
+        },
+        "required": [
+          "databases",
+          "tables",
+          "views"
+        ],
+        "title": "VaultRegistryUpdateRequest",
         "type": "object"
       },
       "VaultSummaryRequest": {
@@ -56695,7 +56996,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainTableClearResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -56805,7 +57108,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainTableStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -56915,9 +57220,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/BrainTableSelectionRequest"
               }
             }
           },
@@ -56927,7 +57230,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainTableSelectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -57039,9 +57344,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/BrainTableCreateRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
               }
             }
           }
@@ -57050,7 +57361,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainTableCreateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -78152,7 +78465,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VaultRegistryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -78262,9 +78577,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Data",
-                "type": "object"
+                "$ref": "#/components/schemas/VaultRegistryUpdateRequest"
               }
             }
           },
@@ -78274,7 +78587,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryMutationResponse"
+                }
               }
             },
             "description": "Successful Response"

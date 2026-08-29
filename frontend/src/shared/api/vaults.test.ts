@@ -15,6 +15,7 @@ import {
   fetchVaultPagePreview,
   fetchVaultPages,
   fetchVaultPagesByTable,
+  fetchVaultRegistry,
   fetchVaultTablePagesSnapshot,
   fetchVaultTables,
   fetchVaultTrash,
@@ -50,6 +51,23 @@ function requestAt(
 
 
 describe('vault collections API', () => {
+  it('loads the full typed registry without dropping extension state', async () => {
+    const registry = {
+      databases: [{ id: 'db-1', name: 'Knowledge' }],
+      tables: [{ id: 'table-1', name: 'Notes' }],
+      views: [{ id: 'view-1', table_id: 'table-1' }],
+      plugin_state: { enabled: true },
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(registry));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchVaultRegistry()).resolves.toEqual(registry);
+
+    const request = requestAt(fetchMock.mock.calls, 0);
+    expect(request.method).toBe('GET');
+    expect(new URL(request.url).pathname).toBe('/api/vault/registry');
+  });
+
   it('lists, creates and deletes databases with exact paths and bodies', async () => {
     const databases = [{ id: 'brain', name: 'Brain' }];
     const created = { id: 'research', name: 'Research' };
