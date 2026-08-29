@@ -7,6 +7,12 @@ from typing import cast as _strict_cast
 
 from fastapi import APIRouter
 
+from backend.domains.vault.registry.contracts import (
+    LocalPathOpenRequest,
+    LocalPathOpenResponse,
+    ResourceOpenResponse,
+)
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 _registry_cache = _legacy.registry_state.cache
@@ -351,7 +357,7 @@ async def update_registry(data: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)
 @router.post(
     "/open-resource",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=ResourceOpenResponse,
 )
 async def open_resource(payload: _legacy.OpenResourceRequest) -> _LegacyAny:
     """Open a Zotero URI or local attachment path with the OS default handler.
@@ -553,16 +559,16 @@ def _resolve_stored_file_target(raw: str) -> _legacy.Path | None:
 @router.post(
     "/open-local-path",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LocalPathOpenResponse,
 )
-async def open_local_path(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
+async def open_local_path(payload: LocalPathOpenRequest) -> _LegacyAny:
     """
         Opens a local path (file or folder) with the system's default app.
     Accepts an absolute path or file:// URL. Useful for file:// links inserted
     in the BlockEditor that modern browsers block for security reasons.
 
     """
-    raw = (payload or {}).get("path") or (payload or {}).get("url") or ""
+    raw = payload.path or payload.url or ""
     raw = str(raw).strip()
     if not raw:
         raise _legacy.HTTPException(status_code=400, detail="Missing 'path'")
