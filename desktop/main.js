@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, protocol, net, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const { launchBackend, stopBackend } = require('./backend-process');
 const { prepareDesktopProfile } = require('./profile-startup');
 
 // Protect the 2.x profile before the updater or any Chromium session can open it.
@@ -25,6 +25,8 @@ const {
 } = require('./backend-launch');
 const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy');
 const { assertTrustedIpcSender, isTrustedRendererUrl } = require('./ipc-security');
+const { registerIpcHandlers } = require('./ipc-handlers');
+const { backendStartupMessage } = require('./startup-errors');
 
 const isDev = process.argv.includes('--dev');
 
@@ -49,6 +51,9 @@ protocol.registerSchemesAsPrivileged([
 
 const mainWindows = new Set();
 let backendProcess = null;
+let backendHandle = null;
+let backendReady = false;
+let quitting = false;
 let updateState = { status: 'idle', installMode: getUpdateInstallMode() };
 
 const BACKEND_PORT = 5002;
@@ -193,157 +198,33 @@ function registerAppProtocol() {
   });
 }
 
-function getPythonBundlePath() {
-  return getPackagedBackendExecutable(process.resourcesPath, process.platform);
-}
-
-function getPythonSystemCmd() {
-  if (process.platform === 'win32') {
-    return 'python';
-  } else if (process.platform === 'darwin') {
-    return 'python3';
-  } else {
-    return 'python3';
-  }
-}
-
-function waitForBackend(maxRetries = 60, interval = 2000) {
-  return new Promise((resolve, reject) => {
-    let retries = 0;
-    
-    const check = () => {
-      const http = require('http');
-      const req = http.get(`${getBackendURL()}/api/health`, (res) => {
-        if (res.statusCode === 200) {
-          log('Backend is ready!');
-          resolve();
-        } else {
-          retry();
-        }
-      });
-      
-      req.on('error', () => {
-        retry();
-      });
-    };
-    
-    const retry = () => {
-      retries++;
-      if (retries >= maxRetries) {
-        log(`Backend not ready after ${maxRetries} retries, continuing anyway...`);
-        resolve();
-      } else {
-        setTimeout(check, interval);
-      }
-    };
-    
-    check();
-  });
-}
-
 async function startBackend() {
   log('Starting backend...');
-  
-  const pythonBundle = getPythonBundlePath();
-  const bundleExists = fs.existsSync(pythonBundle);
-  
-  log(`Python bundle path: ${pythonBundle}`);
-  log(`Bundle exists: ${bundleExists}`);
-  
-  if (!isDev && bundleExists) {
-    log('Using Python bundle...');
-    
-    const pythonExe = pythonBundle;
-    
-    log(`Executable: ${pythonExe}`);
-    
-    return new Promise((resolve, reject) => {
-      backendProcess = spawn(pythonExe, [], {
-        cwd: path.join(__dirname, '..'),
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: getPackagedBackendEnvironment(
-          process.env,
-          app.getPath('userData'),
-          BACKEND_PORT,
-        ),
-        detached: false
-      });
-      
-      let stderr = '';
-      
-      backendProcess.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-      
-      backendProcess.stdout.on('data', (data) => {
-        log('Backend stdout:', data.toString().trim());
-      });
-      
-      backendProcess.on('error', (err) => {
-        log('Backend spawn error:', err.message);
-        reject(err);
-      });
-      
-      backendProcess.on('exit', (code) => {
-        if (code !== 0) {
-          log(`Backend exited with code ${code}`);
-          log('stderr:', stderr.substring(0, 500));
-        }
-      });
-      
-      waitForBackend()
-        .then(resolve)
-        .catch(reject);
-    });
-  } else {
-    log('Using system Python...');
-    
-    const pythonCmd = getPythonSystemCmd();
-    const args = [
-      '-m', 'uvicorn',
-      'backend.server:app',
-      '--host', '127.0.0.1',
-      '--port', BACKEND_PORT.toString()
-    ];
-    
-    log(`Command: ${pythonCmd} ${args.join(' ')}`);
-    
-    return new Promise((resolve, reject) => {
-      backendProcess = spawn(pythonCmd, args, {
-        cwd: path.join(__dirname, '..'),
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: {
-          ...process.env,
-          LOGGING_LEVEL: 'info'
-        }
-      });
-      
-      let stderr = '';
-      
-      backendProcess.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-      
-      backendProcess.stdout.on('data', (data) => {
-        log('Backend stdout:', data.toString().trim());
-      });
-      
-      backendProcess.on('error', (err) => {
-        log('Backend spawn error:', err.message);
-        reject(err);
-      });
-      
-      backendProcess.on('exit', (code) => {
-        if (code !== 0 && code !== null) {
-          log(`Backend exited with code ${code}`);
-        }
-      });
-      
-      waitForBackend()
-        .then(resolve)
-        .catch(reject);
-    });
+  const bundled = getPackagedBackendExecutable(process.resourcesPath, process.platform);
+  if (!isDev && (!fs.existsSync(bundled) || !fs.statSync(bundled).isFile())) {
+    throw Object.assign(new Error('The packaged backend is missing'), { code: 'GNOSI_BACKEND_MISSING' });
   }
+  const environment = isDev
+    ? { ...process.env, LOGGING_LEVEL: 'info' }
+    : getPackagedBackendEnvironment(process.env, app.getPath('userData'), BACKEND_PORT);
+  backendHandle = await launchBackend({
+    executable: isDev ? (process.platform === 'win32' ? 'python' : 'python3') : bundled,
+    args: isDev ? ['-m', 'uvicorn', 'backend.server:app', '--host', '127.0.0.1',
+      '--port', String(BACKEND_PORT)] : [],
+    cwd: path.join(__dirname, '..'),
+    environment,
+    healthUrl: `${getBackendURL()}/api/health`,
+    onSpawn: child => {
+      backendProcess = child;
+      child.once('exit', () => { backendReady = false; });
+    },
+    onOutput: output => log('Backend:', output.trim()),
+  });
+  backendReady = true;
+}
+
+async function getBackendStatus() {
+  return { running: backendReady && !quitting && backendHandle ? await backendHandle.isRunning() : false };
 }
 
 function getPreferredMainWindow() {
@@ -354,10 +235,20 @@ function getPreferredMainWindow() {
   return Array.from(mainWindows).reverse().find((window) => !window.isDestroyed()) || null;
 }
 
+function canUseMainWindows() {
+  return startupAllowed && backendReady && !quitting;
+}
+
+function openMainWindow() {
+  return canUseMainWindows() ? createWindow() : null;
+}
+
 function sendToMainWindow(channel, payload) {
-  const window = getPreferredMainWindow() || createWindow();
+  if (!canUseMainWindows()) return;
+  const window = getPreferredMainWindow() || openMainWindow();
+  if (!window) return;
   const send = () => {
-    if (!window.isDestroyed()) {
+    if (canUseMainWindows() && !window.isDestroyed()) {
       window.show();
       window.focus();
       window.webContents.send(channel, payload);
@@ -372,6 +263,7 @@ function sendToMainWindow(channel, payload) {
 }
 
 function checkForUpdatesFromMenu() {
+  if (!canUseMainWindows()) return;
   publishUpdateState({ status: 'checking', userInitiated: true, error: undefined });
   autoUpdater.checkForUpdates().catch((err) => {
     log('Manual update check failed:', err.message);
@@ -384,7 +276,7 @@ function installApplicationMenu(labels) {
     labels: normalizeMenuLabels(labels),
     isDev,
     onCheckForUpdates: checkForUpdatesFromMenu,
-    onNewWindow: createWindow,
+    onNewWindow: openMainWindow,
     onOpenDocumentation: () => {
       void shell.openExternal(DOCUMENTATION_URL).catch((err) => {
         log('Failed to open documentation:', err.message);
@@ -425,6 +317,7 @@ function createWindow() {
   }
   
   window.once('ready-to-show', () => {
+    if (!canUseMainWindows()) return;
     window.show();
     if (isDev) {
       window.webContents.openDevTools();
@@ -518,76 +411,16 @@ function setupIPC() {
     return handler(event, ...args);
   });
 
-  handle('get-app-version', () => {
-    return app.getVersion();
-  });
-
-  handle('set-application-menu', (event, { labels } = {}) => {
-    installApplicationMenu(labels);
-    return true;
-  });
-
-  handle('get-update-status', () => updateState);
-
-  // Exposes the backend URL to the renderer so the collaboration WebSocket
-  // (useCollaboration.js / collabProvider.js) can connect directly. HTTP calls
-  // do NOT need this: they stay relative and are proxied by the `app://`
-  // handler. Only WebSocket connections need the explicit host because the
-  // `app://` protocol handler does not intercept `ws://` upgrades.
-  handle('get-backend-url', () => getBackendURL());
-
-  handle('download-update', async () => {
-    if (updateState.status !== 'available') {
-      return updateState;
-    }
-
-    publishUpdateState({ userInitiated: true, error: undefined });
-
-    try {
-      if (updateState.installMode === 'manual') {
-        const installerUrl = buildMacInstallerUrl(updateState.version);
-        await shell.openExternal(installerUrl);
-        publishUpdateState({ status: 'manual-download' });
-      } else {
-        await autoUpdater.downloadUpdate();
-      }
-    } catch (err) {
-      log('Update download action failed:', err.message);
-      publishUpdateState({ status: 'error', error: err.message });
-    }
-
-    return updateState;
-  });
-  
-  handle('get-backend-status', async () => {
-    return new Promise((resolve) => {
-      const http = require('http');
-      const req = http.get(`${getBackendURL()}/api/system/stats`, (res) => {
-        resolve({ running: res.statusCode === 200 });
-      });
-      req.on('error', () => resolve({ running: false }));
-      req.setTimeout(2000, () => {
-        req.destroy();
-        resolve({ running: false });
-      });
-    });
-  });
-  
-  handle('install-update', () => {
-    if (updateState.status !== 'downloaded' || updateState.installMode !== 'automatic') {
-      return updateState;
-    }
-
-    publishUpdateState({ userInitiated: true, error: undefined });
-
-    try {
-      autoUpdater.quitAndInstall();
-    } catch (err) {
-      log('Update installation failed:', err.message);
-      publishUpdateState({ status: 'error', error: err.message });
-    }
-
-    return updateState;
+  registerIpcHandlers({
+    ipcMain, mainWindows, isDev,
+    getAppVersion: () => app.getVersion(),
+    getBackendURL, getBackendStatus,
+    getUpdateState: () => updateState,
+    publishUpdateState, installApplicationMenu, buildMacInstallerUrl,
+    openExternal: url => shell.openExternal(url),
+    downloadUpdate: () => autoUpdater.downloadUpdate(),
+    quitAndInstall: () => autoUpdater.quitAndInstall(),
+    log,
   });
 
   handle('open-form-filler', async (event, { url, profile }) => {
@@ -663,6 +496,7 @@ function setupIPC() {
 }
 
 if (startupAllowed) app.whenReady().then(async () => {
+  if (quitting) return;
   log('App ready');
 
   // Replace Electron's English development menu immediately. The renderer
@@ -676,33 +510,36 @@ if (startupAllowed) app.whenReady().then(async () => {
 
   try {
     await startBackend();
+    if (quitting) return;
     log('Backend started');
   } catch (err) {
+    if (quitting) return;
     log('Backend start failed:', err.message);
-    log('Continuing without backend...');
+    startupAllowed = false;
+    const message = backendStartupMessage(app.getLocale(), err);
+    dialog.showErrorBox(message.title, message.message);
+    app.quit();
+    return;
   }
 
-  createWindow();
+  openMainWindow();
   setupAutoUpdater();
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    if (backendProcess) {
-      backendProcess.kill();
-    }
     app.quit();
   }
 });
 
 app.on('activate', () => {
-  if (startupAllowed && mainWindows.size === 0) {
-    createWindow();
+  if (mainWindows.size === 0) {
+    openMainWindow();
   }
 });
 
 app.on('second-instance', () => {
-  if (!startupAllowed) return;
+  if (!canUseMainWindows()) return;
   const window = [...mainWindows].find(candidate => !candidate.isDestroyed());
   if (window) {
     if (window.isMinimized()) window.restore();
@@ -710,10 +547,15 @@ app.on('second-instance', () => {
   }
 });
 
-app.on('before-quit', () => {
-  if (backendProcess) {
-    backendProcess.kill();
-  }
+app.on('before-quit', (event) => {
+  if (quitting) return;
+  quitting = true;
+  backendReady = false;
+  if (!backendProcess) return;
+  event.preventDefault();
+  stopBackend(backendProcess).catch(error => {
+    log('Backend shutdown failed:', error.message);
+  }).finally(() => app.quit());
 });
 
 process.on('uncaughtException', (error) => {

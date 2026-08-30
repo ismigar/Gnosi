@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 source_paths:
+  - scripts/generate_openapi.py
+  - backend/app/desktop_instance.py
+  - desktop/backend-process.js
+  - desktop/ipc-handlers.js
+  - desktop/startup-errors.js
+  - desktop/build-python.sh
+  - desktop/scripts/backend_resources.py
   - .github/workflows/build-release.yml
   - desktop/scripts/release-artifacts.cjs
   - backend/config/validation_runtime.py
@@ -30,6 +37,13 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - backend/tests/test_openapi_generation.py
+  - backend/tests/test_desktop_instance.py
+  - desktop/backend-process.test.js
+  - desktop/main-startup.test.js
+  - desktop/ipc-handlers.test.js
+  - desktop/packaging-resources.test.js
+  - desktop/tests/test_backend_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
@@ -44,15 +58,57 @@ tests:
   - frontend/src/app/desktop/desktopMenu.test.ts
 ---
 
-# Clients d'escriptori i company
+# Aplicació d’escriptori i clients complementaris
 
-## Escriptori electrònica
+## Aplicació d’escriptori Electron
 
-Paquets electrònica Gnosi com a aplicació d' escriptori. El procés principal propietari del dorsal en engegar, s' està netejant, ferm, rutes de vida de finestra, paquetd- font, actualitzacions de comprovacions, descàrregues, instal· lació i accions d' escriptori privilegiades. El renderitzador rep un API estret en comptes de l' accés directe al node.js.
+Electron empaqueta Gnosi com a aplicació d’escriptori. El procés principal gestiona l’arrencada i l’aturada del backend, les finestres, els recursos del paquet, les actualitzacions i les accions privilegiades. La interfície accedeix a una API limitada de preload, no directament a Node.js.
 
-El dorsal per al Python embalat ha d' estar llest abans que el renderitzador tracta l' aplicació com usable. Els errors d' inici estan en superfície amb diagnòstics i la neteja impedeixen processos de dorsal orfes després de sortir de la finestra.
+Els menús i l’avís d’actualització de la interfície pertanyen a `app/desktop/`. Les notes de versió pertanyen a la funcionalitat del centre de control i consumeixen el mateix JSON de releases. Es conserven els mètodes de preload, els esdeveniments i les destinacions de descàrrega.
 
-## Actualitza la màquina d' estat
+## Arrencada del procés propi i recursos revisats
+
+El llançador espera el procés que ha creat, no qualsevol servei al port 5002.
+Cada arrencada substitueix `GNOSI_DESKTOP_INSTANCE` per un marcador nou.
+`/api/health` el retorna a `x-gnosi-desktop-instance` només si la resposta és
+correcta; el JSON i l’API pública no canvien. El marcador identifica el procés,
+no autentica l’usuari. Cal un procés viu i una resposta completa, limitada i
+coincident. Redireccions, respostes HTTP 200 alienes, JSON malformat, temps
+exhaurit o sortides prematures avorten l’arrencada i aturen el procés propi.
+Si falta l’executable empaquetat, no s’utilitza el Python del sistema.
+
+L’activació, Nova finestra, Configuració i les comprovacions d’actualització no
+poden esquivar aquesta espera ni l’aturada. Sortir durant l’arrencada no pot
+obrir una finestra tardana. El diàleg anterior a React ofereix instruccions en
+anglès, català, castellà i francès segons l’idioma del sistema; els detalls
+tècnics queden al registre de l’aplicació.
+
+Set gestors IPC tenen contractes de petició i resposta comprovats i validen
+l’emissor abans de llegir arguments o fer accions privilegiades. El gestor
+d’autocompletat continua a `main.js`: l’extracció no implica que tot el procés
+principal tingui cobertura de tipatge.
+
+`backend_resources.py` selecciona fitxers de runtime revisats i descobreix
+mòduls Python sense importar l’aplicació. Conserva migracions i plantilles
+d’Alembic, instruccions de l’agent, habilitats de traducció dinàmiques,
+complements d’exemple i estils de citació. No copia recursivament configuració
+local, vaults, bases de dades, secrets ni eines generades. Recursos absents o
+modificats, fitxers no revisats dins dels arbres seleccionats, rutes insegures
+o contingut prohibit fan fallar l’empaquetat.
+
+La política comprova l’anàlisi real de PyInstaller abans de recollir fitxers,
+el resultat abans i després de copiar-lo i els recursos `python/` finals
+d’Electron abans de signar. Les rutes amb espais es passen com arguments
+separats. Aquestes comprovacions no certifiquen instal·ladors: abans de la
+release cal provar l’arrencada congelada, la instal·lació i l’actualització
+des de 2.x a cada plataforma, a més de la matriu nativa i Docker.
+
+El generador d’OpenAPI també activa `GNOSI_VALIDATION_ROOT` abans d’importar
+la configuració de l’aplicació. Els mateixos selectors temporals validats
+impedeixen llegir fitxers d’entorn, configuració del repositori i credencials
+durant aquest pas del build; generar l’esquema no ha de consultar dades personals.
+
+## Màquina d’estats de les actualitzacions
 
 ```mermaid
 stateDiagram-v2
@@ -61,17 +117,19 @@ stateDiagram-v2
     Checking --> Available
     Checking --> Current
     Checking --> Error
-    Available --> Downloading: user confirms download
+    Available --> ManualDownload: macOS user opens DMG download
+    Available --> Downloading: automatic installation is supported
+    ManualDownload --> [*]: browser downloads official DMG
     Downloading --> Ready
     Downloading --> Error
     Ready --> Installing: user confirms restart
 ```
 
-Les comprovacions estan deshabilitades en el desenvolupament. Les baixades mai comencen simplement perquè existeix un alliberament. El procés principal desa l' estat d' actualització, de manera que un renderitzador que subscripti fins tard es pot recuperar a través del PCPC.
+Les comprovacions estan deshabilitades en desenvolupament. Les descàrregues només comencen per una acció explícita. A macOS, les signatures ad hoc actuals requereixen obrir el DMG oficial de l’arquitectura corresponent; no s’ofereix reinici i instal·lació automàtics fins que hi hagi una signatura Developer ID estable i notarització. Windows i Linux mantenen el flux automàtic amb confirmació. L’estat més recent es pot recuperar per IPC encara que la interfície s’hi subscrigui tard. Ni l’arrencada ni un canvi de versió obren les notes de versió automàticament; són accessibles des del centre de control.
 
 Els artefactes de llançament inclouen instal· lats i metadades actualitzadores per a MacOS, Windows i Linux. La versió de preparació manté la Frontal i els manifests electrònica alineats; les etiquetes només es creen des de revisades. `main` Comencions.
 
-El workflow privat de release empaqueta macOS Intel i Apple Silicon en jobs
+El workflow canònic de release empaqueta macOS Intel i Apple Silicon en jobs
 separats d'una matriu. Cada job s'executa sobre l'arquitectura corresponent de
 macOS 15 i construeix un únic backend natiu amb PyInstaller abans d'invocar
 electron-builder per al mateix objectiu. Això evita copiar un executable Python
@@ -124,10 +182,10 @@ La construcció neta instal·la els requisits canònics del runtime E2E, inclose
 les dependències de proveïdors i API, i inicia l'executable congelat com a prova
 de fum multiplataforma abans de continuar amb el paquet d'escriptori.
 
-El procés d'escriptori instal·lat defineix `GNOSI_LOCAL_DATA` dins la carpeta de
-dades d'aplicació de l'usuari que proporciona Electron, tret que hi hagi una
-sobreescriptura explícita. Això evita que els paquets natius utilitzin el camí
-exclusiu de Docker `/app/data`. La comprovació d'arrencada consulta el punt
+El procés d’escriptori usa `GNOSI_DATA_DIR` dins la carpeta de dades de l’usuari
+d’Electron per defecte; `GNOSI_LOCAL_DATA` és un àlies compatible durant 3.x.
+Les sobreescriptures explícites es conserven. Això evita el valor per defecte
+de Docker `/data`. La comprovació d’arrencada consulta el punt
 públic `/api/health` i no queda bloquejada per un punt protegit de l'aplicació.
 El backend congelat desactiva el vigilant de recàrrega de fitxers d'Uvicorn; el
 desenvolupament natiu des del codi font conserva la recàrrega.
@@ -135,9 +193,9 @@ desenvolupament natiu des del codi font conserva la recàrrega.
 ## Preparació de versions
 
 `frontend/src/features/control-center/releases/releases.json` és l'historial canònic de versions inclòs
-al paquet. El sincronitzador manté idèntiques les versions del manifest del
-frontend, del manifest d'Electron i de l'entrada del frontend al lockfile del
-monorepo. Una entrada estable preparada abans de publicar-se omet expressament
+al paquet. L’eina de versions manté alineats els manifests arrel, frontend i
+desktop, les metadades Python i els locks pnpm/uv.
+Una entrada estable preparada abans de publicar-se omet expressament
 `downloadUrl`; aquest camp només s'afegeix quan existeixen l'etiqueta immutable
 i els artefactes de cada plataforma.
 Com que la versió del manifest del frontend és un límit d'escriptori d'alt
@@ -150,14 +208,11 @@ d'empaquetatge multiplataforma.
 
 Abans de crear l'etiqueta, la PR de release ha de superar la validació del
 frontend, els tests backend, la QA nativa al navegador i la porta de
-documentació d'enginyeria. Després del merge, el workflow de sincronització ha
-de portar el commit revisat al repositori públic, on ha de superar el release
-readiness. El workflow del repositori privat és l'únic propietari de les
-etiquetes oficials, els artefactes multiplataforma, els catàlegs signats, les
-notes i l'esborrany del repositori públic. El workflow d'escriptori sincronitzat
-al repositori públic només s'executa manualment, de manera que pot validar
-l'empaquetatge sense competir amb un build oficial. Els artefactes de macOS,
-Windows i Linux es revisen abans de publicar-los.
+documentació d’enginyeria. Després de la integració, el workflow públic canònic
+construeix el commit revisat. El workflow de release és l’únic responsable de
+les etiquetes oficials, els artefactes multiplataforma, els catàlegs signats,
+les notes i els esborranys. No hi ha cap sincronitzador de repositoris en aquest
+flux. Els artefactes de macOS, Windows i Linux es revisen abans de publicar-los.
 
 La preparació de la v2.0.0 segueix aquest límit: les notes localitzades
 incloses i el changelog generat es publiquen amb els manifests sincronitzats,

@@ -24,7 +24,8 @@ for (const isDev of [false, true]) {
       await runtime.handlers.get(channel)(senderEvent(window), ...argumentsFor(channel));
     }
     assert.ok(runtime.calls.includes('menu-installed'));
-    assert.ok(runtime.calls.some(call => call.healthUrl === 'http://localhost:5002/api/system/stats'));
+    assert.equal((await runtime.handlers.get('get-backend-status')(senderEvent(window))).running, false);
+    assert.equal(runtime.calls.some(call => call.healthUrl), false);
     assert.equal(runtime.windows.length, 2);
     const filler = runtime.windows[1];
     assert.equal(filler.options.webPreferences.nodeIntegration, false);

@@ -5,7 +5,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 /** Load the actual main module with all operational effects replaced by test doubles. */
-function loadMainRuntime({ isDev = false, prepareProfile = () => true } = {}) {
+function loadMainRuntime({
+  isDev = false, prepareProfile = () => true, initialize = true, bundleExists = false,
+  launchBackend = () => assert.fail('Backend must not start in this fixture'),
+  stopBackend = async () => {},
+  locale = 'en',
+} = {}) {
   const desktopRoot = path.dirname(__dirname);
   const calls = [];
   const handlers = new Map();
@@ -14,6 +19,7 @@ function loadMainRuntime({ isDev = false, prepareProfile = () => true } = {}) {
   const readyCallbacks = [];
   const exits = [];
   const lifecycle = new Map();
+  let menu = [];
   class BrowserWindow extends EventEmitter {
     constructor(options) {
       super();
@@ -37,7 +43,7 @@ function loadMainRuntime({ isDev = false, prepareProfile = () => true } = {}) {
       calls.push({ loadURL: url });
       return Promise.resolve();
     }
-    show() {}
+    show() { calls.push('window-shown'); }
     focus() {}
     static getFocusedWindow() { return null; }
   }
@@ -46,6 +52,9 @@ function loadMainRuntime({ isDev = false, prepareProfile = () => true } = {}) {
       whenReady: () => ({ then: callback => { readyCallbacks.push(callback); } }),
       on: (event, callback) => lifecycle.set(event, callback),
       exit: code => exits.push(code),
+      quit: () => calls.push('quit'),
+      getPath: () => '/fixture/user-data',
+      getLocale: () => locale,
       getVersion: () => { calls.push('version'); return '3.0.0-rc.1'; },
     },
     BrowserWindow,
@@ -58,7 +67,7 @@ function loadMainRuntime({ isDev = false, prepareProfile = () => true } = {}) {
     },
     Menu: {
       buildFromTemplate: (template) => template,
-      setApplicationMenu: () => calls.push('menu-installed'),
+      setApplicationMenu: template => { menu = template; calls.push('menu-installed'); },
     },
     protocol: {
       registerSchemesAsPrivileged: () => {},
@@ -74,6 +83,7 @@ function loadMainRuntime({ isDev = false, prepareProfile = () => true } = {}) {
     downloadUpdate: async () => { calls.push('download'); },
     quitAndInstall: () => calls.push('install'),
     checkForUpdates: async () => { calls.push('check-updates'); },
+    on: () => {},
   };
   const http = {
     get: (url, callback) => {
@@ -83,28 +93,43 @@ function loadMainRuntime({ isDev = false, prepareProfile = () => true } = {}) {
     },
   };
   const source = fs.readFileSync(path.join(desktopRoot, 'main.js'), 'utf8');
-  const api = vm.runInNewContext(`${source}\n;({setupIPC, createWindow, registerAppProtocol, mainWindows, setUpdateState(value) { updateState = value; }})`, {
+  const api = vm.runInNewContext(`${source}\n;({setupIPC, createWindow, registerAppProtocol, mainWindows, startBackend, getBackendStatus, setUpdateState(value) { updateState = value; }})`, {
     require: (name) => {
       if (name === 'electron') return electron;
       if (name === './profile-startup') return { prepareDesktopProfile: prepareProfile };
+      if (name === './backend-process') return { launchBackend, stopBackend };
       if (name === 'electron-updater') return { autoUpdater: updater };
+      if (name === 'electron-log') return { transports: { file: { level: 'info' } } };
       if (name === 'http') return http;
       if (name === 'child_process') return { spawn: () => assert.fail('Backend must not start in this fixture') };
       if (name === 'path') return path;
-      if (name === 'fs') return fs;
-      if (['./application-menu', './backend-launch', './update-policy', './ipc-security'].includes(name)) {
+      if (name === 'fs') return {
+        ...fs,
+        existsSync: file => file.startsWith('/fixture/resources/python/') ? bundleExists : fs.existsSync(file),
+        statSync: file => file.startsWith('/fixture/resources/python/')
+          ? { isFile: () => bundleExists } : fs.statSync(file),
+      };
+      if (['./application-menu', './backend-launch', './update-policy', './ipc-security', './ipc-handlers', './startup-errors'].includes(name)) {
         return require(path.join(desktopRoot, name));
       }
       throw new Error(`Unexpected main-process dependency: ${name}`);
     },
-    process: { argv: isDev ? ['--dev'] : [], platform: 'darwin', resourcesPath: '/fixture/resources', on() {} },
+    process: { argv: isDev ? ['--dev'] : [], platform: 'darwin', resourcesPath: '/fixture/resources', env: {}, on() {} },
     __dirname: desktopRoot,
     console: { log: (...args) => calls.push({ log: args }) },
     URL, Headers, Response, setTimeout,
   }, { filename: 'main.js' });
-  api.setupIPC();
-  api.registerAppProtocol();
-  return { ...api, calls, handlers, protocols, windows, BrowserWindow, readyCallbacks, exits, lifecycle };
+  if (initialize) {
+    api.setupIPC();
+    api.registerAppProtocol();
+  }
+  return { ...api, calls, handlers, protocols, windows, BrowserWindow, readyCallbacks, exits, lifecycle,
+    clickMenu(label) {
+      const item = menu.flatMap(group => group.submenu || []).find(item => item.label === label);
+      assert.equal(typeof item?.click, 'function', `Missing menu action: ${label}`);
+      return item.click();
+    },
+  };
 }
 
 function senderEvent(window, frame = window.webContents.mainFrame) {

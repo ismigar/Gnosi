@@ -23,6 +23,9 @@ files:
   - main.js
   - preload.js
   - ipc-security.js
+  - ipc-handlers.js
+  - backend-process.js
+  - startup-errors.js
   - profile-startup.js
   - cookie-schema-guard.js
   - cookie-schema.js

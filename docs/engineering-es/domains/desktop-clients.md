@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 source_paths:
+  - scripts/generate_openapi.py
+  - backend/app/desktop_instance.py
+  - desktop/backend-process.js
+  - desktop/ipc-handlers.js
+  - desktop/startup-errors.js
+  - desktop/build-python.sh
+  - desktop/scripts/backend_resources.py
   - .github/workflows/build-release.yml
   - desktop/scripts/release-artifacts.cjs
   - backend/config/validation_runtime.py
@@ -30,6 +37,13 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - backend/tests/test_openapi_generation.py
+  - backend/tests/test_desktop_instance.py
+  - desktop/backend-process.test.js
+  - desktop/main-startup.test.js
+  - desktop/ipc-handlers.test.js
+  - desktop/packaging-resources.test.js
+  - desktop/tests/test_backend_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
@@ -44,15 +58,57 @@ tests:
   - frontend/src/app/desktop/desktopMenu.test.ts
 ---
 
-# Cliente de escritorio y acompañantes
+# Aplicación de escritorio y clientes complementarios
 
-## Escritorio electrónico
+## Aplicación de escritorio Electron
 
-El proceso principal es propietario de backend startup, proceso de limpieza, ciclo de vida de las ventanas, rutas de recursos empaquetadas, cheques de actualización, descargas, instalación y acciones privilegiadas de escritorio. El renderizador recibe una API de precarga estrecha en lugar de acceso directo a Node.js.
+Electron empaqueta Gnosi como aplicación de escritorio. El proceso principal gestiona el arranque y la parada del backend, las ventanas, los recursos del paquete, las actualizaciones y las acciones privilegiadas. La interfaz utiliza una API limitada de preload, no acceso directo a Node.js.
 
-El motor Python empaquetado debe estar listo antes de que el renderizador trate la aplicación como utilizable. Los fallos de inicio se presentan con diagnósticos y la limpieza evita procesos de backend huérfanos después de que la ventana sale.
+Los menús y el aviso de actualización de la interfaz pertenecen a `app/desktop/`. Las notas de versión pertenecen a la funcionalidad del centro de control y consumen el mismo JSON de releases. Se conservan los métodos de preload, los eventos y los destinos de descarga.
 
-## Actualizar máquina de estado
+## Arranque del proceso propio y recursos revisados
+
+El lanzador espera al proceso que ha creado, no a cualquier servicio del puerto
+5002. Cada arranque sustituye `GNOSI_DESKTOP_INSTANCE` por un marcador nuevo.
+`/api/health` lo devuelve en `x-gnosi-desktop-instance` solo si la respuesta es
+correcta; el JSON y la API pública no cambian. El marcador identifica el proceso,
+no autentica al usuario. Se exige un proceso vivo y una respuesta completa,
+limitada y coincidente. Las redirecciones, respuestas HTTP 200 ajenas, JSON
+incorrecto, tiempos agotados o salidas prematuras abortan el arranque y detienen
+el proceso propio. Si falta el ejecutable empaquetado, no se usa Python del sistema.
+
+La activación, Nueva ventana, Configuración y las comprobaciones de actualización
+no pueden eludir esta espera ni la parada. Salir durante el arranque no puede
+abrir una ventana tardía. El diálogo previo a React ofrece instrucciones en
+inglés, catalán, castellano y francés según el idioma del sistema; los detalles
+técnicos quedan en el registro de la aplicación.
+
+Siete gestores IPC tienen contratos de petición y respuesta comprobados y
+validan al emisor antes de leer argumentos o ejecutar acciones privilegiadas.
+El gestor de autocompletado permanece en `main.js`: la extracción no implica
+cobertura de tipado de todo el proceso principal.
+
+`backend_resources.py` selecciona archivos de runtime revisados y descubre
+módulos Python sin importar la aplicación. Conserva migraciones y plantillas
+de Alembic, instrucciones del agente, habilidades de traducción dinámicas,
+complementos de ejemplo y estilos de citas. No copia recursivamente configuración
+local, vaults, bases de datos, secretos ni herramientas generadas. Los recursos
+ausentes o modificados, archivos no revisados en los árboles seleccionados,
+rutas inseguras o contenido prohibido hacen fallar el empaquetado.
+
+La política comprueba el análisis real de PyInstaller antes de recopilar archivos,
+el resultado antes y después de copiarlo y los recursos `python/` finales de
+Electron antes de firmar. Las rutas con espacios se pasan como argumentos
+separados. Estas comprobaciones no certifican instaladores: antes de publicar
+hay que probar el arranque congelado, la instalación y la actualización desde
+2.x en cada plataforma, además de la matriz nativa y Docker.
+
+El generador de OpenAPI también activa `GNOSI_VALIDATION_ROOT` antes de importar
+la configuración de la aplicación. Los mismos selectores temporales validados
+impiden leer archivos de entorno, configuración del repositorio y credenciales
+durante este paso del build; generar el esquema no debe consultar datos personales.
+
+## Máquina de estados de las actualizaciones
 
 ```mermaid
 stateDiagram-v2
@@ -61,17 +117,19 @@ stateDiagram-v2
     Checking --> Available
     Checking --> Current
     Checking --> Error
-    Available --> Downloading: user confirms download
+    Available --> ManualDownload: macOS user opens DMG download
+    Available --> Downloading: automatic installation is supported
+    ManualDownload --> [*]: browser downloads official DMG
     Downloading --> Ready
     Downloading --> Error
     Ready --> Installing: user confirms restart
 ```
 
-Las comprobaciones están deshabilitadas en el desarrollo. Las descargas nunca comienzan simplemente porque existe una versión. El proceso principal almacena el estado del actualizador más reciente para que un renderizador que se suscribe tarde pueda recuperarlo a través de IPC.
+Las comprobaciones están deshabilitadas en desarrollo. Las descargas solo comienzan por una acción explícita. En macOS, las firmas ad hoc actuales requieren abrir el DMG oficial de la arquitectura correspondiente; no se ofrece reinicio e instalación automáticos hasta disponer de firma Developer ID estable y notarización. Windows y Linux conservan el flujo automático con confirmación. El estado más reciente puede recuperarse por IPC aunque la interfaz se suscriba tarde. Ni el arranque ni un cambio de versión abren las notas automáticamente; están disponibles en el centro de control.
 
 Los artefactos de lanzamiento incluyen instaladores y metadatos de actualización para macOS, Windows y Linux. La preparación de la versión mantiene alineados los frontend y los manifiestos de Electron; las etiquetas se crean sólo a partir de la revisión `main` se compromete.
 
-El workflow privado de release empaqueta macOS Intel y Apple Silicon en jobs
+El workflow canónico de release empaqueta macOS Intel y Apple Silicon en jobs
 separados de una matriz. Cada job se ejecuta sobre la arquitectura
 correspondiente de macOS 15 y construye un único backend nativo con PyInstaller
 antes de invocar electron-builder para el mismo objetivo. Así se evita copiar
@@ -127,10 +185,10 @@ incluidas las dependencias de proveedores y API, e inicia el ejecutable
 congelado como prueba de humo multiplataforma antes de continuar con el paquete
 de escritorio.
 
-El proceso de escritorio instalado define `GNOSI_LOCAL_DATA` dentro de la
-carpeta de datos de aplicación del usuario que proporciona Electron, salvo que
-exista una sobrescritura explícita. Así los paquetes nativos no usan la ruta
-exclusiva de Docker `/app/data`. La comprobación de arranque consulta el endpoint
+El proceso de escritorio usa `GNOSI_DATA_DIR` dentro de la carpeta de datos del
+usuario de Electron por defecto; `GNOSI_LOCAL_DATA` es un alias compatible en 3.x.
+Se conservan las sobrescrituras explícitas. Así se evita el valor por defecto
+de Docker `/data`. La comprobación de arranque consulta el endpoint
 público `/api/health` y no queda bloqueada por un endpoint protegido. El backend
 congelado desactiva el observador de recarga de archivos de Uvicorn; el
 desarrollo nativo desde código fuente conserva la recarga.
@@ -138,9 +196,9 @@ desarrollo nativo desde código fuente conserva la recarga.
 ## Preparación de versiones
 
 `frontend/src/features/control-center/releases/releases.json` es el historial canónico de versiones
-incluido en el paquete. El sincronizador mantiene idénticas las versiones del
-manifiesto del frontend, del manifiesto de Electron y de la entrada del
-frontend en el lockfile del monorepo. Una entrada estable preparada antes de
+incluido en el paquete. La herramienta de versiones mantiene alineados los
+manifiestos raíz, frontend y desktop, los metadatos Python y los locks pnpm/uv.
+Una entrada estable preparada antes de
 publicarse omite expresamente `downloadUrl`; este campo solo se añade cuando
 existen la etiqueta inmutable y los artefactos de cada plataforma.
 Como la versión del manifiesto del frontend es un límite de escritorio de alto
@@ -153,14 +211,11 @@ empaquetado multiplataforma.
 
 Antes de crear la etiqueta, la PR de release debe superar la validación del
 frontend, los tests backend, la QA nativa en el navegador y la puerta de
-documentación de ingeniería. Después del merge, el workflow de sincronización
-debe llevar el commit revisado al repositorio público, donde debe superar el
-release readiness. El workflow del repositorio privado es el único propietario
+documentación de ingeniería. Tras la integración, el workflow público canónico
+construye el commit revisado. El workflow de release es el único responsable
 de las etiquetas oficiales, los artefactos multiplataforma, los catálogos
-firmados, las notas y el borrador del repositorio público. El workflow de
-escritorio sincronizado al repositorio público solo se ejecuta manualmente, por
-lo que puede validar el empaquetado sin competir con un build oficial. Los
-artefactos de macOS, Windows y Linux se revisan antes de publicarlos.
+firmados, las notas y los borradores. No interviene un sincronizador de
+repositorios. Los artefactos de macOS, Windows y Linux se revisan antes de publicarlos.
 
 La preparación de la v2.0.0 sigue este límite: las notas localizadas incluidas
 y el changelog generado se publican con los manifiestos sincronizados, mientras

@@ -23,25 +23,64 @@ export interface BackendStatus {
 }
 
 export type DesktopSubscription = () => void;
-export type DesktopRequestChannel =
-  | 'get-app-version'
-  | 'get-backend-status'
-  | 'get-backend-url'
-  | 'get-update-status'
-  | 'download-update'
-  | 'install-update'
-  | 'set-application-menu'
-  | 'open-form-filler';
+export type ApplicationMenuLabels = Readonly<Record<string, string>>;
+
+/** Exact wire arguments, including the existing preload envelopes. */
+export interface DesktopRequestMap {
+  'get-app-version': { args: []; result: string };
+  'get-backend-status': { args: []; result: BackendStatus };
+  'get-backend-url': { args: []; result: string };
+  'get-update-status': { args: []; result: DesktopUpdateState };
+  'download-update': { args: []; result: DesktopUpdateState };
+  'install-update': { args: []; result: DesktopUpdateState };
+  'set-application-menu': {
+    args: [payload?: { readonly labels?: ApplicationMenuLabels }];
+    result: boolean;
+  };
+  'open-form-filler': {
+    args: [payload: { readonly url: string; readonly profile: unknown }];
+    result: void;
+  };
+}
+
+export type DesktopRequestChannel = keyof DesktopRequestMap;
+export type DesktopRequestArgs<K extends DesktopRequestChannel> = DesktopRequestMap[K]['args'];
+export type DesktopRequestResult<K extends DesktopRequestChannel> = DesktopRequestMap[K]['result'];
+export type DesktopRequestHandler<K extends DesktopRequestChannel> =
+  (...args: DesktopRequestArgs<K>) => DesktopRequestResult<K> | Promise<DesktopRequestResult<K>>;
+export type DesktopInvoke<K extends DesktopRequestChannel> =
+  (...args: DesktopRequestArgs<K>) => Promise<DesktopRequestResult<K>>;
+export type DesktopRequestHandlers = {
+  readonly [K in DesktopRequestChannel]: DesktopRequestHandler<K>;
+};
+
+/** Main owns mutable state, menu construction, backend IO and native actions. */
+export interface DesktopIpcDependencies {
+  readonly ipcMain: Pick<Electron.IpcMain, 'handle'>;
+  readonly mainWindows: ReadonlySet<Pick<Electron.BrowserWindow, 'isDestroyed' | 'webContents'>>;
+  readonly isDev: boolean;
+  readonly getAppVersion: () => string;
+  readonly getBackendURL: () => string;
+  readonly getBackendStatus: () => Promise<BackendStatus>;
+  readonly getUpdateState: () => DesktopUpdateState;
+  readonly publishUpdateState: (patch: Partial<DesktopUpdateState>) => void;
+  readonly installApplicationMenu: (labels?: ApplicationMenuLabels) => void;
+  readonly buildMacInstallerUrl: (version: string | undefined) => string;
+  readonly openExternal: (url: string) => Promise<void>;
+  readonly downloadUpdate: () => Promise<unknown>;
+  readonly quitAndInstall: () => void;
+  readonly log: (...messages: string[]) => void;
+}
 
 export interface GnosiElectronApi {
-  readonly getAppVersion: () => Promise<string>;
-  readonly getBackendStatus: () => Promise<BackendStatus>;
-  readonly getBackendURL: () => Promise<string>;
-  readonly getUpdateStatus: () => Promise<DesktopUpdateState>;
-  readonly downloadUpdate: () => Promise<DesktopUpdateState>;
-  readonly installUpdate: () => Promise<DesktopUpdateState>;
-  readonly setApplicationMenu: (labels: Readonly<Record<string, string>>) => Promise<boolean>;
-  readonly openFormFiller: (url: string, profile: unknown) => Promise<void>;
+  readonly getAppVersion: DesktopInvoke<'get-app-version'>;
+  readonly getBackendStatus: DesktopInvoke<'get-backend-status'>;
+  readonly getBackendURL: DesktopInvoke<'get-backend-url'>;
+  readonly getUpdateStatus: DesktopInvoke<'get-update-status'>;
+  readonly downloadUpdate: DesktopInvoke<'download-update'>;
+  readonly installUpdate: DesktopInvoke<'install-update'>;
+  readonly setApplicationMenu: (labels: ApplicationMenuLabels) => Promise<DesktopRequestResult<'set-application-menu'>>;
+  readonly openFormFiller: (url: string, profile: unknown) => Promise<DesktopRequestResult<'open-form-filler'>>;
   readonly onUpdateStatus: (callback: (state: DesktopUpdateState) => void) => DesktopSubscription;
   readonly removeUpdateListener: () => void;
   readonly onOpenSettings: (callback: () => void) => DesktopSubscription;

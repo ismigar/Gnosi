@@ -94,6 +94,9 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\main.js',
     '\\preload.js',
     '\\ipc-security.js',
+    '\\ipc-handlers.js',
+    '\\backend-process.js',
+    '\\startup-errors.js',
     '\\profile-startup.js',
     '\\cookie-schema-guard.js',
     '\\cookie-schema.js',
@@ -129,6 +132,7 @@ test('the resources directory follows each platform layout', () => {
 
 test('the frozen backend keeps required standard-library and media modules', () => {
   const buildScript = fs.readFileSync(path.join(__dirname, 'build-python.sh'), 'utf8');
+  const resourcePolicy = fs.readFileSync(path.join(__dirname, 'scripts/backend_resources.py'), 'utf8');
   const pyproject = fs.readFileSync(path.join(gnosiRoot, 'pyproject.toml'), 'utf8');
 
   assert.match(buildScript, /uv sync/);
@@ -140,11 +144,11 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.doesNotMatch(buildScript, /pip install/);
   assert.doesNotMatch(buildScript, /requirements[^\s]*\.txt/);
   assert.doesNotMatch(buildScript, /VENV_DIR="\$ELECTRON_DIR\/\.venv-python"/);
-  assert.match(buildScript, /repository_dir = os\.path\.dirname\(backend_dir\)/);
-  assert.match(buildScript, /pathex=\['\{repository_dir\}'\]/);
-  assert.doesNotMatch(buildScript, /pathex=\['\{backend_dir\}'\]/);
-  assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]unittest['"]/s);
-  assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]PIL['"]/s);
+  assert.match(buildScript, /"\$PYTHON_VENV" "\$RESOURCE_POLICY" spec/);
+  assert.match(buildScript, /--repository "\$GNOSI_DIR" --output/);
+  assert.match(resourcePolicy, /pathex=\[\{str\(repository\)!r\}\]/);
+  assert.doesNotMatch(resourcePolicy, /excludes=\[[^\]]*['"]unittest['"]/s);
+  assert.doesNotMatch(resourcePolicy, /excludes=\[[^\]]*['"]PIL['"]/s);
   assert.match(pyproject, /"defusedxml>=0\.7\.1"/);
 });
 

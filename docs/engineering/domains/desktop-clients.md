@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 source_paths:
+  - scripts/generate_openapi.py
+  - backend/app/desktop_instance.py
+  - desktop/backend-process.js
+  - desktop/ipc-handlers.js
+  - desktop/startup-errors.js
+  - desktop/build-python.sh
+  - desktop/scripts/backend_resources.py
   - .github/workflows/build-release.yml
   - desktop/scripts/release-artifacts.cjs
   - backend/config/validation_runtime.py
@@ -32,6 +39,13 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - backend/tests/test_openapi_generation.py
+  - backend/tests/test_desktop_instance.py
+  - desktop/backend-process.test.js
+  - desktop/main-startup.test.js
+  - desktop/ipc-handlers.test.js
+  - desktop/packaging-resources.test.js
+  - desktop/tests/test_backend_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
@@ -63,6 +77,49 @@ actions, version identifiers, and download destinations.
 The bundled Python backend must be ready before the renderer treats the app as
 usable. Startup failures are surfaced with diagnostics and cleanup prevents
 orphaned backend processes after the window exits.
+
+## Owned startup and reviewed backend resources
+
+The production launcher waits for the child it actually spawned, not just any
+listener on port 5002. Each launch replaces `GNOSI_DESKTOP_INSTANCE` with a fresh
+process marker. `/api/health` returns it in `x-gnosi-desktop-instance` only on a
+successful response; the existing JSON and public API remain unchanged. This is
+process correlation, not authentication. Readiness requires a live child and a
+complete, bounded matching response. Redirects, unrelated HTTP 200 responses,
+malformed JSON, timeouts and early exits fail startup and trigger owned-child
+cleanup. Packaged mode never falls back to system Python if its executable is
+missing.
+
+Activation, New Window, Settings and update checks cannot bypass readiness or
+shutdown. Quitting during startup cannot open a late window. The pre-render
+failure dialog has English, Catalan, Spanish and French recovery messages using
+the OS locale; React and its translation provider are not available at this
+point. Diagnostic details remain in the application log.
+
+Seven IPC handlers use checked request/response contracts and validate the
+trusted sender before decoding arguments or invoking privileged dependencies.
+The form-filler handler remains in `main.js`; the extracted handler set does
+not imply complete main-process type coverage.
+
+`backend_resources.py` selects individual reviewed runtime files and discovers
+Python modules without importing the application. It preserves Alembic scripts
+and templates, agent instructions, dynamic translation skills, example plugins
+and citation styles. Source configuration, vaults, local databases, secrets and
+generated tools are not recursively copied into the bundle. Missing or changed
+resources, unreviewed files in selected resource trees, unsafe paths and
+prohibited content stop packaging rather than being silently filtered.
+
+The policy checks PyInstaller's actual analysis before collection, the frozen
+output before and after copying, and the final Electron `python/` resources
+before signing. Paths containing spaces remain separate process arguments.
+These source and fixture checks do not certify an installer: real frozen
+startup, installation and 2.x upgrade tests on every supported target, plus
+the native and Docker acceptance matrix, remain required for release.
+
+OpenAPI generation also activates `GNOSI_VALIDATION_ROOT` before importing
+application configuration. The same validated temporary selectors disable
+environment-file, repository-configuration and credential-store reads during
+this build step; deterministic schema generation must not consult user data.
 
 ## Update state machine
 
@@ -101,7 +158,7 @@ Release artifacts include installers and updater metadata for macOS, Windows,
 and Linux. Version preparation keeps frontend and Electron manifests aligned;
 tags are created only from reviewed `main` commits.
 
-The private release workflow packages macOS Intel and Apple Silicon in separate
+The canonical release workflow packages macOS Intel and Apple Silicon in separate
 matrix jobs. Each job runs on the matching macOS 15 architecture and builds one
 native PyInstaller backend before invoking electron-builder for that same
 target. This prevents a host-native Python executable from being copied into
@@ -156,8 +213,8 @@ producing an application that fails before its first window opens.
 The packaged backend path resolves to the PyInstaller executable itself on
 macOS and Linux, and to its `.exe` counterpart on Windows. The main process
 spawns that resolved file directly; it never treats the executable as another
-directory level. The clean build installs the canonical E2E runtime
-requirements, including provider and API dependencies, then starts the frozen
+directory level. The clean build installs runtime dependencies and the desktop
+dependency group from the frozen `uv.lock`, then starts the frozen
 executable as a cross-platform smoke test before the desktop package can
 proceed.
 

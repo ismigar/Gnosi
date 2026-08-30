@@ -9,10 +9,8 @@ ELECTRON_DIR="$SCRIPT_DIR"
 PYTHON_BUILD_DIR="$ELECTRON_DIR/python-build"
 DIST_DIR="$ELECTRON_DIR/dist-python"
 GNOSI_DIR="$(dirname "$ELECTRON_DIR")"
-# Exported so the embedded Python heredoc below sees it via os.environ.
-# Without `export`, Python falls back to a hardcoded user-specific path
-# that doesn't exist in CI runners.
-export BACKEND_DIR="$GNOSI_DIR/backend"
+BACKEND_DIR="$GNOSI_DIR/backend"
+RESOURCE_POLICY="$ELECTRON_DIR/scripts/backend_resources.py"
 
 echo "   Script dir: $SCRIPT_DIR"
 echo "   Electron dir: $ELECTRON_DIR"
@@ -48,6 +46,9 @@ if [[ "$PYTHON_VERSION" != Python\ 3.11.* ]]; then
     echo "Error: Gnosi desktop packaging requires Python 3.11."
     exit 1
 fi
+
+# Reject missing/contaminated first-party resources before dependency work.
+"$PYTHON_CMD" "$RESOURCE_POLICY" check-source --repository "$GNOSI_DIR"
 
 if ! command -v uv &> /dev/null; then
     echo "Error: uv is required to consume the frozen Python lock."
@@ -95,102 +96,23 @@ cd "$PYTHON_BUILD_DIR"
 # Release builds must be non-interactive and must never reuse a stale bundle.
 rm -rf "$PYTHON_BUILD_DIR/build" "$PYTHON_BUILD_DIR/dist"
 
-$PYTHON_VENV << PYSCRIPT
-import os
-import platform
-from PyInstaller.utils.hooks import collect_submodules
+"$PYTHON_VENV" "$RESOURCE_POLICY" spec \
+    --repository "$GNOSI_DIR" --output "$PYTHON_BUILD_DIR/backend.spec"
 
-backend_dir = os.environ['BACKEND_DIR']
-repository_dir = os.path.dirname(backend_dir)
-system = platform.system().lower()
-
-hiddenimports = [
-    'flask', 'flask_cors', 'fastapi', 'uvicorn', 'psutil', 'pydantic',
-    'numpy', 'networkx', 'requests', 'httpx', 'sqlalchemy',
-    'bs4', 'feedparser', 'dotenv', 'yaml', 'google_auth_httplib2',
-    'googleapiclient', 'google_auth_oauthlib', 'gtts', 'icalendar',
-    'langchain', 'langchain_core', 'langchain_openai', 'langchain_ollama',
-    'langchain_groq', 'langchain_anthropic', 'langgraph', 'langchain_chroma',
-    'langgraph.checkpoint.sqlite.aio', 'chromadb', 'groq', 'cloudinary', 'simpleeval',
-    'jinja2', 'itsdangerous', 'click', 'werkzeug', 'blinker',
-    'dateutil', 'six', 'pytz', 'tzdata',
-    'pydantic_core', 'pydantic_settings',
-    'cryptography', 'cffi', 'pyasn1', 'pyasn1_modules', 'keyring',
-    'httpcore', 'h11', 'anyio',
-    'grpc', 'google.protobuf', 'google.api',
-    'starlette', 'typing_extensions',
-    'importlib_metadata', 'importlib_resources', 'zipp',
-    'jsonschema', 'jsonschema_specifications', 'referencing', 'rpds',
-    'pkg_resources', 'setuptools',
-]
-hiddenimports += collect_submodules('keyring.backends')
-
-spec_content = f'''
-# -*- mode: python ; coding: utf-8 -*-
-
-block_cipher = None
-
-a = Analysis(
-    ['{backend_dir}/server.py'],
-    # Import ``backend`` from the repository root. Adding backend/ itself here
-    # makes backend/platform shadow Python's standard-library ``platform``
-    # module inside the frozen executable.
-    pathex=['{repository_dir}'],
-    binaries=[],
-    datas=[
-        ('{backend_dir}', 'backend'),
-    ],
-    hiddenimports={hiddenimports},
-    hookspath=[],
-    runtime_hooks=[],
-    excludes=['tkinter', 'test', 'matplotlib', 'pandas', 'scipy'],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
-    noarchive=False,
-)
-
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-
-exe = EXE(
-    pyz, a.scripts, [],
-    exclude_binaries=True,
-    name='cervell_backend',
-    debug=False,
-    strip=False,
-    upx=True,
-    console=True,
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    name='cervell_backend',
-)
-'''
-
-with open('backend.spec', 'w') as f:
-    f.write(spec_content)
-
-print(f"Created backend.spec with BACKEND_DIR={backend_dir}")
-PYSCRIPT
-
-$PYTHON_VENV -m PyInstaller backend.spec --clean --noconfirm
+# Generated dependency archives stay outside the source tree so the policy
+# never confuses a build output with an unselected repository data file.
+"$PYTHON_VENV" -m PyInstaller backend.spec --clean --noconfirm \
+    --workpath "$VENV_DIR/pyinstaller-work"
 
 echo ""
 echo "5. Copying build to dist-python..."
-rm -rf "$DIST_DIR"
 
 if [ -d "$PYTHON_BUILD_DIR/dist/cervell_backend" ]; then
+    # Preserve the previous output when the new bundle violates the policy.
+    "$PYTHON_VENV" "$RESOURCE_POLICY" verify \
+        --repository "$GNOSI_DIR" --bundle "$PYTHON_BUILD_DIR/dist/cervell_backend"
+    rm -rf "$DIST_DIR"
     cp -r "$PYTHON_BUILD_DIR/dist/cervell_backend" "$DIST_DIR"
-    echo "   Python bundle created at: $DIST_DIR"
-    du -sh "$DIST_DIR"
-elif [ -d "$PYTHON_BUILD_DIR/build/cervell_backend" ]; then
-    cp -r "$PYTHON_BUILD_DIR/build/cervell_backend" "$DIST_DIR"
     echo "   Python bundle created at: $DIST_DIR"
     du -sh "$DIST_DIR"
 else
@@ -199,6 +121,10 @@ else
     ls -la "$PYTHON_BUILD_DIR/build/" 2>/dev/null || true
     exit 1
 fi
+
+# Check actual output (including hook-added files) before running any backend.
+"$PYTHON_VENV" "$RESOURCE_POLICY" verify \
+    --repository "$GNOSI_DIR" --bundle "$DIST_DIR"
 
 "$PYTHON_VENV" "$ELECTRON_DIR/scripts/smoke-packaged-backend.py" "$DIST_DIR"
 

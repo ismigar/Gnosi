@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 source_paths:
+  - scripts/generate_openapi.py
+  - backend/app/desktop_instance.py
+  - desktop/backend-process.js
+  - desktop/ipc-handlers.js
+  - desktop/startup-errors.js
+  - desktop/build-python.sh
+  - desktop/scripts/backend_resources.py
   - .github/workflows/build-release.yml
   - desktop/scripts/release-artifacts.cjs
   - backend/config/validation_runtime.py
@@ -32,6 +39,13 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - backend/tests/test_openapi_generation.py
+  - backend/tests/test_desktop_instance.py
+  - desktop/backend-process.test.js
+  - desktop/main-startup.test.js
+  - desktop/ipc-handlers.test.js
+  - desktop/packaging-resources.test.js
+  - desktop/tests/test_backend_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
@@ -46,15 +60,60 @@ tests:
   - frontend/src/app/desktop/desktopMenu.test.ts
 ---
 
-# Clients de bureau et de compagnie
+# Application de bureau et clients complémentaires
 
-## Bureau électronique
+## Application de bureau Electron
 
-Electron paquete Gnosi comme une application de bureau. Le processus principal possède le démarrage de backend, le nettoyage de processus, le cycle de vie de fenêtre, les chemins de ressources empaquetés, les contrôles de mise à jour, la livraison de l'installateur, l'installation et les actions de bureau privilégié. Le render reçoit une API de précharge étroite plutôt que l'accès direct à Node.js.
+Electron distribue Gnosi sous forme d’application de bureau. Le processus principal gère le démarrage et l’arrêt du backend, les fenêtres, les ressources du paquet, les mises à jour et les actions privilégiées. L’interface utilise une API de preload limitée, sans accès direct à Node.js.
 
-Le moteur Python groupé doit être prêt avant que le render ne traite l'application comme utilisable. Les défaillances de démarrage sont révélées avec des diagnostics et le nettoyage empêche les processus de moteur orphelins après la sortie de la fenêtre.
+Les menus et l’avis de mise à jour de l’interface appartiennent à `app/desktop/`. Les notes de version relèvent de la fonctionnalité du centre de contrôle et utilisent le même JSON de releases. Les méthodes de preload, les événements et les destinations de téléchargement sont conservés.
 
-## Mise à jour de la machine d'état
+## Démarrage du processus dédié et ressources vérifiées
+
+Le lanceur attend le processus qu’il a créé, pas un service quelconque sur le
+port 5002. Chaque démarrage remplace `GNOSI_DESKTOP_INSTANCE` par un nouveau
+marqueur. `/api/health` le renvoie dans `x-gnosi-desktop-instance` uniquement si
+la réponse réussit ; le JSON et l’API publique restent inchangés. Ce marqueur
+identifie le processus, sans authentifier l’utilisateur. Un processus actif
+et une réponse complète, limitée et correspondante sont exigés. Redirections,
+réponses HTTP 200 étrangères, JSON incorrect, délais dépassés ou sorties
+prématurées font échouer le démarrage et arrêter le processus dédié. Si
+l’exécutable du paquet manque, le Python du système n’est pas utilisé.
+
+L’activation, Nouvelle fenêtre, Paramètres et les recherches de mises à jour ne
+peuvent contourner cette attente ou l’arrêt. Quitter pendant le démarrage ne
+peut ouvrir une fenêtre tardive. Le dialogue précédant React fournit les
+instructions en anglais, catalan, espagnol et français selon la langue du
+système ; les détails techniques restent dans le journal de l’application.
+
+Sept gestionnaires IPC disposent de contrats de requête et de réponse vérifiés
+et valident l’émetteur avant de lire les arguments ou d’effectuer une action
+privilégiée. Le gestionnaire de remplissage de formulaires reste dans
+`main.js` : cette extraction ne garantit pas le typage du processus principal
+dans son ensemble.
+
+`backend_resources.py` sélectionne les fichiers de runtime vérifiés et découvre
+les modules Python sans importer l’application. Il conserve les migrations et
+modèles Alembic, instructions de l’agent, outils de traduction dynamiques,
+extensions d’exemple et styles bibliographiques. Il ne copie pas récursivement
+la configuration locale, les vaults, bases de données, secrets ou outils
+générés. Les ressources manquantes ou modifiées, fichiers non examinés dans les
+arbres sélectionnés, chemins dangereux ou contenus interdits bloquent le paquet.
+
+La politique vérifie l’analyse réelle de PyInstaller avant la collecte, le
+résultat avant et après copie et les ressources `python/` finales d’Electron
+avant signature. Les chemins contenant des espaces restent des arguments
+distincts. Ces contrôles ne certifient pas les installateurs : le démarrage
+gelé, l’installation et la mise à niveau depuis 2.x doivent être testés sur
+chaque plateforme, ainsi que la matrice native et Docker, avant publication.
+
+Le générateur OpenAPI active également `GNOSI_VALIDATION_ROOT` avant d’importer
+la configuration de l’application. Les mêmes chemins temporaires validés
+empêchent la lecture des fichiers d’environnement, de la configuration locale
+du dépôt et des identifiants pendant cette étape du build ; la génération du
+schéma ne doit pas consulter de données personnelles.
+
+## Machine à états des mises à jour
 
 ```mermaid
 stateDiagram-v2
@@ -106,9 +165,9 @@ La liste des fichiers constructeurs d'Electron est une limite explicite de temps
 
 Le chemin de l'arrière-paquet se résolve à l'exécutable PyInstaller lui-même sur macOS et Linux, et à son `.exe` Le processus principal est le résultat de la résolution directe du fichier; il ne traite jamais l'exécutable comme un autre niveau de répertoire. La construction propre installe les exigences canoniques d'exécution E2E, y compris les dépendances du fournisseur et de l'API, puis démarre l'exécutable congelé comme un test de fumée multiplateforme avant que le paquet de bureau puisse continuer.
 
-Les fournitures de processus de bureau installées `GNOSI_LOCAL_DATA` sous le répertoire des données des applications par utilisateur d'Electron, à moins qu'il n'existe un surchargement explicite. Cela éloigne les paquets natifs de Docker uniquement `/app/data`. Le sondage de la disponibilité utilise le non-authentifié `/api/health` Endpoint de démarrage donc ne pas attendre sur un endpoint d'application protégé. Les backends congelés désactivent l'observateur de rechargement du système de fichiers d'Uvicorn; le développement de source native conserve le comportement de recharge.
+L’application de bureau utilise `GNOSI_DATA_DIR` dans le dossier de données de l’utilisateur d’Electron par défaut ; `GNOSI_LOCAL_DATA` reste un alias compatible pendant la série 3.x. Les réglages explicites sont conservés. Le chemin Docker `/data` n’est pas le défaut des paquets natifs. La disponibilité est vérifiée via `/api/health`, sans authentification. Le backend gelé désactive le rechargement de fichiers d’Uvicorn ; le développement natif conserve la prise en charge du rechargement.
 
-Le catalogue de sortie, les notes localisées, le changelog généré, Electron manifeste, frontend manifeste, et le fichier de verrouillage monorepo forment une unité versionnée. Le synchroniseur déterministe ne met à jour les trois champs de version qu'après la validation du catalogue et du changelog.
+Le catalogue des releases, les notes traduites, le changelog, les manifestes racine, frontend et desktop, les métadonnées Python et les locks pnpm/uv forment une unité versionnée. L’outil déterministe ne modifie les versions qu’après validation du catalogue et du changelog.
 
 ## Marque de demande
 
@@ -118,7 +177,7 @@ Le catalogue de sortie, les notes localisées, le changelog généré, Electron 
 
 `frontend/src/features/control-center/releases/releases.json` est l'historique de libérations groupées canonique. Le synchroniseur de version maintient le manifeste frontal, le manifeste Electron et l'entrée d'espace de travail frontal dans le fichier de verrouillage monorepo identique. `downloadUrl`; ce champ n'est ajouté qu'après l'existence de la balise immuable et de ses objets de plateforme. Comme la version frontale manifeste est une limite de bureau à impact élevé, chaque requête de tirage de la version préparée rafraîchit également ce contrat révisé et ses miroirs localisés, même lorsque le patch ne change pas le comportement d'exécution. Avant de préparer le patch stable suivant, l'entrée stable précédente doit déjà lier à sa version publiée de sorte que l'historique groupé reste complet sur les mises à jour séquentielles. Les notes de patch ne comprennent que les corrections fusionnées après cette balise précédente; elles ne répètent pas les modifications déjà publiées.
 
-Avant de marquer, la version PR doit passer la validation frontale, les tests backend, la QA du navigateur natif et la porte de documentation technique. Après fusion, la version révisée doit atteindre le dépôt public par le workflow de synchronisation et passer la disponibilité de la version. Le flux de travail source privé est le seul propriétaire de balises officielles, d'artefacts de plate-forme croisée, de catalogues signés, de notes de publication et de la version dans le dépôt public. Le flux de travail public synchronisé est manuellement pour valider l'emballage sans course ou duplication d'une construction officielle de balises. Les artefacts macOS, Windows et Linux résultant sont inspectés avant publication.
+Avant de créer le tag, la PR de release doit réussir les validations du frontend, les tests backend, les contrôles natifs dans le navigateur et la validation documentaire. Après intégration, le workflow public canonique construit le commit examiné. Le workflow de release est seul responsable des tags officiels, artefacts multiplateformes, catalogues signés, notes et brouillons. Aucun synchroniseur de dépôts n’intervient. Les artefacts macOS, Windows et Linux sont examinés avant publication.
 
 La préparation de la v2.0.0 respecte cette limite : les notes localisées
 incluses et le changelog généré sont livrés avec les manifestes synchronisés,
