@@ -32,9 +32,7 @@ interface SmartLink {
   readonly kind: SmartLinkKind;
 }
 
-const convertSentinelToFileUrl = sentinelToFileUrl as unknown as (
-  href: string,
-) => string;
+const convertSentinelToFileUrl = sentinelToFileUrl;
 
 function isLocalFileHref(href: string): boolean {
   return /^file:/i.test(href)

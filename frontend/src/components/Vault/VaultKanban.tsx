@@ -128,7 +128,7 @@ export function VaultKanban({
         sorts: readSorts(activeView, { direction: 'desc', field: 'last_modified' }),
     }), [activeView, searchTerm]);
     const { sortedPages } = useVaultViewData({ pages: notes, schema, searchTerm, view });
-    const visibleNotes = sortedPages as KanbanNote[];
+    const visibleNotes = sortedPages;
     const selection = useVaultSelection(visibleNotes);
     const groupBy = activeView.groupBy ?? activeView.group_by ?? 'status';
     const groupByType = readFieldType(schema, groupBy);

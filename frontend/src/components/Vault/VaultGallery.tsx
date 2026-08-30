@@ -112,7 +112,7 @@ function VaultGalleryContent({
         sorts: readSorts(activeView, { direction: 'desc', field: 'last_modified' }),
     }), [activeView, searchTerm]);
     const { sortedPages } = useVaultViewData({ pages: notes, schema, searchTerm, view });
-    const visibleNotes = sortedPages as GalleryNote[];
+    const visibleNotes = sortedPages;
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const selection = useVaultSelection(visibleNotes);
 

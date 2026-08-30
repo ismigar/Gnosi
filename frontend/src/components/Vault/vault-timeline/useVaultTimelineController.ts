@@ -5,7 +5,6 @@ import { useVaultSelection } from '../../../hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../../hooks/useVaultSelectionShortcuts';
 import {
     useVaultViewData,
-    type VaultSortInput,
     type VaultViewConfig,
 } from '../../../hooks/useVaultViewData';
 import { usePlugins } from '../../../plugins/usePlugins';
@@ -37,7 +36,6 @@ import {
 import type {
     TimelineController,
     TimelineFieldConfig,
-    TimelineNote,
     TimelineRecord,
     TimelineSchema,
     TimelineSchemaReaders,
@@ -59,10 +57,7 @@ const readers: TimelineSchemaReaders = {
         field: string | undefined,
     ) => string,
     filters: resolveViewFilters as (view: TimelineView) => FilterNode[],
-    sorts: resolveViewSorts as (
-        view: TimelineView,
-        fallback?: VaultSortInput | null,
-    ) => VaultSortInput[],
+    sorts: resolveViewSorts,
 };
 
 
@@ -118,7 +113,7 @@ export function useVaultTimelineController({
         view,
         searchTerm,
     });
-    const sortedNotes = sortedPages as TimelineNote[];
+    const sortedNotes = sortedPages;
     const selection = useVaultSelection(sortedNotes);
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
 
