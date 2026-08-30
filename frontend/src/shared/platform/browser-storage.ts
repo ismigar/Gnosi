@@ -53,6 +53,26 @@ function runtimeStorage(area: StorageArea): Storage | null {
 }
 
 
+export function listStorageKeyNames(
+  area: StorageArea,
+  prefix = '',
+  storage?: Storage | null,
+): string[] {
+  try {
+    const target = storage === undefined ? runtimeStorage(area) : storage;
+    if (!target) return [];
+    const names: string[] = [];
+    for (let index = 0; index < target.length; index += 1) {
+      const name = target.key(index);
+      if (name?.startsWith(prefix)) names.push(name);
+    }
+    return names;
+  } catch {
+    return [];
+  }
+}
+
+
 function resolveStorage(
   key: BrowserStorageKey<unknown>,
   override: Storage | null | undefined,

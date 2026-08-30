@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defineStorageKey,
   jsonStorageCodec,
+  listStorageKeyNames,
   readStorage,
   removeStorage,
   stringStorageCodec,
@@ -80,5 +81,17 @@ describe('browser storage adapter', () => {
 
     expect(removeStorage(key, storage)).toBe(true);
     expect(readStorage(key, storage)).toBeUndefined();
+  });
+
+  it('lists only keys matching a prefix', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('mail-one', '1');
+    storage.setItem('other', '2');
+    storage.setItem('mail-two', '3');
+
+    expect(listStorageKeyNames('local', 'mail-', storage)).toEqual([
+      'mail-one',
+      'mail-two',
+    ]);
   });
 });
