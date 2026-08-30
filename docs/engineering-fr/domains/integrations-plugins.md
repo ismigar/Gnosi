@@ -43,8 +43,8 @@ tests:
   - backend/tests/test_plugin_network_guard.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
-  - frontend/src/plugins/host.test.js
-  - frontend/src/plugins/registry.test.js
+  - frontend/src/plugins/host.test.ts
+  - frontend/src/plugins/registry.test.ts
   - extensions/office/libreoffice-cite/tests
 ---
 

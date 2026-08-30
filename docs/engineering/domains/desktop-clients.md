@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-24
+last_verified: 2026-08-30
 source_paths:
+  - backend/config/validation_runtime.py
+  - backend/security/keychain_manager.py
+  - .github/workflows/ci.yml
   - backend/config/env_config.py
   - backend/server.py
   - desktop/application-menu.js
@@ -27,6 +30,8 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - backend/tests/test_packaged_backend_smoke.py
+  - backend/tests/test_validation_runtime.py
   - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
   - frontend/src/app/desktop/desktopMenu.test.ts
   - backend/tests/test_env_config_runtime.py
@@ -251,6 +256,27 @@ application for every unit test.
 - Companion clients authenticate to the backend and remain within their narrow
   capture or citation scope.
 - Release drafts are inspected before publication.
+
+## Local release acceptance
+
+The packaged-backend smoke now requires an HTTP 200 response from `/api/health`
+with `status: ok`, `mode: FastAPI` and the fresh probe identity in `gnosi_mode`.
+A live process, an occupied port, a redirect or another running Gnosi instance
+cannot satisfy this check. The probe uses a disposable vault/data directory,
+loopback port and a sanitized environment, disables scheduled work, then stops
+and reaps its child on success or failure. `GNOSI_VALIDATION_ROOT` is only for
+these disposable probes: all data selectors must remain inside that root;
+local/shared environment files and every credential-store operation are disabled.
+Do not set it for normal development or installed applications.
+
+Synthetic subprocess tests and a source FastAPI run validate this readiness
+contract; they do not certify a frozen executable or its installer. Every target
+platform still needs its actual packaged backend and update acceptance checks.
+
+The PR documentation job runs the frozen documentation toolchain in check-only
+mode against the exact PR base commit, with read-only repository permissions.
+It cannot repair stale catalogs or deploy documentation; publication remains a
+separate main-branch workflow.
 
 ## Verification focus
 

@@ -115,10 +115,13 @@ jobs:
             hdiutil detach "$mount_dir"
             rmdir "$mount_dir"
           done
+      - name: Validate macOS release artifacts
+        run: node desktop/scripts/release-artifacts.cjs validate macos-${{ matrix.arch }} desktop/dist
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v7
         with:
           name: macos-${{ matrix.arch }}
+          if-no-files-found: error
           path: |
             desktop/dist/*.dmg
             desktop/dist/*.zip
@@ -161,15 +164,18 @@ jobs:
           pnpm build:frontend
           desktop/build-python.sh
           pnpm --filter @gnosi/desktop exec electron-builder --linux --arm64 --publish never
+      - name: Validate Linux ARM64 release artifacts
+        run: node desktop/scripts/release-artifacts.cjs validate linux-arm64 desktop/dist
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v7
         with:
           name: linux-arm64
+          if-no-files-found: error
           path: |
             desktop/dist/*.AppImage
             desktop/dist/*.deb
             desktop/dist/*.blockmap
-            desktop/dist/latest-linux.yml
+            desktop/dist/latest-linux-arm64.yml
           retention-days: 5
 
   build-windows:
@@ -218,10 +224,13 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build:frontend
           pnpm --filter @gnosi/desktop build:win
+      - name: Validate Windows release artifacts
+        run: node desktop/scripts/release-artifacts.cjs validate windows-x64 desktop/dist
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v7
         with:
           name: windows-x64
+          if-no-files-found: error
           path: |
             desktop/dist/*Setup*.exe
             desktop/dist/*.blockmap

@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-24
+last_verified: 2026-08-30
 source_paths:
+  - backend/config/validation_runtime.py
+  - backend/security/keychain_manager.py
+  - .github/workflows/ci.yml
   - backend/config/env_config.py
   - backend/server.py
   - desktop/application-menu.js
@@ -25,6 +28,8 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - backend/tests/test_packaged_backend_smoke.py
+  - backend/tests/test_validation_runtime.py
   - backend/tests/test_env_config_runtime.py
   - desktop/application-menu.test.js
   - desktop/backend-launch.test.js
@@ -144,6 +149,27 @@ C'est l'heure de la course.
 - Les clients de l'entreprise se font authentifier sur le moteur et restent dans leur étroite
 la portée de la capture ou de la citation.
 - Les ébauches de publication sont inspectées avant leur publication.
+
+## Validation locale de la distribution
+
+Le test du backend empaqueté exige une réponse HTTP 200 de `/api/health`
+avec `status: ok`, `mode: FastAPI` et l'identité unique du test dans `gnosi_mode`.
+Un processus vivant, un port occupé, une redirection ou une autre instance de
+Gnosi ne suffisent pas. Le test utilise des répertoires temporaires, un port
+local et un environnement filtré ; il désactive les tâches planifiées, puis
+arrête et attend le processus enfant, même en cas d'échec. `GNOSI_VALIDATION_ROOT`
+est réservé à ces tests : tous les chemins de données doivent rester sous cette
+racine ; les fichiers d'environnement et tout accès aux gestionnaires de secrets
+sont désactivés. Ne pas le définir pour une installation ou un développement normal.
+
+Les tests synthétiques et l'exécution de FastAPI depuis les sources valident ce
+contrat, mais ne certifient ni le binaire empaqueté ni son installateur. Chaque
+plateforme doit encore réussir ses propres contrôles réels.
+
+Le contrôle documentaire des PR utilise les dépendances verrouillées, vérifie
+sans régénération les catalogues par rapport au commit de base exact et conserve
+des permissions de lecture seule. Il ne déploie rien ; la publication reste
+séparée sur main.
 
 ## Aspects de vérification
 

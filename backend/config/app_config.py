@@ -8,6 +8,7 @@ from typing import Any, cast
 from .env_config import get_env, load_env
 from .paths_config import get_paths
 from .schema_keys import get_schema_keys
+from .validation_runtime import validation_runtime_enabled
 
 log = logging.getLogger(__name__)
 
@@ -212,7 +213,7 @@ def load_params(strict_env: bool = True) -> Config:
 
     # ── 1. Load the local base configuration ──
     params: ConfigDict = {}
-    if local_path.exists():
+    if not validation_runtime_enabled() and local_path.exists():
         with open(local_path, "r", encoding="utf-8") as f:
             loaded = yaml.safe_load(f) or {}
             params = cast(ConfigDict, loaded) if isinstance(loaded, dict) else {}

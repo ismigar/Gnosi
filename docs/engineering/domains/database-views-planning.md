@@ -26,12 +26,12 @@ source_paths:
   - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/components/Vault/BlockEditor.jsx
-  - frontend/src/components/Vault/VaultDateProperty.jsx
-  - frontend/src/components/Vault/VaultTimeline.jsx
+  - frontend/src/components/Vault/VaultDateProperty.ts
+  - frontend/src/components/Vault/VaultTimeline.tsx
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/features/planning
-  - frontend/src/utils/projectPlanning.js
-  - frontend/src/utils/vaultFilters.js
+  - frontend/src/utils/projectPlanning.ts
+  - frontend/src/utils/vaultFilters.ts
 tests:
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
   - frontend/src/features/planning/public-entry.test.ts
@@ -53,7 +53,7 @@ tests:
   - backend/tests/test_project_planning.py
   - backend/tests/test_virtual_fields_graph_projection.py
   - backend/tests/test_pipeline_naming.py
-  - frontend/src/utils/projectPlanning.test.js
+  - frontend/src/utils/projectPlanning.test.ts
   - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
 

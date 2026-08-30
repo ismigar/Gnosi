@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-24
+last_verified: 2026-08-30
 source_paths:
+  - backend/config/validation_runtime.py
+  - backend/security/keychain_manager.py
+  - .github/workflows/ci.yml
   - backend/config/env_config.py
   - backend/server.py
   - desktop/application-menu.js
@@ -22,6 +25,8 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - backend/tests/test_packaged_backend_smoke.py
+  - backend/tests/test_validation_runtime.py
   - backend/tests/test_env_config_runtime.py
   - desktop/application-menu.test.js
   - desktop/backend-launch.test.js
@@ -184,6 +189,26 @@ tiempo de ejecución.
 - Los clientes acompañantes autentican el motor y permanecen dentro de su estrecho
 captura o alcance de citación.
 - Los borradores de la versión se inspeccionan antes de su publicación.
+
+## Aceptación local de la distribución
+
+La prueba del backend empaquetado exige una respuesta HTTP 200 de `/api/health`
+con `status: ok`, `mode: FastAPI` y la identidad única de la prueba en `gnosi_mode`.
+Un proceso vivo, un puerto ocupado, una redirección u otra instancia de Gnosi
+no pueden superarla. Utiliza directorios temporales de vault y datos, un puerto
+local y un entorno filtrado; desactiva tareas programadas y detiene y recoge el
+proceso hijo tanto si funciona como si falla. `GNOSI_VALIDATION_ROOT` es exclusivo
+de estas pruebas: todas las rutas de datos deben quedar dentro de esa raíz;
+se desactivan los archivos de entorno locales y compartidos y todo acceso a los
+gestores de credenciales. No debe configurarse en desarrollo normal ni en instalaciones.
+
+Las pruebas con subprocesos ficticios y FastAPI ejecutado desde el código fuente
+validan este contrato, pero no certifican el ejecutable empaquetado ni su
+instalador. Cada plataforma todavía necesita sus propias pruebas reales.
+
+El control documental de las PR utiliza dependencias congeladas y modo de
+comprobación contra el commit base exacto, con permisos de solo lectura.
+No repara catálogos ni despliega documentación; la publicación sigue separada en main.
 
 ## Enfoque de verificación
 

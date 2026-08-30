@@ -34,4 +34,4 @@ Discovered **25 documented runtime skills**.
 | `ui_stability` | Directive: GraphPage field-filter TypeError fix | 33 | 0 | [`pipeline/skills/ui_stability/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/ui_stability/SKILL.md) |
 | `vault_ai_assistant` | SKILL: Vault AI Assistant | 59 | 0 | [`pipeline/skills/vault_ai_assistant/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/vault_ai_assistant/SKILL.md) |
 | `vault_core` | SKILL: Vault Core Management | 48 | 0 | [`pipeline/skills/vault_core/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/vault_core/SKILL.md) |
-| `zotero_schema` | Skill: Zotero Schema | 89 | 2 | [`pipeline/skills/zotero_schema/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/zotero_schema/SKILL.md) |
+| `zotero_schema` | Skill: Zotero Schema | 94 | 2 | [`pipeline/skills/zotero_schema/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/zotero_schema/SKILL.md) |

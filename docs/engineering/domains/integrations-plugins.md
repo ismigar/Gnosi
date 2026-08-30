@@ -55,8 +55,8 @@ tests:
   - backend/tests/test_notion_importer.py
   - backend/tests/test_notion_view_recreator.py
   - backend/tests/test_openapi_contract.py
-  - frontend/src/plugins/host.test.js
-  - frontend/src/plugins/registry.test.js
+  - frontend/src/plugins/host.test.ts
+  - frontend/src/plugins/registry.test.ts
   - extensions/office/libreoffice-cite/tests
 ---
 

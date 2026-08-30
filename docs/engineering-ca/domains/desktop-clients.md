@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-24
+last_verified: 2026-08-30
 source_paths:
+  - backend/config/validation_runtime.py
+  - backend/security/keychain_manager.py
+  - .github/workflows/ci.yml
   - backend/config/env_config.py
   - backend/server.py
   - desktop/application-menu.js
@@ -22,6 +25,8 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - backend/tests/test_packaged_backend_smoke.py
+  - backend/tests/test_validation_runtime.py
   - backend/tests/test_env_config_runtime.py
   - desktop/application-menu.test.js
   - desktop/backend-launch.test.js
@@ -180,6 +185,26 @@ Temps d' espera.
 - Autenticació de clients de composició per al dorsal i segueixen- lo en el seu estret
 Captura o àmbit de citació.
 - Els esborranys de llançament estan inspeccionats abans de publicar-los.
+
+## Acceptació local de la distribució
+
+La prova del backend empaquetat exigeix una resposta HTTP 200 de `/api/health`
+amb `status: ok`, `mode: FastAPI` i la identitat única de la prova a `gnosi_mode`.
+Un procés viu, un port ocupat, una redirecció o una altra instància de Gnosi no
+poden superar-la. La prova utilitza directoris de vault i dades temporals, un
+port local i un entorn filtrat; desactiva les tasques programades i tanca i recull
+el procés fill tant si té èxit com si falla. `GNOSI_VALIDATION_ROOT` és exclusiu
+d'aquestes proves: totes les rutes de dades han de quedar dins l'arrel temporal;
+no es llegeixen fitxers d'entorn locals o compartits ni s'accedeix als gestors de
+credencials. No s'ha de configurar en desenvolupament normal ni en instal·lacions.
+
+Les proves amb subprocessos ficticis i FastAPI executat des del codi font
+validen aquest contracte, però no certifiquen l'executable empaquetat ni
+l'instal·lador. Cada plataforma encara necessita les seves proves reals.
+
+El control documental de les PR utilitza dependències congelades i mode de
+comprovació contra el commit base exacte, amb permisos de només lectura.
+No repara catàlegs ni desplega documentació; la publicació continua separada a main.
 
 ## Concentrat de verificació
 

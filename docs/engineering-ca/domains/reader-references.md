@@ -23,8 +23,8 @@ source_paths:
   - backend/services/references_io.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/pages/LiteraturePage.jsx
-  - frontend/src/components/ResourcesPluginConfig.jsx
-  - frontend/src/components/Vault/ZoteroReaderTab.jsx
+  - frontend/src/components/ResourcesPluginConfig.tsx
+  - frontend/src/components/Vault/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
@@ -41,7 +41,7 @@ tests:
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
-  - frontend/src/components/ResourcesPluginConfig.test.jsx
+  - frontend/src/components/ResourcesPluginConfig.test.tsx
 ---
 
 # Lector, referències i citacions

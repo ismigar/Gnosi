@@ -11,10 +11,11 @@ source_paths:
   - frontend/src/app/App.tsx
   - frontend/src/app/routes.tsx
   - frontend/src/app/bootstrap.tsx
-  - frontend/src/context/AuthContext.jsx
-  - frontend/src/hooks/useModalKeyboard.js
+  - frontend/src/context/AuthProvider.tsx
+  - frontend/src/context/auth-context.ts
+  - frontend/src/hooks/useModalKeyboard.ts
   - frontend/src/index.css
-  - frontend/src/lib/vaultRouting.js
+  - frontend/src/lib/vaultRouting.ts
   - frontend/src/shared/api/client.ts
   - frontend/src/shared/api/request-context.ts
   - frontend/src/shared/api/transports.ts
@@ -27,7 +28,7 @@ tests:
   - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - tests/e2e/tests/accessibility/accessibility.spec.ts
-  - frontend/src/lib/vaultRouting.test.js
+  - frontend/src/lib/vaultRouting.test.ts
   - frontend/src/shared/api/client.test.ts
   - frontend/src/shared/api/transports.test.ts
   - backend/tests/test_openapi_generation.py

@@ -25,8 +25,8 @@ source_paths:
   - backend/services/audio_summarizer.py
   - frontend/src/features/reader
   - frontend/src/features/literature
-  - frontend/src/components/ResourcesPluginConfig.jsx
-  - frontend/src/components/Vault/ZoteroReaderTab.jsx
+  - frontend/src/components/ResourcesPluginConfig.tsx
+  - frontend/src/components/Vault/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
@@ -48,7 +48,7 @@ tests:
   - frontend/src/features/reader/public-entry.test.ts
   - frontend/src/features/literature/LiteraturePage.test.tsx
   - frontend/src/features/literature/public-entry.test.ts
-  - frontend/src/components/ResourcesPluginConfig.test.jsx
+  - frontend/src/components/ResourcesPluginConfig.test.tsx
 ---
 
 # Reader, references, and citations

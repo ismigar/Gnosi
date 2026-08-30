@@ -20,7 +20,7 @@ source_paths:
   - backend/services/references_io.py
   - backend/services/lookup_normalizers.py
   - frontend/src/pages/ReaderDashboard.jsx
-  - frontend/src/components/Vault/ZoteroReaderTab.jsx
+  - frontend/src/components/Vault/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py

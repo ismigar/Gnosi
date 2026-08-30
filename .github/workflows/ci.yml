@@ -9,6 +9,31 @@ permissions:
   contents: read
 
 jobs:
+  documentation:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.9.15'
+      - run: uv sync --frozen --group docs
+      - name: Check documentation against the exact PR base
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test -n "$PR_BASE_SHA"
+          git cat-file -e "${PR_BASE_SHA}^{commit}"
+          uv run --frozen --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
+
   frontend:
     runs-on: ubuntu-latest
     steps:
