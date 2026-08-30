@@ -1,27 +1,7 @@
-import type { ComponentType, RefObject } from 'react';
-import type FullCalendar from '@fullcalendar/react';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 import { DigitalBrainCalendar } from '../Vault/DigitalBrainCalendar';
-import type { VaultPageSummary } from '../../shared/api/vaults';
-import type { MailAvailabilitySelection } from './mailComposerTypes';
 import type { MailComposerController } from './useMailComposerController';
-
-
-interface CalendarBoundaryProps {
-  readonly allNotes: readonly VaultPageSummary[];
-  readonly calendarConfigs: readonly unknown[];
-  readonly calendarRef: RefObject<FullCalendar | null>;
-  readonly colorMap: Readonly<Record<string, string>>;
-  readonly onSelection: (selection: MailAvailabilitySelection) => void;
-  readonly onTitleChange: (title: string) => void;
-  readonly selectedCalendars: ReadonlySet<string>;
-}
-
-
-const TypedDigitalBrainCalendar = DigitalBrainCalendar as unknown as ComponentType<
-  CalendarBoundaryProps
->;
 
 
 interface MailAvailabilityOverlayProps {
@@ -88,7 +68,7 @@ export function MailAvailabilityOverlay({
           </div>
         </div>
         <div className="flex-1 overflow-hidden bg-[var(--bg-primary)] p-8">
-          <TypedDigitalBrainCalendar
+          <DigitalBrainCalendar
             allNotes={calendarData.pages}
             calendarRef={calendarRef}
             onTitleChange={setCalendarTitle}

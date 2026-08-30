@@ -3,6 +3,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { VaultViewBody, type VaultViewBodyProps } from './VaultViewBody';
+import type { DigitalBrainCalendarProps } from './DigitalBrainCalendar';
+
+const calendarProbe = vi.hoisted(() => vi.fn<(props: DigitalBrainCalendarProps) => void>());
 
 interface RendererProbeProps extends Record<string, unknown> {
     readonly children?: ReactNode;
@@ -47,11 +50,11 @@ vi.mock('./VaultFeed', () => ({
     </div>,
 }));
 vi.mock('./DigitalBrainCalendar', () => ({
-    DigitalBrainCalendar: (props: RendererProbeProps) => <div
+    DigitalBrainCalendar: (props: DigitalBrainCalendarProps) => { calendarProbe(props); return <div
         data-testid="calendar-renderer"
         data-date-field={scalarText(props.dateField)}
         data-note-count={String(Array.isArray(props.allNotes) ? props.allNotes.length : 0)}
-    />,
+    />; },
 }));
 vi.mock('./VaultViewErrorBoundary', () => ({
     VaultViewErrorBoundary: ({ children }: RendererProbeProps) => <>{children}</>,
@@ -149,5 +152,13 @@ describe('VaultViewBody', () => {
 
         expect(byTestId('calendar-renderer').dataset.noteCount).toBe('2');
         expect(byTestId('calendar-renderer').dataset.dateField).toBe('Start');
+    });
+
+    it('normalizes primitive calendar titles and validates template contracts at the boundary', () => {
+        renderBody({ type: 'calendar', notes: [{ id: 'number', title: 42 }, { id: 'empty', title: null }],
+            templates: [{ id: 'valid', title: 'Template' }, { id: 5 }, { id: 'bad-title', title: {} }] });
+        const props = calendarProbe.mock.lastCall?.[0];
+        expect(props?.allNotes).toEqual([{ id: 'empty', title: null }, { id: 'number', title: '42' }]);
+        expect(props?.templates).toEqual([{ id: 'valid', title: 'Template' }]);
     });
 });

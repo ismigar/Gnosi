@@ -6,6 +6,7 @@ import { VaultTimeline } from './VaultTimeline';
 import { VaultFeed } from './VaultFeed';
 import { VaultChart } from './VaultChart';
 import { DigitalBrainCalendar } from './DigitalBrainCalendar';
+import type { BulkActionTemplate } from './VaultBulkActionsBar';
 import { VaultViewErrorBoundary } from './VaultViewErrorBoundary';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { resolveViewSorts, resolveViewFilters } from './schemaUtils';
@@ -23,7 +24,10 @@ const GalleryRenderer = VaultGallery as unknown as ComponentType<RendererProps>;
 const TimelineRenderer = VaultTimeline as unknown as ComponentType<RendererProps>;
 const FeedRenderer = VaultFeed as unknown as ComponentType<RendererProps>;
 const ChartRenderer = VaultChart as unknown as ComponentType<RendererProps>;
-const CalendarRenderer = DigitalBrainCalendar as unknown as ComponentType<RendererProps>;
+function isCalendarTemplate(value: Readonly<Record<string, unknown>>): value is BulkActionTemplate {
+    return typeof value.id === 'string'
+        && (value.title === undefined || value.title === null || typeof value.title === 'string');
+}
 
 interface VaultBodyView extends VaultViewConfig {
     readonly calendarView?: string;
@@ -161,6 +165,9 @@ export function VaultViewBody({
         view: filteredViewConfig,
         searchTerm,
     });
+    const calendarNotes = useMemo(() => viewFilteredNotes.map((note) => ({
+        ...note, title: note.title == null ? note.title : String(note.title),
+    })), [viewFilteredNotes]);
 
     let body: ReactNode;
     if (t === 'board') {
@@ -210,17 +217,17 @@ export function VaultViewBody({
         );
     } else if (t === 'calendar') {
         body = (
-            <CalendarRenderer
+            <DigitalBrainCalendar
                 // `key`: FullCalendar only reads initialView on mount; changing
                 // the "initial view" in the modal with the calendar open did nothing
                 // until you left and came back. Remounting is cheap here.
                 key={activeView.calendarView || 'dayGridMonth'}
-                allNotes={viewFilteredNotes}
+                allNotes={calendarNotes}
                 onNoteSelect={onNoteSelect}
-                onDeletePage={onDeletePage}
+                onDeletePage={onDeletePage ? (id, title) => { onDeletePage(id, title ?? undefined); } : undefined}
                 onDeleteSelected={onDeleteSelected}
                 onApplyTemplate={onApplyTemplate}
-                templates={templates}
+                templates={templates.filter(isCalendarTemplate)}
                 dateField={activeView.dateField || ''}
                 endDateField={activeView.endDateField || ''}
                 initialView={activeView.calendarView || 'dayGridMonth'}
