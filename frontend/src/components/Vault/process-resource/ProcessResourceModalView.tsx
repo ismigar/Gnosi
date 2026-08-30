@@ -2,7 +2,7 @@ import type { RefObject } from 'react';
 import { AlertTriangle, BrainCircuit, CheckCircle2, Loader2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { ResourceProcessingJob } from '../../../shared/api';
+import type { ResourceProcessingJob } from '../../../shared/api/resource-processing';
 import {
     countTouchedPages,
     getProcessPhase,

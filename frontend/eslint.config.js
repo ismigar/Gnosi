@@ -100,6 +100,17 @@ export default defineConfig([
     },
   },
   {
+    files: ['src/**/*.{js,jsx,ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          regex: '(^|/)shared/api(/index([.][^/]+)?)?/?$',
+          message: 'Importa l’adaptador del domini concret; no recreïs un agregador global d’API.',
+        }],
+      }],
+    },
+  },
+  {
     files: ['src/**/*.tsx'],
     ignores: ['src/**/*.test.tsx', 'src/**/*.spec.tsx', 'src/**/__tests__/**'],
     rules: {

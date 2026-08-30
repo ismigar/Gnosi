@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type {
     ResourceProcessingJob,
     ResourceProcessingStart,
-} from '../../../shared/api';
+} from '../../../shared/api/resource-processing';
 import {
     countTouchedPages,
     getPollingIdentifier,

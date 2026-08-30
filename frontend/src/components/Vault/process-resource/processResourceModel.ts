@@ -1,7 +1,7 @@
 import type {
     ResourceProcessingJob,
     ResourceProcessingStart,
-} from '../../../shared/api';
+} from '../../../shared/api/resource-processing';
 
 
 export const POLL_INTERVAL_MS = 1500;

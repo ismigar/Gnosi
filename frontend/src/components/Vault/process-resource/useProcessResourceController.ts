@@ -6,7 +6,7 @@ import {
     fetchResourceProcessingStatus,
     startResourceProcessing,
     type ResourceProcessingJob,
-} from '../../../shared/api';
+} from '../../../shared/api/resource-processing';
 import {
     countTouchedPages,
     getPollingIdentifier,

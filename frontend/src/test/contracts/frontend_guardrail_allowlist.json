@@ -65,7 +65,6 @@
       "frontend/src/shared/api/vault-tags.test.ts": 1,
       "frontend/src/shared/api/vault-templates.test.ts": 1,
       "frontend/src/shared/api/vault-views.test.ts": 1,
-      "frontend/src/shared/api/vaults.test.ts": 1,
       "frontend/src/shared/api/workspace-members.test.ts": 1
     },
     "global_events": {
@@ -100,9 +99,7 @@
       "frontend/src/components/Vault/BlockEditor.jsx": 6292,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2976,
       "frontend/src/components/Vault/VaultTable.jsx": 4665,
-      "frontend/src/pages/VaultDashboard.jsx": 4684,
-      "frontend/src/shared/api/index.ts": 643,
-      "frontend/src/shared/api/vaults.test.ts": 504
+      "frontend/src/pages/VaultDashboard.jsx": 4684
     }
   },
   "format": "gnosi-frontend-guardrails-v1",

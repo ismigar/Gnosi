@@ -9,7 +9,7 @@ import {
     startResourceProcessing,
     type ResourceProcessingJob,
     type ResourceProcessingStart,
-} from '../../shared/api';
+} from '../../shared/api/resource-processing';
 import { ProcessResourceModal } from './ProcessResourceModal';
 
 
@@ -23,7 +23,7 @@ vi.mock('../../lib/toast', () => ({
 }));
 
 
-vi.mock('../../shared/api', () => ({
+vi.mock('../../shared/api/resource-processing', () => ({
     fetchResourceProcessingStatus: vi.fn(),
     startResourceProcessing: vi.fn(),
 }));
