@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
-import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Brain, Sparkles, Plus, AtSign, Archive, PanelBottomClose, Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2, Blocks } from 'lucide-react';
-import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
+import { Send, X, Paperclip, Brain, Sparkles, Plus, AtSign, Archive, Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2, Blocks } from 'lucide-react';
+import { useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 import ConfirmModal from './ConfirmModal';
 import {
@@ -34,7 +33,6 @@ import { ConfirmationReview } from './agent-chat/ConfirmationReview';
 import { useAgentConfirmations } from './agent-chat/useAgentConfirmations';
 import { acceptStreamSequence } from './agent-chat/streamSequence';
 import { logError } from '../lib/notifyError';
-import { emitAppEvent } from '../shared/platform/app-events';
 import { streamFetch } from '../shared/api/specialized-transports';
 import { transportFetch } from '../shared/api/transports';
 import { useChatMentions } from './agent-chat/useChatMentions';
@@ -42,10 +40,9 @@ import { useChatConfiguration } from './agent-chat/useChatConfiguration';
 import { useChatAttachments } from './agent-chat/useChatAttachments';
 import { CHAT_ATTACHMENT_ACCEPT } from './agent-chat/composerModel';
 import { MessageDetails } from './agent-chat/MessageDetails';
-
-const DYNAMIC_ICON_NAMES = new Set(iconNames);
-
-const lucideIconName = (name) => name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+import { ChatHeader } from './agent-chat/ChatHeader';
+import { ChatDock } from './agent-chat/ChatDock';
+import { ChatSessionList } from './agent-chat/ChatSessionList';
 
 const AgentChat = ({
     storageIdentity = '',
@@ -781,20 +778,6 @@ const AgentChat = ({
         }
     };
 
-    const renderIcon = (iconStr, size = 20) => {
-        if (!iconStr) return <Bot size={size} />;
-        if (iconStr.startsWith('lucide:')) {
-            const [_, name, colorName] = iconStr.split(':');
-            // Support 'white', 'gray', or any color name. Fallback to white for Brain if no color.
-            const color = colorName || (name === 'Brain' ? 'white' : 'currentColor');
-            const normalizedName = lucideIconName(name || '');
-            return DYNAMIC_ICON_NAMES.has(normalizedName)
-                ? <DynamicIcon name={normalizedName} size={size} color={color} />
-                : <Bot size={size} />;
-        }
-        return <span style={{ fontSize: `${size}px` }}>{iconStr}</span>;
-    };
-
     const agentName = agentConfig?.name || 'Gnosi Copilot';
     const agentIcon = agentConfig?.icon || 'lucide:Brain:white';
     const agentHasModel = Boolean(agentConfig?.provider && agentConfig?.model);
@@ -832,40 +815,7 @@ const AgentChat = ({
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
     if (!isOpen && !embedded) {
-        return (
-            <>
-            <button
-                type="button"
-                onClick={() => setIsDockOpen(!isDockOpen)}
-                className="gnosi-floating-dock-toggle flex items-center justify-center rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] shadow-sm transition-colors hover:text-[var(--gnosi-primary)]"
-                aria-label={isDockOpen ? t('common.close', 'Close') : t('chat.open_chat', 'Open chat')}
-                title={isDockOpen ? t('common.close', 'Close') : t('chat.open_chat', 'Open chat')}
-                aria-expanded={isDockOpen}
-            >
-                {isDockOpen ? <PanelBottomClose size={18} /> : <Plus size={20} />}
-            </button>
-            <button
-                onClick={() => {
-                    announceFloatingPanelOpen('chat');
-                    setIsDockOpen(false);
-                    setIsOpen(true);
-                }}
-                className="premium-chat-trigger gnosi-floating-action gnosi-floating-action--chat"
-                aria-label={t('chat.open_chat', "Open chat")}
-                title={t('chat.open_chat', "Open chat")}
-                style={{
-                    borderRadius: '50%',
-                    background: 'var(--gnosi-blue, #3b82f6)',
-                    color: 'white', border: 'none', cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'all 0.2s ease'
-                }}
-            >
-                {renderIcon(agentIcon, 20)}
-            </button>
-            </>
-        );
+        return <ChatDock isDockOpen={isDockOpen} agentIcon={agentIcon} setIsDockOpen={setIsDockOpen} setIsOpen={setIsOpen} />;
     }
 
     return (
@@ -889,147 +839,14 @@ const AgentChat = ({
             transition: 'all 0.3s ease-in-out'
             }}
         >
-            {/* Header */}
-            <div style={{
-                padding: '12px 16px', 
-                background: 'var(--settings-header-bg, #f9fafb)', 
-                borderBottom: '1px solid var(--settings-border, #e5e7eb)',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                cursor: 'pointer'
-            }} onClick={() => isMinimized && setIsMinimized(false)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ 
-                        width: '32px', height: '32px', borderRadius: '8px', 
-                        background: 'rgba(37, 99, 235, 0.1)', color: 'var(--gnosi-blue)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                        {renderIcon(agentIcon, 18)}
-                    </div>
-                    <div>
-                        {embedded ? (
-                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                {agentName}
-                            </div>
-                        ) : <select
-                            value={selectedAgentId}
-                            onChange={(e) => setSelectedAgentId(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            disabled={isLoading}
-                            style={{
-                                margin: 0,
-                                width: 'auto',
-                                maxWidth: '190px',
-                                border: 'none',
-                                background: 'transparent',
-                                color: 'var(--text-primary)',
-                                fontSize: '0.9rem',
-                                fontWeight: '700',
-                                padding: 0,
-                                outline: 'none',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            {agentList.map((a) => (
-                                <option key={a.id} value={a.id}>{a.name || a.id}</option>
-                            ))}
-                        </select>}
-                        {!isMinimized && <div style={{ fontSize: '0.7rem', color: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444'), display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444') }}></span>
-                            {runtimeStatusLabel}
-                            {agentHasModel && <span style={{ color: 'var(--text-secondary)' }}>· {t('chat.agent_model', 'Model: {{model}}', { model: agentModel })}</span>}
-                        </div>}
-                    </div>
-                </div>
-                {!embedded && <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} aria-label={isMinimized ? t('chat.expand_chat', "Expand chat") : t('chat.minimize_chat', "Minimize chat")} title={isMinimized ? t('chat.expand_chat', "Expand chat") : t('chat.minimize_chat', "Minimize chat")} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
-                        {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); archiveCurrentSession(); setShowSessionsView(false); setIsOpen(false); }} aria-label={t('chat.close_chat', "Close chat")} title={t('chat.close_chat', "Close chat")} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
-                        <X size={18} />
-                    </button>
-                </div>}
-            </div>
-
-            {!isMinimized && runtimeLimited && (
-                <div
-                    role="status"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 16px',
-                        borderBottom: '1px solid var(--settings-border, #e5e7eb)',
-                        background: 'color-mix(in srgb, #f59e0b 12%, var(--bg-primary))',
-                        color: 'var(--text-primary)',
-                        fontSize: '0.75rem',
-                    }}
-                >
-                    <Info size={15} aria-hidden="true" style={{ flexShrink: 0, color: '#f59e0b' }} />
-                    <span style={{ flex: 1 }}>{runtimeStatusHelp}</span>
-                    <button
-                        type="button"
-                        onClick={() => emitAppEvent('open-settings', 'ai')}
-                        style={{
-                            border: 'none',
-                            background: 'transparent',
-                            color: 'var(--gnosi-blue)',
-                            cursor: 'pointer',
-                            padding: 0,
-                            font: 'inherit',
-                            fontWeight: 700,
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        {t('chat.runtime_review_settings', 'Review settings')}
-                    </button>
-                </div>
-            )}
+            <ChatHeader embedded={embedded} isMinimized={isMinimized} isLoading={isLoading} runtimeLimited={runtimeLimited} agentHasModel={agentHasModel} agentIcon={agentIcon} agentName={agentName} selectedAgentId={selectedAgentId} runtimeStatusLabel={runtimeStatusLabel} agentModel={agentModel} runtimeStatusHelp={runtimeStatusHelp} agentList={agentList} archiveCurrentSession={archiveCurrentSession} setIsMinimized={setIsMinimized} setSelectedAgentId={setSelectedAgentId} setShowSessionsView={setShowSessionsView} setIsOpen={setIsOpen} />
 
             {!isMinimized && (
                 <>
                     {/* Missatges */}
                     <div ref={messagesContainerRef} style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {showSessionsView && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <h4 style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-primary)' }}>{t('chat.sessions', 'Sessions')}</h4>
-                                    <button
-                                        onClick={() => setShowSessionsView(false)}
-                                        style={{ border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', borderRadius: '10px', height: '24px', padding: '0 8px', fontSize: '0.68rem', cursor: 'pointer' }}
-                                    >
-                                        {t('chat.back', "Back")}
-                                    </button>
-                                </div>
-
-                                {sortedSessions.length === 0 && (
-                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{t('chat.no_sessions', "There are no sessions.")}</div>
-                                )}
-
-                                {sortedSessions.map((s) => (
-                                    <div key={s.id} style={{ border: '1px solid var(--settings-border, #e5e7eb)', borderRadius: '12px', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                        <div style={{ minWidth: 0, flex: 1 }}>
-                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title || t('chat.session_fallback_name', "Session")}</div>
-                                            <div style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>{t('chat.messages_count', { count: (s.messages || []).length, defaultValue_one: "{{count}} message", defaultValue_other: "{{count}} messages" })}{s.archived ? ` · ${t('chat.archived_suffix', "archived")}` : ''}</div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <button
-                                                onClick={() => selectSession(s.id)}
-                                                style={{ border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', borderRadius: '10px', height: '24px', padding: '0 8px', fontSize: '0.68rem', cursor: 'pointer' }}
-                                            >
-                                                {t('chat.open_session', "Open")}
-                                            </button>
-                                            <button
-                                                onClick={() => deleteSessionById(s.id)}
-                                                aria-label={t('chat.delete_session_aria', "Delete session {{title}}", { title: s.title || t('common.untitled') })}
-                                                title={t('chat.delete_session_title', "Delete session")}
-                                                style={{ border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', borderRadius: '10px', width: '24px', height: '24px', fontSize: '0.7rem', cursor: 'pointer', lineHeight: 1 }}
-                                            >
-                                                x
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            <ChatSessionList sortedSessions={sortedSessions} setShowSessionsView={setShowSessionsView} selectSession={(id) => { void selectSession(id); }} deleteSessionById={(id) => { void deleteSessionById(id); }} />
                         )}
 
                         {!showSessionsView && messages.length === 0 && (
