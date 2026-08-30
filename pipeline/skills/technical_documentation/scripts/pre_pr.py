@@ -7,6 +7,7 @@ import argparse
 import os
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,7 +31,10 @@ def build_commands(*, base_ref: str | None, check_only: bool) -> list[GateComman
     commands = [
         GateCommand(
             "Test documentation tooling",
-            (python, "-m", "pytest", str(SKILL_ROOT / "tests"), "-q"),
+            (
+                python, "-m", "pytest", str(SKILL_ROOT / "tests"), "-q",
+                "-p", "no:cacheprovider",
+            ),
         ),
     ]
     if base_ref:
@@ -50,6 +54,12 @@ def build_commands(*, base_ref: str | None, check_only: bool) -> list[GateComman
             GateCommand(
                 "Update generated reference",
                 (python, str(SCRIPT_DIR / "generate.py")),
+            )
+        )
+        commands.append(
+            GateCommand(
+                "Update localized generated reference",
+                (python, str(SCRIPT_DIR / "localize.py"), "--generated-only"),
             )
         )
     commands.extend(
@@ -111,22 +121,24 @@ def build_commands(*, base_ref: str | None, check_only: bool) -> list[GateComman
     return commands
 
 
-def run_gate(commands: list[GateCommand]) -> None:
+def run_gate(commands: list[GateCommand], *, check_only: bool = False) -> None:
     """Execute the documentation gate and stop at the first failed phase."""
     environment = os.environ.copy()
     existing_pythonpath = environment.get("PYTHONPATH")
     environment["PYTHONPATH"] = os.pathsep.join(
         part for part in (str(APP_ROOT), existing_pythonpath) if part
     )
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
 
-    for command in commands:
-        print(f"\n==> {command.name}", flush=True)
-        subprocess.run(
-            command.arguments,
-            cwd=APP_ROOT,
-            env=environment,
-            check=True,
-        )
+    with tempfile.TemporaryDirectory(prefix="gnosi-doc-pre-pr-") as staging:
+        if check_only:
+            environment["XDG_CACHE_HOME"] = str(Path(staging) / "cache")
+        for index, command in enumerate(commands):
+            arguments = command.arguments
+            if check_only and arguments[1:3] == ("-m", "mkdocs"):
+                arguments += ("--site-dir", str(Path(staging) / f"portal-{index}"))
+            print(f"\n==> {command.name}", flush=True)
+            subprocess.run(arguments, cwd=APP_ROOT, env=environment, check=True)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -149,7 +161,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     """Run every required engineering-documentation validation phase."""
     args = parse_args(argv)
-    run_gate(build_commands(base_ref=args.base_ref, check_only=args.check_only))
+    run_gate(
+        build_commands(base_ref=args.base_ref, check_only=args.check_only),
+        check_only=args.check_only,
+    )
     print("\nEngineering documentation pre-PR gate passed.")
     return 0
 

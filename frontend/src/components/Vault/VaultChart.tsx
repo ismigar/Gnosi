@@ -22,10 +22,12 @@ export type VaultChartSchema = Readonly<Record<string, unknown>>;
 
 export interface VaultChartNote {
     readonly [key: string]: unknown;
+    readonly metadata?: Readonly<Record<string, unknown>> | null;
 }
 
 
 export interface VaultChartView {
+    readonly [key: string]: unknown;
     readonly aggregation?: unknown;
     readonly chartType?: unknown;
     readonly xField?: unknown;
@@ -38,17 +40,6 @@ export interface VaultChartProps {
     readonly notes?: readonly VaultChartNote[];
     readonly schema?: VaultChartSchema;
 }
-
-
-const readFieldType = getFieldType as (
-    schema: VaultChartSchema,
-    field: string,
-) => string;
-const readMetaValue = getMetaValue as (
-    note: VaultChartNote,
-    schema: VaultChartSchema,
-    field: string,
-) => unknown;
 
 
 function isPeriodInput(value: unknown): value is PeriodInput {
@@ -79,14 +70,14 @@ export function VaultChart({
     ).toLowerCase();
     const data = useMemo(() => {
         if (!xField) return [];
-        const xType = readFieldType(schema, xField);
+        const xType = getFieldType(schema, xField);
         const records: ChartSourceRecord[] = notes.map((note) => {
-            const rawCategory = readMetaValue(note, schema, xField);
+            const rawCategory = getMetaValue(note, schema, xField);
             return {
                 category: xType === 'period'
                     ? periodBoundary(isPeriodInput(rawCategory) ? rawCategory : null, 'start')
                     : rawCategory,
-                value: yField ? readMetaValue(note, schema, yField) : null,
+                value: yField ? getMetaValue(note, schema, yField) : null,
             };
         });
         return buildChartData({

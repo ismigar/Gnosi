@@ -5,6 +5,7 @@
 import {
     periodBoundary,
 } from './projectPlanning';
+import { isStructuredAuthor, textValues } from './filterTextValues';
 
 type FilterPrimitive = string | number | bigint | boolean | null | undefined;
 export type FilterValue =
@@ -34,8 +35,6 @@ export interface FilterGroup {
 export type FilterNode = FilterGroup | FilterRule | null | undefined;
 
 interface FilterView { filterTree?: FilterNode; filters?: readonly FilterNode[]; }
-
-interface StructuredAuthor { readonly [key: string]: unknown; cognom1?: unknown; cognom2?: unknown; nom?: unknown; }
 
 type TextMatchMode = 'contains' | 'equals';
 type AuthorKey = 'nom' | 'cognom1' | 'cognom2';
@@ -156,26 +155,6 @@ export function matchesTextPattern(
     return mode === 'equals'
         ? source === normalizedPattern
         : source.includes(normalizedPattern);
-}
-
-function isStructuredAuthor(value: unknown): value is StructuredAuthor {
-    return value !== null
-        && typeof value === 'object'
-        && !isFilterValueArray(value)
-        && ('nom' in value || 'cognom1' in value || 'cognom2' in value);
-}
-
-function textValues(value: unknown): string[] {
-    if (value === null || value === undefined || value === '') return [];
-    if (isFilterValueArray(value)) return value.flatMap(textValues);
-    if (isStructuredAuthor(value)) {
-        return [[value.nom, value.cognom1, value.cognom2]
-            .map((part) => stringifyFilterValue(part ?? ''))
-            .filter(Boolean)
-            .join(' ')];
-    }
-    if (typeof value === 'object') return Object.values(value).flatMap(textValues);
-    return [stringifyFilterValue(value)];
 }
 
 function matchesStructuredAuthorship(

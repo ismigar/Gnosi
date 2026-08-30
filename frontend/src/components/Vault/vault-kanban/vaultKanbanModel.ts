@@ -1,4 +1,4 @@
-import type { FilterValue } from '../../../utils/vaultFilters';
+import type { VaultViewPage } from '../../../hooks/useVaultViewData';
 import { orderGroupKeys } from '../groupOrderUtils';
 import { normalizeOptions, optionColorHex } from '../optionCatalogUtils';
 import { getFieldConfig } from '../schemaUtils';
@@ -7,33 +7,10 @@ import { getFieldConfig } from '../schemaUtils';
 export const EMPTY_KANBAN_BUCKET = '__gnosi_empty__';
 
 
-export type KanbanMetadataValue = FilterValue;
+export type KanbanMetadataValue = unknown;
 export type KanbanSchema = Readonly<Record<string, unknown>>;
-
-
-export interface KanbanNote {
-    readonly [key: string]: FilterValue;
-    readonly id: string;
-    readonly last_modified?: string;
-    readonly metadata?: Readonly<Record<string, FilterValue>>;
-    readonly title: string;
-}
-
-
-export interface KanbanView {
-    readonly [key: string]: unknown;
-    readonly filters?: unknown;
-    readonly group_by?: string;
-    readonly group_sort?: string;
-    readonly group_sort_dir?: string;
-    readonly groupBy?: string;
-    readonly groupSort?: string;
-    readonly groupSortDir?: string;
-    readonly id?: string;
-    readonly sort?: unknown;
-    readonly sorts?: unknown;
-    readonly visibleProperties?: readonly string[];
-}
+export type KanbanNote = VaultViewPage;
+export type KanbanView = Readonly<Record<string, unknown>>;
 
 
 export interface KanbanCardField {
@@ -50,34 +27,7 @@ export interface KanbanColumnModel {
 }
 
 
-interface FieldOption {
-    readonly color?: unknown;
-    readonly name: string;
-}
-
-
-interface FieldConfig {
-    readonly options?: readonly unknown[];
-}
-
-
-const readFieldConfig = getFieldConfig as (
-    schema: KanbanSchema,
-    field: string,
-) => unknown;
-
-
-function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-
-function asFieldConfig(value: unknown): FieldConfig {
-    return isUnknownRecord(value) ? value : {};
-}
-
-
-function stringifyScalar(value: FilterValue): string | null {
+function stringifyScalar(value: unknown): string | null {
     if (
         typeof value === 'string'
         || typeof value === 'number'
@@ -88,7 +38,7 @@ function stringifyScalar(value: FilterValue): string | null {
 }
 
 
-function isFilterValueArray(value: FilterValue): value is readonly FilterValue[] {
+function isFilterValueArray(value: unknown): value is readonly unknown[] {
     return Array.isArray(value);
 }
 
@@ -105,7 +55,7 @@ export function normalizeKanbanMetadataKey(value: unknown): string {
 export function readKanbanCardValue(
     note: KanbanNote,
     field: string,
-): { readonly metadataKey: string; readonly value: FilterValue } {
+): { readonly metadataKey: string; readonly value: unknown } {
     const exact = note.metadata?.[field];
     if (exact !== undefined && exact !== null && exact !== '') {
         return { metadataKey: field, value: exact };
@@ -129,7 +79,7 @@ export function findKanbanMetadataKey(note: KanbanNote, field: string): string {
 export function kanbanGroupValues(
     note: KanbanNote,
     field: string,
-    pendingMoves: ReadonlyMap<string, FilterValue>,
+    pendingMoves: ReadonlyMap<string, unknown>,
 ): string[] {
     const raw = pendingMoves.has(note.id)
         ? pendingMoves.get(note.id)
@@ -144,7 +94,7 @@ export function kanbanGroupValues(
 
 
 export function resolveKanbanDropValue(
-    currentValue: FilterValue,
+    currentValue: unknown,
     fromStatus: string,
     targetStatus: string,
 ): string | string[] {
@@ -168,17 +118,17 @@ export function buildKanbanColumns(
     notes: readonly KanbanNote[],
     schema: KanbanSchema,
     view: KanbanView,
-    pendingMoves: ReadonlyMap<string, FilterValue>,
+    pendingMoves: ReadonlyMap<string, unknown>,
     idToTitle: Readonly<Record<string, string>>,
 ): KanbanColumnModel[] {
-    const groupBy = view.groupBy ?? view.group_by ?? 'status';
-    const config = asFieldConfig(readFieldConfig(schema, groupBy));
+    const groupBy = readKanbanGroupBy(view);
+    const config = getFieldConfig(schema, groupBy);
     const options = Array.isArray(config.options)
-        ? normalizeOptions(config.options) as readonly FieldOption[]
+        ? normalizeOptions(config.options)
         : [];
     const predefinedStatuses = options.length > 0
         ? options.map(({ name }) => name)
-        : groupBy === 'status'
+        : (view.groupBy ?? view.group_by ?? 'status') === 'status'
             ? ['Idea', 'Brollador', 'Zettel', 'Tancat']
             : [];
     const customStatuses = new Set<string>();
@@ -191,8 +141,8 @@ export function buildKanbanColumns(
         ...new Set([...predefinedStatuses, ...customStatuses]),
         EMPTY_KANBAN_BUCKET,
     ];
-    const groupedNotes = Object.fromEntries(
-        statuses.map((status) => [status, [] as KanbanNote[]]),
+    const groupedNotes = Object.fromEntries<KanbanNote[]>(
+        statuses.map((status) => [status, []]),
     );
     notes.forEach((note) => {
         const values = kanbanGroupValues(note, groupBy, pendingMoves);
@@ -205,12 +155,12 @@ export function buildKanbanColumns(
         });
     });
     const orderedStatuses = orderGroupKeys({
-        direction: view.groupSortDir ?? view.group_sort_dir ?? 'asc',
+        direction: (view.groupSortDir ?? view.group_sort_dir) === 'desc' ? 'desc' : 'asc',
         emptyKey: EMPTY_KANBAN_BUCKET,
         getCount: (status) => groupedNotes[status]?.length ?? 0,
         getLabel: (status) => idToTitle[status] ?? status,
         keys: statuses,
-        mode: view.groupSort ?? view.group_sort ?? 'catalog',
+        mode: readKanbanGroupSort(view),
     });
     const colors = Object.fromEntries(options.map(({ color, name }) => [name, color]));
     return orderedStatuses.map((status) => ({
@@ -219,4 +169,33 @@ export function buildKanbanColumns(
         notes: groupedNotes[status] ?? [],
         status,
     }));
+}
+
+
+export function readKanbanGroupBy(view: KanbanView): string {
+    const value = view.groupBy ?? view.group_by ?? 'status';
+    // Property lookup and decorative-key matching use JavaScript string coercion.
+    if (typeof value === 'symbol') throw new TypeError('Cannot convert a Symbol value to a string');
+    return Reflect.apply(String, undefined, [value]);
+}
+
+
+function readKanbanGroupSort(view: KanbanView): string {
+    const mode = view.groupSort ?? view.group_sort;
+    return mode === 'alpha' || mode === 'count' ? mode : 'catalog';
+}
+
+
+export function readKanbanVisibleProperties(value: unknown): readonly string[] | undefined {
+    if (value == null) return undefined;
+    if (typeof value === 'string') return value.length ? Array.from(value) : undefined;
+    if (!isFilterValueArray(value)) {
+        if ((typeof value === 'object' || typeof value === 'function') && 'length' in value && value.length) {
+            throw new TypeError('Invalid Kanban visible properties: expected field names.');
+        }
+        return undefined;
+    }
+    if (value.length === 0) return undefined;
+    if (value.every((field): field is string => typeof field === 'string')) return value;
+    throw new TypeError('Invalid Kanban visible properties: expected field names.');
 }

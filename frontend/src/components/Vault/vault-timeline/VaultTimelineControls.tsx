@@ -1,18 +1,18 @@
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { VaultBulkActionsBar } from '../VaultBulkActionsBar';
-import { VaultViewToolbar as CurrentToolbar } from '../VaultViewToolbar';
+import { VaultViewToolbar } from '../VaultViewToolbar';
 
 import type {
-    LegacyTimelineToolbar,
     TimelineController,
     TimelineTemplate,
     TimelineZoom,
+    VaultTimelineProps,
 } from './types';
 
 
-const VaultViewToolbar = CurrentToolbar as unknown as LegacyTimelineToolbar;
 const ZOOM_LEVELS: readonly TimelineZoom[] = ['day', 'week', 'month'];
 
 
@@ -24,7 +24,7 @@ interface VaultTimelineControlsProps {
         templateId: string,
     ) => void;
     readonly onCreateRecord?: () => void;
-    readonly onDeletePage?: (noteId: string, title?: string) => void;
+    readonly onDeletePage?: VaultTimelineProps['onDeletePage'];
     readonly onDeleteSelected?: (selectedIds: Set<string>) => void;
     readonly onEditSchema?: (section: string) => void;
     readonly templates: readonly TimelineTemplate[];
@@ -127,19 +127,34 @@ export function VaultTimelineControls({
     onEditSchema,
     templates,
 }: VaultTimelineControlsProps) {
+    const { t } = useTranslation();
+    const [showSearch, setShowSearch] = useState(false);
     return <>
         <PredecessorDialog controller={controller} idToTitle={idToTitle} />
-        {!controller.externalSearch ? <VaultViewToolbar
-            activeFiltersCount={controller.activeFiltersCount}
-            activeSortsCount={controller.activeSortsCount}
-            extraActions={<ZoomActions controller={controller} />}
-            isEmbedded={false}
-            onAddNew={onCreateRecord}
-            onSearchChange={controller.setSearchTerm}
-            onToggleFilters={() => { onEditSchema?.('filters'); }}
-            onToggleSorts={() => { onEditSchema?.('sorts'); }}
-            search={controller.searchTerm}
-        /> : null}
+        {!controller.externalSearch ? <div className="flex flex-wrap items-center justify-between gap-2">
+            <VaultViewToolbar
+                activeFiltersCount={controller.activeFiltersCount}
+                activeSortsCount={controller.activeSortsCount}
+                onOpenConfig={onEditSchema ? () => { onEditSchema('settings'); } : undefined}
+                onOpenFilters={() => { onEditSchema?.('filters'); }}
+                onOpenSort={() => { onEditSchema?.('sorts'); }}
+                searchTerm={controller.searchTerm}
+                setSearchTerm={controller.setSearchTerm}
+                setShowSearch={setShowSearch}
+                showSearch={showSearch}
+            />
+            <div className="flex items-center gap-2">
+                <ZoomActions controller={controller} />
+                {onCreateRecord ? <button
+                    className="btn-gnosi inline-flex items-center gap-1.5"
+                    onClick={onCreateRecord}
+                    type="button"
+                >
+                    <Plus size={14} />
+                    {t('table.new_record', { defaultValue: 'New record' })}
+                </button> : null}
+            </div>
+        </div> : null}
         {controller.selectedIds.size > 0 ? <VaultBulkActionsBar
             onApplyTemplate={onApplyTemplate ? (templateId) => {
                 onApplyTemplate(new Set(controller.selectedIds), templateId);

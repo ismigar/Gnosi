@@ -19,12 +19,13 @@ import {
   updateVaultSummarySettings,
 } from '../../shared/api/vault-summary';
 import { subscribeWindowEvent } from '../../shared/platform/browser-events';
-import type { FilterNode, FilterValue } from '../../utils/vaultFilters';
+import { requireFilterNodes } from '../../utils/filterContracts';
 import { getFieldType, resolveViewFilters, resolveViewSorts, withResolvedSystemDates } from './schemaUtils';
 import { useTitlePreview } from './useTitlePreview';
 import {
   feedMetadataString,
   feedNoteTitle,
+  feedValueString,
   prepareFeedBody,
   readFeedDocked,
   readFeedPaneWidth,
@@ -47,9 +48,9 @@ import type {
 import { useVaultFeedPills } from './useVaultFeedPills';
 
 
-function isFilterValueArray(
-  value: FilterValue,
-): value is readonly FilterValue[] {
+function isUnknownArray(
+  value: unknown,
+): value is readonly unknown[] {
   return Array.isArray(value);
 }
 
@@ -104,7 +105,7 @@ export function useVaultFeedController({
     [activeView, schema],
   );
   const viewConfig = useMemo(() => ({
-    filters: resolveViewFilters(activeView) as readonly FilterNode[],
+    filters: requireFilterNodes(resolveViewFilters(activeView)),
     search: searchTerm,
     sorts: resolveViewSorts(activeView, {
       direction: 'desc',
@@ -247,7 +248,7 @@ export function useVaultFeedController({
     const changes = [...selection.selectedIds].map((id) => {
       const note = notes.find((candidate) => candidate.id === id);
       const previous = note?.metadata?.[field];
-      const existing: readonly FilterValue[] = isFilterValueArray(previous)
+      const existing: readonly unknown[] = isUnknownArray(previous)
         ? previous
         : previous === undefined || previous === null || previous === ''
           ? []
@@ -331,7 +332,7 @@ export function useVaultFeedController({
     onDeleteSelected: handleBulkDelete,
   });
 
-  const resetKey = `${searchTerm}|${String(activeView.id ?? '')}|${JSON.stringify(viewConfig.filters)}|${JSON.stringify(viewConfig.sorts)}`;
+  const resetKey = `${searchTerm}|${feedValueString(activeView.id)}|${JSON.stringify(viewConfig.filters)}|${JSON.stringify(viewConfig.sorts)}`;
 
   return {
     activeView,

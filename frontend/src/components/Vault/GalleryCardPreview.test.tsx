@@ -74,6 +74,20 @@ async function render(element: ReactElement): Promise<HTMLDivElement> {
 }
 
 describe('GalleryCardPreview', () => {
+    it('reads opaque Markdown with native coercion while preserving metadata and failures', () => {
+        const content = { prefix: 'Native', toString() { return `${this.prefix} content`; } };
+        const metadata: Record<string, unknown> = { description: content };
+        metadata.self = metadata;
+        const note = { title: 42, content, metadata };
+        expect(getGalleryMarkdown(note)).toBe('Native content');
+        expect(getGalleryMarkdown({ metadata })).toBe('Native content');
+        expect(note.content).toBe(content);
+        expect(metadata.self).toBe(metadata);
+        expect(getGalleryMarkdown({ metadata: null })).toBe('');
+        const failure = new Error('native coercion failed');
+        expect(() => getGalleryMarkdown({ content: { toString(): never { throw failure; } } })).toThrow(failure);
+    });
+
     it('prefers full Markdown over a shortened excerpt', () => {
         expect(getGalleryMarkdown({ body_md: 'Full body', excerpt: 'Short excerpt' })).toBe('Full body');
         expect(getGalleryMarkdown({ content: 'Stored content', excerpt: 'Short excerpt' })).toBe('Stored content');

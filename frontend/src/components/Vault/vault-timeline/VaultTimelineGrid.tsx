@@ -10,7 +10,7 @@ import type {
 
 interface TimelineGridProps {
     readonly controller: TimelineController;
-    readonly onNoteSelect: (noteId: string) => void;
+    readonly onNoteSelect?: (noteId: string) => void;
 }
 
 
@@ -47,7 +47,7 @@ function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
             className={`sticky left-0 z-10 flex w-64 shrink-0 cursor-pointer items-center gap-2 overflow-hidden border-r border-[var(--border-primary)] pr-4 ${selected
                 ? 'bg-[var(--gnosi-primary)]/10'
                 : 'bg-[var(--bg-primary)]'}`}
-            onClick={() => { onNoteSelect(note.id); }}
+            onClick={() => { onNoteSelect?.(note.id); }}
             style={{ paddingLeft: `${String(16 + note.depth * 16)}px` }}
         >
             {note.depth > 0 ? <span
@@ -117,7 +117,7 @@ function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
             })}
             {note.isParent ? <div
                 className="group/bar absolute h-2 cursor-pointer rounded-[2px]"
-                onClick={() => { onNoteSelect(note.id); }}
+                onClick={() => { onNoteSelect?.(note.id); }}
                 style={{
                     left: percent(startPosition),
                     width: percent(width),
@@ -140,7 +140,7 @@ function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
                 </div>
             </div> : <div
                 className="group/bar absolute flex h-6 cursor-pointer items-center overflow-hidden rounded-md border border-black/10 px-2 shadow-sm transition-all hover:scale-y-105 hover:brightness-110 dark:border-white/10"
-                onClick={() => { onNoteSelect(note.id); }}
+                onClick={() => { onNoteSelect?.(note.id); }}
                 style={{
                     left: percent(startPosition),
                     width: percent(width),

@@ -1,7 +1,6 @@
 import { formatVaultDate, parseVaultDate } from '../dateUtils';
 import { normalizeOptions, optionColorHex } from '../optionCatalogUtils';
-import { parsePeriod, type PeriodInput } from '../../../utils/projectPlanning';
-import type { FilterValue } from '../../../utils/vaultFilters';
+import { parsePeriod } from '../../../utils/projectPlanning';
 
 import type {
     TimelineChartModel,
@@ -27,6 +26,12 @@ function stringifyLegacy(value: unknown): string {
 }
 
 
+function schemaFieldKey(value: unknown): string {
+    const values = [value];
+    return Reflect.apply(values.join, values, ['']);
+}
+
+
 function foldKey(value: unknown): string {
     return stringifyLegacy(value ?? '')
         .toLowerCase()
@@ -36,12 +41,7 @@ function foldKey(value: unknown): string {
 }
 
 
-function asPeriodInput(value: FilterValue): PeriodInput {
-    return value as PeriodInput;
-}
-
-
-function isFilterValueArray(value: FilterValue): value is readonly FilterValue[] {
+function isUnknownArray(value: unknown): value is readonly unknown[] {
     return Array.isArray(value);
 }
 
@@ -56,12 +56,12 @@ export function timelineUnitFromConfig(
 
 export function resolveTimelineDateFields(
     schema: TimelineSchema,
-    dateField: string | undefined,
-    endDateField: string | undefined,
+    dateField: unknown,
+    endDateField: unknown,
     readers: TimelineSchemaReaders,
 ): { readonly dateField?: string; readonly endDateField?: string } {
     const names = readers.fieldNames(schema);
-    const resolvedDate = dateField && names.includes(dateField)
+    const resolvedDate = typeof dateField === 'string' && dateField && names.includes(dateField)
         ? dateField
         : readers.fieldEntries(schema).find(([, type]) => type === 'date')?.[0]
             ?? readers.fieldEntries(schema).find(
@@ -69,7 +69,7 @@ export function resolveTimelineDateFields(
             )?.[0];
     const endKeys = ['due_date', 'end_date', 'data de venciment', 'venciment'];
     const dateLike = ['date', 'datetime', 'period'];
-    const resolvedEnd = endDateField && names.includes(endDateField)
+    const resolvedEnd = typeof endDateField === 'string' && endDateField && names.includes(endDateField)
         ? endDateField
         : names.find((field) => (
             endKeys.includes(field.toLowerCase())
@@ -86,7 +86,7 @@ export function predecessorsFor(
 ): readonly string[] {
     if (enhancedPeriod && dateField) {
         const value = note.metadata?.[dateField] ?? '';
-        const period = parsePeriod(asPeriodInput(value));
+        const period = parsePeriod(value);
         if (period.version >= 2) return period.predecessorIds;
     }
     const value = note.metadata?.predecessor_ids;
@@ -146,7 +146,7 @@ function resolveParentId(
             continue;
         }
         const value = metadata[field];
-        const first = isFilterValueArray(value) ? value[0] : value;
+        const first = isUnknownArray(value) ? value[0] : value;
         if (first) return stringifyLegacy(first);
     }
     return null;
@@ -165,8 +165,8 @@ function dateRangeForNote(
     endDateField: string | undefined,
     readers: TimelineSchemaReaders,
 ): { readonly end: Date; readonly start: Date } | null {
-    let startValue: FilterValue = note.last_modified;
-    let endValue: FilterValue = null;
+    let startValue: unknown = note.last_modified;
+    let endValue: unknown = null;
     if (dateField) {
         const aliases: Readonly<Record<string, string>> = {
             dateadded: 'created_time',
@@ -179,7 +179,7 @@ function dateRangeForNote(
         ) ?? dateField;
         const rawStart = note.metadata?.[metadataKey];
         if (readers.fieldType(schema, dateField) === 'period') {
-            const period = parsePeriod(asPeriodInput(rawStart));
+            const period = parsePeriod(rawStart);
             if (period.start && !Number.isNaN(parseVaultDate(period.start).getTime())) {
                 startValue = period.start;
             }
@@ -194,7 +194,7 @@ function dateRangeForNote(
             if (endDateField && rawEnd) {
                 const endType = readers.fieldType(schema, endDateField);
                 const period = endType === 'period'
-                    ? parsePeriod(asPeriodInput(rawEnd))
+                    ? parsePeriod(rawEnd)
                     : null;
                 endValue = period ? period.end || period.start : rawEnd;
             }
@@ -212,7 +212,7 @@ function dateRangeForNote(
 }
 
 
-function parseVaultDateValue(value: FilterValue): Date {
+function parseVaultDateValue(value: unknown): Date {
     if (
         typeof value === 'string'
         || typeof value === 'number'
@@ -326,17 +326,19 @@ export function buildTimelineChart({
 
 export function buildBarColorResolver(
     schema: TimelineSchema,
-    colorField: string,
+    colorField: unknown,
     readers: TimelineSchemaReaders,
 ): (note: TimelineChartNote) => string {
     if (!colorField) return () => 'var(--gnosi-primary)';
-    const options = readers.fieldConfig(schema, colorField).options;
+    // Match the schema reader's native template-string coercion (including
+    // throwing for symbols), without constraining imported view extensions.
+    const options = readers.fieldConfig(schema, schemaFieldKey(colorField)).options;
     const colorMap = new Map(
         (Array.isArray(options) ? normalizeOptions(options) : [])
             .map((option) => [option.name, optionColorHex(option.color)]),
     );
     return (note) => {
-        const value = note.metadata?.[colorField];
+        const value = note.metadata?.[schemaFieldKey(colorField)];
         return typeof value === 'string' && colorMap.has(value)
             ? colorMap.get(value) ?? 'var(--gnosi-primary)'
             : 'var(--gnosi-primary)';

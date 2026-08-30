@@ -1,12 +1,11 @@
-import type { ComponentType, ReactNode } from 'react';
-
 import type { TitlePreviewController } from '../useTitlePreview';
+import type { BulkActionTemplate } from '../VaultBulkActionsBar';
 import type {
     VaultSortInput,
     VaultViewConfig,
     VaultViewPage,
 } from '../../../hooks/useVaultViewData';
-import type { FilterNode, FilterValue } from '../../../utils/vaultFilters';
+import type { FilterNode } from '../../../utils/vaultFilters';
 import type { FieldFormatConfig } from '../formatUtils';
 
 
@@ -15,24 +14,13 @@ export type TimelineZoom = 'day' | 'week' | 'month';
 export type TimelineUnit = 'hours' | 'days' | 'years';
 
 
-export interface TimelineRecord {
-    readonly id: string;
-    readonly last_modified?: string;
-    readonly metadata?: Readonly<Record<string, FilterValue>>;
-    readonly parent_id?: FilterValue;
-    readonly title?: string;
-}
+export type TimelineRecord = VaultViewPage;
 
 
-export type TimelineNote = VaultViewPage & TimelineRecord;
+export type TimelineNote = VaultViewPage;
 
 
-export interface TimelineView extends VaultViewConfig {
-    readonly colorField?: string;
-    readonly dateField?: string;
-    readonly endDateField?: string;
-    readonly id?: string;
-}
+export type TimelineView = VaultViewConfig;
 
 
 export interface TimelineFieldConfig extends FieldFormatConfig {
@@ -56,10 +44,10 @@ export interface VaultTimelineProps {
         templateId: string,
     ) => void;
     readonly onCreateRecord?: () => void;
-    readonly onDeletePage?: (noteId: string, title?: string) => void;
+    readonly onDeletePage?: (noteId: string, title?: TimelineNote['title']) => void;
     readonly onDeleteSelected?: (selectedIds: Set<string>) => void;
     readonly onEditSchema?: (section: string) => void;
-    readonly onNoteSelect: (noteId: string) => void;
+    readonly onNoteSelect?: (noteId: string) => void;
     readonly onUpdateNote?: (
         noteId: string,
         patch: TimelinePatch,
@@ -70,10 +58,7 @@ export interface VaultTimelineProps {
 }
 
 
-export interface TimelineTemplate {
-    readonly id: string;
-    readonly [key: string]: unknown;
-}
+export type TimelineTemplate = BulkActionTemplate;
 
 
 export interface TimelineTick {
@@ -118,24 +103,11 @@ export interface TimelineSchemaReaders {
         schema: TimelineSchema,
         field: string | undefined,
     ) => string;
-    readonly filters: (view: TimelineView) => FilterNode[];
+    readonly filters: (view: TimelineView) => readonly FilterNode[];
     readonly sorts: (
         view: TimelineView,
         fallback?: VaultSortInput | null,
     ) => VaultSortInput[];
-}
-
-
-export interface TimelineToolbarProps {
-    readonly activeFiltersCount: number;
-    readonly activeSortsCount: number;
-    readonly extraActions: ReactNode;
-    readonly isEmbedded: boolean;
-    readonly onAddNew?: () => void;
-    readonly onSearchChange: (value: string) => void;
-    readonly onToggleFilters: () => void;
-    readonly onToggleSorts: () => void;
-    readonly search: string;
 }
 
 
@@ -175,6 +147,3 @@ export interface TimelineController {
     ) => void;
     readonly zoomLevel: TimelineZoom;
 }
-
-
-export type LegacyTimelineToolbar = ComponentType<TimelineToolbarProps>;

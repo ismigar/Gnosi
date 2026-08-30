@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { LocaleFormatSettings } from '../../hooks/useLocaleSettings';
 import { getImageSrc, toAssetPreviewUrl } from '../../lib/fileResource';
 import { openVaultResource } from '../../shared/api/vaults';
-import { asBool, type FilterValue } from '../../utils/vaultFilters';
+import { asBool } from '../../utils/vaultFilters';
 import { FileFieldValue } from './FileFieldValue';
 import {
   formatDate,
@@ -50,14 +50,14 @@ interface UseVaultFeedPillsInput {
 }
 
 
-function imageAlt(value: FilterValue, fallback: string): string {
+function imageAlt(value: unknown, fallback: string): string {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return fallback;
-  const alt = (value as Readonly<Record<string, FilterValue>>).alt;
+  const alt: unknown = Reflect.get(value, 'alt');
   return typeof alt === 'string' ? alt : fallback;
 }
 
 
-function periodParts(value: FilterValue): { end: string; start: string } {
+function periodParts(value: unknown): { end: string; start: string } {
   const text = feedValueString(value);
   const [start = '', end = ''] = text.split('/');
   return { end, start };
@@ -109,7 +109,7 @@ export function useVaultFeedPills({
   }, [allNotes, idToTitle, schema]);
 
   const renderValue = useCallback((
-    value: FilterValue,
+    value: unknown,
     type: string,
     field: string,
     note: VaultFeedNote,

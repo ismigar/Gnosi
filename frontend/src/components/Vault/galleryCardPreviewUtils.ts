@@ -1,28 +1,19 @@
 import { vaultPath } from '../../lib/vaultRouting';
 import { stripManagedBlockMarkers } from './managedMarkdownUtils';
+import type { VaultViewPage } from '../../hooks/useVaultViewData';
 
-type GalleryMarkdownValue =
-  | string
-  | number
-  | bigint
-  | boolean
-  | null
-  | undefined;
-
-interface GalleryNoteMetadata {
-  description?: GalleryMarkdownValue;
-  summary?: GalleryMarkdownValue;
-}
-
-interface GalleryNote {
-  body_md?: GalleryMarkdownValue;
-  content?: GalleryMarkdownValue;
-  excerpt?: GalleryMarkdownValue;
-  metadata?: GalleryNoteMetadata | null;
+export interface GalleryPreviewNote {
+  readonly [key: string]: unknown;
+  readonly body_md?: unknown;
+  readonly content?: unknown;
+  readonly excerpt?: unknown;
+  readonly metadata?: Readonly<Record<string, unknown>> | null;
+  readonly id?: string | null;
+  readonly title?: VaultViewPage['title'];
 }
 
 export function getGalleryMarkdown(
-  note?: GalleryNote | null,
+  note?: GalleryPreviewNote | null,
 ): string {
   const markdown =
     note?.body_md ||
@@ -31,8 +22,8 @@ export function getGalleryMarkdown(
     note?.metadata?.description ||
     note?.metadata?.summary ||
     '';
-  const visibleMarkdown: unknown = stripManagedBlockMarkers(String(markdown));
-  return typeof visibleMarkdown === 'string' ? visibleMarkdown : '';
+  const text: string = Reflect.apply(String, undefined, [markdown]);
+  return stripManagedBlockMarkers(text);
 }
 
 export function openGalleryPageWindow(

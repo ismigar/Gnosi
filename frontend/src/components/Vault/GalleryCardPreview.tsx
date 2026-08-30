@@ -3,22 +3,8 @@ import { ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { fetchVaultPagePreview, type VaultPagePreview } from '../../shared/api/vaults';
-import { getGalleryMarkdown, getGalleryPageUrl, openGalleryPageWindow } from './galleryCardPreviewUtils';
+import { getGalleryMarkdown, getGalleryPageUrl, openGalleryPageWindow, type GalleryPreviewNote } from './galleryCardPreviewUtils';
 import { VaultMarkdown } from './VaultMarkdown';
-
-type GalleryMarkdownValue = string | number | bigint | boolean | null | undefined;
-
-interface GalleryNote {
-    readonly body_md?: GalleryMarkdownValue;
-    readonly content?: GalleryMarkdownValue;
-    readonly excerpt?: GalleryMarkdownValue;
-    readonly id?: string | null;
-    readonly metadata?: {
-        readonly description?: GalleryMarkdownValue;
-        readonly summary?: GalleryMarkdownValue;
-    } | null;
-    readonly title?: string | null;
-}
 
 interface GalleryOpenButtonProps {
     readonly pageId?: string | null;
@@ -26,7 +12,7 @@ interface GalleryOpenButtonProps {
 
 interface GalleryContentPreviewProps {
     readonly idToTitle?: Record<string, string>;
-    readonly note?: GalleryNote | null;
+    readonly note?: GalleryPreviewNote | null;
     readonly onNoteSelect?: (pageId?: string | null) => void;
     readonly onOpenParallel?: (pageId: string) => void;
 }
@@ -149,7 +135,7 @@ export function GalleryContentPreview({
             {markdown ? (
                 <VaultMarkdown
                     md={markdown}
-                    imageTitle={note?.title || ''}
+                    imageTitle={note?.title ? String(note.title) : ''}
                     idToTitle={idToTitle}
                     onActivate={() => onNoteSelect?.(note?.id)}
                     onOpenInCurrentTab={onOpenParallel || onNoteSelect}

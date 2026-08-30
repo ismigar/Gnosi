@@ -6,7 +6,6 @@ import { prepareDashboardViewContext, VIEW_WRAPPERS } from './view-context';
 import { applyDashboardJoins } from './joins';
 import type { DashboardController } from './useDashboardController';
 import { tableBodyCallbacks } from './table-callbacks';
-import { filterPage } from './consumer-readers';
 interface Props {
   dashboard: DashboardController;
   tableId: string;
@@ -68,11 +67,11 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
     {...tableBodyCallbacks(d, tableId, inline ? view.id : currentViewId, split)}
     type={mergedView.type}
     functionalities={table?.functionalities}
-    notes={applyDashboardJoins(notes, view.joins, d.pages, d.resolvePageTableId).map(filterPage)}
+    notes={applyDashboardJoins(notes, view.joins, d.pages, d.resolvePageTableId)}
     templates={templates}
     schema={mergedSchema}
     idToTitle={d.globalIndex}
-    allNotes={d.pages.map(filterPage)}
+    allNotes={d.pages}
     activeView={mergedView}
     searchTerm={d.searchTerm}
     {...(mode === 'tab' ? {} : { isEmbedded: split, actionRules: table?.action_rules })}
@@ -89,7 +88,7 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
       {...headerExtra}
       tableName={table?.title || table?.name || d.t('common.table')}
       recordCount={notes.length}
-      notes={notes.map(filterPage)}
+      notes={notes}
       referenceTableId={d.refTableId === tableId ? tableId : undefined}
       brainTableId={d.brainTableId === tableId ? tableId : undefined}
       onReferencesImported={d.fetchPages}

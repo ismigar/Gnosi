@@ -8,10 +8,9 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import {
     useVaultViewData,
-    type VaultSortInput,
     type VaultViewConfig,
 } from '../../hooks/useVaultViewData';
-import type { FilterNode, FilterValue } from '../../utils/vaultFilters';
+import { requireFilterNodes } from '../../utils/filterContracts';
 import { VaultBulkActionsBar, type BulkActionTemplate } from './VaultBulkActionsBar';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { getFieldType, getSchemaFieldNames, resolveViewFilters, resolveViewSorts } from './schemaUtils';
@@ -21,9 +20,10 @@ import { VaultKanbanCard } from './vault-kanban/VaultKanbanCard';
 import { VaultKanbanColumn } from './vault-kanban/VaultKanbanColumn';
 import {
     buildKanbanColumns,
-    EMPTY_KANBAN_BUCKET,
     findKanbanMetadataKey,
     readKanbanCardValue,
+    readKanbanGroupBy,
+    readKanbanVisibleProperties,
     resolveKanbanDropValue,
     type KanbanCardField,
     type KanbanNote,
@@ -56,11 +56,11 @@ export interface VaultKanbanProps {
     readonly notes?: readonly KanbanNote[];
     readonly onApplyTemplate?: (selectedIds: Set<string>, templateId: string) => void;
     readonly onCreateRecord?: () => void;
-    readonly onDeletePage?: (pageId: string, title: string) => void;
+    readonly onDeletePage?: (pageId: string, title: KanbanNote['title']) => void;
     readonly onDeleteSelected?: (selectedIds: Set<string>) => void;
     readonly onEditSchema?: (section: string) => void;
-    readonly onNoteSelect: (noteId: string) => void;
-    readonly onUpdateNote?: (pageId: string, patch: KanbanUpdatePatch) => Promise<unknown>;
+    readonly onNoteSelect?: (noteId: string) => void;
+    readonly onUpdateNote?: (pageId: string, patch: KanbanUpdatePatch) => unknown;
     readonly schema?: KanbanSchema;
     readonly searchTerm?: string;
     readonly templates?: readonly BulkActionTemplate[];
@@ -73,22 +73,13 @@ interface DragPayload {
 }
 
 
-const readFieldNames = getSchemaFieldNames as (schema: KanbanSchema) => string[];
-const readFieldType = getFieldType as (schema: KanbanSchema, field: string) => string;
-const readFilters = resolveViewFilters as (view: KanbanView) => FilterNode[];
-const readSorts = resolveViewSorts as (
-    view: KanbanView,
-    fallback?: VaultSortInput,
-) => VaultSortInput[];
-
-
 function parseDragPayload(value: string): DragPayload | null {
     try {
         const parsed: unknown = JSON.parse(value || 'null');
         if (!parsed || typeof parsed !== 'object') return null;
-        const candidate = parsed as Readonly<Record<string, unknown>>;
-        return typeof candidate.id === 'string' && typeof candidate.from === 'string'
-            ? { from: candidate.from, id: candidate.id }
+        return 'id' in parsed && typeof parsed.id === 'string'
+            && 'from' in parsed && typeof parsed.from === 'string'
+            ? { from: parsed.from, id: parsed.id }
             : null;
     } catch {
         return null;
@@ -117,29 +108,26 @@ export function VaultKanban({
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
-    const [pendingMoves, setPendingMoves] = useState<ReadonlyMap<string, FilterValue>>(
+    const [pendingMoves, setPendingMoves] = useState<ReadonlyMap<string, unknown>>(
         () => new Map(),
     );
     const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
     const searchTerm = externalSearchTerm ?? internalSearchTerm;
     const view = useMemo<VaultViewConfig>(() => ({
-        filters: readFilters(activeView),
+        filters: requireFilterNodes(resolveViewFilters(activeView)),
         search: searchTerm,
-        sorts: readSorts(activeView, { direction: 'desc', field: 'last_modified' }),
+        sorts: resolveViewSorts(activeView, { direction: 'desc', field: 'last_modified' }),
     }), [activeView, searchTerm]);
     const { sortedPages } = useVaultViewData({ pages: notes, schema, searchTerm, view });
     const visibleNotes = sortedPages;
     const selection = useVaultSelection(visibleNotes);
-    const groupBy = activeView.groupBy ?? activeView.group_by ?? 'status';
-    const groupByType = readFieldType(schema, groupBy);
+    const groupBy = readKanbanGroupBy(activeView);
+    const groupByType = getFieldType(schema, groupBy);
     const canDrag = Boolean(onUpdateNote) && !NON_DRAGGABLE_GROUP_TYPES.has(groupByType);
-    const configuredProperties = activeView.visibleProperties?.length
-        ? [...activeView.visibleProperties]
-        : isMainView(activeView)
-            ? readFieldNames(schema)
-            : readFieldNames(schema).slice(0, 3);
+    const configuredProperties = readKanbanVisibleProperties(activeView.visibleProperties)
+        ?? (isMainView(activeView) ? getSchemaFieldNames(schema) : getSchemaFieldNames(schema).slice(0, 3));
     const fields = configuredProperties
-        .map((field): KanbanCardField => ({ field, type: readFieldType(schema, field) }))
+        .map((field): KanbanCardField => ({ field, type: getFieldType(schema, field) }))
         .filter(({ type }) => Boolean(type) && type !== 'title');
     const columns = useMemo(() => buildKanbanColumns(
         visibleNotes,
@@ -194,13 +182,13 @@ export function VaultKanban({
                 return next;
             });
         }
-    }, [canDrag, groupBy, onUpdateNote, pendingMoves, visibleNotes]);
+    }, [canDrag, groupBy, onUpdateNote, pendingMoves, setDragOverStatus, setPendingMoves, visibleNotes]);
 
     return <div className="flex h-full w-full flex-col overflow-hidden bg-[var(--bg-primary)]">
         {externalSearchTerm === undefined ? <div className="flex items-center justify-between gap-2">
             <VaultViewToolbar
-                activeFiltersCount={readFilters(activeView).length}
-                activeSortsCount={readSorts(activeView).length}
+                activeFiltersCount={resolveViewFilters(activeView).length}
+                activeSortsCount={resolveViewSorts(activeView).length}
                 onOpenFilters={() => { onEditSchema?.('filters'); }}
                 onOpenSort={() => { onEditSchema?.('sorts'); }}
                 searchTerm={searchTerm}

@@ -21,7 +21,7 @@ import { VaultGalleryPropertyValue } from './VaultGalleryPropertyValue';
 interface VaultGalleryCardProps {
     readonly allNotes: readonly GalleryNote[];
     readonly cardSize: GalleryCardSize;
-    readonly coverField: string;
+    readonly coverField: unknown;
     readonly coverFitClass: string;
     readonly dynamicColumns: readonly (readonly [string, string])[];
     readonly flatIndex: number;
@@ -34,7 +34,7 @@ interface VaultGalleryCardProps {
         flatIndex: number,
         noteId: string,
     ) => void;
-    readonly onNoteSelect: (noteId: string) => void;
+    readonly onNoteSelect?: (noteId: string) => void;
     readonly onOpenParallel?: (noteId: string) => void;
     readonly onUpdateNote?: (
         pageId: string,
@@ -52,7 +52,7 @@ interface VaultGalleryCardProps {
 }
 
 
-function resolveCoverUrl(note: GalleryNote, coverField: string): string {
+function resolveCoverUrl(note: GalleryNote, coverField: unknown): string {
     if (coverField) {
         return toAssetPreviewUrl(getImageSrc(galleryMetadataValue(note, coverField))) || '';
     }
@@ -97,7 +97,7 @@ export function VaultGalleryCard({
             className={`group relative flex flex-col overflow-hidden rounded-xl border bg-[var(--bg-primary)] shadow-sm outline-none transition-all hover:shadow-md focus:border-[var(--gnosi-primary)] focus:ring-2 focus:ring-[var(--gnosi-primary)] ${embeddedPreview ? galleryCardHeightClass(cardSize) : ''} ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
             onClick={() => {
                 if (selectedCount > 0) toggleSelect(note.id);
-                else onNoteSelect(note.id);
+                else onNoteSelect?.(note.id);
             }}
             onKeyDown={(event) => {
                 onKeyDown(event, flatIndex, note.id);
@@ -138,7 +138,8 @@ export function VaultGalleryCard({
             <div className={`flex min-h-0 flex-1 flex-col p-4 ${showCover ? 'pt-6' : ''}`}>
                 <h3
                     className={`mb-2 flex items-center gap-2 truncate text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)] ${embeddedPreview && !showCover ? 'pr-8' : ''}`}
-                    title={note.title}
+                    title={note.title == null || typeof note.title === 'boolean'
+                        ? undefined : String(note.title)}
                 >
                     {!showCover ? <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center">
                         <IconRenderer
@@ -157,7 +158,7 @@ export function VaultGalleryCard({
                         idToTitle={{ ...idToTitle }}
                         note={note}
                         onNoteSelect={(pageId) => {
-                            if (pageId) onNoteSelect(pageId);
+                            if (pageId) onNoteSelect?.(pageId);
                         }}
                         onOpenParallel={onOpenParallel}
                     />

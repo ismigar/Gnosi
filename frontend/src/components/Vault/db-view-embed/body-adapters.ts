@@ -7,6 +7,7 @@ import type { EmbedDerived } from './useEmbedDerived';
 import type { EmbedRecordActions } from './useEmbedRecordActions';
 import type { EmbedTabActions } from './useEmbedTabActions';
 import type { Column } from './types';
+import type { VaultViewPage } from '../../../hooks/useVaultViewData';
 function decodeViewUpdate(value: unknown) {
     const source = isRecord(value) ? value : {};
     const view = decodeView(source);
@@ -30,7 +31,7 @@ export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, ha
         if (!clean.length) return;
         emitAppEvent('gnosi:records-deleted', { ids: clean });
     };
-    const onDeletePageAdapter = (id: string, title?: string) => { ctx.onDeletePage?.(id, title); if (id) announceDeleted([id]); setTimeout(reload, 400); };
+    const onDeletePageAdapter = (id: string, title?: VaultViewPage['title']) => { ctx.onDeletePage?.(id, title); if (id) announceDeleted([id]); setTimeout(reload, 400); };
     const onDeleteSelectedAdapter = (ids: Set<string>) => {
         void Promise.allSettled([...ids].map(id => deleteVaultPage(id)))
             .then((results) => {

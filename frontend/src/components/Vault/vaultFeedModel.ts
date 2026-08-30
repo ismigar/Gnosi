@@ -32,22 +32,12 @@ function isStringArray(value: unknown): value is readonly string[] {
 
 
 export function feedValueString(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (
-    typeof value === 'number'
-    || typeof value === 'bigint'
-    || typeof value === 'boolean'
-  ) {
-    return String(value);
-  }
-  return '';
+  return Reflect.apply(String, undefined, [value ?? '']);
 }
 
 
 function feedViewId(activeView: VaultFeedActiveView): string {
-  return typeof activeView.id === 'string' && activeView.id
-    ? activeView.id
-    : 'default';
+  return feedValueString(activeView.id || 'default');
 }
 
 
@@ -148,7 +138,7 @@ export function visibleFeedColumns(
       if (!property || typeof property !== 'object' || Array.isArray(property)) {
         return '';
       }
-      const fieldKey = (property as Readonly<Record<string, unknown>>).fieldKey;
+      const fieldKey: unknown = Reflect.get(property, 'fieldKey');
       return typeof fieldKey === 'string' ? fieldKey : '';
     })
     .filter(Boolean)
@@ -167,7 +157,7 @@ export function feedDateGroup(
   t: TFunction,
   now = new Date(),
 ): string {
-  const date = new Date(feedValueString(value));
+  const date = feedDate(value);
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startWeek = new Date(startToday);
   startWeek.setDate(startToday.getDate() - ((startToday.getDay() + 6) % 7));
@@ -226,14 +216,14 @@ export function writeLastFeedRecord(
 
 
 export function feedNoteTitle(note: VaultFeedNote): string {
-  return typeof note.title === 'string' ? note.title : '';
+  return feedValueString(note.title || '');
 }
 
 
 export function feedMetadataValue(
   note: VaultFeedNote,
   key: string,
-): import('../../utils/vaultFilters').FilterValue {
+): unknown {
   return note.metadata?.[key];
 }
 
@@ -247,5 +237,13 @@ export function feedMetadataString(
 
 
 export function feedModifiedDate(note: VaultFeedNote): Date {
-  return new Date(feedValueString(note.last_modified));
+  return feedDate(note.last_modified);
+}
+
+
+/** Keep Date's native ToPrimitive behavior for imported timestamps. */
+function feedDate(value: unknown): Date {
+  const date: unknown = Reflect.construct(Date, [value]);
+  if (!(date instanceof Date)) throw new TypeError('Invalid feed date constructor');
+  return date;
 }

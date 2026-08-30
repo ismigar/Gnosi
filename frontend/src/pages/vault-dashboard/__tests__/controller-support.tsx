@@ -1,11 +1,11 @@
-import { act, useLayoutEffect } from 'react';
+import { act, useLayoutEffect, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { createInstance } from 'i18next';
 import { I18nextProvider } from 'react-i18next';
 import { useDashboardController, type DashboardController } from '../useDashboardController';
 import { ACTIVE_VAULT_SLUG_KEY, storageSet } from '../../../shared/api/vault-context';
-export async function renderController(path = '') {
+export async function renderController(path = '', render?: (controller: DashboardController) => ReactNode) {
   const i18n = createInstance();
   await i18n.init({ lng: 'en', resources: {}, initImmediate: false, showSupportNotice: false });
   storageSet(ACTIVE_VAULT_SLUG_KEY, 'dashboard-test');
@@ -16,7 +16,7 @@ export async function renderController(path = '') {
   function ControllerHarness() {
     const result = useDashboardController();
     useLayoutEffect(() => { current = result; });
-    return <div data-testid="mode">{result.viewMode}</div>;
+    return render ? render(result) : <div data-testid="mode">{result.viewMode}</div>;
   }
   await act(async () => {
     root.render(<I18nextProvider i18n={i18n}><MemoryRouter initialEntries={[`/@dashboard-test/knowledge/${path}`]}>

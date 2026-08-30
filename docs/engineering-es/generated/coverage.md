@@ -2,121 +2,121 @@
 
 # Cobertura de la documentación
 
-Matriz de trazabilidad curada que conecta los dominios de productos con guías revisadas, fuentes, pruebas y directrices de desarrollo-memoria. La presencia de archivos demuestra trazabilidad, no comportamiento.
+Curated traceability matrix connecting product domains to reviewed guides, source, tests, and development-memory directives. File presence proves traceability, not behavior.
 
-Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.py`.
+Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-| Dominio | Situación | Guía | Archivos de origen | Archivos de prueba | Directivas encontradas |
+| Dominio | Estado | Guía | Archivos fuente | Archivos de pruebas | Directivas encontradas |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **cubiertos** | [`Fundación de plataformas y tiempo de ejecución`](../domains/foundation-runtime.md) | 15 | 9 | 0 |
-| `vault-files` | **cubiertos** | [`Válido y archivos`](../domains/vault-files.md) | 333 | 39 | 0 |
-| `database-views-planning` | **cubiertos** | [`Vistas de base de datos y planificación de proyectos '](../domains/database-views-planning.md) | 17 | 12 | 0 |
-| `knowledge-graph` | **cubiertos** | [`Gráfico de conocimiento`](../domains/knowledge-graph.md) | 10 | 12 | 0 |
-| `reader-references` | **cubiertos** | [`Lector, referencias y citas`](../domains/reader-references.md) | 16 | 12 | 0 |
-| `ai-agent` | **cubiertos** | [Agentes, modelos, herramientas y habilidades de la AI](../domains/ai-agent.md) | 67 | 22 | 0 |
-| `mail` | **cubiertos** | [`Mail`](../domains/mail.md) | 15 | 7 | 0 |
-| `calendar-meetings` | **cubiertos** | [`Calendario y reuniones`](../domains/calendar-meetings.md) | 11 | 5 | 0 |
-| `contacts` | **cubiertos** | [`Contactos`](../domains/contacts.md) | 9 | 2 | 0 |
-| `social-publishing` | **cubiertos** | [`Publicación social y medios de comunicación '](../domains/social-publishing.md) | 6 | 0 | 0 |
-| `integrations-plugins` | **cubiertos** | [`Integraciones y complementos`](../domains/integrations-plugins.md) | 55 | 8 | 0 |
-| `auth-workspaces-sharing` | **cubiertos** | [`Autenticación, espacios de trabajo y compartir '](../domains/auth-workspaces-sharing.md) | 12 | 10 | 0 |
-| `automation-scheduling` | **cubiertos** | [`Automatización y programación '](../domains/automation-scheduling.md) | 9 | 3 | 0 |
-| `desktop-clients` | **cubiertos** | [`Desktop y clientes acompañantes '](../domains/desktop-clients.md) | 50 | 5 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 15 | 10 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1028 | 50 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 51 | 22 | 0 |
+| `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 14 | 17 | 0 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 22 | 20 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 79 | 26 | 0 |
+| `mail` | **covered** | [`Mail`](../domains/mail.md) | 9 | 10 | 0 |
+| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 8 | 9 | 0 |
+| `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 5 | 3 | 0 |
+| `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 4 | 5 | 0 |
+| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 78 | 24 | 0 |
+| `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 11 | 11 | 0 |
+| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 11 | 5 | 0 |
+| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 84 | 19 | 0 |
 
-## Fundación y duración de la plataforma
+## Platform foundation and runtime
 
-- Guía: [`Fundación de plataformas y tiempo de ejecución`](../domains/foundation-runtime.md)
-- Patrones de origen: `backend/server.py`, `backend/config/**/*.py`, `scripts/runtime/run_native_*.sh`, `docker-compose.yml`, `Dockerfile.*`
-- Patrones de ensayo: `backend/tests/test_*config*.py`, `backend/tests/test_*health*.py`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Platform foundation and runtime`](../domains/foundation-runtime.md)
+- Patrones de fuentes: `backend/server.py`, `backend/config/**/*.py`, `scripts/runtime/run_native_*.sh`, `docker-compose.yml`, `Dockerfile.*`
+- Patrones de pruebas: `backend/tests/test_*config*.py`, `backend/tests/test_*health*.py`
+- Directivas: none found
 
-## Bóveda y archivos
+## Vault and files
 
-- Guía: [`Válido y archivos`](../domains/vault-files.md)
-- Patrones de origen: `backend/api/vault*.py`, `backend/domains/vault/**/*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/pages/Vault*.jsx`, `frontend/src/components/Vault/**/*`
-- Patrones de ensayo: `backend/tests/test_vault*.py`, `tests/e2e/tests/e2e/vault*.spec.ts`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Vault and files`](../domains/vault-files.md)
+- Patrones de fuentes: `backend/api/vault*.py`, `backend/domains/vault/**/*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/pages/Vault*.jsx`, `frontend/src/components/Vault/**/*`
+- Patrones de pruebas: `backend/tests/test_vault*.py`, `tests/e2e/tests/e2e/vault*.spec.ts`
+- Directivas: none found
 
-## Opiniones de base de datos y planificación de proyectos
+## Database views and project planning
 
-- Guía: [`Vistas de base de datos y planificación de proyectos '](../domains/database-views-planning.md)
-- Patrones de origen: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `frontend/src/components/Vault/*Table*`, `frontend/src/components/Vault/*View*`, `frontend/src/pages/ProjectPlanningPage.jsx`
-- Patrones de ensayo: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `tests/e2e/tests/e2e/dashboards.spec.ts`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Database views and project planning`](../domains/database-views-planning.md)
+- Patrones de fuentes: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `backend/services/option_catalogs.py`, `backend/services/rule_engine.py`, `backend/services/view_snapshot.py`, `backend/domains/vault/tables/catalogs/**/*.py`, `backend/domains/vault/tables/rules/**/*.py`, `backend/domains/vault/views/**/*.py`, `frontend/src/components/Vault/*Table*`, `frontend/src/components/Vault/*View*`, `frontend/src/pages/ProjectPlanningPage.jsx`
+- Patrones de pruebas: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `backend/tests/test_*rule*.py`, `backend/tests/test_*rollup*.py`, `backend/tests/test_*option_catalogs.py`, `backend/tests/test_snapshot_sort*.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `tests/e2e/tests/e2e/dashboards.spec.ts`
+- Directivas: none found
 
-## Gráfico de conocimientos
+## Knowledge graph
 
-- Guía: [`Gráfico de conocimiento`](../domains/knowledge-graph.md)
-- Patrones de origen: `backend/api/vault_graph_routes.py`, `backend/services/graph*.py`, `frontend/src/pages/GraphPage.jsx`, `frontend/src/components/Graph*`, `frontend/src/components/**/*Graph*`
-- Patrones de ensayo: `backend/tests/test_*graph*.py`, `frontend/src/**/*graph*.test.*`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Knowledge graph`](../domains/knowledge-graph.md)
+- Patrones de fuentes: `backend/api/vault_graph_routes.py`, `backend/services/graph*.py`, `frontend/src/pages/GraphPage.jsx`, `frontend/src/components/Graph*`, `frontend/src/components/**/*Graph*`
+- Patrones de pruebas: `backend/tests/test_*graph*.py`, `frontend/src/**/*graph*.test.*`
+- Directivas: none found
 
-## Lector, referencias y citas
+## Reader, references, and citations
 
-- Guía: [`Lector, referencias y citas`](../domains/reader-references.md)
-- Patrones de origen: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `backend/api/literature_routes.py`, `backend/services/**/*literature*.py`, `backend/services/academic_connectors.py`, `frontend/src/pages/ReaderDashboard.jsx`, `frontend/src/pages/LiteraturePage.jsx`, `frontend/src/components/ResourcesPluginConfig.jsx`, `frontend/src/components/Vault/ZoteroReaderTab.jsx`
-- Patrones de ensayo: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `backend/tests/test_*literature*.py`, `backend/tests/test_academic_connectors.py`, `frontend/src/**/*Literature*.test.*`, `frontend/src/**/*ResourcesPluginConfig*.test.*`, `tests/e2e/tests/e2e/*citation*.spec.ts`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Reader, references, and citations`](../domains/reader-references.md)
+- Patrones de fuentes: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `backend/services/lookup_normalizers.py`, `backend/domains/vault/citations/normalizers/**/*.py`, `backend/api/literature_routes.py`, `backend/services/**/*literature*.py`, `backend/services/academic_connectors.py`, `frontend/src/pages/ReaderDashboard.jsx`, `frontend/src/pages/LiteraturePage.jsx`, `frontend/src/components/ResourcesPluginConfig.jsx`, `frontend/src/components/Vault/ZoteroReaderTab.jsx`
+- Patrones de pruebas: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `backend/tests/test_*literature*.py`, `backend/tests/test_academic_connectors.py`, `backend/tests/test_lookup_normalizers.py`, `backend/tests/test_html_meta_attr_order.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `frontend/src/**/*Literature*.test.*`, `frontend/src/**/*ResourcesPluginConfig*.test.*`, `tests/e2e/tests/e2e/*citation*.spec.ts`
+- Directivas: none found
 
-## Agentes de IA, modelos, herramientas y habilidades
+## AI agents, models, tools, and skills
 
-- Guía: [Agentes, modelos, herramientas y habilidades de la AI](../domains/ai-agent.md)
-- Patrones de origen: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `frontend/src/components/Agent*`, `frontend/src/components/AI/**/*`
-- Patrones de ensayo: `backend/tests/test_agent*.py`, `backend/tests/test_ai*.py`, `backend/tests/test_generated_tool*.py`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`AI agents, models, tools, and skills`](../domains/ai-agent.md)
+- Patrones de fuentes: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `frontend/src/components/Agent*`, `frontend/src/components/AI/**/*`
+- Patrones de pruebas: `backend/tests/test_agent*.py`, `backend/tests/test_ai*.py`, `backend/tests/test_generated_tool*.py`
+- Directivas: none found
 
-## Correo
+## Mail
 
 - Guía: [`Mail`](../domains/mail.md)
-- Patrones de origen: `backend/api/mail_routes.py`, `backend/models/mail.py`, `backend/services/mail*.py`, `frontend/src/pages/MailPage.jsx`, `frontend/src/components/Mail/**/*`
-- Patrones de ensayo: `backend/tests/test_mail*.py`, `tests/e2e/tests/e2e/mail*.spec.ts`
-- Directivas: no se ha encontrado ninguna
+- Patrones de fuentes: `backend/api/mail_routes.py`, `backend/models/mail.py`, `backend/services/mail*.py`, `frontend/src/pages/MailPage.jsx`, `frontend/src/components/Mail/**/*`
+- Patrones de pruebas: `backend/tests/test_mail*.py`, `tests/e2e/tests/e2e/mail*.spec.ts`
+- Directivas: none found
 
-## Calendario y reuniones
+## Calendar and meetings
 
-- Guía: [`Calendario y reuniones`](../domains/calendar-meetings.md)
-- Patrones de origen: `backend/api/calendar_routes.py`, `backend/api/meeting_routes.py`, `backend/models/calendar.py`, `backend/services/**/*calendar*.py`, `backend/services/**/*meeting*.py`, `frontend/src/pages/CalendarPage.jsx`, `frontend/src/components/Meeting*`
-- Patrones de ensayo: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `tests/e2e/tests/e2e/calendar.spec.ts`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Calendar and meetings`](../domains/calendar-meetings.md)
+- Patrones de fuentes: `backend/api/calendar_routes.py`, `backend/api/meeting_routes.py`, `backend/models/calendar.py`, `backend/services/**/*calendar*.py`, `backend/services/**/*meeting*.py`, `frontend/src/pages/CalendarPage.jsx`, `frontend/src/components/Meeting*`
+- Patrones de pruebas: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `tests/e2e/tests/e2e/calendar.spec.ts`
+- Directivas: none found
 
-## Contactos
+## Contacts
 
-- Guía: [`Contactos`](../domains/contacts.md)
-- Patrones de origen: `backend/api/contacts_routes.py`, `backend/models/contact.py`, `backend/services/**/*contact*.py`, `frontend/src/pages/ContactsPage.jsx`, `frontend/src/components/Contacts/**/*`
-- Patrones de ensayo: `backend/tests/test_contact*.py`, `tests/e2e/tests/e2e/contacts.spec.ts`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Contacts`](../domains/contacts.md)
+- Patrones de fuentes: `backend/api/contacts_routes.py`, `backend/models/contact.py`, `backend/services/**/*contact*.py`, `frontend/src/pages/ContactsPage.jsx`, `frontend/src/components/Contacts/**/*`
+- Patrones de pruebas: `backend/tests/test_contact*.py`, `tests/e2e/tests/e2e/contacts.spec.ts`
+- Directivas: none found
 
-## Publicaciones y medios de comunicación sociales
+## Social publishing and media
 
-- Guía: [`Publicación social y medios de comunicación '](../domains/social-publishing.md)
-- Patrones de origen: `backend/api/social_routes.py`, `backend/services/social*.py`, `frontend/src/pages/SocialDashboard.jsx`, `frontend/src/pages/MediaCenter.jsx`
-- Patrones de ensayo: `backend/tests/test_social*.py`, `frontend/src/**/*social*.test.*`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Social publishing and media`](../domains/social-publishing.md)
+- Patrones de fuentes: `backend/api/social_routes.py`, `backend/services/social*.py`, `frontend/src/pages/SocialDashboard.jsx`, `frontend/src/pages/MediaCenter.jsx`
+- Patrones de pruebas: `backend/tests/test_social*.py`, `frontend/src/**/*social*.test.*`
+- Directivas: none found
 
-## Integraciones y complementos
+## Integrations and plugins
 
-- Guía: [`Integraciones y complementos`](../domains/integrations-plugins.md)
-- Patrones de origen: `backend/api/integrations_routes.py`, `backend/services/integration*.py`, `backend/services/plugin*.py`, `backend/services/academic_connectors.py`, `extensions/**/*`, `extensions/examples/**/*`, `extensions/mcp/**/*`
-- Patrones de ensayo: `backend/tests/test_integration*.py`, `backend/tests/test_plugin*.py`, `extensions/**/tests/**/*`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Integrations and plugins`](../domains/integrations-plugins.md)
+- Patrones de fuentes: `backend/api/integrations_routes.py`, `backend/domains/plugins/*.py`, `backend/api/notion_routes.py`, `backend/domains/notion/**/*.py`, `backend/services/integration*.py`, `backend/services/notion_*.py`, `backend/services/plugin*.py`, `backend/services/academic_connectors.py`, `extensions/**/*`, `extensions/examples/**/*`, `extensions/mcp/**/*`
+- Patrones de pruebas: `backend/tests/test_integration*.py`, `backend/tests/test_notion*.py`, `backend/tests/test_plugin*.py`, `extensions/**/tests/**/*`
+- Directivas: none found
 
-## Autenticación, espacios de trabajo y compartir
+## Authentication, workspaces, and sharing
 
-- Guía: [`Autenticación, espacios de trabajo y compartir '](../domains/auth-workspaces-sharing.md)
-- Patrones de origen: `backend/api/auth_routes.py`, `backend/api/identity_routes.py`, `backend/api/workspace_routes.py`, `backend/api/vaults_routes.py`, `backend/api/share_routes.py`, `backend/api/public_routes.py`, `backend/models/management.py`, `backend/services/auth*.py`, `frontend/src/context/AuthContext.jsx`, `frontend/src/components/Auth/**/*`
-- Patrones de ensayo: `backend/tests/test_auth*.py`, `backend/tests/test_workspace*.py`, `backend/tests/test_share*.py`, `backend/tests/test_public*.py`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md)
+- Patrones de fuentes: `backend/api/auth_routes.py`, `backend/api/identity_routes.py`, `backend/api/workspace_routes.py`, `backend/api/vaults_routes.py`, `backend/api/share_routes.py`, `backend/api/public_routes.py`, `backend/models/management.py`, `backend/services/auth*.py`, `frontend/src/context/AuthContext.jsx`, `frontend/src/components/Auth/**/*`
+- Patrones de pruebas: `backend/tests/test_auth*.py`, `backend/tests/test_workspace*.py`, `backend/tests/test_share*.py`, `backend/tests/test_public*.py`
+- Directivas: none found
 
-## Automatización y programación
+## Automation and scheduling
 
-- Guía: [`Automatización y programación '](../domains/automation-scheduling.md)
-- Patrones de origen: `backend/api/scheduler_routes.py`, `backend/scheduler/**/*.py`, `backend/models/scheduler.py`, `backend/services/durable_job_worker.py`, `backend/services/literature_service.py`, `frontend/src/pages/SchedulerPage.jsx`, `pipeline/skills/scheduler/**/*`
-- Patrones de ensayo: `backend/tests/test_schedul*.py`, `backend/tests/test_literature_service.py`, `tests/e2e/tests/e2e/automation*.spec.ts`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Automation and scheduling`](../domains/automation-scheduling.md)
+- Patrones de fuentes: `backend/api/scheduler_routes.py`, `backend/scheduler/**/*.py`, `backend/models/scheduler.py`, `backend/services/durable_job_worker.py`, `backend/services/literature_service.py`, `frontend/src/pages/SchedulerPage.jsx`, `pipeline/skills/scheduler/**/*`
+- Patrones de pruebas: `backend/tests/test_schedul*.py`, `backend/tests/test_literature_service.py`, `tests/e2e/tests/e2e/automation*.spec.ts`
+- Directivas: none found
 
-## Cliente de escritorio y acompañantes
+## Desktop and companion clients
 
-- Guía: [`Desktop y clientes acompañantes '](../domains/desktop-clients.md)
-- Patrones de origen: `desktop/**/*`, `extensions/web-clipper/**/*`, `extensions/office/libreoffice-cite/**/*`, `extensions/office/word-cite/**/*`
-- Patrones de ensayo: `desktop/**/*test*`, `extensions/**/tests/**/*`
-- Directivas: no se ha encontrado ninguna
+- Guía: [`Desktop and companion clients`](../domains/desktop-clients.md)
+- Patrones de fuentes: `desktop/**/*`, `extensions/web-clipper/**/*`, `extensions/office/libreoffice-cite/**/*`, `extensions/office/word-cite/**/*`
+- Patrones de pruebas: `desktop/**/*test*`, `extensions/**/tests/**/*`
+- Directivas: none found

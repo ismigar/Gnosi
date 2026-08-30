@@ -8,6 +8,7 @@ import { vaultPath } from '../../lib/vaultRouting';
 import { errorStatus } from './readers';
 import { getTableIdFromTab } from './tab-model';
 import type { Page } from './types';
+import type { VaultViewPage } from '../../hooks/useVaultViewData';
 import type { DashboardState } from './useDashboardState';
 import type { useDataLoading } from './useDataLoading';
 import type { useDocumentTabs } from './useDocumentTabs';
@@ -15,7 +16,7 @@ import type { useNavigationHistory } from './useNavigationHistory';
 type Context = Pick<DashboardState, 'activeTableId' | 'navigate' | 'nestedPath' | 'setPages' | 'setRedoStack' | 'setTableNotes' | 'setUndoStack' | 'setVisibleTableRecordsById' | 't' | 'tabs'> & Pick<ReturnType<typeof useDataLoading>, 'fetchPages' | 'fetchPagesByTable'> & Pick<ReturnType<typeof useDocumentTabs>, 'handleTabClose'> & Pick<ReturnType<typeof useNavigationHistory>, 'pushToHistory'>;
 export function usePageDeletion(context: Context) {
     const { activeTableId, fetchPages, fetchPagesByTable, handleTabClose, navigate, nestedPath, pushToHistory, setPages, setRedoStack, setTableNotes, setUndoStack, setVisibleTableRecordsById, t, tabs } = context;
-    const handleDeletePage = useCallback(async (pageId: string, pageTitle?: string) => {
+    const handleDeletePage = useCallback(async (pageId: string, pageTitle?: VaultViewPage['title']) => {
         if (!pageId)
             return;
         const id = pageId;

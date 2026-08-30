@@ -8,12 +8,14 @@ import type { VaultTableProps } from './VaultTable';
 
 const calendarProbe = vi.hoisted(() => vi.fn<(props: DigitalBrainCalendarProps) => void>());
 const tableProbe = vi.hoisted(() => vi.fn<(props: VaultTableProps) => void>());
+const rendererProbe = vi.hoisted(() => vi.fn<(props: RendererProbeProps) => void>());
 
 interface RendererProbeProps extends Record<string, unknown> {
     readonly children?: ReactNode;
 }
 
 function noteCount(props: RendererProbeProps): string {
+    rendererProbe(props);
     return String(Array.isArray(props.notes) ? props.notes.length : 0);
 }
 
@@ -46,10 +48,10 @@ vi.mock('./VaultChart', () => ({
     VaultChart: (props: RendererProbeProps) => <div data-testid="chart-renderer" data-note-count={noteCount(props)} />,
 }));
 vi.mock('./VaultFeed', () => ({
-    VaultFeed: (props: RendererProbeProps) => <div data-testid="feed-renderer">
+    VaultFeed: (props: RendererProbeProps) => { rendererProbe(props); return <div data-testid="feed-renderer">
         <button data-testid="open-feed-config" onClick={() => { invoke(props, 'onOpenConfig'); }}>config</button>
         <button data-testid="clear-feed-search" onClick={() => { invoke(props, 'onClearSearch'); }}>clear</button>
-    </div>,
+    </div>; },
 }));
 vi.mock('./DigitalBrainCalendar', () => ({
     DigitalBrainCalendar: (props: DigitalBrainCalendarProps) => { calendarProbe(props); return <div
@@ -339,6 +341,30 @@ describe('VaultViewBody', () => {
 
         expect(onEditSchema).toHaveBeenCalledWith('filters');
         expect(onSearchChange).toHaveBeenCalledWith('');
+    });
+
+    it.each(['board', 'gallery', 'timeline', 'feed'])('preserves open data, templates and callback identity for %s', type => {
+        const extension = { file: new Blob(['fixture']), handler: () => 'custom' };
+        const sourceNotes = [{ id: 'opaque', title: 42, metadata: { extension } }, { id: 'empty', metadata: null }];
+        const view = { id: 'open', extension };
+        const templates = [{ id: 'template', title: null, extension }];
+        const onUpdateNote = vi.fn(() => extension);
+        const onDeletePage = vi.fn();
+        renderBody({ type, notes: sourceNotes, allNotes: sourceNotes, activeView: view,
+            templates, onUpdateNote, onDeletePage, feedDensity: 'custom-density', feedGroupMode: 'custom-group' });
+        const props = rendererProbe.mock.lastCall?.[0];
+        expect(props?.notes).toBe(sourceNotes);
+        expect(props?.allNotes).toBe(sourceNotes);
+        expect(props?.activeView).toBe(view);
+        expect(props?.templates).toBe(templates);
+        expect(props?.onNoteSelect).toBeUndefined();
+        expect(props?.onUpdateNote).toBe(onUpdateNote);
+        expect(props?.onDeletePage).toBe(onDeletePage);
+        if (type === 'feed') {
+            expect(props?.density).toBe('custom-density');
+            expect(props?.groupMode).toBe('custom-group');
+            expect(props).not.toHaveProperty('onCreateNotebook');
+        }
     });
 
     it('passes filtered notes and configured fields to the calendar renderer', () => {

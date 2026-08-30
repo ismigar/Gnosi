@@ -1,17 +1,16 @@
-import type { ComponentType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
 
 import type { LocaleFormatSettings } from '../../../hooks/useLocaleSettings';
 import { getImageSrc, toAssetPreviewUrl } from '../../../lib/fileResource';
 import { transportFetch } from '../../../shared/api/transports';
-import { asBool, type FilterValue } from '../../../utils/vaultFilters';
-import { AutoriaDisplay as LegacyAutoriaDisplay } from '../AutoriaField';
+import { asBool } from '../../../utils/vaultFilters';
+import { AutoriaDisplay } from '../AutoriaField';
 import { FileFieldValue } from '../FileFieldValue';
 import {
     formatDate,
     formatNumber,
     resolveFieldFormat,
-    type FieldFormatConfig,
 } from '../formatUtils';
 import { RelationItem } from '../RelationItem';
 import {
@@ -22,14 +21,6 @@ import { getFieldConfig } from '../schemaUtils';
 import type { GalleryNote, GallerySchema } from './vaultGalleryModel';
 
 
-type RelationScalar = string | number | bigint | boolean | null | undefined;
-
-
-interface GalleryFieldConfig extends FieldFormatConfig {
-    readonly relation_database_id?: unknown;
-}
-
-
 interface VaultGalleryPropertyValueProps {
     readonly allNotes: readonly GalleryNote[];
     readonly field: string;
@@ -37,27 +28,18 @@ interface VaultGalleryPropertyValueProps {
     readonly localeSettings: LocaleFormatSettings;
     readonly metadataKey: string;
     readonly note: GalleryNote;
-    readonly onNoteSelect: (noteId: string) => void;
+    readonly onNoteSelect?: (noteId: string) => void;
     readonly onUpdateNote?: (
         pageId: string,
         patch: { readonly metadata: Record<string, string[]> },
     ) => unknown;
     readonly schema: GallerySchema;
     readonly type: string;
-    readonly value: FilterValue;
+    readonly value: unknown;
 }
 
 
-const AutoriaDisplay = LegacyAutoriaDisplay as unknown as ComponentType<{
-    readonly value: unknown;
-}>;
-const readFieldConfig = getFieldConfig as (
-    schema: GallerySchema,
-    field: string,
-) => GalleryFieldConfig | undefined;
-
-
-function displayText(value: FilterValue): string {
+function displayText(value: unknown): string {
     if (typeof value === 'string') return value;
     if (
         typeof value === 'number'
@@ -68,7 +50,7 @@ function displayText(value: FilterValue): string {
 }
 
 
-function imageAlt(value: FilterValue, fallback: string): string {
+function imageAlt(value: unknown, fallback: string): string {
     if (
         value
         && typeof value === 'object'
@@ -79,27 +61,6 @@ function imageAlt(value: FilterValue, fallback: string): string {
         if (typeof alt === 'string') return alt;
     }
     return fallback;
-}
-
-
-function relationInput(value: FilterValue): RelationScalar | readonly RelationScalar[] {
-    if (Array.isArray(value)) return value.filter((item): item is RelationScalar => (
-        item === null
-        || item === undefined
-        || typeof item === 'string'
-        || typeof item === 'number'
-        || typeof item === 'bigint'
-        || typeof item === 'boolean'
-    ));
-    if (
-        typeof value === 'string'
-        || typeof value === 'number'
-        || typeof value === 'bigint'
-        || typeof value === 'boolean'
-        || value === null
-        || value === undefined
-    ) return value;
-    return '';
 }
 
 
@@ -128,7 +89,7 @@ export function VaultGalleryPropertyValue({
         />;
     }
     if (type === 'date') {
-        const format = resolveFieldFormat(readFieldConfig(schema, field), localeSettings);
+        const format = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
         return <div className="flex items-center gap-1 whitespace-nowrap text-[10px] text-[var(--text-secondary)]">
             <Calendar className="text-[var(--text-tertiary)]" size={12} />
             <span>{formatDate(displayText(value), {
@@ -139,7 +100,7 @@ export function VaultGalleryPropertyValue({
         </div>;
     }
     if (type === 'number') {
-        const format = resolveFieldFormat(readFieldConfig(schema, field), localeSettings);
+        const format = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
         return <span className="tabular-nums">{formatNumber(value, {
             currencyCode: format.currencyCode,
             decimals: format.decimals,
@@ -154,7 +115,7 @@ export function VaultGalleryPropertyValue({
         </span>;
     }
     if (type === 'multi_select') {
-        const items = normalizeRelationValues(relationInput(value));
+        const items = normalizeRelationValues(value);
         return <div className="flex h-4 max-w-full flex-wrap gap-1 overflow-hidden">
             {items.slice(0, 2).map((item) => <span
                 key={item}
@@ -169,9 +130,8 @@ export function VaultGalleryPropertyValue({
         </div>;
     }
     if (type === 'relation') {
-        const config = readFieldConfig(schema, field);
-        const relatedTableId = config?.relation_database_id;
-        const normalizedValue = relationInput(value);
+        const config = getFieldConfig(schema, field);
+        const relatedTableId = config.relation_database_id;
         const displayMap = {
             ...idToTitle,
             ...Object.fromEntries(allNotes
@@ -183,7 +143,7 @@ export function VaultGalleryPropertyValue({
                 .map((candidate) => [candidate.id, candidate.title || idToTitle[candidate.id] || candidate.id])),
         };
         return <div className="flex max-w-full flex-wrap gap-1">
-            {normalizeRelationValues(normalizedValue).map((relationId) => <RelationItem
+            {normalizeRelationValues(value).map((relationId) => <RelationItem
                 key={relationId}
                 onOpen={onNoteSelect}
                 onRemove={onUpdateNote ? async (removedId) => {
@@ -194,11 +154,11 @@ export function VaultGalleryPropertyValue({
                         pageId: note.id,
                         relationId: removedId,
                         relationTitle: displayMap[removedId] ?? removedId,
-                        value: normalizedValue,
+                        value,
                     });
                 } : undefined}
                 relationId={relationId}
-                title={displayMap[relationId] ?? relationId}
+                title={String(displayMap[relationId] ?? relationId)}
             />)}
         </div>;
     }

@@ -1,4 +1,4 @@
-import { useMemo, type ComponentType, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { VaultTable } from './VaultTable';
 import { VaultKanban } from './VaultKanban';
 import { VaultGallery } from './VaultGallery';
@@ -14,16 +14,9 @@ import type {
     VaultViewConfig,
     VaultViewPage,
 } from '../../hooks/useVaultViewData';
-import type { FilterNode } from '../../utils/vaultFilters';
+import { requireFilterNodes } from '../../utils/filterContracts';
 import { tableNotes, tableRecordFocus, tableTemplates, tableView } from './vault-view-body/table-contract';
 
-type RendererProps = Record<string, unknown>;
-
-const KanbanRenderer = VaultKanban as unknown as ComponentType<RendererProps>;
-const GalleryRenderer = VaultGallery as unknown as ComponentType<RendererProps>;
-const TimelineRenderer = VaultTimeline as unknown as ComponentType<RendererProps>;
-const FeedRenderer = VaultFeed as unknown as ComponentType<RendererProps>;
-const ChartRenderer = VaultChart as unknown as ComponentType<RendererProps>;
 function isCalendarTemplate(value: Readonly<Record<string, unknown>>): value is BulkActionTemplate {
     return typeof value.id === 'string'
         && (value.title === undefined || value.title === null || typeof value.title === 'string');
@@ -51,7 +44,7 @@ export interface VaultViewBodyProps {
     readonly onCellSaved?: () => void;
     readonly onCreateNotebook?: (resourceIds: readonly string[]) => void;
     readonly onCreateRecord?: () => void;
-    readonly onDeletePage?: (pageId: string, title?: string) => void;
+    readonly onDeletePage?: (pageId: string, title?: VaultViewPage['title']) => void;
     readonly onDeleteSelected?: (selectedIds: Set<string>) => void;
     readonly onEditSchema?: (section?: string) => void;
     readonly onEscape?: () => void;
@@ -74,7 +67,6 @@ export interface VaultViewBodyProps {
     readonly type?: string;
 }
 
-const readViewFilters = resolveViewFilters as (view: VaultBodyView) => FilterNode[];
 const ignoreNoteSelect = (): void => {};
 
 /**
@@ -128,6 +120,7 @@ export function VaultViewBody({
     feedGroupMode = 'none',
 }: VaultViewBodyProps) {
     const t = type.toLowerCase();
+    const tableTemplateOptions = useMemo(() => tableTemplates(templates), [templates]);
 
     // Props common to components that share the same signature.
     const common = {
@@ -143,7 +136,7 @@ export function VaultViewBody({
         onDeletePage,
         onDeleteSelected,
         onApplyTemplate,
-        templates,
+        templates: tableTemplateOptions,
         onEditSchema,
         onUpdateView,
         onUpdateNote,
@@ -156,7 +149,7 @@ export function VaultViewBody({
     // modal — with a fallback to the legacy `sort`). Memoized because the resolvers
     // return new arrays on each call.
     const filteredViewConfig = useMemo(() => ({
-        filters: readViewFilters(activeView),
+        filters: requireFilterNodes(resolveViewFilters(activeView)),
         sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }),
         search: searchTerm,
     }), [activeView, searchTerm]);
@@ -174,17 +167,16 @@ export function VaultViewBody({
     const tablePages = useMemo(() => tableNotes(notes), [notes]);
     const tableAllPages = useMemo(() => tableNotes(allNotes), [allNotes]);
     const tableActiveView = useMemo(() => tableView(activeView), [activeView]);
-    const tableTemplateOptions = useMemo(() => tableTemplates(templates), [templates]);
     const tableFocusRequest = useMemo(() => tableRecordFocus(restoreRecordFocus), [restoreRecordFocus]);
 
     let body: ReactNode;
     if (t === 'board') {
         // `onUpdateNote` enables drag & drop of cards between columns
         // (writes the record's grouping field on drop).
-        body = <KanbanRenderer {...common} isEmbedded={isEmbedded} onUpdateNote={onUpdateNote} />;
+        body = <VaultKanban {...common} isEmbedded={isEmbedded} onUpdateNote={onUpdateNote} />;
     } else if (t === 'gallery') {
         body = (
-            <GalleryRenderer
+            <VaultGallery
                 {...common}
                 registerNavApi={registerNavApi}
                 onExitTop={onExitTop}
@@ -194,12 +186,12 @@ export function VaultViewBody({
             />
         );
     } else if (t === 'timeline') {
-        body = <TimelineRenderer {...common} onUpdateNote={onUpdateNote} />;
+        body = <VaultTimeline {...common} onUpdateNote={onUpdateNote} />;
     } else if (t === 'chart') {
-        body = <ChartRenderer notes={viewFilteredNotes} schema={schema} activeView={activeView} />;
+        body = <VaultChart notes={viewFilteredNotes} schema={schema} activeView={activeView} />;
     } else if (t === 'feed') {
         body = (
-            <FeedRenderer
+            <VaultFeed
                 key={activeView.id || 'default'}
                 notes={notes}
                 schema={schema}
@@ -212,8 +204,7 @@ export function VaultViewBody({
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
                 onApplyTemplate={onApplyTemplate}
-                onCreateNotebook={onCreateNotebook}
-                templates={templates}
+                templates={tableTemplateOptions}
                 onUpdateNote={onUpdateNote}
                 onCreateRecord={onCreateRecord}
                 onOpenConfig={() => onEditSchema?.('filters')}

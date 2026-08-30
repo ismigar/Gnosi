@@ -23,7 +23,7 @@ interface VaultGalleryNavigationOptions {
     readonly onExitBottom?: () => void;
     readonly onExitTop?: () => void;
     readonly onFocusShell?: () => void;
-    readonly onNoteSelect: (noteId: string) => void;
+    readonly onNoteSelect?: (noteId: string) => void;
     readonly openKeyboardPreview: (noteId: string, bounds: DOMRect) => void;
     readonly registerNavApi?: (api: VaultGalleryNavigationApi | null) => void;
     readonly setExpandedGroups: Dispatch<SetStateAction<Set<string>>>;
@@ -144,7 +144,7 @@ export function useVaultGalleryNavigation({
         if (event.metaKey || event.ctrlKey || event.altKey) return;
         if (event.key === 'Enter') {
             event.preventDefault();
-            onNoteSelect(noteId);
+            onNoteSelect?.(noteId);
         } else if (event.key === ' ' || event.key === 'Spacebar') {
             event.preventDefault();
             const element = cardRefs.current[flatIndex];

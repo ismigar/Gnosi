@@ -1,4 +1,4 @@
-import type { FilterValue } from '../../../utils/vaultFilters';
+import type { VaultViewPage } from '../../../hooks/useVaultViewData';
 import { normalizeOptions, optionColorHex } from '../optionCatalogUtils';
 import { getFieldConfig } from '../schemaUtils';
 
@@ -9,32 +9,12 @@ export type GalleryArrowDirection = 'down' | 'left' | 'right' | 'up';
 export type GallerySchema = Readonly<Record<string, unknown>>;
 
 
-export interface GalleryNote {
-    readonly [key: string]: FilterValue;
-    readonly id: string;
-    readonly metadata?: Readonly<Record<string, FilterValue>>;
-    readonly resolved_table_id?: string;
-    readonly title: string;
-}
+export type GalleryNote = VaultViewPage;
 
 
 export interface GalleryView {
     readonly [key: string]: unknown;
-    readonly cardSize?: GalleryCardSize;
-    readonly coverField?: string;
-    readonly filters?: unknown;
-    readonly galleryPreview?: GalleryPreviewMode;
-    readonly group_by?: string;
-    readonly group_sort?: string;
-    readonly group_sort_dir?: string;
-    readonly groupBy?: string;
-    readonly groupSort?: string;
-    readonly groupSortDir?: string;
     readonly id?: string;
-    readonly imageFit?: string;
-    readonly sort?: unknown;
-    readonly sorts?: unknown;
-    readonly visibleProperties?: readonly string[];
 }
 
 
@@ -46,35 +26,14 @@ export interface GallerySection {
 }
 
 
-interface FieldOption {
-    readonly color?: unknown;
-    readonly name: string;
-}
-
-
-interface FieldConfig {
-    readonly options?: readonly unknown[];
-}
-
-
-const readFieldConfig = getFieldConfig as (
-    schema: GallerySchema,
-    field: string,
-) => unknown;
-
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-
-function asFieldConfig(value: unknown): FieldConfig {
-    return isRecord(value) ? value : {};
+/** Native coercion keeps imported objects' receivers and thrown errors intact. */
+export function galleryText(value: unknown): string {
+    return Reflect.apply(String, undefined, [value]);
 }
 
 
 export function normalizeGalleryMetadataKey(value: unknown): string {
-    return String(value)
+    return galleryText(value)
         .toLowerCase()
         .normalize('NFD')
         .replace(/[̀-ͯ]/gu, '')
@@ -84,15 +43,61 @@ export function normalizeGalleryMetadataKey(value: unknown): string {
 
 export function galleryMetadataValue(
     note: GalleryNote,
-    field: string,
-): FilterValue {
-    const exact = note.metadata?.[field];
+    field: unknown,
+): unknown {
+    // Reflect.get applies the same ToPropertyKey as metadata[field], including
+    // symbols and imported objects. Do not normalize or clone the metadata.
+    const exact: unknown = note.metadata == null
+        ? undefined
+        : Reflect.apply(Reflect.get, undefined, [note.metadata, field]);
     if (exact !== undefined && exact !== null && exact !== '') return exact;
     const normalized = normalizeGalleryMetadataKey(field);
     const matchedKey = Object.keys(note.metadata ?? {}).find((key) => (
         normalizeGalleryMetadataKey(key) === normalized
     ));
     return matchedKey ? note.metadata?.[matchedKey] : undefined;
+}
+
+
+export function galleryGroupField(view: GalleryView): string {
+    const field = view.groupBy ?? view.group_by ?? '';
+    const enabled = Boolean(field);
+    if (!enabled) return '';
+    // Schema field names use template interpolation, which rejects symbols.
+    if (typeof field === 'symbol') throw new TypeError('Cannot convert a Symbol value to a string');
+    return galleryText(field);
+}
+
+
+export function galleryCardSize(value: unknown): GalleryCardSize {
+    return value === 'small' || value === 'large' ? value : 'medium';
+}
+
+
+export function galleryPreviewMode(value: unknown): GalleryPreviewMode {
+    if (value == null || value === 'cover') return 'cover';
+    return value === 'content' || value === 'properties' ? value : 'none';
+}
+
+
+export function galleryCoverFitClass(value: unknown): string {
+    return value === 'cover' ? 'bg-cover' : 'bg-contain';
+}
+
+
+export function galleryVisibleProperties(value: unknown): readonly string[] | undefined {
+    if (value == null) return undefined;
+    if (typeof value === 'string') return value.length ? Array.from(value) : undefined;
+    if (!Array.isArray(value)) {
+        if ((typeof value !== 'object' && typeof value !== 'function')
+            || !('length' in value) || !value.length) return undefined;
+        throw new TypeError('Invalid gallery visible properties; expected field names.');
+    }
+    const fields: readonly unknown[] = value;
+    if (fields.every((field): field is string => typeof field === 'string')) {
+        return fields.length ? fields : undefined;
+    }
+    throw new TypeError('Invalid gallery visible properties; expected field names.');
 }
 
 
@@ -123,11 +128,11 @@ export function buildGallerySections(
     schema: GallerySchema,
     view: GalleryView,
 ): GallerySection[] | null {
-    const field = view.groupBy ?? view.group_by ?? '';
+    const field = galleryGroupField(view);
     if (!field) return null;
-    const config = asFieldConfig(readFieldConfig(schema, field));
+    const config = getFieldConfig(schema, field);
     const options = Array.isArray(config.options)
-        ? normalizeOptions(config.options) as readonly FieldOption[]
+        ? normalizeOptions(config.options)
         : [];
     const colors = Object.fromEntries(options.map(({ color, name }) => [name, color]));
     const buckets = new Map<string, GalleryNote[]>();

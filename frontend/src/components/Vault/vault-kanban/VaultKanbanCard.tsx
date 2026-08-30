@@ -61,7 +61,7 @@ export interface VaultKanbanCardProps {
     readonly localeSettings: LocaleFormatSettings;
     readonly note: KanbanNote;
     readonly onDragEnd: () => void;
-    readonly onNoteSelect: (noteId: string) => void;
+    readonly onNoteSelect?: (noteId: string) => void;
     readonly onToggleSelect: (noteId: string, isShift?: boolean) => void;
     readonly onUpdateNote?: (pageId: string, patch: KanbanUpdatePatch) => unknown;
     readonly schema: KanbanSchema;
@@ -178,7 +178,7 @@ export function VaultKanbanCard(props: VaultKanbanCardProps) {
         draggable={canDrag}
         onClick={() => {
             if (selectedCount > 0) onToggleSelect(note.id, false);
-            else onNoteSelect(note.id);
+            else onNoteSelect?.(note.id);
         }}
         onDragEnd={canDrag ? onDragEnd : undefined}
         onDragStart={canDrag ? (event) => {
@@ -220,7 +220,15 @@ export function VaultKanbanCard(props: VaultKanbanCardProps) {
         </div> : null}
         <div className="mt-2 flex items-center gap-1 border-t border-[var(--border-primary)]/50 pt-2 text-[10px] text-[var(--text-tertiary)]">
             <Clock size={12} />
-            <span>{note.last_modified ? new Date(note.last_modified).toLocaleDateString() : ''}</span>
+            <span>{kanbanModifiedDate(note.last_modified)}</span>
         </div>
     </div>;
+}
+
+
+function kanbanModifiedDate(value: unknown): string {
+    if (!value) return '';
+    const date: unknown = Reflect.construct(Date, [value]);
+    if (!(date instanceof Date)) throw new TypeError('Invalid Kanban date constructor result.');
+    return date.toLocaleDateString();
 }

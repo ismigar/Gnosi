@@ -8,7 +8,7 @@ import {
     type VaultViewConfig,
 } from '../../../hooks/useVaultViewData';
 import { usePlugins } from '../../../plugins/usePlugins';
-import type { FilterNode } from '../../../utils/vaultFilters';
+import { requireFilterNodes } from '../../../utils/filterContracts';
 import { formatDate, resolveFieldFormat } from '../formatUtils';
 import {
     getFieldConfig,
@@ -35,42 +35,21 @@ import {
 } from './useTimelineScheduling';
 import type {
     TimelineController,
-    TimelineFieldConfig,
     TimelineRecord,
-    TimelineSchema,
     TimelineSchemaReaders,
-    TimelineView,
     TimelineZoom,
     VaultTimelineProps,
 } from './types';
 
 
 const readers: TimelineSchemaReaders = {
-    fieldConfig: getFieldConfig as (
-        schema: TimelineSchema,
-        field: string | undefined,
-    ) => TimelineFieldConfig,
+    fieldConfig: (schema, field) => getFieldConfig(schema, String(field)),
     fieldEntries: getSchemaFieldEntries,
     fieldNames: getSchemaFieldNames,
-    fieldType: getFieldType as (
-        schema: TimelineSchema,
-        field: string | undefined,
-    ) => string,
-    filters: resolveViewFilters as (view: TimelineView) => FilterNode[],
+    fieldType: (schema, field) => getFieldType(schema, String(field)),
+    filters: (view) => requireFilterNodes(resolveViewFilters(view)),
     sorts: resolveViewSorts,
 };
-
-
-interface LegacyShortcutOptions {
-    readonly onClearSelection: () => void;
-    readonly onDeleteSelection: () => void;
-    readonly selectedCount: number;
-}
-
-
-const useLegacySelectionShortcuts = useVaultSelectionShortcuts as unknown as (
-    options: LegacyShortcutOptions,
-) => void;
 
 
 export function useVaultTimelineController({
@@ -133,10 +112,10 @@ export function useVaultTimelineController({
         }
     }, [notes, onDeletePage, onDeleteSelected, selection]);
 
-    useLegacySelectionShortcuts({
-        selectedCount: selection.selectedIds.size,
-        onClearSelection: selection.clearSelection,
-        onDeleteSelection: handleBulkDelete,
+    useVaultSelectionShortcuts({
+        selectAll: selection.selectAll,
+        clearSelection: selection.clearSelection,
+        onDeleteSelected: handleBulkDelete,
     });
 
     const { dateField, endDateField } = useMemo(() => resolveTimelineDateFields(

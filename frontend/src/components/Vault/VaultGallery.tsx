@@ -8,10 +8,9 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import {
     useVaultViewData,
-    type VaultSortInput,
     type VaultViewConfig,
 } from '../../hooks/useVaultViewData';
-import type { FilterNode } from '../../utils/vaultFilters';
+import { requireFilterNodes } from '../../utils/filterContracts';
 import { VaultBulkActionsBar, type BulkActionTemplate } from './VaultBulkActionsBar';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { getFieldType, getSchemaFieldNames, resolveViewFilters, resolveViewSorts } from './schemaUtils';
@@ -21,9 +20,12 @@ import { VaultGalleryCard } from './vault-gallery/VaultGalleryCard';
 import { VaultGallerySections } from './vault-gallery/VaultGallerySections';
 import {
     buildGallerySections,
-    type GalleryCardSize,
+    galleryCardSize,
+    galleryCoverFitClass,
+    galleryGroupField,
+    galleryPreviewMode,
+    galleryVisibleProperties,
     type GalleryNote,
-    type GalleryPreviewMode,
     type GallerySchema,
     type GalleryView,
 } from './vault-gallery/vaultGalleryModel';
@@ -40,13 +42,13 @@ interface VaultGalleryProps {
     readonly notes?: readonly GalleryNote[];
     readonly onApplyTemplate?: (selectedIds: Set<string>, templateId: string) => void;
     readonly onCreateRecord?: () => void;
-    readonly onDeletePage?: (pageId: string, title: string) => void;
+    readonly onDeletePage?: (pageId: string, title?: GalleryNote['title']) => void;
     readonly onDeleteSelected?: (selectedIds: Set<string>) => void;
     readonly onEditSchema?: (section: string) => void;
     readonly onExitBottom?: () => void;
     readonly onExitTop?: () => void;
     readonly onFocusShell?: () => void;
-    readonly onNoteSelect: (noteId: string) => void;
+    readonly onNoteSelect?: (noteId: string) => void;
     readonly onOpenParallel?: (noteId: string) => void;
     readonly onUpdateNote?: (
         pageId: string,
@@ -59,18 +61,9 @@ interface VaultGalleryProps {
 }
 
 
-const readFieldNames = getSchemaFieldNames as (schema: GallerySchema) => string[];
-const readFieldType = getFieldType as (schema: GallerySchema, field: string) => string;
-const readFilters = resolveViewFilters as (view: GalleryView) => FilterNode[];
-const readSorts = resolveViewSorts as (
-    view: GalleryView,
-    fallback?: VaultSortInput,
-) => VaultSortInput[];
-
-
 export function VaultGallery(props: VaultGalleryProps) {
     const activeView = props.activeView ?? {};
-    const groupBy = activeView.groupBy ?? activeView.group_by ?? '';
+    const groupBy = galleryGroupField(activeView);
     return <VaultGalleryContent
         key={`${activeView.id ?? 'view'}:${groupBy}`}
         {...props}
@@ -107,9 +100,9 @@ function VaultGalleryContent({
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
     const searchTerm = externalSearchTerm ?? internalSearchTerm;
     const view = useMemo<VaultViewConfig>(() => ({
-        filters: readFilters(activeView),
+        filters: requireFilterNodes(resolveViewFilters(activeView)),
         search: searchTerm,
-        sorts: readSorts(activeView, { direction: 'desc', field: 'last_modified' }),
+        sorts: resolveViewSorts(activeView, { direction: 'desc', field: 'last_modified' }),
     }), [activeView, searchTerm]);
     const { sortedPages } = useVaultViewData({ pages: notes, schema, searchTerm, view });
     const visibleNotes = sortedPages;
@@ -151,22 +144,21 @@ function VaultGalleryContent({
         setExpandedGroups,
     });
 
-    const configuredProperties = activeView.visibleProperties?.length
-        ? [...activeView.visibleProperties]
-        : isMainView(activeView)
-            ? readFieldNames(schema)
-            : readFieldNames(schema).slice(0, 3);
+    const configuredProperties = galleryVisibleProperties(activeView.visibleProperties)
+        ?? (isMainView(activeView)
+            ? getSchemaFieldNames(schema)
+            : getSchemaFieldNames(schema).slice(0, 3));
     const dynamicColumns = configuredProperties
-        .map((field): readonly [string, string] => [field, readFieldType(schema, field)])
+        .map((field): readonly [string, string] => [field, getFieldType(schema, field)])
         .filter(([, type]) => Boolean(type) && type !== 'title');
-    const cardSize: GalleryCardSize = activeView.cardSize ?? 'medium';
-    const previewMode: GalleryPreviewMode = activeView.galleryPreview ?? 'cover';
+    const cardSize = galleryCardSize(activeView.cardSize);
+    const previewMode = galleryPreviewMode(activeView.galleryPreview);
 
     return <div className="flex h-full w-full flex-col overflow-hidden bg-[var(--bg-primary)]">
         {externalSearchTerm === undefined ? <div className="flex items-center justify-between gap-2">
             <VaultViewToolbar
-                activeFiltersCount={readFilters(activeView).length}
-                activeSortsCount={readSorts(activeView).length}
+                activeFiltersCount={resolveViewFilters(activeView).length}
+                activeSortsCount={resolveViewSorts(activeView).length}
                 onOpenConfig={onEditSchema ? () => {
                     onEditSchema('settings');
                 } : undefined}
@@ -212,7 +204,7 @@ function VaultGalleryContent({
                     allNotes={allNotes}
                     cardSize={cardSize}
                     coverField={activeView.coverField ?? ''}
-                    coverFitClass={activeView.imageFit === 'cover' ? 'bg-cover' : 'bg-contain'}
+                    coverFitClass={galleryCoverFitClass(activeView.imageFit)}
                     dynamicColumns={dynamicColumns}
                     flatIndex={flatIndex}
                     idToTitle={idToTitle}

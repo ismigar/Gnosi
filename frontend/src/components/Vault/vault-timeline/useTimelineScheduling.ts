@@ -10,9 +10,7 @@ import {
     serializePeriod,
     withPeriodBoundaries,
     workingDurationDays,
-    type PeriodInput,
 } from '../../../utils/projectPlanning';
-import type { FilterValue } from '../../../utils/vaultFilters';
 
 import type {
     TimelineChartNote,
@@ -53,13 +51,8 @@ interface SchedulingController {
 }
 
 
-function asPeriodInput(value: FilterValue): PeriodInput {
-    return value as PeriodInput;
-}
-
-
-function dateValue(note: TimelineRecord, dateField: string | undefined): PeriodInput {
-    return asPeriodInput(dateField ? note.metadata?.[dateField] ?? '' : '');
+function dateValue(note: TimelineRecord, dateField: string | undefined): unknown {
+    return dateField ? note.metadata?.[dateField] ?? '' : '';
 }
 
 
@@ -300,7 +293,10 @@ export function useTimelineScheduling(
 
 
 export function planningSettingsFrom(value: unknown): PlanningSettings {
-    return typeof value === 'object' && value !== null && !Array.isArray(value)
-        ? value as PlanningSettings
-        : {};
+    return isPlanningSettings(value) ? value : {};
+}
+
+
+function isPlanningSettings(value: unknown): value is PlanningSettings {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
