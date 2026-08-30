@@ -11,19 +11,15 @@ import {
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
 import {
     boundedProcessingMs,
-    boundedJob,
     boundedTransparencyMetadata,
     boundedTurnMetrics,
     effectiveMessageTimingMs,
-    conversationRewindPlan,
     getTurnId,
-    mergeCanonicalMessageMetadata,
     isRetryableErrorCode,
     processingSeconds,
 } from './agentChatMessageUtils';
 import { selectedMentionsInText } from './agentChatMentionUtils';
 import { deriveAgentRuntimeStatus } from './agentRuntimeStatus';
-import { toast } from '../lib/toast';
 import { readChatStorage, scopedChatStorageKey } from './agent-chat/chatPersistence';
 import { useChatSessionPersistence } from './agent-chat/useChatSessionPersistence';
 import { useNotebookConversation } from './agent-chat/useNotebookConversation';
@@ -43,6 +39,8 @@ import { MessageDetails } from './agent-chat/MessageDetails';
 import { ChatHeader } from './agent-chat/ChatHeader';
 import { ChatDock } from './agent-chat/ChatDock';
 import { ChatSessionList } from './agent-chat/ChatSessionList';
+import { useChatMessageActions } from './agent-chat/useChatMessageActions';
+import { useChatRewind } from './agent-chat/useChatRewind';
 
 const AgentChat = ({
     storageIdentity = '',
@@ -54,7 +52,7 @@ const AgentChat = ({
     conversationMode = 'private_member',
     readOnly = false,
 }) => {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
     const [isOpen, setIsOpen] = useState(embedded);
     const [messages, setMessages] = useState([]);
@@ -221,172 +219,15 @@ const AgentChat = ({
         <ConfirmationReview confirmation={confirmation} summary={confirmationSummary(confirmation)} />
     ), [confirmationSummary]);
 
-    const focusComposerWith = useCallback((value) => {
-        setInputValue(value);
-        setShowMentionMenu(false);
-        requestAnimationFrame(() => inputRef.current?.focus());
-    }, []);
-
-    const copyMessage = useCallback(async (content) => {
-        try {
-            await navigator.clipboard.writeText(String(content || ''));
-            toast.success(t('chat.message_copied', 'Message copied'));
-        } catch (error) {
-            console.error('Could not copy assistant message', error);
-            toast.error(t('chat.copy_failed', 'Could not copy the message'));
-        }
-    }, [t]);
-
-    const quoteMessage = useCallback((message) => {
-        const prefix = message?.role === 'user'
-            ? t('chat.you', 'You')
-            : agentConfig?.name || 'Gnosi Copilot';
-        focusComposerWith(`> ${prefix}: ${String(message?.content || '').replace(/\n/g, '\n> ')}\n\n`);
-    }, [agentConfig?.name, focusComposerWith, t]);
-
-    const markMessage = useCallback((index, field, value) => {
-        setMessages((previous) => previous.map((message, messageIndex) => (
-            messageIndex === index ? { ...message, [field]: value } : message
-        )));
-    }, []);
-
-    const submitMessageFeedback = useCallback(async (index, rating) => {
-        const message = messages[index];
-        if (!message?.turnId || message.role !== 'assistant') return;
-        const previousRating = message.feedback || null;
-        const nextRating = rating === previousRating ? null : rating;
-        markMessage(index, 'feedback', nextRating);
-        try {
-            const response = await transportFetch('/api/chat/feedback', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    agent_id: selectedAgentId,
-                    session_id: sessionId,
-                    turn_id: message.turnId,
-                    rating: nextRating || 'clear',
-                    language: String(i18n.resolvedLanguage || i18n.language || 'en').slice(0, 8),
-                    mode: message.plan?.mode || message.explanation?.mode || 'analysis',
-                    domains: message.plan?.domains || [],
-                    route: message.plan?.route || message.explanation?.route || 'General',
-                    execution: message.plan?.execution || message.explanation?.execution || 'foreground',
-                    output_strategy: message.plan?.output_strategy || message.explanation?.output_strategy || 'model_synthesis',
-                    required_tool: message.plan?.required_tool || '',
-                    verification_status: message.verification?.status || '',
-                    limitations: message.verification?.limitations || [],
-                    tool_names: message.verification?.tool_names || [],
-                    duration_ms: effectiveMessageTimingMs(message) || 0,
-                    error_code: message.errorCode || '',
-                }),
-            });
-            if (!response.ok) throw new Error(`Assistant feedback failed (${response.status})`);
-        } catch (error) {
-            console.error('Could not record assistant feedback', error);
-            markMessage(index, 'feedback', previousRating);
-            toast.error(t('chat.feedback_failed', 'Could not record response feedback.'));
-        }
-    }, [i18n.language, i18n.resolvedLanguage, markMessage, messages, selectedAgentId, sessionId, t]);
-
-    const refreshMessageJob = useCallback(async (index, action = 'status') => {
-        const job = messages[index]?.job;
-        if (!job?.job_id) return;
-        try {
-            const suffix = action === 'status' ? '' : `/${action}`;
-            const response = await transportFetch(
-                `/api/ai/jobs/${encodeURIComponent(job.job_id)}${suffix}`,
-                { method: action === 'status' ? 'GET' : 'POST' },
-            );
-            if (!response.ok) throw new Error(`Capability job request failed (${response.status})`);
-            const payload = await response.json();
-            const nextJob = boundedJob({
-                ...job,
-                ...payload,
-                capabilities: payload.capabilities || job.capabilities,
-            });
-            if (nextJob) markMessage(index, 'job', nextJob);
-        } catch (error) {
-            console.error('Could not update capability job', error);
-            toast.error(t('chat.job_update_failed', 'Could not update the background job.'));
-        }
-    }, [markMessage, messages, t]);
-
-    const previousUserPrompt = useCallback((index) => {
-        for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
-            if (messages[cursor]?.role === 'user' && messages[cursor]?.content) {
-                return messages[cursor].content;
-            }
-        }
-        return '';
-    }, [messages]);
-
-    const retryMessage = useCallback((index) => {
-        if (isLoading) return;
-        const prompt = previousUserPrompt(index);
-        if (!prompt) return;
-        focusComposerWith(prompt);
-        toast.info(t(
-            'chat.retry_prefilled',
-            'The original request is ready to retry. Review it and send again.',
-        ));
-    }, [focusComposerWith, isLoading, previousUserPrompt, t]);
-
-    const confirmConversationRewind = useCallback(async () => {
-        if (pendingRewindIndex === null || isLoading || isRewinding) return;
-        const plan = conversationRewindPlan(messages, pendingRewindIndex);
-        if (!plan) return;
-
-        setIsRewinding(true);
-        try {
-            const response = await transportFetch(
-                `/api/chat/sessions/${encodeURIComponent(selectedAgentId)}/${encodeURIComponent(sessionId)}/rewind${notebookId ? `?notebook_id=${encodeURIComponent(notebookId)}` : ''}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        before_turn_id: plan.beforeTurnId,
-                        keep_messages: plan.keepMessages,
-                    }),
-                },
-            );
-            if (!response.ok) {
-                throw new Error(`Conversation rewind failed (${response.status})`);
-            }
-            const canonical = await response.json();
-            const localPrefix = messages.slice(0, plan.localKeepCount);
-            const rewoundMessages = mergeCanonicalMessageMetadata(
-                canonical.messages,
-                localPrefix,
-            );
-            historyHydrationRef.current += 1;
-            setMessages(rewoundMessages);
-            setPendingConfirmation(null);
-            setDetailsMessageIndex(null);
-            setPendingRewindIndex(null);
-            if (plan.prompt) focusComposerWith(plan.prompt);
-            toast.success(t(
-                'chat.rewind_complete',
-                'Conversation rewound. Completed external actions were not reversed.',
-            ));
-        } catch (error) {
-            console.error('Could not rewind assistant conversation', error);
-            toast.error(t(
-                'chat.rewind_failed',
-                'The conversation could not be rewound.',
-            ));
-        } finally {
-            setIsRewinding(false);
-        }
-    }, [
-        focusComposerWith,
-        isLoading,
-        isRewinding,
-        messages,
-        notebookId,
-        pendingRewindIndex,
-        selectedAgentId,
-        sessionId,
-        t,
-    ]);
+    const { focusComposerWith, copyMessage, quoteMessage, markMessage, submitMessageFeedback, refreshMessageJob, previousUserPrompt, retryMessage } = useChatMessageActions({
+        messages, setMessages, agentName: agentConfig?.name, selectedAgentId, sessionId, isLoading,
+        inputRef, setInputValue, setShowMentionMenu,
+    });
+    const confirmConversationRewind = useChatRewind({
+        messages, selectedAgentId, sessionId, notebookId, pendingRewindIndex, isLoading, isRewinding,
+        historyHydrationRef, setMessages, setPendingConfirmation, setDetailsMessageIndex,
+        setPendingRewindIndex, setIsRewinding, focusComposerWith,
+    });
 
     const handleSubmit = async (e) => {
         e.preventDefault();

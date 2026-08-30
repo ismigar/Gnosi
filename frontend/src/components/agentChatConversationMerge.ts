@@ -36,7 +36,7 @@ const firstUnusedCandidateIndex = (
 };
 
 export const conversationRewindPlan = (
-    messages: LooseValue,
+    messages: unknown,
     messageIndex: number,
 ) => {
     if (

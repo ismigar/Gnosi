@@ -278,7 +278,7 @@ export const boundedTurnMetrics = (value: LooseValue): TurnMetrics | null => {
     return Object.keys(metrics).length ? metrics : null;
 };
 
-export const timedPayloadFromMessage = (message: LooseValue): LooseRecord | null => {
+export const timedPayloadFromMessage = (message: unknown): LooseRecord | null => {
     if (!isRecord(message)) return null;
     const candidateValues: CandidateEntry[] = [
         { value: message.timings, unitHint: null },
@@ -371,7 +371,7 @@ export const processingSeconds = (processingMs: LooseValue): number | null => {
     return Math.max(0, Math.round((bounded / 1000) * 10) / 10);
 };
 
-export const effectiveMessageTimingMs = (message: LooseValue): number | null => {
+export const effectiveMessageTimingMs = (message: unknown): number | null => {
     const timings = timedPayloadFromMessage(message);
     if (timings && typeof timings.total_ms === 'number') return timings.total_ms;
     return boundedProcessingMs(

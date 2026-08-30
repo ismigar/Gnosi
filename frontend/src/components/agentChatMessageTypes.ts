@@ -24,7 +24,7 @@ export function asLooseArray(value: unknown): LooseValue[] {
     return isLooseArray(value) ? value : [];
 }
 
-export function recordValue(value: LooseValue, key: string): LooseValue {
+export function recordValue(value: unknown, key: string): LooseValue {
     return isRecord(value) ? value[key] : undefined;
 }
 
