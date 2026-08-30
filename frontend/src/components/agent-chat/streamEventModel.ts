@@ -41,3 +41,11 @@ export function createChatStreamState(): ChatStreamState {
 export function definedTransparency(metadata: ChatStreamState['transparency']): Partial<ChatStreamState['transparency']> {
   return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== null));
 }
+
+export function lastTurnResponseIndex(messages: readonly StoredChatMessage[], turnId: string): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.turnId === turnId && message.role !== 'user') return index;
+  }
+  return -1;
+}

@@ -10,8 +10,6 @@ import {
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
 import {
     boundedProcessingMs,
-    boundedTransparencyMetadata,
-    boundedTurnMetrics,
     effectiveMessageTimingMs,
     getTurnId,
     processingSeconds,
@@ -25,10 +23,8 @@ import { useChatSessionSelection, useSessionMessageBinding } from './agent-chat/
 import { readNdjsonRecords } from '../shared/api/ndjson';
 import { ConfirmationReview } from './agent-chat/ConfirmationReview';
 import { useAgentConfirmations } from './agent-chat/useAgentConfirmations';
-import { acceptStreamSequence } from './agent-chat/streamSequence';
 import { logError } from '../lib/notifyError';
-import { streamFetch } from '../shared/api/specialized-transports';
-import { transportFetch } from '../shared/api/transports';
+import { startChatStream, cancelChatStream } from '../shared/api/chat-streaming';
 import { useChatMentions } from './agent-chat/useChatMentions';
 import { useChatConfiguration } from './agent-chat/useChatConfiguration';
 import { useChatAttachments } from './agent-chat/useChatAttachments';
@@ -41,6 +37,8 @@ import { useChatMessageActions } from './agent-chat/useChatMessageActions';
 import { useChatRewind } from './agent-chat/useChatRewind';
 import { createChatStreamState } from './agent-chat/streamEventModel';
 import { applyChatStreamEvent } from './agent-chat/applyChatStreamEvent';
+import { recoverChatStream } from './agent-chat/recoverChatStream';
+import { logChatError } from './agent-chat/chatDiagnostics';
 
 const AgentChat = ({
     storageIdentity = '',
@@ -273,22 +271,17 @@ const AgentChat = ({
             requestAbortRef.current?.abort();
             const controller = new AbortController();
             requestAbortRef.current = controller;
-            const response = await streamFetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: inputValue,
-                    agent_id: selectedAgentId,
-                    session_id: sessionId,
-                    llm_mode: 'agent_default',
-                    mentions,
-                    attachments: attachmentsPayload,
-                    context_refs: contextRefs,
-                    notebook_id: notebookId || undefined,
-                    turn_id: turnId,
-                }),
-                signal: controller.signal,
-            });
+            const response = await startChatStream({
+                message: inputValue,
+                agent_id: selectedAgentId,
+                session_id: sessionId,
+                llm_mode: 'agent_default',
+                mentions,
+                attachments: attachmentsPayload,
+                context_refs: contextRefs,
+                notebook_id: notebookId || undefined,
+                turn_id: turnId,
+            }, controller.signal);
 
             if (!response.ok) {
                 let detail = response.statusText;
@@ -332,71 +325,9 @@ const AgentChat = ({
                 && activeScopeRef.current === requestScope
             ) {
                 try {
-                    let recoveredMessageSeen = false;
-                    for (let attempt = 0; attempt < 120 && !recovered; attempt += 1) {
-                        const resumeUrl = new URL(
-                            `/api/chat/streams/${encodeURIComponent(streamState.streamId)}`,
-                            window.location.origin,
-                        );
-                        resumeUrl.searchParams.set('agent_id', selectedAgentId);
-                        resumeUrl.searchParams.set('session_id', sessionId);
-                        resumeUrl.searchParams.set('after_sequence', String(streamState.sequence));
-                        const resumed = await transportFetch(resumeUrl.pathname + resumeUrl.search);
-                        if (!resumed.ok) break;
-                        const events = (await resumed.text())
-                            .split('\n')
-                            .filter(Boolean)
-                            .map(line => JSON.parse(line));
-                        let terminal = false;
-                        let recoveredMessage = null;
-                        for (const data of events) {
-                            const sequence = acceptStreamSequence(data.sequence, streamState.sequence);
-                        if (!sequence.accepted) continue;
-                        streamState.sequence = sequence.sequence;
-                            if (data.type === 'turn_metrics') streamState.metrics = boundedTurnMetrics(data);
-                            if (data.type === 'message' || data.type === 'thought' || data.type === 'error') {
-                                recoveredMessage = data;
-                            }
-                            if (data.type === 'done') terminal = true;
-                        }
-                        if (recoveredMessage) {
-                            recoveredMessageSeen = true;
-                            setMessages(previous => {
-                                if (activeScopeRef.current !== requestScope) return previous;
-                                const index = previous.findLastIndex(message => (
-                                    message?.turnId === turnId && message?.role !== 'user'
-                                ));
-                                const content = recoveredMessage.type === 'error'
-                                    ? `${t('chat.error_prefix', 'Error')}: ${recoveredMessage.content || t('errors.unknown', 'Unknown error')}`
-                                    : recoveredMessage.content;
-                                const transparency = boundedTransparencyMetadata({
-                                    plan: recoveredMessage.plan,
-                                    privacy: recoveredMessage.privacy,
-                                    verification: recoveredMessage.verification,
-                                    citations: recoveredMessage.citations,
-                                    freshness: recoveredMessage.freshness,
-                                    job: recoveredMessage.job,
-                                    explanation: recoveredMessage.explanation,
-                                    quality: recoveredMessage.quality,
-                                    conflicts: recoveredMessage.conflicts,
-                                    evidence_security: recoveredMessage.evidence_security,
-                                });
-                                const recoveredFields = Object.fromEntries(
-                                    Object.entries(transparency).filter(([, value]) => value !== null),
-                                );
-                                if (index < 0) return [...previous, {
-                                    role: 'assistant', content, turnId, llm: streamState.model, ...recoveredFields,
-                                }];
-                                return previous.map((message, itemIndex) => itemIndex === index
-                                    ? { ...message, content, turnId, ...recoveredFields }
-                                    : message);
-                            });
-                        }
-                        recovered = terminal && recoveredMessageSeen;
-                        if (!recovered) await new Promise(resolve => window.setTimeout(resolve, 1000));
-                    }
+                    recovered = await recoverChatStream(streamState, streamContext);
                 } catch (resumeError) {
-                    console.error('Could not resume agent stream', resumeError);
+                    logChatError('agent-chat-stream-resume', resumeError);
                 }
             }
             if (error.name !== 'AbortError' && !recovered && activeScopeRef.current === requestScope) {
@@ -734,14 +665,8 @@ const AgentChat = ({
                                     onClick={() => {
                                         const streamId = activeStreamRef.current;
                                         if (streamId) {
-                                            const params = new URLSearchParams({
-                                                agent_id: selectedAgentId,
-                                                session_id: sessionId,
-                                            });
-                                            void transportFetch(
-                                                `/api/chat/streams/${encodeURIComponent(streamId)}/cancel?${params}`,
-                                                { method: 'POST' },
-                                            ).catch(error => console.error('Could not cancel agent stream:', error));
+                                            void cancelChatStream({ streamId, agentId: selectedAgentId, sessionId })
+                                                .catch(error => logChatError('agent-chat-stream-cancel', error));
                                         }
                                         requestAbortRef.current?.abort();
                                     }}
