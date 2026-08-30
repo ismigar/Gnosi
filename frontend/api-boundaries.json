@@ -7,7 +7,7 @@
     "frontend/src/shared/api/specialized-transports.ts": "Typed same-origin SSE boundary with Vault URL canonicalization."
   },
   "streamReader": {
-    "frontend/src/components/AgentChat.jsx": "Incremental agent response parser consumes the body exposed by streamFetch."
+    "frontend/src/shared/api/ndjson.ts": "Typed NDJSON response adapter preserves UTF-8 chunks, partial lines and reader cleanup for streaming clients."
   },
   "webSocket": {
     "frontend/src/shared/api/specialized-transports.ts": "Typed WebSocket constructor boundary shared by collaboration providers."

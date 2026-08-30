@@ -8,7 +8,6 @@ import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 import ConfirmModal from './ConfirmModal';
 import {
     agentChatStorageScope,
-    confirmationForStorage,
     mergeConfirmationRecords,
     startConfirmationRefresh,
 } from './agentConfirmationUtils';
@@ -30,6 +29,14 @@ import {
 import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
 import { deriveAgentRuntimeStatus } from './agentRuntimeStatus';
 import { toast } from '../lib/toast';
+import { CHAT_SESSIONS_KEY, CHAT_ACTIVE_SESSION_KEY, CHAT_SELECTED_AGENT_KEY, CHAT_PENDING_CHECKPOINT_DELETES_KEY, boundedChatSessions, createChatSession, deriveSessionTitle } from './agent-chat/sessionModel';
+import { readChatStorage, removeChatStorage, scopedChatStorageKey, writeChatStorage as safeLocalStorageSet } from './agent-chat/chatPersistence';
+import { readNdjsonRecords } from '../shared/api/ndjson';
+import { ConfirmationReview } from './agent-chat/ConfirmationReview';
+import { confirmationScope } from './agent-chat/confirmationModel';
+import { acceptStreamSequence } from './agent-chat/streamSequence';
+import { logError } from '../lib/notifyError';
+import { emitAppEvent } from '../shared/platform/app-events';
 import { streamFetch } from '../shared/api/specialized-transports';
 import { transportFetch } from '../shared/api/transports';
 import { fetchNotebookConversation } from '../shared/api/notebooks';
@@ -40,103 +47,15 @@ import {
     fetchVaultTables,
 } from '../shared/api/vaults';
 
-const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
-const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
-const CHAT_SELECTED_AGENT_KEY = 'agent_selected_id_v2';
-const CHAT_PENDING_CHECKPOINT_DELETES_KEY = 'agent_pending_checkpoint_deletes_v1';
 const MAX_CHAT_ATTACHMENT_SIZE = 15 * 1024 * 1024;
 const MAX_CHAT_ATTACHMENTS = 8;
 const CHAT_ATTACHMENT_ACCEPT = [
     '.txt', '.md', '.markdown', '.csv', '.tsv', '.json', '.yaml', '.yml',
     '.xml', '.html', '.css', '.js', '.jsx', '.ts', '.tsx', '.py', '.pdf',
 ].join(',');
-const MAX_STORED_SESSIONS = 20;
-const MAX_STORED_MESSAGES = 100;
-const MAX_STORED_MESSAGE_CHARS = 20_000;
 const DYNAMIC_ICON_NAMES = new Set(iconNames);
 
 const lucideIconName = (name) => name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-const confirmationScope = (confirmation, browserStorageScope = '') => {
-    if (confirmation?.client_scope) return confirmation.client_scope;
-    if (confirmation?.agent_id && confirmation?.session_id) {
-        return [
-            browserStorageScope,
-            confirmation.agent_id,
-            confirmation.session_id,
-        ].filter(Boolean).join(':');
-    }
-    return '';
-};
-
-const formatConfirmationValue = value => {
-    if (typeof value === 'string') return value;
-    if (value === null || value === undefined) return '—';
-    if (typeof value === 'object') {
-        try {
-            return JSON.stringify(value, null, 2);
-        } catch {
-            return String(value);
-        }
-    }
-    return String(value);
-};
-
-const boundedChatSessions = (sessions) => [...(Array.isArray(sessions) ? sessions : [])]
-    .filter((session) => session && typeof session === 'object' && session.id)
-    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-    .slice(0, MAX_STORED_SESSIONS)
-    .map((session) => ({
-        ...session,
-        messages: (Array.isArray(session.messages) ? session.messages : [])
-            .slice(-MAX_STORED_MESSAGES)
-            .map((message) => {
-                const transparency = boundedTransparencyMetadata(message);
-                return {
-                    ...message,
-                    content: message?.confirmation
-                        ? ''
-                        : (
-                            typeof message?.content === 'string'
-                                ? message.content.slice(0, MAX_STORED_MESSAGE_CHARS)
-                                : String(message?.content || '')
-                                    .slice(0, MAX_STORED_MESSAGE_CHARS)
-                        ),
-                    confirmation: confirmationForStorage(message?.confirmation),
-                    processingMs: boundedProcessingMs(message?.processingMs),
-                    timings: boundedTurnMetrics(message?.timings),
-                    ...transparency,
-                };
-            }),
-    }));
-
-const safeLocalStorageSet = (key, value) => {
-    try {
-        localStorage.setItem(key, value);
-        return true;
-    } catch (error) {
-        console.warn('Could not persist assistant chat state', error);
-        return false;
-    }
-};
-
-const createChatSession = (title, agentId = 'gnosy') => ({
-    id: crypto.randomUUID(),
-    title,
-    archived: false,
-    agentId,
-    messages: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-});
-
-const deriveSessionTitle = (messages, fallback) => {
-    const firstUser = (messages || []).find((m) => m.role === 'user' && String(m.content || '').trim());
-    if (!firstUser) return fallback;
-    const clean = String(firstUser.content).replace(/@\[[^\]]+\]\([^)]+\)/g, '').trim();
-    if (!clean) return fallback;
-    return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean;
-};
-
 const deleteSessionCheckpoint = async (session) => {
     if (!session?.agentId || !session?.id) return true;
     const response = await transportFetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
@@ -198,11 +117,11 @@ const AgentChat = ({
     const processingStartedAtRef = useRef(null);
     const historyHydrationRef = useRef(0);
     const activeScopeRef = useRef('');
-    const activeVaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
-    const workspaceStorageScope = localStorage.getItem('gnosi_workspace_id') || 'personal';
+    const activeVaultStorageScope = readChatStorage('gnosi_active_vault') || 'default';
+    const workspaceStorageScope = readChatStorage('gnosi_workspace_id') || 'personal';
     const userStorageScope = (
         storageIdentity
-        || localStorage.getItem('gnosi_user_id')
+        || readChatStorage('gnosi_user_id')
         || 'personal'
     );
     const browserStorageScope = agentChatStorageScope({
@@ -211,7 +130,7 @@ const AgentChat = ({
         userId: userStorageScope,
     });
     const scopedStorageKey = useCallback(
-        (key) => `${key}:${browserStorageScope}`,
+        (key) => scopedChatStorageKey(key, browserStorageScope),
         [browserStorageScope],
     );
     const scopeReady = (
@@ -230,7 +149,7 @@ const AgentChat = ({
         const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
         let pending;
         try {
-            pending = JSON.parse(localStorage.getItem(key) || '[]');
+            pending = JSON.parse(readChatStorage(key) || '[]');
         } catch {
             pending = [];
         }
@@ -247,10 +166,10 @@ const AgentChat = ({
         setPendingConfirmation(null);
         setSessionsHydrated(false);
         setHydratedStorageScope('');
-        const savedAgentId = forcedAgentId || localStorage.getItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
-        const sid = localStorage.getItem(scopedStorageKey('agent_session_id_v2'));
-        const savedSessionsRaw = localStorage.getItem(scopedStorageKey(CHAT_SESSIONS_KEY));
-        const savedActiveSession = localStorage.getItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY));
+        const savedAgentId = forcedAgentId || readChatStorage(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
+        const sid = readChatStorage(scopedStorageKey('agent_session_id_v2'));
+        const savedSessionsRaw = readChatStorage(scopedStorageKey(CHAT_SESSIONS_KEY));
+        const savedActiveSession = readChatStorage(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY));
 
         let parsedSessions;
         try {
@@ -312,7 +231,7 @@ const AgentChat = ({
 
         // A conversation no longer persists a model override: the selected
         // agent owns its model, instructions, and context as one profile.
-        localStorage.removeItem(scopedStorageKey('agent_selected_llm'));
+        removeChatStorage(scopedStorageKey('agent_selected_llm'));
 
         setChatSessions(parsedSessions);
         setMessages(activeSession.messages || []);
@@ -354,7 +273,7 @@ const AgentChat = ({
         const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
         let pending = [];
         try {
-            pending = JSON.parse(localStorage.getItem(key) || '[]');
+            pending = JSON.parse(readChatStorage(key) || '[]');
         } catch {
             pending = [];
         }
@@ -858,70 +777,9 @@ const AgentChat = ({
         confirmation?.details || {},
     ), [t]);
 
-    const confirmationReview = useCallback(confirmation => {
-        const details = Object.entries(confirmation?.details || {});
-        const renderDetailValue = (key, value) => {
-            if (key === 'updates' && Array.isArray(value)) {
-                return (
-                    <div style={{ display: 'grid', gap: '6px' }}>
-                        {value.map((update, index) => (
-                            <div key={`${update?.id || 'row'}-${index}`} style={{ padding: '6px 8px', borderRadius: '6px', background: 'var(--bg-secondary)' }}>
-                                <strong>{update?.title || update?.id || t('chat.confirmations.row_fallback', 'Row {{count}}', { count: index + 1 })}</strong>
-                                {update?.properties && <div style={{ marginTop: '2px', fontSize: '0.75rem' }}>{formatConfirmationValue(update.properties)}</div>}
-                                {update?.from && update?.to && (
-                                    <div style={{ marginTop: '2px', fontSize: '0.75rem' }}>
-                                        {update.from} → {update.to}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                );
-            }
-            return formatConfirmationValue(value);
-        };
-        return (
-            <div>
-                <p style={{ margin: '0 0 12px' }}>
-                    {confirmationSummary(confirmation)}
-                </p>
-                {details.length > 0 && (
-                    <dl style={{
-                        display: 'grid',
-                        gap: '8px',
-                        margin: 0,
-                        maxHeight: '45vh',
-                        overflowY: 'auto',
-                    }}>
-                        {details.map(([key, value]) => (
-                            <div key={key}>
-                                <dt style={{
-                                    color: 'var(--text-primary)',
-                                    fontWeight: 700,
-                                    fontSize: '0.72rem',
-                                }}>
-                                    {t(
-                                        `chat.confirmations.details.${key}`,
-                                        key.replaceAll('_', ' '),
-                                    )}
-                                </dt>
-                                <dd style={{
-                                    margin: '2px 0 0',
-                                    whiteSpace: 'pre-wrap',
-                                    overflowWrap: 'anywhere',
-                                    fontFamily: key === 'body' || key === 'arguments'
-                                        ? 'monospace'
-                                        : 'inherit',
-                                }}>
-                                    {renderDetailValue(key, value)}
-                                </dd>
-                            </div>
-                        ))}
-                    </dl>
-                )}
-            </div>
-        );
-    }, [confirmationSummary, t]);
+    const confirmationReview = useCallback((confirmation) => (
+        <ConfirmationReview confirmation={confirmation} summary={confirmationSummary(confirmation)} />
+    ), [confirmationSummary]);
 
     const updateConfirmationStatus = useCallback((confirmationId, status) => {
         const terminal = [
@@ -1486,41 +1344,19 @@ const AgentChat = ({
                 throw new Error(detail);
             }
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
             let aiMsgAdded = false;
-            let buffer = '';
             let terminalReceived = false;
             let responseReceived = false;
-            let streamDone = false;
-
-            while (!streamDone) {
-                const { done, value } = await reader.read();
-                streamDone = done;
-
-                // We accumulate in the buffer and only process COMPLETE lines: a line
-                // JSON can end up split across two network chunks (losing the
-                // entire message if you try to parse it in pieces). `{ stream: !done }`
-                // also avoids corrupting a multibyte UTF-8 character (à, é, ç…) cut
-                // at the chunk boundary.
-                buffer += decoder.decode(value, { stream: !done });
-                const lines = buffer.split('\n');
-                // While the stream continues, the last line may be incomplete and
-                // we keep it in the buffer; by the time it's done everything has already been processed.
-                buffer = done ? '' : lines.pop();
-
-                for (const line of lines) {
-                    if (!line.trim()) continue;
+            for await (const data of readNdjsonRecords(response, {
+                onMalformed: (error) => logError('chat.stream.record', error),
+            })) {
                     try {
-                        const data = JSON.parse(line);
-
                         // The server envelope makes reconnects and proxy retries
                         // safe at the presentation layer. Never apply a duplicate
                         // event, while remaining compatible with legacy payloads.
-                        if (Number.isInteger(data.sequence)) {
-                            if (data.sequence <= lastStreamSequence) continue;
-                            lastStreamSequence = data.sequence;
-                        }
+                        const sequence = acceptStreamSequence(data.sequence, lastStreamSequence);
+                        if (!sequence.accepted) continue;
+                        lastStreamSequence = sequence.sequence;
 
                         if (data.type === 'stream_open') {
                             resumeStreamId = String(data.stream_id || '');
@@ -1681,10 +1517,9 @@ const AgentChat = ({
                             newMsgs[lastIdx] = lastMsg;
                             return newMsgs;
                         });
-                    } catch (e) {
-                        console.error("Error parsing JSON line:", line, e);
+                    } catch (error) {
+                        logError('chat.stream.event', error);
                     }
-                }
             }
             if (!terminalReceived || !responseReceived) {
                 setMessages((prev) => {
@@ -1722,10 +1557,9 @@ const AgentChat = ({
                         let terminal = false;
                         let recoveredMessage = null;
                         for (const data of events) {
-                            if (Number.isInteger(data.sequence)) {
-                                if (data.sequence <= lastStreamSequence) continue;
-                                lastStreamSequence = data.sequence;
-                            }
+                            const sequence = acceptStreamSequence(data.sequence, lastStreamSequence);
+                        if (!sequence.accepted) continue;
+                        lastStreamSequence = sequence.sequence;
                             if (data.type === 'turn_metrics') turnMetrics = boundedTurnMetrics(data);
                             if (data.type === 'message' || data.type === 'thought' || data.type === 'error') {
                                 recoveredMessage = data;
@@ -2012,7 +1846,7 @@ const AgentChat = ({
                     <span style={{ flex: 1 }}>{runtimeStatusHelp}</span>
                     <button
                         type="button"
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai' }))}
+                        onClick={() => emitAppEvent('open-settings', 'ai')}
                         style={{
                             border: 'none',
                             background: 'transparent',
