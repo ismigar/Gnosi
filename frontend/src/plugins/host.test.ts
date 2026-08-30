@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { dispatchWindowEvent } from '../shared/platform/browser-events';
 
 const {
     fetchInstalledPlugins,
@@ -69,7 +70,7 @@ describe('third-party Settings panels', () => {
         expect(iframe.getAttribute('sandbox')).toBe('allow-scripts');
         expect(iframe.getAttribute('sandbox')).not.toContain('allow-same-origin');
 
-        window.dispatchEvent(new MessageEvent('message', {
+        dispatchWindowEvent(new MessageEvent('message', {
             source: iframe.contentWindow,
             data: {
                 __gnosi: true,
@@ -96,7 +97,7 @@ describe('third-party Settings panels', () => {
         const pluginWindow = iframe.contentWindow;
         if (!pluginWindow) throw new Error('Expected the plugin iframe window');
         const postMessage = vi.spyOn(pluginWindow, 'postMessage');
-        window.dispatchEvent(new MessageEvent('message', {
+        dispatchWindowEvent(new MessageEvent('message', {
             source: iframe.contentWindow,
             data: {
                 __gnosi: true,
@@ -115,7 +116,7 @@ describe('third-party Settings panels', () => {
             }), '*');
         });
 
-        window.dispatchEvent(new MessageEvent('message', {
+        dispatchWindowEvent(new MessageEvent('message', {
             source: iframe.contentWindow,
             data: {
                 __gnosi: true,

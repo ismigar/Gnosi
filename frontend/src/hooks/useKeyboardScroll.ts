@@ -1,4 +1,5 @@
 import { useEffect, type RefObject } from 'react';
+import { subscribeWindowEvent } from '../shared/platform/browser-events';
 
 
 export interface KeyboardScrollOptions {
@@ -53,9 +54,6 @@ export function useKeyboardScroll(
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return subscribeWindowEvent('keydown', handleKeyDown);
   }, [enabled, modalOpen, step, scrollContainerRef]);
 }

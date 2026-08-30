@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { subscribeWindowEvent } from '../shared/platform/browser-events';
 
 
 export interface VaultSelectionShortcutsOptions {
@@ -45,9 +46,6 @@ export function useVaultSelectionShortcuts({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return subscribeWindowEvent('keydown', handleKeyDown);
   }, [selectAll, clearSelection, onDeleteSelected, enabled]);
 }

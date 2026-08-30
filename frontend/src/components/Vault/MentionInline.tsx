@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react';
+import { dispatchWindowEvent } from '../../shared/platform/browser-events';
 
 type MentionScalar = string | number | boolean | null | undefined;
 
@@ -29,7 +30,7 @@ export default function MentionInline({ inlineContent }: MentionInlineProps) {
             // Smooth navigation to the contact's card (without reloading the SPA).
             try {
                 window.history.pushState({}, '', `/contacts?id=${encodeURIComponent(id)}`);
-                window.dispatchEvent(new PopStateEvent('popstate'));
+                dispatchWindowEvent(new PopStateEvent('popstate'));
             } catch { /* noop */ }
         }
     };

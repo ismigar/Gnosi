@@ -28,6 +28,7 @@
  */
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
+import { subscribeWindowEvent } from '../shared/platform/browser-events';
 
 export interface ModalKeyboardOptions {
     readonly closeOnEscape?: boolean;
@@ -207,9 +208,9 @@ export function useModalKeyboard({
             }
         };
 
-        window.addEventListener('keydown', handleKeyDown, true);
+        const unsubscribeKeydown = subscribeWindowEvent('keydown', handleKeyDown, true);
         return () => {
-            window.removeEventListener('keydown', handleKeyDown, true);
+            unsubscribeKeydown();
             layer.release();
             if (addedContainerTabIndex && panelEl?.getAttribute('tabindex') === '-1') {
                 panelEl.removeAttribute('tabindex');

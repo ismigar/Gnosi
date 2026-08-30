@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { subscribeDocumentEvent, subscribeWindowEvent } from '../shared/platform/browser-events';
 
 interface ActiveTooltip {
     readonly content: string;
@@ -205,29 +206,22 @@ export function GlobalTooltip() {
             if (event.key === 'Escape') dismissTooltip();
         };
 
-        document.addEventListener('mouseover', handleMouseOver);
-        document.addEventListener('mouseout', handleMouseOut);
-        document.addEventListener('focusin', handleFocusIn);
-        document.addEventListener('focusout', handleFocusOut);
-        document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('pointerdown', dismissTooltip, true);
-        document.addEventListener('click', dismissTooltip, true);
-        document.addEventListener('contextmenu', dismissTooltip, true);
-        window.addEventListener('scroll', dismissTooltip, true);
-        window.addEventListener('resize', dismissTooltip);
+        const unsubscribeEvents = [
+            subscribeDocumentEvent('mouseover', handleMouseOver),
+            subscribeDocumentEvent('mouseout', handleMouseOut),
+            subscribeDocumentEvent('focusin', handleFocusIn),
+            subscribeDocumentEvent('focusout', handleFocusOut),
+            subscribeDocumentEvent('keydown', handleKeyDown),
+            subscribeDocumentEvent('pointerdown', dismissTooltip, true),
+            subscribeDocumentEvent('click', dismissTooltip, true),
+            subscribeDocumentEvent('contextmenu', dismissTooltip, true),
+            subscribeWindowEvent('scroll', dismissTooltip, true),
+            subscribeWindowEvent('resize', dismissTooltip),
+        ];
 
         return () => {
             observer.disconnect();
-            document.removeEventListener('mouseover', handleMouseOver);
-            document.removeEventListener('mouseout', handleMouseOut);
-            document.removeEventListener('focusin', handleFocusIn);
-            document.removeEventListener('focusout', handleFocusOut);
-            document.removeEventListener('keydown', handleKeyDown);
-            document.removeEventListener('pointerdown', dismissTooltip, true);
-            document.removeEventListener('click', dismissTooltip, true);
-            document.removeEventListener('contextmenu', dismissTooltip, true);
-            window.removeEventListener('scroll', dismissTooltip, true);
-            window.removeEventListener('resize', dismissTooltip);
+            unsubscribeEvents.forEach((unsubscribe) => { unsubscribe(); });
             removeTooltipDescription(activeTriggerRef.current);
 
             document.querySelectorAll(`[${TITLE_SOURCE_ATTRIBUTE}="title"]`).forEach((element) => {

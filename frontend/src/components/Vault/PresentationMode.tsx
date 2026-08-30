@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { VaultMarkdown } from './VaultMarkdown';
 import i18n from '../../i18n';
+import { subscribeWindowEvent } from '../../shared/platform/browser-events';
 
 /**
  * PresentationMode
@@ -46,14 +47,14 @@ export interface PresentationModeProps {
     readonly onClose: () => void;
 }
 
-export default function PresentationMode({ isOpen, onClose, markdown = '' }: PresentationModeProps) {
+export default function PresentationMode({ isOpen, ...session }: PresentationModeProps) {
+    return isOpen ? <PresentationSession {...session} /> : null;
+}
+
+function PresentationSession({ onClose, markdown = '' }: Omit<PresentationModeProps, 'isOpen'>) {
     const { t } = useTranslation();
     const slides = useMemo(() => splitSlides(markdown), [markdown]);
     const [idx, setIdx] = useState(0);
-
-    useEffect(() => {
-        if (isOpen) setIdx(0);
-    }, [isOpen]);
 
     const next = useCallback(() => {
         setIdx((index) => Math.min(index + 1, slides.length - 1));
@@ -63,17 +64,13 @@ export default function PresentationMode({ isOpen, onClose, markdown = '' }: Pre
     }, []);
 
     useEffect(() => {
-        if (!isOpen) return undefined;
         const onKey = (event: KeyboardEvent): void => {
             if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') { event.preventDefault(); next(); }
             else if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); prev(); }
             else if (event.key === 'Escape') { event.preventDefault(); onClose(); }
         };
-        window.addEventListener('keydown', onKey);
-        return () => {
-            window.removeEventListener('keydown', onKey);
-        };
-    }, [isOpen, next, prev, onClose]);
+        return subscribeWindowEvent('keydown', onKey);
+    }, [next, prev, onClose]);
 
     const goFullscreen = (): void => {
         const element = document.getElementById('gnosi-presentation');
@@ -81,8 +78,6 @@ export default function PresentationMode({ isOpen, onClose, markdown = '' }: Pre
             void element.requestFullscreen().catch(() => undefined);
         }
     };
-
-    if (!isOpen) return null;
 
     return (
         <div id="gnosi-presentation" className="fixed inset-0 z-[var(--z-presentation)] flex flex-col bg-[var(--bg-primary)]">

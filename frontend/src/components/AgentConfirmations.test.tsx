@@ -6,6 +6,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import AgentChat from './AgentChat';
 import ConfirmModal from './ConfirmModal';
+import { dispatchWindowEvent } from '../shared/platform/browser-events';
 import {
     CONFIRMATION_REFRESH_MS,
     agentChatStorageScope,
@@ -227,7 +228,7 @@ describe('agent action confirmations', () => {
         expect(execute.dataset.autofocus).toBeUndefined();
 
         await act(async () => {
-            window.dispatchEvent(new KeyboardEvent('keydown', {
+            dispatchWindowEvent(new KeyboardEvent('keydown', {
                 key: 'Enter',
                 bubbles: true,
             }));

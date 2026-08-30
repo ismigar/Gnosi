@@ -6,24 +6,12 @@
       "frontend/src/pages/VaultDashboard.jsx": 3
     },
     "global_events": {
-      "frontend/src/components/AgentConfirmations.test.tsx": 1,
       "frontend/src/components/GlobalSettingsModal.jsx": 9,
-      "frontend/src/components/GlobalTooltip.tsx": 4,
       "frontend/src/components/Vault/BlockEditor.jsx": 20,
-      "frontend/src/components/Vault/CalendarSidebarLeft.tsx": 1,
-      "frontend/src/components/Vault/MentionInline.tsx": 1,
-      "frontend/src/components/Vault/PresentationMode.tsx": 2,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2,
       "frontend/src/components/Vault/VaultTable.jsx": 12,
-      "frontend/src/hooks/useKeyboardScroll.ts": 2,
-      "frontend/src/hooks/useModalKeyboard.test.tsx": 1,
-      "frontend/src/hooks/useModalKeyboard.ts": 2,
-      "frontend/src/hooks/useVaultSelectionShortcuts.ts": 2,
       "frontend/src/pages/VaultDashboard.jsx": 33,
-      "frontend/src/plugins/host.test.ts": 3,
-      "frontend/src/plugins/host.ts": 3,
-      "frontend/src/shared/api/page-etag.test.ts": 8,
-      "frontend/src/shared/api/plugins.test.ts": 8
+      "frontend/src/plugins/host.ts": 3
     },
     "legacy_js_jsx": {
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,

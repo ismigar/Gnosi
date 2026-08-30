@@ -5,6 +5,7 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CalendarSidebarLeft } from './CalendarSidebarLeft';
+import { subscribeAppEvent, type AppEvent } from '../../shared/platform/app-events';
 
 
 vi.mock('react-i18next', () => ({
@@ -18,13 +19,6 @@ vi.mock('react-i18next', () => ({
             : fallback?.defaultValue ?? key,
     }),
 }));
-
-const dispatchWindowEventMock = vi.hoisted(() => vi.fn<(event: Event) => void>());
-
-vi.mock('../../shared/platform/browser-events', () => ({
-    dispatchWindowEvent: dispatchWindowEventMock,
-}));
-
 
 const reactTestGlobal = globalThis as typeof globalThis & {
     IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -151,15 +145,16 @@ describe('CalendarSidebarLeft', () => {
         expect(onSetDefaultCalendar).toHaveBeenCalledWith('work');
     });
 
-    it('opens integration settings through the shared window adapter', async () => {
+    it('opens integration settings through the real typed event adapter', async () => {
         await renderSidebar();
-
-        await click(buttonByTitle('Add calendar'));
-
-        const event = dispatchWindowEventMock.mock.calls.at(0)?.[0];
-        expect(event).toBeInstanceOf(Event);
-        if (!(event instanceof Event)) throw new Error('Settings event is missing');
-        const settingsEvent = event as Event & { readonly detail?: unknown };
-        expect(settingsEvent.detail).toBe('integrations');
+        const events: AppEvent<'open-settings'>[] = [];
+        const stop = subscribeAppEvent('open-settings', (_detail, event) => { events.push(event); });
+        try {
+            await click(buttonByTitle('Add calendar'));
+            expect(events).toHaveLength(1);
+            expect(events[0]).toBeInstanceOf(Event);
+            expect(events[0]?.type).toBe('open-settings');
+            expect(events[0]?.detail).toBe('integrations');
+        } finally { stop(); }
     });
 });

@@ -1,10 +1,34 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { emitAppEvent, subscribeAppEvent, subscribeAppSignal } from './app-events';
+import { emitAppEvent, emitCancelableAppEvent, isAppEvent, subscribeAppEvent, subscribeAppSignal } from './app-events';
 import { dispatchWindowEvent } from './browser-events';
 
 
 describe('typed application events', () => {
+  it('distinguishes typed payload envelopes from native signals and wrong names', () => {
+    const events: Event[] = [];
+    const stop = subscribeAppEvent('gnosi:invalidatePreview', (_detail, event) => { events.push(event); });
+    try {
+      dispatchWindowEvent(new Event('gnosi:invalidatePreview'));
+      expect(events).toHaveLength(0);
+      emitAppEvent('gnosi:invalidatePreview', { pageId: 'exact' });
+      const event = events[0];
+      expect(isAppEvent('gnosi:invalidatePreview', event)).toBe(true);
+      expect(isAppEvent('pageEtagConflict', event)).toBe(false);
+      expect(isAppEvent('gnosi:invalidatePreview', undefined)).toBe(false);
+      expect(isAppEvent('gnosi:invalidatePreview', new Event('gnosi:invalidatePreview'))).toBe(false);
+    } finally { stop(); }
+  });
+
+  it('preserves cancelable event return values', () => {
+    const stop = subscribeAppEvent('gnosi:open-settings', (_detail, event) => { event.preventDefault(); });
+    try {
+      expect(emitCancelableAppEvent('gnosi:open-settings')).toBe(false);
+      expect(emitAppEvent('gnosi:open-settings')).toBe(true);
+    } finally { stop(); }
+    expect(emitCancelableAppEvent('gnosi:open-settings')).toBe(true);
+  });
+
   it('supports legacy native signals and typed signals without leaking listeners', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeAppSignal('gnosi-mail-dark-body-changed', listener);

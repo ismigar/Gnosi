@@ -1,7 +1,7 @@
 import { Fragment, useState, type RefObject } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Eye, EyeOff, Edit2, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { dispatchWindowEvent } from '../../shared/platform/browser-events';
+import { emitAppEvent } from '../../shared/platform/app-events';
 import {
     CALENDAR_COLORS,
     buildCalendarGrid,
@@ -151,9 +151,7 @@ export const CalendarSidebarLeft = ({
                 </span>
                 <button
                     onClick={() => {
-                        dispatchWindowEvent(new CustomEvent('open-settings', {
-                            detail: 'integrations',
-                        }));
+                        emitAppEvent('open-settings', 'integrations');
                     }}
                     className="p-1 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors"
                     title={t('add_calendar', "Add calendar")}

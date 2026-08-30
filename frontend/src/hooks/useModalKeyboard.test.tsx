@@ -5,6 +5,7 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { useModalKeyboard } from './useModalKeyboard';
+import { dispatchWindowEvent } from '../shared/platform/browser-events';
 
 interface DialogProps {
     readonly label?: string;
@@ -140,11 +141,26 @@ function render(element: ReactElement): MountedDialog {
 
 function dispatchKey(key: string): void {
     act(() => {
-        window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+        dispatchWindowEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
     });
 }
 
 describe('useModalKeyboard accessibility contract', () => {
+    it('captures Escape before a child stops propagation and releases it on close', () => {
+        const onClose = vi.fn();
+        const { container, root } = render(<Dialog open onClose={onClose} />);
+        const button = container.querySelector('button');
+        if (!button) throw new Error('Expected dialog button');
+        button.addEventListener('keydown', (event) => { event.stopPropagation(); });
+        const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        act(() => { button.dispatchEvent(event); });
+        expect(onClose).toHaveBeenCalledOnce();
+        expect(event.defaultPrevented).toBe(true);
+        act(() => { root.render(<Dialog open={false} onClose={onClose} />); });
+        dispatchKey('Escape');
+        expect(onClose).toHaveBeenCalledOnce();
+    });
+
     it('moves focus into the dialog, traps Tab, closes with Escape, and restores focus', () => {
         const opener = document.createElement('button');
         document.body.appendChild(opener);

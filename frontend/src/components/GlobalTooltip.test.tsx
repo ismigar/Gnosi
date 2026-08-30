@@ -4,6 +4,7 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { GlobalTooltip } from './GlobalTooltip';
+import { dispatchWindowEvent } from '../shared/platform/browser-events';
 
 interface MountedRoot {
     readonly container: HTMLDivElement;
@@ -69,6 +70,24 @@ function requiredDiv(root: ParentNode): HTMLDivElement {
 }
 
 describe('GlobalTooltip', () => {
+    it('dismisses on captured scroll and resize and releases all listeners on unmount', async () => {
+        const fixture = await mountTooltipLayer('<div><button title="Shared hint">Action</button></div>');
+        const trigger = requiredButton(fixture);
+        const focus = () => { act(() => { trigger.dispatchEvent(new FocusEvent('focusin', { bubbles: true })); }); };
+        focus(); expect(document.getElementById('gnosi-global-tooltip')).not.toBeNull();
+        act(() => { trigger.dispatchEvent(new Event('scroll', { bubbles: false })); });
+        expect(document.getElementById('gnosi-global-tooltip')).toBeNull();
+        focus(); expect(document.getElementById('gnosi-global-tooltip')).not.toBeNull();
+        act(() => { dispatchWindowEvent(new Event('resize')); });
+        expect(document.getElementById('gnosi-global-tooltip')).toBeNull();
+        const mounted = mountedRoots.pop();
+        if (!mounted) throw new Error('Expected tooltip root');
+        act(() => { mounted.root.unmount(); }); mounted.container.remove();
+        focus(); act(() => { dispatchWindowEvent(new Event('resize')); });
+        expect(document.getElementById('gnosi-global-tooltip')).toBeNull();
+        expect(trigger.getAttribute('title')).toBe('Shared hint');
+    });
+
     it('replaces a native title with the shared tooltip on hover', async () => {
         const fixture = await mountTooltipLayer('<button title="Open document">Open</button>');
         const trigger = requiredButton(fixture);

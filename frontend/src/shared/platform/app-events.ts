@@ -107,6 +107,17 @@ export interface AppEventMap {
 }
 
 
+export type AppEvent<K extends keyof AppEventMap> = CustomEvent<AppEventMap[K]>;
+
+export function isAppEvent<K extends keyof AppEventMap>(
+  name: K,
+  event: Event | undefined,
+): event is AppEvent<K> {
+  return typeof CustomEvent !== 'undefined'
+    && event instanceof CustomEvent
+    && event.type === name;
+}
+
 type EventArguments<K extends keyof AppEventMap> =
   [AppEventMap[K]] extends [null] ? [] : [detail: AppEventMap[K]];
 
@@ -161,9 +172,8 @@ export function subscribeAppEvent<K extends keyof AppEventMap>(
   if (!target) return () => undefined;
 
   const handler: EventListener = (event) => {
-    if (!(event instanceof CustomEvent)) return;
-    const typedEvent = event as CustomEvent<AppEventMap[K]>;
-    listener(typedEvent.detail, typedEvent);
+    if (!isAppEvent(name, event)) return;
+    listener(event.detail, event);
   };
   target.addEventListener(name, handler);
   return () => {

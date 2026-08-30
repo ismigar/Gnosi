@@ -1,5 +1,6 @@
 import { resetApiTestStorage } from '../../test/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { isAppEvent, subscribeAppEvent, type AppEvent } from '../platform/app-events';
 
 import { GnosiApiError } from './errors';
 import {
@@ -137,10 +138,10 @@ describe('plugin API client', () => {
       .mockResolvedValueOnce(Response.json(created))
       .mockResolvedValueOnce(Response.json(saved));
     vi.stubGlobal('fetch', fetchMock);
-    const invalidated = vi.fn<(event: Event) => void>();
-    const conflicted = vi.fn<(event: Event) => void>();
-    window.addEventListener('gnosi:invalidatePreview', invalidated);
-    window.addEventListener('pageEtagConflict', conflicted);
+    const invalidated = vi.fn<(event: AppEvent<'gnosi:invalidatePreview'>) => void>();
+    const conflicted = vi.fn<(event: AppEvent<'pageEtagConflict'>) => void>();
+    const stopInvalidations = subscribeAppEvent('gnosi:invalidatePreview', (_detail, event) => { invalidated(event); });
+    const stopConflicts = subscribeAppEvent('pageEtagConflict', (_detail, event) => { conflicted(event); });
 
     try {
       await expect(fetchPluginHostPage('page/one')).resolves.toEqual(page);
@@ -156,8 +157,8 @@ describe('plugin API client', () => {
         patchPluginHostPage('page/one', { content: 'Updated' }),
       ).resolves.toEqual(saved);
     } finally {
-      window.removeEventListener('gnosi:invalidatePreview', invalidated);
-      window.removeEventListener('pageEtagConflict', conflicted);
+      stopInvalidations();
+      stopConflicts();
     }
 
     const createRequest = recordedRequest(fetchMock, 1);
@@ -192,8 +193,8 @@ describe('plugin API client', () => {
         Promise.resolve(Response.json(conflict, { status: 409 })),
       );
     vi.stubGlobal('fetch', fetchMock);
-    const conflicted = vi.fn<(event: Event) => void>();
-    window.addEventListener('pageEtagConflict', conflicted);
+    const conflicted = vi.fn<(event: AppEvent<'pageEtagConflict'>) => void>();
+    const stopConflicts = subscribeAppEvent('pageEtagConflict', (_detail, event) => { conflicted(event); });
 
     try {
       await expect(
@@ -204,14 +205,14 @@ describe('plugin API client', () => {
         ),
       ).rejects.toMatchObject({ status: 409 });
     } finally {
-      window.removeEventListener('pageEtagConflict', conflicted);
+      stopConflicts();
     }
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(conflicted).toHaveBeenCalledTimes(1);
     const event = conflicted.mock.calls[0]?.[0];
-    expect(event).toBeInstanceOf(CustomEvent);
-    expect((event as CustomEvent).detail).toMatchObject({
+    expect(isAppEvent('pageEtagConflict', event)).toBe(true);
+    expect(event?.detail).toMatchObject({
       currentEtag: 'etag-2',
       expectedEtag: 'etag-1',
       pageId: 'page/conflict',
