@@ -13,13 +13,11 @@ import {
     periodDurationFromBoundaries,
     periodDurationToWorkingDays,
     serializePeriod,
-    type PeriodInput,
     type PeriodUnit,
 } from '../../../utils/projectPlanning';
 import type {
     PeriodEditorProps,
     PlanningScalar,
-    VaultMetadataValue,
     VaultPlanningNote,
 } from './types';
 
@@ -48,7 +46,7 @@ const CONSTRAINTS_REQUIRING_DATE: ReadonlySet<string> = new Set([
 
 export const PERIOD_INPUT_CLASS = 'w-full h-9 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-1.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--gnosi-primary)]/50 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20';
 
-function scalarText(value: PlanningScalar): string {
+function scalarText(value: unknown): string {
     if (typeof value === 'string') return value;
     if (typeof value === 'number' || typeof value === 'bigint') return String(value);
     if (typeof value === 'boolean') return value ? 'true' : 'false';
@@ -66,14 +64,18 @@ function isPlanningScalarArray(value: unknown): value is readonly PlanningScalar
     ));
 }
 
-function periodMetadataValue(value: VaultMetadataValue | undefined): PeriodInput {
+function periodMetadataValue(value: unknown): unknown {
     return isPlanningScalarArray(value) ? '' : (value ?? '');
 }
 
-function metadataScalarText(value: VaultMetadataValue | undefined): string {
+function metadataScalarText(value: unknown): string {
     if (isPlanningScalarArray(value)) return '';
     if (value !== null && typeof value === 'object') return '';
     return scalarText(value);
+}
+
+function settingsRecord(value: unknown): value is Record<string, unknown> {
+    return (typeof value === 'object' && value !== null) || typeof value === 'function';
 }
 
 function dependencyType(value: string): PeriodDependency['type'] {
@@ -141,13 +143,20 @@ export function createPlanningPeriodModel({
     noteId,
     notes,
     onChange,
-    planningSettings,
+    planningSettings: settingsInput,
     value,
 }: PeriodEditorProps, dateLocale: string): PlanningPeriodModel {
     const period = parsePeriod(value);
     const periodUnit = normalizePeriodUnit(fieldConfig.period_unit);
     const predecessorsEnabled = fieldConfig.predecessors_enabled !== false;
     const skipNonWorkingDays = fieldConfig.skip_non_working_days !== false;
+    // Keep the original object (including inherited fields and extensions).
+    // Property access on null/undefined previously failed here as well.
+    if (settingsInput === null || settingsInput === undefined) {
+        throw new TypeError(`Cannot read properties of ${String(settingsInput)} (reading 'workday_start')`);
+    }
+    const planningSettings: unknown = Object(settingsInput);
+    if (!settingsRecord(planningSettings)) throw new TypeError('Invalid planning settings receiver');
     const workdayStart = /^\d{2}:\d{2}$/.test(scalarText(planningSettings.workday_start))
         ? scalarText(planningSettings.workday_start)
         : '09:00';
@@ -221,7 +230,7 @@ export function createPlanningPeriodModel({
     ));
     const periodKeys = [fieldName, fieldConfig.id, ...(fieldConfig.aliases ?? [])]
         .filter((key): key is string => Boolean(key));
-    const getPeriodValue = (note: VaultPlanningNote): PeriodInput => {
+    const getPeriodValue = (note: VaultPlanningNote): unknown => {
         const metadata = note.metadata ?? {};
         const key = periodKeys.find((candidate) => Object.hasOwn(metadata, candidate));
         return key ? periodMetadataValue(metadata[key]) : '';

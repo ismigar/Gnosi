@@ -2,7 +2,7 @@ import { formatDate, formatNumber, resolveFieldFormat } from '../formatUtils';
 import { parsePeriod } from '../VaultDateProperty';
 import { displayString, getTableFieldConfig } from './fieldConfig';
 import { getMetaKey } from './metadata';
-import { metadataDate, tablePeriod } from './sharedCompatibility';
+import { metadataDate } from './cellValues';
 import type { TableInputs } from './tableInputs';
 import type { TableNote } from './types';
 import type { useTableData } from './useTableData';
@@ -50,12 +50,12 @@ export function useTableAggregation({ aggregations, sortedNotes, getCalculatedFi
       const formatAggDate = (d: Date) => formatDate(d, { dateFormat: aggDateFmt.dateFormat, type: 'date', locale: aggDateFmt.dateLocale });
       if (type === 'period') {
         if (func === 'earliest') {
-          const dates = values.map(v => new Date(parsePeriod(tablePeriod(v)).start)).filter(d => !Number.isNaN(d.getTime()));
+          const dates = values.map(v => new Date(parsePeriod(v).start)).filter(d => !Number.isNaN(d.getTime()));
           return dates.length ? formatAggDate(new Date(Math.min(...dates.map(d => d.getTime())))) : '-';
         }
         if (func === 'latest') {
           const dates = values.map(v => {
-            const period = parsePeriod(tablePeriod(v));
+            const period = parsePeriod(v);
             return new Date(period.end || period.start);
           }).filter(d => !Number.isNaN(d.getTime()));
           return dates.length ? formatAggDate(new Date(Math.max(...dates.map(d => d.getTime())))) : '-';

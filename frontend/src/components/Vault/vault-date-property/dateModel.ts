@@ -1,14 +1,16 @@
-import type { PeriodInput } from '../../../utils/projectPlanning';
 import { parsePeriod } from '../../../utils/projectPlanning';
 import {
     formatVaultDate,
     isSignedVaultDate,
     parseVaultDate,
 } from '../dateUtils';
-import type { VaultDatePropertyType } from './types';
+import type { PlanningScalar, VaultDatePropertyType } from './types';
+
+type ScalarDateValue = PlanningScalar | symbol | object;
+function importedText(value: unknown): string { return String(value); }
 
 function primitiveText(
-    value: string | number | bigint | boolean | null | undefined,
+    value: ScalarDateValue,
 ): string {
     if (typeof value === 'string') return value;
     if (typeof value === 'number' || typeof value === 'bigint') {
@@ -39,27 +41,35 @@ export function toLocalDateString(
         : day;
 }
 
-export function scalarDateValue(value: PeriodInput): string | number | bigint | boolean | null | undefined {
-    if (value !== null && typeof value === 'object') {
-        return parsePeriod(value).start;
+export function scalarDateValue(value: unknown): ScalarDateValue {
+    if (value === null || value === undefined
+        || typeof value === 'string' || typeof value === 'number'
+        || typeof value === 'bigint' || typeof value === 'boolean'
+        || typeof value === 'symbol' || typeof value === 'function') {
+        return value;
     }
-    return value;
+    return parsePeriod(value).start;
 }
 
 function parseableDateValue(
-    value: string | number | bigint | boolean | null | undefined,
-): string | number | null | undefined {
-    return typeof value === 'bigint' || typeof value === 'boolean'
-        ? primitiveText(value)
-        : value;
+    value: ScalarDateValue,
+): string | number | Date | null | undefined {
+    if (typeof value === 'bigint' || typeof value === 'boolean') return primitiveText(value);
+    if (value === null || value === undefined || typeof value === 'string' || typeof value === 'number') return value;
+    // Match parseVaultDate's signed-date path before Date's ToPrimitive path.
+    const text = importedText(value).trim();
+    if (/^-?\d{4,}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?)?$/.test(text)) return text;
+    const date: unknown = Reflect.construct(Date, [value]);
+    if (!(date instanceof Date)) throw new TypeError('Invalid date constructor');
+    return date;
 }
 
-export function isSignedDateValue(value: PeriodInput): boolean {
-    return isSignedVaultDate(parseableDateValue(scalarDateValue(value)));
+export function isSignedDateValue(value: unknown): boolean {
+    return isSignedVaultDate(importedText(scalarDateValue(value) ?? ''));
 }
 
 export function htmlDateValue(
-    value: PeriodInput,
+    value: unknown,
     type: VaultDatePropertyType,
 ): string {
     const scalar = scalarDateValue(value);
@@ -73,7 +83,7 @@ export function htmlDateValue(
 }
 
 export function formattedDateInputValue(
-    value: PeriodInput,
+    value: unknown,
     type: VaultDatePropertyType,
     dateLocale: string,
 ): string {

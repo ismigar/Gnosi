@@ -3,7 +3,7 @@ import { notifyError } from '../../../lib/notifyError';
 import { toast } from '../../../lib/toast';
 import { apiErrorDetail } from '../../../shared/api/errors';
 import { createVaultTablePage } from '../../../shared/api/vault-table';
-import { applyTableDefaults } from './sharedCompatibility';
+import { applyDefaultFormulasToMetadata as applyTableDefaults } from '../defaultFormulaUtils';
 import type { TableInputs } from './tableInputs';
 import type { useTableData } from './useTableData';
 import type { useTableEntry } from './useTableEntry';

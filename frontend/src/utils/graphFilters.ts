@@ -5,10 +5,9 @@ import {
     matchesSearch as vaultMatchesSearch,
     type FilterItem,
     type FilterNode,
-    type FilterValue,
 } from './vaultFilters';
 
-interface GraphMetadata extends Readonly<Record<string, FilterValue>> {
+interface GraphMetadata extends Readonly<Record<string, unknown>> {
     account_id?: string | null;
     calendar_id?: string | null;
     database_id?: string | null;
@@ -86,13 +85,13 @@ type SystemCategory =
     | 'mail'
     | 'wiki';
 
-function stringifyGraphValue(value: FilterValue): string {
+function stringifyGraphValue(value: unknown): string {
     return Reflect.apply(String, undefined, [value]);
 }
 
 function isFilterValueArray(
-    value: FilterValue,
-): value is readonly FilterValue[] {
+    value: unknown,
+): value is readonly unknown[] {
     return Array.isArray(value);
 }
 
@@ -102,7 +101,7 @@ export { matchesFilters, vaultMatchesSearch };
 // "Història"), as expected in a Catalan/Castilian vault. NFD decomposes
 // accented letters and combining marks are removed (U+0300–U+036F:
 // accents, cedilla, titlla).
-const foldAccents = (value: FilterValue): string =>
+const foldAccents = (value: unknown): string =>
     stringifyGraphValue(value ?? '')
         .toLowerCase()
         .normalize('NFD')
@@ -179,7 +178,7 @@ export function getSystemCategory(
 export function resolveMetaValue(
     attrs: GraphNodeAttributes,
     fieldName: string,
-): FilterValue {
+): unknown {
     if (attrs[fieldName] !== undefined) return attrs[fieldName];
     const meta = attrs.metadata || {};
     const lower = fieldName.toLowerCase();
@@ -188,7 +187,7 @@ export function resolveMetaValue(
 }
 
 /** Normalises a raw field value (scalar or array) to an array of non-empty strings. */
-export function toValueStrings(raw: FilterValue): string[] {
+export function toValueStrings(raw: unknown): string[] {
     if (raw === undefined || raw === null || raw === "") return [];
     const values = isFilterValueArray(raw) ? raw : [raw];
     return values

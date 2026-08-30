@@ -5,7 +5,8 @@ import { apiErrorDetail } from '../../../shared/api/errors';
 import { executeVaultTableButtonAction } from '../../../shared/api/vault-table';
 import { announceRelationUnlinked, withoutRelationValue } from '../relationItemUtils';
 import type { TableFunctionality } from './fieldConfig';
-import { evaluateTableFormula, normalizeTableRelations } from './sharedCompatibility';
+import { evaluateFormula as evaluateTableFormula } from '../formulaUtils';
+import { normalizeRelationValues as normalizeTableRelations } from '../relationItemUtils';
 import type { TableInputs } from './tableInputs';
 import type { TableNote } from './types';
 import type { useTableEntry } from './useTableEntry';
@@ -77,7 +78,7 @@ export function useTableActions({
         let value = assignment.value ?? '';
         if (typeof value === 'string' && (value.includes('(') || value.includes('{') || value.includes('+'))) {
           const evaluated = evaluateTableFormula(value, note.metadata || {}, note.title || '');
-          if (evaluated !== null && evaluated !== undefined) value = evaluated;
+          if (evaluated !== null) value = evaluated;
         }
         await handleCellSave(note.id, assignment.field, value, assignment.field);
       }

@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import Graph from 'graphology';
-import { applyFilters, getVisibleHoverNeighborhood } from './graphFilters';
+import { applyFilters, getVisibleHoverNeighborhood, resolveMetaValue, toValueStrings } from './graphFilters';
+
+describe('imported graph metadata', () => {
+    it('retains top-level precedence and case-insensitive metadata references', () => {
+        const imported = { extension: new Map([['kept', true]]) };
+        const attributes = { Custom: imported, metadata: { CUSTOM: ['fallback'], Other: imported } };
+        expect(resolveMetaValue(attributes, 'Custom')).toBe(imported);
+        expect(resolveMetaValue(attributes, 'other')).toBe(imported);
+        expect(toValueStrings(resolveMetaValue(attributes, 'Custom'))).toEqual(['[object Object]']);
+        expect(toValueStrings([null, '', undefined, imported, ['one', 'two']])).toEqual(['[object Object]', 'one,two']);
+    });
+});
 
 function buildCrossTableGraph(): Graph {
     const graph = new Graph();

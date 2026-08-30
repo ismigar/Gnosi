@@ -6,7 +6,7 @@ export type VaultMetadataValue = PeriodInput | readonly PlanningScalar[];
 
 export interface VaultPlanningNote {
     readonly id: string;
-    readonly metadata?: Readonly<Record<string, VaultMetadataValue>> | null;
+    readonly metadata?: Readonly<Record<string, unknown>> | null;
     readonly resolved_table_id?: PlanningScalar;
     readonly title?: string | null;
     readonly [key: string]: unknown;
@@ -39,10 +39,10 @@ export interface VaultDatePropertyProps {
     readonly onChange: (value: PeriodInput) => void;
     readonly onRruleChange?: ((value: string | null) => void) | null;
     readonly planningEnabled?: boolean;
-    readonly planningSettings?: VaultPlanningSettings;
+    readonly planningSettings?: unknown;
     readonly rruleValue?: string | null;
     readonly type?: VaultDatePropertyType;
-    readonly value?: PeriodInput;
+    readonly value?: unknown;
 }
 
 export interface PeriodEditorProps {
@@ -53,6 +53,6 @@ export interface PeriodEditorProps {
     readonly notes: readonly VaultPlanningNote[];
     readonly onChange: (value: PeriodInput) => void;
     readonly planningEnabled: boolean;
-    readonly planningSettings: VaultPlanningSettings;
-    readonly value: PeriodInput;
+    readonly planningSettings: unknown;
+    readonly value: unknown;
 }

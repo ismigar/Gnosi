@@ -6,7 +6,7 @@ import { getFieldType } from '../schemaUtils';
 import { parsePeriod } from '../VaultDateProperty';
 import { displayString } from './fieldConfig';
 import { getMetaKey } from './metadata';
-import { metadataDate, tablePeriod } from './sharedCompatibility';
+import { metadataDate } from './cellValues';
 import type { TableInputs } from './tableInputs';
 import type { CellSave, MetadataPatch } from './types';
 import type { useTableData } from './useTableData';
@@ -148,7 +148,7 @@ export function useTableSave({
                 : day;
             };
             const newPeriod = withPeriodBoundaries(
-              tablePeriod(parentValue),
+              parentValue,
               localDate(minStart),
               localDate(maxEnd),
               { startMode: 'auto', endMode: 'auto' },

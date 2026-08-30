@@ -9,7 +9,8 @@ import { optionChipStyle } from '../optionCatalogUtils';
 import { RelationItem } from '../RelationItem';
 import { parsePeriod, periodDaysInclusive } from '../VaultDateProperty';
 import { displayString, getTableFieldConfig } from './fieldConfig';
-import { cellNode, metadataDate, normalizeTableRelations, tablePeriod, tableText } from './sharedCompatibility';
+import { normalizeRelationValues as normalizeTableRelations } from '../relationItemUtils';
+import { cellNode, metadataDate, tableText } from './cellValues';
 import type { TableController } from './useTableController';
 
 export function CellValue({ model, value, type, noteId, field, originalMetaKey }: { model: TableController, value: unknown; type: string; noteId: string; field: string; originalMetaKey: string; }) {
@@ -31,7 +32,7 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
   const isImageLikeField = model.isImageField(field, type);
   switch (type) {
     case 'checkbox':
-      return asBool(typeof value === 'object' ? displayString(value) : (value as string | number | boolean | null | undefined)) ? <CheckSquare size={16} className="text-indigo-500" /> : <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
+      return asBool(typeof value === 'object' ? displayString(value) : value) ? <CheckSquare size={16} className="text-indigo-500" /> : <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
     case 'number': {
       const fmt = resolveFieldFormat(getTableFieldConfig(schema, field), localeSettings);
       return (
@@ -56,7 +57,7 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
     case 'date':
     case 'datetime': {
       const importedRange = value && typeof value === 'object'
-        ? parsePeriod(tablePeriod(value))
+        ? parsePeriod(value)
         : null;
       const displayValue = importedRange?.start || value;
       const parsed = metadataDate(displayValue);
@@ -86,7 +87,7 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
       );
     }
     case 'period': {
-      const { start, end, durationDays, predecessorIds } = parsePeriod(tablePeriod(value));
+      const { start, end, durationDays, predecessorIds } = parsePeriod(value);
       const fmt = resolveFieldFormat(getTableFieldConfig(schema, field), localeSettings);
       const fmtPeriodDate = (d: string) => {
         if (!d) return '?';

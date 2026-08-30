@@ -1,16 +1,6 @@
 import { asBool } from '../../utils/vaultFilters';
 
-type RollupValue =
-  | string
-  | number
-  | bigint
-  | boolean
-  | null
-  | undefined;
-
-type PresentRollupValue = Exclude<RollupValue, null | undefined>;
-
-function parseNumericValue(value: RollupValue): number {
+function parseNumericValue(value: unknown): number {
   const text = String(value).trim();
   return /^-?\d+,\d+$/.test(text)
     ? Number(text.replace(',', '.'))
@@ -18,15 +8,15 @@ function parseNumericValue(value: RollupValue): number {
 }
 
 /** Computes one aggregation over related Vault values. */
-export function evaluateRollup(
-  values: readonly RollupValue[] = [],
+export function evaluateRollup<Value>(
+  values: readonly Value[] = [],
   aggregation = 'count_all',
-): PresentRollupValue | null {
+): NonNullable<Value> | number | string | null {
   const numericValues = values
     .map(parseNumericValue)
     .filter((value) => !Number.isNaN(value));
   const nonEmptyValues = values.filter(
-    (value): value is PresentRollupValue =>
+    (value): value is NonNullable<Value> =>
       value !== null && value !== undefined && value !== '',
   );
 

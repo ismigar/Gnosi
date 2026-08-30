@@ -4,7 +4,7 @@ import { CellButton } from './CellButton';
 import { CellEditor } from './CellEditor';
 import { CellValue } from './CellValue';
 import { displayString } from './fieldConfig';
-import { cellNode, metadataDate } from './sharedCompatibility';
+import { cellNode, metadataDate } from './cellValues';
 import type { TableController } from './useTableController';
 
 export function createCellRenderer(model: TableController) {

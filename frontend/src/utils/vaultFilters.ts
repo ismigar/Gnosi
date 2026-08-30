@@ -4,7 +4,6 @@
  */
 import {
     periodBoundary,
-    type PeriodInput,
 } from './projectPlanning';
 
 type FilterPrimitive = string | number | bigint | boolean | null | undefined;
@@ -14,9 +13,9 @@ export type FilterValue =
     | { readonly [key: string]: FilterValue };
 
 export interface FilterItem {
-    [key: string]: FilterValue;
+    [key: string]: unknown;
     label?: FilterPrimitive;
-    metadata?: Readonly<Record<string, FilterValue>>;
+    metadata?: Readonly<Record<string, unknown>> | null;
     title?: FilterPrimitive;
 }
 
@@ -24,7 +23,7 @@ export interface FilterRule {
     field?: string | null;
     operator?: string | null;
     periodPart?: string | null;
-    value?: FilterValue;
+    value?: unknown;
 }
 
 export interface FilterGroup {
@@ -36,7 +35,7 @@ export type FilterNode = FilterGroup | FilterRule | null | undefined;
 
 interface FilterView { filterTree?: FilterNode; filters?: readonly FilterNode[]; }
 
-interface StructuredAuthor { readonly [key: string]: FilterValue; cognom1?: FilterValue; cognom2?: FilterValue; nom?: FilterValue; }
+interface StructuredAuthor { readonly [key: string]: unknown; cognom1?: unknown; cognom2?: unknown; nom?: unknown; }
 
 type TextMatchMode = 'contains' | 'equals';
 type AuthorKey = 'nom' | 'cognom1' | 'cognom2';
@@ -44,16 +43,16 @@ type AuthorKey = 'nom' | 'cognom1' | 'cognom2';
 const AUTHOR_KEYS: readonly AuthorKey[] = ['nom', 'cognom1', 'cognom2'];
 
 function isFilterValueArray(
-    value: FilterValue,
-): value is readonly FilterValue[] {
+    value: unknown,
+): value is readonly unknown[] {
     return Array.isArray(value);
 }
 
-function stringifyFilterValue(value: FilterValue): string {
+function stringifyFilterValue(value: unknown): string {
     return Reflect.apply(String, undefined, [value]);
 }
 
-function toPeriodInput(value: FilterValue): PeriodInput {
+function toPeriodInput(value: unknown): unknown {
     return isFilterValueArray(value)
         ? value.map(stringifyFilterValue).join(',')
         : value;
@@ -86,7 +85,7 @@ export const ISO_DATE_RE = /^\d{4}-\d{2}/;
 
 // Exported so that rollupUtils (percent_checked) counts checkboxes with the
 // SAME truthiness logic as the filters.
-export function asBool(x: FilterValue): boolean {
+export function asBool(x: unknown): boolean {
     if (x === true) return true;
     if (x === false || x === null || x === undefined || x === '') return false;
     if (typeof x === 'number') return x !== 0;
@@ -100,7 +99,7 @@ export function asBool(x: FilterValue): boolean {
 // thousands); the rest falls back to parseFloat (compatible with "0.25", "5", "12.5"…).
 // Exported so that DbViewEmbed.applyFilter compares numbers with the SAME
 // semantics (parity between the main view's filter and the embedded one's).
-export function parseNumericValue(s: FilterValue): number {
+export function parseNumericValue(s: unknown): number {
     const t = stringifyFilterValue(s).trim();
     return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : parseFloat(t);
 }
@@ -119,8 +118,8 @@ function escapeRegex(value: string): string {
  * expression. Invalid regular expressions safely fall back to plain text.
  */
 export function matchesTextPattern(
-    candidate: FilterValue,
-    pattern: FilterValue,
+    candidate: unknown,
+    pattern: unknown,
     mode: TextMatchMode = 'contains',
 ): boolean {
     const source = normalizeForSearch(candidate);
@@ -159,14 +158,14 @@ export function matchesTextPattern(
         : source.includes(normalizedPattern);
 }
 
-function isStructuredAuthor(value: FilterValue): value is StructuredAuthor {
+function isStructuredAuthor(value: unknown): value is StructuredAuthor {
     return value !== null
         && typeof value === 'object'
         && !isFilterValueArray(value)
         && ('nom' in value || 'cognom1' in value || 'cognom2' in value);
 }
 
-function textValues(value: FilterValue): string[] {
+function textValues(value: unknown): string[] {
     if (value === null || value === undefined || value === '') return [];
     if (isFilterValueArray(value)) return value.flatMap(textValues);
     if (isStructuredAuthor(value)) {
@@ -180,14 +179,14 @@ function textValues(value: FilterValue): string[] {
 }
 
 function matchesStructuredAuthorship(
-    rawValue: FilterValue,
-    filterValue: FilterValue,
+    rawValue: unknown,
+    filterValue: unknown,
     operator: string | null | undefined,
 ): boolean | null {
     if (!isStructuredAuthor(filterValue)) return null;
     const criteria = AUTHOR_KEYS
         .filter((key) => stringifyFilterValue(filterValue[key] || '').trim())
-        .map((key): readonly [AuthorKey, FilterValue] => [
+        .map((key): readonly [AuthorKey, unknown] => [
             key,
             filterValue[key],
         ]);
@@ -227,8 +226,7 @@ export function matchesRule(
     if (
         filter.periodPart
         || (
-            rawVal
-            && typeof rawVal === 'object'
+            typeof rawVal === 'object'
             && !Array.isArray(rawVal)
             && 'start' in rawVal
         )
@@ -254,8 +252,8 @@ export function matchesRule(
     const arrLower = arr.map(s => s.toLowerCase());
     // A multi-select filter can carry several selected options. Those options
     // match when any selected value belongs to the record's value array.
-    const filterVals = (Array.isArray(filter.value) ? filter.value : [filter.value])
-        .map(value => value === 'today' ? localToday() : String(value ?? ''))
+    const filterVals = (isFilterValueArray(filter.value) ? filter.value : [filter.value])
+        .map(value => value === 'today' ? localToday() : stringifyFilterValue(value ?? ''))
         .map(value => value.toLowerCase())
         .filter(Boolean);
     const filterVal = filterVals[0] || '';
@@ -392,7 +390,7 @@ export function viewMatchesFilters(
  * @param {*} value - The value to normalize
  * @returns {string} - The value without punctuation/leading symbols
  */
-export function sortKey(value: FilterValue): string {
+export function sortKey(value: unknown): string {
     return stringifyFilterValue(value ?? '')
         .replace(/^[\p{P}\p{S}\s]+/u, '');
 }
@@ -417,18 +415,20 @@ export function sortKey(value: FilterValue): string {
  * @returns {number} negative if A goes before, positive if after, 0 if tied
  */
 export function compareFieldValues(
-    aRaw: FilterValue,
-    bRaw: FilterValue,
+    aRaw: unknown,
+    bRaw: unknown,
     direction = 'asc',
 ): number {
-    const comparable = (raw: FilterValue): FilterValue => {
+    const comparable = (raw: unknown): unknown => {
         if (
             raw
             && typeof raw === 'object'
             && !isFilterValueArray(raw)
         ) {
             if ('start' in raw) return raw.start || '';
-            return raw.name ?? raw.title ?? '';
+            const name = 'name' in raw ? raw.name : undefined;
+            const title = 'title' in raw ? raw.title : undefined;
+            return name ?? title ?? '';
         }
         return raw ?? '';
     };
@@ -462,7 +462,7 @@ export function compareFieldValues(
  * Catalan/Castilian vault, where the user doesn't usually type the accents—. The cedilla
  * (ç→c) and the tilde (ñ→n) are also decomposed and removed.
  */
-export const normalizeForSearch = (s: FilterValue): string =>
+export const normalizeForSearch = (s: unknown): string =>
     stringifyFilterValue(s ?? '')
         .toLowerCase()
         .normalize('NFD')

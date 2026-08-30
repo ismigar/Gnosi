@@ -6,7 +6,9 @@ type FormulaValue =
   | null
   | undefined;
 
-type FormulaMetadata = Record<string, FormulaValue>;
+type FormulaMetadata = Readonly<Record<string, unknown>>;
+
+type FormulaResult = Exclude<FormulaValue, undefined> | symbol | object;
 
 interface FormulaEvaluator {
   (
@@ -22,12 +24,17 @@ function isFormulaEvaluator(value: unknown): value is FormulaEvaluator {
   return typeof value === 'function';
 }
 
+// Imported arrays and objects retain JavaScript's property text coercion.
+function formulaPropertyText(value: unknown): string {
+  return String(value);
+}
+
 /** Evaluates a simple formula expression over Vault metadata. */
 export function evaluateFormula(
   formula?: unknown,
   metadata: FormulaMetadata = {},
   title: FormulaValue = '',
-): unknown {
+): FormulaResult {
   if (!formula || typeof formula !== 'string') return null;
 
   try {
@@ -51,7 +58,7 @@ export function evaluateFormula(
             : (metadata[name] ?? '');
         return typeof value === 'string'
           ? `"${value.replace(/"/g, '\\"')}"`
-          : String(value ?? '');
+          : formulaPropertyText(value ?? '');
       },
     );
 
@@ -64,7 +71,7 @@ export function evaluateFormula(
             : (metadata[name] ?? '');
         if (typeof value === 'number') return String(value);
         if (typeof value === 'boolean') return value ? '1' : '0';
-        return `"${String(value ?? '').replace(/"/g, '\\"')}"`;
+        return `"${formulaPropertyText(value ?? '').replace(/"/g, '\\"')}"`;
       },
     );
 
@@ -98,8 +105,16 @@ export function evaluateFormula(
     ]);
     if (!isFormulaEvaluator(evaluator)) return null;
     const result: unknown = evaluator(selectFormulaBranch);
-    if (typeof result === 'number' && !Number.isFinite(result)) return null;
-    return result ?? null;
+    if (typeof result === 'number') return Number.isFinite(result) ? result : null;
+    if (
+      typeof result === 'string' ||
+      typeof result === 'boolean' ||
+      typeof result === 'bigint' ||
+      typeof result === 'symbol' ||
+      typeof result === 'object' ||
+      typeof result === 'function'
+    ) return result;
+    return null;
   } catch {
     return null;
   }

@@ -7,13 +7,12 @@ import {
   viewMatchesFilters,
   type FilterItem,
   type FilterNode,
-  type FilterValue,
 } from '../utils/vaultFilters';
 
 
 export interface VaultViewPage extends FilterItem {
   readonly id: string;
-  readonly metadata?: Readonly<Record<string, FilterValue>>;
+  readonly metadata?: Readonly<Record<string, unknown>> | null;
 }
 
 
@@ -28,8 +27,8 @@ export interface VaultViewConfig {
   readonly [key: string]: unknown;
   readonly filters?: readonly FilterNode[];
   readonly filterTree?: FilterNode;
-  readonly sort?: VaultSortInput | VaultSortInput[] | null;
-  readonly sorts?: VaultSortInput | VaultSortInput[] | null;
+  readonly sort?: VaultSortInput | readonly VaultSortInput[] | null;
+  readonly sorts?: VaultSortInput | readonly VaultSortInput[] | null;
 }
 
 
@@ -44,13 +43,6 @@ export interface VaultViewDataParams<Page extends VaultViewPage = VaultViewPage>
 export interface VaultViewDataResult<Page extends VaultViewPage = VaultViewPage> {
   readonly filteredPages: Page[];
   readonly sortedPages: Page[];
-}
-
-
-interface VaultSort {
-  readonly direction: string;
-  readonly field: string;
-  readonly id: string;
 }
 
 
@@ -71,7 +63,7 @@ export function useVaultViewData<Page extends VaultViewPage>({
   )), [filterView, pages, searchTerm]);
 
   const sortedPages = useMemo(() => {
-    const sorts = normalizeSorts(view.sort ?? view.sorts) as readonly VaultSort[];
+    const sorts = normalizeSorts(view.sort ?? view.sorts);
     if (sorts.length === 0) return [...filteredPages];
 
     return [...filteredPages].sort((first, second) => {

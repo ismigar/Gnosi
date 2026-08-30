@@ -2,7 +2,8 @@ import { useCallback } from 'react';
 import { getFieldType } from '../schemaUtils';
 import type { TableFieldConfig } from './fieldConfig';
 import { displayString, getTableFieldConfig } from './fieldConfig';
-import { evaluateTableFormula, evaluateTableRollup } from './sharedCompatibility';
+import { evaluateFormula as evaluateTableFormula } from '../formulaUtils';
+import { evaluateRollup as evaluateTableRollup } from '../rollupUtils';
 import type { TableInputs } from './tableInputs';
 import type { TableNote } from './types';
 

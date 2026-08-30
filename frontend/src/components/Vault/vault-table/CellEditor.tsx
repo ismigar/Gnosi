@@ -2,7 +2,9 @@ import { AutoriaEditor } from '../AutoriaField';
 import { displayString, getTableFieldConfig } from './fieldConfig';
 import { InlinePillsPicker } from './InlinePillsPicker';
 import { InlineSelectPicker } from './InlineSelectPicker';
-import { TableDateProperty, normalizeTableRelations, tableText } from './sharedCompatibility';
+import { VaultDateProperty as TableDateProperty } from '../VaultDateProperty';
+import { normalizeRelationValues as normalizeTableRelations } from '../relationItemUtils';
+import { tableText } from './cellValues';
 import type { TableController } from './useTableController';
 
 export function CellEditor({ model, value, type, noteId, field, originalMetaKey }: { model: TableController, value: unknown; type: string; noteId: string; field: string; originalMetaKey: string; }) {

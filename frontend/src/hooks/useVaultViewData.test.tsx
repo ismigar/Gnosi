@@ -1,4 +1,4 @@
-import React, { act } from 'react';
+import React, { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -6,7 +6,9 @@ import {
   useVaultViewData,
   type VaultViewConfig,
   type VaultViewPage,
+  type VaultViewDataResult,
 } from './useVaultViewData';
+import type { TableNote } from '../components/Vault/vault-table/types';
 
 
 const reactTestGlobal = globalThis as typeof globalThis & {
@@ -53,6 +55,33 @@ function ViewResult({
 
 
 describe('useVaultViewData', () => {
+  it('retains concrete table rows, nested metadata and memoized arrays across rerenders', () => {
+    const plugin = { custom: new Date('2026-08-30T00:00:00Z'), nested: { keep: true } };
+    const first: TableNote = { id: 'first', title: 'First', metadata: { extension: plugin, rank: 2 } };
+    const second: TableNote = { id: 'second', title: 'Second', metadata: { extension: plugin, rank: 1 } };
+    const pages = [first, second];
+    const sort = [{ field: 'rank', direction: 'asc' }];
+    const view = { sort };
+    const snapshots: VaultViewDataResult<TableNote>[] = [];
+    const receive = (value: VaultViewDataResult<TableNote>) => { snapshots.push(value); };
+    function Probe({ tick }: { readonly tick: number }) {
+      const result = useVaultViewData({ pages, view });
+      useEffect(() => { receive(result); }, [result]);
+      return <span>{tick}</span>;
+    }
+    act(() => { root.render(<Probe tick={0} />); });
+    act(() => { root.render(<Probe tick={1} />); });
+    expect(snapshots).toHaveLength(2);
+    const before = snapshots[0];
+    const after = snapshots[1];
+    expect(before?.sortedPages).toEqual([second, first]);
+    expect(after?.sortedPages).toBe(before?.sortedPages);
+    expect(after?.filteredPages).toBe(before?.filteredPages);
+    expect(after?.sortedPages[0]).toBe(second);
+    expect(after?.sortedPages[1]?.metadata?.extension).toBe(plugin);
+    expect(pages).toEqual([first, second]);
+  });
+
   it('filters metadata and sorts by a top-level date field', () => {
     const pages: VaultViewPage[] = [
       {

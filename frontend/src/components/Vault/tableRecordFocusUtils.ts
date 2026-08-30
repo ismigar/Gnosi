@@ -8,8 +8,6 @@ type TableKey =
   | null
   | undefined;
 
-type MetadataValue = TableKey | readonly TableKey[];
-
 interface TableCell {
   field?: TableKey;
   rowId?: TableKey;
@@ -29,7 +27,7 @@ interface TableFocusTargetInput {
   navRows?: readonly TableNavigationRow[] | null;
 }
 
-interface TableRecordMetadata extends Record<string, MetadataValue> {
+interface TableRecordMetadata extends Readonly<Record<string, unknown>> {
   parent_id?: TableKey;
   source_parent_id?: TableKey;
 }
@@ -61,9 +59,14 @@ type TableRecordFocusPreparation =
   | { status: 'ready' };
 
 function isMetadataValueArray(
-  value: MetadataValue,
-): value is readonly TableKey[] {
+  value: unknown,
+): value is readonly unknown[] {
   return Array.isArray(value);
+}
+
+// Group keys use JavaScript text coercion even for opaque imported values.
+function groupValueText(value: unknown): string {
+  return String(value);
 }
 
 export function getTableFocusTarget({
@@ -141,9 +144,9 @@ export function getTableRecordFocusPreparation({
     const groupKey =
       firstValue === null ||
       firstValue === undefined ||
-      String(firstValue).trim() === ''
+      groupValueText(firstValue).trim() === ''
         ? EMPTY_GROUP_KEY
-        : String(firstValue).trim();
+        : groupValueText(firstValue).trim();
     if (!expandedGroups?.has(groupKey)) {
       return { status: 'expand-group', groupKey };
     }

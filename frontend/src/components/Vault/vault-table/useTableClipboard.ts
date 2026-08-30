@@ -6,7 +6,7 @@ import { coerceValueForField, computePasteRect, isPasteableType, parseClipboardM
 import { getFieldType } from '../schemaUtils';
 import { displayString } from './fieldConfig';
 import { getMetaKey } from './metadata';
-import { tableClipboard } from './sharedCompatibility';
+import { tableClipboard } from './cellValues';
 import type { TableInputs } from './tableInputs';
 import type { CellUpdate, GridColumn, MetadataPatch } from './types';
 import type { useTableColumns } from './useTableColumns';

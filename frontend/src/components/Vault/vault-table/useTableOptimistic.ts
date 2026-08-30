@@ -4,7 +4,7 @@ import { subscribeAppEvent } from '../../../shared/platform/app-events';
 import { sameCellValue } from '../cellGridUtils';
 import { RELATION_VALUE_APPLIED_EVENT } from '../relationItemUtils';
 import { withResolvedSystemDates } from '../schemaUtils';
-import { normalizeTableRelations } from './sharedCompatibility';
+import { normalizeRelationValues as normalizeTableRelations } from '../relationItemUtils';
 import type { TableInputs } from './tableInputs';
 import type { MetadataPatch } from './types';
 import { useLatestRef } from './useLatestRef';

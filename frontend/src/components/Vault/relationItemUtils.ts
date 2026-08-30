@@ -11,14 +11,12 @@ type RelationScalar =
   | null
   | undefined;
 
-type RelationInput = RelationScalar | readonly RelationScalar[];
-
 interface RelationEventInput {
   field?: string | null;
   metadataKey?: string | null;
-  nextValue?: RelationInput;
+  nextValue?: unknown;
   pageId?: string | null;
-  previousValue?: RelationInput;
+  previousValue?: unknown;
   relationId?: RelationScalar;
   relationTitle?: RelationScalar;
 }
@@ -31,30 +29,35 @@ interface UnlinkRelationInput extends RelationEventInput {
   onUpdate?:
     | ((pageId: string, patch: RelationPatch) => unknown)
     | null;
-  value?: RelationInput;
+  value?: unknown;
 }
 
 function isRelationArray(
-  value: RelationInput,
-): value is readonly RelationScalar[] {
+  value: unknown,
+): value is readonly unknown[] {
   return Array.isArray(value);
 }
 
-export function normalizeRelationValues(value?: RelationInput): string[] {
+// Legacy relation values stringify objects and nested arrays without flattening.
+function relationValueText(value: unknown): string {
+  return String(value);
+}
+
+export function normalizeRelationValues(value?: unknown): string[] {
   if (isRelationArray(value)) {
     return value
-      .map((item) => String(item ?? '').trim())
+      .map((item) => relationValueText(item ?? '').trim())
       .filter(Boolean);
   }
   if (value === undefined || value === null || value === '') return [];
-  return String(value)
+  return relationValueText(value)
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
 }
 
 export function withoutRelationValue(
-  value: RelationInput,
+  value: unknown,
   relationId?: RelationScalar,
 ): string[] {
   const target = String(relationId ?? '').trim();

@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { parsePeriod, type PeriodInput } from '../../utils/projectPlanning';
 import { VaultDateProperty } from './VaultDateProperty';
+import type { VaultPlanningNote } from './vault-date-property/types';
 
 interface ReactTestGlobal {
     IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -146,6 +147,46 @@ afterEach(() => {
 });
 
 describe('VaultDateProperty scalar and recurrence contracts', () => {
+    it('renders imported signed date values and emits the same scalar callback', () => {
+        const value: unknown = { start: '-0044-03-15T09:00', extension: new Map() };
+        const onChange = vi.fn<(value: PeriodInput) => void>();
+        const { container } = mount(<VaultDateProperty type="datetime" value={value} onChange={onChange} />);
+        const text = requiredElement(container, 'input[type="text"]');
+        const hidden = requiredElement(container, 'input[type="datetime-local"]');
+        if (!(text instanceof HTMLInputElement) || !(hidden instanceof HTMLInputElement)) {
+            throw new Error('Expected date editors');
+        }
+        expect(text.value).toBe('-0044-03-15T09:00');
+        expect(hidden.value).toBe('');
+        act(() => { setInputValue(text, '-0043-03-15T10:30'); });
+        expect(onChange.mock.calls).toEqual([['-0043-03-15T10:30']]);
+    });
+
+    it('renders unknown planning data and saves a concrete period without rewriting note metadata', () => {
+        const extension = new Map([['retained', { nested: true }]]);
+        const raw = { ...initialPeriod, start: '-2400-01-01T09:00', end: '-2398-01-01T09:00', extension };
+        const value: unknown = raw;
+        const metadata: Record<string, unknown> = { Dates: value, extension };
+        const importedNotes: readonly VaultPlanningNote[] = [{ id: 'current', metadata }];
+        const planningSettings: unknown = { workday_start: '09:00', extension };
+        const onChange = vi.fn<(value: PeriodInput) => void>();
+        const { container } = mount(<VaultDateProperty
+            type="period" value={value} onChange={onChange} notes={importedNotes}
+            planningEnabled planningSettings={planningSettings} fieldConfig={{ period_unit: 'years' }}
+        />);
+        expect(container.textContent).toContain('Start: -2400');
+        expect(container.textContent).toContain('Finish: -2398');
+        const duration = requiredElement(container, 'input[type="number"]');
+        if (!(duration instanceof HTMLInputElement)) throw new Error('Expected duration input');
+        act(() => { setInputValue(duration, '3'); });
+        expect(onChange.mock.calls).toEqual([[{
+            ...initialPeriod, start: '-2400-01-01T09:00', end: '-2397-01-01T09:00',
+            durationValue: 3, durationDays: 1095,
+        }]]);
+        expect(metadata.Dates).toBe(raw);
+        expect(metadata.extension).toBe(extension);
+    });
+
     it('preserves local datetime values selected by the hidden picker', () => {
         const onChange = vi.fn<(value: PeriodInput) => void>();
         const { container } = mount(

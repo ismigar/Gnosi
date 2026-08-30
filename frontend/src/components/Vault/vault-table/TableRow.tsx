@@ -5,7 +5,7 @@ import { getFieldType } from '../schemaUtils';
 import { getMetaKey } from './metadata';
 import { RowActions } from './RowActions';
 import { RowTitleCell } from './RowTitleCell';
-import { metadataDate } from './sharedCompatibility';
+import { metadataDate } from './cellValues';
 import type { TableNote } from './types';
 import type { TableController } from './useTableController';
 

@@ -24,7 +24,7 @@ export interface GraphNodeAttributes extends FilterItem {
   hidden?: boolean;
   kind?: string | null;
   label?: string | null;
-  metadata?: Readonly<Record<string, FilterValue>>;
+  metadata?: Readonly<Record<string, unknown>>;
   path?: string | null;
   project?: string | null;
   table_id?: string | null;

@@ -4,7 +4,7 @@ import { toast } from '../../../lib/toast';
 import { apiErrorDetail } from '../../../shared/api/errors';
 import { executeVaultTableButtonAction } from '../../../shared/api/vault-table';
 import { getTableFieldConfig } from './fieldConfig';
-import { evaluateTableFormula } from './sharedCompatibility';
+import { evaluateFormula as evaluateTableFormula } from '../formulaUtils';
 import type { TableController } from './useTableController';
 
 export function CellButton({ model, noteId, field }: { model: TableController, value: unknown; type: string; noteId: string; field: string; originalMetaKey: string; }) {
@@ -51,7 +51,7 @@ export function CellButton({ model, noteId, field }: { model: TableController, v
         let val = assign.value || '';
         if (typeof val === 'string' && (val.includes('(') || val.includes('{') || val.includes('+'))) {
           const evaluated = evaluateTableFormula(val, metadata, title);
-          if (evaluated !== null && evaluated !== undefined) val = evaluated;
+          if (evaluated !== null) val = evaluated;
         }
         await handleCellSave(noteId, assign.field, val, assign.field);
       }
