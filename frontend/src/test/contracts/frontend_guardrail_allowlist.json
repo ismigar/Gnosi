@@ -3,7 +3,6 @@
     "direct_storage": {
       "frontend/src/components/GlobalSettingsModal.jsx": 14,
       "frontend/src/components/Vault/BlockEditor.jsx": 5,
-      "frontend/src/components/Vault/DbViewEmbed.jsx": 21,
       "frontend/src/components/Vault/toggleExpansionStateUtils.ts": 4,
       "frontend/src/components/Vault/vaultMarkdownUtils.ts": 1,
       "frontend/src/hooks/useCollaboration.ts": 2,
@@ -75,7 +74,6 @@
       "frontend/src/components/GlobalTooltip.tsx": 4,
       "frontend/src/components/Vault/BlockEditor.jsx": 20,
       "frontend/src/components/Vault/CalendarSidebarLeft.tsx": 1,
-      "frontend/src/components/Vault/DbViewEmbed.jsx": 18,
       "frontend/src/components/Vault/MentionInline.tsx": 1,
       "frontend/src/components/Vault/PresentationMode.tsx": 2,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2,
@@ -94,7 +92,6 @@
       "frontend/src/components/AgentChat.jsx": 1127,
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,
       "frontend/src/components/Vault/BlockEditor.jsx": 6292,
-      "frontend/src/components/Vault/DbViewEmbed.jsx": 2086,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2976,
       "frontend/src/components/Vault/VaultTable.jsx": 4665,
       "frontend/src/pages/VaultDashboard.jsx": 4684
@@ -103,7 +100,6 @@
       "frontend/src/components/AgentChat.jsx": 1127,
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,
       "frontend/src/components/Vault/BlockEditor.jsx": 6292,
-      "frontend/src/components/Vault/DbViewEmbed.jsx": 2086,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2976,
       "frontend/src/components/Vault/VaultTable.jsx": 4665,
       "frontend/src/pages/VaultDashboard.jsx": 4684,
