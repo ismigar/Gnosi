@@ -3,7 +3,7 @@ import { applyDashboardJoins } from './joins';
 import { prepareDashboardViewContext } from './view-context';
 import { buildTableTabId, getTableIdFromTab, reorderTabs, shiftDay } from './tab-model';
 import { readPage, readRegistry, isAbortLikeError, errorStatus, retryAfter, readDocumentKind } from './readers';
-import { filterPage, viewTables } from './consumer-readers';
+import { viewTables } from './consumer-readers';
 import { editorMetadata, editorNote, editorTable } from './editor-readers';
 import { EDIT_LOCKS } from './storage';
 import { readStorage, writeStorage } from '../../shared/platform/browser-storage';
@@ -85,12 +85,6 @@ describe('typed read boundaries', () => {
     const table = editorTable({ id: 'table', name: 'Table', database_id: 'db', properties: [rollup] });
     expect(table.properties).toEqual([rollup]);
     expect(table.properties?.[0]?.config).toBe(config);
-  });
-  it('preserves nested relation and plugin values at filtering boundaries', () => {
-    const nested = [{ id: 'stable', config: { options: ['blue'] } }];
-    const input = { id: 'page', title: 'Title', metadata: { nested }, etag: 'etag' };
-    expect(filterPage(input)).toEqual(input);
-    expect(filterPage(input).metadata.nested).toBe(nested);
   });
   it('retains valid field objects and IDs when preparing the view dialog catalog', () => {
     const field = { name: 'Relation', id: 'fld_relation', relation_database_id: 'linked', options: ['a'] };

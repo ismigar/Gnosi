@@ -10,7 +10,7 @@ import {
   removeStorage,
   writeStorage,
 } from '../../shared/platform/browser-storage';
-import { GlobalSearchModal } from './GlobalSearchModal';
+import { GlobalSearchModal, type GlobalSearchNote } from './GlobalSearchModal';
 
 
 interface SavedSearch {
@@ -62,11 +62,6 @@ vi.mock('react-i18next', () => ({
 }));
 
 
-const reactTestGlobal = globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT?: boolean;
-};
-
-
 const notes = [
   {
     folder: 'BD/Projects',
@@ -106,7 +101,9 @@ let root: Root;
 
 
 beforeEach(() => {
-  reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+    configurable: true, writable: true, value: true,
+  });
   vi.useFakeTimers();
   removeStorage(savedSearchesKey);
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -128,7 +125,7 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
   vi.useRealTimers();
   vi.clearAllMocks();
-  Reflect.deleteProperty(reactTestGlobal, 'IS_REACT_ACT_ENVIRONMENT');
+  Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
 });
 
 
@@ -140,10 +137,12 @@ function render(element: ReactElement): void {
 
 
 function renderModal({
+  allNotes = notes,
   isOpen = true,
   onClose = vi.fn(),
   onNoteSelect = vi.fn(),
 }: {
+  readonly allNotes?: readonly GlobalSearchNote[];
   readonly isOpen?: boolean;
   readonly onClose?: () => void;
   readonly onNoteSelect?: (noteId: string) => void;
@@ -151,7 +150,7 @@ function renderModal({
   render(
     <GlobalSearchModal
       aliasesById={{ alpha: ['Project Alpha'] }}
-      allNotes={notes}
+      allNotes={allNotes}
       globalIndex={{ gamma: 'Gamma indexed note' }}
       isOpen={isOpen}
       onClose={onClose}
@@ -202,6 +201,81 @@ function buttonWithTitle(title: string): HTMLButtonElement {
 
 
 describe('GlobalSearchModal', () => {
+  it.each(['click', 'Enter'])('opens an opaque original note with %s without traversing extensions', action => {
+    const cycle: Record<string, unknown> = {};
+    cycle.self = cycle;
+    const arrayCycle: unknown[] = [];
+    arrayCycle.push(arrayCycle);
+    const readOpaque = vi.fn((): never => { throw new Error('opaque getter'); });
+    const metadata = Object.freeze({
+      icon: '⭐', topics: ['strategy'], cycle, arrayCycle,
+      blob: new Blob(['private']), callback: () => 'private', symbol: Symbol('private'),
+      get extension(): never { return readOpaque(); },
+    });
+    const row = Object.freeze({
+      id: 'alpha', title: 'Alpha roadmap', resolved_table_id: 'projects', metadata,
+      get plugin(): never { return readOpaque(); },
+    });
+    const allNotes = Object.freeze([row]);
+    const onClose = vi.fn();
+    const onNoteSelect = vi.fn();
+    renderModal({ allNotes, isOpen: false, onClose, onNoteSelect });
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    renderModal({ allNotes, onClose, onNoteSelect });
+    setInputValue(requiredInput(), 'tag:strategy');
+    const result = buttonWithText('Alpha roadmap');
+    expect(result.textContent).toContain('Projects');
+    expect(result.textContent).toContain('#strategy');
+    act(() => {
+      if (action === 'click') result.click();
+      else dispatchWindowEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }));
+    });
+    expect(onNoteSelect).toHaveBeenCalledExactlyOnceWith('alpha');
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(allNotes[0]).toBe(row);
+    expect(row.metadata).toBe(metadata);
+    expect(metadata.cycle.self).toBe(cycle);
+    expect(metadata.arrayCycle[0]).toBe(arrayCycle);
+    expect(readOpaque).not.toHaveBeenCalled();
+  });
+
+  it('searches notes with absent and null metadata and opens their original IDs', () => {
+    const absent = Object.freeze({ id: 'absent', title: 'Absent metadata' });
+    const nullable = Object.freeze({ id: 'nullable', title: 'Null metadata', metadata: null });
+    const onNoteSelect = vi.fn();
+    const onClose = vi.fn();
+    renderModal({ allNotes: [absent, nullable], onNoteSelect, onClose });
+    setInputValue(requiredInput(), 'metadata');
+    expect(container.textContent).toContain('Absent metadata');
+    expect(container.textContent).toContain('Null metadata');
+    act(() => { buttonWithText('Absent metadata').click(); });
+    expect(onNoteSelect).toHaveBeenNthCalledWith(1, 'absent');
+    setInputValue(requiredInput(), 'null');
+    act(() => {
+      dispatchWindowEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }));
+    });
+    expect(onNoteSelect).toHaveBeenNthCalledWith(2, 'nullable');
+    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(absent).not.toHaveProperty('metadata');
+    expect(nullable.metadata).toBeNull();
+  });
+
+  it('keeps tag coercion and field-name fallback in the real modal', () => {
+    const tag = {
+      toString(this: unknown): string {
+        expect(this).toBe(tag);
+        return '#École';
+      },
+    };
+    renderModal({ allNotes: [{
+      id: 'alpha', title: 'Alpha roadmap',
+      metadata: { table_id: 'projects', topics: null, Tags: [tag] },
+    }] });
+    setInputValue(requiredInput(), 'tag:ecole');
+    expect(buttonWithText('Alpha roadmap').textContent).toContain('#ecole');
+    expect(buttonWithText('Alpha roadmap').textContent).toContain('Projects');
+  });
+
   it('stays unmounted while closed', () => {
     renderModal({ isOpen: false });
     expect(container.textContent).toBe('');

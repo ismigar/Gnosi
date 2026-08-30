@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
-| Vitest | 478 | 1952 |
+| Vitest | 479 | 1962 |
 | pytest | 335 | 2242 |
 
 ## Files
@@ -86,7 +86,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/FileFieldValue.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/FileFieldValue.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/FootnoteInline.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/FootnoteInline.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/GalleryCardPreview.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/GalleryCardPreview.test.tsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/components/Vault/GlobalSearchModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/GlobalSearchModal.test.tsx) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Vault/GlobalSearchModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/GlobalSearchModal.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/IconPicker.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/IconPicker.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/IdentityProfile.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/IdentityProfile.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/InlineComments.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/InlineComments.test.tsx) | 4 | call-pattern estimate |
@@ -192,7 +192,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/digital-brain-calendar/calendarMutations.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/digital-brain-calendar/calendarMutations.test.ts) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/embed-renderer/embedRendererModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/embed-renderer/embedRendererModel.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/formulaUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/formulaUtils.test.ts) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/components/Vault/globalSearchUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/globalSearchUtils.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Vault/globalSearchUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/globalSearchUtils.test.ts) | 13 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/groupOrderUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/groupOrderUtils.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/hoverPreviewLayout.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/hoverPreviewLayout.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/icon-picker/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/icon-picker/model.test.ts) | 3 | call-pattern estimate |
@@ -401,9 +401,10 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/lib/vaultRouting.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/lib/vaultRouting.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/blocknote/registry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/locales/blocknote/registry.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/registry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/locales/registry.test.ts) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/pages/vault-dashboard/BrowseDialogs.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/BrowseDialogs.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/pages/vault-dashboard/TablePane.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/TablePane.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/pages/vault-dashboard/lifecycle.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/lifecycle.test.tsx) | 6 | call-pattern estimate |
-| Vitest | [`frontend/src/pages/vault-dashboard/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/model.test.ts) | 19 | call-pattern estimate |
+| Vitest | [`frontend/src/pages/vault-dashboard/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/model.test.ts) | 18 | call-pattern estimate |
 | Vitest | [`frontend/src/pages/vault-dashboard/mutations.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/mutations.test.tsx) | 16 | call-pattern estimate |
 | Vitest | [`frontend/src/pages/vault-dashboard/navigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/navigation.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/plugins/frame-lifecycle.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/plugins/frame-lifecycle.test.ts) | 4 | call-pattern estimate |

@@ -49,14 +49,14 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: | ---: |
 | `app` | 12 | 1949 | 0 |
 | `application root` | 3 | 61 | 0 |
-| `components` | 784 | 93328 | 29 |
+| `components` | 784 | 93319 | 29 |
 | `context` | 2 | 210 | 0 |
 | `features` | 261 | 31339 | 5 |
 | `generated` | 2 | 40990 | 444 |
 | `hooks` | 10 | 1071 | 0 |
 | `lib` | 23 | 2700 | 3 |
 | `locales` | 3 | 668 | 0 |
-| `pages` | 48 | 5171 | 0 |
+| `pages` | 48 | 5151 | 0 |
 | `plugins` | 11 | 922 | 0 |
 | `shared` | 118 | 13152 | 379 |
 | `test` | 4 | 153 | 0 |
@@ -163,7 +163,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/components/Vault/FileFieldValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/FileFieldValue.tsx) | 194 | `FileFieldValue` | — |
 | [`frontend/src/components/Vault/FootnoteInline.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/FootnoteInline.tsx) | 182 | `FootnoteInline`, `function` | — |
 | [`frontend/src/components/Vault/GalleryCardPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/GalleryCardPreview.tsx) | 152 | `GalleryContentPreview`, `GalleryOpenButton` | — |
-| [`frontend/src/components/Vault/GlobalSearchModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/GlobalSearchModal.tsx) | 455 | `GlobalSearchModal` | — |
+| [`frontend/src/components/Vault/GlobalSearchModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/GlobalSearchModal.tsx) | 450 | `GlobalSearchModal` | — |
 | [`frontend/src/components/Vault/IconPicker.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/IconPicker.ts) | 3 | — | — |
 | [`frontend/src/components/Vault/IconRenderer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/IconRenderer.tsx) | 96 | `IconRenderer` | `/api/vault/assets/` |
 | [`frontend/src/components/Vault/IdentityProfile.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/IdentityProfile.tsx) | 233 | `IdentityProfile`, `function` | — |
@@ -422,7 +422,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/components/Vault/formulaUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/formulaUtils.ts) | 121 | `evaluateFormula` | — |
 | [`frontend/src/components/Vault/galleryCardPreviewUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/galleryCardPreviewUtils.ts) | 45 | `getGalleryMarkdown`, `getGalleryPageUrl`, `openGalleryPageWindow` | — |
 | [`frontend/src/components/Vault/global-search-modal/GlobalSearchResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/global-search-modal/GlobalSearchResults.tsx) | 103 | `GlobalSearchResults` | — |
-| [`frontend/src/components/Vault/globalSearchUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/globalSearchUtils.ts) | 323 | `buildTagFieldsByTable`, `findSearchTagsField`, `getSearchNoteTags`, `isGlobalSearchShortcut`, `matchesGlobalSearchNote`, `mergeGlobalSearchNotes`, `parseGlobalSearchQuery`, `searchGlobalNotes`, `splitSearchTags` | — |
+| [`frontend/src/components/Vault/globalSearchUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/globalSearchUtils.ts) | 319 | `buildTagFieldsByTable`, `findSearchTagsField`, `getSearchNoteTags`, `isGlobalSearchShortcut`, `matchesGlobalSearchNote`, `mergeGlobalSearchNotes`, `parseGlobalSearchQuery`, `searchGlobalNotes`, `splitSearchTags` | — |
 | [`frontend/src/components/Vault/groupOrderUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/groupOrderUtils.ts) | 58 | `orderGroupKeys` | — |
 | [`frontend/src/components/Vault/hoverPreviewLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/hoverPreviewLayout.ts) | 136 | `HOVER_PREVIEW_ARROW_STEP`, `HOVER_PREVIEW_MARGIN`, `adaptiveHoverPreviewStyle`, `isHoverPreviewScrollable`, `positionHoverPreview`, `scrollHoverPreviewByKey` | — |
 | [`frontend/src/components/Vault/icon-picker/CustomIconView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/components/Vault/icon-picker/CustomIconView.tsx) | 135 | `CustomIconView` | — |
@@ -1213,7 +1213,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Font | Línies | Indicis d’exportació | Rutes literals de l’API |
 | --- | ---: | --- | --- |
 | [`frontend/src/pages/VaultDashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/VaultDashboard.tsx) | 1 | — | — |
-| [`frontend/src/pages/vault-dashboard/BrowseDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/BrowseDialogs.tsx) | 150 | `BrowseDialogs` | — |
+| [`frontend/src/pages/vault-dashboard/BrowseDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/BrowseDialogs.tsx) | 149 | `BrowseDialogs` | — |
 | [`frontend/src/pages/vault-dashboard/ConfigurationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/ConfigurationDialogs.tsx) | 150 | `ConfigurationDialogs` | — |
 | [`frontend/src/pages/vault-dashboard/ConfirmationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/ConfirmationDialogs.tsx) | 108 | `ConfirmationDialogs` | — |
 | [`frontend/src/pages/vault-dashboard/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/Dashboard.tsx) | 31 | `Dashboard`, `function` | — |
@@ -1222,7 +1222,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/pages/vault-dashboard/EditorPane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/EditorPane.tsx) | 156 | `EditorPane` | — |
 | [`frontend/src/pages/vault-dashboard/TablePane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/TablePane.tsx) | 131 | `TablePane` | — |
 | [`frontend/src/pages/vault-dashboard/__tests__/controller-support.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/__tests__/controller-support.tsx) | 42 | `renderController` | — |
-| [`frontend/src/pages/vault-dashboard/consumer-readers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/consumer-readers.ts) | 31 | `filterPage`, `filterRecord`, `isFilterValue`, `viewTables` | — |
+| [`frontend/src/pages/vault-dashboard/consumer-readers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/consumer-readers.ts) | 12 | `viewTables` | — |
 | [`frontend/src/pages/vault-dashboard/editor-readers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/editor-readers.ts) | 48 | `editorMetadata`, `editorNote`, `editorTable` | — |
 | [`frontend/src/pages/vault-dashboard/joins.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/joins.ts) | 68 | `applyDashboardJoins` | — |
 | [`frontend/src/pages/vault-dashboard/readers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/pages/vault-dashboard/readers.ts) | 79 | `errorStatus`, `isAbortLikeError`, `isRecord`, `readDatabase`, `readDocumentKind`, `readPage`, `readPages`, `readRegistry`, `readTable`, `readView`, `readViewDraft`, `readWikiConfig`, `record`, `retryAfter`, `stringValue`, `text`, `wasAborted` | — |

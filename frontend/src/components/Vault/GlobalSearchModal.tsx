@@ -33,20 +33,15 @@ interface SavedSearch {
 }
 
 
-interface GlobalSearchMetadata extends Readonly<Record<string, FilterValue>> {
-  readonly database_table_id?: FilterValue;
-  readonly icon?: FilterValue;
-  readonly table_id?: FilterValue;
-  readonly tags?: FilterValue;
-}
+type GlobalSearchMetadata = Readonly<Record<string, unknown>>;
 
 
 export interface GlobalSearchNote {
-  readonly [key: string]: FilterValue | GlobalSearchMetadata;
+  readonly [key: string]: unknown;
   readonly folder?: FilterValue;
   readonly id?: string | null;
   readonly is_database?: boolean;
-  readonly metadata?: GlobalSearchMetadata;
+  readonly metadata?: GlobalSearchMetadata | null;
   readonly parent_id?: string | null;
   readonly path?: FilterValue;
   readonly resolved_table_id?: FilterValue;
@@ -120,7 +115,7 @@ function isGlobalSearchNote(value: unknown): value is GlobalSearchNote {
 }
 
 
-function displaySearchValue(value: FilterValue): string {
+function displaySearchValue(value: unknown): string {
   if (typeof value === 'string') return value;
   if (
     typeof value === 'number'

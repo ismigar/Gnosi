@@ -17,21 +17,17 @@ interface GlobalSearchKeyboardEvent {
     shiftKey: boolean;
 }
 
-interface SearchMetadata extends Readonly<Record<string, FilterValue>> {
-    database_table_id?: FilterValue;
-    table_id?: FilterValue;
-    tags?: FilterValue;
-}
+type SearchMetadata = Readonly<Record<string, unknown>>;
 
 interface SearchNote {
     folder?: FilterValue;
     id?: FilterValue;
     is_database?: boolean;
-    metadata?: SearchMetadata;
+    metadata?: SearchMetadata | null;
     path?: FilterValue;
     resolved_table_id?: FilterValue;
     title?: FilterValue;
-    [key: string]: FilterValue | SearchMetadata;
+    [key: string]: unknown;
 }
 
 interface SearchTableProperty {
@@ -64,11 +60,11 @@ interface SearchGlobalNotesOptions<Note extends SearchNote> {
     tables?: readonly SearchTableEntry[] | null;
 }
 
-function isFilterValueArray(value: FilterValue): value is readonly FilterValue[] {
+function isUnknownArray(value: unknown): value is readonly unknown[] {
     return Array.isArray(value);
 }
 
-function stringifySearchValue(value: FilterValue): string {
+function stringifySearchValue(value: unknown): string {
     return Reflect.apply(String, undefined, [value]);
 }
 
@@ -109,9 +105,9 @@ export function mergeGlobalSearchNotes<Note extends SearchNote>(
     return merged;
 }
 
-export function splitSearchTags(raw?: FilterValue): string[] {
+export function splitSearchTags(raw?: unknown): string[] {
     if (!raw) return [];
-    const values = isFilterValueArray(raw)
+    const values = isUnknownArray(raw)
         ? raw
         : stringifySearchValue(raw).split(',');
     return values

@@ -8,7 +8,6 @@ import { RecentModal } from '../../components/Vault/RecentModal';
 import { TranslateLanguagesModal } from '../../components/Vault/TranslateLanguagesModal';
 import { ProcessResourceModal } from '../../components/Vault/ProcessResourceModal';
 import type { DashboardController } from './useDashboardController';
-import { filterPage } from './consumer-readers';
 export function BrowseDialogs(dashboard: DashboardController) {
   const context = dashboard;
   const {
@@ -54,7 +53,7 @@ export function BrowseDialogs(dashboard: DashboardController) {
     <GlobalSearchModal
       isOpen={isGlobalSearchOpen}
       onClose={() => { setIsGlobalSearchOpen(false); }}
-      allNotes={pages.map(filterPage)}
+      allNotes={pages}
       tables={registry.tables}
       globalIndex={globalIndex}
       aliasesById={aliasIndex}
