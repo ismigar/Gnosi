@@ -25,7 +25,13 @@ APPROVED_EVENT_ADAPTERS = {
     "frontend/src/shared/platform/browser-events.ts",
 }
 IMPORT_PATTERN = re.compile(
-    r"(?:import|export)\s+(?:type\s+)?(?:[^'\"]*?\s+from\s+)?['\"]([^'\"]+)['\"]"
+    # A secondary source-layout check, not a JavaScript parser. ESLint owns AST
+    # validation (including dynamic/type imports and reexports). Do not scan
+    # arbitrary quoted test fixtures as though they were module declarations.
+    r"^[ \t]*(?:import\s+(?:(?:type\s+)?[\w$*{},\s]+?\s+from\s+)?"
+    r"|export\s+(?:type\s+)?(?:\*(?:\s+as\s+\w+)?|\{[^}]+\})\s+from\s+)"
+    r"['\"]([^'\"]+)['\"]",
+    re.MULTILINE,
 )
 STORAGE_PATTERN = re.compile(r"\b(?:localStorage|sessionStorage)\b")
 EVENT_PATTERN = re.compile(
@@ -72,40 +78,44 @@ def _feature_owner(relative_source: Path) -> str | None:
     return None
 
 
-def _relative_feature_target(source_root: Path, source_file: Path, imported: str) -> str | None:
-    candidate = (source_file.parent / imported).resolve()
+def _import_parts(source_root: Path, source_file: Path, imported: str) -> tuple[str, ...]:
+    specifier = re.split(r"[?#]", imported, maxsplit=1)[0]
+    if specifier.startswith("@/"):
+        candidate = (source_root / specifier[2:]).resolve()
+    elif specifier.startswith("."):
+        candidate = (source_file.parent / specifier).resolve()
+    else:
+        return ()
     try:
         relative = candidate.relative_to(source_root.resolve())
     except ValueError:
-        return None
-    parts = relative.parts
-    if len(parts) < 2 or parts[0] != "features":
-        return None
-    return parts[1]
+        return ()
+    return relative.parts
 
 
 def _feature_boundary_errors(root: Path, path: Path, text: str) -> list[str]:
     source_root = root / "frontend" / "src"
     relative_source = path.relative_to(source_root)
     owner = _feature_owner(relative_source)
-    if owner is None:
-        return []
-
+    layer = relative_source.parts[0]
     errors: list[str] = []
     for imported in IMPORT_PATTERN.findall(text):
-        target: str | None = None
-        private_target = False
-        if imported.startswith("@/features/"):
-            parts = imported.split("/")
-            if len(parts) >= 3:
-                target = parts[2]
-                private_target = len(parts) > 3
-        elif imported.startswith("."):
-            target = _relative_feature_target(source_root, path, imported)
-            private_target = target is not None and target != owner
-        if target and target != owner and private_target:
+        parts = _import_parts(source_root, path, imported)
+        if not parts:
+            continue
+        source = path.relative_to(root).as_posix()
+        if layer == "shared" and parts[0] in {"app", "features"}:
+            errors.append(f"{source} imports app/feature code into shared: {imported}")
+        elif layer == "features" and parts[0] == "app":
+            errors.append(f"{source} imports app composition into a feature: {imported}")
+        elif len(parts) >= 2 and parts[0] == "features" and parts[1] != owner:
+            public_entry = len(parts) == 2 or (
+                len(parts) == 3 and re.fullmatch(r"index(?:\.[jt]sx?)?", parts[2])
+            )
+            if public_entry:
+                continue
             errors.append(
-                f"{path.relative_to(root).as_posix()} imports private code from feature {target}: "
+                f"{source} imports private code from feature {parts[1]}: "
                 f"{imported}"
             )
     return errors

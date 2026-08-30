@@ -4,6 +4,8 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import tseslint from 'typescript-eslint'
+import { fileURLToPath } from 'node:url'
+import featureBoundaries from './eslint/feature-boundaries.js'
 
 export default defineConfig([
   globalIgnores([
@@ -101,7 +103,9 @@ export default defineConfig([
   },
   {
     files: ['src/**/*.{js,jsx,ts,tsx}'],
+    plugins: { gnosi: { rules: { 'feature-boundaries': featureBoundaries } } },
     rules: {
+      'gnosi/feature-boundaries': ['error', { sourceRoot: fileURLToPath(new URL('./src', import.meta.url)) }],
       'no-restricted-imports': ['error', {
         patterns: [{
           regex: '(^|/)shared/api(/index([.][^/]+)?)?/?$',
@@ -123,7 +127,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['vite.config.js', 'test_*.js', 'tests/**/*.js'],
+    files: ['vite.config.js', 'test_*.js', 'tests/**/*.js', 'eslint/**/*.js'],
     languageOptions: {
       globals: globals.node,
     },

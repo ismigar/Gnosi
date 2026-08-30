@@ -53,6 +53,21 @@ logic, and state behavior. ESLint and the production Vite build are mandatory.
 The build must finish with zero errors. Existing warnings are not permission to
 add new warnings without review.
 
+Frontend ownership checks run through `gnosi/feature-boundaries` in the real
+ESLint configuration. Imports outside a feature must use its directory entry or
+`index` module, never its private files. This applies to static imports,
+reexports, literal lazy imports, and TypeScript import types. Shared modules
+cannot depend on features or application composition; features cannot depend
+on `app`. A feature may use its own internals. The Python source guardrail
+provides a secondary declaration-layout check, not a replacement for AST lint.
+
+Run CPU-heavy build/typecheck gates separately from the complete real-DOM suite
+on constrained machines. If parallel work causes test deadlines to expire,
+repeat the affected suite in isolation and then the full suite with bounded
+workers (for example, `pnpm --filter @gnosi/frontend exec vitest run
+--maxWorkers=2 --minWorkers=2`). Keep the assertions and test deadlines intact;
+an isolated pass alone does not establish that the full suite is green.
+
 ## End-to-end and visual tests
 
 Playwright runs as a host-level project against the native application. An
