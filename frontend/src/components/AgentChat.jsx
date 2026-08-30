@@ -6,7 +6,6 @@ import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 import ConfirmModal from './ConfirmModal';
 import {
     agentChatStorageScope,
-    mergeConfirmationRecords,
 } from './agentConfirmationUtils';
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
 import {
@@ -15,7 +14,6 @@ import {
     boundedTurnMetrics,
     effectiveMessageTimingMs,
     getTurnId,
-    isRetryableErrorCode,
     processingSeconds,
 } from './agentChatMessageUtils';
 import { selectedMentionsInText } from './agentChatMentionUtils';
@@ -41,6 +39,8 @@ import { ChatDock } from './agent-chat/ChatDock';
 import { ChatSessionList } from './agent-chat/ChatSessionList';
 import { useChatMessageActions } from './agent-chat/useChatMessageActions';
 import { useChatRewind } from './agent-chat/useChatRewind';
+import { createChatStreamState } from './agent-chat/streamEventModel';
+import { applyChatStreamEvent } from './agent-chat/applyChatStreamEvent';
 
 const AgentChat = ({
     storageIdentity = '',
@@ -262,11 +262,12 @@ const AgentChat = ({
         setIsLoading(true);
         setProcessingPhase('routing');
         const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
-        let turnMetrics = null;
-        let turnTransparency = boundedTransparencyMetadata({});
-        let resumeStreamId = '';
-        let lastStreamSequence = 0;
-        let selectedLlm = null;
+        const streamState = createChatStreamState();
+        const streamContext = {
+            t, requestScope, agentId: selectedAgentId, sessionId, turnId,
+            activeScopeRef, activeStreamRef, setMessages, setAgentRuntime, setProcessingPhase,
+            confirmationSummary,
+        };
 
         try {
             requestAbortRef.current?.abort();
@@ -304,184 +305,16 @@ const AgentChat = ({
                 throw new Error(detail);
             }
 
-            let aiMsgAdded = false;
-            let terminalReceived = false;
-            let responseReceived = false;
             for await (const data of readNdjsonRecords(response, {
                 onMalformed: (error) => logError('chat.stream.record', error),
             })) {
                     try {
-                        // The server envelope makes reconnects and proxy retries
-                        // safe at the presentation layer. Never apply a duplicate
-                        // event, while remaining compatible with legacy payloads.
-                        const sequence = acceptStreamSequence(data.sequence, lastStreamSequence);
-                        if (!sequence.accepted) continue;
-                        lastStreamSequence = sequence.sequence;
-
-                        if (data.type === 'stream_open') {
-                            resumeStreamId = String(data.stream_id || '');
-                            activeStreamRef.current = resumeStreamId;
-                            continue;
-                        }
-                        if (data.type === 'heartbeat') {
-                            continue;
-                        }
-
-                        if (data.type === 'llm_selected') {
-                            selectedLlm = {
-                                mode: data.mode || 'agent_default',
-                                provider: data.provider,
-                                model: data.model,
-                                strategy: data.strategy,
-                            };
-                            continue;
-                        }
-                        if (data.type === 'agent_runtime') {
-                            setAgentRuntime(data);
-                            continue;
-                        }
-                        if (data.type === 'phase') {
-                            setProcessingPhase(String(data.phase || 'routing'));
-                            continue;
-                        }
-                        if (data.type === 'progress') {
-                            setProcessingPhase(String(data.phase || 'routing'));
-                            continue;
-                        }
-                        if (data.type === 'deadline') {
-                            setProcessingPhase('synthesis');
-                            continue;
-                        }
-                        if (data.type === 'turn_plan') {
-                            turnTransparency = boundedTransparencyMetadata({
-                                plan: data.plan,
-                                privacy: data.privacy,
-                                job: data.job?.job_id ? data.job : null,
-                            });
-                            continue;
-                        }
-                        if (data.type === 'turn_metrics') {
-                            turnMetrics = boundedTurnMetrics(data);
-                            continue;
-                        }
-                        if (data.type === 'done') {
-                            terminalReceived = true;
-                            responseReceived = responseReceived || Boolean(data.has_response);
-                            continue;
-                        }
-                        const carriesResponse = [
-                            'tool_start', 'tool_end', 'message', 'thought', 'error',
-                            'confirmation_required',
-                        ].includes(data.type);
-                        if (!carriesResponse) continue;
-
-                        if ([
-                            'message',
-                            'thought',
-                            'error',
-                            'confirmation_required',
-                        ].includes(data.type)) {
-                            responseReceived = true;
-                        }
-                        if (
-                            data.type === 'confirmation_required'
-                            && activeScopeRef.current === requestScope
-                        ) {
-                            data.status = 'pending';
-                            data.client_scope = requestScope;
-                            data.agent_id = selectedAgentId;
-                            data.session_id = sessionId;
-                        }
-                        const addAssistant = !aiMsgAdded;
-                        aiMsgAdded = true;
-                        setMessages(prev => {
-                            if (activeScopeRef.current !== requestScope) return prev;
-                            if (data.type === 'confirmation_required') {
-                                return mergeConfirmationRecords(
-                                    prev,
-                                    [data],
-                                    confirmationSummary,
-                                ).map((message) => (
-                                    message?.confirmation?.confirmation_id === data.confirmation_id
-                                        ? { ...message, turnId }
-                                        : message
-                                ));
-                            }
-                            const newMsgs = [...prev];
-
-                            // Metadata never creates an empty assistant bubble.
-                            if (addAssistant) {
-                                newMsgs.push({
-                                    role: 'assistant',
-                                    content: '',
-                                    llm: selectedLlm,
-                                    turnId,
-                                    ...Object.fromEntries(
-                                        Object.entries(turnTransparency)
-                                            .filter(([, value]) => value !== null),
-                                    ),
-                                });
-                            }
-
-                            const lastIdx = newMsgs.length - 1;
-                            const lastMsg = { ...newMsgs[lastIdx] };
-
-                            if (data.type === 'tool_start') {
-                                lastMsg.content = t('chat.tool_start', "🛠️ *Calling tool: {{tool}}...*", { tool: data.tool });
-                            } else if (data.type === 'tool_end') {
-                                lastMsg.content = data.awaiting_confirmation
-                                    ? t('chat.tool_pending_confirmation', "🟡 *Tool {{tool}} is awaiting confirmation.*", { tool: data.tool })
-                                    : t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
-                            } else if (data.type === 'message' || data.type === 'thought') {
-                                if (data.content) lastMsg.content = data.content;
-                                const responseTransparency = boundedTransparencyMetadata({
-                                    plan: data.plan || lastMsg.plan || turnTransparency.plan,
-                                    privacy: data.privacy || lastMsg.privacy || turnTransparency.privacy,
-                                    verification: data.verification,
-                                    citations: data.citations,
-                                    freshness: data.freshness,
-                                    job: data.job,
-                                    explanation: data.explanation,
-                                    quality: data.quality,
-                                    conflicts: data.conflicts,
-                                    evidence_security: data.evidence_security,
-                                });
-                                Object.entries(responseTransparency).forEach(([field, value]) => {
-                                    if (value !== null) lastMsg[field] = value;
-                                });
-                            } else if (data.type === 'error') {
-                                // Translation and improvement of common messages
-                                const streamedError = typeof data.content === 'string'
-                                    ? data.content.trim()
-                                    : '';
-                                let errorContent = streamedError
-                                    || t('errors.unknown', 'Unknown error');
-                                if (data.code === 'agent_model_unavailable') {
-                                    errorContent = t('chat.agent_model_unavailable', 'The selected agent model is unavailable. Configure the agent and try again.');
-                                } else if (data.code === 'agent_turn_timeout') {
-                                    errorContent = t('chat.turn_timeout', 'The response exceeded the 120-second processing limit. Please try again.');
-                                } else if (data.code === 'agent_loop_exhausted') {
-                                    errorContent = t('chat.agent_loop_exhausted', 'The agent repeated the same operation and stopped safely. Refine the request or try again.');
-                                }
-                                if (errorContent.includes('rate_limit_exceeded')) {
-                                    errorContent = t('chat.rate_limit_message', "You've exceeded this agent model's quota. Try a different agent or wait a few minutes.");
-                                }
-                                lastMsg.content = `❌ ${t('chat.error_prefix', 'Error')}: ${errorContent}`;
-                                lastMsg.errorCode = data.code || 'agent_error';
-                                lastMsg.retryable = Boolean(data.retryable)
-                                    || isRetryableErrorCode(lastMsg.errorCode);
-                                if (data.recovery && typeof data.recovery === 'object') {
-                                    lastMsg.recovery = data.recovery;
-                                }
-                            }
-                            newMsgs[lastIdx] = lastMsg;
-                            return newMsgs;
-                        });
+                        applyChatStreamEvent(streamState, data, streamContext);
                     } catch (error) {
                         logError('chat.stream.event', error);
                     }
             }
-            if (!terminalReceived || !responseReceived) {
+            if (!streamState.terminal || !streamState.responseReceived) {
                 setMessages((prev) => {
                     if (activeScopeRef.current !== requestScope) return prev;
                     return [...prev, {
@@ -495,19 +328,19 @@ const AgentChat = ({
             let recovered = false;
             if (
                 error.name !== 'AbortError'
-                && resumeStreamId
+                && streamState.streamId
                 && activeScopeRef.current === requestScope
             ) {
                 try {
                     let recoveredMessageSeen = false;
                     for (let attempt = 0; attempt < 120 && !recovered; attempt += 1) {
                         const resumeUrl = new URL(
-                            `/api/chat/streams/${encodeURIComponent(resumeStreamId)}`,
+                            `/api/chat/streams/${encodeURIComponent(streamState.streamId)}`,
                             window.location.origin,
                         );
                         resumeUrl.searchParams.set('agent_id', selectedAgentId);
                         resumeUrl.searchParams.set('session_id', sessionId);
-                        resumeUrl.searchParams.set('after_sequence', String(lastStreamSequence));
+                        resumeUrl.searchParams.set('after_sequence', String(streamState.sequence));
                         const resumed = await transportFetch(resumeUrl.pathname + resumeUrl.search);
                         if (!resumed.ok) break;
                         const events = (await resumed.text())
@@ -517,10 +350,10 @@ const AgentChat = ({
                         let terminal = false;
                         let recoveredMessage = null;
                         for (const data of events) {
-                            const sequence = acceptStreamSequence(data.sequence, lastStreamSequence);
+                            const sequence = acceptStreamSequence(data.sequence, streamState.sequence);
                         if (!sequence.accepted) continue;
-                        lastStreamSequence = sequence.sequence;
-                            if (data.type === 'turn_metrics') turnMetrics = boundedTurnMetrics(data);
+                        streamState.sequence = sequence.sequence;
+                            if (data.type === 'turn_metrics') streamState.metrics = boundedTurnMetrics(data);
                             if (data.type === 'message' || data.type === 'thought' || data.type === 'error') {
                                 recoveredMessage = data;
                             }
@@ -552,7 +385,7 @@ const AgentChat = ({
                                     Object.entries(transparency).filter(([, value]) => value !== null),
                                 );
                                 if (index < 0) return [...previous, {
-                                    role: 'assistant', content, turnId, llm: selectedLlm, ...recoveredFields,
+                                    role: 'assistant', content, turnId, llm: streamState.model, ...recoveredFields,
                                 }];
                                 return previous.map((message, itemIndex) => itemIndex === index
                                     ? { ...message, content, turnId, ...recoveredFields }
@@ -599,9 +432,9 @@ const AgentChat = ({
                         ? {
                             ...message,
                             processingMs: elapsedMs,
-                            ...(turnMetrics ? { timings: turnMetrics } : {}),
+                            ...(streamState.metrics ? { timings: streamState.metrics } : {}),
                             ...Object.fromEntries(
-                                Object.entries(turnTransparency)
+                                Object.entries(streamState.transparency)
                                     .filter(([field, value]) => value !== null && message[field] == null),
                             ),
                         }
