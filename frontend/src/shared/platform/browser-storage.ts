@@ -73,31 +73,49 @@ export function listStorageKeyNames(
 }
 
 
-function resolveStorage(
+function resolveStorage<T>(
   key: BrowserStorageKey<unknown>,
-  override: Storage | null | undefined,
-): Storage | null {
+  override: T | null | undefined,
+): T | Storage | null {
   return override === undefined ? runtimeStorage(key.area) : override;
 }
 
 
+export type StorageReadResult<T> =
+  | { readonly ok: true; readonly value: T | undefined }
+  | { readonly ok: false };
+
+/** Distinguish a missing value from a failed read before persisting derived state. */
+export function readStorageResult<T>(
+  key: BrowserStorageKey<T>,
+  storage?: Pick<Storage, 'getItem'> | null,
+): StorageReadResult<T> {
+  try {
+    const target = resolveStorage(key, storage);
+    if (!target) return { ok: false };
+    const raw = target.getItem(key.name);
+    return {
+      ok: true,
+      value: raw === null ? undefined : key.codec.decode(raw),
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export function readStorage<T>(
   key: BrowserStorageKey<T>,
-  storage?: Storage | null,
+  storage?: Pick<Storage, 'getItem'> | null,
 ): T | undefined {
-  try {
-    const raw = resolveStorage(key, storage)?.getItem(key.name);
-    return raw === null || raw === undefined ? undefined : key.codec.decode(raw);
-  } catch {
-    return undefined;
-  }
+  const result = readStorageResult(key, storage);
+  return result.ok ? result.value : undefined;
 }
 
 
 export function writeStorage<T>(
   key: BrowserStorageKey<T>,
   value: T,
-  storage?: Storage | null,
+  storage?: Pick<Storage, 'setItem'> | null,
 ): boolean {
   try {
     const target = resolveStorage(key, storage);
@@ -112,7 +130,7 @@ export function writeStorage<T>(
 
 export function removeStorage(
   key: BrowserStorageKey<unknown>,
-  storage?: Storage | null,
+  storage?: Pick<Storage, 'removeItem'> | null,
 ): boolean {
   try {
     const target = resolveStorage(key, storage);

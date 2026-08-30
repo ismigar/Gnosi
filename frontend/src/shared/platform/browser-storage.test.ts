@@ -5,6 +5,7 @@ import {
   jsonStorageCodec,
   listStorageKeyNames,
   readStorage,
+  readStorageResult,
   removeStorage,
   stringStorageCodec,
   writeStorage,
@@ -53,6 +54,27 @@ function isStoredTheme(value: unknown): value is StoredTheme {
 
 
 describe('browser storage adapter', () => {
+  it('accepts only the capability required by each injected operation', () => {
+    const key = defineStorageKey('minimal', stringStorageCodec);
+    let stored: string | null = null;
+    expect(writeStorage(key, 'exact', { setItem: (_name, value) => { stored = value; } })).toBe(true);
+    expect(readStorage(key, { getItem: () => stored })).toBe('exact');
+    expect(removeStorage(key, { removeItem: () => { stored = null; } })).toBe(true);
+    expect(readStorage(key, { getItem: () => stored })).toBeUndefined();
+  });
+
+  it('distinguishes missing values from failed reads without changing the convenience API', () => {
+    const key = defineStorageKey('exact', stringStorageCodec);
+    const broken = { getItem: () => { throw new Error('Storage disabled'); } };
+    expect(readStorageResult(key, { getItem: () => null })).toEqual({ ok: true, value: undefined });
+    expect(readStorageResult(key, { getItem: () => 'false' })).toEqual({ ok: true, value: 'false' });
+    expect(readStorageResult(key, broken)).toEqual({ ok: false });
+    expect(readStorageResult(key, null)).toEqual({ ok: false });
+    expect(readStorage(key, broken)).toBeUndefined();
+    expect(writeStorage(key, 'new', { setItem: () => { throw new Error('Quota exceeded'); } })).toBe(false);
+    expect(removeStorage(key, { removeItem: () => { throw new Error('Storage disabled'); } })).toBe(false);
+  });
+
   it('round-trips typed string and JSON keys', () => {
     const storage = new MemoryStorage();
     const languageKey = defineStorageKey('language', stringStorageCodec);

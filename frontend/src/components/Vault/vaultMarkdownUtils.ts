@@ -220,7 +220,7 @@ export function normalizeAssetUrl(url: unknown, vaultOverride?: string | null): 
     // URLs served from the vault carry the active vault (withActiveVault) so that
     // the native `<img>` resolves the correct vault without an X-Vault-Id header;
     // remote ones are left untouched. `vaultOverride` forces a specific vault
-    // (public shared page: the visitor doesn't have the vault in localStorage).
+    // (public shared page: the visitor has no persisted active vault).
     //
     // An "external" URL is recognized by its SCHEME (`xxx:` — http, https,
     // data, blob…) or for being protocol-relative (`//host/…`), NOT by the prefix

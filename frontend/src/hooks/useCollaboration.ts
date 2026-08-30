@@ -13,7 +13,7 @@
  * independently. Any network error leaves the mode at 'personal' →
  * disabled → zero behavior change for single-user usage.
  *
- * Identity: read from localStorage (`gnosi_user_id`/`gnosi_user_email`),
+ * Identity: read from persisted context (`gnosi_user_id`/`gnosi_user_email`),
  * which the auth flow keeps up to date when present. The server, if it receives a
  * valid session cookie, trusts it over this identity.
  */
@@ -153,7 +153,7 @@ export function useCollaboration(pageId: string | null | undefined) {
             // Reset presence on unmount or when the page/identity changes.
             setPeers([]);
         };
-        // selfId is derived from localStorage; we reconnect if the page or state changes.
+        // selfId comes from persisted context; reconnect if the page or state changes.
     }, [enabled, pageId, selfId]);
 
     const send = useCallback((message: unknown): void => {

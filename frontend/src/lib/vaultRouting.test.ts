@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { resetApiTestStorage } from '../test/api-request';
 
 // Contract coverage for the typed canonical and legacy routing boundary.
 
@@ -16,7 +17,7 @@ import {
 
 describe('vaultRouting', () => {
     beforeEach(() => {
-        localStorage.clear();
+        resetApiTestStorage();
         persistVaultCatalog([
             { id: 'vault-a', slug: 'historia', name: 'Història' },
             { id: 'vault-b', slug: 'proves', name: 'Proves' },

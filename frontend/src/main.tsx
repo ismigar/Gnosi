@@ -15,7 +15,7 @@ import {
 import { GlobalTooltip } from './components/GlobalTooltip.jsx'
 import { ApiProvider } from './shared/api/ApiProvider'
 
-// Multi-vault: reflects the active vault (localStorage) in a same-origin cookie
+// Multi-vault: reflects the persisted active vault in a same-origin cookie
 // BEFORE the first render, because EVERY request —raw fetch, <img>/<video>/<iframe>
 // native, background-image, SSE, /api/chat, WebSocket— carries the vault without
 // depend on the axios header. Without this, all these channels fall back to the

@@ -3,11 +3,6 @@
     "direct_storage": {
       "frontend/src/components/GlobalSettingsModal.jsx": 14,
       "frontend/src/components/Vault/BlockEditor.jsx": 5,
-      "frontend/src/components/Vault/toggleExpansionStateUtils.ts": 4,
-      "frontend/src/components/Vault/vaultMarkdownUtils.ts": 1,
-      "frontend/src/hooks/useCollaboration.ts": 2,
-      "frontend/src/lib/vaultRouting.test.ts": 1,
-      "frontend/src/main.tsx": 1,
       "frontend/src/pages/VaultDashboard.jsx": 3
     },
     "global_events": {
