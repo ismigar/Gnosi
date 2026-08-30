@@ -1,8 +1,9 @@
-import { act, type ComponentType, type ChangeEvent, type RefObject } from 'react';
+import { act, type ChangeEvent, type RefObject } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import MailComposer from './MailComposer';
+import type { MailComposerProps } from './mailComposerTypes';
 
 
 type DeleteMailDraft = typeof import('../../shared/api/mail').deleteMailDraft;
@@ -11,32 +12,6 @@ type SaveMailDraft = typeof import('../../shared/api/mail').saveMailDraft;
 type ReplyMailMultipart = typeof import('../../shared/api/mail-specialized').replyMailMultipart;
 type SendMailMultipart = typeof import('../../shared/api/mail-specialized').sendMailMultipart;
 type ToastMockCall = (message: unknown, options?: unknown) => unknown;
-
-interface MailComposerAccount {
-    readonly display_name?: string | null;
-    readonly email?: string | null;
-    readonly name?: string | null;
-    readonly signature?: string | null;
-    readonly smtp_email?: string | null;
-    readonly username?: string | null;
-}
-
-interface MailComposerProps {
-    readonly _draftId?: string | null;
-    readonly account?: MailComposerAccount | null;
-    readonly accounts?: readonly MailComposerAccount[];
-    readonly initialBody?: string;
-    readonly initialCc?: string;
-    readonly initialSubject?: string;
-    readonly initialTo?: string;
-    readonly mode?: 'forward' | 'reply' | 'reply_all' | null;
-    readonly onClose: () => void;
-    readonly onDraftSaved?: () => void;
-    readonly onSent?: () => void;
-    readonly quotedHtml?: string;
-    readonly replyToMessageId?: string | null;
-    readonly sourceFolder?: string;
-}
 
 interface AddressInputMockProps {
     readonly label: string;
@@ -57,9 +32,6 @@ interface MountedRoot {
     readonly container: HTMLDivElement;
     readonly root: Root;
 }
-
-const TypedMailComposer = MailComposer as unknown as ComponentType<MailComposerProps>;
-
 
 const mocks = vi.hoisted(() => {
     const toast = Object.assign(vi.fn<ToastMockCall>(), {
@@ -183,7 +155,7 @@ function renderComposer(props: Partial<MailComposerProps> = {}): { container: HT
 
     act(() => {
         root.render(
-            <TypedMailComposer
+            <MailComposer
                 account={account}
                 accounts={[account]}
                 onClose={vi.fn()}
