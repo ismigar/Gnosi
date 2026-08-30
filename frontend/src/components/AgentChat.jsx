@@ -21,15 +21,16 @@ import {
     conversationRewindPlan,
     getTurnId,
     mergeCanonicalMessageMetadata,
-    mergeNotebookConversation,
     isRetryableErrorCode,
     processingSeconds,
 } from './agentChatMessageUtils';
 import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
 import { deriveAgentRuntimeStatus } from './agentRuntimeStatus';
 import { toast } from '../lib/toast';
-import { CHAT_SESSIONS_KEY, CHAT_ACTIVE_SESSION_KEY, CHAT_SELECTED_AGENT_KEY, CHAT_PENDING_CHECKPOINT_DELETES_KEY, boundedChatSessions, createChatSession, deriveSessionTitle } from './agent-chat/sessionModel';
-import { readChatStorage, removeChatStorage, scopedChatStorageKey, writeChatStorage as safeLocalStorageSet } from './agent-chat/chatPersistence';
+import { readChatStorage, scopedChatStorageKey } from './agent-chat/chatPersistence';
+import { useChatSessionPersistence } from './agent-chat/useChatSessionPersistence';
+import { useNotebookConversation } from './agent-chat/useNotebookConversation';
+import { useChatSessionSelection, useSessionMessageBinding } from './agent-chat/useChatSessionSelection';
 import { readNdjsonRecords } from '../shared/api/ndjson';
 import { ConfirmationReview } from './agent-chat/ConfirmationReview';
 import { useAgentConfirmations } from './agent-chat/useAgentConfirmations';
@@ -38,7 +39,6 @@ import { logError } from '../lib/notifyError';
 import { emitAppEvent } from '../shared/platform/app-events';
 import { streamFetch } from '../shared/api/specialized-transports';
 import { transportFetch } from '../shared/api/transports';
-import { fetchNotebookConversation } from '../shared/api/notebooks';
 import { fetchConfiguration } from '../shared/api/configuration';
 import {
     fetchVaultDatabases,
@@ -55,14 +55,6 @@ const CHAT_ATTACHMENT_ACCEPT = [
 const DYNAMIC_ICON_NAMES = new Set(iconNames);
 
 const lucideIconName = (name) => name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-const deleteSessionCheckpoint = async (session) => {
-    if (!session?.agentId || !session?.id) return true;
-    const response = await transportFetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
-        method: 'DELETE',
-    });
-    if (!response.ok) throw new Error(`Checkpoint deletion failed (${response.status})`);
-    return true;
-};
 
 const AgentChat = ({
     storageIdentity = '',
@@ -143,217 +135,20 @@ const AgentChat = ({
             setIsMinimized(false);
         }
     }, [embedded]);
-    const queueCheckpointDeletion = useCallback((session) => {
-        if (!session?.agentId || !session?.id) return;
-        const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
-        let pending;
-        try {
-            pending = JSON.parse(readChatStorage(key) || '[]');
-        } catch {
-            pending = [];
-        }
-        const unique = new Map(
-            [...pending, { agentId: session.agentId, id: session.id }]
-                .map((item) => [`${item.agentId}:${item.id}`, item]),
-        );
-        safeLocalStorageSet(key, JSON.stringify([...unique.values()]));
-    }, [scopedStorageKey]);
-
-    // Init session ID
-    useEffect(() => {
-        requestAbortRef.current?.abort();
-        setPendingConfirmation(null);
-        setSessionsHydrated(false);
-        setHydratedStorageScope('');
-        const savedAgentId = forcedAgentId || readChatStorage(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
-        const sid = readChatStorage(scopedStorageKey('agent_session_id_v2'));
-        const savedSessionsRaw = readChatStorage(scopedStorageKey(CHAT_SESSIONS_KEY));
-        const savedActiveSession = readChatStorage(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY));
-
-        let parsedSessions;
-        try {
-            parsedSessions = savedSessionsRaw ? JSON.parse(savedSessionsRaw) : [];
-        } catch {
-            parsedSessions = [];
-        }
-
-        if (embedded && forcedSessionId) {
-            parsedSessions = [{
-                id: forcedSessionId,
-                title: defaultSessionTitle,
-                archived: false,
-                agentId: savedAgentId,
-                messages: [],
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            }];
-        } else if (!Array.isArray(parsedSessions) || !parsedSessions.length) {
-            parsedSessions = [createChatSession(defaultSessionTitle, savedAgentId)];
-        }
-        const retainedSessions = boundedChatSessions(parsedSessions);
-        const retainedIds = new Set(retainedSessions.map((session) => session.id));
-        parsedSessions
-            .filter((session) => session?.id && !retainedIds.has(session.id))
-            .forEach((session) => {
-                void deleteSessionCheckpoint(session).catch(
-                    (error) => {
-                        queueCheckpointDeletion(session);
-                        console.warn('Could not delete evicted assistant checkpoint', error);
-                    },
-                );
-            });
-        parsedSessions = retainedSessions.map((session) => ({
-            ...session,
-            agentId: session.agentId || savedAgentId,
-            title: (
-                ['Nova conversa', 'New conversation', 'Nueva conversación', 'Nouvelle conversation']
-                    .includes(session.title)
-                && !(session.messages || []).length
-            ) ? defaultSessionTitle : session.title,
-        }));
-
-        const agentSessions = parsedSessions.filter((session) => session.agentId === savedAgentId);
-        if (!agentSessions.length) {
-            const fresh = createChatSession(defaultSessionTitle, savedAgentId);
-            parsedSessions.unshift(fresh);
-            agentSessions.push(fresh);
-        }
-        const activeFromStorage = savedActiveSession || sid || agentSessions[0].id;
-        let activeSession = agentSessions.find((s) => s.id === activeFromStorage);
-        if (!activeSession) {
-            activeSession = agentSessions.find((s) => !s.archived) || agentSessions[0];
-        }
-
-        if (savedAgentId) {
-            setSelectedAgentId(savedAgentId);
-        }
-
-        // A conversation no longer persists a model override: the selected
-        // agent owns its model, instructions, and context as one profile.
-        removeChatStorage(scopedStorageKey('agent_selected_llm'));
-
-        setChatSessions(parsedSessions);
-        setMessages(activeSession.messages || []);
-        setSessionId(activeSession.id);
-        if (activeSession.id) {
-            safeLocalStorageSet(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), activeSession.id);
-            safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), activeSession.id);
-        }
-
-        setHydratedStorageScope(browserStorageScope);
-        setSessionsHydrated(true);
-    }, [browserStorageScope, defaultSessionTitle, embedded, forcedAgentId, forcedSessionId, queueCheckpointDeletion, scopedStorageKey]);
-
-    useEffect(() => {
-        if (!scopeReady) return;
-        const retainedSessions = boundedChatSessions(chatSessions);
-        const retainedIds = new Set(retainedSessions.map((session) => session.id));
-        const evictedSessions = chatSessions.filter((session) => !retainedIds.has(session.id));
-        if (evictedSessions.length) {
-            evictedSessions.forEach((session) => {
-                void deleteSessionCheckpoint(session).catch(
-                    (error) => {
-                        queueCheckpointDeletion(session);
-                        console.warn('Could not delete evicted assistant checkpoint', error);
-                    },
-                );
-            });
-            setChatSessions(retainedSessions);
-            return;
-        }
-        safeLocalStorageSet(
-            scopedStorageKey(CHAT_SESSIONS_KEY),
-            JSON.stringify(retainedSessions),
-        );
-    }, [chatSessions, queueCheckpointDeletion, scopeReady, scopedStorageKey]);
-
-    useEffect(() => {
-        if (!scopeReady) return;
-        const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
-        let pending = [];
-        try {
-            pending = JSON.parse(readChatStorage(key) || '[]');
-        } catch {
-            pending = [];
-        }
-        if (!Array.isArray(pending) || !pending.length) return;
-        void (async () => {
-            const failed = [];
-            for (const session of pending) {
-                try {
-                    await deleteSessionCheckpoint(session);
-                } catch {
-                    failed.push(session);
-                }
-            }
-            safeLocalStorageSet(key, JSON.stringify(failed));
-        })();
-    }, [scopeReady, scopedStorageKey]);
-
-    useEffect(() => {
-        if (!scopeReady || !sessionId) return;
-        safeLocalStorageSet(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), sessionId);
-        safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), sessionId);
-        setAgentRuntime(null);
-    }, [scopeReady, scopedStorageKey, sessionId]);
-
-    useEffect(() => {
-        if (!embedded || !notebookId || !scopeReady || !forcedSessionId) return;
-        let cancelled = false;
-        const hydrationId = historyHydrationRef.current + 1;
-        historyHydrationRef.current = hydrationId;
-        setSessionId(forcedSessionId);
-        if (forcedAgentId) setSelectedAgentId(forcedAgentId);
-        const hydrateConversation = () => {
-            if (document.visibilityState !== 'visible' || isLoading) return;
-            void fetchNotebookConversation(notebookId)
-                .then((canonical) => {
-                    if (cancelled || historyHydrationRef.current !== hydrationId) return;
-                    const canonicalMessages = Array.isArray(canonical.messages) ? canonical.messages : [];
-                    setMessages((previous) => mergeNotebookConversation(canonicalMessages, previous));
-                    setChatSessions((previous) => previous.map((session) => (
-                        session.id === forcedSessionId
-                            ? {
-                                ...session,
-                                agentId: forcedAgentId || session.agentId,
-                                messages: mergeNotebookConversation(canonicalMessages, session.messages),
-                            }
-                            : session
-                    )));
-                })
-                .catch((error) => console.warn('Could not load notebook conversation', error));
-        };
-        hydrateConversation();
-        const timer = window.setInterval(hydrateConversation, 4000);
-        return () => {
-            cancelled = true;
-            window.clearInterval(timer);
-        };
-    }, [embedded, forcedAgentId, forcedSessionId, isLoading, notebookId, scopeReady]);
-
-    useEffect(() => {
-        if (!scopeReady) return;
-        safeLocalStorageSet(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
-        if (!embedded) historyHydrationRef.current += 1;
-        setAgentRuntime(null);
-    }, [embedded, scopeReady, scopedStorageKey, selectedAgentId]);
-
-    useEffect(() => {
-        if (!scopeReady || !selectedAgentId) return;
-        const current = chatSessions.find((session) => session.id === sessionId);
-        if (current?.agentId === selectedAgentId) return;
-        let target = [...chatSessions]
-            .filter((session) => session.agentId === selectedAgentId && !session.archived)
-            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
-        if (!target) {
-            target = createChatSession(defaultSessionTitle, selectedAgentId);
-            setChatSessions((prev) => [target, ...prev]);
-        }
-        setSessionId(target.id);
-        setMessages(target.messages || []);
-        setSelectedMentions([]);
-        setAttachments([]);
-    }, [chatSessions, defaultSessionTitle, scopeReady, selectedAgentId, sessionId]);
+    const clearDraftMentions = useCallback(() => setSelectedMentions([]), []);
+    const clearDraftAttachments = useCallback(() => setAttachments([]), []);
+    const sessionContext = {
+        browserStorageScope, defaultSessionTitle, embedded, forcedAgentId, forcedSessionId,
+        notebookId, isLoading, scopeReady, selectedAgentId, sessionId, chatSessions, messages,
+        scopedStorageKey, requestAbortRef, historyHydrationRef, setChatSessions, setMessages,
+        setSelectedAgentId, setSessionId, setSessionsHydrated, setHydratedStorageScope,
+        setPendingConfirmation, setAgentRuntime, clearDraftMentions, clearDraftAttachments,
+        setInputValue, setShowSessionsView,
+    };
+    useChatSessionPersistence(sessionContext);
+    useNotebookConversation(sessionContext);
+    const { selectSession, archiveCurrentSession, createNewSession, deleteSessionById } =
+        useChatSessionSelection(sessionContext);
 
     useEffect(() => () => requestAbortRef.current?.abort(), []);
 
@@ -384,18 +179,7 @@ const AgentChat = ({
         activeScopeRef.current = nextScope;
     }, [browserStorageScope, selectedAgentId, sessionId]);
 
-    useEffect(() => {
-        if (!scopeReady || !sessionId) return;
-        setChatSessions((prev) => prev.map((session) => {
-            if (session.id !== sessionId) return session;
-            return {
-                ...session,
-                messages,
-                updatedAt: Date.now(),
-                title: deriveSessionTitle(messages, session.title || defaultSessionTitle),
-            };
-        }));
-    }, [defaultSessionTitle, messages, scopeReady, sessionId]);
+    useSessionMessageBinding(sessionContext);
 
     useEffect(() => {
         const current = inputValue || '';
@@ -528,94 +312,6 @@ const AgentChat = ({
         void loadMentionCatalog();
     }, [loadConfig, loadMentionCatalog]);
 
-    const selectSession = async (nextId) => {
-        if (isLoading) return;
-        const target = chatSessions.find((s) => s.id === nextId);
-        if (!target) return;
-        const hydrationId = historyHydrationRef.current + 1;
-        historyHydrationRef.current = hydrationId;
-        setAgentRuntime(null);
-        setChatSessions((prev) => prev.map((s) => s.id === nextId ? { ...s, archived: false, updatedAt: Date.now() } : s));
-        setSessionId(target.id);
-        setMessages(target.messages || []);
-        setShowSessionsView(false);
-        try {
-            const response = await transportFetch(
-                `/api/chat/sessions/${encodeURIComponent(target.agentId)}/${encodeURIComponent(target.id)}${notebookId ? `?notebook_id=${encodeURIComponent(notebookId)}` : ''}`,
-            );
-            if (response.ok) {
-                const canonical = await response.json();
-                if (historyHydrationRef.current !== hydrationId) return;
-                if (Array.isArray(canonical.messages) && canonical.messages.length) {
-                    const hydratedMessages = mergeCanonicalMessageMetadata(
-                        canonical.messages,
-                        target.messages,
-                    );
-                    setMessages(hydratedMessages);
-                    setChatSessions((prev) => prev.map((session) => (
-                        session.id === target.id
-                            ? { ...session, messages: hydratedMessages }
-                            : session
-                    )));
-                }
-            }
-        } catch (error) {
-            console.warn('Could not load canonical assistant history', error);
-        }
-    };
-
-    const archiveCurrentSession = () => {
-        if (!sessionId) return;
-        setChatSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, archived: true, updatedAt: Date.now() } : s));
-    };
-
-    const createNewSession = () => {
-        if (isLoading) return;
-        historyHydrationRef.current += 1;
-        const next = createChatSession(defaultSessionTitle, selectedAgentId);
-        setChatSessions((prev) => [
-            next,
-            ...prev.map((s) => s.id === sessionId ? { ...s, archived: true, updatedAt: Date.now() } : s),
-        ]);
-        setSessionId(next.id);
-        setMessages([]);
-        setAgentRuntime(null);
-        setInputValue('');
-        setSelectedMentions([]);
-        setShowSessionsView(false);
-    };
-
-    const deleteSessionById = async (targetId) => {
-        if (!targetId || isLoading) return;
-        historyHydrationRef.current += 1;
-        const target = chatSessions.find((session) => session.id === targetId);
-        try {
-            await deleteSessionCheckpoint(target);
-        } catch (error) {
-            console.warn('Could not delete assistant checkpoint', error);
-            return;
-        }
-
-        const remaining = chatSessions.filter((s) => s.id !== targetId);
-        const remainingForAgent = remaining.filter((s) => s.agentId === selectedAgentId);
-        if (!remainingForAgent.length) {
-            const fresh = createChatSession(defaultSessionTitle, selectedAgentId);
-            setChatSessions([fresh, ...remaining]);
-            setSessionId(fresh.id);
-            setMessages([]);
-            setInputValue('');
-            setSelectedMentions([]);
-            return;
-        }
-
-        setChatSessions(remaining);
-
-        if (targetId === sessionId) {
-            const nextSession = remainingForAgent[0];
-            setSessionId(nextSession.id);
-            setMessages(nextSession.messages || []);
-        }
-    };
 
     const applyMention = (item) => {
         const current = inputValue || '';

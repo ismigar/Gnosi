@@ -20,7 +20,7 @@ export function isLooseArray(value: unknown): value is LooseValue[] {
     return Array.isArray(value);
 }
 
-export function asLooseArray(value: LooseValue): LooseValue[] {
+export function asLooseArray(value: unknown): LooseValue[] {
     return isLooseArray(value) ? value : [];
 }
 

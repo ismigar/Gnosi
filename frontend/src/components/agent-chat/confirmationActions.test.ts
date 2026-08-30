@@ -11,7 +11,7 @@ const api = vi.hoisted(() => ({
   status: vi.fn<typeof fetchChatConfirmationStatus>(),
 }));
 vi.mock('../../shared/api/chat-confirmations', () => ({ confirmChatAction: api.confirm, cancelChatAction: api.cancel, fetchChatConfirmationStatus: api.status }));
-vi.mock('../../lib/notifyError', () => ({ logError: vi.fn() }));
+vi.mock('../../lib/notifyError', () => ({ logError: vi.fn(), notifyError: vi.fn() }));
 const i18n = createInstance();
 beforeAll(async () => { await i18n.init({ lng: 'en', fallbackLng: 'en', resources: {} }); });
 beforeEach(() => { vi.resetAllMocks(); });

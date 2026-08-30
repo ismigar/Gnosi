@@ -1,5 +1,5 @@
 import { cancelChatAction, confirmChatAction, fetchChatConfirmationStatus, type ConfirmationPayload } from '../../shared/api/chat-confirmations';
-import { logError } from '../../lib/notifyError';
+import { logChatError as logError } from './chatDiagnostics';
 import { confirmationRequest, localizedConfirmationError, partialConfirmationMessage, recoveredConfirmationMessage, withConfirmationStatus, type ConfirmationActionContext } from './confirmationState';
 
 export async function confirmPendingAction(context: ConfirmationActionContext): Promise<void> {

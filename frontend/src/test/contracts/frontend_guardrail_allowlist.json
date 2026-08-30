@@ -95,7 +95,7 @@
       "frontend/src/shared/api/plugins.test.ts": 8
     },
     "legacy_js_jsx": {
-      "frontend/src/components/AgentChat.jsx": 2229,
+      "frontend/src/components/AgentChat.jsx": 1925,
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,
       "frontend/src/components/Vault/BlockEditor.jsx": 6292,
       "frontend/src/components/Vault/DbViewEmbed.jsx": 2086,
@@ -107,7 +107,7 @@
       "frontend/src/pages/VaultDashboard.jsx": 4684
     },
     "oversized_files": {
-      "frontend/src/components/AgentChat.jsx": 2229,
+      "frontend/src/components/AgentChat.jsx": 1925,
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,
       "frontend/src/components/Vault/BlockEditor.jsx": 6292,
       "frontend/src/components/Vault/DbViewEmbed.jsx": 2086,

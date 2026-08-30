@@ -69,8 +69,8 @@ export const conversationRewindPlan = (
 };
 
 export const mergeCanonicalMessageMetadata = (
-    canonical: LooseValue,
-    cached: LooseValue,
+    canonical: unknown,
+    cached: unknown,
 ): LooseValue[] => {
     if (!isLooseArray(canonical)) return [];
     const localMessages = isLooseArray(cached)
@@ -187,8 +187,8 @@ export const mergeCanonicalMessageMetadata = (
 };
 
 export const mergeNotebookConversation = (
-    canonical: LooseValue,
-    cached: LooseValue,
+    canonical: unknown,
+    cached: unknown,
 ): LooseValue[] => {
     const canonicalMessages = asLooseArray(canonical);
     const cachedMessages = asLooseArray(cached);

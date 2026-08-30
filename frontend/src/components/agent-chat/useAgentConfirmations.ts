@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { mergeConfirmationRecords, startConfirmationRefresh } from '../agentConfirmationUtils';
 import { fetchChatConfirmations } from '../../shared/api/chat-confirmations';
-import { logError } from '../../lib/notifyError';
+import { logChatError as logError } from './chatDiagnostics';
 import { confirmPendingAction, cancelPendingAction } from './confirmationActions';
 import type { AgentConfirmation } from './confirmationModel';
 import type { ConfirmationActionContext } from './confirmationState';

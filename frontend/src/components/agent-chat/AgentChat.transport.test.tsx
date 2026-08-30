@@ -21,7 +21,7 @@ vi.mock('../../shared/api/configuration', () => ({ fetchConfiguration: () => Pro
 vi.mock('../../shared/api/vaults', () => ({ fetchVaultPages: () => Promise.resolve([]), fetchVaultTables: () => Promise.resolve([]), fetchVaultDatabases: () => Promise.resolve([]) }));
 vi.mock('../../lib/configEvents', () => ({ useConfigChanged: () => undefined }));
 vi.mock('../../lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
-vi.mock('../../lib/notifyError', () => ({ logError: vi.fn() }));
+vi.mock('../../lib/notifyError', () => ({ logError: vi.fn(), notifyError: vi.fn() }));
 
 let container: HTMLDivElement;
 let root: Root;
