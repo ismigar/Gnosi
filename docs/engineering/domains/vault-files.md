@@ -17,7 +17,7 @@ source_paths:
   - backend/services/relation_sync.py
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
-  - frontend/src/pages/VaultDashboard.jsx
+  - frontend/src/pages/VaultDashboard.tsx
   - frontend/src/components/Vault
 tests:
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -406,6 +406,21 @@ gallery, board, calendar, timeline, feed, or reader surfaces. `VaultShell`
 provides the frame; specialized components implement editors and views. The
 frontend caches interaction state but treats backend page content and ETags as
 authoritative.
+
+The public `VaultDashboard.tsx`, `VaultTable.tsx`, `SchemaConfigModal.tsx`,
+and `BlockEditor.tsx` entry points compose strict TypeScript modules.
+Navigation and record catalogs live under `pages/vault-dashboard`; table
+selection, virtualization and cell editing under `Vault/vault-table`; schema
+fields and options under `Vault/schema-config`. The editor separates page
+properties, rich documents, effects, controls and persistence under
+`Vault/block-editor`. These internal boundaries preserve the existing API
+routes and storage formats; the final `features/` reorganization is separate.
+
+Markdown-to-visual transitions publish pending drafts before mounting the rich
+editor, preventing stale parent content from replacing an unsaved edit.
+Metadata-only saves omit the body; default formulas preserve nested relation
+and plugin values. Regression tests cover these handoffs alongside schema
+option identifiers, table row identity and unknown metadata extensions.
 
 ## Verification focus
 

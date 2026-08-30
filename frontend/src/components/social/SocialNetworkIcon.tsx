@@ -1,14 +1,5 @@
 import type { ReactElement } from 'react';
-
-const BRAND_COLORS = {
-    mastodon: '#6364ff',
-    bluesky: '#1185fe',
-    linkedin: '#0a66c2',
-    facebook: '#0866ff',
-    telegram: '#27a7e7',
-};
-
-export type SocialNetwork = keyof typeof BRAND_COLORS;
+import { BRAND_COLORS, isKnownSocialNetwork, type SocialNetwork } from './socialNetworkModel';
 
 const iconPaths: Readonly<Record<SocialNetwork, ReactElement>> = {
     mastodon: (
@@ -27,10 +18,6 @@ const iconPaths: Readonly<Record<SocialNetwork, ReactElement>> = {
         <path d="M23.52 2.31 19.9 21.08c-.27 1.32-.98 1.65-1.98 1.03l-5.47-4.03-2.64 2.54c-.29.29-.54.54-1.1.54l.39-5.57L19.24 6.43c.44-.39-.1-.61-.68-.22L6.02 14.1.62 12.41c-1.18-.37-1.2-1.18.25-1.75L22 2.5c.98-.36 1.83.23 1.52-.19Z" />
     ),
 };
-
-export const isKnownSocialNetwork = (network: unknown): network is SocialNetwork => (
-    typeof network === 'string' && Object.hasOwn(iconPaths, network)
-);
 
 export interface SocialNetworkIconProps {
     readonly network: string;

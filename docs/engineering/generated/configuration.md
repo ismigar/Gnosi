@@ -6,7 +6,7 @@ Environment names and source-written defaults discovered through static inspecti
 
 Regenerate with `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **109 variables** across **172 source references**.
+Discovered **109 variables** across **173 source references**.
 
 | Variable | Runtime | Source default | Consumers |
 | --- | --- | --- | --- |
@@ -100,7 +100,7 @@ Discovered **109 variables** across **172 source references**.
 | `OPENAI_API_KEY` | Python | redacted | [`backend/agent/graph.py:27`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/graph.py#L27)<br>[`backend/agent/memory.py:68`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py#L68) |
 | `OPUS_IDLE_TIMEOUT_S` | Python | '300' | [`pipeline/skills/translate_row/scripts/translate_text.py:84`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L84) |
 | `PANDOC_PATH` | Python | '' | [`backend/domains/vault/citations/formatting.py:133`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/formatting.py#L133) |
-| `PATH` | Python | '' | [`backend/agent/generated_tools/sandbox_runner.py:94`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/sandbox_runner.py#L94) |
+| `PATH` | Node.js, Python | '', runtime-provided | [`backend/agent/generated_tools/sandbox_runner.py:94`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/sandbox_runner.py#L94)<br>[`desktop/release-workflow-collection.test.js:75`](https://github.com/ismigar/Gnosi/blob/main/desktop/release-workflow-collection.test.js#L75) |
 | `REPO_ROOT` | Python | required, unset | [`backend/scheduler/task_handlers.py:207`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/task_handlers.py#L207)<br>[`pipeline/brain/orchestrator.py:22`](https://github.com/ismigar/Gnosi/blob/main/pipeline/brain/orchestrator.py#L22)<br>[`pipeline/brain/orchestrator.py:22`](https://github.com/ismigar/Gnosi/blob/main/pipeline/brain/orchestrator.py#L22) |
 | `SOFTCATALA_API_URL` | Python | unset | [`pipeline/skills/translate_row/scripts/translate_text.py:336`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L336)<br>[`pipeline/skills/translate_row/scripts/translate_text.py:347`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L347) |
 | `TELEGRAM_BOT_TOKEN` | Python | redacted | [`backend/services/social_clients.py:544`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L544) |

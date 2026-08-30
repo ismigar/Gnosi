@@ -248,10 +248,16 @@ jobs:
         with:
           ref: ${{ github.sha }}
           submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '22.22.2'
+      - name: Prepare locked artifact collector dependencies
+        run: pnpm --filter @gnosi/desktop install --prod --frozen-lockfile --ignore-scripts
       - name: Setup Python 3.11
         uses: actions/setup-python@v7
         with:
@@ -263,18 +269,31 @@ jobs:
       - name: Define release tag
         id: release_tag
         shell: bash
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+          REF_TAG: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          if [ "$RELEASE_EVENT" = "workflow_dispatch" ]; then
+            release_tag="$REQUESTED_TAG"
           else
-            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            release_tag="$REF_TAG"
           fi
-      - name: Download all artifacts
+          if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo 'Invalid release tag' >&2
+            exit 1
+          fi
+          printf 'tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
+      - name: Download architecture-separated artifacts
         uses: actions/download-artifact@v8
         with:
-          path: artifacts
+          path: artifacts-incoming
           pattern: '*'
-          merge-multiple: true
+          merge-multiple: false
+      - name: Validate and collect release artifacts
+        env:
+          RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
+        run: node desktop/scripts/release-artifacts.cjs collect artifacts-incoming artifacts "$RELEASE_TAG"
       - name: Build signed public indexes
         env:
           GNOSI_PLUGIN_SIGNING_KEY: ${{ secrets.GNOSI_PLUGIN_SIGNING_KEY }}

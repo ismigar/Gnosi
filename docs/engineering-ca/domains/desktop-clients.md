@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-08-30
 source_paths:
+  - .github/workflows/build-release.yml
+  - desktop/scripts/release-artifacts.cjs
   - backend/config/validation_runtime.py
   - backend/security/keychain_manager.py
   - .github/workflows/ci.yml
@@ -25,6 +27,8 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-artifacts.test.js
+  - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
   - backend/tests/test_validation_runtime.py
   - backend/tests/test_env_config_runtime.py
@@ -207,5 +211,14 @@ comprovació contra el commit base exacte, amb permisos de només lectura.
 No repara catàlegs ni desplega documentació; la publicació continua separada a main.
 
 ## Concentrat de verificació
+
+Abans de publicar, el workflow instal·la les dependències de producció de desktop
+segons el lock, sense executar scripts d'instal·lació, baixa cada arquitectura
+a una carpeta separada i executa `release-artifacts.cjs collect`. Aquest pas
+comprova que el tag coincideix amb la versió del codi, verifica referències i
+hashos SHA-512, rebutja fitxers absents o duplicats i agrupa les dues arquitectures
+de Mac en un sol `latest-mac.yml`. Els índexs públics i la publicació només
+s'executen si la comprovació passa. Les proves locals amb dades fictícies no
+substitueixen la matriu real de construcció i actualització per plataforma.
 
 Executa les comprovacions de sintaxi electrònica/build, proves de fum de dorsal empaquetades, proves d' estat actualitzats, validació de l' extensió, proves de citació i plataforma CI. local de MacOS no poden provar defectes de Windows o Linux.

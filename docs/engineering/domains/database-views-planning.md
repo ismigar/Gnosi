@@ -24,11 +24,11 @@ source_paths:
   - backend/services/project_planning.py
   - backend/services/planning_scheduler.py
   - pipeline/scripts/migrate_table_system_dates.py
-  - frontend/src/components/Vault/VaultTable.jsx
-  - frontend/src/components/Vault/BlockEditor.jsx
+  - frontend/src/components/Vault/VaultTable.tsx
+  - frontend/src/components/Vault/BlockEditor.tsx
   - frontend/src/components/Vault/VaultDateProperty.ts
   - frontend/src/components/Vault/VaultTimeline.tsx
-  - frontend/src/pages/VaultDashboard.jsx
+  - frontend/src/pages/VaultDashboard.tsx
   - frontend/src/features/planning
   - frontend/src/utils/projectPlanning.ts
   - frontend/src/utils/vaultFilters.ts
@@ -110,6 +110,14 @@ section keeps its own persisted state and all labels go through the frontend
 localization catalog.
 
 ## View pipeline
+
+`VaultTable.tsx` delegates to the typed `vault-table` controller and layout.
+The shared `VaultViewBody` table adapter preserves valid row-array identity,
+unknown metadata extensions and selection callbacks. Cell editing, keyboard
+navigation, virtualized rows and schema-option updates remain separate modules
+with regression tests. `SchemaConfigModal.tsx` delegates schema editing and
+autosave to `schema-config`, retaining field IDs, option colors and defaults.
+These internal changes do not alter saved views or portable page metadata.
 
 ```mermaid
 flowchart LR

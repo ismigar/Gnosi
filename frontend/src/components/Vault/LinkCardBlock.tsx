@@ -24,29 +24,49 @@ export interface LinkCardBlockProps {
 export default function LinkCardBlock({ block }: LinkCardBlockProps) {
     const { t } = useTranslation();
     const url = (block?.props?.url || '').trim();
-    const [data, setData] = useState<LinkPreview | null>(() => previewCache.get(url) || null);
-    const [loading, setLoading] = useState(!previewCache.has(url));
-    const [error, setError] = useState('');
+    const [previewState, setPreviewState] = useState(() => ({
+        url,
+        translate: t,
+        data: previewCache.get(url) || null,
+        loading: Boolean(url) && !previewCache.has(url),
+        error: '',
+    }));
+    // Reconcile changed inputs before committing, without remounting the card.
+    // Retain the previous preview/error while loading, as the legacy card did.
+    if (previewState.url !== url || previewState.translate !== t) {
+        setPreviewState({
+            ...previewState,
+            url,
+            translate: t,
+            data: previewCache.get(url) || previewState.data,
+            loading: Boolean(url) && !previewCache.has(url),
+        });
+    }
+    const { data, loading, error } = previewState;
 
     useEffect(() => {
-        if (!url) { setLoading(false); return undefined; }
-        if (previewCache.has(url)) { setData(previewCache.get(url) || null); setLoading(false); return undefined; }
+        if (!url || previewCache.has(url)) return undefined;
         let cancelled = false;
         const controller = new AbortController();
-        setLoading(true);
         void fetchLinkPreview(url, controller.signal)
             .then((preview) => {
                 if (cancelled) return;
                 previewCache.set(url, preview);
-                setData(preview);
+                setPreviewState(current => current.url === url && current.translate === t
+                    ? { ...current, data: preview } : current);
             })
             .catch(() => {
                 if (!cancelled && !controller.signal.aborted) {
-                    setError(t('link_card.preview_error', "Couldn't load the preview."));
+                    setPreviewState(current => current.url === url && current.translate === t
+                        ? { ...current, error: t('link_card.preview_error', "Couldn't load the preview.") }
+                        : current);
                 }
             })
             .finally(() => {
-                if (!cancelled) setLoading(false);
+                if (!cancelled) {
+                    setPreviewState(current => current.url === url && current.translate === t
+                        ? { ...current, loading: false } : current);
+                }
             });
         return () => {
             cancelled = true;

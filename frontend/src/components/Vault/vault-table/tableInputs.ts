@@ -1,0 +1,35 @@
+import type { VaultTableProps } from './types';
+export function tableInputs({
+  notes = [],
+  onNoteSelect,
+  schema = {},
+  idToTitle = {},
+  allNotes = [],
+  activeView,
+  onUpdateView,
+  isEmbedded = false,
+  isListView = false,
+  onCreateRecord,
+  onDeletePage,
+  onDeleteSelected,
+  onApplyTemplate,
+  onCreateNotebook,
+  templates = [],
+  onCellSaved,
+  onUpdateFieldOptions,
+  onOpenParallel,
+  onTranslated,
+  searchTerm: searchTermProp,
+  actionRules = null,
+  functionalities = null,
+  maxHeight = null,
+  registerNavApi = null,
+  onExitTop = null,
+  onExitBottom = null,
+  onEscape = null,
+  restoreRecordFocus = null,
+  onRecordFocusRestored = null,
+}: VaultTableProps) {
+  return { notes, onNoteSelect, schema, idToTitle, allNotes, activeView, onUpdateView, isEmbedded, isListView, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, onCreateNotebook, templates, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTermProp, actionRules, functionalities, maxHeight, registerNavApi, onExitTop, onExitBottom, onEscape, restoreRecordFocus, onRecordFocusRestored };
+}
+export type TableInputs = ReturnType<typeof tableInputs>;

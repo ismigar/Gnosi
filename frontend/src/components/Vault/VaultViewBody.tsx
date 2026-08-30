@@ -15,10 +15,10 @@ import type {
     VaultViewPage,
 } from '../../hooks/useVaultViewData';
 import type { FilterNode } from '../../utils/vaultFilters';
+import { tableNotes, tableRecordFocus, tableTemplates, tableView } from './vault-view-body/table-contract';
 
 type RendererProps = Record<string, unknown>;
 
-const TableRenderer = VaultTable as unknown as ComponentType<RendererProps>;
 const KanbanRenderer = VaultKanban as unknown as ComponentType<RendererProps>;
 const GalleryRenderer = VaultGallery as unknown as ComponentType<RendererProps>;
 const TimelineRenderer = VaultTimeline as unknown as ComponentType<RendererProps>;
@@ -75,6 +75,7 @@ export interface VaultViewBodyProps {
 }
 
 const readViewFilters = resolveViewFilters as (view: VaultBodyView) => FilterNode[];
+const ignoreNoteSelect = (): void => {};
 
 /**
  * VaultViewBody — shared render of the BODY of a DB view according to its
@@ -168,6 +169,13 @@ export function VaultViewBody({
     const calendarNotes = useMemo(() => viewFilteredNotes.map((note) => ({
         ...note, title: note.title == null ? note.title : String(note.title),
     })), [viewFilteredNotes]);
+    // Keep each normalization keyed to its own input: focus/view changes must
+    // not recreate page arrays that needed normalization (e.g. scalar titles).
+    const tablePages = useMemo(() => tableNotes(notes), [notes]);
+    const tableAllPages = useMemo(() => tableNotes(allNotes), [allNotes]);
+    const tableActiveView = useMemo(() => tableView(activeView), [activeView]);
+    const tableTemplateOptions = useMemo(() => tableTemplates(templates), [templates]);
+    const tableFocusRequest = useMemo(() => tableRecordFocus(restoreRecordFocus), [restoreRecordFocus]);
 
     let body: ReactNode;
     if (t === 'board') {
@@ -242,9 +250,22 @@ export function VaultViewBody({
     } else {
         // table / list
         body = (
-            <TableRenderer
-                {...common}
-                templates={templates}
+            <VaultTable
+                notes={tablePages}
+                allNotes={tableAllPages}
+                activeView={tableActiveView}
+                templates={tableTemplateOptions}
+                restoreRecordFocus={tableFocusRequest}
+                schema={schema}
+                idToTitle={idToTitle}
+                searchTerm={searchTerm}
+                onNoteSelect={onNoteSelect ?? ignoreNoteSelect}
+                onCreateRecord={onCreateRecord}
+                onDeletePage={onDeletePage}
+                onDeleteSelected={onDeleteSelected}
+                onApplyTemplate={onApplyTemplate}
+                onCreateNotebook={onCreateNotebook ? ids => { onCreateNotebook(Array.from(ids)); } : undefined}
+                onUpdateView={onUpdateView}
                 isEmbedded={isEmbedded}
                 maxHeight={maxHeight}
                 isListView={t === 'list'}
@@ -254,7 +275,6 @@ export function VaultViewBody({
                 onUpdateFieldOptions={onUpdateFieldOptions}
                 actionRules={actionRules}
                 functionalities={functionalities}
-                restoreRecordFocus={restoreRecordFocus}
                 onRecordFocusRestored={onRecordFocusRestored}
                 registerNavApi={registerNavApi}
                 onExitTop={onExitTop}

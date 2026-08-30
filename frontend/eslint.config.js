@@ -11,6 +11,7 @@ export default defineConfig([
   globalIgnores([
     'dist',
     '.vite',
+    '.tmp/**',
     'vendor',
     'public/zotero-reader',
     'src/generated',

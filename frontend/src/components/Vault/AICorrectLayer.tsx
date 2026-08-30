@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { BlockNoteEditor } from '@blocknote/core';
+import type { AICorrectionEditorPort } from './spell-check-layer/correctionEditorPort';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { Sparkles, Loader2 } from 'lucide-react';
@@ -16,8 +16,8 @@ interface ButtonPosition {
 }
 
 
-interface AICorrectLayerProps {
-    readonly editor: BlockNoteEditor | null;
+interface AICorrectLayerProps<DocumentBlock, ParsedBlock> {
+    readonly editor: AICorrectionEditorPort<DocumentBlock, ParsedBlock> | null;
     readonly lang?: string | null;
 }
 
@@ -27,7 +27,7 @@ interface AICorrectLayerProps {
  * current paragraph) and correction of the whole page via the
  * `gnosi:ai-correct-page` event. Reuses `POST /api/ai/correct`.
  */
-export default function AICorrectLayer({ editor, lang }: AICorrectLayerProps) {
+export default function AICorrectLayer<DocumentBlock, ParsedBlock>({ editor, lang }: AICorrectLayerProps<DocumentBlock, ParsedBlock>) {
     const { t } = useTranslation();
     const [btn, setBtn] = useState<ButtonPosition | null>(null);
     const [busy, setBusy] = useState(false);

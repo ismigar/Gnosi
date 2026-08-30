@@ -1,22 +1,16 @@
-type DefaultFormulaValue =
-  | string
-  | number
-  | bigint
-  | boolean
-  | null
-  | undefined;
-
-type DefaultFormulaMetadata = Record<string, DefaultFormulaValue>;
+// Defaults add values to an existing document; relation arrays and opaque
+// plugin metadata must survive unchanged even when this evaluator ignores them.
+type DefaultFormulaMetadata = Record<string, unknown>;
 
 interface DefaultFormulaContext {
-  currentTableId?: string;
+  currentTableId?: string | null;
   metadata?: DefaultFormulaMetadata;
   notes?: readonly unknown[];
   title?: string;
 }
 
 interface ApplyDefaultFormulaInput {
-  currentTableId?: string;
+  currentTableId?: string | null;
   metadata?: DefaultFormulaMetadata;
   notes?: readonly unknown[];
   schema?: Record<string, unknown>;
@@ -32,6 +26,12 @@ const localTodayString = (): string => {
 
 function isUnknownRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+// Property formulas historically use JavaScript text conversion (including
+// arrays and plugin objects); defaults must not rewrite those source values.
+function propertyFormulaText(value: unknown): string {
+  return String(value);
 }
 
 function evaluateDefaultFormula(
@@ -56,7 +56,7 @@ function evaluateDefaultFormula(
       context.metadata &&
       context.metadata[fieldName] !== undefined
     ) {
-      return String(context.metadata[fieldName]);
+      return propertyFormulaText(context.metadata[fieldName]);
     }
     if (
       fieldName.toLowerCase() === 'title' ||

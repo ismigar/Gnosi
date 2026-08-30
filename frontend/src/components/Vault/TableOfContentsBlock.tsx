@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo, useSyncExternalStore, useCallback } from 'react';
 import { List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -77,24 +77,44 @@ export interface TableOfContentsBlockProps {
     readonly editor?: TocEditor | null;
 }
 
+function createHeadingsStore(editor?: TocEditor | null) {
+    let snapshot = extractHeadings(editor);
+    return {
+        getSnapshot: () => snapshot,
+        subscribe: (notify: () => void) => {
+            let active = true;
+            const refresh = () => {
+                if (!active) return;
+                const next = extractHeadings(editor);
+                // Unrelated edits must not manufacture a new store snapshot.
+                if (next.length === snapshot.length && next.every((heading, index) => {
+                    const previous = snapshot[index];
+                    return previous?.id === heading.id && previous.level === heading.level
+                        && previous.text === heading.text;
+                })) return;
+                snapshot = next;
+                notify();
+            };
+            let unsubscribe: (() => void) | undefined;
+            try {
+                const result = editor?.onChange?.(refresh);
+                unsubscribe = typeof result === 'function' ? result : undefined;
+            } catch { /* editor not ready yet */ }
+            // Recheck after subscribing so changes between render and commit
+            // are not lost, including editors that initialize on subscription.
+            refresh();
+            return () => {
+                active = false;
+                try { unsubscribe?.(); } catch { /* noop */ }
+            };
+        },
+    };
+}
+
 export default function TableOfContentsBlock({ editor }: TableOfContentsBlockProps) {
     const { t } = useTranslation();
-    const [headings, setHeadings] = useState(() => extractHeadings(editor));
-
-    useEffect(() => {
-        if (!editor?.onChange) return undefined;
-        // onChange returns an unsubscribe function in BlockNote >= 0.25.
-        let unsubscribe: (() => void) | undefined;
-        try {
-            const result = editor.onChange(() => {
-                setHeadings(extractHeadings(editor));
-            });
-            unsubscribe = typeof result === 'function' ? result : undefined;
-        } catch { /* noop */ }
-        // Also recalculates on mount in case the document already had headings.
-        setHeadings(extractHeadings(editor));
-        return () => { try { unsubscribe?.(); } catch { /* noop */ } };
-    }, [editor]);
+    const store = useMemo(() => createHeadingsStore(editor), [editor]);
+    const headings = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 
     const scrollTo = useCallback((id: string): void => {
         try {

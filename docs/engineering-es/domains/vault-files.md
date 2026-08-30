@@ -5,14 +5,19 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
+  - backend/domains/vault/media/routes.py
   - backend/domains/media
+  - backend/platform/files
   - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
-  - backend/services/files_provider
+  - backend/services/frontmatter_fallback.py
+  - backend/services/field_resolver.py
+  - backend/services/translation_helpers.py
+  - backend/services/relation_sync.py
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
-  - frontend/src/pages/VaultDashboard.jsx
+  - frontend/src/pages/VaultDashboard.tsx
   - frontend/src/components/Vault
 tests:
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -21,10 +26,15 @@ tests:
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
+  - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
+  - backend/tests/test_vault_assets_files_containment.py
+  - backend/tests/test_vault_assets_files_route_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_relation_sync.py
+  - backend/tests/test_translation_helpers.py
   - backend/tests/test_vault_templates.py
   - backend/tests/test_vault_templates_routes.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
@@ -33,13 +43,26 @@ tests:
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
-# Bóveda y archivos
+# Vault y archivos
 
 ## Responsabilidad
 
-El dominio Vault mapea Markdown portátil y activos a páginas, carpetas, archivos adjuntos, búsquedas, esquemas, historias, basura, exportaciones, citas y selección de múltiples saltos. Es el dominio más grande y el propietario principal de la soberanía de datos.
+El dominio Vault relaciona el Markdown portátil y los recursos con páginas,
+carpetas, adjuntos, búsquedas, esquemas, historiales, papelera, exportaciones,
+citas y selección entre varios Vaults. Es el dominio más grande y el principal
+responsable de la soberanía de los datos.
 
-## Ciclo de vida de la página
+El reconocimiento local de escritura manuscrita es un adaptador opcional de
+ingestión en la capa del Vault. Los objetos de modelo y procesador permanecen
+aislados como valores de terceros en tiempo de ejecución; el servicio expone un
+resultado tipado que contiene el texto, el reconocimiento sin procesar, los
+valores por línea, la identidad del modelo y el estado de corrección, sin cambiar
+el contrato público de subida. Los diccionarios de estado, preparación y
+reconocimiento se validan mediante modelos de respuesta Pydantic específicos,
+conservando después su estructura histórica de diccionario para las llamadas
+directas y la interfaz OpenAPI estable byte a byte.
+
+## Ciclo de vida de las páginas
 
 ```mermaid
 sequenceDiagram
@@ -59,168 +82,438 @@ sequenceDiagram
     R->>I: Refresh page and relationship entries
 ```
 
-La identidad de página está separada del título y la ruta. La materia frontal se normaliza en los límites de escritura mientras se conservan las claves de usuario. `.gnosi` sidecars cuando se expone en la materia delantera contaminaría o desestabilizaría el contenido portátil.
+La identidad de una página es independiente de su título y su ruta. El frontmatter
+se normaliza en los puntos de escritura, conservando las claves creadas por el
+usuario. El estado exclusivamente interno debe almacenarse en archivos auxiliares
+de `.gnosi` cuando exponerlo en el frontmatter contaminaría o desestabilizaría el
+contenido portátil.
 
-`pages/markdown_writer.py` es el límite canónico de serialización: recupera o
-crea el identificador estable, transforma las claves del esquema, elimina los
-campos virtuales, guarda el estado interno en el sidecar, decora relaciones
-portátiles y materializa las vistas antes de la escritura atómica.
+Las lecturas y escrituras de archivos auxiliares utilizan un único contrato
+explícito de correspondencia de metadatos, incluidos los resultados de separación,
+fusión y persistencia portátil. El mecanismo compartido y tolerante de recuperación
+del frontmatter devuelve los valores escalares de primer nivel como objetos
+tipados cuando es necesario recuperar YAML; el contenido anidado mal formado se
+sigue ignorando deliberadamente. Estos contratos no fuerzan la conversión de los
+valores del usuario ni cambian las protecciones existentes para archivos en la nube.
 
-`pages/save_helpers.py` se encarga de preparar los metadatos de los guardados
-completos, seleccionar el destino, reutilizar archivos por ID y crear la versión
-antes de escribir. `pages/patch_helpers.py` se encarga de las lecturas con ETag,
-la preparación de metadatos PATCH, la reubicación de archivos y la actualización
-coordinada de las cachés de páginas, cuerpos, citas y documentos analizados. Los
-ocho nombres privados históricos siguen siendo fachadas finas de compatibilidad,
-y cada colaborador reemplazable o caché mutable se resuelve mediante un puerto
-tipado late-bound.
+`pages/markdown_writer.py` es la capa canónica de serialización: recupera o crea
+un ID estable cuando falta, asigna las claves del esquema a los nombres de
+almacenamiento, elimina los campos virtuales, escribe el estado interno en el
+archivo auxiliar, decora las relaciones portátiles y materializa las instantáneas
+de vistas antes de escribir el archivo de forma atómica.
+`services/field_resolver.py` es responsable de ese contrato de correspondencia de
+claves del esquema. Acepta ID de campo inmutables, nombres actuales y alias
+históricos, resuelve los conflictos de forma determinista y emite únicamente los
+nombres actuales legibles para las personas en las capas de almacenamiento y
+respuesta, conservando los metadatos locales ajenos a esa correspondencia.
 
-## Límite del motor
+`pages/save_helpers.py` se encarga de preparar los metadatos de guardado completo,
+seleccionar el destino, reutilizar los ID existentes y crear una versión antes
+de escribir. `pages/patch_helpers.py` se encarga de las lecturas que tienen en
+cuenta el ETag, la preparación de metadatos PATCH, la reubicación de archivos y
+las actualizaciones coordinadas de las cachés de páginas, cuerpos, citas y
+documentos analizados. Los ocho nombres históricos de funciones auxiliares
+privadas siguen siendo fachadas ligeras de compatibilidad, y cada colaborador
+sustituible o caché mutable se resuelve mediante un puerto tipado en el momento de uso.
 
-Página lee y escribe, previsualiza, duplica, historia y basura se implementan bajo `backend/domains/vault`. Este paquete separa esquemas de petición estrictos, adaptadores de ruta, servicios de aplicación, repositorios y el propietario único de cachés de página y bloqueos. El comportamiento de la nueva bóveda pertenece a ese límite de dominio.
+## Límites del backend
 
-`backend/domains/media` posee la resolución de las raíces multimedia, el
-escaneo recursivo consciente del proveedor y su caché derivada persistente, los
-sidecars sincronizados de metadatos y vistas, los filtros, la paginación, el
-árbol perezoso de carpetas, las subidas contenidas, EXIF y la serialización
-estable de archivos. `backend/services/media_service.py` sigue siendo la
-fachada Python compatible: conserva la clase, el singleton, las firmas, los
-descriptores, el estado y los errores históricos, y resuelve tarde el estado
-mutable y los colaboradores reemplazables. Los módulos de dominio no importan
-el router HTTP ni la fachada de compatibilidad.
+Las lecturas y escrituras de páginas, las vistas previas, la duplicación, el
+historial y la papelera se implementan en `backend/domains/vault/pages`, mientras
+que las subidas de recursos, los iconos y el servicio de imágenes están en
+`backend/domains/vault/assets`. El servicio de archivos dentro de las rutas
+permitidas, las rutas Library/raw/thumbnail, los tokens de archivos locales, las
+subidas de propiedades, los enlaces portátiles y la eliminación física están en
+`backend/domains/vault/files`. Estos paquetes separan los esquemas de solicitud
+estrictos, los adaptadores de rutas, los servicios de aplicación, los repositorios
+y los responsables únicos de los bloqueos mutables, las cachés y los almacenes
+de tokens. El comportamiento nuevo del Vault debe incorporarse a la capa del
+dominio que corresponda.
 
-El almacenamiento de tablas tiene propietarios explícitos: `assets/table_paths.py`
-controla rutas y revisiones; `assets/persistence.py`, la ingestión y eliminación
-contenidas; `assets/quarantine.py`, la eliminación recuperable; y
-`tables/folders.py`, las carpetas físicas. Todos reciben puertos estrechos de la fachada.
+La capa transitoria `pages/runtime.py` conserva el estado dinámico del módulo
+histórico de rutas, pero exige un Vault activo antes de construir rutas del
+sistema de archivos o motores de reglas. Sus modelos de solicitud ahora se
+vinculan directamente a Pydantic, evitando clases base dependientes del tiempo
+de ejecución sin cambiar la identidad pública de su módulo ni el contrato HTTP generado.
 
-`tables/routes.py` es ahora el propietario de las 23 operaciones históricas de
-bases, tablas, catálogos de opciones, vistas guardadas y esquemas de carpeta,
-en el mismo orden. Los handlers estrictos delegan en los servicios existentes
-de filas, ciclo de vida, propiedades, opciones y vistas;
-`tables/composition.py` agrupa de forma inmutable las dependencias de las rutas
-y del enriquecimiento de filas. `tables/security.py` expone únicamente las dos
-fábricas tipadas de autorización del workspace. La fachada histórica registra
-las rutas del dominio en una lista plana y reexporta los callables Python
-compatibles.
+`backend/domains/media` se encarga de resolver las raíces multimedia, del recorrido
+recursivo adaptado al proveedor y su caché derivada persistente, de los archivos
+auxiliares sincronizados de metadatos y vistas guardadas, los filtros, la
+paginación, el árbol de carpetas de carga diferida, las subidas dentro de las
+rutas permitidas, la extracción EXIF y la serialización estable de archivos.
+`backend/services/media_service.py` sigue siendo la fachada Python compatible:
+conserva la clase histórica, el singleton, la forma de invocación, los
+descriptores, el estado y los errores, resolviendo el estado mutable y los
+colaboradores sustituibles en el momento de uso. Su constructor interno ahora
+tiene una anotación explícita de retorno `None`, lo que elimina la última
+excepción de tipado del backend escrito manualmente sin cambiar el comportamiento
+de construcción. La fachada valida que exista un Vault activo antes de acceder
+al sistema de archivos y utiliza los contratos multimedia tipados para raíces,
+recorridos, consultas, subidas, datos EXIF e información serializada de archivos.
+Los módulos de dominio nunca importan el router HTTP ni la fachada de compatibilidad.
 
-`backend/api/vault_routes.py` es ahora un bootstrap de compatibilidad de 283
-líneas, no un propietario de implementación. Los módulos tipados de
-`backend/domains/vault` son propietarios del comportamiento restante de API,
-anotaciones, citas, dibujos, Drupal, archivos, conocimiento, enlaces,
-multimedia, páginas, registro, tablas y traducción. El bootstrap carga y
-registra estos propietarios en el orden histórico del código fuente, mientras
-`facade_bridge.py` preserva los imports compatibles, los globales mutables y
-los seams de `monkeypatch` resueltos en último momento. El router padre sigue
-exponiendo el mismo inventario plano de `APIRoute` y un OpenAPI determinista
-idéntico byte a byte. Por ello, la fachada ya no necesita ninguna excepción en
-el guardrail de código fuente.
+El módulo HTTP multimedia transitorio acota una sola vez el router heredado
+importado dinámicamente a un `APIRouter` concreto. Los decoradores de rutas y
+los registros delegados de recursos, archivos, iconos y propiedades utilizan
+esa misma instancia tipada, manteniendo estables el orden de registro y el
+contrato OpenAPI sin repartir excepciones de tipado entre los distintos manejadores.
 
-El ciclo de vida de las traducciones pertenece a
+La capa de dibujos aplica la misma acotación a un único router para las
+operaciones CRUD de dibujos y el registro delegado del historial. Las copias de
+seguridad de dibujos, la eliminación lógica, los plazos de recuperación, los
+permisos y el orden de las rutas siguen siendo responsabilidad de sus servicios
+de dominio existentes, mientras que la interfaz de composición HTTP tiene un
+contrato estricto.
+
+La composición de la vista previa y el guardado de páginas también comparte un
+único router de tipo acotado para la resolución de títulos y el registro delegado
+de vistas previas y escrituras. La identidad de las cachés, la correspondencia
+de alias, las comprobaciones del Vault activo y los esquemas de rutas generados
+permanecen sin cambios.
+
+Las rutas de traducción y sincronización con Drupal también acotan en la capa
+del módulo el tipo de su router resuelto en el momento de uso. Las operaciones
+de traducción de una fila, masivas, por correspondencia, de botones generados y
+de páginas conservan las comprobaciones de roles, el trabajo en segundo plano
+y la correspondencia de errores externos, y siguen siendo visibles para el
+tipado estricto.
+
+El almacenamiento asociado a tablas tiene responsables explícitos.
+`assets/table_paths.py` se encarga de las rutas de recursos confinadas, los
+directorios por propiedad, las revisiones y las funciones auxiliares de cambio
+de nombre que evitan colisiones; `assets/persistence.py`, de la ingestión
+recursiva de metadatos y la eliminación de recursos de registros dentro de las
+rutas permitidas; `assets/quarantine.py`, de la eliminación de tablas resistente
+a fallos y la recuperación al iniciar. `tables/folders.py` se encarga de crear
+y migrar el directorio físico `BD/<database>/<table>` de la tabla. Estos módulos
+reciben puertos acotados del sistema de archivos y del registro de configuración
+desde la fachada de compatibilidad y nunca importan el router HTTP.
+
+`tables/routes.py` ahora es responsable de las 23 operaciones históricas de
+bases de datos, tablas, catálogos de opciones, vistas guardadas y esquemas de
+carpetas, en su orden original. Sus manejadores estrictos delegan en los servicios
+existentes de filas, ciclo de vida, propiedades, opciones y vistas;
+`tables/composition.py` es el conjunto inmutable de dependencias para esas rutas
+y para las consultas de filas y el enriquecimiento de metadatos.
+`tables/security.py` expone únicamente las dos fábricas tipadas de autorización
+del espacio de trabajo, evitando una dependencia estática del dominio de tablas
+respecto a la amplia composición heredada de autenticación. El router heredado
+registra las rutas del dominio en una estructura plana por compatibilidad con
+los consumidores del inventario de rutas y reexporta los objetos invocables de
+Python admitidos.
+
+`backend/api/vault_routes.py` es ahora un módulo de inicialización de
+compatibilidad de 283 líneas, en lugar de ser responsable de la implementación.
+Los módulos tipados de `backend/domains/vault` se encargan del comportamiento
+restante de API, anotaciones, citas, dibujos, Drupal, archivos, conocimiento,
+enlaces, multimedia, páginas, registro de configuración, tablas y traducción.
+El módulo de inicialización carga y registra esos responsables en el orden
+histórico del código fuente, mientras que `facade_bridge.py` conserva las
+importaciones admitidas, las variables globales mutables y los puntos de
+sustitución dinámica mediante monkeypatch resueltos en el momento de uso. El
+router padre sigue exponiendo el mismo inventario plano de `APIRoute` y un
+OpenAPI determinista idéntico byte a byte. Por tanto, la fachada no necesita
+ninguna excepción en los controles del código fuente.
+
+El comportamiento del ciclo de vida de las traducciones es responsabilidad de
 `backend/domains/vault/translation`: la carga opcional de proveedores, la
-recuperación de archivos en la nube, la traducción de filas y páginas, los
-efectos mínimos de metadatos y la propagación de obsolescencia son servicios
-tipados separados. La publicación de filas en Drupal pertenece a
-`backend/domains/vault/drupal`, que separa el mapeo de campos e identidad, la
-preparación de medios locales, la conversión de Markdown y wikilinks, las
-cachés de idiomas, la coincidencia por título y la sincronización idempotente
-de nodos. La fachada conserva los decoradores y docstrings FastAPI originales
-y los seams Python resueltos en último momento, mientras que el conector
-Drupal sigue siendo el límite de transporte externo. No cambian rutas,
-payloads, códigos de estado, tareas en segundo plano ni el orden de rutas.
+recuperación de archivos en la nube, la traducción de filas y páginas completas,
+los efectos mínimos sobre los metadatos y la propagación de obsolescencia a los
+hijos son servicios tipados separados. La capa compartida de funciones auxiliares
+puras normaliza las identidades de origen a su forma canónica, detecta cambios
+traducibles y campos de idioma, reutiliza etiquetas de opciones existentes y
+traduce únicamente los subcampos textuales de las imágenes, conservando el
+recurso de origen.
+La publicación de filas en Drupal es responsabilidad de
+`backend/domains/vault/drupal`, que separa la correspondencia de campos e
+identidades, la preparación de recursos multimedia locales, la conversión de
+Markdown y wikilinks, las cachés de idiomas, la correspondencia de títulos y la
+sincronización idempotente de nodos. El router de compatibilidad conserva los
+decoradores FastAPI originales, los docstrings de las rutas y los puntos de
+sustitución Python resueltos en el momento de uso, mientras que el conector de
+Drupal sigue siendo la capa de transporte externo. Estos cambios de ubicación
+no alteran rutas, datos intercambiados, códigos de estado, tareas en segundo
+plano ni el orden de las rutas.
 
 ## Índices y cachés
 
-El índice de páginas acelera el listado, la resolución de identificadores, el acceso a la materia frontal y la búsqueda. El índice de enlaces wiki resuelve los enlaces entrantes para que los renombrados de página puedan actualizar las referencias. Los cachés de cuerpo y documentos analizados evitan las lecturas repetidas.
+El índice de páginas acelera los listados, la resolución de identificadores,
+el acceso al frontmatter y las búsquedas. El índice de wikilinks resuelve los
+enlaces entrantes para poder actualizar las referencias al renombrar páginas.
+Las cachés de cuerpos y documentos analizados evitan lecturas repetidas. Todas
+las cachés son derivadas y deben admitir una reconstrucción desde cero.
 
-`links/document_inventory.py` gestiona el inventario TTL por vault de los enlaces
-globales. Excluye historial y papelera, aísla archivos ilegibles, incluye los
-dashboards JSON y recorre el disco si el índice del proveedor aún no está disponible.
-`links/document_cache.py` gestiona las cachés persistentes del cuerpo Markdown y
-del frontmatter analizado, invalidadas por mtime. La fachada solo inyecta las
-rutas activas, el parser y el escritor JSON seguro; el comportamiento no depende
-del proveedor de archivos.
-`links/relation_sync.py` gestiona las actualizaciones idempotentes de archivos y
-cachés cuando una relación directa cambia la inversa. Las reglas puras de esquema
-siguen separadas y la fachada inyecta la entrada y salida de páginas.
+`links/document_inventory.py` se encarga del inventario con TTL por Vault que
+utilizan los enlaces globales. Excluye el historial y la papelera, aísla los
+archivos que no se pueden leer, incluye los paneles JSON y recurre a un recorrido
+del disco mientras el índice del proveedor no está disponible.
+`links/document_cache.py` se encarga de las cachés persistentes del cuerpo de
+Markdown y del frontmatter analizado, cuya clave se basa en mtime. El router solo
+proporciona las rutas de caché activas, el analizador y el escritor JSON seguro,
+por lo que el comportamiento de las cachés es independiente del proveedor de archivos.
+`links/relation_sync.py` se encarga de las actualizaciones idempotentes del
+sistema de archivos y las cachés cuando cambian las relaciones directas y sus
+inversas. La correspondencia pura de esquemas permanece en un puerto de reglas
+tipado separado: resuelve los campos de relación mediante nombres actuales y
+alias normalizados, exige un único campo inverso sin ambigüedades y emite
+únicamente operaciones de adición y eliminación sobre ID canónicos de relaciones.
+El router de compatibilidad proporciona la entrada y salida de páginas resuelta
+en el momento de uso.
 
-Iniciar primero carga instantáneas de disco válidas, luego comienza el trabajo de actualización. Un análisis parcial de proveedor de archivos está marcado parcial y no puede reemplazar una caché completa conocida. Los fallos por archivo están aislados de modo que un marcador de posición solo en línea o huérfano no elimina el resto del almacén de una respuesta.
+El inicio carga primero las instantáneas válidas del disco y después pone en
+marcha la actualización. Un recorrido parcial del proveedor de archivos se
+marca como parcial y no puede reemplazar una caché que se sabe completa. Los
+fallos de cada archivo se aíslan para que un marcador de posición disponible
+solo en línea o huérfano no elimine el resto del Vault de una respuesta.
 
-`pages/index_entries.py` es responsable de las lecturas acotadas del
-frontmatter, los reintentos ante bloqueos del proveedor y la normalización de
-entradas de caché. `pages/index_service.py` gestiona el descubrimiento, la
-actualización, el mapa inverso de identificadores y los snapshots deduplicados.
-`pages/resolver.py` resuelve identificadores estables, UUID canónicos, títulos
-indexados y análisis en frío acotados. `pages/tags.py` agrega las etiquetas del
-frontmatter y de las columnas semánticas de tablas, deduplicadas por página. La
-fachada inyecta los puertos de bóveda
-activa, registro, calendario y caché; estos servicios no importan las rutas
-HTTP.
+`pages/index_entries.py` se encarga de las lecturas acotadas del frontmatter,
+los reintentos ante bloqueos de la nube y la normalización de las entradas de
+caché. `pages/index_service.py` se encarga del descubrimiento, la actualización,
+los mapas inversos de ID y las instantáneas deduplicadas. `pages/resolver.py` se
+encarga de la resolución por ID estable, UUID canónico, título indexado y
+recorridos acotados sin caché.
+`pages/tags.py` se encarga de agregar las etiquetas del frontmatter y las
+etiquetas semánticas de tablas de forma independiente del proveedor, incluida
+la deduplicación por página. El router de compatibilidad inyecta los puertos del
+Vault activo, el registro de configuración, el calendario y las cachés, de modo
+que ninguno de estos servicios importa la fachada HTTP.
+
+El entorno de ejecución del registro de configuración acota una sola vez el
+tipo de su router resuelto en el momento de uso, utiliza el decorador estándar
+tipado de gestores de contexto para los ciclos de modificación y trata la
+falta de un Vault activo como ausencia de una raíz de adjuntos en la nube.
+El orden de las rutas de registro y tablas, los bloqueos, las cachés y los
+candidatos a adjuntos específicos de cada proveedor permanecen sin cambios.
+
+La API principal del Vault reutiliza un único router tipado para los campos
+virtuales, el estado del índice, las notas diarias y la agregación de etiquetas.
+Las etiquetas de usuario para visualización cruzan la capa heredada de
+descriptores del ORM como cadenas concretas, conservando el orden de preferencia
+existente: nombre, correo electrónico e identificador.
+
+El formato de las citas y el registro de exportaciones ahora pasan por un único
+router tipado, mientras que la detección, serialización y normalización de
+formatos de referencias devuelven directamente sus contratos nativos estrictos
+de cadenas. Los formatos de exportación, la resolución de citas y el
+comportamiento ante errores de Pandoc permanecen estables.
+
+La consulta de metadatos, el reconocimiento de PDF, la traducción de URL, la
+promoción de Zotero, las actualizaciones masivas y el registro del catálogo y
+la búsqueda de citas comparten esa misma capa HTTP de tipo acotado. Los
+mecanismos alternativos de proveedores, los permisos del editor y la unicidad
+de las claves de cita siguen resolviéndose en el momento de uso y conservan
+su comportamiento.
+
+La importación de Markdown, los comentarios en línea, los bloques sincronizados,
+la navegación por enlaces y las menciones sin enlazar comparten un router tipado
+de sincronización de páginas. Los modelos de solicitud utilizan Pydantic
+directamente y mantienen la identidad histórica de su módulo, conservando los
+nombres de los esquemas, el comportamiento SSE y la salida OpenAPI.
+
+Las operaciones CRUD de anotaciones PDF siguen el mismo modelo: clases base de
+solicitud directamente de Pydantic y un único router tipado, manteniendo la
+identidad histórica del esquema. El filtrado de URI de origen, el orden de las
+páginas, los permisos del editor y la serialización de anotaciones no cambian.
+
+La administración del Vault ahora falla explícitamente con una respuesta de
+servicio no disponible cuando falta la ruta principal del Vault, en lugar de
+construir una ruta a partir de `None`. Las anotaciones heredadas de respuesta
+permanecen congeladas, y el cambio de nombre lógico cruza la antigua capa de
+descriptores del ORM sin cambiar carpetas en disco, slugs, reglas de purga ni
+comprobaciones de confinamiento de rutas.
+
+El catálogo de plantillas del Vault, la instalación, la exportación y el envío
+moderado exponen contratos tipados de solicitud y respuesta. Los manejadores
+validan cada diccionario antes de devolverlo y deshabilitan la publicación del
+modelo de respuesta en las rutas de compatibilidad, para que no varíen los
+esquemas FastAPI congelados ni el contrato de diccionarios de las llamadas
+directas. Las comprobaciones de firmas, los hallazgos de privacidad, los
+paquetes deterministas y la reversión ante fallos de registro no cambian.
 
 ## Proveedores de archivos
 
-La abstracción del proveedor selecciona el proveedor de archivos macOS local, genérico, OneDrive, iCloud Drive, Google Drive, Nextcloud o el comportamiento de Dropbox. El código de dominio normal todavía funciona con `Path`; el adaptador añade detección de marcadores de posición, hidratación, disponibilidad y asignación de rutas. `GNOSI_FILES_PROVIDER` explícitamente cuando la detección automática de trayectoria es ambigua.
+La abstracción de proveedores selecciona el comportamiento local, genérico de
+macOS File Provider, o adaptado a OneDrive, iCloud Drive, Google Drive, Nextcloud
+o Dropbox. El código habitual del dominio sigue trabajando con `Path`; el
+adaptador añade detección de marcadores de posición, hidratación, disponibilidad
+y correspondencia de rutas. Configurar `GNOSI_FILES_PROVIDER` explícitamente
+cuando la detección automática de rutas sea ambigua.
 
-El tiempo de ejecución de archivos a la carta es neutral para el proveedor. Google Drive, iCloud y Nextcloud no heredan el comportamiento de recuperación de OneDrive; sólo `OneDriveProvider` puede reiniciar el cliente OneDrive después de un fallo de hidratación limitada. Los proveedores nativos de macOS utilizan una sesión de interfaz gráfica `open` Las implementaciones Docker pueden usar un ayudante de host configurado porque el contenedor lee cruzar otro límite.
+El entorno de ejecución de archivos bajo demanda es independiente del proveedor.
+Google Drive, iCloud y Nextcloud no heredan el comportamiento de recuperación de
+OneDrive; solo `OneDriveProvider` puede reiniciar el cliente de OneDrive tras un
+fallo de hidratación con límites definidos. Los proveedores nativos de macOS
+utilizan por defecto una acción `open` en la sesión gráfica. Los despliegues
+Docker pueden utilizar un auxiliar configurado en el host porque las lecturas
+desde el contenedor cruzan una capa adicional.
 
-Las rutas de Dropbox File Provider se detectan explícitamente. Un servicio desconocido bajo macOS `~/Library/CloudStorage` utiliza el producto sin efectos secundarios `fileprovider` adaptador; cualquier carpeta montada totalmente sincronizada u ordinaria utiliza `local`. Un nuevo adaptador llamado es necesario sólo para una señal de marcador de posición diferente o un mecanismo de hidratación específico del proveedor. `GNOSI_DATA_DIR` sigue siendo local independientemente del proveedor de la bóveda.
+Las rutas de Dropbox File Provider se detectan explícitamente. Un servicio
+desconocido en `~/Library/CloudStorage` de macOS utiliza el adaptador
+`fileprovider`, que no tiene efectos secundarios; cualquier carpeta totalmente
+sincronizada o montada de forma ordinaria utiliza `local`. Solo hace falta un
+nuevo adaptador con nombre propio para una señal de marcador de posición distinta
+o un mecanismo de hidratación específico del proveedor. `GNOSI_DATA_DIR` sigue
+siendo local independientemente del proveedor del Vault.
 
-Solo el Markdown portátil y los adjuntos de la bóveda pueden residir en un
-árbol sincronizado. Las bases SQLite, los bloqueos, las cachés derivadas, los
-secretos y `GNOSI_DATA_DIR` permanecen en el almacenamiento local de la
-aplicación. Una carpeta Nextcloud totalmente sincronizada funciona como
-`local`; los archivos virtuales requieren el adaptador correspondiente o
-`fileprovider`. WebDAV y las API directas de nube son transportes de
-importación, exportación o copia de seguridad, no almacenamiento activo para
-SQLite. El destino de las copias es independiente del proveedor de la bóveda.
+Solo el Markdown portátil del Vault y los adjuntos pueden residir en un árbol
+sincronizado. Las bases de datos SQLite, los bloqueos, las cachés derivadas, los
+secretos y `GNOSI_DATA_DIR` permanecen en el almacenamiento local de la aplicación.
+Una carpeta de Nextcloud totalmente sincronizada se comporta como `local`; los
+despliegues con archivos virtuales utilizan el proveedor correspondiente o el
+adaptador genérico `fileprovider`. WebDAV y las API directas de la nube son
+transportes de transferencia o copia de seguridad, no almacenamiento activo
+para SQLite. El destino de las copias de seguridad y el proveedor del Vault se
+configuran de forma independiente.
 
-## Adjuntos y propiedades valoradas por archivos
+## Adjuntos y propiedades de tipo archivo
 
-Los escritos eligen un objetivo permitido bajo el almacén activo, normalizan los nombres, evitan colisiones y devuelven metadatos portátiles. Los enlaces de archivos se re-raoted en el momento de lectura del host actual. Las operaciones de carga y eliminación validan la contención; una ruta proporcionada por el cliente nunca es suficiente autorización.
+Las escrituras eligen un destino permitido dentro del Vault activo, normalizan
+los nombres, evitan colisiones y devuelven metadatos portátiles. La raíz de los
+enlaces a archivos se adapta al host actual en el momento de la lectura. Las
+operaciones de subida y eliminación validan el confinamiento de las rutas;
+una ruta proporcionada por el cliente nunca constituye autorización suficiente.
+
+Los manejadores de rutas de recursos y archivos son exportaciones canónicas del
+dominio. El router heredado del Vault los registra en sus posiciones históricas
+e inyecta puertos acotados para consultas al registro de configuración, resolución
+de rutas y selección de proveedores. No debe mantener un segundo mapa de tokens
+locales, bloqueo de iconos personalizados o semáforo de flujos de archivos. Los
+decoradores repetidos de `/local-file/{token}` conservan su orden original de
+rutas de abajo arriba, y cada cambio estructural debe preservar las cabeceras
+de transmisión y el documento OpenAPI exacto.
+
+Los metadatos de tipo archivo se normalizan recursivamente sin cambiar su
+estructura de lista u objeto. Las rutas `Assets/` existentes y las URL HTTP
+remotas siguen siendo referencias; las URL de datos y los archivos locales
+aprobados se copian de forma atómica al directorio de recursos de la propiedad.
+La limpieza física resuelve cada candidato dentro de la raíz `Assets` del Vault
+activo antes de desvincularlo, por lo que una cadena de recorrido de directorios
+en el frontmatter no puede salir del Vault.
 
 ## Papelera y operaciones destructivas
 
-`drawings/service.py` gestiona el descubrimiento Tldraw y Excalidraw heredado,
-las lecturas, las versiones de historial con tiempo de enfriamiento, las
-escrituras atómicas y el borrado recuperable. El trabajo de archivos se ejecuta
-fuera del bucle de eventos y reutiliza el contrato de papelera de las páginas.
+`drawings/service.py` se encarga del descubrimiento de dibujos Tldraw y Excalidraw
+heredados, las lecturas, las instantáneas del historial con un intervalo mínimo
+entre ellas, las escrituras atómicas y la eliminación recuperable. El trabajo
+sobre el sistema de archivos se ejecuta fuera del bucle de eventos, y la
+eliminación reutiliza el mismo contrato de archivos auxiliares de la papelera
+del Vault que las páginas.
 
-La eliminación ordinaria es recuperable: las páginas y los activos relacionados se mueven a través del modelo de basura Vault. Purga es distinta y elimina el contenido más metadatos derivados y relaciones inversas. `trash/purge.py` gestiona el paso irreversible sobre archivos y la limpieza de historial, metadatos laterales y comentarios mediante puertos inyectados. La eliminación del registro de Vault elimina la fila de registro lógica por defecto; la eliminación de carpetas físicas requiere una señal explícita separada y comprobaciones de contención más fuertes.
+La eliminación ordinaria es recuperable: las páginas y los recursos relacionados
+pasan por el modelo de papelera del Vault. La purga es una operación distinta y
+elimina el contenido junto con los metadatos derivados y las relaciones inversas.
+`trash/purge.py` se encarga de la fase irreversible sobre el sistema de archivos
+y de la limpieza del historial, los archivos auxiliares de metadatos y los
+comentarios, mediante puertos de la fachada resueltos en el momento de uso.
+La eliminación de un Vault del registro borra por defecto la fila lógica del
+registro; eliminar físicamente la carpeta requiere una señal explícita separada
+y comprobaciones de confinamiento más estrictas.
 
-## Plantillas de vault
+Al eliminar una tabla, primero se mueve de forma atómica cada árbol de recursos
+perteneciente a la tabla a `.gnosi/pending-cleanup/table-assets/in-progress-*`
+y se escribe un manifiesto dentro de los límites permitidos. Después, la
+confirmación de la transacción del registro renombra ese directorio a `ready-*`
+antes de una purga en segundo plano. La recuperación al iniciar restaura una
+cuarentena en curso si la tabla todavía existe, la purga cuando el registro
+persistente demuestra la eliminación y deja intactas las entradas que no se
+pueden leer o son desconocidas. Las revisiones de recursos incluyen los enlaces
+simbólicos sin seguir sus destinos e impiden la eliminación tras una vista
+previa desactualizada.
 
-El repositorio de plantillas es un catálogo de tiempo de ejecución firmado; los activos de paquete no se rastrean en el repositorio Git de aplicaciones. Crear a partir de una plantilla verifica la firma de índice separada, paquete SHA-256, firma de editor, manifiesto, inventario de archivos, límites de archivo, rutas, tipos de archivo y enlaces antes de escribir. La extracción ocurre en un directorio de escenificación de hermanos bajo la raíz Vaults. El directorio completado se mueve atómicamente y sólo entonces se registra en la base de datos de gestión, por lo que un fallo no puede exponer una bóveda parcial.
+## Plantillas de Vault
 
-La validación del archivo separa la comprobación acotada de cada entrada, la
-lectura del manifiesto, la comparación del inventario y la integridad del
-payload. Estos pasos puros y tipados mantienen el mismo contrato cerrado ante
-errores y cada ayudante queda bajo el límite de complejidad del backend.
+El repositorio de plantillas es un catálogo firmado que se utiliza en tiempo de
+ejecución; los recursos de los paquetes no se versionan en el repositorio Git
+de la aplicación. La creación a partir de una plantilla verifica la firma
+separada del índice, el SHA-256 del paquete, la firma del publicador, el manifiesto,
+el inventario de archivos, los límites del archivo comprimido, las rutas, los
+tipos de archivo y los enlaces antes de escribir. La extracción se realiza en
+un directorio de preparación hermano dentro de la raíz de Vaults. El directorio
+completado se mueve a su ubicación definitiva de forma atómica y solo entonces
+se registra en la base de datos de gestión, de modo que un fallo no pueda
+exponer un Vault parcial.
 
-La exportación se basa en listas de permisos y determinista. `.gnosi`, plugins, tiendas de confianza, correo, basura, historial, contenido ejecutable, archivos de entorno, enlaces, archivos ilegibles y contenido sobredimensionado. Una vista previa lista todos los archivos incluidos y excluidos y escanea archivos de texto delimitados para valores de credencial. Los hallazgos requieren reconocimiento explícito. Los complementos recomendados son identificadores en el manifiesto; el código de complemento ejecutable nunca viaja dentro de una plantilla Vault.
+La validación del archivo comprimido se divide en validación acotada de entradas,
+decodificación del manifiesto, comparación del inventario y comprobaciones de
+integridad del contenido. Estos pasos puros y tipados conservan el mismo contrato
+de paquetes que rechaza la operación ante fallos y mantienen cada función
+auxiliar por debajo del límite de complejidad del backend.
 
-La presentación pública es independiente de la exportación y requiere acceso del administrador. Utiliza un bróker de moderación opcional en lugar de una credencial GitHub incrustada en Gnosi.
+La exportación se basa en una lista de elementos permitidos y es determinista.
+Excluye `.gnosi`, plugins, almacenes de confianza, correo, papelera, historial,
+contenido ejecutable, archivos de entorno, enlaces, archivos que no se pueden
+leer y contenido de tamaño excesivo. Una vista previa enumera todos los archivos
+incluidos y excluidos y analiza archivos de texto con límites definidos para
+buscar valores que parezcan credenciales. Los hallazgos requieren una aceptación
+explícita. Los plugins recomendados son identificadores en el manifiesto; el
+código ejecutable de plugins nunca se incluye en una plantilla de Vault.
 
-## Variantes de la moneda
+El envío público es independiente de la exportación y requiere acceso de
+administrador. Utiliza un intermediario opcional de moderación en lugar de una
+credencial de GitHub incorporada en Gnosi. Los campos adicionales del acuse de
+recibo específicos del intermediario se conservan sin pérdida mediante un modelo
+de respuesta que permite campos adicionales; los datos de error del catálogo
+mantienen su estructura heredada para la recuperación sin conexión y ante
+errores de firma.
 
-`daily/service.py` gestiona, sin depender del proveedor, el descubrimiento por
-carpeta o tabla, la normalización de fechas, las plantillas, el listado y la
-creación atómica de notas diarias. La fachada conserva los decoradores FastAPI
-públicos e inyecta los comandos de página resueltos en último momento.
+## Invariantes de concurrencia
 
-- Los Etags rancios rechazan sobrescrituras.
-- Registro y creación de notas diarias utilizan recheques de carrera-seguros.
-- Página, registro, índice de enlaces y actualizaciones de sidecar siguen siendo consistentes después de un
-renombrar o borrar.
-- Las rutas absolutas recibidas de un cliente se resuelven bajo raíces aprobadas.
-- Los enlaces de Symlinks y la trayectoria transversal no pueden escapar del límite de bóveda seleccionado.
-- La extracción de plantillas no puede publicar un directorio parcial ni registrarlo antes.
-- Las exportaciones de plantillas no pueden incluir contenido de plugins en tiempo de ejecución o estado de ejecución.
-- Los viajes de ida y vuelta de Markdown preservan contenido sensible a la fuga y sintaxis wikilink.
+`daily/service.py` se encarga, de forma independiente del proveedor, del
+descubrimiento de carpetas y tablas, la normalización de fechas, la creación
+inicial a partir de plantillas, los listados y el flujo atómico de obtención o
+creación de notas diarias. El router de compatibilidad conserva los decoradores
+públicos de FastAPI e inyecta comandos de página resueltos en el momento de uso
+para que los plugins y las pruebas existentes mantengan sus puntos de sustitución.
 
-## Interfaz
+- Los ETags desactualizados impiden las sobrescrituras.
+- La creación de registros de configuración y notas diarias utiliza nuevas
+  comprobaciones seguras frente a condiciones de carrera.
+- Las actualizaciones de páginas, registros de configuración, índices de enlaces
+  y archivos auxiliares mantienen la coherencia tras un cambio de nombre o una
+  eliminación.
+- Las rutas absolutas recibidas de un cliente se resuelven dentro de raíces aprobadas.
+- Los enlaces simbólicos y el recorrido de directorios no pueden salir de los
+  límites del Vault seleccionado.
+- La extracción de plantillas no puede publicar un directorio parcial ni
+  registrarlo antes de tiempo.
+- Las exportaciones de plantillas no pueden incluir estado de ejecución ni
+  contenido ejecutable de plugins.
+- Las conversiones de ida y vuelta de Markdown conservan el contenido sensible
+  al uso de caracteres de escape y la sintaxis de wikilinks.
 
-`VaultDashboard` Posee historial de navegación y selecciona superficies de página, tabla, dibujo, galería, tablero, calendario, línea de tiempo, fuente o lector. `VaultShell` proporciona el marco; los componentes especializados implementan editores y vistas. La interfaz de cachés de estado de interacción, pero trata el contenido de página de backend y Etags como autoritative.
+## Frontend
 
-## Enfoque de verificación
+`VaultDashboard` se encarga del historial de navegación y selecciona las
+interfaces de página, tabla, dibujo, galería, tablero, calendario, línea temporal,
+feed o lector. `VaultShell` proporciona la estructura; los componentes
+especializados implementan los editores y las vistas. El frontend almacena en
+caché el estado de interacción, pero considera autoritativos el contenido de
+las páginas y los ETags del backend.
 
-Ejecute Etag condition, contención de rutas, E/S seguro, carrera de registro, renombrar, basura/purga, numeración de adjuntos, relación, actualización de índices y flujos representativos de Playwright Vault. Los incidentes de proveedores de nube también requieren un marcador de posición real porque las pruebas de fijación locales no pueden reproducir el comportamiento del proveedor de archivos.
+Los puntos de entrada públicos `VaultDashboard.tsx`, `VaultTable.tsx`,
+`SchemaConfigModal.tsx` y `BlockEditor.tsx` componen módulos TypeScript estrictos.
+La navegación y los catálogos de registros están en `pages/vault-dashboard`;
+la selección de tablas, la virtualización y la edición de celdas, en
+`Vault/vault-table`; los campos y las opciones del esquema, en
+`Vault/schema-config`. El editor separa las propiedades de página, los documentos
+enriquecidos, los efectos, los controles y la persistencia en `Vault/block-editor`.
+Estas divisiones internas conservan las rutas de API y los formatos de
+almacenamiento existentes; la reorganización final en `features/` es un paso separado.
+
+Las transiciones de Markdown al modo visual publican los borradores pendientes
+antes de montar el editor enriquecido, evitando que el contenido desactualizado
+del componente padre reemplace una edición sin guardar. Los guardados de solo
+metadatos omiten el cuerpo; las fórmulas de valores predeterminados conservan los
+valores anidados de relaciones y plugins. Las pruebas de regresión cubren estos
+traspasos, además de los identificadores de opciones del esquema, la identidad
+de las filas de las tablas y las extensiones de metadatos desconocidas.
+
+## Aspectos que verificar
+
+Ejecutar pruebas de concurrencia con ETag, confinamiento de rutas, entrada y
+salida seguras, condiciones de carrera del registro, cambios de nombre,
+papelera y purga, numeración de adjuntos, relaciones, actualización de índices
+y flujos representativos del Vault con Playwright. Los incidentes de proveedores
+en la nube también requieren leer un marcador de posición real, porque las
+pruebas con datos locales de prueba no pueden reproducir el comportamiento de
+File Provider.

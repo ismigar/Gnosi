@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { BlockNoteEditor } from '@blocknote/core';
+import type { SpellCheckEditorPort } from './spell-check-layer/correctionEditorPort';
 import { createPortal } from 'react-dom';
 import { BookPlus, EyeOff, SpellCheck2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -34,7 +34,7 @@ import {
 
 
 interface SpellCheckLayerProps {
-    readonly editor: BlockNoteEditor | null;
+    readonly editor: SpellCheckEditorPort | null;
     readonly enabled?: boolean;
     readonly forcedLang?: string | null;
     readonly onLangDetected?: (language: string) => void;

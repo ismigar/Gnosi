@@ -5,16 +5,16 @@ import { Section, FormGroup } from '../GlobalSettingsModal';
 import { SettingsSectionTabs } from '../SettingsSectionTabs';
 
 export interface IdentityProfileData {
-    readonly address?: string;
-    readonly city?: string;
-    readonly dni_nie?: string;
-    readonly email?: string;
-    readonly first_name?: string;
-    readonly full_name?: string;
-    readonly last_name?: string;
-    readonly notes?: string;
-    readonly phone?: string;
-    readonly zip_code?: string;
+    readonly address?: string | null;
+    readonly city?: string | null;
+    readonly dni_nie?: string | null;
+    readonly email?: string | null;
+    readonly first_name?: string | null;
+    readonly full_name?: string | null;
+    readonly last_name?: string | null;
+    readonly notes?: string | null;
+    readonly phone?: string | null;
+    readonly zip_code?: string | null;
 }
 
 

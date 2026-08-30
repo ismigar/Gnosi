@@ -1,9 +1,12 @@
 import { act } from 'react';
-import type { BlockNoteEditor } from '@blocknote/core';
+import { Schema } from '@tiptap/pm/model';
+import { EditorState } from '@tiptap/pm/state';
+import { EditorView } from '@tiptap/pm/view';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import SpellCheckLayer from './SpellCheckLayer';
+import type { SpellCheckEditorPort } from './spell-check-layer/correctionEditorPort';
 
 
 const mocks = vi.hoisted(() => ({
@@ -14,9 +17,6 @@ const mocks = vi.hoisted(() => ({
     requestRecompute: vi.fn(),
     spellErrorAt: vi.fn(),
 }));
-const reactTestGlobal = globalThis as typeof globalThis & {
-    IS_REACT_ACT_ENVIRONMENT?: boolean;
-};
 
 
 vi.mock('react-i18next', () => ({
@@ -42,39 +42,32 @@ vi.mock('../../lib/spellcheck/spellcheckPlugin', () => ({
 }));
 
 
-interface EditorFixture {
-    readonly dispatch: ReturnType<typeof vi.fn>;
-    readonly dom: HTMLDivElement;
-    readonly editor: BlockNoteEditor;
-    readonly insertText: ReturnType<typeof vi.fn>;
-    readonly registerPlugin: ReturnType<typeof vi.fn>;
-    readonly unregisterPlugin: ReturnType<typeof vi.fn>;
-}
+const views: EditorView[] = [];
+const schema = new Schema({ nodes: {
+    doc: { content: 'paragraph+' },
+    paragraph: { content: 'text*', toDOM: () => ['p', ['span', { class: 'gnosi-spell-error' }, 0]] },
+    text: {},
+} });
 
 
-function createEditorFixture(): EditorFixture {
+function createEditorFixture() {
     const dom = document.createElement('div');
-    const misspelled = document.createElement('span');
-    misspelled.className = 'gnosi-spell-error';
-    misspelled.textContent = 'holaa';
-    dom.append(misspelled);
-    const insertText = vi.fn(() => ({ transaction: true }));
-    const dispatch = vi.fn();
+    const state = EditorState.create({ schema, doc: schema.node('doc', null, [schema.node('paragraph', null, [schema.text('xxholaa')])]) });
+    const view = new EditorView(dom, { state });
+    views.push(view);
+    const transaction = state.tr;
+    const insertText = vi.spyOn(transaction, 'insertText');
+    vi.spyOn(state, 'tr', 'get').mockReturnValue(transaction);
+    vi.spyOn(view, 'posAtDOM').mockReturnValue(4);
+    const dispatch = vi.spyOn(view, 'dispatch');
     const registerPlugin = vi.fn();
     const unregisterPlugin = vi.fn();
-    const view = {
-        dispatch,
-        dom,
-        focus: vi.fn(),
-        posAtDOM: vi.fn(() => 4),
-        state: { tr: { insertText } },
-    };
     const editor = {
         _tiptapEditor: { registerPlugin, unregisterPlugin },
         document: [{ content: [{ text: 'Aquest text té una errada' }] }],
         prosemirrorView: view,
-    } as unknown as BlockNoteEditor;
-    return { dispatch, dom, editor, insertText, registerPlugin, unregisterPlugin };
+    } satisfies SpellCheckEditorPort;
+    return { dispatch, dom, editor, insertText, registerPlugin, unregisterPlugin, transaction };
 }
 
 
@@ -83,7 +76,7 @@ describe('SpellCheckLayer', () => {
     let root: Root;
 
     beforeEach(() => {
-        reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -101,8 +94,9 @@ describe('SpellCheckLayer', () => {
             root.unmount();
         });
         container.remove();
+        for (const view of views.splice(0)) view.destroy();
         vi.clearAllMocks();
-        delete reactTestGlobal.IS_REACT_ACT_ENVIRONMENT;
+        vi.unstubAllGlobals();
     });
 
     it('registers the plugin, detects the language and releases the plugin', async () => {
@@ -146,7 +140,8 @@ describe('SpellCheckLayer', () => {
         });
 
         expect(fixture.insertText).toHaveBeenCalledWith('hola', 3, 8);
-        expect(fixture.dispatch).toHaveBeenCalledWith({ transaction: true });
+        expect(fixture.dispatch).toHaveBeenCalledWith(fixture.transaction);
+        expect(fixture.editor.prosemirrorView.state.doc.textContent).toBe('xxhola');
         expect(document.body.querySelector('[data-gnosi-portal="spell-menu"]')).toBeNull();
     });
 

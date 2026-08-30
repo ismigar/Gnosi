@@ -9,9 +9,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 15 | 10 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 784 | 50 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 49 | 22 | 0 |
-| `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 8 | 17 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1018 | 50 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 50 | 22 | 0 |
+| `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 14 | 17 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 22 | 20 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 79 | 26 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 9 | 10 | 0 |
@@ -21,7 +21,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 78 | 24 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 11 | 11 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 11 | 5 | 0 |
-| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 83 | 18 | 0 |
+| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 84 | 19 | 0 |
 
 ## Platform foundation and runtime
 

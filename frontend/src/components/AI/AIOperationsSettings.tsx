@@ -17,7 +17,7 @@ interface AutomationBudgetFields {
 }
 
 
-interface SkillAutomation extends AutomationBudgetFields {
+interface SkillAutomation extends Partial<AutomationBudgetFields> {
     agent_id: string;
     budgets?: Partial<AutomationBudgetFields>;
     enabled: boolean;

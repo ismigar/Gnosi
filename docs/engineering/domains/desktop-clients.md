@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-08-30
 source_paths:
+  - .github/workflows/build-release.yml
+  - desktop/scripts/release-artifacts.cjs
   - backend/config/validation_runtime.py
   - backend/security/keychain_manager.py
   - .github/workflows/ci.yml
@@ -30,6 +32,8 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-artifacts.test.js
+  - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
   - backend/tests/test_validation_runtime.py
   - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
@@ -279,6 +283,15 @@ It cannot repair stale catalogs or deploy documentation; publication remains a
 separate main-branch workflow.
 
 ## Verification focus
+
+Before publication, the release job installs the locked desktop production
+dependencies with lifecycle scripts disabled, downloads each architecture into
+its own directory, and runs `release-artifacts.cjs collect`. Collection checks
+the tag against the checked-out desktop version, verifies manifest references
+and SHA-512 hashes, rejects missing or colliding assets, and combines both Mac
+architectures into one `latest-mac.yml`. Public indexes and release publication
+run only after this check succeeds. Local fixture tests verify this wiring but
+do not replace the real platform build and update matrix.
 
 Run Electron syntax/build checks, packaged backend smoke tests, updater state
 tests, extension build validation, citation traversal tests, and platform CI.

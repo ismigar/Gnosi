@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "allowJs": true,
+    "allowJs": false,
     "baseUrl": ".",
-    "checkJs": false,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,

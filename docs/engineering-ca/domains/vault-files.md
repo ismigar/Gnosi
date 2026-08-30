@@ -5,14 +5,19 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
+  - backend/domains/vault/media/routes.py
   - backend/domains/media
+  - backend/platform/files
   - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
-  - backend/services/files_provider
+  - backend/services/frontmatter_fallback.py
+  - backend/services/field_resolver.py
+  - backend/services/translation_helpers.py
+  - backend/services/relation_sync.py
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
-  - frontend/src/pages/VaultDashboard.jsx
+  - frontend/src/pages/VaultDashboard.tsx
   - frontend/src/components/Vault
 tests:
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -21,10 +26,15 @@ tests:
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
+  - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
+  - backend/tests/test_vault_assets_files_containment.py
+  - backend/tests/test_vault_assets_files_route_contract.py
   - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_relation_sync.py
+  - backend/tests/test_translation_helpers.py
   - backend/tests/test_vault_templates.py
   - backend/tests/test_vault_templates_routes.py
   - backend/tests/test_vault_table_asset_lifecycle_contract.py
@@ -33,13 +43,25 @@ tests:
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
-# Aprofita i fitxers
+# Vault i fitxers
 
-## Reversió
+## Responsabilitat
 
-Els mapes de domini Vulta portàtils Markdown i actius a les pàgines, carpetes, adjunts, recerques, esquemes, històries, escombraries, exports, citacions i selecció multi-vulta. És el domini més gran i el propietari principal de la sobirania de dades.
+El domini Vault relaciona el Markdown portable i els recursos amb pàgines,
+carpetes, adjunts, cerques, esquemes, historials, paperera, exportacions,
+citacions i selecció entre múltiples vaults. És el domini més gran i el
+principal responsable de la sobirania de les dades.
 
-## cicle de vida de pàgina
+El reconeixement local de text manuscrit és un adaptador d'ingestió opcional al
+límit del domini Vault. Els objectes del model i del processador es mantenen
+aïllats com a valors de tercers en temps d'execució; el servei exposa un resultat
+tipat que conté el text, el reconeixement en brut, els valors de les línies, la
+identitat del model i l'estat de correcció, sense canviar el contracte públic de
+pujada. Models de resposta Pydantic específics validen els diccionaris d'estat,
+preescalfament i reconeixement abans de conservar-ne l'estructura històrica per
+als consumidors directes i la superfície OpenAPI estable byte a byte.
+
+## Cicle de vida de les pàgines
 
 ```mermaid
 sequenceDiagram
@@ -59,165 +81,441 @@ sequenceDiagram
     R->>I: Refresh page and relationship entries
 ```
 
-La identitat de pàgina està separada del títol i del camí. La matèria frontal està normalitzada en la recerca d' escriptura mentre que les claus de l' usuari- author són preservades. L' estat intern només pertany a `.gnosi` Els llocs secundaris quan l'exposassin al tema d'entrada contaminarien o contaminarien contingut portàtil.
+La identitat d'una pàgina és independent del títol i de la ruta. El frontmatter
+es normalitza als punts d'escriptura i es conserven les claus creades per
+l'usuari. L'estat exclusivament intern es desa en fitxers auxiliars de
+`.gnosi` quan exposar-lo al frontmatter contaminaria o desestabilitzaria el
+contingut portable.
+
+Les lectures i escriptures dels fitxers auxiliars utilitzen un únic contracte
+explícit de mapatge de metadades, que inclou els resultats de separació, fusió
+i persistència portable. El mecanisme alternatiu compartit de lectura tolerant
+del frontmatter retorna els valors escalars del primer nivell com a objectes
+tipats quan cal recuperar YAML; el contingut niat mal format s'ignora
+deliberadament. Aquests contractes no forcen conversions dels valors de
+l'usuari ni canvien les proteccions existents dels fitxers del núvol.
 
 `pages/markdown_writer.py` és el límit canònic de serialització: recupera o crea
-l'identificador estable, transforma les claus d'esquema, elimina camps virtuals,
-desa l'estat intern al sidecar, decora relacions portàtils i materialitza les
-vistes abans de l'escriptura atòmica.
+l'identificador estable si falta, transforma les claus de l'esquema en noms
+d'emmagatzematge, elimina els camps virtuals, escriu l'estat intern al fitxer
+auxiliar, enriqueix les relacions portables i materialitza instantànies de les
+vistes abans de l'escriptura atòmica del fitxer.
+`services/field_resolver.py` és responsable d'aquest contracte de mapatge de
+claus d'esquema. Accepta identificadors de camp immutables, noms actuals i àlies
+històrics, resol els conflictes de manera determinista i emet només els noms
+actuals llegibles per humans als límits d'emmagatzematge i resposta, tot
+preservant les metadades locals que no hi estan relacionades.
 
-`pages/save_helpers.py` és responsable de preparar les metadades dels desats
-complets, seleccionar la destinació, reutilitzar fitxers per ID i crear la
-versió abans d'escriure. `pages/patch_helpers.py` és responsable de les lectures
-amb ETag, la preparació de metadades PATCH, la reubicació de fitxers i
-l'actualització coordinada de les memòries cau de pàgines, cossos, citacions i
-documents analitzats. Els vuit noms privats històrics continuen sent façanes
-primes de compatibilitat, i cada col·laborador substituïble o memòria cau mutable
-es resol mitjançant un port tipat late-bound.
+`pages/save_helpers.py` és responsable de preparar les metadades dels desaments
+complets, seleccionar la destinació, reutilitzar els identificadors existents
+i crear una versió abans d'escriure.
+`pages/patch_helpers.py` és responsable de les lectures amb ETag, la preparació
+de metadades PATCH, la reubicació de fitxers i les actualitzacions coordinades de
+les memòries cau de pàgines, cossos, citacions i documents analitzats. Els vuit
+noms històrics de funcions auxiliars privades es mantenen com a façanes mínimes
+de compatibilitat, i cada col·laborador substituïble o memòria cau mutable es
+resol mitjançant un port tipat amb vinculació tardana.
 
-## Límit del dorsal
+## Límits del backend
 
-La pàgina llegeix i escriu vistes prèvies, duplicació, història i escombraries s' accepten sota `backend/domains/vault`. Aquest paquet separa esquemes de sol· licitud estrictes, adaptadors de ruta, serveis d' aplicació, repositoris i el únic propietari de les cau de pàgines i panys. El nou comportament Vult pertany al límit de domini.
+La lectura i escriptura de pàgines, les previsualitzacions, la duplicació,
+l'historial i la paperera s'implementen a `backend/domains/vault/pages`, mentre
+que la pujada de recursos, les icones i el servei d'imatges són a
+`backend/domains/vault/assets`. El servei de fitxers restringit a les rutes
+permeses, les rutes Library/raw/thumbnail, els tokens de fitxers locals, les
+pujades associades a propietats, els enllaços portables i l'eliminació física
+són a `backend/domains/vault/files`. Aquests paquets separen els esquemes
+estrictes de petició, els adaptadors de rutes, els serveis d'aplicació, els
+repositoris i els responsables únics dels bloquejos mutables, les memòries cau
+i els magatzems de tokens. El nou comportament de Vault pertany al límit de
+domini corresponent.
 
-`backend/domains/media` gestiona la resolució de les arrels multimèdia,
-l'escaneig recursiu conscient del proveïdor i la seva cau derivada persistent,
-els sidecars sincronitzats de metadades i vistes, els filtres, la paginació,
-l'arbre mandrós de carpetes, les pujades contingudes, l'EXIF i la serialització
-estable dels fitxers. `backend/services/media_service.py` continua sent la
-façana Python compatible: conserva la classe, el singleton, les signatures, els
-descriptors, l'estat i els errors històrics, i resol tard l'estat mutable i els
-col·laboradors substituïbles. Els mòduls de domini no importen l'encaminador
+El límit transitori `pages/runtime.py` preserva l'estat dinàmic del mòdul
+històric de rutes i exigeix un Vault actiu abans de construir rutes del sistema
+de fitxers o motors de regles. Els seus models de petició ara es vinculen
+directament a Pydantic, cosa que evita classes base dependents del temps
+d'execució sense canviar la seva identitat pública de mòdul ni el contracte
+HTTP generat.
+
+`backend/domains/media` és responsable de resoldre les arrels multimèdia,
+de l'escaneig recursiu adaptat al proveïdor i la seva memòria cau derivada
+persistent, dels fitxers auxiliars de metadades sincronitzades i vistes desades,
+dels filtres, la paginació, l'arbre de carpetes de càrrega diferida, les pujades
+restringides a les rutes permeses, l'extracció EXIF i la serialització estable
+dels fitxers. `backend/services/media_service.py` continua sent la façana Python
+compatible: conserva la classe històrica, la instància única, la forma
+d'invocació, els descriptors, l'estat i els errors, i resol amb vinculació
+tardana l'estat mutable i els col·laboradors substituïbles. El seu constructor
+intern ara té una anotació explícita de retorn `None`, que elimina l'última
+excepció de tipatge del codi del backend escrit a mà sense canviar el
+comportament de construcció. La façana valida que hi hagi un vault actiu abans
+de travessar un límit del sistema de fitxers i utilitza els contractes multimèdia
+tipats per a arrels, escanejos, consultes, pujades, dades EXIF i informació
+serialitzada dels fitxers. Els mòduls de domini no importen mai l'encaminador
 HTTP ni la façana de compatibilitat.
 
-L'emmagatzematge de taules té propietaris explícits: `assets/table_paths.py`
-controla les rutes i revisions; `assets/persistence.py`, la ingestió i supressió
-contingudes; `assets/quarantine.py`, la supressió recuperable; i
-`tables/folders.py`, les carpetes físiques. Tots reben ports estrets de la façana.
+El mòdul HTTP transitori de multimèdia concreta una sola vegada el tipus de
+l'encaminador heretat importat dinàmicament com a `APIRouter`. Els decoradors
+de rutes i els registres delegats de recursos, fitxers, icones i propietats
+utilitzen aquesta mateixa instància tipada, cosa que manté estables l'ordre de
+registre i el contracte OpenAPI sense dispersar excepcions de tipus entre
+gestors individuals.
 
-`tables/routes.py` és ara el propietari de les 23 operacions històriques de
-bases, taules, catàlegs d'opcions, vistes desades i esquemes de carpeta, en el
-mateix ordre. Els handlers estrictes deleguen als serveis existents de files,
-cicle de vida, propietats, opcions i vistes; `tables/composition.py` agrupa de
-manera immutable les dependències de les rutes i de l'enriquiment de files.
-`tables/security.py` exposa només les dues fàbriques tipades d'autorització de
-workspace. La façana històrica registra les rutes de domini en una llista plana
-i reexporta els callables Python compatibles.
+El límit dels dibuixos aplica la mateixa concreció de tipus d'un únic
+encaminador al CRUD de dibuixos i al registre delegat de l'historial. Les còpies
+de seguretat dels dibuixos, l'eliminació lògica, els terminis de recuperació,
+els permisos i l'ordre de les rutes continuen sota la responsabilitat dels
+serveis de domini existents, mentre que la superfície de composició HTTP té
+tipatge estricte.
 
-`backend/api/vault_routes.py` és ara un bootstrap de compatibilitat de 283 línies,
-no un propietari d'implementació. Els mòduls tipats de
-`backend/domains/vault` són propietaris del comportament restant d'API,
+La composició de previsualització i desament de pàgines també comparteix un
+únic encaminador de tipus concret per resoldre títols i delegar el registre de
+previsualitzacions i escriptures. La identitat de les memòries cau, la
+coincidència d'àlies, les comprovacions de vault actiu i els esquemes generats
+de les rutes no canvien.
+
+Les rutes de traducció i sincronització amb Drupal també concreten el tipus del
+seu encaminador de vinculació tardana al límit del mòdul. Les operacions sobre
+una sola fila, en bloc, de coincidència, de botons generats i de traducció de
+pàgines preserven les comprovacions de rols, la feina en segon pla i el mapatge
+d'errors externs, alhora que continuen sent visibles per al tipatge estricte.
+
+L'emmagatzematge vinculat a les taules té responsables explícits.
+`assets/table_paths.py` és responsable de les rutes de recursos restringides
+als límits permesos, els directoris per propietat, les revisions i les funcions
+de canvi de nom segures davant de col·lisions; `assets/persistence.py` és
+responsable de la ingestió recursiva de metadades i de l'eliminació de recursos
+de registres dins dels límits permesos; `assets/quarantine.py` és responsable
+de l'eliminació de taules resistent a fallades i de la recuperació en arrencar.
+`tables/folders.py` és responsable de crear i migrar el directori físic
+`BD/<database>/<table>` de la taula. Aquests mòduls reben ports acotats del
+sistema de fitxers i del registre des de la façana de compatibilitat i no
+importen mai l'encaminador HTTP.
+
+`tables/routes.py` és ara responsable de les 23 operacions històriques de
+bases de dades, taules, catàlegs d'opcions, vistes desades i esquemes de carpetes,
+en l'ordre original. Els seus gestors estrictes deleguen en els serveis
+existents de files, cicle de vida, propietats, opcions i vistes;
+`tables/composition.py` és el conjunt immutable de dependències d'aquestes
+rutes i de la consulta de files i l'enriquiment de metadades.
+`tables/security.py` exposa només les dues fàbriques tipades d'autorització
+d'espais de treball, evitant una dependència estàtica del domini de taules
+respecte de l'àmplia composició d'autenticació heretada. L'encaminador heretat
+registra les rutes de domini en una estructura plana per mantenir la
+compatibilitat amb els consumidors de l'inventari de rutes i reexporta els
+elements invocables de Python admesos.
+
+`backend/api/vault_routes.py` és ara un mòdul d'arrencada de compatibilitat de
+283 línies, en lloc de ser responsable de la implementació. Els mòduls tipats
+de `backend/domains/vault` són responsables del comportament restant d'API,
 anotacions, citacions, dibuixos, Drupal, fitxers, coneixement, enllaços,
-multimèdia, pàgines, registre, taules i traducció. El bootstrap carrega i
-registra aquests propietaris en l'ordre històric del codi font, mentre
-`facade_bridge.py` preserva els imports compatibles, els globals mutables i els
-seams de `monkeypatch` resolts tard. El router pare continua exposant el mateix
-inventari pla d'`APIRoute` i un OpenAPI determinista idèntic byte a byte. Per
-això, la façana ja no necessita cap excepció al guardrail de codi font.
+multimèdia, pàgines, registre, taules i traducció. El mòdul d'arrencada carrega
+i registra aquests responsables en l'ordre històric del codi font, mentre que
+`facade_bridge.py` preserva els imports admesos, les variables globals mutables
+i els punts de substitució per a monkeypatch amb vinculació tardana.
+L'encaminador pare continua exposant el mateix inventari pla d'`APIRoute`
+i un OpenAPI determinista idèntic byte a byte. Per tant, la façana no necessita
+cap excepció als controls del codi font.
 
-El cicle de vida de les traduccions pertany a
-`backend/domains/vault/translation`: la càrrega opcional de proveïdors, la
-recuperació de fitxers del núvol, la traducció de files i pàgines, els efectes
-mínims de metadades i la propagació d'obsolescència són serveis tipats
-separats. La publicació de files a Drupal pertany a
-`backend/domains/vault/drupal`, que separa el mapatge de camps i identitat, la
-preparació de mitjans locals, la conversió de Markdown i wikilinks, les cau de
-llengües, la coincidència per títol i la sincronització idempotent de nodes. La
-façana conserva els decoradors i docstrings FastAPI originals i els seams
-Python resolts tard, mentre el connector Drupal continua sent el límit de
-transport extern. No canvien rutes, payloads, codis d'estat, tasques de fons ni
-l'ordre de les rutes.
+El comportament del cicle de vida de les traduccions pertany a
+`backend/domains/vault/translation`: la càrrega opcional de proveïdors,
+la recuperació de fitxers del núvol, la traducció de files i de pàgines
+completes, els efectes mínims sobre les metadades i la propagació de
+l'obsolescència als elements fills són serveis tipats separats. El límit
+compartit de funcions auxiliars pures canonitza les identitats d'origen, detecta
+canvis traduïbles i camps d'idioma, reutilitza les etiquetes d'opció existents
+i tradueix només els subcamps textuals de les imatges tot conservant-ne el
+recurs original. La publicació de files a Drupal pertany a
+`backend/domains/vault/drupal`, que separa el mapatge de camps i identitats,
+la preparació de recursos multimèdia locals, la conversió de Markdown i
+wikilinks, les memòries cau d'idiomes, la coincidència per títol i la
+sincronització idempotent de nodes. L'encaminador de compatibilitat conserva
+els decoradors FastAPI originals, les docstrings de les rutes i els punts de
+substitució Python amb vinculació tardana, mentre que el connector de Drupal
+continua sent el límit de transport extern. Aquests trasllats no canvien les
+rutes, els payloads, els codis d'estat, les tasques en segon pla ni l'ordre
+de les rutes.
 
-## Índexs i registres
+## Índexs i memòries cau
 
-L' índex de pàgina accelera el llistat, resolució d' identificador, accés frontal- minatter i cerca. La resolució d' índex del wikilink resol els enllaços que s' enganxen per tal que la pàgina reanomena referències. Els cossos i els registres analitzats no es repeteixen. Cada cau es deriva i ha de tolerar una refució freda.
+L'índex de pàgines accelera el llistat, la resolució d'identificadors, l'accés al
+frontmatter i la cerca. L'índex de wikilinks resol els enllaços entrants perquè
+els canvis de nom de les pàgines puguin actualitzar les referències. Les
+memòries cau de cossos i documents analitzats eviten lectures repetides.
+Totes les memòries cau són derivades i han de tolerar una reconstrucció des
+de zero.
 
-`links/document_inventory.py` gestiona l'inventari TTL per vault dels enllaços
-globals. Exclou historial i paperera, aïlla fitxers il·legibles, inclou els
-dashboards JSON i recorre el disc si l'índex del proveïdor encara no està disponible.
-`links/document_cache.py` gestiona les memòries cau persistents del cos Markdown
-i del frontmatter analitzat, invalidades per mtime. La façana només hi injecta
-les rutes actives, el parser i l'escriptor JSON segur; el comportament no depèn
-del proveïdor de fitxers.
-`links/relation_sync.py` gestiona les actualitzacions idempotents de fitxers i
-caches quan una relació directa canvia la inversa. Les regles pures d'esquema
-continuen separades i la façana hi injecta l'entrada/sortida de pàgines.
+`links/document_inventory.py` és responsable de l'inventari amb TTL per vault
+que utilitzen els enllaços globals. Exclou l'historial i la paperera, aïlla els
+fitxers il·legibles, inclou els quadres de comandament JSON i recorre el disc
+com a alternativa mentre l'índex del proveïdor no està disponible.
+`links/document_cache.py` és responsable de les memòries cau persistents del
+cos Markdown i del frontmatter analitzat, indexades per mtime. L'encaminador
+només proporciona les rutes actives de les memòries cau, l'analitzador i
+l'escriptor JSON segur, de manera que el comportament de la memòria cau és
+independent del proveïdor de fitxers.
+`links/relation_sync.py` és responsable de les actualitzacions idempotents del
+sistema de fitxers i de les memòries cau quan els canvis en una relació directa
+afecten la inversa. La correspondència pura d'esquemes continua sent un port
+tipat de regles separat: resol els camps de relació a partir dels noms actuals
+normalitzats i dels àlies, exigeix un únic camp invers inequívoc i emet només
+operacions d'addició o eliminació sobre identificadors canònics de relació.
+L'encaminador de compatibilitat proporciona l'entrada/sortida de pàgines amb
+vinculació tardana.
 
-Primer s' inicia un carrega les instantànies de disc vàlides, després comença a refrescar el treball. Es marca un escàner parcial de fitxer i no es pot reemplaçar un cau complet. Els errors de fitxer s' aïllaran de manera que un únic espai de substitució en línia o orfe no elimina la resta de la caixa volta d' una resposta.
+L'arrencada carrega primer les instantànies vàlides del disc i després inicia
+les tasques d'actualització. Un escaneig parcial del proveïdor de fitxers es
+marca com a parcial i no pot substituir una memòria cau que se sap que és
+completa. Les fallades s'aïllen per fitxer perquè un únic marcador de posició
+només disponible en línia o orfe no faci desaparèixer la resta del vault
+d'una resposta.
 
-`pages/index_entries.py` és responsable de la lectura limitada del frontmatter,
-dels reintents davant bloquejos del proveïdor i de normalitzar les entrades de
-cau. `pages/index_service.py` gestiona el descobriment, l'actualització, el mapa
-invers d'identificadors i els snapshots deduplicats. `pages/resolver.py` resol
-identificadors estables, UUID canònics, títols indexats i escanejos en fred
-acotats. `pages/tags.py` agrega les etiquetes del frontmatter i de les columnes
-semàntiques de les taules, deduplicades per pàgina. La façana injecta els ports
-de vault actiu, registre, calendari i cau;
-aquests serveis no importen les rutes HTTP.
+`pages/index_entries.py` és responsable de les lectures acotades de
+frontmatter, els reintents davant de bloquejos del núvol i la normalització
+d'entrades de memòria cau. `pages/index_service.py` és responsable del
+descobriment, l'actualització, els mapes inversos d'identificadors i les
+instantànies deduplicades. `pages/resolver.py` és responsable de resoldre
+identificadors estables, UUID canònics, títols indexats i escanejos acotats
+sense memòria cau prèvia.
+`pages/tags.py` és responsable de l'agregació independent del proveïdor de les
+etiquetes del frontmatter i de les etiquetes semàntiques de taula, inclosa la
+deduplicació per pàgina. L'encaminador de compatibilitat injecta els ports de
+vault actiu, registre, calendari i memòria cau, de manera que cap d'aquests
+serveis importa la façana HTTP.
+
+El mòdul d'execució del registre concreta una sola vegada el tipus del seu
+encaminador amb vinculació tardana, utilitza el decorador estàndard tipat de
+gestor de context per als cicles de mutació i tracta l'absència d'un Vault
+actiu com l'absència d'una arrel d'adjunts del núvol. L'ordre de les rutes de
+registre i taules, els bloquejos, les memòries cau i els candidats d'adjunts
+específics de cada proveïdor no canvien.
+
+L'API principal de Vault reutilitza un únic encaminador tipat per als camps
+virtuals, l'estat de l'índex, les notes diàries i l'agregació d'etiquetes. Les
+etiquetes de visualització d'usuari travessen el límit dels descriptors de
+l'ORM heretat com a cadenes concretes, tot preservant l'alternativa existent:
+del nom al correu electrònic i, finalment, a l'identificador.
+
+El format de citacions i el registre d'exportacions ara passen per un únic
+encaminador tipat, mentre que la detecció del format de referències, la
+serialització i la normalització retornen directament els seus contractes
+natius estrictes de cadena. Els formats d'exportació, la resolució de citacions
+i el comportament davant d'errors de Pandoc es mantenen estables.
+
+La consulta de metadades, el reconeixement de PDF, la traducció d'URL, la
+promoció de Zotero, les actualitzacions massives i el registre del catàleg i
+la cerca de citacions comparteixen aquest mateix límit HTTP de tipus concret.
+Les alternatives de proveïdor, els permisos d'edició i la unicitat de les claus
+de citació continuen resolent-se amb vinculació tardana i preserven el
+comportament compatible.
+
+La importació de Markdown, els comentaris en línia, els blocs sincronitzats,
+la navegació per enllaços i les mencions sense enllaç comparteixen un
+encaminador tipat de sincronització de pàgines. Els models de petició
+utilitzen Pydantic directament i conserven la seva identitat històrica de
+mòdul, preservant els noms dels esquemes, el comportament SSE i la sortida
+OpenAPI.
+
+El CRUD d'anotacions PDF segueix el mateix model: classes base de petició
+directament de Pydantic i un únic encaminador tipat, amb la identitat històrica
+dels esquemes preservada. El filtratge per URI d'origen, l'ordre de les
+pàgines, els permisos d'edició i la serialització d'anotacions no canvien.
+
+L'administració de Vault ara falla explícitament amb una resposta de servei
+no disponible quan falta la ruta del Vault principal, en lloc de construir una
+ruta a partir de `None`. Les anotacions de resposta heretades continuen
+congelades, i el canvi de nom lògic travessa l'antic límit dels descriptors
+de l'ORM sense modificar les carpetes del disc, els slugs, les regles de purga
+ni les comprovacions de confinament de rutes.
+
+El catàleg, la instal·lació, l'exportació i l'enviament moderat de plantilles
+de Vault exposen límits tipats de petició i resposta. Els gestors validen cada
+mapatge abans de retornar-lo i desactiven la publicació del model de resposta
+a les rutes de compatibilitat, de manera que els esquemes FastAPI congelats i
+el contracte de diccionari de les crides directes no es desvien. Les
+comprovacions de signatures, les troballes de privadesa, els paquets
+deterministes i la reversió en cas de fallada del registre no canvien.
 
 ## Proveïdors de fitxers
 
-L' abstracció del proveïdor selecciona el proveïdor local, proveïdor de fitxers genèric, iClod Drive, Google Drive, Nextcloud, o el comportament de la caixa desplegable. El codi de domini normal encara funciona `Path`; l' adaptador afegeix detecció de marcadors de posició, hidratació, disponibilitat i mapa de rutes. Establiu `GNOSI_FILES_PROVIDER` explícitament quan la detecció de la ruta automàtica és ambigua.
+L'abstracció de proveïdor selecciona el comportament local o l'adaptat al
+File Provider genèric de macOS, OneDrive, iCloud Drive, Google Drive, Nextcloud
+o Dropbox. El codi habitual del domini continua treballant amb `Path`;
+l'adaptador hi afegeix detecció de marcadors de posició, hidratació,
+disponibilitat i mapatge de rutes. Establiu `GNOSI_FILES_PROVIDER`
+explícitament quan la detecció automàtica de rutes sigui ambigua.
 
-El temps d' execució dels fitxers i d' execució és proveïdor de proveïdor. Google Drive, iCold i Nextcloud no hereta només el comportament de recuperació d' Onevariva; `OneDriveProvider` Pot reiniciar el client OneDive després d' un fracàs de hidratació. Els proveïdors natius de macOS usen una sessió gràfica `open` Per omissió, els desplegaments Dockers poden usar un auxiliar de remot configurat perquè el recipient llegeix la creu d' un altre límit.
+El sistema d'execució de fitxers a demanda és independent del proveïdor.
+Google Drive, iCloud i Nextcloud no hereten el comportament de recuperació de
+OneDrive; només `OneDriveProvider` pot reiniciar el client OneDrive després
+d'una fallada d'hidratació amb intents acotats. Els proveïdors natius de macOS
+utilitzen per defecte una acció `open` en una sessió gràfica. Els desplegaments
+Docker poden utilitzar un auxiliar configurat a l'amfitrió perquè les lectures
+del contenidor travessen un altre límit.
 
-Les rutes del proveïdor de fitxers de sortida de caixa són detectades explícitament. Un servei desconegut sota el " macOS " `~/Library/CloudStorage` Usa l' efecte secundari lliure `fileprovider` adaptador; qualsevol carpeta completa sincronitzada o muntada utilitza `local`Un nou adaptador de noms només cal per a un senyal de posició diferent o un mecanisme d' hidratació específic del venedor. `GNOSI_DATA_DIR` Encara és local sense importar el proveïdor de la caixa forta.
+Les rutes de Dropbox File Provider es detecten explícitament. Un servei
+desconegut sota `~/Library/CloudStorage` de macOS utilitza l'adaptador
+`fileprovider`, sense efectes secundaris; qualsevol carpeta completament
+sincronitzada o muntada de manera ordinària utilitza `local`. Només cal un nou
+adaptador amb nom propi quan hi ha un senyal diferent de marcador de posició
+o un mecanisme d'hidratació específic del proveïdor. `GNOSI_DATA_DIR` es manté
+local independentment del proveïdor del vault.
 
-Només el Markdown portable i els adjunts del vault poden viure dins un arbre
-sincronitzat. Les bases SQLite, els bloquejos, les memòries cau derivades, els
-secrets i `GNOSI_DATA_DIR` es mantenen a l'emmagatzematge local de l'aplicació.
-Una carpeta Nextcloud completament sincronitzada funciona com a `local`; si usa
-fitxers virtuals cal l'adaptador corresponent o `fileprovider`. WebDAV i les API
-directes del núvol són transports d'importació, exportació o còpia de seguretat,
-no emmagatzematge viu per a SQLite. El destí dels backups és independent del
-proveïdor del vault.
+Només el Markdown portable de Vault i els adjunts poden residir en un arbre
+sincronitzat. Les bases de dades SQLite, els bloquejos, les memòries cau
+derivades, els secrets i `GNOSI_DATA_DIR` es mantenen a l'emmagatzematge local
+de l'aplicació. Una carpeta Nextcloud completament sincronitzada es comporta
+com a `local`; els desplegaments amb fitxers virtuals utilitzen el proveïdor
+corresponent o l'adaptador genèric `fileprovider`. WebDAV i les API directes
+del núvol són transports de transferència o de còpia de seguretat, no
+emmagatzematge actiu per a SQLite. La destinació de les còpies de seguretat
+i el proveïdor de Vault es configuren de manera independent.
 
-## Propietats dels adjunts i de fitxer amb valor
+## Adjunts i propietats amb fitxers com a valor
 
-Escriu un objectiu permès sota la caixa de seguretat activa, normalitza els noms, evita col· lisions i retorna les metadades portàtils. Els enllaços de fitxer es rerooten en temps de lectura per a la màquina actual. Puja i esborra operacions validades per a la contenció; un camí que no és prou apable.
+Les escriptures trien una destinació permesa dins del vault actiu, normalitzen
+els noms, eviten col·lisions i retornen metadades portables. L'arrel dels
+enllaços a fitxers es reajusta en llegir-los per adaptar-la a l'amfitrió actual.
+Les operacions de pujada i eliminació comproven el confinament de les rutes;
+una ruta proporcionada pel client mai no és autorització suficient.
 
-## Operacions Paperera i destructiu
+Els gestors de rutes de recursos i fitxers són exportacions canòniques del
+domini. L'encaminador heretat de Vault els registra en les posicions històriques
+i injecta ports acotats per a consultes del registre, resolució de rutes i
+selecció del proveïdor. No ha de mantenir un segon mapatge de tokens locals,
+bloqueig d'icones personalitzades o semàfor de fluxos de fitxers. Els
+decoradors repetits `/local-file/{token}` conserven el seu ordre original de
+rutes, de baix a dalt, i qualsevol canvi estructural ha de preservar les
+capçaleres de transmissió en flux i el document OpenAPI exacte.
 
-`drawings/service.py` gestiona el descobriment Tldraw i Excalidraw heretat, les
-lectures, les versions d'historial amb temps de refredament, les escriptures
-atòmiques i l'eliminació recuperable. La feina de fitxers s'executa fora del
-bucle d'esdeveniments i reutilitza el mateix contracte de paperera que les pàgines.
+Les metadades amb fitxers com a valor es normalitzen recursivament sense canviar
+la seva estructura de llista o objecte. Les rutes `Assets/` existents i els
+URL HTTP remots continuen sent referències; els URL de dades i els fitxers
+locals autoritzats es copien atòmicament al directori de recursos de la
+propietat. La neteja física resol cada candidat dins de l'arrel `Assets` del
+Vault actiu abans d'eliminar-ne l'enllaç, de manera que una cadena de
+recorregut de directoris al frontmatter no pugui sortir del Vault.
 
-L' eliminació normal es recuperable: pàgines i actius relacionats es mouen a través del model de brossa Vulta. La freqüència és diferent i elimina contingut més metadades derivades i relacions inverses. `trash/purge.py` gestiona el pas irreversible sobre fitxers i la neteja d'historial, metadades laterals i comentaris mitjançant ports injectats. L' eliminació del registre elimina la fila de registre lògica per omissió; l' eliminació física requereix un senyal explícit i comprovacions de contenció més fortes.
+## Paperera i operacions destructives
 
-## Plantilles d' anticipació
+`drawings/service.py` és responsable del descobriment de Tldraw i de
+l'Excalidraw heretat, les lectures, les instantànies d'historial limitades per
+un interval mínim, les escriptures atòmiques i l'eliminació recuperable. La
+feina del sistema de fitxers s'executa fora del bucle d'esdeveniments, i
+l'eliminació reutilitza el mateix contracte de fitxers auxiliars de la
+paperera de Vault que les pàgines.
 
-El repositori de plantilles és un catàleg d' execució; els actius de paquets no es troben en el repositori d' aplicacions Git. La creació d' una plantilla verifica la signatura d' índex separada, paquet SHA- 256, signatura de l' editor, manifest, l' inventari, els límits de l' arxiu, rutes, tipus de fitxers i enllaços abans d' escriure. L' extracció es produeix en un directori d' arc de sisiging sota l' arrel de Vultes. El directori completat es mou a lloc atòmic i només s' ha registrat a la gestió de bases de dades, de manera que un fracàs no pot exposar a una Culta parcial.
+L'eliminació ordinària és recuperable: les pàgines i els recursos relacionats
+passen pel model de paperera de Vault. La purga és diferent i elimina el
+contingut, les metadades derivades i les relacions inverses.
+`trash/purge.py` és responsable del pas irreversible sobre el sistema de
+fitxers i de la neteja de l'historial, els fitxers auxiliars de metadades i els
+comentaris mitjançant ports de la façana amb vinculació tardana. L'eliminació
+del registre de Vault suprimeix per defecte la fila lògica del registre;
+l'eliminació física de la carpeta requereix un senyal explícit separat i
+comprovacions de confinament més estrictes.
 
-La validació de l'arxiu separa la comprovació limitada de cada entrada, la lectura
-del manifest, la comparació de l'inventari i la integritat del payload. Aquests
-passos purs i tipats mantenen el mateix contracte tancat davant d'errors i cada
-ajudant queda per sota del límit de complexitat del backend.
+En eliminar una taula, primer es mou atòmicament cada arbre de recursos que
+li pertany a `.gnosi/pending-cleanup/table-assets/in-progress-*` i s'escriu un
+manifest restringit als límits permesos. La confirmació de la transacció del
+registre canvia llavors el nom d'aquest directori a `ready-*` abans d'una
+purga en segon pla. La recuperació en arrencar restaura una quarantena en curs
+quan la taula encara existeix, la purga quan el registre persistent acredita
+l'eliminació i deixa intactes les entrades il·legibles o desconegudes. Les
+revisions dels recursos inclouen els enllaços simbòlics sense seguir-ne les
+destinacions i impedeixen l'eliminació després d'una previsualització obsoleta.
 
-L' exportació està permetent la llista basada en els noms i els determinants. Exclosiona `.gnosi`, connectors, botigues de confiança, correu, paperera, historial, contingut d' entorn, enllaços, fitxers illegibles i continguts de mida. Una llista de vistes prèvies totes i excloses i explora fitxers de text lligats per a valors credents com ara credents. Cercar requereix informació explícita. Els connectors recomanats són identificadors en el codi d' executables no es mouen mai dins d' una plantilla Vault.
+## Plantilles de Vault
 
-La submissió pública està separada d' exportació i requereix accés d' administrador. Usa un moderació opcional en comptes d' un " gtHub credential encastat en el Gnosi.
+El repositori de plantilles és un catàleg signat disponible en temps
+d'execució; els recursos dels paquets no es versionen al repositori Git de
+l'aplicació. La creació a partir d'una plantilla verifica la signatura
+separada de l'índex, el SHA-256 del paquet, la signatura de l'editor, el
+manifest, l'inventari de fitxers, els límits de l'arxiu, les rutes, els tipus
+de fitxer i els enllaços abans d'escriure. L'extracció es fa en un directori
+temporal germà sota l'arrel de Vaults. El directori complet es mou atòmicament
+a la seva ubicació definitiva i només llavors es registra a la base de dades
+de gestió, de manera que una fallada no pugui exposar un Vault parcial.
 
-## Conculència envaris
+La validació de l'arxiu es descompon en validació acotada d'entrades,
+descodificació del manifest, comparació de l'inventari i comprovacions
+d'integritat del payload. Aquests passos purs i tipats conserven el mateix
+contracte de paquet, que rebutja l'operació davant d'errors, i mantenen cada
+funció auxiliar per sota del límit de complexitat del backend.
 
-`daily/service.py` gestiona, sense dependre del proveïdor, el descobriment per
-carpeta o taula, la normalització de dates, les plantilles, el llistat i la
-creació atòmica de notes diàries. La façana conserva els decoradors FastAPI
-públics i hi injecta les ordres de pàgina resoltes tard.
+L'exportació es basa en una llista d'elements permesos i és determinista.
+Exclou `.gnosi`, plugins, magatzems de confiança, correu, paperera, historial,
+contingut executable, fitxers d'entorn, enllaços, fitxers il·legibles i
+contingut de mida excessiva. Una previsualització enumera tots els fitxers
+inclosos i exclosos i analitza fitxers de text de mida acotada per detectar
+valors que semblin credencials. Les troballes requereixen confirmació explícita.
+Els plugins recomanats són identificadors al manifest; el codi executable
+dels plugins mai no es transporta dins d'una plantilla de Vault.
 
-- Modifica els sobreescriure de Stale ETag Type
-- Recepta i creació diària de notes utilitza les comprovacions de carreres.
-- Pàgina, registre, captura d' enllaços i actualitzacions del dipòsit lateral segueixen consistents després d'un
-Un nom o supressió.
-- S' han rebut camins absoluts d' un client sota arrels aprovades.
-- Els enllaços de Symlinks i el camí del traversal no poden escapar del límit de la volta seleccionada.
-- L' extracció de la plantilla no pot publicar un directori parcial o registrar- lo aviat.
-- Els exportaciós de la plantilla no poden incloure el contingut de l' estat d' execució o de l' executable del connector.
-- Marca els viatges rodó conservant contingut sensible a l'escapament i la sintaxi wikilink.
+L'enviament públic és independent de l'exportació i requereix accés
+d'administrador. Utilitza un intermediari de moderació opcional en lloc d'una
+credencial de GitHub incrustada a Gnosi. Els camps addicionals del justificant
+específics de l'intermediari es conserven sense pèrdues mitjançant un model de
+resposta que admet camps extres; els payloads de fallada del catàleg conserven
+la seva estructura heretada per a la recuperació sense connexió i davant
+d'errors de signatura.
 
-## Frontal
+## Invariants de concurrència
 
-`VaultDashboard` la seva història de navegació i selecciona la pàgina, taula, dibuix, galeria, tauler, calendari, cronologia, fonts o superfícies lectores. `VaultShell` proveeix del marc; components especialitzats que implementen editors i vistes. L' estat d' interacció frontal de la memòria cau però tracta el contingut de la pàgina de dorsal i els ETags com autoritiu.
+`daily/service.py` és responsable del descobriment de carpetes i taules
+independent del proveïdor, la normalització de dates, la inicialització a
+partir de plantilles, el llistat i el flux atòmic d'obtenció o creació de
+notes diàries. L'encaminador de compatibilitat manté els decoradors FastAPI
+públics i injecta ordres de pàgina amb vinculació tardana perquè els plugins
+i les proves existents conservin els seus punts de substitució.
 
-## Concentrat de verificació
+- Els ETags obsolets impedeixen les sobreescriptures.
+- La creació de registres i de notes diàries utilitza comprovacions repetides
+  segures davant de condicions de cursa.
+- Les actualitzacions de pàgines, registres, índexs d'enllaços i fitxers auxiliars
+  es mantenen coherents després d'un canvi de nom o d'una eliminació.
+- Les rutes absolutes rebudes d'un client es resolen dins d'arrels autoritzades.
+- Els enllaços simbòlics i el recorregut de directoris no poden sortir dels
+  límits del vault seleccionat.
+- L'extracció de plantilles no pot publicar un directori parcial ni registrar-lo
+  abans d'hora.
+- Les exportacions de plantilles no poden incloure estat d'execució ni
+  contingut executable de plugins.
+- Els cicles d'anada i tornada de Markdown preserven el contingut sensible als
+  caràcters d'escapament i la sintaxi de wikilinks.
 
-Executeu ETagDigention, contenidor de rutes, raça segura d' E/O, registre, reanomenant, paperera/purge, numeració, relació amb l' índex, refresc de Playwright Vultigce. Els incidents de núvol també requereixen un primer cop de substitució perquè el local d' arranjar les proves no pot reproduir el comportament del proveïdor de fitxers.
+## Frontend
+
+`VaultDashboard` és responsable de l'historial de navegació i selecciona les
+interfícies de pàgina, taula, dibuix, galeria, tauler, calendari, cronologia,
+canal o lector. `VaultShell` proporciona l'estructura; els components
+especialitzats implementen els editors i les vistes. El frontend desa en
+memòria cau l'estat d'interacció, però considera el contingut de les pàgines
+del backend i els ETags com a font de veritat.
+
+Els punts d'entrada públics `VaultDashboard.tsx`, `VaultTable.tsx`,
+`SchemaConfigModal.tsx` i `BlockEditor.tsx` componen mòduls TypeScript estrictes.
+La navegació i els catàlegs de registres són a `pages/vault-dashboard`; la
+selecció, la virtualització i l'edició de cel·les de taula, a `Vault/vault-table`;
+els camps i les opcions d'esquema, a `Vault/schema-config`. L'editor separa
+les propietats de pàgina, els documents enriquits, els efectes, els controls i
+la persistència a `Vault/block-editor`. Aquests límits interns preserven les
+rutes d'API i els formats d'emmagatzematge existents; la reorganització final
+a `features/` és un pas separat.
+
+Les transicions de Markdown a la vista visual publiquen els esborranys pendents
+abans de muntar l'editor enriquit, evitant que el contingut obsolet del
+component pare substitueixi una edició encara no desada. Els desaments només
+de metadades ometen el cos; les fórmules per defecte preserven els valors niats
+de relacions i plugins. Les proves de regressió cobreixen aquests traspassos,
+a més dels identificadors d'opció de l'esquema, la identitat de les files de
+taula i les extensions de metadades desconegudes.
+
+## Aspectes que cal verificar
+
+Executeu proves de concurrència amb ETag, confinament de rutes, entrada/sortida
+segura, condicions de cursa del registre, canvis de nom, paperera i purga,
+numeració d'adjunts, relacions, actualització de l'índex i fluxos representatius
+de Vault amb Playwright. Els incidents dels proveïdors del núvol també
+requereixen llegir un marcador de posició real, perquè les proves amb dades
+locals de prova no poden reproduir el comportament de File Provider.
