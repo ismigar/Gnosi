@@ -196,17 +196,35 @@ operational doubles by `pnpm test:desktop`.
 
 ### Profile preservation and recovery
 
-**Upgrade gate:** direct Electron 28 → 43 profile migration is not accepted yet.
 Chromium 150 only migrates cookie schema 23 → 24; it deletes/recreates older
-cookie databases, including schema 19 used by Electron 28. Gnosi therefore checks
-cookie schema metadata read-only before opening Chromium. An older, unknown,
-corrupt or unresolved cookie store stops startup while leaving the profile
-intact. Both default and persistent-partition stores are checked. Do not delete
-`Cookies`, change its version metadata, or launch a newer runtime directly against
-the profile to bypass this stop. A verified intermediate migration is required
-before shipping this upgrade. The guard is not that migration.
+cookie databases, including schema 19 used by Electron 28. Before opening
+Chromium, Gnosi therefore validates all default and persistent-partition stores
+and structurally converts known schemas 19–22 to 23. Chromium then performs its
+supported 23 → 24 step. Unknown, corrupt, unresolved or custom encrypted stores
+stop startup. Standard Gnosi bundles have Chromium cookie encryption disabled;
+an encrypted store needs its original encryption-enabled runtime, not guessed
+keys or a plaintext fallback. Do not delete `Cookies`, stamp its version metadata,
+or launch a newer runtime directly against an unconverted old profile.
 See the upstream [cookie migration cases](https://github.com/chromium/chromium/blob/150.0.7871.224/net/extras/sqlite/sqlite_persistent_cookie_store.cc#L1062-L1145)
 and [older-schema reset](https://github.com/chromium/chromium/blob/150.0.7871.224/net/extras/sqlite/sqlite_persistent_store_backend_base.cc#L196-L208).
+
+The conversion uses a staging copy of **only the cookie database**, checks its
+full integrity, schema, record count and byte-aware projected record digest, then
+activates it through atomic no-replace moves. The exact original file is retained
+at `.Cookies.gnosi-cookie-recovery/original.sqlite`, beside `Cookies`, with private
+intent/prepared/completed journals. No complete profile copy is made. Obsolete
+SameParty data stays in that original archive; the active schema follows
+Chromium's field removal. Key-normalization collisions abort instead of replacing
+a cookie. Interrupted staging attempts are retained for diagnosis; only verified
+states resume automatically. Keep recovery files until the upgrade is accepted.
+
+The explicit `rollbackCookieStore` recovery helper requires all clients stopped
+and a completed forward migration. It preserves the current/newer cookies as
+`rollback.current.sqlite`, restores a verified copy of the original through its
+own durable journals, and prevents automatic remigration by Electron 43. Finish
+an interrupted rollback with the same helper, then use the previous Gnosi version.
+Do not remove rollback journals to force a retry or overwrite newer cookies.
+Pending forward activation must first be resumed to verified completion.
 
 Close every older Gnosi instance before upgrading. Startup obtains a
 single-instance lock before opening the backend, updater or browser session.
@@ -246,7 +264,7 @@ For an isolated persistence check, run
 `pnpm --filter @gnosi/desktop test:profile:smoke` before replacing Electron 28.
 After upgrading, pass the previous and target Electron executable paths as the
 two arguments to that command. It runs old → target → target against a fresh
-temporary profile, checking a synthetic mail draft, chat, cookie and application
+temporary profile, checking a synthetic mail draft, chat, three cookies and application
 data sentinel, and saves reports/screenshots. The seed runtime must be older than
 Electron 32. Test-only mock keychain settings prevent access to real credentials;
 this check does not certify production OS-secret-store migration, real database
@@ -256,8 +274,10 @@ Add `--asar` after the two executable paths to run the target probe from an ASAR
 archive containing the real profile helpers and host-native prebuild. This is an
 isolated packaging-boundary fixture, not a full installer or backend bundle.
 Missing local runtimes fail with installation guidance, without downloading.
-The current direct 28 → 43 check must fail at the cookie safety gate; inspecting
-the retained seed database proves protection, not successful migration.
+The migration check compares cookie values, domain/host-only scope, path,
+HttpOnly/Secure/SameSite flags and expiration across both target starts. A failure
+at the safety gate is not a successful migration. Passing this fixture does not
+replace the native installer, real data or four-platform release matrix.
 
 ```
 desktop/

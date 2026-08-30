@@ -25,6 +25,11 @@ files:
   - ipc-security.js
   - profile-startup.js
   - cookie-schema-guard.js
+  - cookie-schema.js
+  - cookie-profile-migration.js
+  - cookie-migration.js
+  - cookie-migration-files.js
+  - cookie-rollback.js
   - profile-preservation.js
   - exclusive-rename.js
   - application-menu.js

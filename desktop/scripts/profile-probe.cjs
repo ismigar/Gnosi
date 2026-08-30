@@ -30,13 +30,28 @@ async function verify(root, stage, profile, beforeName) {
   await window.loadURL('app://gnosi/profile');
   const key = 'gnosi:profile-smoke';
   const value = JSON.stringify({ draft: 'Synthetic mail draft', chat: ['Synthetic chat turn'] });
+  const cookieExpectations = path.join(root, 'cookies.expected.json');
+  const cookieFields = ['name', 'value', 'domain', 'hostOnly', 'path', 'secure', 'httpOnly', 'sameSite', 'session', 'expirationDate'];
   if (stage === 'seed') {
     await window.webContents.executeJavaScript(`localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(value)})`);
-    await session.defaultSession.cookies.set({ url: 'https://profile.invalid', name: 'gnosi-fixture', value: 'synthetic-cookie', expirationDate: Date.now() / 1000 + 86400 });
+    const expirationDate = Math.floor(Date.now() / 1000) + 86400;
+    for (const cookie of [
+      { url: 'https://profile.invalid', name: 'gnosi-fixture', value: 'synthetic-cookie' },
+      { url: 'https://profile.invalid/api', name: 'gnosi-auth-fixture', value: 'synthetic-auth', path: '/api', secure: true, httpOnly: true, sameSite: 'strict' },
+      { url: 'https://sub.profile.invalid', name: 'gnosi-domain-fixture', value: 'synthetic-domain', domain: '.profile.invalid', path: '/', secure: true, sameSite: 'no_restriction' },
+    ]) await session.defaultSession.cookies.set({ ...cookie, expirationDate });
+    const seeded = await session.defaultSession.cookies.get({});
+    fs.writeFileSync(cookieExpectations, JSON.stringify(seeded.map(cookie => Object.fromEntries(cookieFields.map(field => [field, cookie[field]])))), { flag: 'wx' });
   }
   assert.equal(await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(key)})`), value);
-  const cookies = await session.defaultSession.cookies.get({ url: 'https://profile.invalid', name: 'gnosi-fixture' });
-  assert.equal(cookies[0]?.value, 'synthetic-cookie');
+  const cookies = await session.defaultSession.cookies.get({});
+  const expectedCookies = JSON.parse(fs.readFileSync(cookieExpectations, 'utf8'));
+  assert.equal(cookies.length, 3);
+  for (const expected of expectedCookies) {
+    const actual = cookies.find(cookie => cookie.name === expected.name);
+    assert.ok(actual, 'A seeded cookie is missing after restart');
+    for (const field of cookieFields) assert.equal(actual[field], expected[field], `Cookie field changed: ${field}`);
+  }
   session.defaultSession.flushStorageData();
   await session.defaultSession.cookies.flushStore();
   const original = path.join(profile, 'databases');
@@ -48,7 +63,7 @@ async function verify(root, stage, profile, beforeName) {
   assert.equal(app.getPath('userData'), profile);
   assert.equal(app.getPath('sessionData'), profile);
   await window.webContents.executeJavaScript(`
-    document.getElementById('storage').textContent = 'Mail draft, chat and cookie: preserved';
+    document.getElementById('storage').textContent = 'Mail draft, chat and 3 cookies: preserved';
     document.getElementById('recovery').textContent = ${JSON.stringify(stage === 'seed' ? 'Legacy fixture seeded' : 'Legacy directory saved; Gnosi data unchanged')};
     document.getElementById('isolation').textContent = 'Node globals exposed: ' + (typeof require !== 'undefined' || typeof process !== 'undefined');
   `);
@@ -57,7 +72,7 @@ async function verify(root, stage, profile, beforeName) {
   const screenshot = path.join(root, `${stage}.png`);
   await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   fs.writeFileSync(screenshot, (await window.webContents.capturePage()).toPNG());
-  const report = { stage, electron: process.versions.electron, beforeName, name: app.getName(), appPath: app.getAppPath(), profile, passed: true, screenshot, text, mockKeychain: true };
+  const report = { stage, electron: process.versions.electron, beforeName, name: app.getName(), appPath: app.getAppPath(), profile, cookieCount: cookies.length, passed: true, screenshot, text, mockKeychain: true };
   fs.writeFileSync(path.join(root, `${stage}.json`), JSON.stringify(report, null, 2));
 }
 

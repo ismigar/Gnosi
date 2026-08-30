@@ -3,6 +3,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { preserveLegacyProfile } = require('./profile-preservation');
 const { assertProfileCookiesCompatible } = require('./cookie-schema-guard');
+const { migrateProfileCookies } = require('./cookie-profile-migration');
 
 /**
  * Normalize an environment path exactly where the packaged Python child starts.
@@ -35,9 +36,10 @@ function prepareDesktopProfile(app, environment, options = {}) {
     .flatMap(value => value ? [resolveDataPath(value, cwd, home)] : []);
   const preserve = options.preserve ?? preserveLegacyProfile;
   const profiles = new Set([app.getPath('userData'), app.getPath('sessionData')]);
-  const checkCookies = options.checkCookies ?? (Number(process.versions.electron?.split('.')[0]) >= 43 ? assertProfileCookiesCompatible : undefined);
+  const checkCookies = options.checkCookies;
   // Validate every profile before any move; Chromium must never open an old schema.
   if (checkCookies) for (const profile of profiles) checkCookies(profile);
+  else if (Number(process.versions.electron?.split('.')[0]) >= 43) migrateProfileCookies(profiles);
   for (const profile of profiles) {
     preserve(profile, protectedDataPaths);
   }

@@ -64,28 +64,36 @@ function assertCookieDatabaseCompatible(filename) {
 /** Check default and persistent-partition cookie stores without opening a session.
  * @param {string} profile
  */
-function assertProfileCookiesCompatible(profile) {
+function profileCookieStores(profile) {
   if (!path.isAbsolute(profile)) throw new Error('Cookie profile paths must be absolute.');
+  /** @type {string[]} */
+  const stores = [];
   /** @param {string} directory */
   const checkDirectory = directory => {
     const stat = existing(directory);
     if (!stat) return;
     if (!stat.isDirectory()) throw new Error('Cookie profile must be a directory.');
-    assertCookieDatabaseCompatible(path.join(directory, 'Cookies'));
+    stores.push(path.join(directory, 'Cookies'));
     const network = path.join(directory, 'Network');
     const networkStat = existing(network);
     if (networkStat && !networkStat.isDirectory()) throw new Error('Cookie Network path must be a directory.');
-    if (networkStat) assertCookieDatabaseCompatible(path.join(network, 'Cookies'));
+    if (networkStat) stores.push(path.join(network, 'Cookies'));
   };
   checkDirectory(profile);
   const partitions = path.join(profile, 'Partitions');
   const stat = existing(partitions);
-  if (!stat) return;
+  if (!stat) return stores;
   if (!stat.isDirectory()) throw new Error('Cookie Partitions path must be a directory.');
   for (const name of fs.readdirSync(partitions)) {
     const directory = path.join(partitions, name);
     if (existing(directory)?.isDirectory()) checkDirectory(directory);
   }
+  return stores;
 }
 
-module.exports = { assertCookieDatabaseCompatible, assertProfileCookiesCompatible };
+/** @param {string} profile */
+function assertProfileCookiesCompatible(profile) {
+  for (const filename of profileCookieStores(profile)) assertCookieDatabaseCompatible(filename);
+}
+
+module.exports = { assertCookieDatabaseCompatible, assertProfileCookiesCompatible, profileCookieStores };
