@@ -97,7 +97,6 @@
       "frontend/src/components/Vault/DbViewEmbed.jsx": 2086,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2976,
       "frontend/src/components/Vault/VaultTable.jsx": 4665,
-      "frontend/src/pages/MediaCenter.jsx": 1632,
       "frontend/src/pages/VaultDashboard.jsx": 4684
     },
     "oversized_files": {
@@ -107,7 +106,6 @@
       "frontend/src/components/Vault/DbViewEmbed.jsx": 2086,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2976,
       "frontend/src/components/Vault/VaultTable.jsx": 4665,
-      "frontend/src/pages/MediaCenter.jsx": 1632,
       "frontend/src/pages/VaultDashboard.jsx": 4684,
       "frontend/src/shared/api/index.ts": 643,
       "frontend/src/shared/api/vaults.test.ts": 504
