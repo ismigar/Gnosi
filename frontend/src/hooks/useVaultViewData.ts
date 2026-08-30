@@ -33,17 +33,17 @@ export interface VaultViewConfig {
 }
 
 
-export interface VaultViewDataParams {
-  readonly pages?: readonly VaultViewPage[];
+export interface VaultViewDataParams<Page extends VaultViewPage = VaultViewPage> {
+  readonly pages?: readonly Page[];
   readonly schema?: Readonly<Record<string, unknown>>;
   readonly searchTerm?: string;
   readonly view?: VaultViewConfig;
 }
 
 
-export interface VaultViewDataResult {
-  readonly filteredPages: VaultViewPage[];
-  readonly sortedPages: VaultViewPage[];
+export interface VaultViewDataResult<Page extends VaultViewPage = VaultViewPage> {
+  readonly filteredPages: Page[];
+  readonly sortedPages: Page[];
 }
 
 
@@ -55,11 +55,11 @@ interface VaultSort {
 
 
 /** Apply shared search, nested filters, and stable multi-field sorting. */
-export function useVaultViewData({
+export function useVaultViewData<Page extends VaultViewPage>({
   pages = [],
   view = {},
   searchTerm = '',
-}: VaultViewDataParams): VaultViewDataResult {
+}: VaultViewDataParams<Page>): VaultViewDataResult<Page> {
   const filterView = useMemo(() => ({
     filters: view.filters,
     filterTree: view.filterTree,
