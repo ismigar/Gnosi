@@ -13,7 +13,6 @@
       "frontend/src/lib/vaultRouting.test.ts": 1,
       "frontend/src/main.tsx": 1,
       "frontend/src/pages/Dashboard.jsx": 2,
-      "frontend/src/pages/NotebooksPage.jsx": 1,
       "frontend/src/pages/VaultDashboard.jsx": 3,
       "frontend/src/shared/api/agent-context.test.ts": 1,
       "frontend/src/shared/api/ai.test.ts": 1,
@@ -116,7 +115,6 @@
       "frontend/src/pages/CalendarPage.jsx": 1163,
       "frontend/src/pages/Dashboard.jsx": 1570,
       "frontend/src/pages/MediaCenter.jsx": 1632,
-      "frontend/src/pages/NotebooksPage.jsx": 1097,
       "frontend/src/pages/VaultDashboard.jsx": 4684
     },
     "oversized_files": {
@@ -133,7 +131,6 @@
       "frontend/src/pages/CalendarPage.jsx": 1163,
       "frontend/src/pages/Dashboard.jsx": 1570,
       "frontend/src/pages/MediaCenter.jsx": 1632,
-      "frontend/src/pages/NotebooksPage.jsx": 1097,
       "frontend/src/pages/VaultDashboard.jsx": 4684,
       "frontend/src/shared/api/index.ts": 643,
       "frontend/src/shared/api/vaults.test.ts": 504

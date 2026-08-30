@@ -1,7 +1,6 @@
 import {
     StrictMode,
     act,
-    type ComponentType,
 } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
@@ -28,10 +27,6 @@ interface MountedRoot {
     readonly root: Root;
 }
 
-interface NotebookDetailProps {
-    readonly notebookId: string;
-}
-
 interface ReactTestGlobal {
     IS_REACT_ACT_ENVIRONMENT?: boolean;
 }
@@ -39,9 +34,6 @@ interface ReactTestGlobal {
 type FetchInput = Parameters<typeof fetch>[0];
 type TranslationValues = Readonly<Record<string, unknown>>;
 
-const TypedNotebookDetail = NotebookDetail as unknown as ComponentType<
-    NotebookDetailProps
->;
 const mountedRoots: MountedRoot[] = [];
 const originalFetch = globalThis.fetch;
 const reactTestGlobal = globalThis as typeof globalThis & ReactTestGlobal;
@@ -155,7 +147,7 @@ async function renderNotebookDetail(
     mountedRoots.push({ root, container });
     const detail = (
         <MemoryRouter>
-            <TypedNotebookDetail notebookId="notebook-1" />
+            <NotebookDetail notebookId="notebook-1" />
         </MemoryRouter>
     );
     await act(async () => {
