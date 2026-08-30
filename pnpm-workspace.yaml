@@ -17,3 +17,5 @@ patchedDependencies:
 allowBuilds:
   electron: true
   esbuild: true
+  # Supported desktop targets use Koffi's prebuilt Node-API artifacts only.
+  koffi: false

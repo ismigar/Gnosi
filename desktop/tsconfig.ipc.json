@@ -12,5 +12,5 @@
     "lib": ["ES2022", "DOM"],
     "types": ["electron"]
   },
-  "files": ["preload.js", "ipc-contract.d.ts", "ipc-security.js"]
+  "files": ["preload.js", "ipc-contract.d.ts", "ipc-security.js", "backend-launch.js", "profile-startup.js", "profile-preservation.js", "exclusive-rename.js"]
 }

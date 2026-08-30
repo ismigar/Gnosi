@@ -23,6 +23,9 @@ files:
   - main.js
   - preload.js
   - ipc-security.js
+  - profile-startup.js
+  - profile-preservation.js
+  - exclusive-rename.js
   - application-menu.js
   - backend-launch.js
   - update-policy.js
@@ -30,6 +33,11 @@ files:
   # logger; electron-updater is the updater itself). electron-builder follows
   # package.json dependencies, so only production deps land in the asar.
   - node_modules/**/*
+
+# The fixed no-replace filesystem adapter uses prebuilt Node-API modules.
+asarUnpack:
+  - node_modules/koffi/**/*
+  - node_modules/@koromix/**/*
 
 extraResources:
   - from: ../frontend/dist/

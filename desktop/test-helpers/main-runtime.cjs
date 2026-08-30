@@ -5,12 +5,15 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 /** Load the actual main module with all operational effects replaced by test doubles. */
-function loadMainRuntime({ isDev = false } = {}) {
+function loadMainRuntime({ isDev = false, prepareProfile = () => true } = {}) {
   const desktopRoot = path.dirname(__dirname);
   const calls = [];
   const handlers = new Map();
   const protocols = new Map();
   const windows = [];
+  const readyCallbacks = [];
+  const exits = [];
+  const lifecycle = new Map();
   class BrowserWindow extends EventEmitter {
     constructor(options) {
       super();
@@ -40,11 +43,13 @@ function loadMainRuntime({ isDev = false } = {}) {
   }
   const electron = {
     app: {
-      whenReady: () => ({ then: () => {} }),
-      on: () => {},
+      whenReady: () => ({ then: callback => { readyCallbacks.push(callback); } }),
+      on: (event, callback) => lifecycle.set(event, callback),
+      exit: code => exits.push(code),
       getVersion: () => { calls.push('version'); return '3.0.0-rc.1'; },
     },
     BrowserWindow,
+    dialog: { showErrorBox: (title, message) => calls.push({ errorBox: { title, message } }) },
     ipcMain: {
       handle: (channel, handler) => {
         assert.ok(!handlers.has(channel), `Duplicate handler: ${channel}`);
@@ -81,6 +86,7 @@ function loadMainRuntime({ isDev = false } = {}) {
   const api = vm.runInNewContext(`${source}\n;({setupIPC, createWindow, registerAppProtocol, mainWindows, setUpdateState(value) { updateState = value; }})`, {
     require: (name) => {
       if (name === 'electron') return electron;
+      if (name === './profile-startup') return { prepareDesktopProfile: prepareProfile };
       if (name === 'electron-updater') return { autoUpdater: updater };
       if (name === 'http') return http;
       if (name === 'child_process') return { spawn: () => assert.fail('Backend must not start in this fixture') };
@@ -98,7 +104,7 @@ function loadMainRuntime({ isDev = false } = {}) {
   }, { filename: 'main.js' });
   api.setupIPC();
   api.registerAppProtocol();
-  return { ...api, calls, handlers, protocols, windows, BrowserWindow };
+  return { ...api, calls, handlers, protocols, windows, BrowserWindow, readyCallbacks, exits, lifecycle };
 }
 
 function senderEvent(window, frame = window.webContents.mainFrame) {

@@ -1,7 +1,22 @@
-const { app, BrowserWindow, ipcMain, Menu, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, protocol, net, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const { prepareDesktopProfile } = require('./profile-startup');
+
+// Protect the 2.x profile before the updater or any Chromium session can open it.
+let startupAllowed = false;
+try {
+  startupAllowed = prepareDesktopProfile(app, process.env);
+  if (!startupAllowed) app.exit(0);
+} catch (error) {
+  try {
+    dialog.showErrorBox('Gnosi — profile protection', String(error?.message || error));
+  } finally {
+    app.exit(1);
+  }
+}
+
 const { autoUpdater } = require('electron-updater');
 const { createApplicationMenuTemplate, normalizeMenuLabels } = require('./application-menu');
 const {
@@ -647,7 +662,7 @@ function setupIPC() {
   });
 }
 
-app.whenReady().then(async () => {
+if (startupAllowed) app.whenReady().then(async () => {
   log('App ready');
 
   // Replace Electron's English development menu immediately. The renderer
@@ -681,8 +696,17 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (mainWindows.size === 0) {
+  if (startupAllowed && mainWindows.size === 0) {
     createWindow();
+  }
+});
+
+app.on('second-instance', () => {
+  if (!startupAllowed) return;
+  const window = [...mainWindows].find(candidate => !candidate.isDestroyed());
+  if (window) {
+    if (window.isMinimized()) window.restore();
+    window.focus();
   }
 });
 

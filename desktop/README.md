@@ -174,6 +174,52 @@ does not certify Electron 43, production startup, data migration, packaging or
 automatic updates. The production handlers are additionally exercised with
 operational doubles by `pnpm test:desktop`.
 
+### Profile preservation and recovery
+
+Close every older Gnosi instance before upgrading. Startup obtains a
+single-instance lock before opening the backend, updater or browser session.
+The pnpm package rename does not change the legacy `gnosi` runtime profile name;
+explicit profile/session paths are retained. Packaged data overrides are selected
+in order: `GNOSI_DATA_DIR`, `GNOSI_LOCAL_DATA`, `LOCAL_DATA_DIR`, then the existing
+Electron user-data path. This compatibility fallback does not relocate an older
+installation to a new platform default.
+
+Electron 32 introduced cleanup of the obsolete `databases` directory under the
+Chromium profile. Before opening a session, Gnosi saves that directory as opaque
+data under `.<profile-name>.gnosi-electron-recovery/databases.saved`, beside the
+profile. Cookies, localStorage, IndexedDB and Gnosi application-data siblings stay
+in place. Separate user-data and session-data profiles are both checked. No whole
+profile copy or SQLite rewrite is performed by this protection.
+
+The recovery directory is created privately, with an exclusive intent journal
+and a completion journal. An atomic operating-system **no-replace** rename keeps
+the directory identity and contents; an existing destination is never replaced,
+even if it appears during the operation. The narrow native adapter uses Koffi's
+pinned, prebuilt Node-API modules. Its source-build hook is disabled. Linux
+desktop builds require glibc and a filesystem supporting `RENAME_NOREPLACE`;
+unsupported primitives fail closed without a copy/delete fallback.
+
+On a conflict, malformed journal, missing native module, overlapping configured
+data path or I/O failure, startup shows an error and exits before opening the
+backend or renderer. Leave the profile and recovery directory intact. A complete
+intent journal plus the matching original or saved directory can resume on the
+next start. For ambiguous or truncated journals, stop all clients and inspect both
+locations before recovery; do not delete a journal or overwrite either directory
+to force startup. Never restore `databases.saved` under the vulnerable `databases`
+name while running newer Electron. Keep the saved tree for explicit recovery;
+Gnosi does not remove it automatically. This preserves legacy bytes, not the
+removed Chromium WebSQL feature itself.
+
+For an isolated persistence check, run
+`pnpm --filter @gnosi/desktop test:profile:smoke` before replacing Electron 28.
+After upgrading, pass the previous and target Electron executable paths as the
+two arguments to that command. It runs old → target → target against a fresh
+temporary profile, checking a synthetic mail draft, chat, cookie and application
+data sentinel, and saves reports/screenshots. The seed runtime must be older than
+Electron 32. Test-only mock keychain settings prevent access to real credentials;
+this check does not certify production OS-secret-store migration, real database
+integrity, other platforms or packaged release acceptance.
+
 ```
 desktop/
 ├── main.js           # Main process (Electron)

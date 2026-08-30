@@ -45,15 +45,25 @@ test('electron-builder packages every required runtime file', () => {
   }
 });
 
-test('the runtime contract covers every local main-process require', () => {
-  const mainSource = fs.readFileSync(path.join(electronRoot, 'main.js'), 'utf8');
-
-  for (const runtimeFile of localRuntimeRequires(mainSource)) {
-    assert.ok(
-      REQUIRED_RUNTIME_FILES.includes(runtimeFile),
-      `${runtimeFile} must be part of the packaged runtime contract`,
-    );
+test('the runtime contract covers transitive local main-process requires', () => {
+  for (const sourceFile of REQUIRED_RUNTIME_FILES) {
+    const source = fs.readFileSync(path.join(electronRoot, sourceFile), 'utf8');
+    for (const runtimeFile of localRuntimeRequires(source)) {
+      assert.ok(
+        REQUIRED_RUNTIME_FILES.includes(runtimeFile),
+        `${sourceFile} requires ${runtimeFile}, which must be in the packaged runtime contract`,
+      );
+    }
   }
+});
+
+test('the native no-replace adapter uses pinned prebuilt modules outside ASAR', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(electronRoot, 'package.json'), 'utf8'));
+  const builderConfig = fs.readFileSync(path.join(electronRoot, 'electron-builder.yml'), 'utf8');
+  const workspace = fs.readFileSync(path.join(gnosiRoot, 'pnpm-workspace.yaml'), 'utf8');
+  assert.equal(manifest.dependencies.koffi, '3.1.6');
+  assert.match(builderConfig, /asarUnpack:\n  - node_modules\/koffi\/\*\*\/\*\n  - node_modules\/@koromix\/\*\*\/\*/);
+  assert.match(workspace, /koffi: false/);
 });
 
 test('the packaged archive check rejects a missing runtime module', () => {
@@ -72,6 +82,9 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\main.js',
     '\\preload.js',
     '\\ipc-security.js',
+    '\\profile-startup.js',
+    '\\profile-preservation.js',
+    '\\exclusive-rename.js',
     '\\application-menu.js',
     '\\backend-launch.js',
     '\\update-policy.js',
