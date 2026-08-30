@@ -12,8 +12,6 @@ import type { MailPageController } from './useMailPageController';
 import type {
   MailAccount,
   MailComposeData,
-  MailPageMessage,
-  MailUndoExtra,
 } from './mailPageModel';
 
 
@@ -35,34 +33,6 @@ interface MailSidebarBoundaryProps {
 }
 
 
-interface MailListBoundaryProps {
-  readonly account: MailAccount | null;
-  readonly accounts: readonly MailAccount[];
-  readonly activeTagId: string | null;
-  readonly activeView: MailView | null;
-  readonly category: string | null;
-  readonly folder: string | null;
-  readonly isComposing: boolean;
-  readonly listRefreshToken: number;
-  readonly onBatchDone: () => void;
-  readonly onMailRead: (mailId: string) => void;
-  readonly onMessagesLoaded: (messages: readonly MailPageMessage[]) => void;
-  readonly onRecordAction: (
-    type: string,
-    mailId: string,
-    email: string,
-    extra?: MailUndoExtra,
-  ) => void;
-  readonly onSelectMail: (mail: MailPageMessage | null) => void;
-  readonly onToggleMailboxSidebar: () => void;
-  readonly readMailId: string | null;
-  readonly removedMailId: string | null;
-  readonly searchQuery: string;
-  readonly selectedMailId?: string;
-  readonly showMailboxSidebar: boolean;
-}
-
-
 interface MailComposerBoundaryProps extends MailComposeData {
   readonly account: MailAccount | null;
   readonly accounts: readonly MailAccount[];
@@ -73,7 +43,6 @@ interface MailComposerBoundaryProps extends MailComposeData {
 
 
 const TypedMailSidebar = MailSidebar as unknown as ComponentType<MailSidebarBoundaryProps>;
-const TypedMailList = MailList as unknown as ComponentType<MailListBoundaryProps>;
 const TypedMailComposer = MailComposer as unknown as ComponentType<MailComposerBoundaryProps>;
 
 
@@ -140,7 +109,7 @@ export function MailPageView({ controller }: MailPageViewProps) {
 
         <div className="mail-workspace__content">
           <div className={`mail-workspace__list ${hasDetail ? 'mail-workspace__list--with-detail' : ''}`}>
-            <TypedMailList
+            <MailList
               account={controller.selectedAccount}
               accounts={controller.accounts}
               folder={controller.activeFolder}
