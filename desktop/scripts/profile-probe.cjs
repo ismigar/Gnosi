@@ -25,6 +25,7 @@ async function verify(root, stage, profile, beforeName) {
     <p id="recovery">Checking legacy data…</p><p id="isolation"></p></body></html>`, { headers: { 'Content-Type': 'text/html' } }));
   window = new BrowserWindow({ show: false, width: 950, height: 460, webPreferences: {
     sandbox: true, nodeIntegration: false, contextIsolation: true, webSecurity: true,
+    backgroundThrottling: false,
   } });
   await window.loadURL('app://gnosi/profile');
   const key = 'gnosi:profile-smoke';
@@ -54,8 +55,9 @@ async function verify(root, stage, profile, beforeName) {
   const text = await window.webContents.executeJavaScript('document.body.innerText');
   assert.ok(text.includes('Node globals exposed: false'));
   const screenshot = path.join(root, `${stage}.png`);
+  await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   fs.writeFileSync(screenshot, (await window.webContents.capturePage()).toPNG());
-  const report = { stage, electron: process.versions.electron, beforeName, name: app.getName(), profile, passed: true, screenshot, text, mockKeychain: true };
+  const report = { stage, electron: process.versions.electron, beforeName, name: app.getName(), appPath: app.getAppPath(), profile, passed: true, screenshot, text, mockKeychain: true };
   fs.writeFileSync(path.join(root, `${stage}.json`), JSON.stringify(report, null, 2));
 }
 
@@ -83,6 +85,10 @@ try {
     fs.mkdirSync(path.join(profile, 'system'));
     fs.writeFileSync(path.join(profile, 'system', 'fixture-data.bin'), 'Synthetic Gnosi data');
   } else {
+    // The previous process has exited; retain this tiny synthetic DB for diagnosis.
+    if (stage === 'upgrade') {
+      fs.copyFileSync(path.join(profile, 'Cookies'), path.join(root, 'seed-cookies.sqlite'), fs.constants.COPYFILE_EXCL);
+    }
     assert.equal(prepareDesktopProfile(app, {}), true);
     assert.equal(app.isReady(), false);
   }

@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { app, BrowserWindow, ipcMain, protocol, session } = require('electron');
 const { assertTrustedIpcSender } = require('../ipc-security');
+const { prepareDesktopProfile } = require('../profile-startup');
 
 const artifacts = fs.mkdtempSync(path.join(os.tmpdir(), 'gnosi-ipc-smoke-'));
 for (const name of ['userData', 'sessionData', 'logs', 'crashDumps']) {
@@ -12,6 +13,15 @@ for (const name of ['userData', 'sessionData', 'logs', 'crashDumps']) {
   fs.mkdirSync(directory);
   app.setPath(name, directory);
 }
+const legacyDirectory = path.join(app.getPath('userData'), 'databases');
+fs.mkdirSync(legacyDirectory);
+fs.writeFileSync(path.join(legacyDirectory, 'opaque.bin'), 'Synthetic IPC recovery data');
+const legacyIdentity = fs.statSync(legacyDirectory, { bigint: true }).ino;
+assert.equal(prepareDesktopProfile(app, {}), true);
+const savedDirectory = path.join(artifacts, '.userData.gnosi-electron-recovery', 'databases.saved');
+assert.equal(fs.existsSync(legacyDirectory), false);
+assert.equal(fs.statSync(savedDirectory, { bigint: true }).ino, legacyIdentity);
+assert.equal(fs.readFileSync(path.join(savedDirectory, 'opaque.bin'), 'utf8'), 'Synthetic IPC recovery data');
 const mainWindows = new Set();
 const ownedWindows = new Set();
 const version = '3.0.0-rc.1';
@@ -60,6 +70,7 @@ async function createProbe(trusted) {
     webPreferences: {
       preload: path.resolve(__dirname, '../preload.js'),
       sandbox: true, nodeIntegration: false, contextIsolation: true, webSecurity: true,
+      backgroundThrottling: false,
     },
   });
   ownedWindows.add(window);
@@ -99,9 +110,11 @@ async function verify() {
   const foreignText = await waitForText(foreign, 'Untrusted window: denied');
   assert.ok(foreignText.includes('Node globals exposed: false'));
   const screenshot = path.join(artifacts, 'trusted-window.png');
+  await trusted.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   fs.writeFileSync(screenshot, (await trusted.webContents.capturePage()).toPNG());
   const report = {
     electron: process.versions.electron, node: process.versions.node, architecture: process.arch,
+    appPath: app.getAppPath(), nativeProfilePreserved: true,
     passed: true, artifacts, screenshot, trustedText, foreignText,
   };
   fs.writeFileSync(path.join(artifacts, 'report.json'), JSON.stringify(report, null, 2));

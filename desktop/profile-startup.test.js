@@ -90,6 +90,32 @@ test('actual main registers startup only after successful pre-ready protection',
   assert.deepEqual(runtime.exits, []);
 });
 
+test('checks cookies in all profiles before moving any legacy directory', () => {
+  const value = fixture({ separateSession: true });
+  const events = [];
+  prepareDesktopProfile(value.app, {}, {
+    checkCookies: profile => { events.push(['cookies', profile]); },
+    preserve: profile => { events.push(['preserve', profile]); },
+  });
+  assert.deepEqual(events, [
+    ['cookies', value.profile], ['cookies', `${value.profile}-session`],
+    ['preserve', value.profile], ['preserve', `${value.profile}-session`],
+  ]);
+});
+
+test('incompatible session cookies stop before any profile is moved', () => {
+  const value = fixture({ separateSession: true });
+  const checked = [];
+  assert.throws(() => prepareDesktopProfile(value.app, {}, {
+    checkCookies: profile => {
+      checked.push(profile);
+      if (profile.endsWith('-session')) throw new Error('old cookie schema');
+    },
+    preserve: () => assert.fail('no profile may be moved'),
+  }), /old cookie schema/);
+  assert.deepEqual(checked, [value.profile, `${value.profile}-session`]);
+});
+
 test('actual main exits before scheduling backend or windows on a protection error', () => {
   const runtime = loadMainRuntime({ prepareProfile: () => { throw new Error('fixture conflict'); } });
   assert.deepEqual(runtime.exits, [1]);

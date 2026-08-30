@@ -66,6 +66,18 @@ test('the native no-replace adapter uses pinned prebuilt modules outside ASAR', 
   assert.match(workspace, /koffi: false/);
 });
 
+test('Electron43 tooling stays pinned and binary installation is explicit', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(electronRoot, 'package.json'), 'utf8'));
+  const workspace = fs.readFileSync(path.join(gnosiRoot, 'pnpm-workspace.yaml'), 'utf8');
+  assert.equal(manifest.devDependencies.electron, '43.4.1');
+  assert.equal(manifest.devDependencies['electron-builder'], '26.15.3');
+  assert.equal(manifest.devDependencies['@electron/asar'], '4.3.0');
+  assert.equal(manifest.scripts['install:runtime'], 'install-electron');
+  assert.match(workspace, /electron: false/);
+  assert.match(workspace, /electron-winstaller: false/);
+  assert.doesNotMatch(workspace, /set this to true or false/);
+});
+
 test('the packaged archive check rejects a missing runtime module', () => {
   assert.throws(
     () => assertPackagedRuntimeEntries([
@@ -83,6 +95,7 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\preload.js',
     '\\ipc-security.js',
     '\\profile-startup.js',
+    '\\cookie-schema-guard.js',
     '\\profile-preservation.js',
     '\\exclusive-rename.js',
     '\\application-menu.js',

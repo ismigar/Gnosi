@@ -2,6 +2,7 @@
 const os = require('node:os');
 const path = require('node:path');
 const { preserveLegacyProfile } = require('./profile-preservation');
+const { assertProfileCookiesCompatible } = require('./cookie-schema-guard');
 
 /**
  * Normalize an environment path exactly where the packaged Python child starts.
@@ -21,7 +22,7 @@ function resolveDataPath(value, cwd, home) {
  * Keep the 2.x runtime profile name despite the pnpm package scope rename.
  * @param {Pick<Electron.App, 'isReady' | 'getName' | 'setName' | 'requestSingleInstanceLock' | 'getPath'>} app
  * @param {NodeJS.ProcessEnv} environment
- * @param {{backendCwd?: string, home?: string, preserve?: typeof preserveLegacyProfile}} [options]
+ * @param {{backendCwd?: string, home?: string, preserve?: typeof preserveLegacyProfile, checkCookies?: typeof assertProfileCookiesCompatible}} [options]
  * @returns {boolean} False means another instance owns the profile; exit now.
  */
 function prepareDesktopProfile(app, environment, options = {}) {
@@ -33,7 +34,11 @@ function prepareDesktopProfile(app, environment, options = {}) {
   const protectedDataPaths = [environment.GNOSI_DATA_DIR, environment.GNOSI_LOCAL_DATA, environment.LOCAL_DATA_DIR]
     .flatMap(value => value ? [resolveDataPath(value, cwd, home)] : []);
   const preserve = options.preserve ?? preserveLegacyProfile;
-  for (const profile of new Set([app.getPath('userData'), app.getPath('sessionData')])) {
+  const profiles = new Set([app.getPath('userData'), app.getPath('sessionData')]);
+  const checkCookies = options.checkCookies ?? (Number(process.versions.electron?.split('.')[0]) >= 43 ? assertProfileCookiesCompatible : undefined);
+  // Validate every profile before any move; Chromium must never open an old schema.
+  if (checkCookies) for (const profile of profiles) checkCookies(profile);
+  for (const profile of profiles) {
     preserve(profile, protectedDataPaths);
   }
   return true;

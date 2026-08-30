@@ -7,6 +7,7 @@ const REQUIRED_RUNTIME_FILES = Object.freeze([
   'preload.js',
   'ipc-security.js',
   'profile-startup.js',
+  'cookie-schema-guard.js',
   'profile-preservation.js',
   'exclusive-rename.js',
   'application-menu.js',

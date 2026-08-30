@@ -8,11 +8,18 @@ This folder contains the Electron wrapper for the Cervell Digital application, e
 - **pnpm** 11.19.0
 - **Python** 3.11 and **uv**
 
+The desktop toolchain pins Electron **43.4.1**, electron-builder **26.15.3**
+and ASAR **4.3.0**. Electron's bundled Node runtime is independent of the
+Node 22.22.2 used to install and build the workspace.
+
 ## Quick Start
 
 ```bash
 # Install dependencies
 pnpm install --frozen-lockfile
+
+# Download the pinned Electron binary explicitly, with its bundled checksums
+pnpm --filter @gnosi/desktop install:runtime
 
 # Run in development mode (uses local Python and dev servers)
 pnpm desktop:dev
@@ -22,6 +29,13 @@ In dev mode:
 - Frontend runs at `http://localhost:5173`
 - Backend runs at `http://localhost:5002`
 - Electron window opens connected to dev servers
+
+Electron 43 no longer downloads its binary in an install hook. The workspace
+keeps that hook disabled, alongside the unused Squirrel.Windows hook and Koffi's
+source-build hook. Do not approve all dependency scripts to fix an installation.
+The explicit runtime command is safe to repeat when the correct binary is
+already present. Normal Electron CLI startup can download a missing binary;
+the profile smoke runner deliberately does not and reports how to install it.
 
 ## Building
 
@@ -165,6 +179,12 @@ application/session directories, blocks remote requests, and never starts the
 backend, updater or form filler. It verifies request responses, event payloads,
 subscription disposal, Node isolation and rejection of an unregistered window.
 
+The command also exercises the native no-replace adapter on opaque fixture
+bytes before opening its browser session. To test the same fixture inside ASAR,
+run `node desktop/scripts/smoke-ipc-asar.cjs /absolute/path/to/Electron` from the
+repository root. This launcher requires an installed executable and never
+downloads one or starts the production application.
+
 The command exits within 30 seconds, closes its own windows, and prints the
 temporary directory containing `report.json` and `trusted-window.png`. An
 `Untrusted IPC sender` log is expected for the deliberately rejected window.
@@ -175,6 +195,18 @@ automatic updates. The production handlers are additionally exercised with
 operational doubles by `pnpm test:desktop`.
 
 ### Profile preservation and recovery
+
+**Upgrade gate:** direct Electron 28 → 43 profile migration is not accepted yet.
+Chromium 150 only migrates cookie schema 23 → 24; it deletes/recreates older
+cookie databases, including schema 19 used by Electron 28. Gnosi therefore checks
+cookie schema metadata read-only before opening Chromium. An older, unknown,
+corrupt or unresolved cookie store stops startup while leaving the profile
+intact. Both default and persistent-partition stores are checked. Do not delete
+`Cookies`, change its version metadata, or launch a newer runtime directly against
+the profile to bypass this stop. A verified intermediate migration is required
+before shipping this upgrade. The guard is not that migration.
+See the upstream [cookie migration cases](https://github.com/chromium/chromium/blob/150.0.7871.224/net/extras/sqlite/sqlite_persistent_cookie_store.cc#L1062-L1145)
+and [older-schema reset](https://github.com/chromium/chromium/blob/150.0.7871.224/net/extras/sqlite/sqlite_persistent_store_backend_base.cc#L196-L208).
 
 Close every older Gnosi instance before upgrading. Startup obtains a
 single-instance lock before opening the backend, updater or browser session.
@@ -219,6 +251,13 @@ data sentinel, and saves reports/screenshots. The seed runtime must be older tha
 Electron 32. Test-only mock keychain settings prevent access to real credentials;
 this check does not certify production OS-secret-store migration, real database
 integrity, other platforms or packaged release acceptance.
+
+Add `--asar` after the two executable paths to run the target probe from an ASAR4
+archive containing the real profile helpers and host-native prebuild. This is an
+isolated packaging-boundary fixture, not a full installer or backend bundle.
+Missing local runtimes fail with installation guidance, without downloading.
+The current direct 28 → 43 check must fail at the cookie safety gate; inspecting
+the retained seed database proves protection, not successful migration.
 
 ```
 desktop/
