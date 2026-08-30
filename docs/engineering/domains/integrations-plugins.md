@@ -234,6 +234,22 @@ sandbox and disappear as soon as the plugin is disabled, revoked or removed.
 Reading or writing the plugin's own configuration additionally requires the
 existing `settings` permission. The host API remains at major version 2.
 
+The UI bridge is split into a typed host, permission-gated method adapters,
+frame lifecycle ownership, and a standalone TypeScript sandbox runtime. The
+runtime is serialized only after compilation; tests also execute the minified
+Vite output to prevent captured host dependencies from breaking the iframe.
+Both sides verify the sending window, not just the message marker or opaque
+origin. Replies from retired frames or earlier document generations are dropped;
+mutations are never replayed to a replacement document.
+
+Moving a running iframe with ordinary DOM insertion reloads its document. The
+Settings host uses state-preserving movement when available, or waits for the
+requested panel to register again before rendering. Mount cleanup belongs to
+one panel instance, and contribution snapshot updates do not remount an
+unchanged panel. Tests cover both movement paths, permission denial, stale
+responses, and repeated registration. Real-browser QA must additionally check
+open/close/reopen and plugin replacement against an isolated fixture API.
+
 ## Marketplace distribution
 
 The official plugin index and its detached signature are published as GitHub

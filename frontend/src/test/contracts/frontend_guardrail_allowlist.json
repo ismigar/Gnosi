@@ -10,8 +10,7 @@
       "frontend/src/components/Vault/BlockEditor.jsx": 20,
       "frontend/src/components/Vault/SchemaConfigModal.jsx": 2,
       "frontend/src/components/Vault/VaultTable.jsx": 12,
-      "frontend/src/pages/VaultDashboard.jsx": 33,
-      "frontend/src/plugins/host.ts": 3
+      "frontend/src/pages/VaultDashboard.jsx": 33
     },
     "legacy_js_jsx": {
       "frontend/src/components/GlobalSettingsModal.jsx": 4973,

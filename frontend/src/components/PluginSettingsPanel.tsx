@@ -15,11 +15,14 @@ export interface PluginSettingsPanelProps {
 
 export function PluginSettingsPanel({ panel }: PluginSettingsPanelProps) {
     const containerRef = useRef<HTMLDivElement | null>(null);
+    const pluginId = panel?.pluginId;
+    const panelId = panel?.id;
+    const height = panel?.height;
 
     useEffect(() => {
-        if (!panel || !containerRef.current) return undefined;
-        return mountSettingsPanel(panel.pluginId, panel.id, containerRef.current, panel.height);
-    }, [panel]);
+        if (pluginId === undefined || panelId === undefined || !containerRef.current) return undefined;
+        return mountSettingsPanel(pluginId, panelId, containerRef.current, height);
+    }, [pluginId, panelId, height]);
 
     if (!panel) return null;
     return (
