@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../../shared/hooks/useMediaQuery';
 import { writeClipboardText } from '../../../shared/platform/clipboard';
 import { toast } from '../../../lib/toast';
 import { updateVaultView } from './api';

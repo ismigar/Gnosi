@@ -13,9 +13,12 @@ source_paths:
   - backend/services/workspace_service.py
   - backend/services/vault_routing.py
   - backend/services/active_vault_middleware.py
-  - frontend/src/context/AuthContext.jsx
+  - frontend/src/context/auth-context.ts
+  - frontend/src/features/auth
   - frontend/src/features/sharing
 tests:
+  - frontend/src/features/auth/LoginPage.test.tsx
+  - frontend/src/features/auth/public-entry.test.ts
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_auth_enforcement_flag.py
   - backend/tests/test_pat_authentication.py
@@ -42,6 +45,11 @@ of the friendly mode label.
 
 The frontend gate selects login or application UI, but all authorization is
 enforced in backend dependencies and services.
+
+The shell imports the login form through `features/auth`'s public entry.
+Login/register validation, session handling, and the backend policy gate retain
+their existing behavior. Account and workspace settings remain separate from
+this form; moving the entry point does not authorize access to a workspace.
 
 The sharing feature exposes its read-only page through a lazy public entry.
 The `/s/:token` route remains outside both the authentication gate and application

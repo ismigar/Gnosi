@@ -61,7 +61,7 @@ vi.mock('./tldraw-editor/tldrawEditorBridges', () => ({
     ),
 }));
 
-vi.mock('../../hooks/useMediaQuery', () => ({
+vi.mock('../../shared/hooks/useMediaQuery', () => ({
     useMediaQuery: () => false,
 }));
 

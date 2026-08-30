@@ -28,8 +28,8 @@ vi.mock('react-i18next', () => {
 });
 vi.mock('../../../hooks/use-api', () => ({useApi: () => ({apiFetch: mocks.apiFetch, role: 'owner'})}));
 vi.mock('../../../plugins/usePlugins', () => ({usePlugins: () => ({isEnabled: () => mocks.enabled})}));
-vi.mock('../../../components/AppHeader', () => ({AppHeader: ({children, title}: {children?: ReactNode; title: string}) => <header>{title}{children}</header>}));
-vi.mock('../../../components/ReleaseNotesDialog', () => ({ReleaseNotesDialog: () => null}));
+vi.mock('../../../shared/ui/layout/AppHeader', () => ({AppHeader: ({children, title}: {children?: ReactNode; title: string}) => <header>{title}{children}</header>}));
+vi.mock('../releases/ReleaseNotesDialog', () => ({ReleaseNotesDialog: () => null}));
 vi.mock('../../../lib/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn(() => 'fixture-toast')}}));
 vi.mock('../../../shared/api/configuration', () => ({fetchConfiguration: vi.fn()}));
 vi.mock('../../../shared/api/scheduler', () => ({

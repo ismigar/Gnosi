@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, ChevronRight, ChevronLeft, PanelLeft, Plus, X } from 'lucide-react';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../shared/hooks/useMediaQuery';
 import { subscribeWindowEvent } from '../../shared/platform/browser-events';
 
 

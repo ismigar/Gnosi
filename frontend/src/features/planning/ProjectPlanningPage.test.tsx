@@ -21,7 +21,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 
-vi.mock('../../components/AppHeader', () => ({
+vi.mock('../../shared/ui/layout/AppHeader', () => ({
   AppHeader: ({
     children,
     title,

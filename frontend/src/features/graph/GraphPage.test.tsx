@@ -52,7 +52,7 @@ vi.mock('../../shared/api/vaults', () => ({
 }));
 
 
-vi.mock('../../components/Layout', () => ({
+vi.mock('../../shared/ui/layout/Layout', () => ({
   Layout: ({
     bottomPanel,
     children,
@@ -73,7 +73,7 @@ vi.mock('../../components/Layout', () => ({
 }));
 
 
-vi.mock('../../components/Sidebar', () => ({
+vi.mock('./panels/Sidebar', () => ({
   Sidebar: ({
     afterWidgets,
     children,
@@ -122,10 +122,10 @@ vi.mock('../../shared/graph/minimap/Minimap', () => ({ Minimap: () => <div>Minim
 vi.mock('./panels/NodeDetailsPanel', () => ({
   NodeDetailsPanel: () => <div>Node details</div>,
 }));
-vi.mock('../../components/VisualizationSection', () => ({
+vi.mock('./panels/VisualizationSection', () => ({
   VisualizationSection: () => <div>Visualization</div>,
 }));
-vi.mock('../../components/ForcesSection', () => ({
+vi.mock('./panels/ForcesSection', () => ({
   ForcesSection: () => <div>Forces</div>,
 }));
 vi.mock('./panels/ConnectionList', () => ({
@@ -143,7 +143,7 @@ vi.mock('./panels/Legend', () => ({
     filteredNodesCount?: number;
   }) => <div>Counts {filteredNodesCount}/{filteredEdgesCount}</div>,
 }));
-vi.mock('../../components/GraphLoadingState', () => ({
+vi.mock('../../shared/ui/loading/GraphLoadingState', () => ({
   GraphLoadingState: ({ progress }: { progress: number }) => (
     <div>Loading {progress}</div>
   ),

@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type FullCalendar from '@fullcalendar/react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../../shared/hooks/useMediaQuery';
 import { usePlugins } from '../../../plugins/usePlugins';
 import { toast } from '../../../lib/toast';
 import { useMeetingReminderSettings, useUpdateMeetingReminderSettings } from '../../../shared/api/useCalendarData';

@@ -2,8 +2,8 @@ import { BookOpenCheck, LibraryBig, Search } from 'lucide-react';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AppHeader } from '../../components/AppHeader';
-import { useKeyboardScroll } from '../../hooks/useKeyboardScroll';
+import { AppHeader } from '../../shared/ui/layout/AppHeader';
+import { useKeyboardScroll } from '../../shared/hooks/useKeyboardScroll';
 import { usePlugins } from '../../plugins/usePlugins';
 import { ReviewWorkspace } from './workspace/ReviewWorkspace';
 import { SearchWorkspace } from './workspace/SearchWorkspace';

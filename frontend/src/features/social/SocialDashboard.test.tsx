@@ -37,7 +37,7 @@ vi.mock('../../shared/api/useSocialData', () => ({
 }));
 
 
-vi.mock('../../components/AppHeader', () => ({
+vi.mock('../../shared/ui/layout/AppHeader', () => ({
   AppHeader: ({ children, title }: {
     readonly children?: ReactNode;
     readonly title: ReactNode;

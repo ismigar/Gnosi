@@ -101,7 +101,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 
-vi.mock('../../hooks/useMediaQuery', () => ({
+vi.mock('../../shared/hooks/useMediaQuery', () => ({
   useMediaQuery: (): boolean => mocks.compact,
 }));
 
@@ -126,7 +126,7 @@ vi.mock('../../shared/api/mail', () => ({
 }));
 
 
-vi.mock('../../components/AppHeader', () => ({
+vi.mock('../../shared/ui/layout/AppHeader', () => ({
   AppHeader: ({
     children,
     title,

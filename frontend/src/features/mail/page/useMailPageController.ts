@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { logError } from '../../../lib/notifyError';
 import { toast } from '../../../lib/toast';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../../shared/hooks/useMediaQuery';
 import {
   fetchIntegrations,
   type IntegrationsDocument,

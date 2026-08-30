@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useExclusiveFloatingPanel } from '../../../hooks/useExclusiveFloatingPanel';
+import { useExclusiveFloatingPanel } from '../../../shared/hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../../../hooks/useFloatingActionDock';
 import { agentChatStorageScope } from '../model/agentConfirmationUtils';
 import { chatScrollDeltaForComposerKey } from '../model/agentChatKeyboardUtils';

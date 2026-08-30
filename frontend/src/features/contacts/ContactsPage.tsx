@@ -6,7 +6,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Plus, Users } from 'lucide-react';
 
-import { AppHeader } from '../../components/AppHeader';
+import { AppHeader } from '../../shared/ui/layout/AppHeader';
 import ConfirmModal from '../../components/ConfirmModal';
 import ContactDetail from './components/ContactDetail';
 import ContactForm from './components/ContactForm';

@@ -1,7 +1,7 @@
 import {Clock3, History, Users, Gauge, Sparkles} from 'lucide-react';
-import {AppHeader} from '../../components/AppHeader';
+import {AppHeader} from '../../shared/ui/layout/AppHeader';
 import {SettingsSectionTabs} from '../../components/SettingsSectionTabs';
-import {ReleaseNotesDialog} from '../../components/ReleaseNotesDialog';
+import {ReleaseNotesDialog} from './releases/ReleaseNotesDialog';
 import {APP_VERSION} from '../../lib/version';
 import {useDashboard} from './dashboard/useDashboard';
 import {useDashboardKeyboard} from './dashboard/useDashboardKeyboard';

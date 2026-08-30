@@ -7,6 +7,10 @@ source_paths:
   - frontend/src/app/routes.tsx
   - frontend/src/app/bootstrap.tsx
   - frontend/src/app/AppProviders.tsx
+  - frontend/src/app/navigation
+  - frontend/src/app/integration
+  - frontend/src/shared/ui
+  - frontend/src/shared/hooks
   - frontend/vite.config.js
   - docker-compose.yml
   - desktop/main.js
@@ -44,6 +48,12 @@ Vault cookie/routing, canonical URL and interface language before rendering.
 `app/AppProviders.tsx` preserves the StrictMode → API → router → authentication
 provider order. `main.tsx` imports the ordered CSS entry and starts bootstrap.
 Vite proxies `/api` and WebSocket traffic to the backend during native development.
+
+The application navigation rail and command palette live in `app/navigation/`;
+global file-link interception lives in `app/integration/`. Reusable headers,
+layout, loading state, tooltips, and generic hooks live under `shared/`, so route
+features never import application composition. Login and meeting surfaces expose
+feature public entries while preserving the original authentication and lazy gates.
 
 Pages compose reusable components; components call the backend through shared
 typed, domain-specific API adapters; direct transports stay inside reviewed

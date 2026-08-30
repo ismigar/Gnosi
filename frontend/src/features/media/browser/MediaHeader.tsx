@@ -1,5 +1,5 @@
 import {Image as ImageIcon, Search, Grid, List as ListIcon, Plus, Loader2, PanelLeft} from 'lucide-react';
-import {AppHeader} from '../../../components/AppHeader';
+import {AppHeader} from '../../../shared/ui/layout/AppHeader';
 import {ROOT_META} from './constants';
 import type {MediaCenterState} from './useMediaCenter';
 export function MediaHeader({state}: {state: MediaCenterState}) {

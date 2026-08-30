@@ -1,6 +1,6 @@
 import {useEffect, useState, type ChangeEvent} from 'react';
 import {useTranslation} from 'react-i18next';
-import {useMediaQuery} from '../../../hooks/useMediaQuery';
+import {useMediaQuery} from '../../../shared/hooks/useMediaQuery';
 import {uploadMediaFile} from '../../../shared/api/media-browser';
 import {uploadVaultAsset} from '../../../shared/api/vault-specialized';
 import toast from '../../../lib/toast';

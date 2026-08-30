@@ -17,7 +17,7 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 
-import { useActiveVaultName } from '../hooks/useActiveVaultName';
+import { useActiveVaultName } from '../shared/hooks/useActiveVaultName';
 import { usePlugins } from '../plugins/usePlugins';
 import { emitAppEvent } from '../shared/platform/app-events';
 import { legacyBrowserPathToCanonical } from '../lib/vaultRouting';

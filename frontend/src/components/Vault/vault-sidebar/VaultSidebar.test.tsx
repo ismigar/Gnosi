@@ -5,7 +5,7 @@ import { readFavoritesSort, readWikiLock, saveSections } from './preferences';
 import { button, cleanup, click, fixtureRole, inputValue, pageRow, renderSidebar, resetPreferences, settle } from './test-support';
 
 vi.mock('../../../hooks/use-api', () => ({ useApi: () => ({ role: fixtureRole.value }) }));
-vi.mock('../../../hooks/useActiveVaultName', () => ({ useActiveVaultName: () => 'Vault fictici' }));
+vi.mock('../../../shared/hooks/useActiveVaultName', () => ({ useActiveVaultName: () => 'Vault fictici' }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, options?: string | { name?: string; defaultValue?: string }) => typeof options === 'string' ? options : options?.defaultValue || key + (options?.name ? `:${options.name}` : '') }) }));
 
 beforeEach(() => { fixtureRole.value = 'admin'; resetPreferences(); });

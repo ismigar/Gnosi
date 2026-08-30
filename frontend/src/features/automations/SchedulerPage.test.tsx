@@ -8,7 +8,7 @@ const updateTask = vi.hoisted(() => vi.fn());
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string, fallback?: string) => fallback ?? key }),
 }));
-vi.mock('../../components/AppHeader', () => ({
+vi.mock('../../shared/ui/layout/AppHeader', () => ({
   AppHeader: ({ title }: { title: ReactNode }) => <header>{title}</header>,
 }));
 vi.mock('../../shared/api/useSchedulerTasks', () => ({

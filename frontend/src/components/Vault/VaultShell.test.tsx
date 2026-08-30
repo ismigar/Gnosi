@@ -20,7 +20,7 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-vi.mock('../../hooks/useMediaQuery', () => ({
+vi.mock('../../shared/hooks/useMediaQuery', () => ({
     useMediaQuery: (query: string) => mediaQueryState.get(query) ?? false,
 }));
 

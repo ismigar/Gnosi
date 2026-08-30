@@ -13,8 +13,8 @@ vi.mock('../i18n', () => ({ default: {} }));
 vi.mock('../lib/fileResource', () => ({ syncActiveVaultCookie: () => { mocks.calls.push('cookie'); } }));
 vi.mock('../lib/vaultRouting', () => ({ initializeVaultRouting: mocks.routing, legacyBrowserPathToCanonical: mocks.canonical }));
 vi.mock('../lib/interfaceLanguage', () => ({ initializeInterfaceLanguage: mocks.language }));
-vi.mock('../lib/desktopMenu', () => ({ installDesktopApplicationMenu: () => { mocks.calls.push('menu'); } }));
-vi.mock('../components/GlobalTooltip', () => ({ GlobalTooltip: () => null }));
+vi.mock('./desktop/desktopMenu', () => ({ installDesktopApplicationMenu: () => { mocks.calls.push('menu'); } }));
+vi.mock('../shared/ui/tooltip/GlobalTooltip', () => ({ GlobalTooltip: () => null }));
 vi.mock('./App', () => ({ default: () => null }));
 vi.mock('./AppProviders', () => ({ AppProviders: () => null }));
 

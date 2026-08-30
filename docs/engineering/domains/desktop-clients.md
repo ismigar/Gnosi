@@ -21,10 +21,14 @@ source_paths:
   - frontend/public/favicon.svg
   - frontend/package.json
   - frontend/src/content/releases.json
+  - frontend/src/app/desktop
+  - frontend/src/features/control-center/releases
   - extensions/web-clipper
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
+  - frontend/src/app/desktop/desktopMenu.test.ts
   - backend/tests/test_env_config_runtime.py
   - desktop/application-menu.test.js
   - desktop/backend-launch.test.js
@@ -41,6 +45,11 @@ Electron packages Gnosi as a desktop application. The main process owns backend
 startup, process cleanup, window lifecycle, packaged-resource paths, update
 checks, installer delivery, installation, and privileged desktop actions. The renderer
 receives a narrow preload API rather than direct Node.js access.
+
+Renderer-side menu installation and the update notice belong to `app/desktop/`.
+Release-note presentation belongs to the control-center feature and consumes the
+same release JSON. These boundaries preserve preload method names, events, update
+actions, version identifiers, and download destinations.
 
 The bundled Python backend must be ready before the renderer treats the app as
 usable. Startup failures are surfaced with diagnostics and cleanup prevents

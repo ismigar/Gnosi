@@ -14,7 +14,7 @@ import { toast } from '../../../lib/toast';
 vi.mock('react-i18next', () => { const t = (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key; return {useTranslation: () => ({t})}; });
 vi.mock('../../../lib/toast', () => ({toast: {error: vi.fn(), success: vi.fn()}}));
 vi.mock('../../../plugins/usePlugins', () => ({usePlugins: () => ({isEnabled: () => true})}));
-vi.mock('../../../hooks/useMediaQuery', () => ({useMediaQuery: () => false}));
+vi.mock('../../../shared/hooks/useMediaQuery', () => ({useMediaQuery: () => false}));
 vi.mock('../../../shared/api/vaults', () => ({createVaultPage: vi.fn(), deleteVaultPage: vi.fn(), fetchVaultPage: vi.fn(), fetchVaultPages: vi.fn(), fetchVaultTables: vi.fn(), patchVaultPage: vi.fn()}));
 vi.mock('../../../shared/api/integrations', () => ({fetchIntegrations: vi.fn(), updateCalendarAliases: vi.fn(), updateCalendarColors: vi.fn(), updateCalendarSelection: vi.fn(), updateDefaultCalendar: vi.fn()}));
 vi.mock('../../../shared/api/calendar', () => ({fetchCalendarList: vi.fn(), fetchCalendarEvents: vi.fn(), fetchMeetingReminderSettings: vi.fn(), updateMeetingReminderSettings: vi.fn(), rsvpCalendarEvent: vi.fn()}));

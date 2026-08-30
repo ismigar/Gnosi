@@ -1,5 +1,5 @@
 import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Bell } from 'lucide-react';
-import { AppHeader } from '../../../components/AppHeader';
+import { AppHeader } from '../../../shared/ui/layout/AppHeader';
 import type { CalendarPageController } from './useCalendarPage';
 
 export function CalendarPageHeader({ controller }: {controller: CalendarPageController}) {

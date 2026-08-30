@@ -1,9 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import i18n from '../i18n';
-import { GlobalTooltip } from '../components/GlobalTooltip';
+import { GlobalTooltip } from '../shared/ui/tooltip/GlobalTooltip';
 import { syncActiveVaultCookie } from '../lib/fileResource';
 import { initializeInterfaceLanguage } from '../lib/interfaceLanguage';
-import { installDesktopApplicationMenu } from '../lib/desktopMenu';
+import { installDesktopApplicationMenu } from './desktop/desktopMenu';
 import { initializeVaultRouting, legacyBrowserPathToCanonical } from '../lib/vaultRouting';
 import App from './App';
 import { AppProviders } from './AppProviders';

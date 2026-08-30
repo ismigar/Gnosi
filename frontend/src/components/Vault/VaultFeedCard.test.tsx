@@ -17,7 +17,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../hooks/useMediaQuery', () => ({ useMediaQuery: () => false }));
+vi.mock('../../shared/hooks/useMediaQuery', () => ({ useMediaQuery: () => false }));
 vi.mock('./VaultMarkdown', () => ({
   VaultMarkdown: ({ md }: { readonly md: string }) => <p>{md}</p>,
 }));

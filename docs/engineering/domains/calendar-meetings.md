@@ -11,9 +11,10 @@ source_paths:
   - backend/services/vault_calendar_sync_service.py
   - backend/services/meeting_reminders.py
   - frontend/src/features/calendar
-  - frontend/src/components/MeetingRecorder.tsx
-  - frontend/src/components/MeetingReminderWatcher.tsx
+  - frontend/src/features/meetings
 tests:
+  - frontend/src/features/meetings/MeetingControls.test.tsx
+  - frontend/src/features/meetings/public-entry.test.ts
   - frontend/src/features/calendar/page/CalendarPage.test.tsx
   - frontend/src/features/calendar/public-entry.test.ts
   - backend/tests/test_calendar_geocoding_domain.py
@@ -38,6 +39,11 @@ source selection, search, recurrence coordination, and page dialogs. Its
 public entry retains the original lazy-loading boundary. Calendar renderers
 also consumed by Vault and Mail remain shared outside the route feature;
 provider adapters, reminder watchers, and event payloads are unchanged.
+
+`features/meetings/` owns the floating recorder, its capture/upload controller,
+and reminder presentation. Its public entry defers recorder and reminder modules
+independently. The shell mounts them through the same plugin gates as before;
+relocation does not change recording permissions, polling, navigation, or payloads.
 
 The HTTP boundary is strictly typed while preserving the existing response
 contract. Photon label normalization, URL rejection, result validation, and

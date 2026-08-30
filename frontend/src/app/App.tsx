@@ -11,23 +11,22 @@ import {
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AppSidebar } from '../components/AppSidebar';
+import { AppSidebar } from './navigation/AppSidebar';
 import { NotebookCreateDialog } from '../features/notebooks';
+import { MeetingRecorder, MeetingReminderWatcher } from '../features/meetings';
 
 const AgentChat = lazy(() => import('../features/agent').then(module => ({ default: module.AgentChat })));
-const MeetingReminderWatcher = lazy(() => import('../components/MeetingReminderWatcher'));
-const MeetingRecorder = lazy(() => import('../components/MeetingRecorder'));
 import { Toaster } from '../lib/toast';
 
 import PageOutline from '../components/PageOutline';
-import CommandPalette from '../components/CommandPalette';
+import CommandPalette from './navigation/CommandPalette';
 import { useTheme } from '../hooks/useTheme';
-import { useFileLinkInterceptor } from '../hooks/useFileLinkInterceptor';
-import { useFocusModality } from '../hooks/useFocusModality';
+import { useFileLinkInterceptor } from './integration/useFileLinkInterceptor';
+import { useFocusModality } from '../shared/hooks/useFocusModality';
 import { useAuth } from '../context/auth-context';
-import { LoginPage } from '../components/Auth/LoginPage';
-import { GraphLoadingState } from '../components/GraphLoadingState';
-import { DesktopUpdateNotice } from '../components/DesktopUpdateNotice';
+import { LoginPage } from '../features/auth';
+import { GraphLoadingState } from '../shared/ui/loading/GraphLoadingState';
+import { DesktopUpdateNotice } from './desktop/DesktopUpdateNotice';
 import { vaultAgentContextRefs } from '../lib/vaultAgentContext';
 import { PluginSurface } from '../components/PluginGate';
 import { usePlugins } from '../plugins/usePlugins';

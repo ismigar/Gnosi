@@ -44,7 +44,7 @@ vi.mock('react-i18next', () => ({
         ),
     }),
 }));
-vi.mock('../../components/AppHeader', () => ({
+vi.mock('../../shared/ui/layout/AppHeader', () => ({
     AppHeader: ({ children, title }: { readonly children?: ReactNode; readonly title: ReactNode }) => <header>{title}{children}</header>,
 }));
 vi.mock('../../plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => false }) }));

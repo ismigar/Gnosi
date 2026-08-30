@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Plus, PanelBottomClose } from 'lucide-react';
-import { announceFloatingPanelOpen } from '../../../hooks/useExclusiveFloatingPanel';
+import { announceFloatingPanelOpen } from '../../../shared/hooks/useExclusiveFloatingPanel';
 import { ChatIcon } from './ChatIcon';
 
 interface Props {

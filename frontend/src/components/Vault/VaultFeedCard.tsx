@@ -17,7 +17,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../shared/hooks/useMediaQuery';
 import { normalizeAssetUrl } from './vaultMarkdownUtils';
 import { IconRenderer } from './IconRenderer';
 import { VaultMarkdown } from './VaultMarkdown';

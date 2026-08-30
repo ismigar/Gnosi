@@ -2,7 +2,7 @@ import { act, useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { dispatchWindowEvent } from '../shared/platform/browser-events';
 import { mountTestComponent } from '../test/mount-react';
-import { useKeyboardScroll } from './useKeyboardScroll';
+import { useKeyboardScroll } from '../shared/hooks/useKeyboardScroll';
 import { useVaultSelectionShortcuts, type VaultSelectionShortcutsOptions } from './useVaultSelectionShortcuts';
 
 interface HarnessProps extends VaultSelectionShortcutsOptions {

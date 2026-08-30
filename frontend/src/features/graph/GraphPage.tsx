@@ -1,7 +1,7 @@
 import { ConnectionList } from './panels/ConnectionList';
 import { Controls } from './panels/Controls';
-import { GraphLoadingState } from '../../components/GraphLoadingState';
-import { Layout } from '../../components/Layout';
+import { GraphLoadingState } from '../../shared/ui/loading/GraphLoadingState';
+import { Layout } from '../../shared/ui/layout/Layout';
 import { Legend } from './panels/Legend';
 import '../../viewer/style.css';
 import { GraphCanvasView } from './page/GraphCanvasView';

@@ -2,7 +2,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, Check, Clock, Edit2, RefreshCw, X } from 'lucide-react';
 
-import { AppHeader } from '../../components/AppHeader';
+import { AppHeader } from '../../shared/ui/layout/AppHeader';
 import { logError } from '../../lib/notifyError';
 import type { ScheduledTask } from '../../shared/api/scheduler';
 import {

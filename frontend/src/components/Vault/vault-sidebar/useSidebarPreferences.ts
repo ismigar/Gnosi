@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type SetStateAction } from 'react';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../../shared/hooks/useMediaQuery';
 import { readSections, readWikiLock, saveSections, saveWikiLock } from './preferences';
 import type { SidebarSections } from './types';
 

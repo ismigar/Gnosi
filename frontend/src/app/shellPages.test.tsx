@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Layout } from '../components/Layout';
+import { Layout } from '../shared/ui/layout/Layout';
 import HomePage from './HomePage';
 
 
@@ -20,12 +20,12 @@ vi.mock('react-i18next', () => ({
 }));
 
 
-vi.mock('../hooks/useActiveVaultName', () => ({
+vi.mock('../shared/hooks/useActiveVaultName', () => ({
   useActiveVaultName: () => 'Research',
 }));
 
 
-vi.mock('../hooks/useMediaQuery', () => ({
+vi.mock('../shared/hooks/useMediaQuery', () => ({
   useMediaQuery: () => false,
 }));
 

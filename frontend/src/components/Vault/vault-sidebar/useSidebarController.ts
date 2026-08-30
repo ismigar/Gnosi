@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/use-api';
-import { useActiveVaultName } from '../../../hooks/useActiveVaultName';
+import { useActiveVaultName } from '../../../shared/hooks/useActiveVaultName';
 import { subscribeAppSignal } from '../../../shared/platform/app-events';
 import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
 import { buildVaultSidebarTrees } from '../vaultSidebarTree';

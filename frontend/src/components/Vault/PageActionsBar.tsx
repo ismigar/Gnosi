@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../shared/hooks/useMediaQuery';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import {
     buildPageActionItems,

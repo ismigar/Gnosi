@@ -14,8 +14,8 @@ vi.mock('react-i18next', () => {
     const t = (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key;
     return {useTranslation: () => ({t})};
 });
-vi.mock('../../../hooks/useMediaQuery', () => ({useMediaQuery: () => false}));
-vi.mock('../../../components/AppHeader', () => ({AppHeader: ({children, title}: {children?: ReactNode; title: string}) => <header>{title}{children}</header>}));
+vi.mock('../../../shared/hooks/useMediaQuery', () => ({useMediaQuery: () => false}));
+vi.mock('../../../shared/ui/layout/AppHeader', () => ({AppHeader: ({children, title}: {children?: ReactNode; title: string}) => <header>{title}{children}</header>}));
 vi.mock('../../../lib/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn()}}));
 vi.mock('../../../shared/api/media-browser', () => ({
     fetchMediaPage: vi.fn(), fetchMediaRoots: vi.fn(), fetchMediaTree: vi.fn(), fetchMediaViews: vi.fn(),

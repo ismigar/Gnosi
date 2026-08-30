@@ -6,7 +6,7 @@ import { useLocation } from 'react-router-dom';
 import {
     announceFloatingPanelOpen,
     useExclusiveFloatingPanel,
-} from '../hooks/useExclusiveFloatingPanel';
+} from '../shared/hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 import { subscribeWindowEvent } from '../shared/platform/browser-events';
 import {

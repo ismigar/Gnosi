@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next';
 
-import { ForcesSection } from '../../../components/ForcesSection';
-import { Sidebar } from '../../../components/Sidebar';
-import { VisualizationSection } from '../../../components/VisualizationSection';
+import { ForcesSection } from '../panels/ForcesSection';
+import { Sidebar } from '../panels/Sidebar';
+import { VisualizationSection } from '../panels/VisualizationSection';
 import { GraphFilterSections } from './GraphFilterSections';
 import type { GraphPageController } from './useGraphPageController';
 

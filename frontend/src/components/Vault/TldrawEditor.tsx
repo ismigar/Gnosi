@@ -6,7 +6,7 @@ import { useRef, useState } from 'react';
 import { createTLStore, type Editor } from 'tldraw';
 import 'tldraw/tldraw.css';
 
-import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useMediaQuery } from '../../shared/hooks/useMediaQuery';
 import { usePlugins } from '../../plugins/usePlugins';
 import { browserHasTouchPoints } from '../../shared/platform/browser-events';
 import { TldrawEditorView } from './tldraw-editor/TldrawEditorView';

@@ -4,7 +4,7 @@ import { AlertTriangle, CalendarRange, RefreshCw, Route, Wallet } from 'lucide-r
 
 import { VaultTimeline } from '../../components/Vault/VaultTimeline';
 import { usePlugins } from '../../plugins/usePlugins';
-import { AppHeader } from '../../components/AppHeader';
+import { AppHeader } from '../../shared/ui/layout/AppHeader';
 import {
     useApplyPlanningLevelingProposal,
     useCreatePlanningBaseline,

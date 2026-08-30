@@ -2,7 +2,7 @@ import type { ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Inbox, PanelLeft } from 'lucide-react';
 
-import { AppHeader } from '../../../components/AppHeader';
+import { AppHeader } from '../../../shared/ui/layout/AppHeader';
 import MailComposer from '../components/MailComposer';
 import MailList from '../components/MailList';
 import MailSidebar from '../components/MailSidebar';

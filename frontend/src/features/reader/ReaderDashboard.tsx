@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Menu, RotateCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { AppHeader } from '../../components/AppHeader';
+import { AppHeader } from '../../shared/ui/layout/AppHeader';
 import { toast } from '../../lib/toast';
 import { logError } from '../../lib/notifyError';
 import { getIntlLocale } from '../../locales/registry';

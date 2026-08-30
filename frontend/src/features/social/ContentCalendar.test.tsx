@@ -26,7 +26,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../i18n', () => ({ default: { language: 'en' } }));
 
 
-vi.mock('../../components/AppHeader', () => ({
+vi.mock('../../shared/ui/layout/AppHeader', () => ({
   AppHeader: ({ title }: { title: React.ReactNode }) => <header>{title}</header>,
 }));
 

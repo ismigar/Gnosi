@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { AppHeader } from '../../components/AppHeader';
+import { AppHeader } from '../../shared/ui/layout/AppHeader';
 import { PublishSocialModal } from '../../components/Vault/PublishSocialModal';
 import AddStreamModal from './components/AddStreamModal';
 import Column from './components/Column';

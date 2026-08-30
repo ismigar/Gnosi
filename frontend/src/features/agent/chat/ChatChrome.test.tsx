@@ -10,7 +10,7 @@ import { ChatSessionList } from './ChatSessionList';
 import { createChatSession } from './sessionModel';
 
 const effects = vi.hoisted(() => ({ announce: vi.fn<(panel: string) => void>(), emit: vi.fn<(event: string, payload: string) => void>() }));
-vi.mock('../../../hooks/useExclusiveFloatingPanel', () => ({ announceFloatingPanelOpen: effects.announce }));
+vi.mock('../../../shared/hooks/useExclusiveFloatingPanel', () => ({ announceFloatingPanelOpen: effects.announce }));
 vi.mock('../../../shared/platform/app-events', () => ({ emitAppEvent: effects.emit }));
 vi.mock('lucide-react/dynamic', () => ({
   iconNames: ['brain', 'chevron-down'],
