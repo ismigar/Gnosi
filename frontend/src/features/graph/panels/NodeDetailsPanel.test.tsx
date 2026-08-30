@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { VaultPage } from '../shared/api/vaults';
+import type { VaultPage } from '../../../shared/api/vaults';
 import { NodeDetailsPanel } from './NodeDetailsPanel';
 
 const mocks = vi.hoisted(() => ({
@@ -18,15 +18,15 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-vi.mock('../shared/api/vaults', () => ({
+vi.mock('../../../shared/api/vaults', () => ({
     fetchVaultPage: mocks.fetchVaultPage,
 }));
 
-vi.mock('../lib/notifyError', () => ({
+vi.mock('../../../lib/notifyError', () => ({
     logError: mocks.logError,
 }));
 
-vi.mock('./Vault/VaultMarkdown', () => ({
+vi.mock('../../../components/Vault/VaultMarkdown', () => ({
     VaultMarkdown: ({ md }: { readonly md: string }) => (
         <div data-testid="vault-markdown">{md}</div>
     ),

@@ -3,10 +3,10 @@ import type { SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
-import { logError } from '../lib/notifyError';
-import { fetchVaultPage } from '../shared/api/vaults';
-import type { VaultPage } from '../shared/api/vaults';
-import { VaultMarkdown } from './Vault/VaultMarkdown';
+import { logError } from '../../../lib/notifyError';
+import { fetchVaultPage } from '../../../shared/api/vaults';
+import type { VaultPage } from '../../../shared/api/vaults';
+import { VaultMarkdown } from '../../../components/Vault/VaultMarkdown';
 
 interface NamedTag {
     readonly name?: string | null;

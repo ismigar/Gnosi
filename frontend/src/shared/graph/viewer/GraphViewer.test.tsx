@@ -1,17 +1,17 @@
 import { act, createRef, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GraphViewer, type GraphViewerHandle } from '../GraphViewer';
+import { GraphViewer, type GraphViewerHandle } from './GraphViewer';
 import { fixtureData, fixtureOptions } from './graphViewerFixtures';
 import { latestRenderer, TestRenderer } from './graphViewerTestRenderer';
-import { dispatchWindowEvent, openBrowserWindow } from '../../shared/platform/browser-events';
+import { dispatchWindowEvent, openBrowserWindow } from '../../platform/browser-events';
 vi.mock('sigma', async () => {
     const { TestRenderer: Renderer } = await import('./graphViewerTestRenderer');
     return { default: Renderer };
 });
-vi.mock('../../lib/notifyError', () => ({ logError: vi.fn() }));
-vi.mock('../../shared/platform/browser-events', async (importOriginal) => ({
-    ...await importOriginal<typeof import('../../shared/platform/browser-events')>(),
+vi.mock('../../../lib/notifyError', () => ({ logError: vi.fn() }));
+vi.mock('../../platform/browser-events', async (importOriginal) => ({
+    ...await importOriginal<typeof import('../../platform/browser-events')>(),
     openBrowserWindow: vi.fn(),
 }));
 const cleanups = new Set<() => void>();

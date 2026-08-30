@@ -6,13 +6,15 @@ source_paths:
   - backend/api/vault_graph_routes.py
   - backend/services/graph_service.py
   - frontend/src/features/graph
-  - frontend/src/components/GraphViewer.tsx
+  - frontend/src/shared/graph
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
   - backend/tests/test_graph_similarity_suggestions.py
   - backend/tests/test_graph_wedged_dirs.py
-  - frontend/src/utils/graphViewGeometry.test.ts
+  - frontend/src/shared/graph/model/graphViewGeometry.test.ts
+  - frontend/src/shared/graph/viewer/GraphViewer.test.tsx
+  - frontend/src/components/Vault/VaultGraph.test.tsx
   - frontend/src/features/graph/GraphPage.test.tsx
   - frontend/src/features/graph/public-entry.test.ts
 ---
@@ -30,9 +32,14 @@ suggestions into an interactive network. It supports navigation and discovery;
 it is derived from the Vault and is not a separate source of truth.
 
 The strictly typed `features/graph/` frontend owns route state, filters and
-page composition behind a public lazy entry. The reusable graph renderer
-remains outside the route feature for embedded consumers. Moving ownership
-does not change graph projections, configuration keys, navigation, or styles.
+page composition behind a public lazy entry. Controls, connection groups,
+legends, and node details belong to its private panels and model modules.
+`shared/graph/` owns the reusable renderer, minimap, geometry, keyboard navigation,
+edge presentation, and semantic overlay. Both the graph route and embedded Vault
+graphs import the same renderer module directly, without a broad eager barrel.
+Moving ownership does not change graph projections, configuration keys,
+navigation, camera handles, or styles. Legacy graph and Vault filters remain in
+`utils/` until their settings consumers migrate together; they are not duplicated.
 
 ## Graph construction
 

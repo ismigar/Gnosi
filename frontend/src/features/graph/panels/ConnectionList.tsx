@@ -4,9 +4,9 @@ import {
     getVisibleConnectionGroups,
     type ConnectionFilters,
     type ConnectionGraph,
-} from '../utils/graphConnections';
-import { CONNECTION_TYPE_COLORS } from '../utils/graphLegend';
-import { hasSemanticSuggestions, type SemanticEdge } from '../utils/semanticOverlay';
+} from '../model/graphConnections';
+import { CONNECTION_TYPE_COLORS } from '../model/graphLegend';
+import { hasSemanticSuggestions, type SemanticEdge } from '../../../shared/graph/model/semanticOverlay';
 
 interface ConnectionGraphData {
     readonly edges?: readonly SemanticEdge[] | null;

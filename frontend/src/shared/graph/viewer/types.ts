@@ -1,9 +1,9 @@
 import type { Ref, RefObject } from 'react';
 import type Graph from 'graphology';
 import type Sigma from 'sigma';
-import type { VaultGraphData } from '../../shared/api/graph';
-import type { applyFilters, FilterGraph, GraphEdgeAttributes as FilterEdgeAttributes } from '../../utils/graphFilters';
-import type { SemanticEdge } from '../../utils/semanticOverlay';
+import type { VaultGraphData } from '../../api/graph';
+import type { applyFilters, FilterGraph, GraphEdgeAttributes as FilterEdgeAttributes } from '../../../utils/graphFilters';
+import type { SemanticEdge } from '../model/semanticOverlay';
 type FilterNodeAttributes = Parameters<Parameters<FilterGraph['forEachNode']>[0]>[1];
 export interface ViewerNode extends FilterNodeAttributes {
     x: number;

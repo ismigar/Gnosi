@@ -1,6 +1,6 @@
 import type Graph from 'graphology';
 
-import { applyFilters, type FilterGraph } from './graphFilters';
+import { applyFilters, type FilterGraph } from '../../../utils/graphFilters';
 import {
   getConnectionType,
   type ConnectionAttributes,
@@ -10,7 +10,7 @@ import {
   getVisibleSemanticEdges,
   type SemanticEdge,
   type SemanticReason,
-} from './semanticOverlay';
+} from '../../../shared/graph/model/semanticOverlay';
 
 interface ConnectionNodeAttributes {
   [key: string]: unknown;

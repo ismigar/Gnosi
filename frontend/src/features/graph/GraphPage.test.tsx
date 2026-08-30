@@ -99,7 +99,7 @@ vi.mock('../../components/Sidebar', () => ({
 }));
 
 
-vi.mock('../../components/GraphViewer', async () => {
+vi.mock('../../shared/graph/viewer/GraphViewer', async () => {
   const { forwardRef, useImperativeHandle } = await import('react');
   interface MockGraphViewerProps {
     readonly filters: { readonly selectedNode?: string | null };
@@ -118,8 +118,8 @@ vi.mock('../../components/GraphViewer', async () => {
 });
 
 
-vi.mock('../../components/Minimap', () => ({ Minimap: () => <div>Minimap</div> }));
-vi.mock('../../components/NodeDetailsPanel', () => ({
+vi.mock('../../shared/graph/minimap/Minimap', () => ({ Minimap: () => <div>Minimap</div> }));
+vi.mock('./panels/NodeDetailsPanel', () => ({
   NodeDetailsPanel: () => <div>Node details</div>,
 }));
 vi.mock('../../components/VisualizationSection', () => ({
@@ -128,13 +128,13 @@ vi.mock('../../components/VisualizationSection', () => ({
 vi.mock('../../components/ForcesSection', () => ({
   ForcesSection: () => <div>Forces</div>,
 }));
-vi.mock('../../components/ConnectionList', () => ({
+vi.mock('./panels/ConnectionList', () => ({
   ConnectionList: () => <div>Connections</div>,
 }));
-vi.mock('../../components/Controls', () => ({
+vi.mock('./panels/Controls', () => ({
   Controls: ({ legend }: { legend?: ReactNode }) => <div>{legend}</div>,
 }));
-vi.mock('../../components/Legend', () => ({
+vi.mock('./panels/Legend', () => ({
   Legend: ({
     filteredEdgesCount,
     filteredNodesCount,

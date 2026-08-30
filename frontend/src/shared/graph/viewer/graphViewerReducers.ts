@@ -1,5 +1,5 @@
 import type { NodeDisplayData, EdgeDisplayData } from 'sigma/types';
-import { getHoverEdgeStyle, getRenderedEdgeThickness } from '../../utils/graphEdgeStyles';
+import { getHoverEdgeStyle, getRenderedEdgeThickness } from '../model/graphEdgeStyles';
 import { stringToColor } from './graphViewerModel';
 import type { OptionsRef, ViewerNode, ViewerEdge, ViewerOptions } from './types';
 export interface HoverState {

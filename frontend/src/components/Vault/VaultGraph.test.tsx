@@ -37,7 +37,7 @@ const testState = vi.hoisted(() => ({
     zoomOut: vi.fn<() => void>(),
 }));
 
-vi.mock('../GraphViewer', async () => {
+vi.mock('../../shared/graph/viewer/GraphViewer', async () => {
     const { createElement, forwardRef, useImperativeHandle } = await import('react');
     return {
         GraphViewer: forwardRef<VaultGraphViewerHandle, MockGraphViewerProps>(

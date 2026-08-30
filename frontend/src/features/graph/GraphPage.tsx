@@ -1,8 +1,8 @@
-import { ConnectionList } from '../../components/ConnectionList';
-import { Controls } from '../../components/Controls';
+import { ConnectionList } from './panels/ConnectionList';
+import { Controls } from './panels/Controls';
 import { GraphLoadingState } from '../../components/GraphLoadingState';
 import { Layout } from '../../components/Layout';
-import { Legend } from '../../components/Legend';
+import { Legend } from './panels/Legend';
 import '../../viewer/style.css';
 import { GraphCanvasView } from './page/GraphCanvasView';
 import { GraphSidebarView } from './page/GraphSidebarView';

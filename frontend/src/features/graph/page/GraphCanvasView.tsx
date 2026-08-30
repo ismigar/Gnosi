@@ -2,9 +2,9 @@ import type { RefObject } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { GraphViewer } from '../../../components/GraphViewer';
-import { Minimap } from '../../../components/Minimap';
-import { NodeDetailsPanel } from '../../../components/NodeDetailsPanel';
+import { GraphViewer } from '../../../shared/graph/viewer/GraphViewer';
+import { Minimap } from '../../../shared/graph/minimap/Minimap';
+import { NodeDetailsPanel } from '../panels/NodeDetailsPanel';
 import type {
   GraphPageController,
   GraphViewerHandle,

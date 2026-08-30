@@ -1,4 +1,4 @@
-import type { VaultGraphData, VaultGraphEdge, VaultGraphNode } from '../../shared/api/graph';
+import type { VaultGraphData, VaultGraphEdge, VaultGraphNode } from '../../api/graph';
 import type { ViewerOptions } from './types';
 export function fixtureNode(key: string, overrides: Partial<VaultGraphNode> = {}): VaultGraphNode {
     return { key, id: key, label: key, kind: 'Wiki', cluster: null, color: '#123456', database_id: null, table_id: null, metadata: {}, path: `${key}.md`, size: 8, ...overrides };

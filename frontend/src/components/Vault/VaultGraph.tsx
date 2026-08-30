@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GraphViewer } from '../GraphViewer';
+import { GraphViewer } from '../../shared/graph/viewer/GraphViewer';
 import { AlertTriangle, Loader2, Target, ZoomIn, ZoomOut } from 'lucide-react';
 import type { FilterNode } from '../../utils/vaultFilters';
 import { useConfigChanged } from '../../lib/configEvents';

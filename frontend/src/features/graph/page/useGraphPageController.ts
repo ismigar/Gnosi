@@ -7,7 +7,7 @@ import {
 } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import type { MinimapRenderer } from '../../../components/minimapRuntime';
+import type { MinimapRenderer } from '../../../shared/graph/minimap/minimapRuntime';
 import { useConfigChanged } from '../../../lib/configEvents';
 import { logError } from '../../../lib/notifyError';
 import { fetchConfiguration, updateConfiguration } from '../../../shared/api/configuration';
@@ -16,11 +16,11 @@ import type { VaultGlobalIndex, VaultRegistryRecord } from '../../../shared/api/
 import { fetchVaultGlobalIndex, fetchVaultTables } from '../../../shared/api/vaults';
 import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
 import { applyFilters } from '../../../utils/graphFilters';
-import { getConnectionTypeCounts } from '../../../utils/graphLegend';
+import { getConnectionTypeCounts } from '../model/graphLegend';
 import {
   getVisibleSemanticEdges,
   hasSemanticSuggestions,
-} from '../../../utils/semanticOverlay';
+} from '../../../shared/graph/model/semanticOverlay';
 import {
   buildFilterGraph,
   deriveFieldValues,

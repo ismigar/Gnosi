@@ -1,6 +1,6 @@
-import { applyFilters } from '../../utils/graphFilters';
-import { getVisibleSemanticEdges } from '../../utils/semanticOverlay';
-import { logError } from '../../lib/notifyError';
+import { applyFilters } from '../../../utils/graphFilters';
+import { getVisibleSemanticEdges } from '../model/semanticOverlay';
+import { logError } from '../../../lib/notifyError';
 import { seededUnitInterval, transportAttributes } from './graphViewerModel';
 import type { ViewerGraph, ViewerFilters, GraphViewerProps } from './types';
 export function rebuildProjection(graph: ViewerGraph, graphData: NonNullable<GraphViewerProps['graphData']>): void {

@@ -4,7 +4,7 @@ import type Sigma from 'sigma';
 import {
     createMinimapTransform,
     getVisibleCameraRatio,
-} from '../utils/graphViewGeometry';
+} from '../model/graphViewGeometry';
 
 export interface GraphPoint {
     readonly x: number;

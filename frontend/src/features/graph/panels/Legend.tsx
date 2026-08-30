@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import {
     CONNECTION_TYPE_COLORS,
     type ConnectionType,
-} from '../utils/graphLegend';
+} from '../model/graphLegend';
 
 interface LegendCluster {
     readonly color: string;

@@ -1,11 +1,11 @@
 import { useEffect, useImperativeHandle, useRef } from 'react';
-import { subscribeWindowEvent } from '../shared/platform/browser-events';
-import { GRAPH_KEYBOARD_ACTIONS, getGraphKeyboardAction, getPannedCameraState } from '../utils/graphKeyboardNavigation';
-import { createViewerHandle, fitGraph } from './graph-viewer/graphViewerRuntime';
-import { useGraphViewerRenderer } from './graph-viewer/useGraphViewerRenderer';
-import { useGraphViewerData, useGraphViewerPhysics } from './graph-viewer/useGraphViewerData';
-import type { GraphViewerHandle, GraphViewerProps, ViewerOptions, ViewerRuntime } from './graph-viewer/types';
-export type { GraphViewerHandle, GraphViewerProps } from './graph-viewer/types';
+import { subscribeWindowEvent } from '../../platform/browser-events';
+import { GRAPH_KEYBOARD_ACTIONS, getGraphKeyboardAction, getPannedCameraState } from '../model/graphKeyboardNavigation';
+import { createViewerHandle, fitGraph } from './graphViewerRuntime';
+import { useGraphViewerRenderer } from './useGraphViewerRenderer';
+import { useGraphViewerData, useGraphViewerPhysics } from './useGraphViewerData';
+import type { GraphViewerHandle, GraphViewerProps, ViewerOptions, ViewerRuntime } from './types';
+export type { GraphViewerHandle, GraphViewerProps } from './types';
 export function GraphViewer({ ref, showArrows = true, labelThreshold = 14, nodeSize = 1, edgeThickness = 1, gravity = 1, repulsion = 1000, friction = 1, edgeInfluence = 1, linLogMode = true, strongGravityMode = false, outboundAttractionDistribution = false, ...props }: GraphViewerProps) {
     const options: ViewerOptions = { ...props, showArrows, labelThreshold, nodeSize, edgeThickness, gravity, repulsion, friction, edgeInfluence, linLogMode, strongGravityMode, outboundAttractionDistribution };
     const container = useRef<HTMLDivElement>(null);

@@ -1,4 +1,4 @@
-import { getSemanticOverlaySegments, SEMANTIC_SUGGESTION_COLOR } from '../../utils/semanticOverlay';
+import { getSemanticOverlaySegments, SEMANTIC_SUGGESTION_COLOR } from '../model/semanticOverlay';
 import type { OptionsRef, RuntimeRef, ViewerGraph, ViewerRenderer } from './types';
 export function attachSemanticOverlay(renderer: ViewerRenderer, graph: ViewerGraph, runtime: RuntimeRef, options: OptionsRef): () => void {
     const semanticCanvas = renderer.createCanvas('semanticSuggestions', {

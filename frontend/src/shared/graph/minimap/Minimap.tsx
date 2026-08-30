@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
 
-import { subscribeWindowEvent } from '../shared/platform/browser-events';
+import { subscribeWindowEvent } from '../../platform/browser-events';
 import {
     createMinimapTransform,
     getCameraGraphBounds,
     getCameraViewportRect,
     getVisibleGraphBounds,
     mergeGraphBounds,
-} from '../utils/graphViewGeometry';
+} from '../model/graphViewGeometry';
 import {
     findClosestVisibleNode,
     isRendererKilled,
