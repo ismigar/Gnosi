@@ -19,8 +19,10 @@ source_paths:
   - backend/services/academic_connectors.py
   - backend/services/references_io.py
   - backend/services/lookup_normalizers.py
-  - frontend/src/pages/ReaderDashboard.jsx
-  - frontend/src/components/Vault/ZoteroReaderTab.ts
+  - frontend/src/features/reader
+  - frontend/src/features/literature
+  - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
+  - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
@@ -36,6 +38,11 @@ tests:
   - backend/tests/test_academic_connectors_domain_contract.py
   - backend/tests/test_lookup_normalizers.py
   - backend/tests/test_html_meta_attr_order.py
+  - frontend/src/features/reader/ReaderDashboard.test.tsx
+  - frontend/src/features/reader/public-entry.test.ts
+  - frontend/src/features/literature/LiteraturePage.test.tsx
+  - frontend/src/features/literature/public-entry.test.ts
+  - frontend/src/features/literature/settings/ResourcesPluginConfig.test.tsx
 ---
 
 # Lecteur, références et citations

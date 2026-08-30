@@ -3,9 +3,9 @@ import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useMailTags } from '../hooks/useMailTags';
-import { useModalKeyboard } from '../../../hooks/useModalKeyboard';
-import { logError } from '../../../lib/notifyError';
-import { toast } from '../../../lib/toast';
+import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
+import { logError } from '../../../shared/notifications/notifyError';
+import { toast } from '../../../shared/notifications/toast';
 import { createCalendarEvent, fetchCalendarList, type CalendarListItem } from '../../../shared/api/calendar';
 import { createContact } from '../../../shared/api/contacts';
 import { fetchIdentity } from '../../../shared/api/identity';

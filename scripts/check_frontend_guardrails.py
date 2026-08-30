@@ -14,7 +14,7 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 MAX_LINES = 500
-DEFAULT_BASELINE = Path("frontend/src/test/contracts/frontend_guardrail_allowlist.json")
+DEFAULT_BASELINE = Path("frontend/tests/contracts/frontend_guardrail_allowlist.json")
 SOURCE_SUFFIXES = {".js", ".jsx", ".ts", ".tsx"}
 LEGACY_SUFFIXES = {".js", ".jsx"}
 APPROVED_STORAGE_ADAPTERS = {
@@ -93,7 +93,7 @@ def _import_parts(source_root: Path, source_file: Path, imported: str) -> tuple[
     return relative.parts
 
 
-def _feature_boundary_errors(root: Path, path: Path, text: str) -> list[str]:
+def _feature_boundary_errors(root: Path, path: Path, text: str, public_entries: frozenset[str] = frozenset()) -> list[str]:
     source_root = root / "frontend" / "src"
     relative_source = path.relative_to(source_root)
     owner = _feature_owner(relative_source)
@@ -111,7 +111,7 @@ def _feature_boundary_errors(root: Path, path: Path, text: str) -> list[str]:
         elif len(parts) >= 2 and parts[0] == "features" and parts[1] != owner:
             public_entry = len(parts) == 2 or (
                 len(parts) == 3 and re.fullmatch(r"index(?:\.[jt]sx?)?", parts[2])
-            )
+            ) or re.sub(r"\.[jt]sx?$", "", "/".join(parts)) in public_entries
             if public_entry:
                 continue
             errors.append(
@@ -121,6 +121,25 @@ def _feature_boundary_errors(root: Path, path: Path, text: str) -> list[str]:
     return errors
 
 
+def _public_entries(root: Path) -> frozenset[str]:
+    """Load explicit public modules, never a wildcard architecture exemption."""
+    manifest = root / "frontend" / "feature-public-entries.json"
+    if not manifest.exists():
+        return frozenset()
+    entries = json.loads(manifest.read_text(encoding="utf-8"))
+    if not isinstance(entries, dict):
+        raise ValueError("Feature public entries must map exact source paths to reasons")
+    validated: set[str] = set()
+    for path, reason in entries.items():
+        if (not isinstance(path, str) or not isinstance(reason, str) or not reason.strip()
+                or not path.startswith("features/") or ".." in Path(path).parts
+                or any(token in path for token in ("*", "?", "\\"))
+                or not (root / "frontend" / "src" / path).is_file()):
+            raise ValueError(f"Invalid or missing feature public entry: {path!r}")
+        validated.add(re.sub(r"\.[jt]sx?$", "", path))
+    return frozenset(validated)
+
+
 def current_metrics(root: Path) -> FrontendMetrics:
     """Return every current migration guardrail metric."""
     legacy_js_jsx: dict[str, int] = {}
@@ -128,6 +147,7 @@ def current_metrics(root: Path) -> FrontendMetrics:
     direct_storage: dict[str, int] = {}
     global_events: dict[str, int] = {}
     feature_errors: list[str] = []
+    public_entries = _public_entries(root)
 
     for path in _production_sources(root):
         relative = path.relative_to(root).as_posix()
@@ -145,7 +165,7 @@ def current_metrics(root: Path) -> FrontendMetrics:
             event_count = len(EVENT_PATTERN.findall(text))
             if event_count:
                 global_events[relative] = event_count
-        feature_errors.extend(_feature_boundary_errors(root, path, text))
+        feature_errors.extend(_feature_boundary_errors(root, path, text, public_entries))
 
     return FrontendMetrics(
         legacy_js_jsx=legacy_js_jsx,

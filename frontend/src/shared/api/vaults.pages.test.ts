@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { requestAt, resetApiTestStorage } from '../../test/api-request';
+import { requestAt, resetApiTestStorage } from '../../../tests/api-request';
 import {
   createVaultPage,
   deleteVaultPage,

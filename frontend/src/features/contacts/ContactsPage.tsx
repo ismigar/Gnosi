@@ -7,12 +7,12 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Users } from 'lucide-react';
 
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
-import ConfirmModal from '../../components/ConfirmModal';
+import ConfirmModal from '../../shared/ui/dialogs/ConfirmModal';
 import ContactDetail from './components/ContactDetail';
 import ContactForm from './components/ContactForm';
 import ContactList from './components/ContactList';
-import { logError } from '../../lib/notifyError';
-import { toast } from '../../lib/toast';
+import { logError } from '../../shared/notifications/notifyError';
+import { toast } from '../../shared/notifications/toast';
 import type {
   Contact,
   ContactQuery,

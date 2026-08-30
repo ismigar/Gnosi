@@ -25,7 +25,7 @@ source_paths:
   - pnpm-workspace.yaml
   - frontend/public/favicon.svg
   - frontend/package.json
-  - frontend/src/content/releases.json
+  - frontend/src/features/control-center/releases/releases.json
   - frontend/src/app/desktop
   - frontend/src/features/control-center/releases
   - extensions/web-clipper
@@ -185,7 +185,7 @@ the canonical mark changes; do not edit a packaged application bundle.
 
 ## Release preparation
 
-`frontend/src/content/releases.json` is the canonical bundled release history.
+`frontend/src/features/control-center/releases/releases.json` is the canonical bundled release history.
 The version synchronizer keeps the root, frontend, desktop and Python versions
 identical. A stable entry
 prepared before publication deliberately omits `downloadUrl`; that field is

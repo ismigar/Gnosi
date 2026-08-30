@@ -73,7 +73,7 @@ vi.mock('../hooks/useMailTags', () => ({
 }));
 
 
-vi.mock('../../../lib/toast', () => ({
+vi.mock('../../../shared/notifications/toast', () => ({
   toast: { error: mocks.error, success: mocks.success },
 }));
 

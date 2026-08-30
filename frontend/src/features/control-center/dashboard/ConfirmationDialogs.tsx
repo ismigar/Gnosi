@@ -1,4 +1,4 @@
-import ConfirmModal from '../../../components/ConfirmModal';
+import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
 import type {DashboardState} from './useDashboard';
 
 export function ConfirmationDialogs({state}: {state: DashboardState}) {

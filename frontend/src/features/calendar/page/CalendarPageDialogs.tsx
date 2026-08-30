@@ -1,8 +1,8 @@
-import { CalendarContextMenu } from '../../../components/Vault/CalendarContextMenu';
-import { ConfirmModal } from '../../../components/ConfirmModal';
-import { RecurrenceChoiceModal } from '../../../components/Vault/RecurrenceChoiceModal';
-import { GlobalSearchModal } from '../../../components/Vault/GlobalSearchModal';
-import { vaultPath } from '../../../lib/vaultRouting';
+import { CalendarContextMenu } from '../components/CalendarContextMenu';
+import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
+import { RecurrenceChoiceModal } from '../components/RecurrenceChoiceModal';
+import { GlobalSearchModal } from '../../../shared/page-search/GlobalSearchModal';
+import { vaultPath } from '../../../shared/routing/vaultRouting';
 import type { CalendarPageController } from './useCalendarPage';
 import { calendarSearchNote } from './calendarSearchModel';
 

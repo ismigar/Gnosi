@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 
-import { toast } from '../../../lib/toast';
+import { toast } from '../../../shared/notifications/toast';
 import { apiErrorDetail } from '../../../shared/api/errors';
 import {
   cancelLiteratureSearch,

@@ -1,4 +1,4 @@
-import { isCitationHref } from '../../../lib/citationDeepLink';
+import { isCitationHref } from '../../../shared/resources/citationDeepLink';
 import {
     isLooseArray,
     isRecord,

@@ -28,7 +28,7 @@ vi.mock('react-router-dom', () => ({
 }));
 
 
-vi.mock('../../lib/vaultRouting', () => ({
+vi.mock('../../shared/routing/vaultRouting', () => ({
   vaultPath: mocks.vaultPath,
 }));
 

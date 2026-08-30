@@ -6,7 +6,7 @@ import {
   useState,
 } from 'react';
 
-import { toast } from '../../../../lib/toast';
+import { toast } from '../../../../shared/notifications/toast';
 import {
   fetchMailMessages,
   type MailMessages,

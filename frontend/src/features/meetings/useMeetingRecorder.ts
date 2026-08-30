@@ -11,9 +11,9 @@ import {
   announceFloatingPanelOpen,
   useExclusiveFloatingPanel,
 } from '../../shared/hooks/useExclusiveFloatingPanel';
-import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
-import { toast } from '../../lib/toast';
-import { vaultPath } from '../../lib/vaultRouting';
+import { useFloatingActionDock } from '../../shared/hooks/useFloatingActionDock';
+import { toast } from '../../shared/notifications/toast';
+import { vaultPath } from '../../shared/routing/vaultRouting';
 import {
   uploadMeetingRecording,
   type MeetingMode,

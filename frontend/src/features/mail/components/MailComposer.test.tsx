@@ -54,7 +54,7 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-vi.mock('../../../lib/toast', () => ({ toast: mocks.toast }));
+vi.mock('../../../shared/notifications/toast', () => ({ toast: mocks.toast }));
 
 vi.mock('../../../shared/api/mail', () => ({
     deleteMailDraft: mocks.deleteMailDraft,
@@ -79,7 +79,7 @@ vi.mock('./MailAddressInput', () => ({
     ),
 }));
 
-vi.mock('../../../components/Mail/MailBlockEditor', () => ({
+vi.mock('../editor/Mail/MailBlockEditor', () => ({
     default: ({ editorRef, onChange }: MailBlockEditorMockProps) => {
         editorRef.current = {
             replaceBlocks: vi.fn(),
@@ -95,11 +95,11 @@ vi.mock('../../../components/Mail/MailBlockEditor', () => ({
     },
 }));
 
-vi.mock('../../../components/Vault/DigitalBrainCalendar', () => ({
+vi.mock('../../calendar/components/DigitalBrainCalendar', () => ({
     DigitalBrainCalendar: () => null,
 }));
 
-vi.mock('../../../hooks/useModalKeyboard', () => ({
+vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
     useModalKeyboard: vi.fn(),
 }));
 

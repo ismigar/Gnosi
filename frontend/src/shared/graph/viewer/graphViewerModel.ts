@@ -1,4 +1,4 @@
-import type { FilterValue } from '../../../utils/vaultFilters';
+import type { FilterValue } from '../../filtering/vaultFilters';
 export function stringToColor(str: string): string {
     let hash = 0;
     for (let i = 0; i < str.length; i++)

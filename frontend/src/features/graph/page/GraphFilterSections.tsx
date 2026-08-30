@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 
-import { CollapsibleSection } from '../../../components/CollapsibleSection';
+import { CollapsibleSection } from '../../../shared/ui/sections/CollapsibleSection';
 import type { GraphPageController } from './useGraphPageController';
 
 

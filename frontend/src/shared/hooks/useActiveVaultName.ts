@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useVaultNameChanged } from '../../lib/configEvents';
+import { useVaultNameChanged } from '../platform/configEvents';
 import { useVaultCatalog } from '../api/useVaultCatalog';
 import {
   defineStorageKey,

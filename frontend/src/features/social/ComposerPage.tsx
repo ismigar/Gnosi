@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import Composer from './components/Composer';
 import { PenTool, Share2 } from 'lucide-react';
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
-import { vaultPath } from '../../lib/vaultRouting';
+import { vaultPath } from '../../shared/routing/vaultRouting';
 
 const ComposerPage = () => {
     const { t } = useTranslation();

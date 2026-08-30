@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from '../../../lib/toast';
+import { toast } from '../../../shared/notifications/toast';
 import { fetchCalendarEvents } from '../../../shared/api/calendar';
 import { fetchIntegrations, updateCalendarAliases, updateCalendarColors, updateCalendarSelection, updateDefaultCalendar } from '../../../shared/api/integrations';
 import { fetchVaultPages, fetchVaultTables } from '../../../shared/api/vaults';
 import { useCalendarList } from '../../../shared/api/useCalendarData';
-import { calendarEntry, textValue } from '../../../components/Vault/calendar-sidebar-right/calendarBoundary';
-import type { CalendarEntry } from '../../../components/Vault/calendar-sidebar-right/calendarTypes';
+import { calendarEntry, textValue } from '../components/calendar-sidebar-right/calendarBoundary';
+import type { CalendarEntry } from '../components/calendar-sidebar-right/calendarTypes';
 import { availableCalendarSources, calendarConfigsFor, calendarSettings, hybridCalendarEntry, type CalendarSettings, type EnabledTable } from './calendarPageModel';
 
 export function useCalendarSources(searchQuery: string, dateRange: { start: string; end: string } | null) {

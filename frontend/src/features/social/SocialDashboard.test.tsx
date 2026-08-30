@@ -45,7 +45,7 @@ vi.mock('../../shared/ui/layout/AppHeader', () => ({
 }));
 
 
-vi.mock('../../components/Vault/PublishSocialModal', () => ({
+vi.mock('./publishing/PublishSocialModal', () => ({
   PublishSocialModal: () => null,
 }));
 

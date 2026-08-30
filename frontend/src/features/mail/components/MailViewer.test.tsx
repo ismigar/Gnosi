@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: mocks.t }) }));
 vi.mock('./MailPdfViewer', () => ({ MailPdfViewer: () => null }));
-vi.mock('../../../lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../../../shared/notifications/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('../hooks/useMailTags', () => ({
   useMailTags: () => ({
     getMessageTags: mocks.getTags,

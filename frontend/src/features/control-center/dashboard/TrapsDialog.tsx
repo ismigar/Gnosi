@@ -1,5 +1,5 @@
 import {RefreshCw, X, Bug, AlertTriangle} from 'lucide-react';
-import {DashboardPaginationControls} from '../../../components/DashboardPaginationControls';
+import {DashboardPaginationControls} from './DashboardPaginationControls';
 import type {DashboardState} from './useDashboard';
 
 export function TrapsDialog({state}: {state: DashboardState}) {

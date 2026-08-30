@@ -11,16 +11,19 @@ source_paths:
   - backend/agent/agent_context.py
   - backend/agent/factory.py
   - backend/api/agent_routes.py
-  - frontend/src/pages/NotebooksPage.jsx
-  - frontend/src/components/Notebooks
-  - frontend/src/components/AgentChat.jsx
+  - frontend/src/features/notebooks
+  - frontend/src/shared/api/notebooks.ts
+  - frontend/src/features/agent
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
-  - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
-  - frontend/src/pages/NotebooksPage.test.jsx
-  - frontend/src/lib/notebookTableActions.test.js
+  - frontend/src/features/notebooks/create/NotebookCreateDialog.test.tsx
+  - frontend/src/features/notebooks/NotebooksPage.test.tsx
+  - frontend/src/features/notebooks/detail/NotebookDetail.behavior.test.tsx
+  - frontend/src/features/notebooks/public-entry.test.ts
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/features/notebooks/model/notebookTableActions.test.ts
   - tests/e2e/tests/e2e/notebooks.spec.ts
 ---
 

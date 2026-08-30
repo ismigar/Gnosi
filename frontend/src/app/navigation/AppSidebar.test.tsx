@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppSidebar, ENGINEERING_DOCUMENTATION_URL } from './AppSidebar';
-import { normalizeSidebarPreferences, orderSidebarItems } from '../../lib/appSidebarNavigation';
+import { normalizeSidebarPreferences, orderSidebarItems } from './appSidebarNavigation';
 import { storageSet } from '../../shared/api/vault-context';
 import { emitAppEvent } from '../../shared/platform/app-events';
 
@@ -25,11 +25,11 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-vi.mock('../../context/auth-context', () => ({
+vi.mock('../../shared/auth/auth-context', () => ({
     useAuth: () => ({ user: null, logout: vi.fn() }),
 }));
 
-vi.mock('../../lib/toast', () => ({
+vi.mock('../../shared/notifications/toast', () => ({
     toast: { success: vi.fn() },
 }));
 
@@ -37,7 +37,7 @@ vi.mock('../../shared/api/system', () => ({
     fetchSystemHealth: systemApi.fetchSystemHealth,
 }));
 
-vi.mock('../../plugins/usePlugins', () => ({
+vi.mock('../../shared/plugins/usePlugins', () => ({
     usePlugins: () => ({
         isEnabled: (pluginId: string) => pluginState.enabled.has(pluginId),
         getPluginSettings: () => pluginState.settings,
@@ -45,15 +45,15 @@ vi.mock('../../plugins/usePlugins', () => ({
     }),
 }));
 
-vi.mock('../../components/Navigation/WorkspaceSwitcher', () => ({
+vi.mock('../../features/workspaces/Navigation/WorkspaceSwitcher', () => ({
     WorkspaceSwitcher: () => null,
 }));
 
-vi.mock('../../components/VaultMenu', () => ({
+vi.mock('../../features/vault-management/VaultMenu', () => ({
     default: () => null,
 }));
 
-vi.mock('../../components/GlobalSettingsModal', () => ({
+vi.mock('../../features/settings/GlobalSettingsModal', () => ({
     GlobalSettingsModal: () => <div data-testid="settings-modal" />,
 }));
 

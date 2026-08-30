@@ -18,9 +18,9 @@ import {
 } from 'lucide-react';
 
 import { useActiveVaultName } from '../shared/hooks/useActiveVaultName';
-import { usePlugins } from '../plugins/usePlugins';
+import { usePlugins } from '../shared/plugins/usePlugins';
 import { emitAppEvent } from '../shared/platform/app-events';
-import { legacyBrowserPathToCanonical } from '../lib/vaultRouting';
+import { legacyBrowserPathToCanonical } from '../shared/routing/vaultRouting';
 
 interface HomeModule {
     readonly descKey: string;

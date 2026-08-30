@@ -6,6 +6,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 import { fileURLToPath } from 'node:url'
 import featureBoundaries from './eslint/feature-boundaries.js'
+import publicFeatureEntries from './feature-public-entries.json' with { type: 'json' }
 
 export default defineConfig([
   globalIgnores([
@@ -71,7 +72,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'scripts/**/*.ts'],
     extends: [
       js.configs.recommended,
       tseslint.configs.strictTypeChecked,
@@ -103,10 +104,13 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/*.{js,jsx,ts,tsx}'],
+    files: ['src/**/*.{js,jsx,ts,tsx}', 'tests/**/*.{ts,tsx}'],
     plugins: { gnosi: { rules: { 'feature-boundaries': featureBoundaries } } },
     rules: {
-      'gnosi/feature-boundaries': ['error', { sourceRoot: fileURLToPath(new URL('./src', import.meta.url)) }],
+      'gnosi/feature-boundaries': ['error', {
+        sourceRoot: fileURLToPath(new URL('./src', import.meta.url)),
+        publicEntries: Object.keys(publicFeatureEntries),
+      }],
       'no-restricted-imports': ['error', {
         patterns: [{
           regex: '(^|/)shared/api(/index([.][^/]+)?)?/?$',

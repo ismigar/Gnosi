@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { NotebookController } from './useNotebookController';
-import ConfirmModal from '../../../components/ConfirmModal';
+import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
 import AddResourcesDialog from './AddResourcesDialog';
 import NotebookGroupDialog from './NotebookGroupDialog';
 

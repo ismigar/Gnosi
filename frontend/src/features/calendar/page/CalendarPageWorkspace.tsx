@@ -1,6 +1,6 @@
-import { DigitalBrainCalendar } from '../../../components/Vault/DigitalBrainCalendar';
-import { CalendarSidebarLeft } from '../../../components/Vault/CalendarSidebarLeft';
-import { CalendarSidebarRight } from '../../../components/Vault/CalendarSidebarRight';
+import { DigitalBrainCalendar } from '../components/DigitalBrainCalendar';
+import { CalendarSidebarLeft } from '../components/CalendarSidebarLeft';
+import { CalendarSidebarRight } from '../components/CalendarSidebarRight';
 import type { CalendarPageController } from './useCalendarPage';
 
 export function CalendarPageWorkspace({ controller }: {controller: CalendarPageController}) {

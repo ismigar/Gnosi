@@ -4,10 +4,14 @@ last_verified: 2026-08-21
 source_paths:
   - backend/tests
   - frontend/src
+  - frontend/tests/contracts
+  - frontend/feature-public-entries.json
   - tests/e2e
   - pyproject.toml
   - frontend/package.json
+  - frontend/scripts/check-bundle-size.ts
 tests:
+  - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -53,13 +57,19 @@ logic, and state behavior. ESLint and the production Vite build are mandatory.
 The build must finish with zero errors. Existing warnings are not permission to
 add new warnings without review.
 
-Frontend ownership checks run through `gnosi/feature-boundaries` in the real
-ESLint configuration. Imports outside a feature must use its directory entry or
-`index` module, never its private files. This applies to static imports,
-reexports, literal lazy imports, and TypeScript import types. Shared modules
-cannot depend on features or application composition; features cannot depend
-on `app`. A feature may use its own internals. The Python source guardrail
-provides a secondary declaration-layout check, not a replacement for AST lint.
+Frontend ownership checks use `gnosi/feature-boundaries` in ESLint. The
+reviewed extension is an exact public-entry manifest at
+`frontend/feature-public-entries.json`, with a reason per listed path.
+Cross-feature consumers use the feature root/`index` or an explicitly reviewed
+entry; unlisted siblings remain private. Check static imports, reexports,
+literal lazy imports and TypeScript import types. The manifest must not create
+an eager aggregate or change existing lazy boundaries.
+
+The rules `shared` → no features/`app` and features → no `app` are
+unconditional, including types and manifest entries. Feature internals may use
+local imports. Global source contracts belong in `frontend/tests/contracts/`;
+the source guardrail complements AST lint. Verify implementation after the
+relocation; this documentation does not establish a passing global gate.
 
 Run CPU-heavy build/typecheck gates separately from the complete real-DOM suite
 on constrained machines. If parallel work causes test deadlines to expire,
@@ -67,6 +77,17 @@ repeat the affected suite in isolation and then the full suite with bounded
 workers (for example, `pnpm --filter @gnosi/frontend exec vitest run
 --maxWorkers=2 --minWorkers=2`). Keep the assertions and test deadlines intact;
 an isolated pass alone does not establish that the full suite is green.
+
+## Production bundle budgets
+
+The frontend build runs `scripts/check-bundle-size.ts` after Vite. Fixed limits
+apply to uncompressed JavaScript bytes: entry file 1,400,000; largest chunk
+1,800,000; editor vendor 1,550,000; tldraw vendor 1,350,000; settings route
+600,000. Missing or duplicate reviewed chunks fail the check. Tests cover
+relative, root and prefixed deployment URLs, growth and missing chunks.
+The entry-file metric is not the complete initial dependency graph, compressed
+transfer size or a startup-time measurement. Vite's existing 1,500 kB advisory
+remains visible; these budgets prevent growth, not prove optimal performance.
 
 ## End-to-end and visual tests
 

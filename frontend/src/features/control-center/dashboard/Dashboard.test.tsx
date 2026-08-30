@@ -10,7 +10,7 @@ import {PermissionsDialog} from './PermissionsDialog';
 import * as scheduler from '../../../shared/api/scheduler';
 import * as analytics from '../../../shared/api/analytics';
 import {fetchConfiguration} from '../../../shared/api/configuration';
-import toast from '../../../lib/toast';
+import toast from '../../../shared/notifications/toast';
 import {readStorage, writeStorage, removeStorage} from '../../../shared/platform/browser-storage';
 import {USER_ROLE_STORAGE_KEY, WORKSPACE_ID_STORAGE_KEY} from '../../../shared/api/request-context';
 import {dispatchWindowEvent} from '../../../shared/platform/browser-events';
@@ -26,11 +26,11 @@ vi.mock('react-i18next', () => {
     const t = (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key;
     return {useTranslation: () => ({t})};
 });
-vi.mock('../../../hooks/use-api', () => ({useApi: () => ({apiFetch: mocks.apiFetch, role: 'owner'})}));
-vi.mock('../../../plugins/usePlugins', () => ({usePlugins: () => ({isEnabled: () => mocks.enabled})}));
+vi.mock('../../../shared/api/use-api', () => ({useApi: () => ({apiFetch: mocks.apiFetch, role: 'owner'})}));
+vi.mock('../../../shared/plugins/usePlugins', () => ({usePlugins: () => ({isEnabled: () => mocks.enabled})}));
 vi.mock('../../../shared/ui/layout/AppHeader', () => ({AppHeader: ({children, title}: {children?: ReactNode; title: string}) => <header>{title}{children}</header>}));
 vi.mock('../releases/ReleaseNotesDialog', () => ({ReleaseNotesDialog: () => null}));
-vi.mock('../../../lib/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn(() => 'fixture-toast')}}));
+vi.mock('../../../shared/notifications/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn(() => 'fixture-toast')}}));
 vi.mock('../../../shared/api/configuration', () => ({fetchConfiguration: vi.fn()}));
 vi.mock('../../../shared/api/scheduler', () => ({
     fetchScheduledTasks: vi.fn(), fetchSchedulerHistory: vi.fn(),

@@ -1,6 +1,6 @@
 import type Graph from 'graphology';
 
-import { applyFilters, type FilterGraph } from '../../../utils/graphFilters';
+import { applyFilters, type FilterGraph } from '../../../shared/graph/filtering/graphFilters';
 import {
   getConnectionType,
   type ConnectionAttributes,

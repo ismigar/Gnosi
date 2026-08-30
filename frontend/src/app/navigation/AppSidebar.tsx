@@ -15,9 +15,9 @@ import { fetchSystemHealth } from '../../shared/api/system';
 // heavy views. By lazy-loading it we avoid these libraries
 // entering the initial bundle just because the sidebar references the modal.
 const GlobalSettingsModal = lazy(() =>
-  import('../../components/GlobalSettingsModal').then((m) => ({ default: m.GlobalSettingsModal })),
+  import('../../features/settings/GlobalSettingsModal').then((m) => ({ default: m.GlobalSettingsModal })),
 ) as unknown as ComponentType<GlobalSettingsModalProps>;
-import { WorkspaceSwitcher } from '../../components/Navigation/WorkspaceSwitcher';
+import { WorkspaceSwitcher } from '../../features/workspaces/Navigation/WorkspaceSwitcher';
 import {
     QuickAccessMenu,
     SidebarFooter,
@@ -27,17 +27,17 @@ import {
     APP_SIDEBAR_ITEMS as navItems,
     type SidebarNavItem,
 } from './sidebar/appSidebarModel';
-import { useAuth } from '../../context/auth-context';
-import { toast } from '../../lib/toast';
-import { usePlugins } from '../../plugins/usePlugins';
+import { useAuth } from '../../shared/auth/auth-context';
+import { toast } from '../../shared/notifications/toast';
+import { usePlugins } from '../../shared/plugins/usePlugins';
 import { useMediaQuery } from '../../shared/hooks/useMediaQuery';
-import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { useModalKeyboard } from '../../shared/hooks/useModalKeyboard';
 import {
     normalizeSidebarPreferences,
     orderSidebarItems,
     type SidebarPreferences,
-} from '../../lib/appSidebarNavigation';
-import { legacyBrowserPathToCanonical } from '../../lib/vaultRouting';
+} from './appSidebarNavigation';
+import { legacyBrowserPathToCanonical } from '../../shared/routing/vaultRouting';
 import {
     subscribeAppEvent,
     type OpenSettingsEventDetail,

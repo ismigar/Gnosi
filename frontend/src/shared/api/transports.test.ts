@@ -1,4 +1,4 @@
-import { resetApiTestStorage, writeApiTestStorage } from '../../test/api-request';
+import { resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { transportFetch } from './transports';

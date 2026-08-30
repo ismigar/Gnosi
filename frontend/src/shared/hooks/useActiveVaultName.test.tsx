@@ -1,7 +1,7 @@
 import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { emitVaultNameChanged } from '../../lib/configEvents';
+import { emitVaultNameChanged } from '../platform/configEvents';
 import * as storage from '../platform/browser-storage';
 import { useActiveVaultName } from './useActiveVaultName';
 

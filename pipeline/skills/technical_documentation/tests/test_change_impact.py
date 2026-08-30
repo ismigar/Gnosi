@@ -3,6 +3,8 @@
 from pathlib import Path
 from subprocess import CompletedProcess
 
+import pytest
+
 from pipeline.skills.technical_documentation.scripts.check_change_impact import (
     REPOSITORY_ROOT,
     changed_files,
@@ -58,6 +60,94 @@ def test_reviewed_or_generated_documentation_satisfies_the_gate():
             "docs/engineering/generated/api-catalog.md",
         }
     ) == []
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "frontend/src/app/App.tsx",
+        "frontend/src/app/main.tsx",
+        "frontend/src/app/bootstrap.tsx",
+        "frontend/src/app/routes.tsx",
+        "frontend/src/app/AppProviders.tsx",
+        "frontend/src/app/navigation/AppSidebar.tsx",
+        "frontend/src/app/integration/useFileLinkInterceptor.ts",
+        "frontend/src/features/auth/LoginPage.tsx",
+        "frontend/src/features/auth/context/AuthProvider.tsx",
+        "frontend/src/features/auth/settings/Auth/AccountSettings.tsx",
+        "frontend/src/features/auth/settings/ApiTokensSettings.tsx",
+        "frontend/src/shared/auth/auth-context.ts",
+        "frontend/src/shared/routing/vaultRouting.ts",
+        "frontend/src/shared/routing/vaultQuickNavigation.ts",
+        "frontend/src/shared/ui/layout/Layout.tsx",
+        "frontend/src/shared/api/ApiProvider.tsx",
+        "frontend/src/shared/api/auth.ts",
+        "frontend/src/shared/api/use-api.ts",
+        "frontend/feature-public-entries.json",
+    ],
+)
+def test_owned_frontend_boundaries_require_documentation(path):
+    """Relocation must not remove auth, routing, shell, or public-entry gates."""
+    assert is_implementation_path(path)
+    assert requires_documentation_path(path)
+    assert validate_change_set({path})
+    assert validate_change_set(
+        {path, "docs/engineering/architecture/system-context.md"}
+    ) == []
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "frontend/src/features/reader/ReaderDashboard.tsx",
+        "frontend/src/features/mail/components/MailViewer.tsx",
+        "frontend/src/features/vault/editor/BlockEditor.tsx",
+        "frontend/src/shared/editor/VaultMarkdown.tsx",
+        "frontend/src/shared/records/hooks/useCanonicalTableRecords.ts",
+        "frontend/src/shared/ui/dialogs/ConfirmDialog.tsx",
+        "frontend/src/features/authors/Author.tsx",
+        "frontend/src/shared/authors/author.ts",
+    ],
+)
+def test_routine_owned_components_do_not_require_documentation(path):
+    """Domain UI and similarly named neighbors stay outside boundary prefixes."""
+    assert is_implementation_path(path)
+    assert not requires_documentation_path(path)
+    assert validate_change_set({path}) == []
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "frontend/src/app/composition.contract.test.ts",
+        "frontend/src/app/navigation/AppSidebar.test.tsx",
+        "frontend/src/features/auth/LoginPage.test.tsx",
+        "frontend/src/features/auth/__tests__/bootstrap.tsx",
+        "frontend/src/shared/routing/vaultRouting.test.ts",
+        "frontend/src/shared/auth/auth-context.spec.ts",
+        "frontend/src/shared/api/auth.test.ts",
+        "frontend/tests/contracts/feature-boundaries.test.ts",
+        "frontend/src/app/styles/index.css",
+        "frontend/src/features/auth/styles/login.css",
+    ],
+)
+def test_owned_frontend_tests_and_styles_remain_exempt(path):
+    """Sensitive directories must still allow coverage-only and style changes."""
+    assert not is_implementation_path(path)
+    assert not requires_documentation_path(path)
+    assert validate_change_set({path}) == []
+
+
+def test_localized_docs_alone_do_not_satisfy_owned_boundary_gate():
+    """A translated mirror does not replace canonical English evidence."""
+    assert validate_change_set(
+        {
+            "frontend/src/shared/auth/auth-context.ts",
+            "docs/engineering-ca/architecture/system-context.md",
+            "docs/engineering-es/architecture/system-context.md",
+            "docs/engineering-fr/architecture/system-context.md",
+        }
+    )
 
 
 def test_tests_and_style_only_changes_do_not_trigger_the_gate():

@@ -11,6 +11,13 @@ source_paths:
   - frontend/src/app/integration
   - frontend/src/shared/ui
   - frontend/src/shared/hooks
+  - frontend/src/features
+  - frontend/src/shared/auth
+  - frontend/src/shared/routing
+  - frontend/src/generated
+  - frontend/src/app/main.tsx
+  - frontend/src/app/styles/index.css
+  - frontend/feature-public-entries.json
   - frontend/vite.config.js
   - docker-compose.yml
   - desktop/main.js
@@ -41,25 +48,40 @@ flowchart LR
 ## Frontend boundary
 
 The frontend is a React single-page application. `app/App.tsx` owns the
-authentication gate, global shell, toasts and optional global surfaces.
-`app/routes.tsx` owns browser routes, Vault scope, redirects, loading fallbacks
-and lazy page imports; Home remains eager. `app/bootstrap.tsx` prepares the
-Vault cookie/routing, canonical URL and interface language before rendering.
+authentication gate and global shell; `app/routes.tsx` composes routes, Vault
+scope, redirects and lazy page imports while Home remains eager.
+`app/bootstrap.tsx` prepares routing and language;
 `app/AppProviders.tsx` preserves the StrictMode → API → router → authentication
-provider order. `main.tsx` imports the ordered CSS entry and starts bootstrap.
-Vite proxies `/api` and WebSocket traffic to the backend during native development.
+provider order. The relocation places the CSS entry and bootstrap call in
+`app/main.tsx`, with ordered styles in `app/styles/index.css`.
+Vite proxies `/api` and WebSocket traffic during native development.
 
-The application navigation rail and command palette live in `app/navigation/`;
-global file-link interception lives in `app/integration/`. Reusable headers,
-layout, loading state, tooltips, and generic hooks live under `shared/`, so route
-features never import application composition. Login and meeting surfaces expose
-feature public entries while preserving the original authentication and lazy gates.
+### Module ownership
 
-Pages compose reusable components; components call the backend through shared
-typed, domain-specific API adapters; direct transports stay inside reviewed
-shared boundaries. The frontend is not trusted to authorize a
-workspace, vault, user, or destructive operation. Client identifiers are
-signals that the backend resolves and validates.
+The reviewed relocation assigns composition, navigation and global integration
+to `app/`; product domains to `features/`; reusable infrastructure, UI,
+records, routing and API adapters to `shared/`; and generated contracts to
+`generated/`. Generated contracts are regenerated, never edited by hand.
+The authentication provider belongs to `features/auth/context/AuthProvider.tsx`,
+while its reusable context belongs to `shared/auth/auth-context.ts`.
+
+The `frontend/feature-public-entries.json` manifest records exact reviewed
+public paths and their reasons. Existing feature root `index` entries remain
+supported; an unlisted neighboring module stays private. Consumers use a root
+entry or an explicitly reviewed entry directly, including separate lazy imports,
+without introducing an eager aggregate barrel. The manifest describes access;
+it does not import modules.
+
+Dependencies may flow from `app` to features and shared infrastructure.
+Features never depend on `app`; `shared` never depends on features or
+`app`, including type-only imports. Moving the existing Markdown/wikilink
+preview code inside shared infrastructure does not resolve its internal cycle.
+The relocation must preserve lazy boundaries, styles, routes and payloads;
+the layout alone is not evidence of completed integration or release.
+
+Components call the backend through typed API adapters in `shared/api/`.
+The backend remains responsible for authorizing users, workspaces, vaults and
+destructive operations.
 
 ## Backend boundary
 

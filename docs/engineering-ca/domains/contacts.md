@@ -7,13 +7,15 @@ source_paths:
   - backend/services/contacts_service.py
   - backend/services/contacts_sync_engine.py
   - backend/services/google_contacts_service.py
-  - frontend/src/pages/ContactsPage.jsx
-  - frontend/src/components/Contacts
+  - frontend/src/features/contacts
 tests:
   - backend/tests/test_contacts_sync_merge.py
   - backend/tests/test_carddav_vcard_unfold.py
   - backend/tests/test_vcard_escaping.py
   - tests/e2e/tests/e2e/contacts.spec.ts
+  - frontend/src/features/contacts/components/ContactList.test.tsx
+  - frontend/src/features/contacts/components/ContactForm.test.tsx
+  - frontend/src/features/contacts/public-entry.test.ts
 ---
 
 # Contactes

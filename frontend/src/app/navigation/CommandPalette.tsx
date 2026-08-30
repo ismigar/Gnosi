@@ -36,10 +36,10 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 
-import { usePluginHost } from '../../plugins/usePluginHost';
-import { runCommand, type PluginCommandContribution } from '../../plugins/host';
-import { usePlugins } from '../../plugins/usePlugins';
-import { vaultPath } from '../../lib/vaultRouting';
+import { usePluginHost } from '../../shared/plugins/usePluginHost';
+import { runCommand, type PluginCommandContribution } from '../../shared/plugins/host';
+import { usePlugins } from '../../shared/plugins/usePlugins';
+import { vaultPath } from '../../shared/routing/vaultRouting';
 import { importVaultMarkdown, type MarkdownImportResult } from '../../shared/api/markdown-import';
 import { createVaultPage } from '../../shared/api/vaults';
 import { emitAppEvent } from '../../shared/platform/app-events';

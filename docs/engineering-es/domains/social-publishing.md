@@ -4,13 +4,17 @@ last_verified: 2026-08-28
 source_paths:
   - backend/api/social_routes.py
   - backend/services/social_clients.py
-  - frontend/src/pages/SocialDashboard.jsx
-  - frontend/src/pages/MediaCenter.jsx
+  - frontend/src/features/social
+  - frontend/src/features/media
   - pipeline/skills/publisher
 tests:
   - backend/tests/test_social_clients_contract.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_connection_scheduler_alignment.py
+  - frontend/src/features/social/SocialDashboard.test.tsx
+  - frontend/src/features/social/ContentCalendar.test.tsx
+  - frontend/src/features/social/components/socialComponents.test.tsx
+  - frontend/src/features/media/browser/MediaCenter.test.tsx
 ---
 
 # Publicaciones y medios de comunicación sociales

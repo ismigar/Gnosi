@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal } from 'lucide-react';
 import PostCard from './PostCard';
-import { SocialNetworkIcon } from '../../../components/social/SocialNetworkIcon';
-import { isKnownSocialNetwork } from '../../../components/social/socialNetworkModel';
+import { SocialNetworkIcon } from './network/social/SocialNetworkIcon';
+import { isKnownSocialNetwork } from './network/social/socialNetworkModel';
 import type { SocialPost } from '../../../shared/api/social';
 
 export interface SocialColumnProps {

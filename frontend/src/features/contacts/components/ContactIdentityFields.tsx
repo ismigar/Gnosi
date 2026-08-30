@@ -8,7 +8,7 @@ import {
     User,
 } from 'lucide-react';
 
-import { getGoogleAvatarUrl, isGmail } from '../../../utils/avatar-utils';
+import { getGoogleAvatarUrl, isGmail } from '../model/avatar-utils';
 import type {
     ContactAccount,
     ContactFormData,

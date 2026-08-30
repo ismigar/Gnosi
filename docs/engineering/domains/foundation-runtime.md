@@ -14,6 +14,9 @@ source_paths:
   - backend/utils/cache.py
   - backend/api/system_routes.py
   - frontend/src/app
+  - frontend/src/shared
+  - frontend/src/generated
+  - frontend/feature-public-entries.json
 tests:
   - frontend/src/app/composition.contract.test.ts
   - frontend/src/app/shellPages.test.tsx
@@ -113,7 +116,7 @@ Docker paths are mapped without making any cloud vendor part of the data model.
 
 ## Frontend shell
 
-`App.jsx` waits for authentication bootstrap before selecting the public share,
+`app/App.tsx` waits for authentication bootstrap before selecting the public share,
 login, or application shell. Heavy pages are lazy-loaded. The global shell owns
 navigation and globally available interaction surfaces; route pages own domain
 content. `/s/:token` renders outside the authenticated shell by design.

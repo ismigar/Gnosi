@@ -5,9 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   FILE_PROTOCOL_SENTINEL,
   sentinelToFileUrl,
-} from '../../components/Vault/markdown-mapper';
-import { citationParamsFromHref, isCitationHref } from '../../lib/citationDeepLink';
-import { openCitation, openFileResource } from '../../lib/fileResource';
+} from '../../shared/editor/markdown-mapper';
+import { citationParamsFromHref, isCitationHref } from '../../shared/resources/citationDeepLink';
+import { openCitation, openFileResource } from '../../shared/resources/fileResource';
 import {
   subscribeDocumentEvent,
   subscribeWindowEvent,

@@ -8,7 +8,7 @@ import {uploadVaultAsset} from '../../../shared/api/vault-specialized';
 import {dispatchWindowEvent} from '../../../shared/platform/browser-events';
 import {MEDIA_ROOTS, mediaAsset, savedView} from './fixtures';
 import {DEFAULT_FILTERS, DEFAULT_SORT} from './model';
-import toast from '../../../lib/toast';
+import toast from '../../../shared/notifications/toast';
 
 vi.mock('react-i18next', () => {
     const t = (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key;
@@ -16,7 +16,7 @@ vi.mock('react-i18next', () => {
 });
 vi.mock('../../../shared/hooks/useMediaQuery', () => ({useMediaQuery: () => false}));
 vi.mock('../../../shared/ui/layout/AppHeader', () => ({AppHeader: ({children, title}: {children?: ReactNode; title: string}) => <header>{title}{children}</header>}));
-vi.mock('../../../lib/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn()}}));
+vi.mock('../../../shared/notifications/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn()}}));
 vi.mock('../../../shared/api/media-browser', () => ({
     fetchMediaPage: vi.fn(), fetchMediaRoots: vi.fn(), fetchMediaTree: vi.fn(), fetchMediaViews: vi.fn(),
     createMediaView: vi.fn(), updateMediaView: vi.fn(), deleteMediaView: vi.fn(),

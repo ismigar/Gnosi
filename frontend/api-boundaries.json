@@ -1,6 +1,6 @@
 {
   "directFetch": {
-    "frontend/src/components/Vault/zotero-host.html": "Classic isolated Zotero reader host cannot import the Vite ESM transport bundle.",
+    "frontend/src/features/reader/zotero/zotero-host.html": "Classic isolated Zotero reader host cannot import the Vite ESM transport bundle.",
     "frontend/src/shared/api/transports.ts": "Canonical browser fetch boundary for generated, compatibility and specialized clients."
   },
   "eventSource": {

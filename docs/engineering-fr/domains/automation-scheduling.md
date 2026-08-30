@@ -8,7 +8,8 @@ source_paths:
   - backend/scheduler/notifications.py
   - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
-  - frontend/src/pages/SchedulerPage.jsx
+  - frontend/src/features/automations
+  - frontend/src/features/control-center
   - pipeline/skills/scheduler
 tests:
   - backend/tests/test_audio_summarizer.py
@@ -16,6 +17,8 @@ tests:
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
   - tests/e2e/tests/e2e/automation-scout.spec.ts
+  - frontend/src/features/automations/SchedulerPage.test.tsx
+  - frontend/src/features/control-center/dashboard/Dashboard.test.tsx
 ---
 
 # Automatisation et planification

@@ -13,9 +13,12 @@ source_paths:
   - backend/services/workspace_service.py
   - backend/services/vault_routing.py
   - backend/services/active_vault_middleware.py
-  - frontend/src/context/auth-context.ts
+  - frontend/src/shared/auth/auth-context.ts
   - frontend/src/features/auth
   - frontend/src/features/sharing
+  - frontend/src/features/auth/context/AuthProvider.tsx
+  - frontend/src/shared/routing
+  - frontend/src/features/workspaces
 tests:
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts

@@ -1,6 +1,6 @@
 import { useCallback, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from '../../../lib/toast';
+import { toast } from '../../../shared/notifications/toast';
 import { writeClipboardText } from '../../../shared/platform/clipboard';
 import { recordChatFeedback, requestChatMessageJob, type JobAction } from '../../../shared/api/chat-message-actions';
 import { boundedJob } from '../model/agentChatTransparency';

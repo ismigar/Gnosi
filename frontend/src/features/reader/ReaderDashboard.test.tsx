@@ -47,9 +47,9 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../shared/ui/layout/AppHeader', () => ({
     AppHeader: ({ children, title }: { readonly children?: ReactNode; readonly title: ReactNode }) => <header>{title}{children}</header>,
 }));
-vi.mock('../../plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => false }) }));
-vi.mock('../../lib/toast', () => ({ toast: { error: vi.fn() } }));
-vi.mock('../../lib/notifyError', () => ({ logError: vi.fn() }));
+vi.mock('../../shared/plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => false }) }));
+vi.mock('../../shared/notifications/toast', () => ({ toast: { error: vi.fn() } }));
+vi.mock('../../shared/notifications/notifyError', () => ({ logError: vi.fn() }));
 vi.mock('../../shared/api/scheduler', () => ({ runScheduledTask: mocks.runTask }));
 vi.mock('../../shared/platform/app-events', () => ({ emitAppEvent: mocks.emitEvent }));
 vi.mock('../../shared/api/reader', async () => {

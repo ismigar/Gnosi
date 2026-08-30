@@ -2,12 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { normalizeLineEndings } from '../src/lib/releaseNotesFormatting.ts';
+import { normalizeLineEndings } from '../src/features/control-center/releases/releaseNotesFormatting.ts';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const frontendDir = path.resolve(scriptDir, '..');
 const appDir = path.resolve(frontendDir, '..');
-const catalogPath = path.join(frontendDir, 'src/content/releases.json');
+const catalogPath = path.join(frontendDir, 'src/features/control-center/releases/releases.json');
 const changelogPath = path.join(appDir, 'CHANGELOG.md');
 const locales = ['ca', 'en', 'es', 'fr'];
 const sectionNames = ['highlights', 'improvements', 'fixes'];
@@ -117,7 +117,7 @@ function renderPublicRelease(release, translation) {
 const releases = readJson(catalogPath);
 const translations = Object.fromEntries(locales.map((locale) => [
   locale,
-  readJson(path.join(frontendDir, `src/locales/${locale}/translation.json`)),
+  readJson(path.join(frontendDir, `src/shared/i18n/locales/${locale}/translation.json`)),
 ]));
 validate(releases, translations);
 

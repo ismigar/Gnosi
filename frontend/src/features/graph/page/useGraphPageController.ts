@@ -8,14 +8,14 @@ import {
 import { useLocation } from 'react-router-dom';
 
 import type { MinimapRenderer } from '../../../shared/graph/minimap/minimapRuntime';
-import { useConfigChanged } from '../../../lib/configEvents';
-import { logError } from '../../../lib/notifyError';
+import { useConfigChanged } from '../../../shared/platform/configEvents';
+import { logError } from '../../../shared/notifications/notifyError';
 import { fetchConfiguration, updateConfiguration } from '../../../shared/api/configuration';
 import { fetchVaultGraph } from '../../../shared/api/graph';
 import type { VaultGlobalIndex, VaultRegistryRecord } from '../../../shared/api/vaults';
 import { fetchVaultGlobalIndex, fetchVaultTables } from '../../../shared/api/vaults';
 import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
-import { applyFilters } from '../../../utils/graphFilters';
+import { applyFilters } from '../../../shared/graph/filtering/graphFilters';
 import { getConnectionTypeCounts } from '../model/graphLegend';
 import {
   getVisibleSemanticEdges,

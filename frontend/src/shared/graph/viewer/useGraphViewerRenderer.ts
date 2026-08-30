@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import Graph from 'graphology';
 import Sigma from 'sigma';
-import { logError } from '../../../lib/notifyError';
+import { logError } from '../../notifications/notifyError';
 import { openBrowserWindow } from '../../platform/browser-events';
-import { getVisibleHoverNeighborhood } from '../../../utils/graphFilters';
+import { getVisibleHoverNeighborhood } from '../filtering/graphFilters';
 import { createSettings } from './graphViewerSettings';
 import { attachSemanticOverlay } from './graphViewerOverlay';
 import { publishRenderer } from './graphViewerRuntime';

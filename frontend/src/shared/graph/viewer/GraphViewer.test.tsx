@@ -9,7 +9,7 @@ vi.mock('sigma', async () => {
     const { TestRenderer: Renderer } = await import('./graphViewerTestRenderer');
     return { default: Renderer };
 });
-vi.mock('../../../lib/notifyError', () => ({ logError: vi.fn() }));
+vi.mock('../../notifications/notifyError', () => ({ logError: vi.fn() }));
 vi.mock('../../platform/browser-events', async (importOriginal) => ({
     ...await importOriginal<typeof import('../../platform/browser-events')>(),
     openBrowserWindow: vi.fn(),

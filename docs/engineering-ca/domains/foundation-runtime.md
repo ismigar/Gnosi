@@ -10,7 +10,10 @@ source_paths:
   - backend/domains/configuration/api/settings.py
   - backend/services/data_dir_migration.py
   - backend/api/system_routes.py
-  - frontend/src/App.jsx
+  - frontend/src/app
+  - frontend/src/shared
+  - frontend/src/generated
+  - frontend/feature-public-entries.json
 tests:
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
@@ -20,6 +23,8 @@ tests:
   - backend/tests/test_data_dir_migration.py
   - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/app/shellPages.test.tsx
 ---
 
 # Plataforma base i hora d' execució
@@ -75,7 +80,7 @@ Docker es mapen sense incorporar cap proveïdor al model de dades.
 
 ## Àrea de treball per a la interfície
 
-`App.jsx` Espera a l' autenticació "mobitra " abans de seleccionar la compartició pública, iniciar sessió o l' intèrpret d' ordres. Les pàgines fortes s' acarregen. Les pròpies pàgines de l' intèrpret d' ordres globals són navegació i superfícies d' interacció disponibles globalment; rutes de pàgines de ruta del contingut del propi domini. `/s/:token` Es refereix a fora de l' intèrpret d' ordres autenticat pel disseny.
+`app/App.tsx` Espera a l' autenticació "mobitra " abans de seleccionar la compartició pública, iniciar sessió o l' intèrpret d' ordres. Les pàgines fortes s' acarregen. Les pròpies pàgines de l' intèrpret d' ordres globals són navegació i superfícies d' interacció disponibles globalment; rutes de pàgines de ruta del contingut del propi domini. `/s/:token` Es refereix a fora de l' intèrpret d' ordres autenticat pel disseny.
 
 ## Invariants
 

@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { toast } from '../../lib/toast';
+import { toast } from '../../shared/notifications/toast';
 import {
     cancelLiteratureSearch,
     createLiteratureReview,
@@ -18,7 +18,7 @@ import {
     subscribeAppEvent,
     type OpenSettingsEventDetail,
 } from '../../shared/platform/app-events';
-import { TestApiProvider } from '../../test/TestApiProvider';
+import { TestApiProvider } from '../../../tests/TestApiProvider';
 
 import LiteraturePage from './LiteraturePage';
 import {
@@ -75,10 +75,10 @@ vi.mock('../../shared/api/literature-specialized', () => ({
     downloadLiteratureReview: vi.fn(),
 }));
 vi.mock('../../shared/api/specialized-transports', () => streamMocks);
-vi.mock('../../plugins/usePlugins', () => ({
+vi.mock('../../shared/plugins/usePlugins', () => ({
     usePlugins: vi.fn(() => ({ isEnabled: () => true })),
 }));
-vi.mock('../../lib/toast', () => ({
+vi.mock('../../shared/notifications/toast', () => ({
     toast: { error: vi.fn(), success: vi.fn() },
 }));
 

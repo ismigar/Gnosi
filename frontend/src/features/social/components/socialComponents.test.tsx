@@ -30,7 +30,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 
-vi.mock('../../../hooks/useModalKeyboard', () => ({
+vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
   useModalKeyboard: vi.fn(),
 }));
 
@@ -77,7 +77,7 @@ vi.mock('../../../shared/api/useSocialData', () => ({
 }));
 
 
-vi.mock('../../../lib/toast', () => ({
+vi.mock('../../../shared/notifications/toast', () => ({
   toast: {
     error: vi.fn(),
     success: composerMocks.toastSuccess,

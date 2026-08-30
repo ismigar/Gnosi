@@ -10,10 +10,10 @@ vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock('react-router-dom', () => ({ useNavigate: () => effects.navigate }));
 vi.mock('../../shared/api/meeting-specialized', () => ({ uploadMeetingRecording: effects.upload }));
 vi.mock('../../shared/api/meetings', () => ({ fetchMeetingStatus: effects.status }));
-vi.mock('../../lib/toast', () => ({ toast: { error: effects.error } }));
-vi.mock('../../lib/vaultRouting', () => ({ vaultPath: (app: string, path: string) => `/fixture/${app}/${path}` }));
+vi.mock('../../shared/notifications/toast', () => ({ toast: { error: effects.error } }));
+vi.mock('../../shared/routing/vaultRouting', () => ({ vaultPath: (app: string, path: string) => `/fixture/${app}/${path}` }));
 vi.mock('../../shared/hooks/useExclusiveFloatingPanel', () => ({ announceFloatingPanelOpen: vi.fn(), useExclusiveFloatingPanel: vi.fn() }));
-vi.mock('../../hooks/useFloatingActionDock', () => ({ useFloatingActionDock: () => [false, effects.dock] }));
+vi.mock('../../shared/hooks/useFloatingActionDock', () => ({ useFloatingActionDock: () => [false, effects.dock] }));
 
 /** Structural test double: no browser capture or device permission is requested. */
 class FakeRecorder {

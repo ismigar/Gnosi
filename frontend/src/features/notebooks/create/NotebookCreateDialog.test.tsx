@@ -51,11 +51,11 @@ vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: translate }),
 }));
 
-vi.mock('../../../lib/notifyError', () => ({
+vi.mock('../../../shared/notifications/notifyError', () => ({
     logError: vi.fn(),
 }));
 
-vi.mock('../../../lib/toast', () => ({
+vi.mock('../../../shared/notifications/toast', () => ({
     toast: { success: vi.fn(), error: vi.fn() },
 }));
 

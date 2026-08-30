@@ -10,7 +10,7 @@ import { Check, Plus, Trash2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
-import { useModalKeyboard } from '../../../hooks/useModalKeyboard';
+import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 import type { MailTag, MailTagCreate } from '../../../shared/api/mail';
 
 

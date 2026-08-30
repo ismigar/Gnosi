@@ -12,6 +12,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 
 
 log = logging.getLogger(__name__)
@@ -43,8 +44,11 @@ EXCLUDED_FILE_PARTS = {
     ".git",
     ".mypy_cache",
     ".pytest_cache",
+    ".ruff_cache",
+    ".tmp",
     ".venv",
     ".venv-python",
+    ".vite",
     "__pycache__",
     "coverage",
     "dist",
@@ -54,6 +58,8 @@ EXCLUDED_FILE_PARTS = {
     "node_modules",
     "playwright-report",
     "python-build",
+    "private_skills",
+    "sandbox",
     "secrets",
     "test-results",
     "vendor",
@@ -239,7 +245,10 @@ def join_url_paths(*parts: str) -> str:
     return f"/{'/'.join(nonempty)}" if nonempty else "/"
 
 
-def first_doc_line(node: ast.AST, fallback: str) -> str:
+def first_doc_line(
+    node: ast.AsyncFunctionDef | ast.FunctionDef | ast.ClassDef | ast.Module,
+    fallback: str,
+) -> str:
     """Return the first useful line of a Python docstring."""
     doc = ast.get_docstring(node, clean=True)
     if not doc:
@@ -707,16 +716,16 @@ def build_api_catalog(app_root: Path) -> str:
             "| ---: | --- | --- | --- | --- |",
         ]
     )
-    for order, item in enumerate(registrations, start=1):
+    for order, registration in enumerate(registrations, start=1):
         lines.append(
             "| "
             + " | ".join(
                 [
                     str(order),
-                    f"`{item.module}.router`",
-                    f"`{item.prefix or '/'}`",
-                    markdown_cell(", ".join(item.tags)),
-                    source_link(item.source, item.line),
+                    f"`{registration.module}.router`",
+                    f"`{registration.prefix or '/'}`",
+                    markdown_cell(", ".join(registration.tags)),
+                    source_link(registration.source, registration.line),
                 ]
             )
             + " |"
@@ -1037,7 +1046,7 @@ def build_data_model_catalog(app_root: Path) -> str:
             index,
             foreign_key,
             default,
-            line,
+            column_line,
         ) in columns:
             lines.append(
                 "| "
@@ -1051,7 +1060,7 @@ def build_data_model_catalog(app_root: Path) -> str:
                         index,
                         f"`{markdown_cell(foreign_key)}`" if foreign_key != "—" else "—",
                         markdown_cell(default),
-                        source_link(source, int(line)),
+                        source_link(source, int(column_line)),
                     ]
                 )
                 + " |"
@@ -1497,20 +1506,45 @@ def build_skill_catalog(app_root: Path) -> str:
             "| --- | --- | ---: | ---: | --- |",
         ]
     )
-    for name, title, doc_lines, scripts, source in rows:
+    for name, title, doc_lines, script_count, source in rows:
         lines.append(
-            f"| `{name}` | {markdown_cell(title)} | {doc_lines} | {scripts} | {source_link(source)} |"
+            f"| `{name}` | {markdown_cell(title)} | {doc_lines} | {script_count} | {source_link(source)} |"
         )
     lines.append("")
     return "\n".join(lines)
 
 
-def load_domains(config_path: Path) -> list[dict[str, object]]:
+class DomainCoverage(TypedDict):
+    """Validated fields from the curated domain coverage configuration."""
+
+    id: str
+    name: str
+    guide: str
+    source_globs: list[str]
+    test_globs: list[str]
+    directives: list[str]
+
+
+def domain_string(value: object, field: str) -> str:
+    """Reject malformed domain labels and paths rather than coerce them."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"Domain field {field} must be a nonempty string")
+    return value
+
+
+def domain_string_list(value: object, field: str) -> list[str]:
+    """Retain ordered string lists, including valid empty test/directive lists."""
+    if not isinstance(value, list):
+        raise ValueError(f"Domain field {field} must be a string list")
+    return [domain_string(entry, field) for entry in value]
+
+
+def load_domains(config_path: Path) -> list[DomainCoverage]:
     """Load and minimally validate the curated domain coverage configuration."""
     data = json.loads(read_text(config_path))
     if not isinstance(data, list):
         raise ValueError("domains.json must contain a list")
-    domains: list[dict[str, object]] = []
+    domains: list[DomainCoverage] = []
     for item in data:
         if not isinstance(item, dict):
             raise ValueError("Every domain entry must be an object")
@@ -1518,7 +1552,14 @@ def load_domains(config_path: Path) -> list[dict[str, object]]:
         missing = required - item.keys()
         if missing:
             raise ValueError(f"Domain {item.get('id', '<unknown>')} misses {sorted(missing)}")
-        domains.append(item)
+        domains.append({
+            "id": domain_string(item["id"], "id"),
+            "name": domain_string(item["name"], "name"),
+            "guide": domain_string(item["guide"], "guide"),
+            "source_globs": domain_string_list(item["source_globs"], "source_globs"),
+            "test_globs": domain_string_list(item["test_globs"], "test_globs"),
+            "directives": domain_string_list(item["directives"], "directives"),
+        })
     return domains
 
 

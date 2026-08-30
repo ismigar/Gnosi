@@ -1,7 +1,7 @@
-import type { GlobalSearchNote } from '../../../components/Vault/GlobalSearchModal';
-import type { FilterValue } from '../../../utils/vaultFilters';
-import type { CalendarEntry } from '../../../components/Vault/calendar-sidebar-right/calendarTypes';
-import { record } from '../../../components/Vault/calendar-sidebar-right/calendarBoundary';
+import type { GlobalSearchNote } from '../../../shared/page-search/GlobalSearchModal';
+import type { FilterValue } from '../../../shared/filtering/vaultFilters';
+import type { CalendarEntry } from '../components/calendar-sidebar-right/calendarTypes';
+import { record } from '../components/calendar-sidebar-right/calendarBoundary';
 
 function filterValue(value: unknown): FilterValue {
     if (value === null || value === undefined || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return value;

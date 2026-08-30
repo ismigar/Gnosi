@@ -117,6 +117,12 @@ requires documentation evidence.
 
 ## Restrictions and edge cases
 
+- Note: Do not count or parse local `sandbox`, `private_skills`, `.tmp`, `.vite`
+  or `.ruff_cache` trees in public catalogs, because ignored migration helpers
+  make local output differ from a clean CI checkout and may expose private
+  source. Apply the same exclusions to source discovery, inventory and domain
+  coverage; test catalog invariance after adding local scratch fixtures.
+
 - Note: Do not machine-translate generated catalogs or accept presence/marker
   checks as parity, because source labels and paths can be mangled while French
   copies become stale. Instead, generate localized fixed labels deterministically

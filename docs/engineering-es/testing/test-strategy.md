@@ -4,10 +4,14 @@ last_verified: 2026-08-21
 source_paths:
   - backend/tests
   - frontend/src
+  - frontend/tests/contracts
+  - frontend/feature-public-entries.json
+  - frontend/package.json
+  - frontend/scripts/check-bundle-size.ts
   - tests/e2e
   - pyproject.toml
-  - frontend/package.json
 tests:
+  - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -44,6 +48,35 @@ Las suites importantes incluyen:
 Vitest cubre componentes, ganchos, registros, formatos de utilidades, lógica de vista tecleada y comportamiento de estado. ESLint y la producción Vite build son obligatorios. `check:i18n` verifica que las claves referenciadas orientadas al usuario existen en cada localización.
 
 La compilación debe terminar con cero errores. Las advertencias existentes no son permiso para añadir nuevas advertencias sin revisión.
+
+Los límites de propiedad se comprueban con `gnosi/feature-boundaries` en ESLint.
+La ampliación revisada prevé un manifiesto de entradas públicas exactas en
+`frontend/feature-public-entries.json`, con un motivo por ruta.
+Los consumidores externos a una feature usan su raíz/`index` o una entrada
+explícitamente revisada; los archivos vecinos no listados siguen siendo privados.
+Se comprueban imports estáticos, reexports, imports diferidos literales e imports
+de tipos TypeScript. El manifiesto no debe crear un agregador de carga inmediata
+ni alterar los límites de carga diferida.
+
+Las reglas `shared` → ninguna feature/`app` y features → ningún `app` son
+incondicionales, también para tipos y entradas del manifiesto. Los módulos
+internos de una feature pueden usar imports locales. Los contratos globales de
+código están en `frontend/tests/contracts/`; el guardrail complementa el lint AST.
+Se debe verificar la implementación después del traslado; esta documentación
+no acredita que la verificación global haya pasado.
+
+## Límites de tamaño de producción
+
+El build del frontend ejecuta `scripts/check-bundle-size.ts` después de Vite.
+Los límites fijos, en bytes JavaScript sin comprimir, son: archivo de entrada
+1.400.000; fragmento mayor 1.800.000; editor vendor 1.550.000; tldraw vendor
+1.350.000; ruta de configuración 600.000. Un fragmento revisado ausente o
+duplicado hace fallar la comprobación. Las pruebas cubren URL de despliegue
+relativas, de raíz y con prefijo, crecimiento y fragmentos ausentes. El tamaño
+del archivo de entrada no mide todo el grafo inicial de dependencias, la
+transferencia comprimida ni el tiempo de arranque. El aviso existente de Vite
+de 1.500 kB sigue visible; estos límites evitan crecimiento, no acreditan un
+rendimiento óptimo.
 
 ## Pruebas visuales y de extremo a extremo
 

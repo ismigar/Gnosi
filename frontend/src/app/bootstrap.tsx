@@ -1,10 +1,10 @@
 import { createRoot } from 'react-dom/client';
-import i18n from '../i18n';
+import i18n from '../shared/i18n/i18n';
 import { GlobalTooltip } from '../shared/ui/tooltip/GlobalTooltip';
-import { syncActiveVaultCookie } from '../lib/fileResource';
-import { initializeInterfaceLanguage } from '../lib/interfaceLanguage';
+import { syncActiveVaultCookie } from '../shared/resources/fileResource';
+import { initializeInterfaceLanguage } from './initialization/interfaceLanguage';
 import { installDesktopApplicationMenu } from './desktop/desktopMenu';
-import { initializeVaultRouting, legacyBrowserPathToCanonical } from '../lib/vaultRouting';
+import { initializeVaultRouting, legacyBrowserPathToCanonical } from '../shared/routing/vaultRouting';
 import App from './App';
 import { AppProviders } from './AppProviders';
 

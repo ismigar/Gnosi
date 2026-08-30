@@ -1,4 +1,4 @@
-import releases from '../../../content/releases.json';
+import releases from './releases.json';
 
 
 export const RELEASE_NOTE_SECTIONS = ['highlights', 'improvements', 'fixes'] as const;

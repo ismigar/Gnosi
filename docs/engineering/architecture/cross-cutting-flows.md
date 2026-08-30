@@ -11,11 +11,11 @@ source_paths:
   - frontend/src/app/App.tsx
   - frontend/src/app/routes.tsx
   - frontend/src/app/bootstrap.tsx
-  - frontend/src/context/AuthProvider.tsx
-  - frontend/src/context/auth-context.ts
-  - frontend/src/hooks/useModalKeyboard.ts
-  - frontend/src/index.css
-  - frontend/src/lib/vaultRouting.ts
+  - frontend/src/features/auth/context/AuthProvider.tsx
+  - frontend/src/shared/auth/auth-context.ts
+  - frontend/src/shared/hooks/useModalKeyboard.ts
+  - frontend/src/app/styles/index.css
+  - frontend/src/shared/routing/vaultRouting.ts
   - frontend/src/shared/api/client.ts
   - frontend/src/shared/api/request-context.ts
   - frontend/src/shared/api/transports.ts
@@ -23,12 +23,13 @@ source_paths:
   - frontend/api-boundaries.json
   - openapi/openapi.json
   - scripts/generate_openapi.py
+  - frontend/src/app/main.tsx
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - tests/e2e/tests/accessibility/accessibility.spec.ts
-  - frontend/src/lib/vaultRouting.test.ts
+  - frontend/src/shared/routing/vaultRouting.test.ts
   - frontend/src/shared/api/client.test.ts
   - frontend/src/shared/api/transports.test.ts
   - backend/tests/test_openapi_generation.py

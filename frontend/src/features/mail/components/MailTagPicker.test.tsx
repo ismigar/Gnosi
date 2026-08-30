@@ -13,7 +13,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 
-vi.mock('../../../hooks/useModalKeyboard', () => ({
+vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
   useModalKeyboard: vi.fn(),
 }));
 

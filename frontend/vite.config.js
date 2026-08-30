@@ -147,7 +147,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     // App version injected into the UI (shown in the Control Center). Source
-    // single source: frontend/package.json → see src/lib/version.js and
+    // single source: frontend/package.json → see src/features/control-center/releases/version.ts and
     // scripts/bump-version.sh. It's read here (not above) to pick up the
     // most recent value on every (re)build with no memory between processes.
     define: {
@@ -173,8 +173,9 @@ export default defineConfig(({ mode }) => {
       // Chunks that still exceed 500 kB (editor-vendor ~1.4 MB,
       // tldraw-vendor ~1.1 MB) are heavy vendors loaded ONLY on demand
       // (Vault editor / tldraw drawing), not at startup. We raise the threshold
-      // so the warning doesn't create noise over the expected lazy chunks; the chunk
-      // initial (index) has already dropped from ~7 MB to ~1 MB.
+      // so the warning remains focused on exceptional lazy chunks. Exact entry,
+      // route and vendor growth limits are enforced by check-bundle-size.ts;
+      // the initial index has already dropped from ~7 MB to ~1.3 MB.
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {

@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { legacyBrowserPathToCanonical } from '../../../lib/vaultRouting';
-import VaultMenu from '../../../components/VaultMenu';
+import { legacyBrowserPathToCanonical } from '../../../shared/routing/vaultRouting';
+import VaultMenu from '../../../features/vault-management/VaultMenu';
 import {
     ENGINEERING_DOCUMENTATION_URL,
     type SidebarNavItem,

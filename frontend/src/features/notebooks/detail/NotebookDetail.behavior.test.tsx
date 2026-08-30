@@ -6,8 +6,8 @@ import { NotebookDetail } from './NotebookDetail';
 import * as api from '../../../shared/api/notebooks';
 import { transportFetch } from '../../../shared/api/transports';
 import { GnosiApiError } from '../../../shared/api/errors';
-import { toast } from '../../../lib/toast';
-import { vaultPath } from '../../../lib/vaultRouting';
+import { toast } from '../../../shared/notifications/toast';
+import { vaultPath } from '../../../shared/routing/vaultRouting';
 import { removeStorage, writeStorage } from '../../../shared/platform/browser-storage';
 import { NOTEBOOK_USER_ID } from './notebookModel';
 import { chatSourcesFixture, notebookFixture, resourcesFixture, sourcesFixture } from './notebookTestFixtures';
@@ -25,8 +25,8 @@ vi.mock('../../../shared/api/notebooks', () => ({
     removeNotebookSource: vi.fn(), deleteNotebook: vi.fn(),
 }));
 vi.mock('../../../shared/api/transports', () => ({ transportFetch: vi.fn() }));
-vi.mock('../../../lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('../../../lib/notifyError', () => ({ notifyError: vi.fn() }));
+vi.mock('../../../shared/notifications/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../../../shared/notifications/notifyError', () => ({ notifyError: vi.fn() }));
 vi.mock('../../agent', async () => {
     const { useEffect } = await import('react');
     return { AgentChat: function TestAgentChat({ contextRefs, storageIdentity, forcedSessionId }: { contextRefs: NotebookChatContext[]; storageIdentity: string; forcedSessionId: string }) {

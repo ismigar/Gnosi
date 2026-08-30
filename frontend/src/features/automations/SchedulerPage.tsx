@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { AlertCircle, Check, Clock, Edit2, RefreshCw, X } from 'lucide-react';
 
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
-import { logError } from '../../lib/notifyError';
+import { logError } from '../../shared/notifications/notifyError';
 import type { ScheduledTask } from '../../shared/api/scheduler';
 import {
   useScheduledTasks,

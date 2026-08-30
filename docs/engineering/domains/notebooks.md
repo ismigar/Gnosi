@@ -23,7 +23,7 @@ tests:
   - frontend/src/features/notebooks/detail/NotebookDetail.behavior.test.tsx
   - frontend/src/features/notebooks/public-entry.test.ts
   - frontend/src/app/composition.contract.test.ts
-  - frontend/src/lib/notebookTableActions.test.ts
+  - frontend/src/features/notebooks/model/notebookTableActions.test.ts
   - tests/e2e/tests/e2e/notebooks.spec.ts
 ---
 

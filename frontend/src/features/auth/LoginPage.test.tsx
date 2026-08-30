@@ -15,11 +15,11 @@ vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: mocks.translate }),
 }));
 
-vi.mock('../../context/auth-context', () => ({
+vi.mock('../../shared/auth/auth-context', () => ({
     useAuth: () => ({ login: mocks.login, register: mocks.register }),
 }));
 
-vi.mock('../../lib/toast', () => ({
+vi.mock('../../shared/notifications/toast', () => ({
     toast: { success: mocks.success },
 }));
 

@@ -1,7 +1,7 @@
 import type { CalendarEvent, CalendarListItem } from '../../../shared/api/calendar';
 import type { IntegrationsDocument } from '../../../shared/api/integrations';
-import type { CalendarConfig, CalendarEntry } from '../../../components/Vault/calendar-sidebar-right/calendarTypes';
-import { attendeeList, record, stringList, textValue } from '../../../components/Vault/calendar-sidebar-right/calendarBoundary';
+import type { CalendarConfig, CalendarEntry } from '../components/calendar-sidebar-right/calendarTypes';
+import { attendeeList, record, stringList, textValue } from '../components/calendar-sidebar-right/calendarBoundary';
 
 export interface EnabledTable { id: string; name: string; type: 'table'; color?: string }
 interface CalendarIntegration { email: string; name: string; url: string; color: string }

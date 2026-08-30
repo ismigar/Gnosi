@@ -8,15 +8,18 @@ source_paths:
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
   - backend/services/hybrid_calendar_service.py
-  - frontend/src/pages/CalendarPage.jsx
-  - frontend/src/components/MeetingRecorder.jsx
-  - frontend/src/components/MeetingReminderWatcher.jsx
+  - frontend/src/features/calendar
+  - frontend/src/features/meetings
 tests:
   - backend/tests/test_calendar_geocoding_domain.py
   - backend/tests/test_hybrid_calendar_service.py
   - backend/tests/test_calendar_path_containment.py
   - backend/tests/test_meeting_reminders_race.py
   - tests/e2e/tests/e2e/calendar.spec.ts
+  - frontend/src/features/meetings/MeetingControls.test.tsx
+  - frontend/src/features/meetings/public-entry.test.ts
+  - frontend/src/features/calendar/page/CalendarPage.test.tsx
+  - frontend/src/features/calendar/public-entry.test.ts
 ---
 
 # Calendari i reunions

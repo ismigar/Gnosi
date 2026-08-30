@@ -8,8 +8,10 @@ source_paths:
   - backend/services/google_mail_service.py
   - backend/services/microsoft_mail_service.py
   - backend/services/mail_ingester.py
-  - frontend/src/pages/MailPage.jsx
-  - frontend/src/components/Mail
+  - frontend/src/features/mail
+  - frontend/src/features/mail/editor/Mail/MailBlockEditor.tsx
+  - frontend/src/shared/api/mail.ts
+  - frontend/src/shared/api/mail-specialized.ts
 tests:
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
@@ -17,6 +19,11 @@ tests:
   - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
+  - frontend/src/features/mail/MailPage.test.tsx
+  - frontend/src/features/mail/components/MailComposer.test.tsx
+  - frontend/src/features/mail/components/MailViewer.test.tsx
+  - frontend/src/features/mail/public-entry.test.ts
+  - frontend/src/app/composition.contract.test.ts
 ---
 
 # Correo

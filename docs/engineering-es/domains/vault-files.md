@@ -17,8 +17,12 @@ source_paths:
   - backend/services/relation_sync.py
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
-  - frontend/src/pages/VaultDashboard.tsx
-  - frontend/src/components/Vault
+  - frontend/src/features/vault/VaultDashboard.tsx
+  - frontend/src/features/vault
+  - frontend/src/shared/editor
+  - frontend/src/shared/records
+  - frontend/src/shared/record-views
+  - frontend/src/shared/page-search
 tests:
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
@@ -490,15 +494,18 @@ especializados implementan los editores y las vistas. El frontend almacena en
 caché el estado de interacción, pero considera autoritativos el contenido de
 las páginas y los ETags del backend.
 
-Los puntos de entrada públicos `VaultDashboard.tsx`, `VaultTable.tsx`,
-`SchemaConfigModal.tsx` y `BlockEditor.tsx` componen módulos TypeScript estrictos.
-La navegación y los catálogos de registros están en `pages/vault-dashboard`;
-la selección de tablas, la virtualización y la edición de celdas, en
-`Vault/vault-table`; los campos y las opciones del esquema, en
-`Vault/schema-config`. El editor separa las propiedades de página, los documentos
-enriquecidos, los efectos, los controles y la persistencia en `Vault/block-editor`.
-Estas divisiones internas conservan las rutas de API y los formatos de
-almacenamiento existentes; la reorganización final en `features/` es un paso separado.
+El traslado revisado sitúa `VaultDashboard.tsx` en la raíz de la feature y
+su orquestación en `features/vault/dashboard/`. La composición de tablas y la
+edición de celdas están en `features/vault/views/vault-table/`; los campos y las
+opciones del esquema, en `features/vault/schema/schema-config/`; y las propiedades
+de página, los documentos enriquecidos, los efectos y la persistencia, en
+`features/vault/editor/block-editor/`. El renderizado, los hooks de registros
+y los controles de vista reutilizables pertenecen a `shared/editor/`,
+`shared/records/` y `shared/record-views/`; nunca importan UI del Vault.
+Un módulo solo es público mediante la raíz de la feature o su entrada exacta
+revisada en el manifiesto; ser un archivo de composición no lo hace público.
+Los cambios de propiedad conservan rutas API y formatos de almacenamiento;
+la verificación de integración sigue siendo un paso separado.
 
 Las transiciones de Markdown al modo visual publican los borradores pendientes
 antes de montar el editor enriquecido, evitando que el contenido desactualizado

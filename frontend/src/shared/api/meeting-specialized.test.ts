@@ -1,4 +1,4 @@
-import { resetApiTestStorage } from '../../test/api-request';
+import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { uploadMeetingRecording } from './meeting-specialized';

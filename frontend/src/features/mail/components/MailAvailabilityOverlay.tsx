@@ -1,6 +1,6 @@
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
-import { DigitalBrainCalendar } from '../../../components/Vault/DigitalBrainCalendar';
+import { DigitalBrainCalendar } from '../../calendar/components/DigitalBrainCalendar';
 import type { MailComposerController } from './useMailComposerController';
 
 

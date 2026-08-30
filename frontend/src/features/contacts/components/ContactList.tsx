@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Filter, Search } from 'lucide-react';
 
 import type { Contact, ContactQuery } from '../../../shared/api/contacts';
-import { getGoogleAvatarUrl, isGmail } from '../../../utils/avatar-utils';
+import { getGoogleAvatarUrl, isGmail } from '../model/avatar-utils';
 
 
 export interface ContactListProps {

@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CollapsibleSection } from '../../../components/CollapsibleSection';
+import { CollapsibleSection } from '../../../shared/ui/sections/CollapsibleSection';
 
 /**
  * Physics/Forces controls section for the graph.

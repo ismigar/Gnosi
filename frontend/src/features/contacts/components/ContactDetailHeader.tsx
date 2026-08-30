@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import type { Contact } from '../../../shared/api/contacts';
-import { getGoogleAvatarUrl, isGmail } from '../../../utils/avatar-utils';
+import { getGoogleAvatarUrl, isGmail } from '../model/avatar-utils';
 
 export interface ContactDetailHeaderProps {
     readonly contact: Contact;

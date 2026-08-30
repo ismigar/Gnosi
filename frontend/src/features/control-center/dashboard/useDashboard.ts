@@ -1,9 +1,9 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import {useApi} from '../../../hooks/use-api';
-import {usePlugins} from '../../../plugins/usePlugins';
-import {useConfigChanged} from '../../../lib/configEvents';
-import toast from '../../../lib/toast';
+import {useApi} from '../../../shared/api/use-api';
+import {usePlugins} from '../../../shared/plugins/usePlugins';
+import {useConfigChanged} from '../../../shared/platform/configEvents';
+import toast from '../../../shared/notifications/toast';
 import {fetchConfiguration} from '../../../shared/api/configuration';
 import type {WorkspaceCatalogEntry} from '../../../shared/api/workspaces';
 import type {ScheduledTask} from '../../../shared/api/scheduler';

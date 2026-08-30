@@ -7,7 +7,7 @@ import {
     normalizeInterfaceLanguage,
     resolveInitialInterfaceLanguage,
     setInterfaceLanguage,
-} from '../src/lib/interfaceLanguage';
+} from '../src/app/initialization/interfaceLanguage';
 import { memoryStorage } from './helpers/memory-storage';
 
 describe('interface language resolution', () => {

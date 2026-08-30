@@ -1,0 +1,89 @@
+import { useMemo } from 'react';
+
+import { normalizeSorts } from '../model/schemaUtils';
+import {
+  compareFieldValues,
+  matchesSearch,
+  viewMatchesFilters,
+  type FilterItem,
+  type FilterNode,
+} from '../../filtering/vaultFilters';
+
+
+export interface VaultViewPage extends FilterItem {
+  readonly id: string;
+  readonly metadata?: Readonly<Record<string, unknown>> | null;
+}
+
+
+export interface VaultSortInput {
+  readonly direction?: string;
+  readonly field?: string;
+  readonly id?: string;
+}
+
+
+export interface VaultViewConfig {
+  readonly [key: string]: unknown;
+  readonly filters?: readonly FilterNode[];
+  readonly filterTree?: FilterNode;
+  readonly sort?: VaultSortInput | readonly VaultSortInput[] | null;
+  readonly sorts?: VaultSortInput | readonly VaultSortInput[] | null;
+}
+
+
+export interface VaultViewDataParams<Page extends VaultViewPage = VaultViewPage> {
+  readonly pages?: readonly Page[];
+  readonly schema?: Readonly<Record<string, unknown>>;
+  readonly searchTerm?: string;
+  readonly view?: VaultViewConfig;
+}
+
+
+export interface VaultViewDataResult<Page extends VaultViewPage = VaultViewPage> {
+  readonly filteredPages: Page[];
+  readonly sortedPages: Page[];
+}
+
+
+/** Apply shared search, nested filters, and stable multi-field sorting. */
+export function useVaultViewData<Page extends VaultViewPage>({
+  pages = [],
+  view = {},
+  searchTerm = '',
+}: VaultViewDataParams<Page>): VaultViewDataResult<Page> {
+  const filterView = useMemo(() => ({
+    filters: view.filters,
+    filterTree: view.filterTree,
+  }), [view.filters, view.filterTree]);
+
+  const filteredPages = useMemo(() => pages.filter((page) => (
+    matchesSearch(page, searchTerm)
+      && viewMatchesFilters(page, filterView)
+  )), [filterView, pages, searchTerm]);
+
+  const sortedPages = useMemo(() => {
+    const sorts = normalizeSorts(view.sort ?? view.sorts);
+    if (sorts.length === 0) return [...filteredPages];
+
+    return [...filteredPages].sort((first, second) => {
+      for (const sort of sorts) {
+        const firstValue = sort.field === 'title'
+          ? first.title ?? ''
+          : first.metadata?.[sort.field] ?? first[sort.field];
+        const secondValue = sort.field === 'title'
+          ? second.title ?? ''
+          : second.metadata?.[sort.field] ?? second[sort.field];
+        const comparison = compareFieldValues(
+          firstValue,
+          secondValue,
+          sort.direction,
+        );
+        if (comparison !== 0) return comparison;
+      }
+      return 0;
+    });
+  }, [filteredPages, view.sort, view.sorts]);
+
+  return { filteredPages, sortedPages };
+}

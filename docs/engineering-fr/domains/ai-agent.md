@@ -27,8 +27,9 @@ source_paths:
   - backend/agent/conversation_memory.py
   - backend/agent/context_safety.py
   - backend/mcp/client.py
-  - frontend/src/components/AgentChat.jsx
-  - frontend/src/components/AI
+  - frontend/src/features/agent
+  - frontend/src/features/settings/AI
+  - frontend/src/features/agent-context
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
@@ -54,6 +55,10 @@ tests:
   - backend/tests/test_e2e_tables_assets.py
   - backend/tests/test_vault_trash.py
   - tests/e2e/tests/e2e/ai-chat.spec.ts
+  - frontend/src/features/agent/public-entry.test.ts
+  - frontend/src/features/agent/chat/AgentChat.transport.test.tsx
+  - frontend/src/features/agent/chat/submitChatTurn.test.ts
+  - frontend/src/features/agent/chat/chat-message-actions.test.ts
 ---
 
 # Agents, modèles, outils et compétences de l'IA

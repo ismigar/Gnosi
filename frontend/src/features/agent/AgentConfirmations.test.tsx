@@ -5,7 +5,7 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import AgentChat from './AgentChat';
-import ConfirmModal from '../../components/ConfirmModal';
+import ConfirmModal from '../../shared/ui/dialogs/ConfirmModal';
 import { dispatchWindowEvent } from '../../shared/platform/browser-events';
 import {
     CONFIRMATION_REFRESH_MS,

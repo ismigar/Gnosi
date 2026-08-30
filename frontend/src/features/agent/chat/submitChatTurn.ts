@@ -1,6 +1,6 @@
 import { startChatStream } from '../../../shared/api/chat-streaming';
 import { readNdjsonRecords } from '../../../shared/api/ndjson';
-import { logError } from '../../../lib/notifyError';
+import { logError } from '../../../shared/notifications/notifyError';
 import { recordValue } from '../model/agentChatMessageTypes';
 import { boundedProcessingMs } from '../model/agentChatMessageUtils';
 import { selectedMentionsInText } from '../model/agentChatMentionUtils';

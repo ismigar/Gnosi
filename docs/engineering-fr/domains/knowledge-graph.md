@@ -5,14 +5,20 @@ source_paths:
   - backend/domains/graph
   - backend/api/vault_graph_routes.py
   - backend/services/graph_service.py
-  - frontend/src/pages/GraphPage.jsx
-  - frontend/src/components/GraphViewer.jsx
+  - frontend/src/features/graph
+  - frontend/src/shared/graph
+  - frontend/src/shared/graph/filtering
+  - frontend/src/shared/filtering
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
   - backend/tests/test_graph_similarity_suggestions.py
   - backend/tests/test_graph_wedged_dirs.py
-  - frontend/src/utils/graphViewGeometry.test.js
+  - frontend/src/shared/graph/model/graphViewGeometry.test.ts
+  - frontend/src/shared/graph/viewer/GraphViewer.test.tsx
+  - frontend/src/features/vault/views/VaultGraph.test.tsx
+  - frontend/src/features/graph/GraphPage.test.tsx
+  - frontend/src/features/graph/public-entry.test.ts
 ---
 
 # Graphique des connaissances
@@ -24,6 +30,18 @@ les adaptateurs et l'orchestration. `graph_service.py` est la façade stable
 utilisée par l'API, l'agent et le planificateur.
 
 Le graphique projette des relations explicites de connaissances et des suggestions sémantiques optionnelles en réseau interactif. Il supporte la navigation et la découverte; il est dérivé de la Vault et n'est pas une source distincte de vérité.
+
+La feature typée `features/graph/` gère l'état des routes, les filtres et la
+composition des pages via une entrée publique à chargement différé.
+Les panneaux et modèles internes restent privés. `shared/graph/` gère le
+renderer, la minicarte, la géométrie, le clavier, les arêtes et la couche
+sémantique réutilisables. Les routes de graphes et les graphes intégrés au Vault
+importent directement le même renderer, sans agrégateur chargé au démarrage.
+Le déplacement révisé place les filtres de graphes réutilisables dans
+`shared/graph/filtering/` et les filtres du Vault dans `shared/filtering/`.
+Le code partagé ne dépend ni des features ni d'app, même par des imports de
+types. Projections, configuration, navigation, contrôles de caméra et styles
+restent inchangés ; le déplacement exige une vérification d'intégration.
 
 ## Construction graphique
 

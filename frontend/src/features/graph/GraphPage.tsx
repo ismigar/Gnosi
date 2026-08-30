@@ -3,7 +3,7 @@ import { Controls } from './panels/Controls';
 import { GraphLoadingState } from '../../shared/ui/loading/GraphLoadingState';
 import { Layout } from '../../shared/ui/layout/Layout';
 import { Legend } from './panels/Legend';
-import '../../viewer/style.css';
+import './styles/viewer.css';
 import { GraphCanvasView } from './page/GraphCanvasView';
 import { GraphSidebarView } from './page/GraphSidebarView';
 import {

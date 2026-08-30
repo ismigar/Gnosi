@@ -21,8 +21,11 @@ source_paths:
   - desktop/scripts/packaging-contract.cjs
   - desktop/scripts/smoke-packaged-backend.py
   - pnpm-workspace.yaml
+  - frontend/public/favicon.svg
   - frontend/package.json
-  - frontend/src/content/releases.json
+  - frontend/src/features/control-center/releases/releases.json
+  - frontend/src/app/desktop
+  - frontend/src/features/control-center/releases
   - extensions/web-clipper
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
@@ -37,6 +40,8 @@ tests:
   - desktop/packaging-contract.test.js
   - desktop/update-policy.test.js
   - extensions/office/libreoffice-cite/tests
+  - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
+  - frontend/src/app/desktop/desktopMenu.test.ts
 ---
 
 # Cliente de escritorio y acompañantes
@@ -132,7 +137,7 @@ desarrollo nativo desde código fuente conserva la recarga.
 
 ## Preparación de versiones
 
-`frontend/src/content/releases.json` es el historial canónico de versiones
+`frontend/src/features/control-center/releases/releases.json` es el historial canónico de versiones
 incluido en el paquete. El sincronizador mantiene idénticas las versiones del
 manifiesto del frontend, del manifiesto de Electron y de la entrada del
 frontend en el lockfile del monorepo. Una entrada estable preparada antes de

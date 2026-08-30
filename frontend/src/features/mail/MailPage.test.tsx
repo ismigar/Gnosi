@@ -111,8 +111,8 @@ vi.mock('./hooks/useMailTags', () => ({
 }));
 
 
-vi.mock('../../lib/notifyError', () => ({ logError: mocks.logError }));
-vi.mock('../../lib/toast', () => ({ toast: mocks.toast }));
+vi.mock('../../shared/notifications/notifyError', () => ({ logError: mocks.logError }));
+vi.mock('../../shared/notifications/toast', () => ({ toast: mocks.toast }));
 
 
 vi.mock('../../shared/api/integrations', () => ({

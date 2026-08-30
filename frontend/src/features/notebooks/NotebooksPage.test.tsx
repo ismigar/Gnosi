@@ -76,8 +76,8 @@ vi.mock('../agent', () => ({
     ),
 }));
 
-vi.mock('../../components/ConfirmModal', () => ({ default: () => null }));
-vi.mock('../../lib/toast', () => ({
+vi.mock('../../shared/ui/dialogs/ConfirmModal', () => ({ default: () => null }));
+vi.mock('../../shared/notifications/toast', () => ({
     toast: { success: vi.fn(), error: vi.fn() },
 }));
 

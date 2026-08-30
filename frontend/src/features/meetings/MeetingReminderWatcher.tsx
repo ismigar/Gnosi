@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { vaultPath } from '../../lib/vaultRouting';
+import { vaultPath } from '../../shared/routing/vaultRouting';
 import type { MeetingReminder } from '../../shared/api/calendar';
 import {
   useDismissMeetingReminder,

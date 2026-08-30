@@ -10,7 +10,10 @@ source_paths:
   - backend/domains/configuration/api/settings.py
   - backend/services/data_dir_migration.py
   - backend/api/system_routes.py
-  - frontend/src/App.jsx
+  - frontend/src/app
+  - frontend/src/shared
+  - frontend/src/generated
+  - frontend/feature-public-entries.json
 tests:
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
@@ -20,6 +23,8 @@ tests:
   - backend/tests/test_data_dir_migration.py
   - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/app/shellPages.test.tsx
 ---
 
 # Fondation de la plateforme et durée d'exécution
@@ -78,7 +83,7 @@ modèle de données.
 
 ## Coquille de la façade
 
-`App.jsx` attend que l'authentification bootstrap soit activée avant de sélectionner le partage public, la connexion ou la coque d'application. Les pages lourdes sont chargées par paresse. La coque globale possède la navigation et les surfaces d'interaction disponibles dans le monde entier; les pages d'itinéraires contiennent leur propre domaine. `/s/:token` rend à l'extérieur de la coque authentifiée par conception.
+`app/App.tsx` attend que l'authentification bootstrap soit activée avant de sélectionner le partage public, la connexion ou la coque d'application. Les pages lourdes sont chargées par paresse. La coque globale possède la navigation et les surfaces d'interaction disponibles dans le monde entier; les pages d'itinéraires contiennent leur propre domaine. `/s/:token` rend à l'extérieur de la coque authentifiée par conception.
 
 ## Invariants
 

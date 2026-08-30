@@ -21,10 +21,10 @@ source_paths:
   - backend/services/literature_import_service.py
   - backend/services/literature_ai_service.py
   - backend/services/references_io.py
-  - frontend/src/pages/ReaderDashboard.jsx
-  - frontend/src/pages/LiteraturePage.jsx
-  - frontend/src/components/ResourcesPluginConfig.tsx
-  - frontend/src/components/Vault/ZoteroReaderTab.ts
+  - frontend/src/features/reader
+  - frontend/src/features/literature
+  - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
+  - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
@@ -40,8 +40,11 @@ tests:
   - backend/tests/test_html_meta_attr_order.py
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
-  - frontend/src/pages/LiteraturePage.test.jsx
-  - frontend/src/components/ResourcesPluginConfig.test.tsx
+  - frontend/src/features/reader/ReaderDashboard.test.tsx
+  - frontend/src/features/reader/public-entry.test.ts
+  - frontend/src/features/literature/LiteraturePage.test.tsx
+  - frontend/src/features/literature/public-entry.test.ts
+  - frontend/src/features/literature/settings/ResourcesPluginConfig.test.tsx
 ---
 
 # Lector, referencias y citas

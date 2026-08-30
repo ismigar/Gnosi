@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
-import { useConfigChanged } from '../../../lib/configEvents';
+import { useConfigChanged } from '../../../shared/platform/configEvents';
 import { fetchConfiguration } from '../../../shared/api/configuration';
 import { resolveAgentRuntimeSelection } from '../model/agentChatAgentUtils';
 import { isRecord } from '../model/agentChatMessageTypes';

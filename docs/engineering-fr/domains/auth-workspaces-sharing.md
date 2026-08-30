@@ -10,7 +10,12 @@ source_paths:
   - backend/models/management.py
   - backend/services/auth_service.py
   - backend/services/workspace_service.py
-  - frontend/src/context/AuthContext.jsx
+  - frontend/src/shared/auth/auth-context.ts
+  - frontend/src/features/auth
+  - frontend/src/features/sharing
+  - frontend/src/features/auth/context/AuthProvider.tsx
+  - frontend/src/shared/routing
+  - frontend/src/features/workspaces
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_auth_enforcement_flag.py
@@ -23,6 +28,8 @@ tests:
   - backend/tests/test_auth_email_case.py
   - backend/tests/test_auth_placeholder_account.py
   - backend/tests/test_password_hashing.py
+  - frontend/src/features/auth/LoginPage.test.tsx
+  - frontend/src/features/auth/public-entry.test.ts
 ---
 
 # Authentification, espaces de travail et partage

@@ -1,7 +1,7 @@
 import Sigma from 'sigma';
 import { normalizeGraphPoint, visibleCameraRatio } from '../minimap/minimapRuntime';
 import { getVisibleGraphBounds } from '../model/graphViewGeometry';
-import { logError } from '../../../lib/notifyError';
+import { logError } from '../../notifications/notifyError';
 import type { ContainerRef, GraphViewerHandle, RuntimeRef, ViewerRenderer } from './types';
 /** Compatibility with existing integrations inspecting window.sigmaRenderer. */
 export function publishRenderer(renderer: ViewerRenderer): void {

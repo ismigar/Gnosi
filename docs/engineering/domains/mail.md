@@ -14,7 +14,7 @@ source_paths:
   - backend/services/mail_metadata_manager.py
   - backend/services/vault_mail_sync_service.py
   - frontend/src/features/mail
-  - frontend/src/components/Mail/MailBlockEditor.tsx
+  - frontend/src/features/mail/editor/Mail/MailBlockEditor.tsx
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:

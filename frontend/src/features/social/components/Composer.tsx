@@ -8,8 +8,8 @@ import {
   X,
 } from 'lucide-react';
 
-import { logError } from '../../../lib/notifyError';
-import { toast } from '../../../lib/toast';
+import { logError } from '../../../shared/notifications/notifyError';
+import { toast } from '../../../shared/notifications/toast';
 import type { SocialNetwork } from '../../../shared/api/social';
 import {
   useCreateSocialPost,

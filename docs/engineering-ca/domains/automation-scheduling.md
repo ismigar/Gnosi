@@ -10,7 +10,8 @@ source_paths:
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
   - backend/services/literature_service.py
-  - frontend/src/pages/SchedulerPage.jsx
+  - frontend/src/features/automations
+  - frontend/src/features/control-center
   - pipeline/skills/scheduler
 tests:
   - backend/tests/test_audio_summarizer.py
@@ -19,6 +20,8 @@ tests:
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_literature_service.py
   - tests/e2e/tests/e2e/automation-scout.spec.ts
+  - frontend/src/features/automations/SchedulerPage.test.tsx
+  - frontend/src/features/control-center/dashboard/Dashboard.test.tsx
 ---
 
 # automatització i planificació

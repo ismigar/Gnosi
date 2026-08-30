@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Lock, FileText } from 'lucide-react';
-import { VaultMarkdown } from '../../components/Vault/VaultMarkdown';
+import { VaultMarkdown } from '../../shared/editor/VaultMarkdown';
 import { GnosiApiError } from '../../shared/api/errors';
 import {
     fetchSharedPage,

@@ -18,7 +18,10 @@ function importText(node) {
 export default {
   meta: {
     type: 'problem',
-    schema: [{ type: 'object', properties: { sourceRoot: { type: 'string' } }, required: ['sourceRoot'], additionalProperties: false }],
+    schema: [{ type: 'object', properties: {
+      sourceRoot: { type: 'string' },
+      publicEntries: { type: 'array', items: { type: 'string' }, uniqueItems: true },
+    }, required: ['sourceRoot'], additionalProperties: false }],
     messages: {
       privateFeature: 'Importa només l’entrada pública de la feature {{feature}}, no {{path}}.',
       sharedDependency: 'shared no pot dependre d’app ni de features: {{path}}.',
@@ -28,8 +31,9 @@ export default {
   create(context) {
     const root = context.options[0].sourceRoot;
     const filename = context.filename;
-    const owner = partsWithin(root, filename);
-    if (!owner) return {};
+    const owner = partsWithin(root, filename) ?? ['external'];
+    const publicEntries = new Set((context.options[0].publicEntries ?? [])
+      .map(path => path.replace(/\.[jt]sx?$/u, '')));
 
     function inspect(node) {
       const imported = importText(node);
@@ -49,7 +53,8 @@ export default {
       } else if (parts[0] === 'features' && parts.length >= 2) {
         const sameFeature = owner[0] === 'features' && owner[1] === parts[1];
         const publicEntry = parts.length === 2
-          || (parts.length === 3 && /^index(?:\.[jt]sx?)?$/u.test(parts[2]));
+          || (parts.length === 3 && /^index(?:\.[jt]sx?)?$/u.test(parts[2]))
+          || publicEntries.has(parts.join('/').replace(/\.[jt]sx?$/u, ''));
         if (!sameFeature && !publicEntry) messageId = 'privateFeature';
       }
       if (messageId) context.report({ node, messageId, data: { path: imported, feature: parts[1] } });
@@ -63,6 +68,13 @@ export default {
       TSImportType: node => inspect(node.source),
       CallExpression(node) {
         if (node.callee.type === 'Identifier' && node.callee.name === 'require') inspect(node.arguments[0]);
+        if (node.callee.type === 'MemberExpression'
+          && node.callee.object.type === 'Identifier'
+          && ['vi', 'jest'].includes(node.callee.object.name)
+          && node.callee.property.type === 'Identifier'
+          && ['mock', 'doMock', 'unmock', 'doUnmock', 'importActual', 'importMock'].includes(node.callee.property.name)) {
+          inspect(node.arguments[0]);
+        }
       },
     };
   },

@@ -3,7 +3,21 @@ status: implemented
 last_verified: 2026-08-02
 source_paths:
   - backend/server.py
-  - frontend/src/App.jsx
+  - frontend/src/app/App.tsx
+  - frontend/src/app/routes.tsx
+  - frontend/src/app/bootstrap.tsx
+  - frontend/src/app/AppProviders.tsx
+  - frontend/src/app/navigation
+  - frontend/src/app/integration
+  - frontend/src/shared/ui
+  - frontend/src/shared/hooks
+  - frontend/src/features
+  - frontend/src/shared/auth
+  - frontend/src/shared/routing
+  - frontend/src/generated
+  - frontend/src/app/main.tsx
+  - frontend/src/app/styles/index.css
+  - frontend/feature-public-entries.json
   - frontend/vite.config.js
   - docker-compose.yml
   - desktop/main.js
@@ -31,11 +45,44 @@ flowchart LR
     Office["Compléments et clippers pour bureau"] --> API
 ```
 
-## Frontière
+## Frontière du frontend
 
-La façade est une application React à une seule page. `App.jsx` possède les routes de navigateur de haut niveau, portail d'authentification, shell global, chargement de route paresseux, toasts, chat agent, palette de commandes, enregistreur de réunion, rappels, et avis de mise à jour de bureau. `/api` et le trafic WebSocket vers le backend pendant le développement natif.
+Le frontend est une application React à page unique. `app/App.tsx` gère
+l'authentification et le shell global ; `app/routes.tsx` compose les routes,
+le périmètre du Vault, les redirections et le chargement différé des pages,
+tandis que Home est chargé au démarrage. `app/bootstrap.tsx` prépare le routage
+et la langue ; `app/AppProviders.tsx` conserve l'ordre
+StrictMode → API → router → authentification. Le déplacement place l'entrée CSS
+et l'appel à bootstrap dans `app/main.tsx`, avec les styles ordonnés dans
+`app/styles/index.css`. Vite relaie `/api` et WebSocket en développement natif.
 
-Les pages composent des composants réutilisables; les composants appellent le moteur par des aides partagées ou des appels directs de recherche. Le frontend n'est pas fiable pour autoriser un espace de travail, un coffre, un utilisateur ou une opération destructrice.
+### Répartition des modules
+
+Le déplacement révisé attribue la composition, la navigation et l'intégration
+globale à `app/` ; les domaines du produit à `features/` ; l'infrastructure,
+l'UI, les enregistrements, le routage et les adaptateurs API réutilisables à
+`shared/` ; et les contrats générés à `generated/`. Ces contrats sont régénérés,
+jamais modifiés à la main. Le fournisseur d'authentification appartient à
+`features/auth/context/AuthProvider.tsx` et son contexte réutilisable à
+`shared/auth/auth-context.ts`.
+
+Le manifeste `frontend/feature-public-entries.json` recense les chemins
+publics exacts révisés et leurs justifications. Les entrées `index` à la racine
+des features restent autorisées ; un module voisin non répertorié reste privé.
+Les consommateurs utilisent directement une entrée racine ou explicitement
+révisée, avec des imports différés distincts, sans introduire d'agrégateur
+chargé au démarrage. Le manifeste décrit l'accès ; il n'importe aucun module.
+
+Les dépendances peuvent aller d'`app` vers les features et l'infrastructure
+partagée. Les features ne dépendent pas d'`app` ; `shared` ne dépend ni des
+features ni d'`app`, même pour les imports de types. Déplacer la prévisualisation
+Markdown/wikilink dans l'infrastructure partagée ne résout pas son cycle interne.
+Le déplacement doit préserver chargement différé, styles, routes et payloads ;
+la structure seule ne prouve pas que l'intégration ou la release est terminée.
+
+Les composants appellent le backend via les adaptateurs API typés de `shared/api/`.
+Le backend reste responsable des autorisations des utilisateurs, workspaces,
+vaults et opérations destructrices.
 
 ## Limites de l'arrière-pays
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { availableCalendarSources, calendarConfigsFor, calendarSettings, hybridCalendarEntry } from './calendarPageModel';
 import { calendarSearchNote } from './calendarSearchModel';
-import { externalEvent, LOCAL_EVENT } from '../../../components/Vault/calendar-sidebar-right/calendarTestFixtures';
+import { externalEvent, LOCAL_EVENT } from '../components/calendar-sidebar-right/calendarTestFixtures';
 
 describe('calendar page source model', () => {
     it('preserves provider metadata, recurrence, exclusive ends and readonly state', () => {

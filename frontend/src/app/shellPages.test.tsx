@@ -30,7 +30,7 @@ vi.mock('../shared/hooks/useMediaQuery', () => ({
 }));
 
 
-vi.mock('../plugins/usePlugins', () => ({
+vi.mock('../shared/plugins/usePlugins', () => ({
   usePlugins: () => ({ isEnabled: mocks.isEnabled }),
 }));
 

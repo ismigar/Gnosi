@@ -4,10 +4,14 @@ last_verified: 2026-08-21
 source_paths:
   - backend/tests
   - frontend/src
+  - frontend/tests/contracts
+  - frontend/feature-public-entries.json
+  - frontend/package.json
+  - frontend/scripts/check-bundle-size.ts
   - tests/e2e
   - pyproject.toml
-  - frontend/package.json
 tests:
+  - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -44,6 +48,34 @@ Hi ha suites importants que inclouen:
 Vitest cobreix components, ganxos, registes, utilitats de format, lògica de vista i comportament estatal. ESLint i la construcció de producció de Vite són obligatoris. `check:i18n` versifica que les claus referenciades a l' usuari existeixen en cada lloc local.
 
 La construcció ha d' acabar amb errors zeros. Els avisos existents no són permís per afegir nous avisos sense revisar.
+
+Els límits de propietat es comproven amb `gnosi/feature-boundaries` a ESLint.
+L'ampliació revisada preveu un manifest d'entrades públiques exactes a
+`frontend/feature-public-entries.json`, amb un motiu per camí.
+Els consumidors externs a una feature usen l'arrel/`index` o una entrada
+explícitament revisada; els fitxers veïns no llistats continuen privats.
+Cal comprovar imports estàtics, reexports, imports diferits literals i imports
+de tipus TypeScript. El manifest no ha de crear un agregador de càrrega
+immediata ni alterar els límits de càrrega diferida.
+
+Les regles `shared` → cap feature/`app` i features → cap `app` són
+incondicionals, també per als tipus i les entrades del manifest. Els mòduls
+interns d'una feature poden usar imports locals. Els contractes globals de codi
+són a `frontend/tests/contracts/`; el guardrail complementa el lint AST.
+Cal verificar la implementació després del trasllat; aquesta documentació no
+acredita que la verificació global hagi passat.
+
+## Límits de mida de producció
+
+El build del frontend executa `scripts/check-bundle-size.ts` després de Vite.
+Els límits fixos, en bytes JavaScript sense comprimir, són: fitxer d'entrada
+1.400.000; fragment més gran 1.800.000; editor vendor 1.550.000; tldraw vendor
+1.350.000; ruta de configuració 600.000. Un fragment revisat absent o duplicat
+fa fallar la comprovació. Les proves cobreixen URL de desplegament relatives,
+d'arrel i amb prefix, creixement i fragments absents. La mida del fitxer
+d'entrada no mesura tot el graf inicial de dependències, la transferència
+comprimida ni el temps d'arrencada. L'avís existent de Vite de 1.500 kB
+continua visible; aquests límits eviten creixement, no acrediten rendiment òptim.
 
 ## Comprovacions visuals final a fi
 

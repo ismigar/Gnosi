@@ -1,4 +1,4 @@
-import ConfirmModal from '../../../components/ConfirmModal';
+import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
 import { MailListBody } from './mail-list/MailListBody';
 import { MailListHeader } from './mail-list/MailListHeader';
 import { MailListMenus } from './mail-list/MailListMenus';

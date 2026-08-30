@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {Trash2} from 'lucide-react';
-import toast from '../../../lib/toast';
+import toast from '../../../shared/notifications/toast';
 import {createMediaView, deleteMediaView, fetchMediaViews, updateMediaView, type MediaView} from '../../../shared/api/media-browser';
 import type {MediaCollection} from './useMediaCollection';
 import type {MediaConfirmation} from './ConfirmDialog';

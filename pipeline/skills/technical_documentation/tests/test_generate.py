@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
+
+import pytest
 
 from pipeline.skills.technical_documentation.scripts.generate import (
     RouterRegistration,
@@ -14,6 +17,7 @@ from pipeline.skills.technical_documentation.scripts.generate import (
     frontend_files,
     is_owned_inventory_file,
     join_url_paths,
+    load_domains,
     matches_for_globs,
     parse_route_module,
     python_files,
@@ -231,3 +235,50 @@ def test_inventory_excludes_local_state_and_packaging_outputs(tmp_path: Path) ->
 
     assert is_owned_inventory_file(owned_source)
     assert all(not is_owned_inventory_file(path) for path in local_files)
+
+
+def test_local_scratch_and_private_tools_do_not_change_public_catalogs(tmp_path: Path) -> None:
+    """Ignored migration helpers must not make local and clean-CI counts differ."""
+    owned = tmp_path / "pipeline" / "skills" / "example" / "source.py"
+    owned.parent.mkdir(parents=True)
+    owned.write_text("VALUE = 1\n", encoding="utf-8")
+    before = python_files(tmp_path)
+    for relative in (
+        "pipeline/sandbox/relocate.py",
+        "pipeline/sandbox/parser.mjs",
+        "pipeline/private_skills/local_only/tool.py",
+        "pipeline/private_skills/local_only/SKILL.md",
+        "frontend/.tmp/fixture/probe.ts",
+        "frontend/.vite/cached.js",
+        "pipeline/.ruff_cache/metadata.json",
+    ):
+        scratch = tmp_path / relative
+        scratch.parent.mkdir(parents=True, exist_ok=True)
+        scratch.write_text("private scratch fixture\n", encoding="utf-8")
+        assert not is_owned_inventory_file(scratch)
+
+    assert python_files(tmp_path) == before == [owned]
+    assert frontend_files(tmp_path) == []
+    assert matches_for_globs(tmp_path, ["pipeline/**/*", "frontend/**/*"]) == [owned]
+
+
+@pytest.mark.parametrize("field,value", [
+    ("id", 42), ("name", " "), ("guide", None),
+    ("source_globs", "frontend/**/*"), ("test_globs", [False]),
+    ("directives", {"path": "private.md"}),
+])
+def test_domain_fields_are_validated_before_catalog_generation(
+    tmp_path: Path, field: str, value: object,
+) -> None:
+    """Unknown JSON values must not escape into typed catalog operations."""
+    domain: dict[str, object] = {
+        "id": "test", "name": "Test", "guide": "docs/test.md",
+        "source_globs": ["frontend/**/*"], "test_globs": [], "directives": [],
+    }
+    config = tmp_path / "domains.json"
+    config.write_text(json.dumps([domain]), encoding="utf-8")
+    assert load_domains(config) == [domain]
+    domain[field] = value
+    config.write_text(json.dumps([domain]), encoding="utf-8")
+    with pytest.raises(ValueError, match=f"Domain field {field}"):
+        load_domains(config)

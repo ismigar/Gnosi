@@ -24,14 +24,14 @@ source_paths:
   - backend/services/project_planning.py
   - backend/services/planning_scheduler.py
   - pipeline/scripts/migrate_table_system_dates.py
-  - frontend/src/components/Vault/VaultTable.tsx
-  - frontend/src/components/Vault/BlockEditor.tsx
-  - frontend/src/components/Vault/VaultDateProperty.ts
-  - frontend/src/components/Vault/VaultTimeline.tsx
-  - frontend/src/pages/VaultDashboard.tsx
+  - frontend/src/features/vault/views/VaultTable.tsx
+  - frontend/src/features/vault/editor/BlockEditor.tsx
+  - frontend/src/features/vault/properties/VaultDateProperty.ts
+  - frontend/src/shared/record-views/VaultTimeline.tsx
+  - frontend/src/features/vault/VaultDashboard.tsx
   - frontend/src/features/planning
-  - frontend/src/utils/projectPlanning.ts
-  - frontend/src/utils/vaultFilters.ts
+  - frontend/src/shared/dates/projectPlanning.ts
+  - frontend/src/shared/filtering/vaultFilters.ts
 tests:
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
   - frontend/src/features/planning/public-entry.test.ts
@@ -53,7 +53,7 @@ tests:
   - backend/tests/test_project_planning.py
   - backend/tests/test_virtual_fields_graph_projection.py
   - backend/tests/test_pipeline_naming.py
-  - frontend/src/utils/projectPlanning.test.ts
+  - frontend/src/shared/dates/projectPlanning.test.ts
   - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
 

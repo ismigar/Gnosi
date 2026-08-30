@@ -9,7 +9,7 @@ const PLACEHOLDER_RE = /{{\s*([^},\s]+)[^}]*}}/g;
 const TAG_RE = /<\/?([A-Za-z][\w-]*|\d+)\b[^>]*>/g;
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const localeRoot = path.resolve(scriptDir, '../src/locales');
+const localeRoot = path.resolve(scriptDir, '../src/shared/i18n/locales');
 
 function canonicalizeLocale(value) {
     try {

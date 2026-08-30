@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 
 import type { MailTagsContextValue } from '../hooks/useMailTags';
-import { logError } from '../../../lib/notifyError';
-import { toast } from '../../../lib/toast';
+import { logError } from '../../../shared/notifications/notifyError';
+import { toast } from '../../../shared/notifications/toast';
 import {
   extractMailEntities,
   fetchMailMessage,

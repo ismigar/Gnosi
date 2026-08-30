@@ -1,6 +1,6 @@
 import { useCallback, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from '../../../lib/toast';
+import { toast } from '../../../shared/notifications/toast';
 import { rewindChatSession } from '../../../shared/api/chat-message-actions';
 import { conversationRewindPlan } from '../model/agentChatConversationMerge';
 import { hydrateChatMessages } from './liveConversationModel';

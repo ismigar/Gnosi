@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -158,3 +159,32 @@ def test_feature_layout_check_preserves_multiline_and_type_declarations(
     source.parent.mkdir(parents=True)
     source.write_text(declaration, encoding="utf-8")
     assert len(current_metrics(tmp_path).feature_boundary_errors) == 1
+
+
+@pytest.mark.parametrize('specifier', ['../beta/Widget', '@/features/beta/Widget.tsx', '../beta/Widget.js?raw'])
+def test_explicit_public_module_does_not_open_its_neighbors(tmp_path: Path, specifier: str) -> None:
+    source = tmp_path / 'frontend/src/features/alpha/Page.ts'
+    source.parent.mkdir(parents=True)
+    target = tmp_path / 'frontend/src/features/beta/Widget.tsx'
+    target.parent.mkdir(parents=True)
+    target.write_text('export const Widget = 1;\n', encoding='utf-8')
+    (tmp_path / 'frontend/feature-public-entries.json').write_text(
+        json.dumps({'features/beta/Widget.tsx': 'Widget intentionally embedded by another feature.'}), encoding='utf-8',
+    )
+    source.write_text(f"import '{specifier}';\nimport '../beta/private';\n", encoding='utf-8')
+    errors = current_metrics(tmp_path).feature_boundary_errors
+    assert len(errors) == 1
+    assert '../beta/private' in errors[0]
+    shared = tmp_path / 'frontend/src/shared/probe.ts'
+    shared.parent.mkdir()
+    shared.write_text("import '@/features/beta/Widget';\n", encoding='utf-8')
+    assert any('into shared' in error for error in current_metrics(tmp_path).feature_boundary_errors)
+
+
+@pytest.mark.parametrize('entry', ['features/beta/*', 'features/../shared/Thing.ts', 'features/beta/Missing.ts'])
+def test_invalid_public_entries_fail_closed(tmp_path: Path, entry: str) -> None:
+    frontend = tmp_path / 'frontend'
+    frontend.mkdir()
+    (frontend / 'feature-public-entries.json').write_text(json.dumps({entry: 'Reviewed entry.'}), encoding='utf-8')
+    with pytest.raises(ValueError, match='Invalid or missing feature public entry'):
+        current_metrics(tmp_path)

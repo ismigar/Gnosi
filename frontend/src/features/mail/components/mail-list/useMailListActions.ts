@@ -8,7 +8,7 @@ import {
 } from 'react';
 import type { TFunction } from 'i18next';
 
-import { toast } from '../../../../lib/toast';
+import { toast } from '../../../../shared/notifications/toast';
 import {
   archiveMailMessage,
   batchMailMessages,

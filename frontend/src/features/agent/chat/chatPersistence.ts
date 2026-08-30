@@ -1,4 +1,4 @@
-import { logError } from '../../../lib/notifyError';
+import { logError } from '../../../shared/notifications/notifyError';
 import { defineStorageKey, readStorage, removeStorage, stringStorageCodec, writeStorage } from '../../../shared/platform/browser-storage';
 
 export function scopedChatStorageKey(key: string, scope: string): string {

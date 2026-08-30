@@ -9,7 +9,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { useMailTags } from '../../hooks/useMailTags';
-import { useModalKeyboard } from '../../../../hooks/useModalKeyboard';
+import { useModalKeyboard } from '../../../../shared/hooks/useModalKeyboard';
 import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
 import {
   effectiveMailListConfig,

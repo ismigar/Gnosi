@@ -12,7 +12,7 @@ import { PanelRight, Network } from 'lucide-react';
 import { AppHeader } from './AppHeader';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { subscribeWindowEvent } from '../../platform/browser-events';
-import { getPanelScrollTarget } from '../../../utils/panelKeyboardNavigation';
+import { getPanelScrollTarget } from '../navigation/panelKeyboardNavigation';
 
 interface LayoutProps {
   readonly bottomPanel?: ReactNode;

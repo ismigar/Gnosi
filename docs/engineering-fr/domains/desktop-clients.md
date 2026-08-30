@@ -25,7 +25,9 @@ source_paths:
   - pnpm-workspace.yaml
   - frontend/public/favicon.svg
   - frontend/package.json
-  - frontend/src/content/releases.json
+  - frontend/src/features/control-center/releases/releases.json
+  - frontend/src/app/desktop
+  - frontend/src/features/control-center/releases
   - extensions/web-clipper
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
@@ -40,6 +42,8 @@ tests:
   - desktop/packaging-contract.test.js
   - desktop/update-policy.test.js
   - extensions/office/libreoffice-cite/tests
+  - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
+  - frontend/src/app/desktop/desktopMenu.test.ts
 ---
 
 # Clients de bureau et de compagnie
@@ -112,7 +116,7 @@ Le catalogue de sortie, les notes localisées, le changelog généré, Electron 
 
 ## Préparation de la libération
 
-`frontend/src/content/releases.json` est l'historique de libérations groupées canonique. Le synchroniseur de version maintient le manifeste frontal, le manifeste Electron et l'entrée d'espace de travail frontal dans le fichier de verrouillage monorepo identique. `downloadUrl`; ce champ n'est ajouté qu'après l'existence de la balise immuable et de ses objets de plateforme. Comme la version frontale manifeste est une limite de bureau à impact élevé, chaque requête de tirage de la version préparée rafraîchit également ce contrat révisé et ses miroirs localisés, même lorsque le patch ne change pas le comportement d'exécution. Avant de préparer le patch stable suivant, l'entrée stable précédente doit déjà lier à sa version publiée de sorte que l'historique groupé reste complet sur les mises à jour séquentielles. Les notes de patch ne comprennent que les corrections fusionnées après cette balise précédente; elles ne répètent pas les modifications déjà publiées.
+`frontend/src/features/control-center/releases/releases.json` est l'historique de libérations groupées canonique. Le synchroniseur de version maintient le manifeste frontal, le manifeste Electron et l'entrée d'espace de travail frontal dans le fichier de verrouillage monorepo identique. `downloadUrl`; ce champ n'est ajouté qu'après l'existence de la balise immuable et de ses objets de plateforme. Comme la version frontale manifeste est une limite de bureau à impact élevé, chaque requête de tirage de la version préparée rafraîchit également ce contrat révisé et ses miroirs localisés, même lorsque le patch ne change pas le comportement d'exécution. Avant de préparer le patch stable suivant, l'entrée stable précédente doit déjà lier à sa version publiée de sorte que l'historique groupé reste complet sur les mises à jour séquentielles. Les notes de patch ne comprennent que les corrections fusionnées après cette balise précédente; elles ne répètent pas les modifications déjà publiées.
 
 Avant de marquer, la version PR doit passer la validation frontale, les tests backend, la QA du navigateur natif et la porte de documentation technique. Après fusion, la version révisée doit atteindre le dépôt public par le workflow de synchronisation et passer la disponibilité de la version. Le flux de travail source privé est le seul propriétaire de balises officielles, d'artefacts de plate-forme croisée, de catalogues signés, de notes de publication et de la version dans le dépôt public. Le flux de travail public synchronisé est manuellement pour valider l'emballage sans course ou duplication d'une construction officielle de balises. Les artefacts macOS, Windows et Linux résultant sont inspectés avant publication.
 

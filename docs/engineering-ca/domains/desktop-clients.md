@@ -21,8 +21,11 @@ source_paths:
   - desktop/scripts/packaging-contract.cjs
   - desktop/scripts/smoke-packaged-backend.py
   - pnpm-workspace.yaml
+  - frontend/public/favicon.svg
   - frontend/package.json
-  - frontend/src/content/releases.json
+  - frontend/src/features/control-center/releases/releases.json
+  - frontend/src/app/desktop
+  - frontend/src/features/control-center/releases
   - extensions/web-clipper
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
@@ -37,6 +40,8 @@ tests:
   - desktop/packaging-contract.test.js
   - desktop/update-policy.test.js
   - extensions/office/libreoffice-cite/tests
+  - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
+  - frontend/src/app/desktop/desktopMenu.test.ts
 ---
 
 # Clients d'escriptori i company
@@ -129,7 +134,7 @@ desenvolupament natiu des del codi font conserva la recàrrega.
 
 ## Preparació de versions
 
-`frontend/src/content/releases.json` és l'historial canònic de versions inclòs
+`frontend/src/features/control-center/releases/releases.json` és l'historial canònic de versions inclòs
 al paquet. El sincronitzador manté idèntiques les versions del manifest del
 frontend, del manifest d'Electron i de l'entrada del frontend al lockfile del
 monorepo. Una entrada estable preparada abans de publicar-se omet expressament

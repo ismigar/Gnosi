@@ -2,8 +2,8 @@ import { useState, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, LogIn, UserPlus } from 'lucide-react';
 
-import { useAuth } from '../../context/auth-context';
-import { toast } from '../../lib/toast';
+import { useAuth } from '../../shared/auth/auth-context';
+import { toast } from '../../shared/notifications/toast';
 
 type AuthMode = 'login' | 'register';
 

@@ -51,7 +51,8 @@ source_paths:
   - pipeline/ai_client.py
   - pipeline/skills/translate_row
   - frontend/src/features/agent
-  - frontend/src/components/AI
+  - frontend/src/features/settings/AI
+  - frontend/src/features/agent-context
 tests:
   - frontend/src/features/agent/public-entry.test.ts
   - frontend/src/features/agent/chat/AgentChat.transport.test.tsx

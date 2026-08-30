@@ -37,15 +37,15 @@ vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('../../plugins/usePluginHost', () => ({
+vi.mock('../../shared/plugins/usePluginHost', () => ({
     usePluginHost: () => ({ commands: mocks.pluginCommands }),
 }));
 
-vi.mock('../../plugins/host', () => ({
+vi.mock('../../shared/plugins/host', () => ({
     runCommand: mocks.runCommand,
 }));
 
-vi.mock('../../plugins/usePlugins', () => ({
+vi.mock('../../shared/plugins/usePlugins', () => ({
     usePlugins: () => ({ isEnabled: () => false }),
 }));
 

@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('../../../shared/api/chat-message-actions', () => ({ recordChatFeedback: mocks.feedback, requestChatMessageJob: mocks.job, rewindChatSession: mocks.rewind }));
 vi.mock('../../../shared/platform/clipboard', () => ({ writeClipboardText: mocks.copy }));
-vi.mock('../../../lib/toast', () => ({ toast: mocks.toast }));
+vi.mock('../../../shared/notifications/toast', () => ({ toast: mocks.toast }));
 vi.mock('./chatDiagnostics', () => ({ logChatError: mocks.diagnostic }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (_key: string, fallback: string) => fallback, i18n: { language: 'ca', resolvedLanguage: 'ca' } }) }));
 

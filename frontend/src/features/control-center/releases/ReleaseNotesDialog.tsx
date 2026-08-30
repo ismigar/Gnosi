@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { RELEASES, RELEASE_NOTE_SECTIONS, type ReleaseNoteSection } from './releaseNotes';
-import { useModalKeyboard } from '../../../hooks/useModalKeyboard';
+import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 
 const SECTION_ICONS: Readonly<Record<ReleaseNoteSection, LucideIcon>> = {
   highlights: Sparkles,

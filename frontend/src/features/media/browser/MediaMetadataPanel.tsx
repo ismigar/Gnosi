@@ -1,5 +1,5 @@
 import {ExternalLink, MapPin, Calendar, Tag, FileText, X, FolderOpen, Check, Loader2, AlertCircle} from 'lucide-react';
-import toast from '../../../lib/toast';
+import toast from '../../../shared/notifications/toast';
 import type {MediaCenterState} from './useMediaCenter';
 export function MediaMetadataPanel({state}: {state: MediaCenterState}) {
 const {selectedPhoto, editingMetadata, setEditingMetadata, saveStatus, slideshowActive, isFullscreen, t} = state;

@@ -29,6 +29,7 @@ IMPLEMENTATION_FILES = {
     f"{APP_PREFIX}pyproject.toml",
     f"{APP_PREFIX}uv.lock",
     f"{APP_PREFIX}pnpm-lock.yaml",
+    f"{APP_PREFIX}frontend/feature-public-entries.json",
 }
 HIGH_IMPACT_PREFIXES = (
     f"{APP_PREFIX}backend/",
@@ -37,6 +38,12 @@ HIGH_IMPACT_PREFIXES = (
     f"{APP_PREFIX}scripts/",
 )
 HIGH_IMPACT_FRONTEND_PREFIXES = (
+    f"{APP_PREFIX}frontend/src/app/",
+    f"{APP_PREFIX}frontend/src/features/auth/",
+    f"{APP_PREFIX}frontend/src/shared/auth/",
+    f"{APP_PREFIX}frontend/src/shared/routing/",
+    f"{APP_PREFIX}frontend/src/shared/ui/layout/",
+    # Keep legacy paths for diffs that delete or relocate these boundaries.
     f"{APP_PREFIX}frontend/src/components/Auth",
     f"{APP_PREFIX}frontend/src/components/Layout",
     f"{APP_PREFIX}frontend/src/context/",
@@ -46,7 +53,12 @@ HIGH_IMPACT_FRONTEND_PREFIXES = (
 HIGH_IMPACT_FILES = IMPLEMENTATION_FILES | {
     f"{APP_PREFIX}frontend/package.json",
     f"{APP_PREFIX}frontend/src/App.jsx",
+    f"{APP_PREFIX}frontend/src/App.tsx",
     f"{APP_PREFIX}frontend/src/main.jsx",
+    f"{APP_PREFIX}frontend/src/main.tsx",
+    f"{APP_PREFIX}frontend/src/shared/api/ApiProvider.tsx",
+    f"{APP_PREFIX}frontend/src/shared/api/auth.ts",
+    f"{APP_PREFIX}frontend/src/shared/api/use-api.ts",
 }
 SOURCE_SUFFIXES = {
     ".cjs",
@@ -61,6 +73,7 @@ SOURCE_SUFFIXES = {
 }
 EXCLUDED_PARTS = {
     "__pycache__",
+    "__tests__",
     "dist",
     "node_modules",
     "site",
@@ -98,9 +111,16 @@ def is_implementation_path(path: str) -> bool:
     pure_path = PurePosixPath(path)
     if pure_path.suffix not in SOURCE_SUFFIXES:
         return False
-    if EXCLUDED_PARTS.intersection(pure_path.parts):
+    if is_excluded_source(pure_path):
         return False
     return path.startswith(IMPLEMENTATION_PREFIXES)
+
+
+def is_excluded_source(path: PurePosixPath) -> bool:
+    """Exclude build output and tests, including colocated frontend suites."""
+    return bool(EXCLUDED_PARTS.intersection(path.parts)) or path.stem.endswith(
+        (".test", ".spec")
+    )
 
 
 def requires_documentation_path(path: str) -> bool:
@@ -110,7 +130,7 @@ def requires_documentation_path(path: str) -> bool:
     pure_path = PurePosixPath(path)
     if pure_path.suffix not in SOURCE_SUFFIXES:
         return False
-    if EXCLUDED_PARTS.intersection(pure_path.parts):
+    if is_excluded_source(pure_path):
         return False
     return path.startswith(HIGH_IMPACT_PREFIXES + HIGH_IMPACT_FRONTEND_PREFIXES)
 

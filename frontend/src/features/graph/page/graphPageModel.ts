@@ -12,8 +12,8 @@ import {
   getSystemCategory,
   resolveMetaValue,
   toValueStrings,
-} from '../../../utils/graphFilters';
-import type { FilterItem, FilterValue } from '../../../utils/vaultFilters';
+} from '../../../shared/graph/filtering/graphFilters';
+import type { FilterItem, FilterValue } from '../../../shared/filtering/vaultFilters';
 
 
 export interface GraphNodeAttributes extends FilterItem {

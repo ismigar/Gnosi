@@ -16,20 +16,20 @@ import { NotebookCreateDialog } from '../features/notebooks';
 import { MeetingRecorder, MeetingReminderWatcher } from '../features/meetings';
 
 const AgentChat = lazy(() => import('../features/agent').then(module => ({ default: module.AgentChat })));
-import { Toaster } from '../lib/toast';
+import { Toaster } from '../shared/notifications/toast';
 
-import PageOutline from '../components/PageOutline';
+import PageOutline from './outline/PageOutline';
 import CommandPalette from './navigation/CommandPalette';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme } from '../shared/hooks/useTheme';
 import { useFileLinkInterceptor } from './integration/useFileLinkInterceptor';
 import { useFocusModality } from '../shared/hooks/useFocusModality';
-import { useAuth } from '../context/auth-context';
+import { useAuth } from '../shared/auth/auth-context';
 import { LoginPage } from '../features/auth';
 import { GraphLoadingState } from '../shared/ui/loading/GraphLoadingState';
 import { DesktopUpdateNotice } from './desktop/DesktopUpdateNotice';
-import { vaultAgentContextRefs } from '../lib/vaultAgentContext';
-import { PluginSurface } from '../components/PluginGate';
-import { usePlugins } from '../plugins/usePlugins';
+import { vaultAgentContextRefs } from '../features/agent-context/model/vaultAgentContext';
+import { PluginSurface } from '../shared/plugins/PluginGate';
+import { usePlugins } from '../shared/plugins/usePlugins';
 import {
   subscribeAppEvent,
   type ModuleContextRef,
@@ -37,7 +37,7 @@ import {
 import {
   vaultAppFromPath,
   vaultPath,
-} from '../lib/vaultRouting';
+} from '../shared/routing/vaultRouting';
 
 interface RouteAnnouncementLabel {
   readonly fallback: string;

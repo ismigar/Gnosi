@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
 import { useKeyboardScroll } from '../../shared/hooks/useKeyboardScroll';
-import { usePlugins } from '../../plugins/usePlugins';
+import { usePlugins } from '../../shared/plugins/usePlugins';
 import { ReviewWorkspace } from './workspace/ReviewWorkspace';
 import { SearchWorkspace } from './workspace/SearchWorkspace';
 import { useLiteratureSearch } from './workspace/useLiteratureSearch';

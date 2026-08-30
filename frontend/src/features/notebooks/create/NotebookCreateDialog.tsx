@@ -7,9 +7,9 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useModalKeyboard } from '../../../hooks/useModalKeyboard';
-import { logError } from '../../../lib/notifyError';
-import { toast } from '../../../lib/toast';
+import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
+import { logError } from '../../../shared/notifications/notifyError';
+import { toast } from '../../../shared/notifications/toast';
 import {
     createNotebook,
     fetchReferenceResources,

@@ -21,7 +21,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 
-vi.mock('../../i18n', () => ({ default: { language: 'en' } }));
+vi.mock('../../shared/i18n/i18n', () => ({ default: { language: 'en' } }));
 
 
 vi.mock('../../shared/api/useSocialData', () => ({

@@ -16,9 +16,9 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { useModalKeyboard } from '../../../hooks/useModalKeyboard';
+import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 import type { SocialStream } from '../../../shared/api/social';
-import { SocialNetworkIcon } from '../../../components/social/SocialNetworkIcon';
+import { SocialNetworkIcon } from './network/social/SocialNetworkIcon';
 
 
 interface NetworkOption {

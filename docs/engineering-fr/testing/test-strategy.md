@@ -4,10 +4,14 @@ last_verified: 2026-08-21
 source_paths:
   - backend/tests
   - frontend/src
+  - frontend/tests/contracts
+  - frontend/feature-public-entries.json
+  - frontend/package.json
+  - frontend/scripts/check-bundle-size.ts
   - tests/e2e
   - pyproject.toml
-  - frontend/package.json
 tests:
+  - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -44,6 +48,35 @@ Les suites importantes comprennent:
 Vitest couvre les composants, les crochets, les registres, les utilitaires de formatage, la logique de visualisation dactylographiée et le comportement d'état. `check:i18n` vérifie que les clés référencées orientées vers l'utilisateur existent dans chaque localité.
 
 La compilation doit se terminer par zéro erreur. Les avertissements existants ne sont pas la permission d'ajouter de nouveaux avertissements sans examen.
+
+Les frontières de propriété sont vérifiées par `gnosi/feature-boundaries`
+dans ESLint. L'extension révisée prévoit un manifeste d'entrées publiques exactes
+dans `frontend/feature-public-entries.json`, avec une justification par chemin.
+Les consommateurs externes à une feature utilisent sa racine/`index` ou une
+entrée explicitement révisée ; les fichiers voisins non répertoriés restent
+privés. Vérifier imports statiques, réexports, imports différés littéraux et
+imports de types TypeScript. Le manifeste ne doit pas créer d'agrégateur chargé
+au démarrage ni modifier les frontières de chargement différé.
+
+Les règles `shared` → aucune feature/`app` et features → aucun `app` sont
+inconditionnelles, y compris pour les types et les entrées du manifeste.
+Les modules internes d'une feature peuvent utiliser des imports locaux.
+Les contrats globaux du code résident dans `frontend/tests/contracts/` ;
+le guardrail complète le lint AST. Vérifier l'implémentation après le déplacement ;
+cette documentation ne prouve pas la réussite de la vérification globale.
+
+## Limites de taille de production
+
+Le build frontend exécute `scripts/check-bundle-size.ts` après Vite. Les limites
+fixes en octets JavaScript non compressés sont : fichier d'entrée 1 400 000 ;
+plus gros fragment 1 800 000 ; editor vendor 1 550 000 ; tldraw vendor
+1 350 000 ; route des paramètres 600 000. L'absence ou la duplication d'un
+fragment contrôlé fait échouer la vérification. Les tests couvrent les URL
+relatives, à la racine et préfixées, la croissance et les fragments absents.
+La taille du fichier d'entrée ne mesure ni le graphe initial complet des
+dépendances, ni le transfert compressé, ni le temps de démarrage. L'avertissement
+existant de Vite à 1 500 kB reste visible ; ces limites empêchent la croissance
+sans prouver que les performances sont optimales.
 
 ## Essais visuels de bout en bout
 

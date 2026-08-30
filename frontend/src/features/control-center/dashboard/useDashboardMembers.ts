@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useState} from 'react';
-import {useApi} from '../../../hooks/use-api';
+import {useApi} from '../../../shared/api/use-api';
 import type {WorkspaceMember, WorkspaceMemberVault, WorkspaceMemberVaultAccess} from '../../../shared/api/workspace-members';
 import {normalizeMember, type DashboardMember} from './model';
 export function useDashboardMembers(activeWorkspaceId: string, selectedControlTab: string, isAdmin: boolean) {

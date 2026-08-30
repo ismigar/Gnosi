@@ -9,10 +9,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('react-dom/client', () => ({ createRoot: () => {
   mocks.calls.push('create-root'); return { render: mocks.render };
 } }));
-vi.mock('../i18n', () => ({ default: {} }));
-vi.mock('../lib/fileResource', () => ({ syncActiveVaultCookie: () => { mocks.calls.push('cookie'); } }));
-vi.mock('../lib/vaultRouting', () => ({ initializeVaultRouting: mocks.routing, legacyBrowserPathToCanonical: mocks.canonical }));
-vi.mock('../lib/interfaceLanguage', () => ({ initializeInterfaceLanguage: mocks.language }));
+vi.mock('../shared/i18n/i18n', () => ({ default: {} }));
+vi.mock('../shared/resources/fileResource', () => ({ syncActiveVaultCookie: () => { mocks.calls.push('cookie'); } }));
+vi.mock('../shared/routing/vaultRouting', () => ({ initializeVaultRouting: mocks.routing, legacyBrowserPathToCanonical: mocks.canonical }));
+vi.mock('./initialization/interfaceLanguage', () => ({ initializeInterfaceLanguage: mocks.language }));
 vi.mock('./desktop/desktopMenu', () => ({ installDesktopApplicationMenu: () => { mocks.calls.push('menu'); } }));
 vi.mock('../shared/ui/tooltip/GlobalTooltip', () => ({ GlobalTooltip: () => null }));
 vi.mock('./App', () => ({ default: () => null }));

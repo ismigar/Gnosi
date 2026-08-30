@@ -1,0 +1,34 @@
+.ai-settings-sections {
+    display: flex;
+    gap: 8px;
+    padding: 6px;
+    margin-bottom: 24px;
+    border: 1px solid var(--settings-border);
+    border-radius: 16px;
+    background: var(--settings-sidebar-bg);
+    overflow-x: auto;
+}
+
+.ai-settings-sections button {
+    display: inline-flex;
+    flex: 1 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 105px;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 11px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.ai-settings-sections button.is-active {
+    background: var(--settings-bg);
+    color: var(--gnosi-blue);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}

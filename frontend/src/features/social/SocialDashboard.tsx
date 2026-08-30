@@ -11,7 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
-import { PublishSocialModal } from '../../components/Vault/PublishSocialModal';
+import { PublishSocialModal } from './publishing/PublishSocialModal';
 import AddStreamModal from './components/AddStreamModal';
 import Column from './components/Column';
 import Composer from './components/Composer';

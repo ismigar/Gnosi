@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import toast from '../../../lib/toast';
+import toast from '../../../shared/notifications/toast';
 import { clearSchedulerHistory, fetchScheduledTasks, fetchSchedulerHistory, runScheduledTask, updateScheduledTask, type ScheduledTask, type ScheduledTaskUpdate, type SchedulerHistory } from '../../../shared/api/scheduler';
 export function useDashboardSchedulers() {
 const {t} = useTranslation();

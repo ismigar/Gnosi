@@ -42,7 +42,7 @@ describe('application composition extraction contracts', () => {
         : undefined;
     }));
     expect(imports.sort()).toEqual([
-      'components/Vault/ZoteroReaderTab', 'features/agent', 'features/automations/SchedulerPage',
+      'features/reader/zotero/ZoteroReaderTab', 'features/agent', 'features/automations/SchedulerPage',
       'features/calendar/CalendarPage', 'features/contacts/ContactsPage',
       'features/control-center/Dashboard', 'features/graph/GraphPage', 'features/literature/LiteraturePage',
       'features/mail/MailPage', 'features/media/MediaCenter', 'features/notebooks/NotebooksPage',
@@ -50,7 +50,7 @@ describe('application composition extraction contracts', () => {
       'features/notebooks/create/NotebookCreateDialog',
       'features/planning/ProjectPlanningPage', 'features/reader/ReaderDashboard',
       'features/sharing/SharedPage', 'features/social/ComposerPage', 'features/social/SocialDashboard',
-      'pages/VaultDashboard',
+      'features/vault/VaultDashboard',
     ].sort());
     const eager = collect(source('./routes.tsx'), node => ts.isImportDeclaration(node)
       && ts.isStringLiteral(node.moduleSpecifier) ? node.moduleSpecifier.text : undefined);

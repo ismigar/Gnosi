@@ -1,5 +1,5 @@
 import {RefreshCw, Activity, Clock, Loader2, Trash2} from 'lucide-react';
-import {DashboardPaginationControls} from '../../../components/DashboardPaginationControls';
+import {DashboardPaginationControls} from './DashboardPaginationControls';
 import type {DashboardState} from './useDashboard';
 
 export function HistoryPanel({state}: {state: DashboardState}) {

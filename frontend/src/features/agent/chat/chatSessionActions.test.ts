@@ -6,7 +6,7 @@ import type { deleteChatSessionCheckpoint, fetchChatSessionHistory } from '../..
 
 const api = vi.hoisted(() => ({ remove: vi.fn<typeof deleteChatSessionCheckpoint>(), history: vi.fn<typeof fetchChatSessionHistory>() }));
 vi.mock('../../../shared/api/chat-sessions', () => ({ deleteChatSessionCheckpoint: api.remove, fetchChatSessionHistory: api.history }));
-vi.mock('../../../lib/notifyError', () => ({ logError: vi.fn(), notifyError: vi.fn() }));
+vi.mock('../../../shared/notifications/notifyError', () => ({ logError: vi.fn(), notifyError: vi.fn() }));
 beforeEach(() => { vi.resetAllMocks(); });
 
 function setup(sessions = [createChatSession('One', 'agent', { randomId: () => 'one' }), createChatSession('Two', 'agent', { randomId: () => 'two' })]) {

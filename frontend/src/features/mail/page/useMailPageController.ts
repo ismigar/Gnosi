@@ -1,8 +1,8 @@
 import { createElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { logError } from '../../../lib/notifyError';
-import { toast } from '../../../lib/toast';
+import { logError } from '../../../shared/notifications/notifyError';
+import { toast } from '../../../shared/notifications/toast';
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery';
 import {
   fetchIntegrations,

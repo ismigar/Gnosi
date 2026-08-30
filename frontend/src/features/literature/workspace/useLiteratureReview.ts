@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { toast } from '../../../lib/toast';
+import { toast } from '../../../shared/notifications/toast';
 import { apiErrorDetail } from '../../../shared/api/errors';
 import {
   addLiteratureCandidates,

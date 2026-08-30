@@ -84,6 +84,18 @@ La puerta de documentación de solicitud de retiro está diseñada para cambios 
 
 Los cambios de rutina en los componentes de interfaz, página, estilo y prueba no requieren una edición de documentación de prosa cuando el contrato existente sigue siendo exacto. Todavía requieren documentación cuando cambian un invariante, límite de confianza, ciclo de vida, propietario de almacenamiento, restricción de fallo, u otro hecho duradero del sistema.
 
+Tras el traslado, el gate protege `frontend/src/app/`,
+`frontend/src/features/auth/`, `frontend/src/shared/auth/`,
+`frontend/src/shared/routing/`, `frontend/src/shared/ui/layout/`, el proveedor
+API y los hooks de autenticación compartidos, y `frontend/feature-public-entries.json`.
+Se conservan las rutas sensibles antiguas para detectar eliminaciones y renombrados.
+Los cambios solo en `*.test.*`, `*.spec.*`, `__tests__/`, `tests/` y CSS
+siguen exentos. Trasladar UI ordinaria no la convierte en código de alto impacto.
+Los cambios sensibles siguen requiriendo evidencia documental en inglés;
+los espejos revisados en catalán, español y francés mantienen las mismas rutas técnicas.
+Las fixtures sintéticas históricas pueden conservar rutas antiguas; se añaden
+regresiones de las rutas nuevas sin presentar las fixtures como código actual.
+
 ## Validación anti-duelo
 
 El validador comprueba que se generaron avisos, metadatos, rutas de origen/prueba, enlaces internos, guías de dominio requeridas, rutas absolutas locales y material secreto obvio. `generate.py --check` compara independientemente la salida comprometida con el árbol actual. `localize.py --check` requiere paridad de árboles en catalán, español y francés. MkDocs valida en los cuatro portales enlaces de navegación y documentación.

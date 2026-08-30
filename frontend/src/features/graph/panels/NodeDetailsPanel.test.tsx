@@ -22,11 +22,11 @@ vi.mock('../../../shared/api/vaults', () => ({
     fetchVaultPage: mocks.fetchVaultPage,
 }));
 
-vi.mock('../../../lib/notifyError', () => ({
+vi.mock('../../../shared/notifications/notifyError', () => ({
     logError: mocks.logError,
 }));
 
-vi.mock('../../../components/Vault/VaultMarkdown', () => ({
+vi.mock('../../../shared/editor/VaultMarkdown', () => ({
     VaultMarkdown: ({ md }: { readonly md: string }) => (
         <div data-testid="vault-markdown">{md}</div>
     ),

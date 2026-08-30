@@ -19,9 +19,9 @@ vi.mock('../../../shared/api/configuration', () => ({ fetchConfiguration: () => 
   active_agent_id: 'gnosy', agents: [{ id: 'gnosy', name: 'Test Copilot', provider: 'fixture', model: 'fixture', icon: 'G' }],
 } }) }));
 vi.mock('../../../shared/api/vaults', () => ({ fetchVaultPages: () => Promise.resolve([]), fetchVaultTables: () => Promise.resolve([]), fetchVaultDatabases: () => Promise.resolve([]) }));
-vi.mock('../../../lib/configEvents', () => ({ useConfigChanged: () => undefined }));
-vi.mock('../../../lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
-vi.mock('../../../lib/notifyError', () => ({ logError: vi.fn(), notifyError: vi.fn() }));
+vi.mock('../../../shared/platform/configEvents', () => ({ useConfigChanged: () => undefined }));
+vi.mock('../../../shared/notifications/toast', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('../../../shared/notifications/notifyError', () => ({ logError: vi.fn(), notifyError: vi.fn() }));
 
 let container: HTMLDivElement;
 let root: Root;

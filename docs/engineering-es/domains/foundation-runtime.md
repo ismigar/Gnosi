@@ -10,7 +10,10 @@ source_paths:
   - backend/domains/configuration/api/settings.py
   - backend/services/data_dir_migration.py
   - backend/api/system_routes.py
-  - frontend/src/App.jsx
+  - frontend/src/app
+  - frontend/src/shared
+  - frontend/src/generated
+  - frontend/feature-public-entries.json
 tests:
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
@@ -20,6 +23,8 @@ tests:
   - backend/tests/test_data_dir_migration.py
   - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/app/shellPages.test.tsx
 ---
 
 # Fundación y duración de la plataforma
@@ -75,7 +80,7 @@ locales y Docker se mapean sin incorporar ningún proveedor al modelo de datos.
 
 ## Carcasa de la interfaz
 
-`App.jsx` espera a que se inicie la autenticación antes de seleccionar el shell de uso compartido, de acceso público o de aplicación. Las páginas pesadas están cargadas de páginas sueltas. El shell global posee superficies de navegación y de interacción disponibles a nivel mundial; las páginas de ruta poseen contenido de dominio. `/s/:token` Renders fuera de la cáscara autenticada por diseño.
+`app/App.tsx` espera a que se inicie la autenticación antes de seleccionar el shell de uso compartido, de acceso público o de aplicación. Las páginas pesadas están cargadas de páginas sueltas. El shell global posee superficies de navegación y de interacción disponibles a nivel mundial; las páginas de ruta poseen contenido de dominio. `/s/:token` Renders fuera de la cáscara autenticada por diseño.
 
 ## Invariantes
 

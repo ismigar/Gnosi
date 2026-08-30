@@ -21,7 +21,7 @@ import {
 import { Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { useModalKeyboard } from '../../../hooks/useModalKeyboard';
+import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 import type { MailView, MailViewCreate } from '../../../shared/api/mail';
 import {
     FieldRow,

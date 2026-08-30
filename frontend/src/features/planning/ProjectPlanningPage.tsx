@@ -2,8 +2,8 @@ import { useEffect, useState, type ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CalendarRange, RefreshCw, Route, Wallet } from 'lucide-react';
 
-import { VaultTimeline } from '../../components/Vault/VaultTimeline';
-import { usePlugins } from '../../plugins/usePlugins';
+import { VaultTimeline } from '../../shared/record-views/VaultTimeline';
+import { usePlugins } from '../../shared/plugins/usePlugins';
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
 import {
     useApplyPlanningLevelingProposal,

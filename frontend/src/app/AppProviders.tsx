@@ -1,6 +1,6 @@
 import { StrictMode, type PropsWithChildren } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from '../context/AuthProvider';
+import { AuthProvider } from '../features/auth/context/AuthProvider';
 import { ApiProvider } from '../shared/api/ApiProvider';
 
 export function AppProviders({ children }: PropsWithChildren) {

@@ -5,14 +5,20 @@ source_paths:
   - backend/domains/graph
   - backend/api/vault_graph_routes.py
   - backend/services/graph_service.py
-  - frontend/src/pages/GraphPage.jsx
-  - frontend/src/components/GraphViewer.jsx
+  - frontend/src/features/graph
+  - frontend/src/shared/graph
+  - frontend/src/shared/graph/filtering
+  - frontend/src/shared/filtering
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
   - backend/tests/test_graph_similarity_suggestions.py
   - backend/tests/test_graph_wedged_dirs.py
-  - frontend/src/utils/graphViewGeometry.test.js
+  - frontend/src/shared/graph/model/graphViewGeometry.test.ts
+  - frontend/src/shared/graph/viewer/GraphViewer.test.tsx
+  - frontend/src/features/vault/views/VaultGraph.test.tsx
+  - frontend/src/features/graph/GraphPage.test.tsx
+  - frontend/src/features/graph/public-entry.test.ts
 ---
 
 # Gráfico de conocimientos
@@ -24,6 +30,18 @@ proyección, los adaptadores y la orquestación. `graph_service.py` es la fachad
 estable utilizada por la API, el agente y el planificador.
 
 El gráfico proyecta relaciones de conocimiento explícitas y sugerencias semánticas opcionales en una red interactiva. Soporta navegación y descubrimiento; se deriva de la Bóveda y no es una fuente separada de verdad.
+
+La feature tipada `features/graph/` gestiona estado de ruta, filtros y
+composición de página mediante una entrada pública de carga diferida.
+Los paneles y modelos internos son privados. `shared/graph/` gestiona el renderer,
+el minimapa, la geometría, el teclado, las aristas y la capa semántica reutilizables.
+Las rutas de grafos y los grafos incrustados del Vault importan el mismo renderer
+directamente, sin agregador de carga inmediata. El traslado revisado sitúa los
+filtros reutilizables de grafos en `shared/graph/filtering/` y los filtros de
+Vault en `shared/filtering/`. El código compartido no depende de features ni de
+app, tampoco mediante imports de tipos. Se conservan proyecciones, configuración,
+navegación, controles de cámara y estilos; el traslado requiere verificación
+de integración.
 
 ## Construcción de gráficos
 

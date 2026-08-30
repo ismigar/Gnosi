@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Clock, Trash2 } from 'lucide-react';
 
-import ConfirmModal from '../../components/ConfirmModal';
-import i18n from '../../i18n';
-import { logError } from '../../lib/notifyError';
-import { toast } from '../../lib/toast';
+import ConfirmModal from '../../shared/ui/dialogs/ConfirmModal';
+import i18n from '../../shared/i18n/i18n';
+import { logError } from '../../shared/notifications/notifyError';
+import { toast } from '../../shared/notifications/toast';
 import {
   useCancelScheduledSocialPost,
   useScheduledSocialPosts,

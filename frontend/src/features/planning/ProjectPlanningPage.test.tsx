@@ -32,12 +32,12 @@ vi.mock('../../shared/ui/layout/AppHeader', () => ({
 }));
 
 
-vi.mock('../../components/Vault/VaultTimeline', () => ({
+vi.mock('../../shared/record-views/VaultTimeline', () => ({
   VaultTimeline: () => <div>Timeline</div>,
 }));
 
 
-vi.mock('../../plugins/usePlugins', () => ({
+vi.mock('../../shared/plugins/usePlugins', () => ({
   usePlugins: () => ({ getPluginSettings: () => ({}) }),
 }));
 

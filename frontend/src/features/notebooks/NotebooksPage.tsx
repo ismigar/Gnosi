@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import NotebookCreateDialog from './create/NotebookCreateDialog';
-import { vaultPath } from '../../lib/vaultRouting';
+import { vaultPath } from '../../shared/routing/vaultRouting';
 import { NotebookDetail } from './detail/NotebookDetail';
 import NotebookLibrary from './detail/NotebookLibrary';
 import './NotebooksPage.css';

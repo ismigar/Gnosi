@@ -16,8 +16,8 @@ import { ContactsPage } from '../features/contacts/index';
 import { LiteraturePage } from '../features/literature/index';
 import { ProjectPlanningPage } from '../features/planning/index';
 import { GraphLoadingState } from '../shared/ui/loading/GraphLoadingState';
-import { PluginRoute } from '../components/PluginGate';
-import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, vaultAppFromPath } from '../lib/vaultRouting';
+import { PluginRoute } from '../shared/plugins/PluginGate';
+import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, vaultAppFromPath } from '../shared/routing/vaultRouting';
 
 // ── Lazily loaded routes (code-splitting) ──────────────────────────
 // Every heavy page drags in large libraries (BlockEditor→blocknote/tiptap,
@@ -26,9 +26,9 @@ import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, va
 // initial: the browser only downloads the route's chunk when it's navigated to.
 // HomePage stays EAGER because it's the most common startup (without a flash of
 // Suspense at the start).
-const VaultDashboard = lazy(() => import('../pages/VaultDashboard'));
+const VaultDashboard = lazy(() => import('../features/vault/VaultDashboard'));
 const ZoteroReaderPage = lazy(() =>
-  import('../components/Vault/ZoteroReaderTab').then((m) => ({ default: m.ZoteroReaderPage })),
+  import('../features/reader/zotero/ZoteroReaderTab').then((m) => ({ default: m.ZoteroReaderPage })),
 );
 interface VaultRouteScopeProps {
   readonly children: ReactNode;

@@ -7,6 +7,8 @@ source_paths:
   - backend/services/graph_service.py
   - frontend/src/features/graph
   - frontend/src/shared/graph
+  - frontend/src/shared/graph/filtering
+  - frontend/src/shared/filtering
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
@@ -14,7 +16,7 @@ tests:
   - backend/tests/test_graph_wedged_dirs.py
   - frontend/src/shared/graph/model/graphViewGeometry.test.ts
   - frontend/src/shared/graph/viewer/GraphViewer.test.tsx
-  - frontend/src/components/Vault/VaultGraph.test.tsx
+  - frontend/src/features/vault/views/VaultGraph.test.tsx
   - frontend/src/features/graph/GraphPage.test.tsx
   - frontend/src/features/graph/public-entry.test.ts
 ---
@@ -31,15 +33,16 @@ The graph projects explicit knowledge relationships and optional semantic
 suggestions into an interactive network. It supports navigation and discovery;
 it is derived from the Vault and is not a separate source of truth.
 
-The strictly typed `features/graph/` frontend owns route state, filters and
-page composition behind a public lazy entry. Controls, connection groups,
-legends, and node details belong to its private panels and model modules.
-`shared/graph/` owns the reusable renderer, minimap, geometry, keyboard navigation,
-edge presentation, and semantic overlay. Both the graph route and embedded Vault
-graphs import the same renderer module directly, without a broad eager barrel.
-Moving ownership does not change graph projections, configuration keys,
-navigation, camera handles, or styles. Legacy graph and Vault filters remain in
-`utils/` until their settings consumers migrate together; they are not duplicated.
+The strictly typed `features/graph/` owns route state, filters and page
+composition behind a public lazy entry. Its panels and model modules are private.
+`shared/graph/` owns the reusable renderer, minimap, geometry, keyboard
+navigation, edge presentation and semantic overlay. Graph routes and embedded
+Vault graphs import the same renderer directly, without an eager aggregate.
+The reviewed relocation places reusable graph filters in
+`shared/graph/filtering/` and Vault filters in `shared/filtering/`.
+Shared code must not depend on feature or app modules, even through type imports.
+Projections, configuration keys, navigation, camera handles and styles remain
+unchanged contracts; source relocation still requires integration verification.
 
 ## Graph construction
 

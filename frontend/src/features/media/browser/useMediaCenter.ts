@@ -3,7 +3,7 @@ import {useTranslation} from 'react-i18next';
 import {useMediaQuery} from '../../../shared/hooks/useMediaQuery';
 import {uploadMediaFile} from '../../../shared/api/media-browser';
 import {uploadVaultAsset} from '../../../shared/api/vault-specialized';
-import toast from '../../../lib/toast';
+import toast from '../../../shared/notifications/toast';
 import {useMediaCollection} from './useMediaCollection';
 import {useMediaMetadata} from './useMediaMetadata';
 import {useMediaViews} from './useMediaViews';

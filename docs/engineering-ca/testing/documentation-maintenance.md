@@ -84,6 +84,18 @@ La porta de documentació de " getret- request " està instal· lada als canvis 
 
 Component de la interfície de Routine, pàgina, styling, i els canvis de prova no requereixen una edició de documentació prosse quan el contracte existent queda precisió. Encara necessiten documentació quan canvien un límit invaritari, un cicle de confiança, el propietari de la vida, la restricció de fracàs o un altre fet de sistema durable.
 
+Després del trasllat, el gate protegeix `frontend/src/app/`,
+`frontend/src/features/auth/`, `frontend/src/shared/auth/`,
+`frontend/src/shared/routing/`, `frontend/src/shared/ui/layout/`, el proveïdor
+API i els hooks d'autenticació compartits, i `frontend/feature-public-entries.json`.
+Es mantenen els camins sensibles antics per detectar eliminacions i canvis de nom.
+Els canvis només en `*.test.*`, `*.spec.*`, `__tests__/`, `tests/` i CSS
+continuen exempts. Traslladar UI ordinària no la converteix en codi d'alt impacte.
+Els canvis sensibles continuen requerint evidència documental en anglès;
+els miralls revisats en català, castellà i francès mantenen els mateixos camins tècnics.
+Les fixtures sintètiques històriques poden conservar camins antics; cal afegir
+regressions dels camins nous sense presentar les fixtures com a codi actual.
+
 ## Validació anti-drift
 
 Les comprovacions validadors generades, les metadades, els camins font/test, els enllaços interns, les guies de domini necessàries, rutes locals i el material secret obvi. `generate.py --check` Compara independentment la sortida compensida a l' arbre actual. `localize.py --check` Requereix que el català, l' espanyol i la paritat francesa. El mode MkDos estricte validi la navegació i els enllaços de documentació en tots quatre portals.

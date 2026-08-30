@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { fetchNotebook, fetchNotebookSources, type NotebookDetail, type NotebookSourcesPage } from '../../../shared/api/notebooks';
 import { GnosiApiError } from '../../../shared/api/errors';
-import { toast } from '../../../lib/toast';
-import { vaultPath } from '../../../lib/vaultRouting';
+import { toast } from '../../../shared/notifications/toast';
+import { vaultPath } from '../../../shared/routing/vaultRouting';
 import { isIndexing } from './notebookModel';
 import type { LoadOptions } from './notebookTypes';
 

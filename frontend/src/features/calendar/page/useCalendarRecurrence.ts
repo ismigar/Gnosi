@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { createVaultPage, deleteVaultPage, patchVaultPage } from '../../../shared/api/vaults';
-import { buildOccurrenceKey, truncateRruleBefore } from '../../../utils/calendarUtils';
-import { toast } from '../../../lib/toast';
-import { textValue } from '../../../components/Vault/calendar-sidebar-right/calendarBoundary';
+import { buildOccurrenceKey, truncateRruleBefore } from '../../../shared/dates/calendarUtils';
+import { toast } from '../../../shared/notifications/toast';
+import { textValue } from '../components/calendar-sidebar-right/calendarBoundary';
 import type { useCalendarSources } from './useCalendarSources';
 import type { useCalendarEventActions } from './useCalendarEventActions';
 

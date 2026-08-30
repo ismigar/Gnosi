@@ -109,6 +109,18 @@ prose documentation edit when the existing contract remains accurate. They
 still require documentation when they change an invariant, trust boundary,
 lifecycle, storage owner, failure constraint, or other durable system fact.
 
+After relocation, the gate protects `frontend/src/app/`,
+`frontend/src/features/auth/`, `frontend/src/shared/auth/`,
+`frontend/src/shared/routing/`, `frontend/src/shared/ui/layout/`, the shared
+API provider/authentication hooks and `frontend/feature-public-entries.json`.
+Legacy sensitive paths remain recognized for deletion and rename diffs.
+Colocated `*.test.*`, `*.spec.*`, `__tests__/`, `tests/` and CSS-only changes
+remain exempt. Routine feature UI does not become high-impact merely by moving.
+English documentation evidence is still required for sensitive changes;
+Catalan, Spanish and French reviewed mirrors retain matching technical paths.
+Historical synthetic fixtures may keep legacy paths; add new-path regressions
+without treating those fixtures as current source locations.
+
 ## Anti-drift validation
 
 The validator checks generated notices, metadata, source/test paths, internal

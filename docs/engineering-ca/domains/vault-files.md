@@ -17,8 +17,12 @@ source_paths:
   - backend/services/relation_sync.py
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
-  - frontend/src/pages/VaultDashboard.tsx
-  - frontend/src/components/Vault
+  - frontend/src/features/vault/VaultDashboard.tsx
+  - frontend/src/features/vault
+  - frontend/src/shared/editor
+  - frontend/src/shared/records
+  - frontend/src/shared/record-views
+  - frontend/src/shared/page-search
 tests:
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
@@ -493,15 +497,18 @@ especialitzats implementen els editors i les vistes. El frontend desa en
 memòria cau l'estat d'interacció, però considera el contingut de les pàgines
 del backend i els ETags com a font de veritat.
 
-Els punts d'entrada públics `VaultDashboard.tsx`, `VaultTable.tsx`,
-`SchemaConfigModal.tsx` i `BlockEditor.tsx` componen mòduls TypeScript estrictes.
-La navegació i els catàlegs de registres són a `pages/vault-dashboard`; la
-selecció, la virtualització i l'edició de cel·les de taula, a `Vault/vault-table`;
-els camps i les opcions d'esquema, a `Vault/schema-config`. L'editor separa
-les propietats de pàgina, els documents enriquits, els efectes, els controls i
-la persistència a `Vault/block-editor`. Aquests límits interns preserven les
-rutes d'API i els formats d'emmagatzematge existents; la reorganització final
-a `features/` és un pas separat.
+El trasllat revisat situa `VaultDashboard.tsx` a l'arrel de la feature i
+la seva orquestració a `features/vault/dashboard/`. La composició de taules
+i l'edició de cel·les són a `features/vault/views/vault-table/`; els camps
+i les opcions d'esquema, a `features/vault/schema/schema-config/`; i les
+propietats de pàgina, els documents enriquits, els efectes i la persistència,
+a `features/vault/editor/block-editor/`. El renderitzat, els hooks de
+registres i els controls de vista reutilitzables pertanyen a `shared/editor/`,
+`shared/records/` i `shared/record-views/`; mai no importen UI del Vault.
+Un mòdul només és públic mitjançant l'arrel de la feature o la seva entrada
+exacta revisada al manifest; ser un fitxer de composició no el fa públic.
+Els canvis de propietat conserven les rutes API i els formats d'emmagatzematge;
+la verificació d'integració continua sent un pas separat.
 
 Les transicions de Markdown a la vista visual publiquen els esborranys pendents
 abans de muntar l'editor enriquit, evitant que el contingut obsolet del

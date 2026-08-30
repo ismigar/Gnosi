@@ -5,14 +5,20 @@ source_paths:
   - backend/domains/graph
   - backend/api/vault_graph_routes.py
   - backend/services/graph_service.py
-  - frontend/src/pages/GraphPage.jsx
-  - frontend/src/components/GraphViewer.jsx
+  - frontend/src/features/graph
+  - frontend/src/shared/graph
+  - frontend/src/shared/graph/filtering
+  - frontend/src/shared/filtering
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
   - backend/tests/test_graph_similarity_suggestions.py
   - backend/tests/test_graph_wedged_dirs.py
-  - frontend/src/utils/graphViewGeometry.test.js
+  - frontend/src/shared/graph/model/graphViewGeometry.test.ts
+  - frontend/src/shared/graph/viewer/GraphViewer.test.tsx
+  - frontend/src/features/vault/views/VaultGraph.test.tsx
+  - frontend/src/features/graph/GraphPage.test.tsx
+  - frontend/src/features/graph/public-entry.test.ts
 ---
 
 # Gràfic coneixement
@@ -24,6 +30,18 @@ els adaptadors i l'orquestració. `graph_service.py` és la façana estable que 
 servir l'API, l'agent i el planificador.
 
 El gràfic projectes de relacions explícites del coneixement i suggeriments opcionals semàntics en una xarxa interactiva. Permet la navegació i el descobriment; es deriva de la Vaulta i no és una font de veritat separada.
+
+La feature tipada `features/graph/` gestiona l'estat de ruta, els filtres i la
+composició de pàgina mitjançant una entrada pública de càrrega diferida.
+Els panells i models interns són privats. `shared/graph/` gestiona el renderer,
+el minimapa, la geometria, el teclat, les arestes i la capa semàntica
+reutilitzables. Les rutes de graf i els grafs incrustats del Vault importen el
+mateix renderer directament, sense agregador de càrrega immediata.
+El trasllat revisat situa els filtres reutilitzables de graf a
+`shared/graph/filtering/` i els filtres de Vault a `shared/filtering/`.
+El codi compartit no depèn de features ni d'app, tampoc mitjançant imports de
+tipus. Les projeccions, la configuració, la navegació, els controls de càmera
+i els estils es conserven; el trasllat requereix verificació d'integració.
 
 ## Disseny de graf
 

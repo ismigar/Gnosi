@@ -1,0 +1,4 @@
+@import "../../../shared/ui/settings/SettingsSectionTabs.css";
+
+@import "./styles/resource-catalog.css";
+@import "./styles/resource-editor.css";

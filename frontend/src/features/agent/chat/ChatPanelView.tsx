@@ -1,5 +1,5 @@
 import { Brain, Sparkles } from 'lucide-react';
-import ConfirmModal from '../../../components/ConfirmModal';
+import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
 import { ConfirmationReview } from './ConfirmationReview';
 import { ChatComposer } from './ChatComposer';
 import { ChatMessageRow } from './ChatMessageRow';

@@ -1,11 +1,11 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { DigitalBrainCalendarProps } from '../../../components/Vault/DigitalBrainCalendar';
-import { toast } from '../../../lib/toast';
+import type { DigitalBrainCalendarProps } from '../components/DigitalBrainCalendar';
+import { toast } from '../../../shared/notifications/toast';
 import { fetchVaultPage, patchVaultPage } from '../../../shared/api/vaults';
 import { rsvpCalendarEvent } from '../../../shared/api/calendar';
-import { calendarEntry } from '../../../components/Vault/calendar-sidebar-right/calendarBoundary';
-import type { CalendarEntry, EventPanel } from '../../../components/Vault/calendar-sidebar-right/calendarTypes';
+import { calendarEntry } from '../components/calendar-sidebar-right/calendarBoundary';
+import type { CalendarEntry, EventPanel } from '../components/calendar-sidebar-right/calendarTypes';
 import type { useCalendarSources } from './useCalendarSources';
 import { formatLocalDate, formatLocalDateTime } from './calendarPageModel';
 

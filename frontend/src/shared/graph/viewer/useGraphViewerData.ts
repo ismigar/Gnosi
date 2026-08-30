@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { rebuildProjection, filterProjection } from './graphViewerProjection';
 import { createPhysics } from './graphViewerPhysics';
 import { fitGraph } from './graphViewerRuntime';
-import { logError } from '../../../lib/notifyError';
+import { logError } from '../../notifications/notifyError';
 import type { ContainerRef, OptionsRef, RuntimeRef, ViewerOptions } from './types';
 export function useGraphViewerData(containerRef: ContainerRef, runtimeRef: RuntimeRef, latestRef: OptionsRef, options: ViewerOptions): void {
     const { graphData, filters, isPhysicsEnabled } = options;

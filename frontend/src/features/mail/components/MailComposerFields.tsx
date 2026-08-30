@@ -1,7 +1,7 @@
 import { ChevronDown, File as FileIcon, X } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 
-import MailBlockEditor from '../../../components/Mail/MailBlockEditor';
+import MailBlockEditor from '../editor/Mail/MailBlockEditor';
 import { AddressInput } from './MailAddressInput';
 import { accountAddress } from './mailComposerModel';
 import type { MailComposerController } from './useMailComposerController';

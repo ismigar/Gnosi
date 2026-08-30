@@ -1,0 +1,110 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
+import { VaultMarkdown } from '../../../shared/editor/VaultMarkdown';
+import i18n from '../../../shared/i18n/i18n';
+import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
+
+/**
+ * PresentationMode
+ * Full-screen presentation / slides mode generated from the note's Markdown.
+ * Slides are separated by a `---` line (Obsidian Slides / reveal.js style
+ * separator); if there is none, it splits by first/second-level
+ * headings. Navigation: ←/→, Space, PgUp/PgDn; Esc to exit.
+ */
+
+// Removes the initial YAML frontmatter if there is one.
+const stripFrontmatter = (markdown: string): string => {
+    const match = markdown.match(/^---\n[\s\S]*?\n---\n?/);
+    return match ? markdown.slice(match[0].length) : markdown;
+};
+
+const splitSlides = (markdown: string): string[] => {
+    const body = stripFrontmatter(markdown).trim();
+    if (!body) return [i18n.t('editor.presentation_empty_note', "(Empty note)")];
+    // 1) Explicit `---` separators on their own line.
+    const bySep = body.split(/\n[ \t]*---[ \t]*\n/);
+    if (bySep.length > 1) return bySep.map((s) => s.trim()).filter(Boolean);
+    // 2) Fallback: splits by H1/H2 headings (each one starts a slide).
+    const lines = body.split('\n');
+    const slides: string[] = [];
+    let current: string[] = [];
+    for (const line of lines) {
+        if (/^#{1,2}\s/.test(line) && current.some((item) => item.trim())) {
+            slides.push(current.join('\n').trim());
+            current = [line];
+        } else {
+            current.push(line);
+        }
+    }
+    if (current.some((item) => item.trim())) slides.push(current.join('\n').trim());
+    return slides.length ? slides : [body];
+};
+
+export interface PresentationModeProps {
+    readonly isOpen: boolean;
+    readonly markdown?: string;
+    readonly onClose: () => void;
+}
+
+export default function PresentationMode({ isOpen, ...session }: PresentationModeProps) {
+    return isOpen ? <PresentationSession {...session} /> : null;
+}
+
+function PresentationSession({ onClose, markdown = '' }: Omit<PresentationModeProps, 'isOpen'>) {
+    const { t } = useTranslation();
+    const slides = useMemo(() => splitSlides(markdown), [markdown]);
+    const [idx, setIdx] = useState(0);
+
+    const next = useCallback(() => {
+        setIdx((index) => Math.min(index + 1, slides.length - 1));
+    }, [slides.length]);
+    const prev = useCallback(() => {
+        setIdx((index) => Math.max(index - 1, 0));
+    }, []);
+
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent): void => {
+            if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') { event.preventDefault(); next(); }
+            else if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); prev(); }
+            else if (event.key === 'Escape') { event.preventDefault(); onClose(); }
+        };
+        return subscribeWindowEvent('keydown', onKey);
+    }, [next, prev, onClose]);
+
+    const goFullscreen = (): void => {
+        const element = document.getElementById('gnosi-presentation');
+        if (element?.requestFullscreen) {
+            void element.requestFullscreen().catch(() => undefined);
+        }
+    };
+
+    return (
+        <div id="gnosi-presentation" className="fixed inset-0 z-[var(--z-presentation)] flex flex-col bg-[var(--bg-primary)]">
+            {/* Barra superior */}
+            <div className="flex items-center justify-between px-4 py-2 text-[var(--text-tertiary)]">
+                <span className="text-sm">{idx + 1} / {slides.length}</span>
+                <div className="flex items-center gap-1">
+                    <button type="button" onClick={goFullscreen} title={t('editor.presentation_fullscreen', "Fullscreen")} className="rounded p-1.5 hover:bg-[var(--bg-secondary)]"><Maximize2 size={16} /></button>
+                    <button type="button" onClick={onClose} title={t('editor.presentation_exit', "Exit (Esc)")} className="rounded p-1.5 hover:bg-[var(--bg-secondary)]"><X size={18} /></button>
+                </div>
+            </div>
+            {/* Diapositiva */}
+            <div className="flex flex-1 items-center justify-center overflow-auto px-6 py-4" onClick={next}>
+                <div className="prose-slide w-full max-w-3xl text-[var(--text-primary)] [&_h1]:text-4xl [&_h1]:mb-4 [&_h2]:text-3xl [&_h2]:mb-3 [&_p]:text-xl [&_li]:text-xl [&_*]:leading-relaxed">
+                    <VaultMarkdown md={slides[idx] || ''} />
+                </div>
+            </div>
+            {/* Controls inferiors */}
+            <div className="flex items-center justify-center gap-4 py-3">
+                <button type="button" onClick={prev} disabled={idx === 0} className="rounded-full p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] disabled:opacity-30"><ChevronLeft size={22} /></button>
+                <div className="flex gap-1">
+                    {slides.map((_, i) => (
+                        <button type="button" key={i} onClick={(event) => { event.stopPropagation(); setIdx(i); }} className={`h-1.5 rounded-full transition-all ${i === idx ? 'w-6 bg-[var(--gnosi-primary)]' : 'w-1.5 bg-[var(--border-primary)]'}`} />
+                    ))}
+                </div>
+                <button type="button" onClick={next} disabled={idx === slides.length - 1} className="rounded-full p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] disabled:opacity-30"><ChevronRight size={22} /></button>
+            </div>
+        </div>
+    );
+}

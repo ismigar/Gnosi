@@ -1,7 +1,7 @@
 import {useCallback, useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import toast from '../../../lib/toast';
-import {useApi} from '../../../hooks/use-api';
+import toast from '../../../shared/notifications/toast';
+import {useApi} from '../../../shared/api/use-api';
 import {deleteDirective, fetchAnalyticsOverview, fetchDirectiveAnalytics, fetchDirectiveContent, fetchTrapAnalytics, saveDirectiveContent, type AnalyticsOverview, type DirectiveAnalytics, type TrapAnalyticsPage} from '../../../shared/api/analytics';
 import type {components} from '../../../generated/openapi';
 import type {DashboardDirective} from './model';

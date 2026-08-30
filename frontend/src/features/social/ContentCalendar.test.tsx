@@ -23,7 +23,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 
-vi.mock('../../i18n', () => ({ default: { language: 'en' } }));
+vi.mock('../../shared/i18n/i18n', () => ({ default: { language: 'en' } }));
 
 
 vi.mock('../../shared/ui/layout/AppHeader', () => ({
@@ -31,7 +31,7 @@ vi.mock('../../shared/ui/layout/AppHeader', () => ({
 }));
 
 
-vi.mock('../../components/ConfirmModal', () => ({
+vi.mock('../../shared/ui/dialogs/ConfirmModal', () => ({
   default: ({
     isOpen,
     onConfirm,
@@ -53,7 +53,7 @@ vi.mock('../../components/ConfirmModal', () => ({
 }));
 
 
-vi.mock('../../lib/toast', () => ({
+vi.mock('../../shared/notifications/toast', () => ({
   toast: { error: vi.fn(), success: mocks.toastSuccess },
 }));
 

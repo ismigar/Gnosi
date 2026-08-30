@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import toast from '../../../lib/toast';
+import toast from '../../../shared/notifications/toast';
 import {fetchMediaPage, fetchMediaRoots, fetchMediaTree, type MediaRoot, type MediaTreeNode, type MediaView} from '../../../shared/api/media-browser';
 import {DEFAULT_FILTERS, DEFAULT_SORT, PAGE_SIZE, mediaQuery, viewFilters, type MediaAsset, type MediaFilters, type MediaSort} from './model';
 

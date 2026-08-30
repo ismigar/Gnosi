@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fetchNotebookChatSources, type NotebookChatSources, type NotebookDetail, type NotebookSourcesPage } from '../../../shared/api/notebooks';
-import { toast } from '../../../lib/toast';
+import { toast } from '../../../shared/notifications/toast';
 import { groupSourceIds, isAbortError, toggleIds } from './notebookModel';
 import type { NotebookGroup, NotebookResource } from './notebookTypes';
 

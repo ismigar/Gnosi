@@ -8,110 +8,118 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 15 | 10 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1028 | 50 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 51 | 22 | 0 |
-| `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 14 | 17 | 0 |
-| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 22 | 20 | 0 |
-| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 79 | 26 | 0 |
-| `mail` | **covered** | [`Mail`](../domains/mail.md) | 9 | 10 | 0 |
-| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 8 | 9 | 0 |
-| `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 5 | 3 | 0 |
-| `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 4 | 5 | 0 |
-| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 78 | 24 | 0 |
-| `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 11 | 11 | 0 |
-| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 11 | 5 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 584 | 185 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 964 | 222 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 380 | 93 | 0 |
+| `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 59 | 26 | 0 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 124 | 42 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 199 | 70 | 0 |
+| `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 49 | 12 | 0 |
+| `mail` | **covered** | [`Mail`](../domains/mail.md) | 81 | 32 | 0 |
+| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 79 | 25 | 0 |
+| `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 25 | 7 | 0 |
+| `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 68 | 17 | 0 |
+| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 130 | 34 | 0 |
+| `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 40 | 23 | 0 |
+| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 16 | 7 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 84 | 19 | 0 |
 
 ## Platform foundation and runtime
 
 - Guide: [`Platform foundation and runtime`](../domains/foundation-runtime.md)
-- Source patterns: `backend/server.py`, `backend/config/**/*.py`, `scripts/runtime/run_native_*.sh`, `docker-compose.yml`, `Dockerfile.*`
-- Test patterns: `backend/tests/test_*config*.py`, `backend/tests/test_*health*.py`
+- Source patterns: `backend/server.py`, `backend/config/**/*.py`, `frontend/src/app/**/*`, `frontend/src/shared/**/*`, `frontend/src/generated/**/*`, `frontend/src/features/control-center/**/*`, `frontend/src/features/settings/**/*`, `frontend/feature-public-entries.json`, `scripts/runtime/run_native_*.sh`, `docker-compose.yml`, `Dockerfile.*`
+- Test patterns: `backend/tests/test_*config*.py`, `backend/tests/test_*health*.py`, `frontend/src/app/**/*.test.*`, `frontend/src/shared/**/*.test.*`, `frontend/src/features/control-center/**/*.test.*`, `frontend/src/features/settings/**/*.test.*`, `frontend/tests/contracts/**/*.test.*`
 - Directives: none found
 
 ## Vault and files
 
 - Guide: [`Vault and files`](../domains/vault-files.md)
-- Source patterns: `backend/api/vault*.py`, `backend/domains/vault/**/*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/pages/Vault*.jsx`, `frontend/src/components/Vault/**/*`
-- Test patterns: `backend/tests/test_vault*.py`, `tests/e2e/tests/e2e/vault*.spec.ts`
+- Source patterns: `backend/api/vault*.py`, `backend/domains/vault/**/*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/features/vault/**/*`, `frontend/src/features/vault-management/**/*`, `frontend/src/shared/editor/**/*`, `frontend/src/shared/page-search/**/*`, `frontend/src/shared/resources/**/*`
+- Test patterns: `backend/tests/test_vault*.py`, `frontend/src/features/vault/**/*.test.*`, `frontend/src/features/vault-management/**/*.test.*`, `frontend/src/shared/editor/**/*.test.*`, `frontend/src/shared/page-search/**/*.test.*`, `frontend/src/shared/resources/**/*.test.*`, `tests/e2e/tests/e2e/vault*.spec.ts`
 - Directives: none found
 
 ## Database views and project planning
 
 - Guide: [`Database views and project planning`](../domains/database-views-planning.md)
-- Source patterns: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `backend/services/option_catalogs.py`, `backend/services/rule_engine.py`, `backend/services/view_snapshot.py`, `backend/domains/vault/tables/catalogs/**/*.py`, `backend/domains/vault/tables/rules/**/*.py`, `backend/domains/vault/views/**/*.py`, `frontend/src/components/Vault/*Table*`, `frontend/src/components/Vault/*View*`, `frontend/src/pages/ProjectPlanningPage.jsx`
-- Test patterns: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `backend/tests/test_*rule*.py`, `backend/tests/test_*rollup*.py`, `backend/tests/test_*option_catalogs.py`, `backend/tests/test_snapshot_sort*.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `tests/e2e/tests/e2e/dashboards.spec.ts`
+- Source patterns: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `backend/services/option_catalogs.py`, `backend/services/rule_engine.py`, `backend/services/view_snapshot.py`, `backend/domains/vault/tables/catalogs/**/*.py`, `backend/domains/vault/tables/rules/**/*.py`, `backend/domains/vault/views/**/*.py`, `frontend/src/features/vault/views/**/*`, `frontend/src/features/vault/view-config/**/*`, `frontend/src/features/vault/schema/**/*`, `frontend/src/features/vault/properties/**/*`, `frontend/src/features/planning/**/*`, `frontend/src/shared/records/**/*`, `frontend/src/shared/record-views/**/*`, `frontend/src/shared/filtering/**/*`, `frontend/src/shared/schema/**/*`, `frontend/src/shared/dates/**/*`
+- Test patterns: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `backend/tests/test_*rule*.py`, `backend/tests/test_*rollup*.py`, `backend/tests/test_*option_catalogs.py`, `backend/tests/test_snapshot_sort*.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `frontend/src/features/vault/views/**/*.test.*`, `frontend/src/features/vault/view-config/**/*.test.*`, `frontend/src/features/vault/schema/**/*.test.*`, `frontend/src/features/vault/properties/**/*.test.*`, `frontend/src/features/planning/**/*.test.*`, `frontend/src/shared/records/**/*.test.*`, `frontend/src/shared/record-views/**/*.test.*`, `frontend/src/shared/filtering/**/*.test.*`, `frontend/src/shared/schema/**/*.test.*`, `frontend/src/shared/dates/**/*.test.*`, `tests/e2e/tests/e2e/dashboards.spec.ts`
 - Directives: none found
 
 ## Knowledge graph
 
 - Guide: [`Knowledge graph`](../domains/knowledge-graph.md)
-- Source patterns: `backend/api/vault_graph_routes.py`, `backend/services/graph*.py`, `frontend/src/pages/GraphPage.jsx`, `frontend/src/components/Graph*`, `frontend/src/components/**/*Graph*`
-- Test patterns: `backend/tests/test_*graph*.py`, `frontend/src/**/*graph*.test.*`
+- Source patterns: `backend/api/vault_graph_routes.py`, `backend/services/graph*.py`, `frontend/src/features/graph/**/*`, `frontend/src/shared/graph/**/*`, `frontend/src/features/vault/views/VaultGraph.tsx`, `frontend/src/features/vault/editor/PageLinksGraph.tsx`
+- Test patterns: `backend/tests/test_*graph*.py`, `frontend/src/features/graph/**/*.test.*`, `frontend/src/shared/graph/**/*.test.*`, `frontend/src/features/vault/views/VaultGraph.test.tsx`, `frontend/src/features/vault/editor/PageLinksGraph.test.tsx`
 - Directives: none found
 
 ## Reader, references, and citations
 
 - Guide: [`Reader, references, and citations`](../domains/reader-references.md)
-- Source patterns: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `backend/services/lookup_normalizers.py`, `backend/domains/vault/citations/normalizers/**/*.py`, `backend/api/literature_routes.py`, `backend/services/**/*literature*.py`, `backend/services/academic_connectors.py`, `frontend/src/pages/ReaderDashboard.jsx`, `frontend/src/pages/LiteraturePage.jsx`, `frontend/src/components/ResourcesPluginConfig.jsx`, `frontend/src/components/Vault/ZoteroReaderTab.jsx`
-- Test patterns: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `backend/tests/test_*literature*.py`, `backend/tests/test_academic_connectors.py`, `backend/tests/test_lookup_normalizers.py`, `backend/tests/test_html_meta_attr_order.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `frontend/src/**/*Literature*.test.*`, `frontend/src/**/*ResourcesPluginConfig*.test.*`, `tests/e2e/tests/e2e/*citation*.spec.ts`
+- Source patterns: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `backend/services/lookup_normalizers.py`, `backend/domains/vault/citations/normalizers/**/*.py`, `backend/api/literature_routes.py`, `backend/services/**/*literature*.py`, `backend/services/academic_connectors.py`, `frontend/src/features/reader/**/*`, `frontend/src/features/literature/**/*`, `frontend/src/shared/citations/**/*`
+- Test patterns: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `backend/tests/test_*literature*.py`, `backend/tests/test_academic_connectors.py`, `backend/tests/test_lookup_normalizers.py`, `backend/tests/test_html_meta_attr_order.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `frontend/src/features/reader/**/*.test.*`, `frontend/src/features/literature/**/*.test.*`, `frontend/src/shared/citations/**/*.test.*`, `tests/e2e/tests/e2e/*citation*.spec.ts`
 - Directives: none found
 
 ## AI agents, models, tools, and skills
 
 - Guide: [`AI agents, models, tools, and skills`](../domains/ai-agent.md)
-- Source patterns: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `frontend/src/components/Agent*`, `frontend/src/components/AI/**/*`
-- Test patterns: `backend/tests/test_agent*.py`, `backend/tests/test_ai*.py`, `backend/tests/test_generated_tool*.py`
+- Source patterns: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `frontend/src/features/agent/**/*`, `frontend/src/features/agent-context/**/*`, `frontend/src/features/settings/AI/**/*`, `frontend/src/features/settings/AI*.ts*`, `frontend/src/features/settings/*Comparison*.ts*`, `frontend/src/features/settings/model-comparison/**/*`
+- Test patterns: `backend/tests/test_agent*.py`, `backend/tests/test_ai*.py`, `backend/tests/test_generated_tool*.py`, `frontend/src/features/agent/**/*.test.*`, `frontend/src/features/agent-context/**/*.test.*`, `frontend/src/features/settings/AI/**/*.test.*`, `frontend/src/features/settings/AI*.test.*`, `frontend/src/features/settings/*Comparison*.test.*`
+- Directives: none found
+
+## Source-grounded notebooks
+
+- Guide: [`Source-grounded notebooks`](../domains/notebooks.md)
+- Source patterns: `backend/domains/notebooks/**/*.py`, `backend/api/notebook_routes.py`, `backend/services/notebook_service.py`, `frontend/src/features/notebooks/**/*`, `frontend/src/shared/api/notebooks.ts`
+- Test patterns: `backend/tests/test_notebook*.py`, `frontend/src/features/notebooks/**/*.test.*`, `frontend/src/shared/api/notebooks.test.ts`, `tests/e2e/tests/e2e/notebooks.spec.ts`
 - Directives: none found
 
 ## Mail
 
 - Guide: [`Mail`](../domains/mail.md)
-- Source patterns: `backend/api/mail_routes.py`, `backend/models/mail.py`, `backend/services/mail*.py`, `frontend/src/pages/MailPage.jsx`, `frontend/src/components/Mail/**/*`
-- Test patterns: `backend/tests/test_mail*.py`, `tests/e2e/tests/e2e/mail*.spec.ts`
+- Source patterns: `backend/api/mail_routes.py`, `backend/models/mail.py`, `backend/services/mail*.py`, `frontend/src/features/mail/**/*`, `frontend/src/shared/api/mail*.ts`
+- Test patterns: `backend/tests/test_mail*.py`, `frontend/src/features/mail/**/*.test.*`, `frontend/src/shared/api/mail*.test.ts`, `tests/e2e/tests/e2e/mail*.spec.ts`
 - Directives: none found
 
 ## Calendar and meetings
 
 - Guide: [`Calendar and meetings`](../domains/calendar-meetings.md)
-- Source patterns: `backend/api/calendar_routes.py`, `backend/api/meeting_routes.py`, `backend/models/calendar.py`, `backend/services/**/*calendar*.py`, `backend/services/**/*meeting*.py`, `frontend/src/pages/CalendarPage.jsx`, `frontend/src/components/Meeting*`
-- Test patterns: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `tests/e2e/tests/e2e/calendar.spec.ts`
+- Source patterns: `backend/api/calendar_routes.py`, `backend/api/meeting_routes.py`, `backend/models/calendar.py`, `backend/services/**/*calendar*.py`, `backend/services/**/*meeting*.py`, `frontend/src/features/calendar/**/*`, `frontend/src/features/meetings/**/*`
+- Test patterns: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `frontend/src/features/calendar/**/*.test.*`, `frontend/src/features/meetings/**/*.test.*`, `tests/e2e/tests/e2e/calendar.spec.ts`
 - Directives: none found
 
 ## Contacts
 
 - Guide: [`Contacts`](../domains/contacts.md)
-- Source patterns: `backend/api/contacts_routes.py`, `backend/models/contact.py`, `backend/services/**/*contact*.py`, `frontend/src/pages/ContactsPage.jsx`, `frontend/src/components/Contacts/**/*`
-- Test patterns: `backend/tests/test_contact*.py`, `tests/e2e/tests/e2e/contacts.spec.ts`
+- Source patterns: `backend/api/contacts_routes.py`, `backend/models/contact.py`, `backend/services/**/*contact*.py`, `frontend/src/features/contacts/**/*`
+- Test patterns: `backend/tests/test_contact*.py`, `frontend/src/features/contacts/**/*.test.*`, `tests/e2e/tests/e2e/contacts.spec.ts`
 - Directives: none found
 
 ## Social publishing and media
 
 - Guide: [`Social publishing and media`](../domains/social-publishing.md)
-- Source patterns: `backend/api/social_routes.py`, `backend/services/social*.py`, `frontend/src/pages/SocialDashboard.jsx`, `frontend/src/pages/MediaCenter.jsx`
-- Test patterns: `backend/tests/test_social*.py`, `frontend/src/**/*social*.test.*`
+- Source patterns: `backend/api/social_routes.py`, `backend/services/social*.py`, `frontend/src/features/social/**/*`, `frontend/src/features/media/**/*`
+- Test patterns: `backend/tests/test_social*.py`, `frontend/src/features/social/**/*.test.*`, `frontend/src/features/media/**/*.test.*`
 - Directives: none found
 
 ## Integrations and plugins
 
 - Guide: [`Integrations and plugins`](../domains/integrations-plugins.md)
-- Source patterns: `backend/api/integrations_routes.py`, `backend/domains/plugins/*.py`, `backend/api/notion_routes.py`, `backend/domains/notion/**/*.py`, `backend/services/integration*.py`, `backend/services/notion_*.py`, `backend/services/plugin*.py`, `backend/services/academic_connectors.py`, `extensions/**/*`, `extensions/examples/**/*`, `extensions/mcp/**/*`
-- Test patterns: `backend/tests/test_integration*.py`, `backend/tests/test_notion*.py`, `backend/tests/test_plugin*.py`, `extensions/**/tests/**/*`
+- Source patterns: `backend/api/integrations_routes.py`, `backend/domains/plugins/*.py`, `backend/api/notion_routes.py`, `backend/domains/notion/**/*.py`, `backend/services/integration*.py`, `backend/services/notion_*.py`, `backend/services/plugin*.py`, `backend/services/academic_connectors.py`, `frontend/src/features/integrations/**/*`, `frontend/src/features/plugin-management/**/*`, `frontend/src/features/notion-import/**/*`, `frontend/src/shared/plugins/**/*`, `extensions/**/*`, `extensions/examples/**/*`, `extensions/mcp/**/*`
+- Test patterns: `backend/tests/test_integration*.py`, `backend/tests/test_notion*.py`, `backend/tests/test_plugin*.py`, `frontend/src/features/integrations/**/*.test.*`, `frontend/src/features/plugin-management/**/*.test.*`, `frontend/src/features/notion-import/**/*.test.*`, `frontend/src/shared/plugins/**/*.test.*`, `extensions/**/tests/**/*`
 - Directives: none found
 
 ## Authentication, workspaces, and sharing
 
 - Guide: [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md)
-- Source patterns: `backend/api/auth_routes.py`, `backend/api/identity_routes.py`, `backend/api/workspace_routes.py`, `backend/api/vaults_routes.py`, `backend/api/share_routes.py`, `backend/api/public_routes.py`, `backend/models/management.py`, `backend/services/auth*.py`, `frontend/src/context/AuthContext.jsx`, `frontend/src/components/Auth/**/*`
-- Test patterns: `backend/tests/test_auth*.py`, `backend/tests/test_workspace*.py`, `backend/tests/test_share*.py`, `backend/tests/test_public*.py`
+- Source patterns: `backend/api/auth_routes.py`, `backend/api/identity_routes.py`, `backend/api/workspace_routes.py`, `backend/api/vaults_routes.py`, `backend/api/share_routes.py`, `backend/api/public_routes.py`, `backend/models/management.py`, `backend/services/auth*.py`, `frontend/src/features/auth/**/*`, `frontend/src/features/workspaces/**/*`, `frontend/src/features/sharing/**/*`, `frontend/src/shared/auth/**/*`, `frontend/src/shared/routing/**/*`, `frontend/src/shared/api/auth.ts`
+- Test patterns: `backend/tests/test_auth*.py`, `backend/tests/test_workspace*.py`, `backend/tests/test_share*.py`, `backend/tests/test_public*.py`, `frontend/src/features/auth/**/*.test.*`, `frontend/src/features/workspaces/**/*.test.*`, `frontend/src/features/sharing/**/*.test.*`, `frontend/src/shared/auth/**/*.test.*`, `frontend/src/shared/routing/**/*.test.*`, `frontend/src/shared/api/auth.test.ts`
 - Directives: none found
 
 ## Automation and scheduling
 
 - Guide: [`Automation and scheduling`](../domains/automation-scheduling.md)
-- Source patterns: `backend/api/scheduler_routes.py`, `backend/scheduler/**/*.py`, `backend/models/scheduler.py`, `backend/services/durable_job_worker.py`, `backend/services/literature_service.py`, `frontend/src/pages/SchedulerPage.jsx`, `pipeline/skills/scheduler/**/*`
-- Test patterns: `backend/tests/test_schedul*.py`, `backend/tests/test_literature_service.py`, `tests/e2e/tests/e2e/automation*.spec.ts`
+- Source patterns: `backend/api/scheduler_routes.py`, `backend/scheduler/**/*.py`, `backend/models/scheduler.py`, `backend/services/durable_job_worker.py`, `backend/services/literature_service.py`, `frontend/src/features/automations/**/*`, `pipeline/skills/scheduler/**/*`
+- Test patterns: `backend/tests/test_schedul*.py`, `backend/tests/test_literature_service.py`, `frontend/src/features/automations/**/*.test.*`, `tests/e2e/tests/e2e/automation*.spec.ts`
 - Directives: none found
 
 ## Desktop and companion clients

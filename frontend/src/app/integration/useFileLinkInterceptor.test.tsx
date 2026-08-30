@@ -36,14 +36,14 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
 }));
 
-vi.mock('../../components/Vault/markdown-mapper', () => ({
+vi.mock('../../shared/editor/markdown-mapper', () => ({
   FILE_PROTOCOL_SENTINEL: 'https://gnosi-file-protocol.local',
   sentinelToFileUrl: (href: string): string => (
     `file://${href.slice('https://gnosi-file-protocol.local'.length)}`
   ),
 }));
 
-vi.mock('../../lib/fileResource', () => ({
+vi.mock('../../shared/resources/fileResource', () => ({
   openCitation: mocks.openCitation,
   openFileResource: mocks.openFileResource,
 }));

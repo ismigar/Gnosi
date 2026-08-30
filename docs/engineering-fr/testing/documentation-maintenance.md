@@ -84,6 +84,19 @@ La porte de documentation de la demande de transfert est orientée vers des modi
 
 Les modifications systématiques de la partie frontale, de la page, du style et des tests ne nécessitent pas de modification de la documentation de prose lorsque le contrat existant reste exact. Ils nécessitent quand ils changent un invariant, une limite de confiance, un cycle de vie, un propriétaire de stockage, une contrainte de défaillance ou tout autre fait durable du système.
 
+Après le déplacement, le gate protège `frontend/src/app/`,
+`frontend/src/features/auth/`, `frontend/src/shared/auth/`,
+`frontend/src/shared/routing/`, `frontend/src/shared/ui/layout/`, le fournisseur
+API et les hooks d'authentification partagés, ainsi que `frontend/feature-public-entries.json`.
+Les anciens chemins sensibles restent reconnus pour les suppressions et renommages.
+Les changements limités aux `*.test.*`, `*.spec.*`, `__tests__/`, `tests/`
+et CSS restent exemptés. Déplacer une UI ordinaire n'en fait pas du code à fort impact.
+Les changements sensibles exigent toujours une preuve documentaire en anglais ;
+les miroirs révisés catalan, espagnol et français conservent les mêmes chemins techniques.
+Les fixtures synthétiques historiques peuvent garder les anciens chemins ;
+ajouter des régressions pour les nouveaux chemins sans présenter les fixtures
+comme des emplacements actuels du code.
+
 ## Validation anti-déroulement
 
 Les contrôles de validation ont généré des avis, des métadonnées, des chemins source/test, des liens internes, des guides de domaine requis, des chemins absolus locaux et du matériel secret évident. `generate.py --check` compare de façon indépendante la sortie engagée à l'arbre actuel. `localize.py --check` MkDocs valide les liens de navigation et de documentation dans les quatre portails.

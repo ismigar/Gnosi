@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { logError } from '../../../lib/notifyError';
+import { logError } from '../../../shared/notifications/notifyError';
 import { readChatStorage, removeChatStorage, scopedChatStorageKey, writeChatStorage } from './chatPersistence';
 
-vi.mock('../../../lib/notifyError', () => ({ logError: vi.fn() }));
+vi.mock('../../../shared/notifications/notifyError', () => ({ logError: vi.fn() }));
 const keyA = scopedChatStorageKey('agent_chat_sessions_v2', 'test-vault-a:workspace:user');
 const keyB = scopedChatStorageKey('agent_chat_sessions_v2', 'test-vault-b:workspace:user');
 

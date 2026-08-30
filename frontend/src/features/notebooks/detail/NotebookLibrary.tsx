@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { AppHeader } from '../../../shared/ui/layout/AppHeader';
 import { useKeyboardScroll } from '../../../shared/hooks/useKeyboardScroll';
 import { useNotebookLibrary } from '../../../shared/api/useNotebookData';
-import { toast } from '../../../lib/toast';
-import { vaultPath } from '../../../lib/vaultRouting';
+import { toast } from '../../../shared/notifications/toast';
+import { vaultPath } from '../../../shared/routing/vaultRouting';
 import StatusBadge from './StatusBadge';
 
 export default function NotebookLibrary({ onCreate }: { onCreate: () => void }) {

@@ -23,7 +23,10 @@ source_paths:
   - backend/services/notion_importer.py
   - backend/services/notion_view_recreator.py
   - extensions/examples
-  - frontend/src/plugins
+  - frontend/src/shared/plugins
+  - frontend/src/features/plugin-management
+  - frontend/src/features/notion-import
+  - frontend/src/features/integrations
   - extensions/mcp
   - extensions/office
 tests:
@@ -43,8 +46,8 @@ tests:
   - backend/tests/test_plugin_network_guard.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
-  - frontend/src/plugins/host.test.ts
-  - frontend/src/plugins/registry.test.ts
+  - frontend/src/shared/plugins/host.test.ts
+  - frontend/src/shared/plugins/registry.test.ts
   - extensions/office/libreoffice-cite/tests
 ---
 

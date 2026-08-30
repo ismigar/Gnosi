@@ -8,7 +8,7 @@ import { submitChatTurn } from './submitChatTurn';
 const api = vi.hoisted(() => ({ start: vi.fn<typeof startChatStream>(), recover: vi.fn<typeof recoverChatStream>(), log: vi.fn(), diagnostic: vi.fn() }));
 vi.mock('../../../shared/api/chat-streaming', () => ({ startChatStream: api.start }));
 vi.mock('./recoverChatStream', () => ({ recoverChatStream: api.recover }));
-vi.mock('../../../lib/notifyError', () => ({ logError: api.log }));
+vi.mock('../../../shared/notifications/notifyError', () => ({ logError: api.log }));
 vi.mock('./chatDiagnostics', () => ({ logChatError: api.diagnostic }));
 const locale = createInstance();
 beforeAll(async () => { await locale.init({ lng: 'en', fallbackLng: 'en', resources: {}, interpolation: { escapeValue: false } }); });

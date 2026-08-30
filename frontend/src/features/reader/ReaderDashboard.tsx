@@ -3,10 +3,10 @@ import { BookOpen, Menu, RotateCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
-import { toast } from '../../lib/toast';
-import { logError } from '../../lib/notifyError';
-import { getIntlLocale } from '../../locales/registry';
-import { usePlugins } from '../../plugins/usePlugins';
+import { toast } from '../../shared/notifications/toast';
+import { logError } from '../../shared/notifications/notifyError';
+import { getIntlLocale } from '../../shared/i18n/locales/registry';
+import { usePlugins } from '../../shared/plugins/usePlugins';
 import {
     fetchReaderArticle,
     fetchReaderPodcastStatus,
