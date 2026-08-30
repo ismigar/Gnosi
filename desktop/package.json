@@ -12,6 +12,7 @@
   "scripts": {
     "test": "node --test *.test.js",
     "typecheck:ipc": "pnpm --filter @gnosi/frontend exec tsc --project ../desktop/tsconfig.ipc.json",
+    "test:ipc:smoke": "electron scripts/smoke-ipc.cjs",
     "build:icons": "python3 scripts/generate-icons.py",
     "start": "electron .",
     "dev": "electron . --dev",

@@ -71,6 +71,7 @@ test('the packaged archive check accepts normalized Windows entries', () => {
   assert.doesNotThrow(() => assertPackagedRuntimeEntries([
     '\\main.js',
     '\\preload.js',
+    '\\ipc-security.js',
     '\\application-menu.js',
     '\\backend-launch.js',
     '\\update-policy.js',

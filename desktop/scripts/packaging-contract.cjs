@@ -5,6 +5,7 @@ const asar = require('@electron/asar');
 const REQUIRED_RUNTIME_FILES = Object.freeze([
   'main.js',
   'preload.js',
+  'ipc-security.js',
   'application-menu.js',
   'backend-launch.js',
   'update-policy.js',

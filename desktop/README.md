@@ -146,6 +146,34 @@ states do not display an update prompt. The bridge tests use a fake host and nev
 download/install an update or fill an external form. Passing these tests does not
 replace the real Electron and platform packaging acceptance matrix.
 
+All eight main-process IPC handlers validate the sender before reading data or
+performing an action. Only the current top-level frame of a live, registered
+main window is accepted: `http://localhost:5173` in development or `app://gnosi`
+when packaged. Child frames, detached frames, other windows and lookalike origins
+are rejected. Main windows retain sandboxing and cannot navigate or redirect
+outside that origin; HTTP(S) links opened in a new window use the external
+browser. The application protocol also rejects other authorities before touching
+the backend or bundled assets. Form windows have no preload bridge and cannot
+request privileged IPC actions.
+
+### Isolated native IPC smoke test
+
+Run `pnpm --filter @gnosi/desktop test:ipc:smoke` in a graphical desktop session.
+It executes the installed Electron runtime with the real preload and sender
+guard, not the production application entry point. It uses fresh temporary
+application/session directories, blocks remote requests, and never starts the
+backend, updater or form filler. It verifies request responses, event payloads,
+subscription disposal, Node isolation and rejection of an unregistered window.
+
+The command exits within 30 seconds, closes its own windows, and prints the
+temporary directory containing `report.json` and `trusted-window.png`. An
+`Untrusted IPC sender` log is expected for the deliberately rejected window.
+The displayed release-candidate version is fictitious test data, not an app
+version bump. Check the runtime version in the report: a pass on Electron 28
+does not certify Electron 43, production startup, data migration, packaging or
+automatic updates. The production handlers are additionally exercised with
+operational doubles by `pnpm test:desktop`.
+
 ```
 desktop/
 ├── main.js           # Main process (Electron)

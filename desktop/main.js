@@ -9,6 +9,7 @@ const {
   getPackagedBackendExecutable,
 } = require('./backend-launch');
 const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy');
+const { assertTrustedIpcSender, isTrustedRendererUrl } = require('./ipc-security');
 
 const isDev = process.argv.includes('--dev');
 
@@ -119,6 +120,9 @@ function resolveAssetPath(urlStr) {
 // served from `frontend/dist` with SPA fallback.
 function registerAppProtocol() {
   protocol.handle('app', async (request) => {
+    if (!isTrustedRendererUrl(request.url, false)) {
+      return new Response('Forbidden application origin', { status: 403 });
+    }
     const url = new URL(request.url);
     const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
 
@@ -386,6 +390,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: true
     },
@@ -414,6 +419,13 @@ function createWindow() {
   window.on('closed', () => {
     mainWindows.delete(window);
   });
+
+  // A trusted window must not retain its preload bridge after remote navigation.
+  const preventUntrustedNavigation = (event, url) => {
+    if (!isTrustedRendererUrl(url, isDev)) event.preventDefault();
+  };
+  window.webContents.on('will-navigate', preventUntrustedNavigation);
+  window.webContents.on('will-redirect', preventUntrustedNavigation);
   
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http:') || url.startsWith('https:')) {
@@ -486,25 +498,30 @@ function setupAutoUpdater() {
 }
 
 function setupIPC() {
-  ipcMain.handle('get-app-version', () => {
+  const handle = (channel, handler) => ipcMain.handle(channel, (event, ...args) => {
+    assertTrustedIpcSender(event, mainWindows, isDev);
+    return handler(event, ...args);
+  });
+
+  handle('get-app-version', () => {
     return app.getVersion();
   });
 
-  ipcMain.handle('set-application-menu', (event, { labels } = {}) => {
+  handle('set-application-menu', (event, { labels } = {}) => {
     installApplicationMenu(labels);
     return true;
   });
 
-  ipcMain.handle('get-update-status', () => updateState);
+  handle('get-update-status', () => updateState);
 
   // Exposes the backend URL to the renderer so the collaboration WebSocket
   // (useCollaboration.js / collabProvider.js) can connect directly. HTTP calls
   // do NOT need this: they stay relative and are proxied by the `app://`
   // handler. Only WebSocket connections need the explicit host because the
   // `app://` protocol handler does not intercept `ws://` upgrades.
-  ipcMain.handle('get-backend-url', () => getBackendURL());
+  handle('get-backend-url', () => getBackendURL());
 
-  ipcMain.handle('download-update', async () => {
+  handle('download-update', async () => {
     if (updateState.status !== 'available') {
       return updateState;
     }
@@ -527,7 +544,7 @@ function setupIPC() {
     return updateState;
   });
   
-  ipcMain.handle('get-backend-status', async () => {
+  handle('get-backend-status', async () => {
     return new Promise((resolve) => {
       const http = require('http');
       const req = http.get(`${getBackendURL()}/api/system/stats`, (res) => {
@@ -541,7 +558,7 @@ function setupIPC() {
     });
   });
   
-  ipcMain.handle('install-update', () => {
+  handle('install-update', () => {
     if (updateState.status !== 'downloaded' || updateState.installMode !== 'automatic') {
       return updateState;
     }
@@ -558,8 +575,12 @@ function setupIPC() {
     return updateState;
   });
 
-  ipcMain.handle('open-form-filler', async (event, { url, profile }) => {
-    log('Opening form filler for:', url);
+  handle('open-form-filler', async (event, { url, profile }) => {
+    const target = new URL(url);
+    if (!['https:', 'http:'].includes(target.protocol) || target.username || target.password) {
+      throw new Error('Unsupported form URL');
+    }
+    log('Opening form filler');
     
     const fillerWin = new BrowserWindow({
       width: 1000,
@@ -568,6 +589,8 @@ function setupIPC() {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        sandbox: true,
+        webSecurity: true,
       }
     });
 
@@ -579,7 +602,6 @@ function setupIPC() {
       const script = `
         (function() {
           const profile = ${JSON.stringify(profile)};
-          console.log('Gnosi: Starting autocomplete with profile', profile);
           
           const fields = {
             email: ['email', 'mail', 'correu', 'correo'],

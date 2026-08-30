@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const { loadMainRuntime } = require('./test-helpers/main-runtime.cjs');
 
 const source = fs.readFileSync(path.join(__dirname, 'preload.js'), 'utf8');
 const privilegedEvent = Object.freeze({ sender: { send: () => assert.fail('Privileged API called') } });
@@ -53,7 +54,8 @@ test('every bridge request has a main-process handler and a declared channel', (
   const main = fs.readFileSync(path.join(__dirname, 'main.js'), 'utf8');
   const contract = fs.readFileSync(path.join(__dirname, 'ipc-contract.d.ts'), 'utf8');
   const requests = [...source.matchAll(/invoke\('([^']+)'/g)].map((match) => match[1]);
-  const handlers = [...main.matchAll(/ipcMain\.handle\('([^']+)'/g)].map((match) => match[1]);
+  const handlers = [...loadMainRuntime().handlers.keys()];
+  assert.equal([...main.matchAll(/ipcMain\.handle\(/g)].length, 1, 'Only the guarded registrar may access ipcMain.handle');
   assert.equal(new Set(requests).size, requests.length);
   assert.deepEqual(requests.sort(), handlers.sort());
   for (const channel of requests) assert.ok(contract.includes(`'${channel}'`));
