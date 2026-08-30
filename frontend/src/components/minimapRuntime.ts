@@ -19,7 +19,12 @@ export interface MinimapNodeAttributes {
 }
 
 export type MinimapGraph = Graph<MinimapNodeAttributes>;
-export type MinimapRenderer = Sigma<MinimapNodeAttributes>;
+export type MinimapRenderer = Pick<Sigma<MinimapNodeAttributes>,
+    'getCamera' | 'getGraph' | 'getDimensions' | 'getGraphToViewportRatio' |
+    'viewportToGraph'> & {
+    on(event: 'afterRender', listener: () => void): void;
+    off(event: 'afterRender', listener: () => void): void;
+};
 export type MinimapTransform = NonNullable<
     ReturnType<typeof createMinimapTransform>
 >;

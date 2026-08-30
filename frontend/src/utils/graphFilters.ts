@@ -33,7 +33,7 @@ interface GraphNodeAttributes extends FilterItem {
     tags?: readonly string[];
 }
 
-interface GraphEdgeAttributes {
+export interface GraphEdgeAttributes {
     [key: string]: unknown;
     hidden?: unknown;
     kind?: string | null;
@@ -74,7 +74,8 @@ interface GraphNeighborhood {
     nodes: Set<string>;
 }
 
-type FilterGraph = Graph<GraphNodeAttributes, GraphEdgeAttributes>;
+export type FilterGraph = Pick<Graph<GraphNodeAttributes, GraphEdgeAttributes>,
+    'forEachNode' | 'forEachEdge' | 'getNodeAttribute' | 'neighbors' | 'source' | 'target'>;
 
 type SystemCategory =
     | 'assets'

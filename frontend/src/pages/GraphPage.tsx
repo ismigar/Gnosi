@@ -1,6 +1,4 @@
-import type { ComponentType } from 'react';
-
-import { ConnectionList as LegacyConnectionList } from '../components/ConnectionList';
+import { ConnectionList } from '../components/ConnectionList';
 import { Controls } from '../components/Controls';
 import { GraphLoadingState } from '../components/GraphLoadingState';
 import { Layout } from '../components/Layout';
@@ -10,20 +8,7 @@ import { GraphCanvasView } from './graph-page/GraphCanvasView';
 import { GraphSidebarView } from './graph-page/GraphSidebarView';
 import {
   useGraphPageController,
-  type GraphPageController,
 } from './graph-page/useGraphPageController';
-
-
-interface ConnectionListBoundaryProps {
-  readonly filters: GraphPageController['filters'];
-  readonly graphData: GraphPageController['graphData'];
-  readonly graphInstance: GraphPageController['graphInstance'];
-}
-
-
-const ConnectionList = LegacyConnectionList as unknown as ComponentType<
-  ConnectionListBoundaryProps
->;
 
 
 export default function GraphPage() {

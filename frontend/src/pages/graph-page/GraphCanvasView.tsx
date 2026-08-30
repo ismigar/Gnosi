@@ -1,45 +1,14 @@
-import type { ComponentType, RefAttributes, RefObject } from 'react';
+import type { RefObject } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { GraphViewer as LegacyGraphViewer } from '../../components/GraphViewer';
+import { GraphViewer } from '../../components/GraphViewer';
 import { Minimap } from '../../components/Minimap';
 import { NodeDetailsPanel } from '../../components/NodeDetailsPanel';
-import type { GraphData } from './graphPageModel';
 import type {
   GraphPageController,
   GraphViewerHandle,
 } from './useGraphPageController';
-
-
-interface GraphViewerBoundaryProps {
-  readonly edgeInfluence: number;
-  readonly edgeThickness: number;
-  readonly filters: GraphPageController['filters'];
-  readonly friction: number;
-  readonly graphData: GraphData | null;
-  readonly gravity: number;
-  readonly isPathfindingMode: boolean;
-  readonly isPhysicsEnabled: boolean;
-  readonly labelThreshold: number;
-  readonly linLogMode: boolean;
-  readonly nodeSize: number;
-  readonly onNodeClick: (nodeId: string) => void;
-  readonly onSelectPathNode: (nodeId: string) => void;
-  readonly outboundAttractionDistribution: boolean;
-  readonly pathSource: string | null;
-  readonly pathTarget: string | null;
-  readonly repulsion: number;
-  readonly setGraphInstance: GraphPageController['setGraphInstance'];
-  readonly setRendererInstance: GraphPageController['setRendererInstance'];
-  readonly showArrows: boolean;
-  readonly strongGravityMode: boolean;
-}
-
-
-const GraphViewer = LegacyGraphViewer as unknown as ComponentType<
-  GraphViewerBoundaryProps & RefAttributes<GraphViewerHandle>
->;
 
 
 interface GraphCanvasViewProps {
@@ -83,7 +52,7 @@ export function GraphCanvasView({
         </div>
       )}
       <GraphViewer
-        ref={graphViewerRef}
+        ref={handle => { graphViewerRef.current = handle; }}
         graphData={controller.graphData}
         setGraphInstance={controller.setGraphInstance}
         setRendererInstance={controller.setRendererInstance}

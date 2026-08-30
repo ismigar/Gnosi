@@ -1,6 +1,6 @@
 import type Graph from 'graphology';
 
-import { applyFilters } from './graphFilters';
+import { applyFilters, type FilterGraph } from './graphFilters';
 import {
   getConnectionType,
   type ConnectionAttributes,
@@ -14,7 +14,7 @@ import {
 
 interface ConnectionNodeAttributes {
   [key: string]: unknown;
-  label?: string;
+  label?: string | null;
   url?: string;
 }
 
@@ -25,14 +25,10 @@ interface ConnectionEdgeAttributes extends ConnectionAttributes {
   reasons?: SemanticReason;
 }
 
-export interface ConnectionFilters {
+type FilterOptions = Parameters<typeof applyFilters>[1];
+export interface ConnectionFilters extends FilterOptions {
   [key: string]: unknown;
   showSemanticSuggestions?: unknown;
-}
-
-interface FilterResult {
-  visibleEdges: Set<string>;
-  visibleNodes: Set<string>;
 }
 
 interface ConnectionTarget {
@@ -51,12 +47,11 @@ interface ConnectionGroup {
   url?: string;
 }
 
-export type ConnectionGraph = Graph<ConnectionNodeAttributes, ConnectionEdgeAttributes>;
-
-const runApplyFilters = applyFilters as (
-  graph: ConnectionGraph,
-  filters: ConnectionFilters,
-) => FilterResult;
+// Consumers only inspect topology: mutation methods unnecessarily make Graph's
+// attribute generics invariant and reject richer graphs such as the viewer's.
+export type ConnectionGraph = FilterGraph & Pick<Graph<ConnectionNodeAttributes, ConnectionEdgeAttributes>,
+  'hasNode' | 'getNodeAttributes' | 'getNodeAttribute' | 'getEdgeAttributes' |
+  'forEachNode' | 'forEachEdge' | 'neighbors' | 'source' | 'target'>;
 
 function normalizedReason(attrs: ConnectionEdgeAttributes): string {
   const raw = attrs.reason || attrs.reasons || attrs.evidence || '';
@@ -72,7 +67,7 @@ export function getVisibleConnectionGroups(
 ): ConnectionGroup[] {
   if (!graph) return [];
 
-  const { visibleNodes, visibleEdges } = runApplyFilters(graph, filters);
+  const { visibleNodes, visibleEdges } = applyFilters(graph, filters);
   const groups = new Map<string, ConnectionGroup>();
 
   const addConnection = (
