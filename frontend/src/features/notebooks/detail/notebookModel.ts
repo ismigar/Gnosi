@@ -1,5 +1,5 @@
-import type { NotebookDetail } from '../../shared/api/notebooks';
-import { defineStorageKey, readStorage, stringStorageCodec } from '../../shared/platform/browser-storage';
+import type { NotebookDetail } from '../../../shared/api/notebooks';
+import { defineStorageKey, readStorage, stringStorageCodec } from '../../../shared/platform/browser-storage';
 import type { LoadOptions, MobileTab, NotebookChatContext, NotebookGroup, NotebookResource } from './notebookTypes';
 
 export const MOBILE_TAB_IDS: readonly MobileTab[] = ['sources', 'chat', 'settings'];

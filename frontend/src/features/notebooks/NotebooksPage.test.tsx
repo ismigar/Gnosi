@@ -64,7 +64,7 @@ vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: translate }),
 }));
 
-vi.mock('../components/AgentChat', () => ({
+vi.mock('../../components/AgentChat', () => ({
     default: ({ readOnly, contextRefs }: AgentChatProps) => (
         <div
             data-testid="agent-chat"
@@ -76,8 +76,8 @@ vi.mock('../components/AgentChat', () => ({
     ),
 }));
 
-vi.mock('../components/ConfirmModal', () => ({ default: () => null }));
-vi.mock('../lib/toast', () => ({
+vi.mock('../../components/ConfirmModal', () => ({ default: () => null }));
+vi.mock('../../lib/toast', () => ({
     toast: { success: vi.fn(), error: vi.fn() },
 }));
 

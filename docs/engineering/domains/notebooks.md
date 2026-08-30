@@ -11,16 +11,19 @@ source_paths:
   - backend/agent/agent_context.py
   - backend/agent/factory.py
   - backend/api/agent_routes.py
-  - frontend/src/pages/NotebooksPage.jsx
-  - frontend/src/components/Notebooks
-  - frontend/src/components/AgentChat.jsx
+  - frontend/src/features/notebooks
+  - frontend/src/shared/api/notebooks.ts
+  - frontend/src/components/AgentChat.tsx
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
-  - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
-  - frontend/src/pages/NotebooksPage.test.jsx
-  - frontend/src/lib/notebookTableActions.test.js
+  - frontend/src/features/notebooks/create/NotebookCreateDialog.test.tsx
+  - frontend/src/features/notebooks/NotebooksPage.test.tsx
+  - frontend/src/features/notebooks/detail/NotebookDetail.behavior.test.tsx
+  - frontend/src/features/notebooks/public-entry.test.ts
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/lib/notebookTableActions.test.ts
   - tests/e2e/tests/e2e/notebooks.spec.ts
 ---
 
@@ -213,6 +216,14 @@ page notebook as the conversation owner, and rejects non-notebook context,
 attachments, mentions, and skill overrides.
 
 ## User interface behavior
+
+The strictly typed `frontend/src/features/notebooks/` domain owns the library,
+detail panels, resource selectors, creation dialog, styles, and their tests.
+Application composition consumes its public `index.ts` entry only. The page
+and creation dialog retain independent lazy imports, so opening one does not
+eagerly load the other. Domain internals use direct local imports; shared HTTP
+adapters retain the existing canonical Vault-scoped contracts. This ownership
+change does not alter routes, source selection, polling, or conversation state.
 
 The multi-select action appears only when the open table identity equals the
 configured References table identity. It is never enabled by a fixed name or

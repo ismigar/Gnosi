@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import type { NotebookDetail } from '../../shared/api/notebooks';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
+import type { NotebookDetail } from '../../../shared/api/notebooks';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useNotebookDetailData } from './useNotebookDetailData';
 import { useNotebookActions } from './useNotebookActions';
 import { useNotebookSelection } from './useNotebookSelection';

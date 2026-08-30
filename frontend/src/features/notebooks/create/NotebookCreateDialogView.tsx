@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { ReferenceResource } from '../../shared/api/notebooks';
+import type { ReferenceResource } from '../../../shared/api/notebooks';
 import NotebookResourceFilters, {
     type NotebookResourceFiltersProps,
 } from './NotebookResourceFilters';

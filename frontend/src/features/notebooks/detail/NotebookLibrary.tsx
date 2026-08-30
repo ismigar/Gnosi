@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, ChevronLeft, ChevronRight, Globe2, LoaderCircle, Lock, MessageSquare, Plus, Search, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { AppHeader } from '../../components/AppHeader';
-import { useKeyboardScroll } from '../../hooks/useKeyboardScroll';
-import { useNotebookLibrary } from '../../shared/api/useNotebookData';
-import { toast } from '../../lib/toast';
-import { vaultPath } from '../../lib/vaultRouting';
+import { AppHeader } from '../../../components/AppHeader';
+import { useKeyboardScroll } from '../../../hooks/useKeyboardScroll';
+import { useNotebookLibrary } from '../../../shared/api/useNotebookData';
+import { toast } from '../../../lib/toast';
+import { vaultPath } from '../../../lib/vaultRouting';
 import StatusBadge from './StatusBadge';
 
 export default function NotebookLibrary({ onCreate }: { onCreate: () => void }) {

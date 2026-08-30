@@ -31,17 +31,21 @@ describe('application composition extraction contracts', () => {
   });
 
   it('keeps the twenty optional imports deferred and the Home page eager', () => {
-    const imports = ['./App.tsx', './routes.tsx'].flatMap(name => collect(source(name), node => {
+    const sourceRoot = new URL('../', import.meta.url).pathname;
+    const imports = ['./App.tsx', './routes.tsx', '../features/notebooks/index.ts'].flatMap(name => collect(source(name), node => {
       if (!ts.isCallExpression(node) || node.expression.kind !== ts.SyntaxKind.ImportKeyword) return undefined;
       const target = node.arguments[0];
-      return target && ts.isStringLiteral(target) ? target.text.replace(/^\.\.?\//, '') : undefined;
+      return target && ts.isStringLiteral(target)
+        ? new URL(target.text, new URL(name, import.meta.url)).pathname.slice(sourceRoot.length)
+        : undefined;
     }));
     expect(imports.sort()).toEqual([
       'components/AgentChat', 'components/MeetingRecorder', 'components/MeetingReminderWatcher',
-      'components/Notebooks/NotebookCreateDialog', 'components/Vault/ZoteroReaderTab',
+      'components/Vault/ZoteroReaderTab', 'features/notebooks/NotebooksPage',
+      'features/notebooks/create/NotebookCreateDialog',
       'pages/CalendarPage', 'pages/ComposerPage', 'pages/ContactsPage', 'pages/Dashboard',
       'pages/GraphPage', 'pages/LiteraturePage', 'pages/MailPage', 'pages/MediaCenter',
-      'pages/NotebooksPage', 'pages/ProjectPlanningPage', 'pages/ReaderDashboard',
+      'pages/ProjectPlanningPage', 'pages/ReaderDashboard',
       'pages/SchedulerPage', 'pages/SharedPage', 'pages/SocialDashboard', 'pages/VaultDashboard',
     ]);
     const eager = collect(source('./routes.tsx'), node => ts.isImportDeclaration(node)

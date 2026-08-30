@@ -7,15 +7,15 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useModalKeyboard } from '../../hooks/useModalKeyboard';
-import { logError } from '../../lib/notifyError';
-import { toast } from '../../lib/toast';
+import { useModalKeyboard } from '../../../hooks/useModalKeyboard';
+import { logError } from '../../../lib/notifyError';
+import { toast } from '../../../lib/toast';
 import {
     createNotebook,
     fetchReferenceResources,
     type NotebookDetail,
     type ReferenceResource,
-} from '../../shared/api/notebooks';
+} from '../../../shared/api/notebooks';
 import type {
     NotebookFacetOption,
     NotebookResourceFiltersProps,

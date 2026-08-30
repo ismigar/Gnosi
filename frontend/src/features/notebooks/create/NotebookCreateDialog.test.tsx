@@ -11,7 +11,7 @@ import {
     type MockedFunction,
 } from 'vitest';
 
-import { dispatchWindowEvent } from '../../shared/platform/browser-events';
+import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 import NotebookCreateDialog, {
     type NotebookCreateDialogProps,
 } from './NotebookCreateDialog';
@@ -51,11 +51,11 @@ vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: translate }),
 }));
 
-vi.mock('../../lib/notifyError', () => ({
+vi.mock('../../../lib/notifyError', () => ({
     logError: vi.fn(),
 }));
 
-vi.mock('../../lib/toast', () => ({
+vi.mock('../../../lib/toast', () => ({
     toast: { success: vi.fn(), error: vi.fn() },
 }));
 

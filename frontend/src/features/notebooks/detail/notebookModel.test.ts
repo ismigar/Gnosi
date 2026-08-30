@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { removeStorage, writeStorage } from '../../shared/platform/browser-storage';
+import { removeStorage, writeStorage } from '../../../shared/platform/browser-storage';
 import { groupSourceIds, isIndexing, moveResource, nextMobileTab, notebookChatContext, notebookStorageIdentity, NOTEBOOK_USER_ID, toggleIds } from './notebookModel';
 import { notebookFixture, sourcesFixture } from './notebookTestFixtures';
 

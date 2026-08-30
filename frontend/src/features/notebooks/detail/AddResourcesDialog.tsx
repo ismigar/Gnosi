@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import NotebookResourceFilters, { type NotebookResourceFiltersProps } from '../../components/Notebooks/NotebookResourceFilters';
-import { useModalKeyboard } from '../../hooks/useModalKeyboard';
-import { toast } from '../../lib/toast';
-import { notifyError } from '../../lib/notifyError';
-import { addNotebookSources, fetchReferenceResources, type ReferenceResourcePage } from '../../shared/api/notebooks';
+import NotebookResourceFilters, { type NotebookResourceFiltersProps } from '../create/NotebookResourceFilters';
+import { useModalKeyboard } from '../../../hooks/useModalKeyboard';
+import { toast } from '../../../lib/toast';
+import { notifyError } from '../../../lib/notifyError';
+import { addNotebookSources, fetchReferenceResources, type ReferenceResourcePage } from '../../../shared/api/notebooks';
 import { isAbortError } from './notebookModel';
 import type { ResourceFilters } from './notebookTypes';
 

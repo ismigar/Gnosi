@@ -3,12 +3,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotebookDetail } from './NotebookDetail';
-import * as api from '../../shared/api/notebooks';
-import { transportFetch } from '../../shared/api/transports';
-import { GnosiApiError } from '../../shared/api/errors';
-import { toast } from '../../lib/toast';
-import { vaultPath } from '../../lib/vaultRouting';
-import { removeStorage, writeStorage } from '../../shared/platform/browser-storage';
+import * as api from '../../../shared/api/notebooks';
+import { transportFetch } from '../../../shared/api/transports';
+import { GnosiApiError } from '../../../shared/api/errors';
+import { toast } from '../../../lib/toast';
+import { vaultPath } from '../../../lib/vaultRouting';
+import { removeStorage, writeStorage } from '../../../shared/platform/browser-storage';
 import { NOTEBOOK_USER_ID } from './notebookModel';
 import { chatSourcesFixture, notebookFixture, resourcesFixture, sourcesFixture } from './notebookTestFixtures';
 import type { NotebookChatContext } from './notebookTypes';
@@ -18,16 +18,16 @@ const { translate, chatMount } = vi.hoisted(() => ({
     chatMount: vi.fn(),
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: translate }) }));
-vi.mock('../../shared/api/notebooks', () => ({
+vi.mock('../../../shared/api/notebooks', () => ({
     fetchNotebook: vi.fn(), fetchNotebookSources: vi.fn(), fetchNotebookChatSources: vi.fn(),
     fetchReferenceResources: vi.fn(), addNotebookSources: vi.fn(), updateNotebook: vi.fn(),
     refreshNotebook: vi.fn(), refreshNotebookSource: vi.fn(), cancelNotebookRefresh: vi.fn(),
     removeNotebookSource: vi.fn(), deleteNotebook: vi.fn(),
 }));
-vi.mock('../../shared/api/transports', () => ({ transportFetch: vi.fn() }));
-vi.mock('../../lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('../../lib/notifyError', () => ({ notifyError: vi.fn() }));
-vi.mock('../../components/AgentChat', async () => {
+vi.mock('../../../shared/api/transports', () => ({ transportFetch: vi.fn() }));
+vi.mock('../../../lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../../../lib/notifyError', () => ({ notifyError: vi.fn() }));
+vi.mock('../../../components/AgentChat', async () => {
     const { useEffect } = await import('react');
     return { default: function TestAgentChat({ contextRefs, storageIdentity, forcedSessionId }: { contextRefs: NotebookChatContext[]; storageIdentity: string; forcedSessionId: string }) {
         useEffect(() => { chatMount(); }, []);

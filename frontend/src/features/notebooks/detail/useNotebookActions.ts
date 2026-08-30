@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { cancelNotebookRefresh, deleteNotebook as deleteNotebookRequest, refreshNotebook as requestNotebookRefresh, refreshNotebookSource, removeNotebookSource, updateNotebook, type NotebookUpdateInput } from '../../shared/api/notebooks';
-import { transportFetch } from '../../shared/api/transports';
-import { toast } from '../../lib/toast';
-import { vaultPath } from '../../lib/vaultRouting';
+import { cancelNotebookRefresh, deleteNotebook as deleteNotebookRequest, refreshNotebook as requestNotebookRefresh, refreshNotebookSource, removeNotebookSource, updateNotebook, type NotebookUpdateInput } from '../../../shared/api/notebooks';
+import { transportFetch } from '../../../shared/api/transports';
+import { toast } from '../../../lib/toast';
+import { vaultPath } from '../../../lib/vaultRouting';
 import { moveResource } from './notebookModel';
 import type { NotebookGroup } from './notebookTypes';
 import type { useNotebookDetailData } from './useNotebookDetailData';

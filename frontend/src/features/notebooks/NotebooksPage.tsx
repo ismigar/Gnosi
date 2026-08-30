@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import NotebookCreateDialog from '../components/Notebooks/NotebookCreateDialog';
-import { vaultPath } from '../lib/vaultRouting';
-import { NotebookDetail } from './notebooks-page/NotebookDetail';
-import NotebookLibrary from './notebooks-page/NotebookLibrary';
+import NotebookCreateDialog from './create/NotebookCreateDialog';
+import { vaultPath } from '../../lib/vaultRouting';
+import { NotebookDetail } from './detail/NotebookDetail';
+import NotebookLibrary from './detail/NotebookLibrary';
 import './NotebooksPage.css';
 
-export { NotebookDetail } from './notebooks-page/NotebookDetail';
+export { NotebookDetail } from './detail/NotebookDetail';
 
 export default function NotebooksPage() {
     const { notebookId } = useParams();

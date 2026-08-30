@@ -1,5 +1,5 @@
-import type { NotebookDetail, NotebookSourcesPage } from '../../shared/api/notebooks';
-import type { NotebookResourceFiltersProps } from '../../components/Notebooks/NotebookResourceFilters';
+import type { NotebookDetail, NotebookSourcesPage } from '../../../shared/api/notebooks';
+import type { NotebookResourceFiltersProps } from '../create/NotebookResourceFilters';
 
 export type NotebookGroup = NonNullable<NotebookDetail['groups']>[number];
 export type NotebookResource = NotebookSourcesPage['items'][number];

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { NotebookController } from './useNotebookController';
 import { BookOpen, LoaderCircle } from 'lucide-react';
-import AgentChat from '../../components/AgentChat';
+import AgentChat from '../../../components/AgentChat';
 import { notebookChatContext, notebookStorageIdentity } from './notebookModel';
 
 export default function NotebookChatPanel({ controller }: { controller: NotebookController }) {

@@ -1,4 +1,4 @@
-import type { NotebookChatSources, NotebookDetail, NotebookSourcesPage, ReferenceResourcePage } from '../../shared/api/notebooks';
+import type { NotebookChatSources, NotebookDetail, NotebookSourcesPage, ReferenceResourcePage } from '../../../shared/api/notebooks';
 
 export function notebookFixture(patch: Partial<NotebookDetail> = {}): NotebookDetail {
     return {

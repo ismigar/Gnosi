@@ -13,6 +13,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppSidebar } from '../components/AppSidebar';
+import { NotebookCreateDialog } from '../features/notebooks';
 
 interface AgentChatProps {
   readonly contextRefs?: readonly ModuleContextRef[];
@@ -22,7 +23,6 @@ interface AgentChatProps {
 const AgentChat = lazy(() => import('../components/AgentChat')) as unknown as ComponentType<AgentChatProps>;
 const MeetingReminderWatcher = lazy(() => import('../components/MeetingReminderWatcher'));
 const MeetingRecorder = lazy(() => import('../components/MeetingRecorder'));
-const NotebookCreateDialog = lazy(() => import('../components/Notebooks/NotebookCreateDialog'));
 import { Toaster } from '../lib/toast';
 
 import PageOutline from '../components/PageOutline';

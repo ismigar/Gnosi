@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import HomePage from '../pages/HomePage';
+import { NotebooksPage } from '../features/notebooks';
 import { GraphLoadingState } from '../components/GraphLoadingState';
 import { PluginRoute } from '../components/PluginGate';
 import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, vaultAppFromPath } from '../lib/vaultRouting';
@@ -30,7 +31,6 @@ const ComposerPage = lazy(() => import('../pages/ComposerPage'));
 const SharedPage = lazy(() => import('../pages/SharedPage'));
 const ProjectPlanningPage = lazy(() => import('../pages/ProjectPlanningPage'));
 const LiteraturePage = lazy(() => import('../pages/LiteraturePage'));
-const NotebooksPage = lazy(() => import('../pages/NotebooksPage'));
 interface VaultRouteScopeProps {
   readonly children: ReactNode;
 }

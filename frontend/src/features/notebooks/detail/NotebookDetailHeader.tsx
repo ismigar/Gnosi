@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { NotebookController } from './useNotebookController';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, CircleStop, LoaderCircle, RefreshCw, Trash2 } from 'lucide-react';
-import { vaultPath } from '../../lib/vaultRouting';
+import { vaultPath } from '../../../lib/vaultRouting';
 import StatusBadge from './StatusBadge';
 import { isIndexing } from './notebookModel';
 
