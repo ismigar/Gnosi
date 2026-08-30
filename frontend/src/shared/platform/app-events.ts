@@ -75,6 +75,7 @@ export interface ModuleContextRef {
 export interface AppEventMap {
   readonly 'app-error': AppErrorEventDetail;
   readonly 'db-theme-changed': null;
+  readonly 'gnosi-mail-dark-body-changed': null;
   readonly 'gnosi:config-changed': null;
   readonly 'gnosi:create-notebook': { readonly resourceIds: readonly string[] };
   readonly 'gnosi:ai-correct-page': null;
@@ -108,6 +109,18 @@ export interface AppEventMap {
 
 type EventArguments<K extends keyof AppEventMap> =
   [AppEventMap[K]] extends [null] ? [] : [detail: AppEventMap[K]];
+
+type AppSignalName = {
+  [K in keyof AppEventMap]: [AppEventMap[K]] extends [null] ? K : never;
+}[keyof AppEventMap];
+
+/** Signals have no payload and accept legacy Event as well as CustomEvent. */
+export function subscribeAppSignal(name: AppSignalName, listener: () => void): () => void {
+  const target = runtimeEventTarget();
+  if (!target) return () => undefined;
+  target.addEventListener(name, listener);
+  return () => { target.removeEventListener(name, listener); };
+}
 
 
 function runtimeEventTarget(): Window | null {

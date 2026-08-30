@@ -1,9 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { emitAppEvent, subscribeAppEvent } from './app-events';
+import { emitAppEvent, subscribeAppEvent, subscribeAppSignal } from './app-events';
+import { dispatchWindowEvent } from './browser-events';
 
 
 describe('typed application events', () => {
+  it('supports legacy native signals and typed signals without leaking listeners', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeAppSignal('gnosi-mail-dark-body-changed', listener);
+    dispatchWindowEvent(new Event('gnosi-mail-dark-body-changed'));
+    emitAppEvent('gnosi-mail-dark-body-changed');
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+    emitAppEvent('gnosi-mail-dark-body-changed');
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
   it('delivers typed details and unsubscribes deterministically', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeAppEvent('gnosi:invalidatePreview', listener);

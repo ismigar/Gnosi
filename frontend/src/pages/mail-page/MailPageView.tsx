@@ -72,21 +72,9 @@ interface MailComposerBoundaryProps extends MailComposeData {
 }
 
 
-interface MailViewerBoundaryProps {
-  readonly account: MailAccount | null;
-  readonly mail: MailPageMessage | null;
-  readonly onActionDone: MailPageController['handleActionDone'];
-  readonly onClose: () => void;
-  readonly onCompose: (data?: MailComposeData | null) => void;
-  readonly onMailRead: (mailId: string) => void;
-  readonly onMoved: (mailId: string) => void;
-}
-
-
 const TypedMailSidebar = MailSidebar as unknown as ComponentType<MailSidebarBoundaryProps>;
 const TypedMailList = MailList as unknown as ComponentType<MailListBoundaryProps>;
 const TypedMailComposer = MailComposer as unknown as ComponentType<MailComposerBoundaryProps>;
-const TypedMailViewer = MailViewer as unknown as ComponentType<MailViewerBoundaryProps>;
 
 
 interface MailPageViewProps {
@@ -190,7 +178,7 @@ export function MailPageView({ controller }: MailPageViewProps) {
                 {...(controller.composeData ?? {})}
               />
             ) : (
-              <TypedMailViewer
+            <MailViewer
                 account={controller.selectedAccount}
                 mail={controller.selectedMail}
                 onClose={() => {
