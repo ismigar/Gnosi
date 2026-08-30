@@ -29,10 +29,12 @@ source_paths:
   - frontend/src/components/Vault/VaultDateProperty.jsx
   - frontend/src/components/Vault/VaultTimeline.jsx
   - frontend/src/pages/VaultDashboard.jsx
-  - frontend/src/pages/ProjectPlanningPage.jsx
+  - frontend/src/features/planning
   - frontend/src/utils/projectPlanning.js
   - frontend/src/utils/vaultFilters.js
 tests:
+  - frontend/src/features/planning/ProjectPlanningPage.test.tsx
+  - frontend/src/features/planning/public-entry.test.ts
   - backend/tests/test_action_rules.py
   - backend/tests/test_database_rules_views_domain_contract.py
   - backend/tests/test_rule_engine_derived_order.py
@@ -215,6 +217,11 @@ selected, and recurrence materialization uses bounded iterator consumption for
 RRULE occurrences while preserving stable task identifiers and ETag checks.
 
 ## Project planning
+
+The strictly typed `features/planning/` frontend owns the planning page and
+its behavior tests behind a public lazy entry. The timeline renderer remains
+shared with Vault views. Route ownership does not alter scheduling requests,
+baseline creation, work logs, or explicit leveling-proposal approval.
 
 Planning consumes structured task fields and produces an authoritative schedule
 rather than duplicating scheduling logic in the UI. The engine normalizes

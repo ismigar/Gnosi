@@ -4,6 +4,12 @@ import { useTranslation } from 'react-i18next';
 import HomePage from '../pages/HomePage';
 import { NotebooksPage } from '../features/notebooks';
 import { MailPage } from '../features/mail';
+import { CalendarPage } from '../features/calendar';
+import { GraphPage } from '../features/graph';
+import { ReaderDashboard } from '../features/reader';
+import { ContactsPage } from '../features/contacts';
+import { LiteraturePage } from '../features/literature';
+import { ProjectPlanningPage } from '../features/planning';
 import { GraphLoadingState } from '../components/GraphLoadingState';
 import { PluginRoute } from '../components/PluginGate';
 import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, vaultAppFromPath } from '../lib/vaultRouting';
@@ -15,22 +21,16 @@ import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, va
 // initial: the browser only downloads the route's chunk when it's navigated to.
 // HomePage stays EAGER because it's the most common startup (without a flash of
 // Suspense at the start).
-const GraphPage = lazy(() => import('../pages/GraphPage'));
 const Dashboard = lazy(() => import('../pages/Dashboard'));
 const SocialDashboard = lazy(() => import('../pages/SocialDashboard'));
-const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const VaultDashboard = lazy(() => import('../pages/VaultDashboard'));
 const ZoteroReaderPage = lazy(() =>
   import('../components/Vault/ZoteroReaderTab').then((m) => ({ default: m.ZoteroReaderPage })),
 );
-const ReaderDashboard = lazy(() => import('../pages/ReaderDashboard'));
 const MediaCenter = lazy(() => import('../pages/MediaCenter'));
-const ContactsPage = lazy(() => import('../pages/ContactsPage'));
 const SchedulerPage = lazy(() => import('../pages/SchedulerPage'));
 const ComposerPage = lazy(() => import('../pages/ComposerPage'));
 const SharedPage = lazy(() => import('../pages/SharedPage'));
-const ProjectPlanningPage = lazy(() => import('../pages/ProjectPlanningPage'));
-const LiteraturePage = lazy(() => import('../pages/LiteraturePage'));
 interface VaultRouteScopeProps {
   readonly children: ReactNode;
 }

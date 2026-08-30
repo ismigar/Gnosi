@@ -42,23 +42,23 @@ export const cssContracts = [
     ]
   },
   {
-    "entry": "src/pages/LiteraturePage.css",
+    "entry": "src/features/literature/LiteraturePage.css",
     "astSha256": "be9cfc00641336ef0400142f9d529121bf2ec0a9731d6f868d833072a3cf16eb",
     "topLevelNodes": 194,
     "modules": [
-      "src/pages/literature-page/styles/layout.css",
-      "src/pages/literature-page/styles/search.css",
-      "src/pages/literature-page/styles/manual-capture.css",
-      "src/pages/literature-page/styles/filters-sources.css",
-      "src/pages/literature-page/styles/ai-proposal.css",
-      "src/pages/literature-page/styles/search-feedback.css",
-      "src/pages/literature-page/styles/results.css",
-      "src/pages/literature-page/styles/preview.css",
-      "src/pages/literature-page/styles/reviews.css",
-      "src/pages/literature-page/styles/snowball.css",
-      "src/pages/literature-page/styles/review-decisions.css",
-      "src/pages/literature-page/styles/responsive.css",
-      "src/pages/literature-page/styles/review-schedule.css"
+      "src/features/literature/styles/layout.css",
+      "src/features/literature/styles/search.css",
+      "src/features/literature/styles/manual-capture.css",
+      "src/features/literature/styles/filters-sources.css",
+      "src/features/literature/styles/ai-proposal.css",
+      "src/features/literature/styles/search-feedback.css",
+      "src/features/literature/styles/results.css",
+      "src/features/literature/styles/preview.css",
+      "src/features/literature/styles/reviews.css",
+      "src/features/literature/styles/snowball.css",
+      "src/features/literature/styles/review-decisions.css",
+      "src/features/literature/styles/responsive.css",
+      "src/features/literature/styles/review-schedule.css"
     ]
   }
 ] as const;

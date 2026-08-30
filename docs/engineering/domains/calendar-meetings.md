@@ -10,10 +10,12 @@ source_paths:
   - backend/services/hybrid_calendar_service.py
   - backend/services/vault_calendar_sync_service.py
   - backend/services/meeting_reminders.py
-  - frontend/src/pages/CalendarPage.jsx
-  - frontend/src/components/MeetingRecorder.jsx
-  - frontend/src/components/MeetingReminderWatcher.jsx
+  - frontend/src/features/calendar
+  - frontend/src/components/MeetingRecorder.tsx
+  - frontend/src/components/MeetingReminderWatcher.tsx
 tests:
+  - frontend/src/features/calendar/page/CalendarPage.test.tsx
+  - frontend/src/features/calendar/public-entry.test.ts
   - backend/tests/test_calendar_geocoding_domain.py
   - backend/tests/test_hybrid_calendar_service.py
   - backend/tests/test_calendar_path_containment.py
@@ -30,6 +32,12 @@ Calendar aggregates local Vault events with connected Google Calendar and
 CalDAV accounts. It supports calendar selection, event CRUD, invitations,
 RSVPs, free/busy queries, geocoding, reminders, hidden-event state, ICS export,
 meeting recording, transcription, and AI-generated notes.
+
+The strictly typed `features/calendar/` frontend owns the calendar page,
+source selection, search, recurrence coordination, and page dialogs. Its
+public entry retains the original lazy-loading boundary. Calendar renderers
+also consumed by Vault and Mail remain shared outside the route feature;
+provider adapters, reminder watchers, and event payloads are unchanged.
 
 The HTTP boundary is strictly typed while preserving the existing response
 contract. Photon label normalization, URL rejection, result validation, and

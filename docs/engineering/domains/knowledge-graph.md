@@ -5,14 +5,16 @@ source_paths:
   - backend/domains/graph
   - backend/api/vault_graph_routes.py
   - backend/services/graph_service.py
-  - frontend/src/pages/GraphPage.jsx
-  - frontend/src/components/GraphViewer.jsx
+  - frontend/src/features/graph
+  - frontend/src/components/GraphViewer.tsx
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
   - backend/tests/test_graph_similarity_suggestions.py
   - backend/tests/test_graph_wedged_dirs.py
-  - frontend/src/utils/graphViewGeometry.test.js
+  - frontend/src/utils/graphViewGeometry.test.ts
+  - frontend/src/features/graph/GraphPage.test.tsx
+  - frontend/src/features/graph/public-entry.test.ts
 ---
 
 # Knowledge graph
@@ -26,6 +28,11 @@ used by the API, agent, and scheduler.
 The graph projects explicit knowledge relationships and optional semantic
 suggestions into an interactive network. It supports navigation and discovery;
 it is derived from the Vault and is not a separate source of truth.
+
+The strictly typed `features/graph/` frontend owns route state, filters and
+page composition behind a public lazy entry. The reusable graph renderer
+remains outside the route feature for embedded consumers. Moving ownership
+does not change graph projections, configuration keys, navigation, or styles.
 
 ## Graph construction
 

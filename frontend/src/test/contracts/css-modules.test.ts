@@ -119,7 +119,7 @@ describe('semantic CSS extraction contracts', () => {
     const mobile = global.nodes.filter(node => node.type === 'atrule'
       && node.name === 'media' && node.params === '(max-width: 768px)');
     expect(mobile).toHaveLength(2);
-    const literature = expand(resolve(frontend, 'src/pages/LiteraturePage.css'));
+    const literature = expand(resolve(frontend, 'src/features/literature/LiteraturePage.css'));
     const media: string[] = [];
     literature.walkAtRules('media', rule => { media.push(rule.params); });
     expect(media).toEqual(['(max-width: 900px)', '(max-width: 560px)']);
