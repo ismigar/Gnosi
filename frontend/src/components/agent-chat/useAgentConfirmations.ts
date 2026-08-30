@@ -1,11 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { mergeConfirmationRecords, startConfirmationRefresh } from '../agentConfirmationUtils';
+import { startConfirmationRefresh } from '../agentConfirmationUtils';
 import { fetchChatConfirmations } from '../../shared/api/chat-confirmations';
 import { logChatError as logError } from './chatDiagnostics';
 import { confirmPendingAction, cancelPendingAction } from './confirmationActions';
 import type { AgentConfirmation } from './confirmationModel';
-import type { ConfirmationActionContext } from './confirmationState';
+import { mergeLiveConfirmationRecords, type ConfirmationActionContext } from './confirmationState';
 
 type Options = Omit<ConfirmationActionContext, 't'> & { readonly scopeReady: boolean };
 
@@ -27,7 +27,7 @@ export function useAgentConfirmations(options: Options) {
         .then((confirmations) => {
           if (!confirmations || controller.signal.aborted || activeScopeRef.current !== requestScope) return;
           const records = confirmations.map((item) => ({ ...item, client_scope: requestScope, agent_id: selectedAgentId, session_id: sessionId }));
-          setMessages((previous) => mergeConfirmationRecords(previous, records, confirmationSummary));
+          setMessages((previous) => mergeLiveConfirmationRecords(previous, records, confirmationSummary));
         })
         .catch((error: unknown) => {
           if (!(error instanceof Error && error.name === 'AbortError')) logError('agent-chat-confirmations-refresh', error);

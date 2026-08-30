@@ -1,7 +1,8 @@
 import { createInstance } from 'i18next';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cancelPendingAction, confirmPendingAction } from './confirmationActions';
-import { withConfirmationStatus, type ConfirmationActionContext, type ConfirmationConversation } from './confirmationState';
+import { mergeLiveConfirmationRecords, withConfirmationStatus, type ConfirmationActionContext, type ConfirmationConversation } from './confirmationState';
+import { mergeConfirmationRecords, type ConfirmationRecord } from '../agentConfirmationUtils';
 import type { AgentConfirmation } from './confirmationModel';
 import type { cancelChatAction, confirmChatAction, fetchChatConfirmationStatus } from '../../shared/api/chat-confirmations';
 
@@ -31,6 +32,17 @@ function setup() {
 }
 
 describe('confirmation execution reconciliation', () => {
+  it('merges live confirmations exactly like the legacy contract without losing metadata or long content', () => {
+    const untouched = { content: 'full'.repeat(6000), llm: { model: 'fixture' }, opaque: { kept: true } };
+    const messages: ConfirmationConversation = [untouched, { role: 'assistant', content: 'old', confirmation: { confirmation_id: 'a', details: { before: 'private' } }, extra: 'kept' }];
+    const records: AgentConfirmation[] = [{ confirmation_id: 'a', status: 'pending', details: { before: 'private', after: 'changed' } }, { confirmation_id: 'b', status: 'pending' }];
+    const summary = (record: ConfirmationRecord) => `Review ${record.confirmation_id}`;
+    const result = mergeLiveConfirmationRecords(messages, records, summary);
+    expect(result).toEqual(mergeConfirmationRecords<ConfirmationRecord>(messages, records, summary));
+    expect(result[0]).toBe(untouched); expect(result[0]?.content).toHaveLength(24000);
+    expect(result[1]).toMatchObject({ extra: 'kept', confirmation: { details: { before: 'private', after: 'changed' } } });
+    expect(result[2]).toMatchObject({ content: 'Review b', role: 'assistant' });
+  });
   it('executes once in the originating scope and scrubs terminal review details', async () => {
     api.confirm.mockResolvedValue({ ok: true, statusText: '', payload: { detail: {}, result: {}, status: 'completed' } });
     const state = setup();

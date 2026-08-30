@@ -1,11 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import type { NotebookController } from './useNotebookController';
 import { BookOpen, LoaderCircle } from 'lucide-react';
-import LegacyAgentChat from '../../components/AgentChat';
+import AgentChat from '../../components/AgentChat';
 import { notebookChatContext, notebookStorageIdentity } from './notebookModel';
-import type { NotebookAgentComponent } from './notebookTypes';
-
-const AgentChat = LegacyAgentChat as NotebookAgentComponent;
 
 export default function NotebookChatPanel({ controller }: { controller: NotebookController }) {
     const { t } = useTranslation();

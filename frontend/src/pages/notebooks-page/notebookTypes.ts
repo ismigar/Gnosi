@@ -1,4 +1,3 @@
-import type { ComponentType } from 'react';
 import type { NotebookDetail, NotebookSourcesPage } from '../../shared/api/notebooks';
 import type { NotebookResourceFiltersProps } from '../../components/Notebooks/NotebookResourceFilters';
 
@@ -15,15 +14,3 @@ export interface NotebookChatContext {
     label: string;
     scope: { selection: 'sources' | 'all'; source_ids: string[] };
 }
-
-/** Compatibility boundary until the independently owned AgentChat is typed. */
-export type NotebookAgentComponent = ComponentType<{
-    embedded: boolean;
-    storageIdentity: string;
-    forcedSessionId: string;
-    forcedAgentId: string;
-    notebookId: string;
-    conversationMode: string;
-    contextRefs: NotebookChatContext[];
-    readOnly: boolean;
-}>;

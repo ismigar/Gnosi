@@ -1,10 +1,10 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import type { TFunction } from 'i18next';
-import type { ConfirmationMessage } from '../agentConfirmationUtils';
+import type { StoredChatMessage } from './sessionModel';
 import type { ConfirmationPayload, ConfirmationRequestScope } from '../../shared/api/chat-confirmations';
 import { confirmationScope, type AgentConfirmation } from './confirmationModel';
 
-export type ConfirmationConversation = ConfirmationMessage<AgentConfirmation>[];
+export type ConfirmationConversation = readonly StoredChatMessage[];
 export interface ConfirmationControllerScope {
   readonly browserStorageScope: string;
   readonly selectedAgentId: string;
@@ -21,6 +21,23 @@ export interface ConfirmationActionContext extends ConfirmationControllerScope {
 export function confirmationRequest(confirmation: AgentConfirmation, context: Pick<ConfirmationControllerScope, 'browserStorageScope' | 'selectedAgentId' | 'sessionId'>): { scope: ConfirmationRequestScope; requestScope: string } {
   const scope = { agent_id: confirmation.agent_id || context.selectedAgentId, session_id: confirmation.session_id || context.sessionId };
   return { scope, requestScope: confirmationScope(confirmation, context.browserStorageScope) || `${context.browserStorageScope}:${scope.agent_id}:${scope.session_id}` };
+}
+
+/** Merge trusted live confirmation records without applying the bounded storage codec. */
+export function mergeLiveConfirmationRecords(messages: ConfirmationConversation, records: readonly AgentConfirmation[], summary: (record: AgentConfirmation) => string): ConfirmationConversation {
+  const byId = new Map(records.map(record => [record.confirmation_id, record]));
+  const existingIds = new Set<string>();
+  const updated = messages.map(message => {
+    const id = message.confirmation?.confirmation_id;
+    if (!id) return message;
+    existingIds.add(id);
+    const current = byId.get(id);
+    return current ? { ...message, content: summary(current), confirmation: { ...message.confirmation, ...current } } : message;
+  });
+  for (const record of records) {
+    if (!existingIds.has(record.confirmation_id)) updated.push({ role: 'assistant', content: summary(record), confirmation: record });
+  }
+  return updated;
 }
 
 export function withConfirmationStatus(messages: ConfirmationConversation, confirmationId: string, status: string): ConfirmationConversation {
