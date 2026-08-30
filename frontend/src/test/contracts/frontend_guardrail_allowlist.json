@@ -109,7 +109,6 @@
       "frontend/src/pages/Dashboard.jsx": 4,
       "frontend/src/pages/GraphPage.jsx": 2,
       "frontend/src/pages/LiteraturePage.jsx": 4,
-      "frontend/src/pages/ReaderDashboard.jsx": 2,
       "frontend/src/pages/VaultDashboard.jsx": 33,
       "frontend/src/plugins/host.test.ts": 3,
       "frontend/src/plugins/host.ts": 3,
@@ -140,7 +139,6 @@
       "frontend/src/pages/LiteraturePage.jsx": 841,
       "frontend/src/pages/MediaCenter.jsx": 1632,
       "frontend/src/pages/NotebooksPage.jsx": 1097,
-      "frontend/src/pages/ReaderDashboard.jsx": 759,
       "frontend/src/pages/VaultDashboard.jsx": 4684
     },
     "oversized_files": {
@@ -166,7 +164,6 @@
       "frontend/src/pages/LiteraturePage.jsx": 841,
       "frontend/src/pages/MediaCenter.jsx": 1632,
       "frontend/src/pages/NotebooksPage.jsx": 1097,
-      "frontend/src/pages/ReaderDashboard.jsx": 759,
       "frontend/src/pages/VaultDashboard.jsx": 4684,
       "frontend/src/shared/api/index.ts": 643,
       "frontend/src/shared/api/vaults.test.ts": 504
