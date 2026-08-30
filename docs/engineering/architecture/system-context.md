@@ -3,7 +3,10 @@ status: implemented
 last_verified: 2026-08-02
 source_paths:
   - backend/server.py
-  - frontend/src/App.jsx
+  - frontend/src/app/App.tsx
+  - frontend/src/app/routes.tsx
+  - frontend/src/app/bootstrap.tsx
+  - frontend/src/app/AppProviders.tsx
   - frontend/vite.config.js
   - docker-compose.yml
   - desktop/main.js
@@ -33,14 +36,18 @@ flowchart LR
 
 ## Frontend boundary
 
-The frontend is a React single-page application. `App.jsx` owns the top-level
-browser routes, authentication gate, global shell, lazy route loading, toasts,
-agent chat, command palette, meeting recorder, reminders, and desktop update
-notice. Vite proxies `/api` and WebSocket traffic to the backend during native
-development.
+The frontend is a React single-page application. `app/App.tsx` owns the
+authentication gate, global shell, toasts and optional global surfaces.
+`app/routes.tsx` owns browser routes, Vault scope, redirects, loading fallbacks
+and lazy page imports; Home remains eager. `app/bootstrap.tsx` prepares the
+Vault cookie/routing, canonical URL and interface language before rendering.
+`app/AppProviders.tsx` preserves the StrictMode → API → router → authentication
+provider order. `main.tsx` imports the ordered CSS entry and starts bootstrap.
+Vite proxies `/api` and WebSocket traffic to the backend during native development.
 
 Pages compose reusable components; components call the backend through shared
-helpers or direct fetch calls. The frontend is not trusted to authorize a
+typed, domain-specific API adapters; direct transports stay inside reviewed
+shared boundaries. The frontend is not trusted to authorize a
 workspace, vault, user, or destructive operation. Client identifiers are
 signals that the backend resolves and validates.
 

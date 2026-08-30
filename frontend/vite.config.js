@@ -167,7 +167,7 @@ export default defineConfig(({ mode }) => {
       // We separate large vendors into their own chunks because (1) the chunk
       // main doesn't grow unchecked and trigger the 500 kB warning, and
       // (2) each library is cached independently across deployments.
-      // Heavy routes are already loaded with React.lazy (see src/App.jsx);
+      // Heavy routes are already loaded with React.lazy (see src/app/routes.tsx);
       // these groups ensure that dependencies shared between routes
       // (p.ex. blocknote a Vault i a MailComposer) no es dupliquin.
       // Chunks that still exceed 500 kB (editor-vendor ~1.4 MB,

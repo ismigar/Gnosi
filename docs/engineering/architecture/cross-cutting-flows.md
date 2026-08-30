@@ -8,7 +8,9 @@ source_paths:
   - backend/services/vault_routing.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
-  - frontend/src/App.jsx
+  - frontend/src/app/App.tsx
+  - frontend/src/app/routes.tsx
+  - frontend/src/app/bootstrap.tsx
   - frontend/src/context/AuthContext.jsx
   - frontend/src/hooks/useModalKeyboard.js
   - frontend/src/index.css
