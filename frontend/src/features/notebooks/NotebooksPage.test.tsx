@@ -64,8 +64,8 @@ vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: translate }),
 }));
 
-vi.mock('../../components/AgentChat', () => ({
-    default: ({ readOnly, contextRefs }: AgentChatProps) => (
+vi.mock('../agent', () => ({
+    AgentChat: ({ readOnly, contextRefs }: AgentChatProps) => (
         <div
             data-testid="agent-chat"
             data-read-only={readOnly ? 'true' : 'false'}

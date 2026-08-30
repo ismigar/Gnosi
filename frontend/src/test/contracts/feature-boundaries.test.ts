@@ -2,7 +2,7 @@
 import { fileURLToPath } from 'node:url';
 import { ESLint } from 'eslint';
 import tseslint from 'typescript-eslint';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 const frontend = fileURLToPath(new URL('../../..', import.meta.url));
 const lint = new ESLint({ cwd: frontend });
@@ -11,6 +11,12 @@ const lint = new ESLint({ cwd: frontend });
 // for these synthetic snippets; production ESLint remains strictTypeChecked.
 const syntaxLint = new ESLint({ cwd: frontend, overrideConfig: tseslint.configs.disableTypeChecked });
 const rule = 'gnosi/feature-boundaries';
+
+// Configuration/plugin startup belongs to suite setup, not the first rule case.
+beforeAll(async () => {
+  await lint.calculateConfigForFile('src/features/alpha/View.jsx');
+  await syntaxLint.calculateConfigForFile('src/test/contracts/feature-boundaries.test.ts');
+});
 
 async function messages(code: string, filePath = 'src/features/alpha/View.jsx', runner = lint) {
   const result = await runner.lintText(code, { filePath });

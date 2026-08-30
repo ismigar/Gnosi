@@ -13,7 +13,7 @@ source_paths:
   - backend/api/agent_routes.py
   - frontend/src/features/notebooks
   - frontend/src/shared/api/notebooks.ts
-  - frontend/src/components/AgentChat.tsx
+  - frontend/src/features/agent
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
@@ -40,6 +40,13 @@ questions about the attachments and URLs held by selected records in the
 configured References table. They combine a searchable notebook library, a
 paginated source panel, settings, and the same streaming chat transport used by
 the floating assistant.
+
+The embedded conversation imports the agent feature's public `AgentChat` export,
+never its private session or stream modules. The application shell loads that
+same public entry dynamically. Both consumers use the complete typed props
+contract, including immutable context references, notebook identity, and read-only
+mode. Only the outgoing HTTP payload receives a mutable array copy; reference
+contents, source selection, storage keys, and authorization remain unchanged.
 
 The record body, title, tags, and other metadata are not evidence. Gnosi reads
 record metadata only to locate values in fields whose table schema is an

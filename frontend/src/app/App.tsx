@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ComponentType,
   type MouseEvent,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -15,12 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { AppSidebar } from '../components/AppSidebar';
 import { NotebookCreateDialog } from '../features/notebooks';
 
-interface AgentChatProps {
-  readonly contextRefs?: readonly ModuleContextRef[];
-  readonly storageIdentity?: string;
-}
-
-const AgentChat = lazy(() => import('../components/AgentChat')) as unknown as ComponentType<AgentChatProps>;
+const AgentChat = lazy(() => import('../features/agent').then(module => ({ default: module.AgentChat })));
 const MeetingReminderWatcher = lazy(() => import('../components/MeetingReminderWatcher'));
 const MeetingRecorder = lazy(() => import('../components/MeetingRecorder'));
 import { Toaster } from '../lib/toast';

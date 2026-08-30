@@ -27,9 +27,9 @@ vi.mock('../../../shared/api/notebooks', () => ({
 vi.mock('../../../shared/api/transports', () => ({ transportFetch: vi.fn() }));
 vi.mock('../../../lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('../../../lib/notifyError', () => ({ notifyError: vi.fn() }));
-vi.mock('../../../components/AgentChat', async () => {
+vi.mock('../../agent', async () => {
     const { useEffect } = await import('react');
-    return { default: function TestAgentChat({ contextRefs, storageIdentity, forcedSessionId }: { contextRefs: NotebookChatContext[]; storageIdentity: string; forcedSessionId: string }) {
+    return { AgentChat: function TestAgentChat({ contextRefs, storageIdentity, forcedSessionId }: { contextRefs: NotebookChatContext[]; storageIdentity: string; forcedSessionId: string }) {
         useEffect(() => { chatMount(); }, []);
         return <div data-chat data-context={JSON.stringify(contextRefs)} data-identity={storageIdentity} data-session={forcedSessionId}>Conversation boundary</div>;
     } };

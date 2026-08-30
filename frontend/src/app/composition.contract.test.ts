@@ -42,8 +42,8 @@ describe('application composition extraction contracts', () => {
         : undefined;
     }));
     expect(imports.sort()).toEqual([
-      'components/AgentChat', 'components/MeetingRecorder', 'components/MeetingReminderWatcher',
-      'components/Vault/ZoteroReaderTab', 'features/automations/SchedulerPage',
+      'components/MeetingRecorder', 'components/MeetingReminderWatcher',
+      'components/Vault/ZoteroReaderTab', 'features/agent', 'features/automations/SchedulerPage',
       'features/calendar/CalendarPage', 'features/contacts/ContactsPage',
       'features/control-center/Dashboard', 'features/graph/GraphPage', 'features/literature/LiteraturePage',
       'features/mail/MailPage', 'features/media/MediaCenter', 'features/notebooks/NotebooksPage',

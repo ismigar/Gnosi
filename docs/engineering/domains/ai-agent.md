@@ -50,9 +50,13 @@ source_paths:
   - backend/mcp/client.py
   - pipeline/ai_client.py
   - pipeline/skills/translate_row
-  - frontend/src/components/AgentChat.jsx
+  - frontend/src/features/agent
   - frontend/src/components/AI
 tests:
+  - frontend/src/features/agent/public-entry.test.ts
+  - frontend/src/features/agent/chat/AgentChat.transport.test.tsx
+  - frontend/src/features/agent/chat/submitChatTurn.test.ts
+  - frontend/src/features/agent/chat/chat-message-actions.test.ts
   - backend/tests/test_capability_automations.py
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
@@ -95,6 +99,20 @@ tests:
 ---
 
 # AI agents, models, tools, and skills
+
+## Frontend conversation ownership
+
+`features/agent` owns chat composition, sessions, confirmations, message actions,
+and stream presentation. Its public entry exports `AgentChat` and the complete
+props contract. The application loads this entry dynamically; notebooks import
+the same component inside their optional route chunk. No caller reaches private
+chat modules or casts the component to a narrower type.
+
+Context-reference arrays remain read-only through the UI and are copied only
+when constructing the existing HTTP request. This preserves source metadata,
+notebook scoping, payloads, stream replay, and persistence keys. Generic HTTP and
+NDJSON adapters remain under `shared/api`; composed feedback-and-transport tests
+belong to the agent feature so shared code does not depend on UI internals.
 
 ## Capability model
 
