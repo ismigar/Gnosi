@@ -62,4 +62,24 @@ describe('inline icon markdown mapping', () => {
             { type: 'text', text: ' after', styles: {} },
         ]);
     });
+
+    it('keeps malformed legacy icon tokens visible instead of rejecting the page', async () => {
+        const editor = {
+            tryParseMarkdownToBlocks: (markdown: string) => Promise.resolve([{
+                type: 'paragraph',
+                content: [{ type: 'text', text: markdown, styles: {} }],
+            }]),
+        };
+
+        const blocks = await parseBlocks('Icon {{gnosi-icon:%E0%A4%A}}', editor);
+        const paragraph = blocks.at(0);
+        if (!isRecord(paragraph) || !isUnknownArray(paragraph.content)) {
+            throw new Error('Expected paragraph inline content');
+        }
+
+        expect(paragraph.content).toEqual([
+            { type: 'text', text: 'Icon ', styles: {} },
+            { type: 'inlineIcon', props: { value: '%E0%A4%A' } },
+        ]);
+    });
 });
