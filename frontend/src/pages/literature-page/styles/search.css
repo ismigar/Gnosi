@@ -1,0 +1,138 @@
+.literature-search-panel {
+    padding: 16px;
+    border: 1px solid var(--border-primary);
+    border-radius: 16px;
+    background: var(--bg-primary);
+    box-shadow: 0 8px 26px rgb(15 23 42 / 4%);
+}
+
+.literature-search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 8px 7px 13px;
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+}
+
+.literature-search-box:focus-within {
+    border-color: var(--gnosi-blue);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--gnosi-blue) 12%, transparent);
+}
+
+.literature-search-box > input {
+    flex: 1;
+    min-width: 160px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 15px;
+}
+
+.literature-ai-button,
+.literature-link-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    color: var(--gnosi-blue);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.literature-ai-button {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--gnosi-blue) 8%, transparent);
+}
+
+.literature-ai-agent {
+    max-width: 190px;
+    padding: 7px 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.literature-search-toolbar,
+.literature-source-picker__header,
+.literature-preview footer,
+.literature-review-detail > header,
+.literature-review-detail__actions,
+.literature-export-menu {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.literature-search-toolbar {
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.literature-link-button.is-danger {
+    color: var(--status-error);
+}
+
+.literature-search-history {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 7px;
+    margin-top: 12px;
+    padding: 11px;
+    border: 1px solid var(--border-primary);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+}
+
+.literature-search-history > header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.literature-search-history > button {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+}
+
+.literature-search-history > button.is-active {
+    border-color: var(--gnosi-blue);
+}
+
+.literature-search-history > button span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.literature-search-history > button small {
+    color: var(--text-tertiary);
+}
+
+.literature-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 14px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}

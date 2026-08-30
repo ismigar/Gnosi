@@ -1,0 +1,82 @@
+/* Botons Estàndard Gnosi */
+.btn-gnosi {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border-radius: 12px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  line-height: 1.25;
+}
+
+.btn-gnosi:active {
+  transform: scale(0.96);
+}
+
+.btn-gnosi:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-gnosi-primary {
+  background-color: var(--gnosi-action-bg);
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(var(--gnosi-action-rgb), 0.25);
+}
+
+.btn-primary:hover,
+.btn-gnosi-primary:hover,
+.btn-gnosi-primary7:hover,
+.btn-primary:hover span,
+.btn-gnosi-primary:hover span,
+.btn-gnosi-primary7:hover span,
+.btn-primary:hover svg,
+.btn-gnosi-primary:hover svg,
+.btn-gnosi-primary7:hover svg {
+  font-weight: 800 !important;
+  letter-spacing: 0.3px !important;
+  stroke-width: 2.5px !important;
+  transform: scale(1.02);
+}
+
+.btn-gnosi-danger {
+  background-color: #ef4444;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  line-height: 1.25;
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+.btn-gnosi-primary7 {
+  background-color: var(--gnosi-action-bg);
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(var(--gnosi-action-rgb), 0.25);
+}

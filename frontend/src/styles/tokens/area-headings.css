@@ -1,0 +1,29 @@
+/* -------------------------------------------------------------------------- */
+/*  Fons de color a les capçaleres de seccions de les pàgines d'ÀREA            */
+/*  BlockEditor injecta un `<style>` amb regles `[data-id="…"] > .bn-block-     */
+/*  content { background: var(--area-<color>) }` segons el títol de cada        */
+/*  capçalera (Formació→blue, Recursos→gray, …). Aquí només definim la paleta   */
+/*  com a variables, amb variant clara i fosca. Vegeu areaHeadingColors.js.     */
+/* -------------------------------------------------------------------------- */
+:root {
+    --area-blue:   #dbeafe;
+    --area-pink:   #fce7f3;
+    --area-brown:  #ede0d4;
+    --area-green:  #dcfce7;
+    --area-red:    #fee2e2;
+    --area-yellow: #fef9c3;
+    --area-gray:   #e5e7eb;
+    --area-purple: #ede9fe;
+    --area-orange: #ffedd5;
+}
+.dark {
+    --area-blue:   rgba(59, 130, 246, 0.22);
+    --area-pink:   rgba(236, 72, 153, 0.22);
+    --area-brown:  rgba(146, 104, 70, 0.30);
+    --area-green:  rgba(34, 197, 94, 0.22);
+    --area-red:    rgba(239, 68, 68, 0.22);
+    --area-yellow: rgba(234, 179, 8, 0.25);
+    --area-gray:   rgba(156, 163, 175, 0.22);
+    --area-purple: rgba(168, 85, 247, 0.22);
+    --area-orange: rgba(249, 115, 22, 0.24);
+}

@@ -1,0 +1,82 @@
+/* Embed gnosi_view: BlockNote pinta `outline: 4px solid rgb(100, 160, 255)`
+   sobre tots els fills de `.bn-block-content.ProseMirror-selectednode` (vegeu
+   @blocknote/core/src/editor/Block.css), generant un rectangle blau al
+   voltant del nostre embed sencer. Anul·lem outline a tots els fills i a
+   les variants amb node-view renderer. */
+.bn-block-content.ProseMirror-selectednode > .react-renderer.node-gnosi_view,
+.bn-block-content.ProseMirror-selectednode > .bn-react-node-view-renderer.node-gnosi_view,
+.ProseMirror-selectednode > .bn-block-content > .react-renderer.node-gnosi_view,
+.ProseMirror-selectednode > .bn-block-content > .bn-react-node-view-renderer.node-gnosi_view,
+.bn-block-content > .node-gnosi_view.ProseMirror-selectednode,
+.ProseMirror-selectednode.node-gnosi_view,
+.bn-react-node-view-renderer.node-gnosi_view.ProseMirror-selectednode,
+.node-gnosi_view.ProseMirror-selectednode,
+/* Cobertura completa: BlockNote aplica outline a `> *` (qualsevol fill
+   directe), però el primer fill del DbViewEmbed no porta classe
+   `.node-gnosi_view`. Aquí atrapem qualsevol fill directe del wrapper
+   identificat per `data-content-type="gnosi_view"`. */
+.bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode > *,
+.ProseMirror-selectednode > .bn-block-content[data-content-type="gnosi_view"] > * {
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+/* A drag-handle click selects the whole BlockNote node. Make the selection
+   visible on the outer block too, including blocks nested in columns. */
+.bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content.ProseMirror-selectednode),
+.bn-editor .bn-block-outer:has(> .bn-block-content.ProseMirror-selectednode) {
+    outline: 2px solid color-mix(in srgb, var(--gnosi-primary) 72%, transparent) !important;
+    outline-offset: 3px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--gnosi-primary) 7%, transparent) !important;
+}
+
+/* Keep the click-capture wrapper from baseline-aligning the drag handle above
+   its sibling and the embedded block content. */
+.bn-side-menu > div:has([data-test="dragHandle"]) {
+    display: flex;
+    align-items: flex-start;
+}
+
+/* Center the hover-only controls on the embedded view toolbar. */
+.bn-side-menu[data-block-type="gnosi_view"] {
+    position: relative;
+    top: 1.125rem;
+}
+
+/* External/media embeds are block-level content. Keep every BlockNote wrapper
+   fluid so the frame fills the available page or column width instead of
+   shrinking to the intrinsic width of its document. */
+.bn-editor .bn-block-content[data-content-type="embed"],
+.bn-editor .bn-block-content[data-content-type="embed"] > .bn-react-node-view-renderer,
+.bn-editor .bn-block-content[data-content-type="embed"] > .react-renderer,
+.bn-editor .bn-block-content[data-content-type="embed"] > [data-content-type="embed"] {
+    width: 100% !important;
+    min-width: 0 !important;
+}
+
+/* La VaultTable embeguda viu dins de `.ProseMirror`, on el CSS de taules de
+   BlockNote (@blocknote/core) es filtra sobre la nostra `<table>` i trenca la
+   columna fixa (sticky) del títol:
+     - força `position: relative` sobre cada `td`/`th` → anul·la el `sticky`,
+     - força `overflow: hidden` sobre la `<table>` → la taula esdevé el seu
+       propi context de scroll i la sticky deixa d'ancorar-se al scroller
+       intern de la VaultTable.
+   Restaurem el comportament de la taula completa (que funciona perquè no és
+   filla de l'editor) reafirmant sticky a les cel·les marcades i tornant la
+   taula a overflow visible. Selector limitat a l'embed gnosi_view. */
+.bn-block-content[data-content-type="gnosi_view"] th.sticky,
+.bn-block-content[data-content-type="gnosi_view"] td.sticky {
+    position: sticky !important;
+}
+.bn-block-content[data-content-type="gnosi_view"] table {
+    overflow: visible !important;
+}
+/* BlockNote força `vertical-align: top` a les cel·les de `.ProseMirror`, cosa
+   que descentra el checkbox de la capçalera (la taula completa, fora de
+   l'editor, usa el `middle` per defecte). Ho restaurem només a les capçaleres;
+   el cos manté l'alineació pròpia (`align-top`). */
+.bn-block-content[data-content-type="gnosi_view"] thead th {
+    vertical-align: middle !important;
+}

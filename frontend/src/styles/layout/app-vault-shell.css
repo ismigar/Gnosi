@@ -1,0 +1,68 @@
+.gnosi-app-shell {
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.gnosi-app-content {
+  min-width: 0;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  transition: background-color 0.2s ease;
+}
+
+.vault-shell {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.vault-shell__sidebar {
+  position: relative;
+  z-index: var(--z-sidebar);
+  width: 0;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-inline-end: 0 solid var(--sidebar-border);
+  background: var(--sidebar-bg);
+  transition: width 0.22s ease, border-width 0.22s ease, transform 0.22s ease;
+}
+
+.vault-shell__sidebar.is-open {
+  width: 240px;
+  border-inline-end-width: 1px;
+}
+
+.vault-shell__sidebar-content {
+  display: flex;
+  width: 240px;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+}
+
+.vault-shell__main {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  background: var(--bg-primary);
+  transition: background-color 0.2s ease;
+}
+
+.vault-shell__backdrop {
+  display: none;
+}

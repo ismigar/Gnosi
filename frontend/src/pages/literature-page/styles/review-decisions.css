@@ -1,0 +1,166 @@
+.literature-decision-fields {
+    display: grid;
+    grid-template-columns: minmax(180px, .8fr) minmax(220px, 1.2fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.literature-decision-fields label,
+.literature-full-text label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.literature-decision-fields input,
+.literature-decision-fields textarea,
+.literature-full-text input,
+.literature-full-text select,
+.literature-full-text textarea {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 7px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.literature-full-text {
+    grid-column: 1 / -1;
+    padding-top: 9px;
+    border-top: 1px solid var(--border-primary);
+}
+
+.literature-full-text summary,
+.literature-review-protocol summary {
+    color: var(--gnosi-blue);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.literature-full-text > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 9px;
+}
+
+.literature-full-text button {
+    align-self: end;
+    justify-self: start;
+}
+
+.literature-review-protocol {
+    margin: 12px 0;
+    padding: 11px 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+}
+
+.literature-review-protocol h3 {
+    margin: 10px 0 4px;
+    font-size: 11px;
+}
+
+.literature-review-protocol p,
+.literature-review-protocol ul {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+    white-space: pre-wrap;
+}
+
+.literature-review-protocol article {
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid var(--border-primary);
+}
+
+.literature-review-protocol article header {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.literature-review-protocol .is-error {
+    color: var(--status-error);
+}
+
+.literature-seed-count {
+    display: block;
+    margin: 0 0 8px;
+    color: var(--text-secondary);
+}
+
+.literature-prisma-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0 0 14px;
+}
+
+.literature-prisma-summary span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    color: var(--text-tertiary);
+    font-size: 9px;
+}
+
+.literature-prisma-summary strong {
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.literature-candidates h3 {
+    margin: 6px 0 4px;
+    font-size: 14px;
+}
+
+.literature-candidates p {
+    display: -webkit-box;
+    overflow: hidden;
+    margin: 0;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.literature-candidate-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.literature-candidate-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 7px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.literature-candidate-actions button.is-danger {
+    color: var(--status-error);
+}
+
+.spin {
+    animation: literature-spin 900ms linear infinite;
+}
+
+@keyframes literature-spin {
+    to { transform: rotate(360deg); }
+}

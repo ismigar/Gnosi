@@ -1,0 +1,36 @@
+.vault-feed-card__identity {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.vault-feed-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+
+.vault-feed-card__title > span:last-child {
+  overflow-wrap: anywhere;
+}
+
+.vault-feed-card__date {
+  color: color-mix(in srgb, var(--text-secondary) 78%, transparent);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.vault-feed-card__title {
+  border-radius: var(--radius-sm);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+}
+
+.vault-feed-card__pills {
+  color: var(--text-secondary);
+}
+
+.vault-feed-card__pills > :not(button) {
+  filter: saturate(0.82);
+}

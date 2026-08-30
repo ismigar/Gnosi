@@ -1,0 +1,68 @@
+/* Canonical navigation-group heading shared by every application sidebar. */
+.gnosi-sidebar-section-title {
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+/* Canonical type scale for Vault sidebar navigation. Keep it independent of
+   element type because the global form reset makes buttons inherit their
+   parent's font shorthand, while tree rows are regular div elements. */
+.vault-sidebar {
+  --vault-sidebar-font-family: var(--font-sans);
+  --vault-sidebar-row-font-size: 0.875rem;
+  --vault-sidebar-row-line-height: 1.25rem;
+  --vault-sidebar-compact-font-size: 0.8125rem;
+  --vault-sidebar-compact-line-height: 1.125rem;
+  --vault-sidebar-detail-font-size: 0.6875rem;
+  --vault-sidebar-detail-line-height: 1rem;
+  --vault-sidebar-tree-content-inset: 3rem;
+  --vault-sidebar-row-height: 2rem;
+  --vault-sidebar-compact-row-height: 1.75rem;
+  --vault-sidebar-detail-row-height: 1.5rem;
+  --vault-sidebar-row-gap: 0.125rem;
+  font-family: var(--vault-sidebar-font-family);
+  font-size: var(--vault-sidebar-row-font-size);
+  line-height: var(--vault-sidebar-row-line-height);
+}
+
+.vault-sidebar__navigation-row {
+  font-family: var(--vault-sidebar-font-family);
+  font-size: var(--vault-sidebar-row-font-size);
+  line-height: var(--vault-sidebar-row-line-height);
+  min-height: var(--vault-sidebar-row-height);
+  padding-block: 0;
+}
+
+.vault-sidebar__navigation-row--compact {
+  font-size: var(--vault-sidebar-compact-font-size);
+  line-height: var(--vault-sidebar-compact-line-height);
+  min-height: var(--vault-sidebar-compact-row-height);
+}
+
+.vault-sidebar__navigation-row--detail {
+  font-size: var(--vault-sidebar-detail-font-size);
+  line-height: var(--vault-sidebar-detail-line-height);
+  min-height: var(--vault-sidebar-detail-row-height);
+}
+
+.vault-sidebar__navigation-row--tree-leaf {
+  padding-inline-start: var(--vault-sidebar-tree-content-inset);
+  padding-inline-end: 0.75rem;
+}
+
+.vault-sidebar__navigation-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vault-sidebar-row-gap);
+}
+
+.vault-sidebar__menu {
+  font-family: var(--font-sans);
+  font-size: var(--vault-sidebar-row-font-size, 0.875rem);
+  line-height: var(--vault-sidebar-row-line-height, 1.25rem);
+}

@@ -1,0 +1,91 @@
+.literature-manual-capture {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-primary);
+}
+
+.literature-page summary {
+    outline: none !important;
+}
+
+.literature-page summary:focus,
+.literature-page summary:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.literature-manual-capture summary {
+    color: var(--gnosi-blue);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none !important;
+}
+
+.literature-manual-capture > p {
+    margin: 6px 0 9px;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.literature-manual-capture form,
+.literature-manual-capture article,
+.literature-manual-capture article > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.literature-manual-capture form input {
+    flex: 1;
+    min-width: 160px;
+}
+
+.literature-manual-capture form input,
+.literature-manual-capture form select {
+    padding: 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.literature-manual-capture form button,
+.literature-manual-capture article button {
+    white-space: nowrap;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.literature-manual-capture article {
+    justify-content: space-between;
+    margin-top: 9px;
+    padding: 9px;
+    border: 1px solid var(--border-primary);
+    border-radius: 9px;
+}
+
+.literature-manual-capture article > div:first-child {
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.literature-manual-capture article small {
+    color: var(--text-secondary);
+}
+
+.literature-search-state {
+    padding: 3px 7px;
+    border-radius: 999px;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    font-size: 11px;
+}
+
+.literature-search-state.is-running {
+    color: var(--gnosi-blue);
+}
