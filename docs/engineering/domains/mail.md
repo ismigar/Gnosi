@@ -13,8 +13,10 @@ source_paths:
   - backend/services/mail_ingester.py
   - backend/services/mail_metadata_manager.py
   - backend/services/vault_mail_sync_service.py
-  - frontend/src/pages/MailPage.jsx
-  - frontend/src/components/Mail
+  - frontend/src/features/mail
+  - frontend/src/components/Mail/MailBlockEditor.tsx
+  - frontend/src/shared/api/mail.ts
+  - frontend/src/shared/api/mail-specialized.ts
 tests:
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
@@ -23,6 +25,11 @@ tests:
   - backend/tests/test_mail_metadata_manager.py
   - backend/tests/test_mail_vault_repository.py
   - backend/tests/test_vault_mail_sync_service.py
+  - frontend/src/features/mail/MailPage.test.tsx
+  - frontend/src/features/mail/components/MailComposer.test.tsx
+  - frontend/src/features/mail/components/MailViewer.test.tsx
+  - frontend/src/features/mail/public-entry.test.ts
+  - frontend/src/app/composition.contract.test.ts
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
 ---
 
@@ -33,6 +40,15 @@ tests:
 Mail integrates IMAP/SMTP accounts, local message indexing, folders, search,
 tags, saved views, drafts, attachments, replies, contact lookup, AI drafting and
 entity extraction. Provider credentials remain local per machine.
+
+The strictly typed `frontend/src/features/mail/` domain owns mailbox page
+composition, mail components, tags and saved-view hooks, and their tests.
+Application routes consume its public lazy entry without eagerly loading the
+mailbox or composer. Shared HTTP adapters keep the existing API contracts.
+The BlockNote mail editor and its adapter remain outside this domain while
+shared with the settings screen; there are no copied implementations or
+compatibility facades. Moving ownership does not change sending, draft saving,
+folder identity, privacy, or provider operations.
 
 ## Synchronization
 

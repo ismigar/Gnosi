@@ -1,0 +1,472 @@
+import {
+  useCallback,
+  useRef,
+  useState,
+  type Dispatch,
+  type MouseEvent as ReactMouseEvent,
+  type SetStateAction,
+} from 'react';
+import type { TFunction } from 'i18next';
+
+import { toast } from '../../../../lib/toast';
+import {
+  archiveMailMessage,
+  batchMailMessages,
+  deleteMailDraft,
+  emptyMailFolder,
+  fetchMailFolders,
+  moveMailMessage,
+  starMailMessage,
+  trashMailMessage,
+} from '../../../../shared/api/mail';
+import { filterOutMailThread } from './mailListModel';
+import type {
+  BatchMoveMenuState,
+  MailAccount,
+  MailFolder,
+  MailListAction,
+  MailListConfirmation,
+  MailListMessage,
+  MailUndoExtra,
+  MoveMenuState,
+} from './mailListTypes';
+
+
+interface UseMailListActionsOptions {
+  readonly account: MailAccount | null;
+  readonly clearCurrentMemoryCache: () => void;
+  readonly emails: readonly string[];
+  readonly enabledAccounts: readonly MailAccount[];
+  readonly fetchMessages: (options?: { readonly force?: boolean }) => void;
+  readonly folder: string | null;
+  readonly messages: readonly MailListMessage[];
+  readonly onBatchDone?: () => void;
+  readonly onRecordAction?: (
+    type: string,
+    mailId: string,
+    email: string,
+    extra?: MailUndoExtra,
+  ) => void;
+  readonly purgeMessageFromCaches: (
+    messageId: string,
+    threadId?: string | null,
+  ) => void;
+  readonly purgeMessagesFromCaches: (ids: readonly string[]) => void;
+  readonly selectedIds: ReadonlySet<string>;
+  readonly setLoading: Dispatch<SetStateAction<boolean>>;
+  readonly setMessages: Dispatch<SetStateAction<MailListMessage[]>>;
+  readonly setSelectedIds: Dispatch<SetStateAction<Set<string>>>;
+  readonly t: TFunction;
+}
+
+
+interface EmailIdGroup {
+  readonly email: string;
+  readonly ids: string[];
+}
+
+
+interface ActionResult {
+  readonly ids: readonly string[];
+  readonly ok: boolean;
+}
+
+
+function errorMessage(error: unknown): string | null {
+  return error instanceof Error ? error.message : null;
+}
+
+
+function messageEmail(message: MailListMessage): string {
+  return message.account_email || message.account || '';
+}
+
+
+function groupMessageIdsByEmail(
+  messages: readonly MailListMessage[],
+  ids: readonly string[],
+): EmailIdGroup[] {
+  const selected = new Set(ids);
+  const groups: Record<string, EmailIdGroup> = {};
+  messages.forEach((message) => {
+    if (!selected.has(message.id)) return;
+    const email = messageEmail(message);
+    if (!email) return;
+    (groups[email] ??= { email, ids: [] }).ids.push(message.id);
+  });
+  return Object.values(groups);
+}
+
+
+export function useMailListActions({
+  account,
+  clearCurrentMemoryCache,
+  emails,
+  enabledAccounts,
+  fetchMessages,
+  folder,
+  messages,
+  onBatchDone,
+  onRecordAction,
+  purgeMessageFromCaches,
+  purgeMessagesFromCaches,
+  selectedIds,
+  setLoading,
+  setMessages,
+  setSelectedIds,
+  t,
+}: UseMailListActionsOptions) {
+  const [confirmConfig, setConfirmConfig] = useState<MailListConfirmation>({
+    isOpen: false,
+  });
+  const [moveMenu, setMoveMenu] = useState<MoveMenuState | null>(null);
+  const [batchMoveMenu, setBatchMoveMenu] = useState<BatchMoveMenuState | null>(null);
+  const foldersCacheRef = useRef<Record<string, readonly MailFolder[]>>({});
+
+  const getFolders = useCallback(async (email: string): Promise<readonly MailFolder[]> => {
+    const cached = foldersCacheRef.current[email];
+    if (cached?.length) return cached;
+    try {
+      const folders = (await fetchMailFolders(email)).folders;
+      foldersCacheRef.current[email] = folders;
+      return folders;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const handleInlineMoveOpen = useCallback(async (
+    event: ReactMouseEvent<HTMLElement>,
+    message: MailListMessage,
+  ): Promise<void> => {
+    event.stopPropagation();
+    const email = account?.email || message.account;
+    if (!email) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const folders = await getFolders(email);
+    setMoveMenu({ folders, msg: message, x: rect.left, y: rect.bottom + 4 });
+  }, [account, getFolders]);
+
+  const handleInlineMoveToFolder = useCallback(async (
+    folderName: string,
+  ): Promise<void> => {
+    if (!moveMenu) return;
+    const { msg: message } = moveMenu;
+    setMoveMenu(null);
+    const email = account?.email || message.account;
+    if (!email) return;
+    setMessages((current) => filterOutMailThread(
+      current,
+      message.id,
+      message.thread_id,
+    ));
+    try {
+      await moveMailMessage(message.id, email, {
+        imap_folder: message.imap_folder,
+        imap_uid: message.imap_uid,
+        target_folder: folderName,
+      });
+    } catch (error: unknown) {
+      toast.error(errorMessage(error)
+        || t('mail.move_connection_error', 'Connection error while moving the message'));
+      setMessages((current) => [message, ...current]);
+      return;
+    }
+    toast.success(t('mail.moved_to_folder', 'Moved to {{folder}}', {
+      folder: folderName,
+    }));
+    onBatchDone?.();
+  }, [account, moveMenu, onBatchDone, setMessages, t]);
+
+  const handleBatchMoveOpen = useCallback(async (
+    event: ReactMouseEvent<HTMLElement>,
+  ): Promise<void> => {
+    const email = account?.email
+      || enabledAccounts[0]?.email
+      || enabledAccounts[0]?.username;
+    if (!email) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const folders = await getFolders(email);
+    setBatchMoveMenu({ folders, x: rect.left, y: rect.bottom + 4 });
+  }, [account, enabledAccounts, getFolders]);
+
+  const handleBatchMoveToFolder = useCallback(async (
+    folderName: string,
+  ): Promise<void> => {
+    if (!batchMoveMenu || selectedIds.size === 0) return;
+    setBatchMoveMenu(null);
+    const ids = [...selectedIds];
+    setMessages((current) => current.filter((message) => !selectedIds.has(message.id)));
+    setSelectedIds(new Set());
+    const groups = account?.email
+      ? [{ email: account.email, ids }]
+      : groupMessageIdsByEmail(messages, ids);
+    const messageById = new Map(messages.map((message) => [message.id, message]));
+    const removed = ids.flatMap((id) => {
+      const message = messageById.get(id);
+      return message ? [message] : [];
+    });
+    const results = await Promise.all(groups.map(async (group) => Promise.all(
+      group.ids.map(async (id) => {
+        const message = messageById.get(id);
+        try {
+          await moveMailMessage(id, group.email, {
+            imap_folder: message?.imap_folder,
+            imap_uid: message?.imap_uid,
+            target_folder: folderName,
+          });
+          return { id, ok: true };
+        } catch {
+          return { id, ok: false };
+        }
+      }),
+    )));
+    const failedIds = new Set(
+      results.flat().filter((result) => !result.ok).map((result) => result.id),
+    );
+    if (failedIds.size > 0) {
+      const failed = removed.filter((message) => failedIds.has(message.id));
+      setMessages((current) => [...failed, ...current]);
+      toast.error(t('mail.move_batch_error', {
+        count: failedIds.size,
+        defaultValue_one: "Couldn't move {{count}} message",
+        defaultValue_other: "Couldn't move {{count}} messages",
+      }));
+    }
+    onBatchDone?.();
+  }, [account, batchMoveMenu, messages, onBatchDone, selectedIds, setMessages, setSelectedIds, t]);
+
+  const handleInlineAction = useCallback(async (
+    event: Pick<ReactMouseEvent<HTMLElement>, 'stopPropagation'>,
+    action: MailListAction,
+    message: MailListMessage,
+  ): Promise<void> => {
+    event.stopPropagation();
+    const email = account?.email || message.account;
+    if (!email) return;
+    if (action === 'star') {
+      const starred = !message.is_starred;
+      setMessages((current) => current.map((candidate) => (
+        candidate.id === message.id ? { ...candidate, is_starred: starred } : candidate
+      )));
+      await starMailMessage(message.id, email, starred).catch(() => undefined);
+    } else if (action === 'archive') {
+      setMessages((current) => filterOutMailThread(
+        current,
+        message.id,
+        message.thread_id,
+      ));
+      purgeMessageFromCaches(message.id, message.thread_id);
+      onRecordAction?.('archive', message.id, email, {
+        imap_folder: message.imap_folder,
+        imap_uid: message.imap_uid,
+      });
+      await archiveMailMessage(message.id, email).catch(() => undefined);
+    } else if (action === 'trash') {
+      setMessages((current) => filterOutMailThread(
+        current,
+        message.id,
+        message.thread_id,
+      ));
+      purgeMessageFromCaches(message.id, message.thread_id);
+      onRecordAction?.('trash', message.id, email, {
+        imap_folder: message.imap_folder,
+        imap_uid: message.imap_uid,
+      });
+      if (message.source === 'vault') {
+        await deleteMailDraft(message.id).catch(() => undefined);
+        onBatchDone?.();
+      } else {
+        await trashMailMessage(message.id, email).catch(() => undefined);
+      }
+    }
+  }, [account, onBatchDone, onRecordAction, purgeMessageFromCaches, setMessages]);
+
+  const handleBatchAction = useCallback(async (
+    action: MailListAction,
+  ): Promise<void> => {
+    if (selectedIds.size === 0) return;
+    const ids = [...selectedIds];
+    const messageById = new Map(messages.map((message) => [message.id, message]));
+    const removed = ids.flatMap((id) => {
+      const message = messageById.get(id);
+      return message ? [message] : [];
+    });
+    if (action === 'trash' || action === 'archive') {
+      setMessages((current) => current.filter((message) => !selectedIds.has(message.id)));
+      purgeMessagesFromCaches(ids);
+    } else if (action === 'read') {
+      setMessages((current) => current.map((message) => (
+        selectedIds.has(message.id) ? { ...message, is_read: true } : message
+      )));
+    }
+    setSelectedIds(new Set());
+
+    if (action === 'trash' || action === 'archive') {
+      const vaultIds = messages
+        .filter((message) => ids.includes(message.id) && message.source === 'vault')
+        .map((message) => message.id);
+      const imapIds = ids.filter((id) => !vaultIds.includes(id));
+      const groups = account?.email
+        ? [{ email: account.email, ids: imapIds }]
+        : groupMessageIdsByEmail(messages, imapIds);
+      const results: ActionResult[] = await Promise.all([
+        ...vaultIds.map(async (id): Promise<ActionResult> => {
+          try {
+            await deleteMailDraft(id);
+            return { ids: [id], ok: true };
+          } catch {
+            return { ids: [id], ok: false };
+          }
+        }),
+        ...groups.filter((group) => group.ids.length > 0).map(
+          async (group): Promise<ActionResult> => {
+            try {
+              await batchMailMessages(group.email, action, group.ids);
+              return { ids: group.ids, ok: true };
+            } catch {
+              return { ids: group.ids, ok: false };
+            }
+          },
+        ),
+      ]);
+      const failedIds = new Set(
+        results.filter((result) => !result.ok).flatMap((result) => result.ids),
+      );
+      if (failedIds.size > 0) {
+        const failed = removed.filter((message) => failedIds.has(message.id));
+        if (failed.length) setMessages((current) => [...failed, ...current]);
+        toast.error(t('mail.batch_action_error', {
+          count: failedIds.size,
+          defaultValue: 'Could not update {{count}} message(s)',
+        }));
+      }
+    } else {
+      const groups = account?.email
+        ? [{ email: account.email, ids }]
+        : groupMessageIdsByEmail(messages, ids);
+      await Promise.all(groups.map(async (group) => {
+        try {
+          await batchMailMessages(group.email, action, group.ids);
+        } catch {
+          return;
+        }
+      }));
+    }
+    onBatchDone?.();
+  }, [account, messages, onBatchDone, purgeMessagesFromCaches, selectedIds, setMessages, setSelectedIds, t]);
+
+  const handleBatchActionWithConfirm = useCallback((action: MailListAction): void => {
+    if (selectedIds.size === 0) return;
+    let message: string | null = null;
+    let title = t('mail.confirm_action_title', 'Confirm action');
+    const isTrash = folder?.toUpperCase() === 'TRASH';
+    if (action === 'trash' && isTrash) {
+      title = t('mail.delete_permanently_title', 'Delete permanently');
+      message = t('mail.delete_permanently_confirm', {
+        count: selectedIds.size,
+        defaultValue_one: 'Do you want to permanently delete this message? This action cannot be undone.',
+        defaultValue_other: 'Do you want to permanently delete these {{count}} messages? This action cannot be undone.',
+      });
+    } else if (action === 'trash' && selectedIds.size > 5) {
+      title = t('mail.move_to_trash_title', 'Move to trash');
+      message = t('mail.move_to_trash_confirm', {
+        count: selectedIds.size,
+        defaultValue: 'Do you want to move these {{count}} messages to the trash?',
+      });
+    }
+    if (!message) {
+      void handleBatchAction(action);
+      return;
+    }
+    setConfirmConfig({
+      isOpen: true,
+      message,
+      onConfirm: () => {
+        void handleBatchAction(action);
+        setConfirmConfig({ isOpen: false });
+      },
+      title,
+    });
+  }, [folder, handleBatchAction, selectedIds.size, t]);
+
+  const handleEmptyFolder = useCallback((): void => {
+    const isTrash = folder?.toUpperCase() === 'TRASH';
+    setConfirmConfig({
+      isOpen: true,
+      message: isTrash
+        ? (account
+          ? t('mail.empty_trash_confirm_account', 'Do you want to permanently empty the entire trash? This action cannot be undone.')
+          : t('mail.empty_trash_confirm_all', 'Do you want to empty the trash for ALL accounts?'))
+        : (account
+          ? t('mail.empty_junk_confirm_account', 'Do you want to move all junk mail to the trash?')
+          : t('mail.empty_junk_confirm_all', 'Do you want to move junk mail to the trash for ALL accounts?')),
+      onConfirm: async () => {
+        if (emails.length === 0) {
+          setConfirmConfig({ isOpen: false });
+          toast.error(t('mail.no_accounts_configured', 'No accounts configured'));
+          return;
+        }
+        setLoading(true);
+        try {
+          const results = await Promise.all(emails.map(async (email) => {
+            try {
+              await emptyMailFolder(email, folder ?? '');
+              return { email, error: null, ok: true };
+            } catch (error: unknown) {
+              return { email, error, ok: false };
+            }
+          }));
+          const failed = results.filter((result) => !result.ok);
+          if (failed.length === results.length) {
+            throw new Error(errorMessage(failed[0]?.error)
+              || t('mail.server_error', 'Server error'));
+          }
+          if (failed.length > 0) {
+            const errors = failed.map((result) => (
+              `${result.email}: ${errorMessage(result.error) || t('errors.unknown')}`
+            ));
+            toast.error(t('mail.empty_partial_error', 'Partially emptied. Errors: {{errors}}', {
+              errors: errors.join('; '),
+            }), { duration: 6000 });
+          } else {
+            toast.success(isTrash
+              ? t('mail.trash_emptied', 'Trash emptied')
+              : t('mail.junk_moved_to_trash', 'Junk mail moved to trash'));
+          }
+          setLoading(false);
+          clearCurrentMemoryCache();
+          setMessages([]);
+          fetchMessages({ force: true });
+          onBatchDone?.();
+          setConfirmConfig({ isOpen: false });
+        } catch (error: unknown) {
+          setLoading(false);
+          setConfirmConfig({ isOpen: false });
+          toast.error(`${t('mail.error_prefix', 'Error')}: ${errorMessage(error)
+            || t('mail.empty_folder_fallback_error', "Couldn't empty it")}`);
+        }
+      },
+      title: isTrash
+        ? t('mail.empty_trash_title', 'Empty trash')
+        : t('mail.empty_junk_title', 'Empty junk'),
+    });
+  }, [account, clearCurrentMemoryCache, emails, fetchMessages, folder, onBatchDone, setLoading, setMessages, t]);
+
+  return {
+    batchMoveMenu,
+    confirmConfig,
+    handleBatchAction,
+    handleBatchActionWithConfirm,
+    handleBatchMoveOpen,
+    handleBatchMoveToFolder,
+    handleEmptyFolder,
+    handleInlineAction,
+    handleInlineMoveOpen,
+    handleInlineMoveToFolder,
+    moveMenu,
+    setBatchMoveMenu,
+    setConfirmConfig,
+    setMoveMenu,
+  };
+}

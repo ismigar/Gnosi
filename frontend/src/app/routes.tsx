@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-do
 import { useTranslation } from 'react-i18next';
 import HomePage from '../pages/HomePage';
 import { NotebooksPage } from '../features/notebooks';
+import { MailPage } from '../features/mail';
 import { GraphLoadingState } from '../components/GraphLoadingState';
 import { PluginRoute } from '../components/PluginGate';
 import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, vaultAppFromPath } from '../lib/vaultRouting';
@@ -23,7 +24,6 @@ const ZoteroReaderPage = lazy(() =>
   import('../components/Vault/ZoteroReaderTab').then((m) => ({ default: m.ZoteroReaderPage })),
 );
 const ReaderDashboard = lazy(() => import('../pages/ReaderDashboard'));
-const MailPage = lazy(() => import('../pages/MailPage'));
 const MediaCenter = lazy(() => import('../pages/MediaCenter'));
 const ContactsPage = lazy(() => import('../pages/ContactsPage'));
 const SchedulerPage = lazy(() => import('../pages/SchedulerPage'));
