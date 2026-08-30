@@ -9,22 +9,18 @@ import {
 } from './agentConfirmationUtils';
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
 import {
-    boundedProcessingMs,
     effectiveMessageTimingMs,
     getTurnId,
     processingSeconds,
 } from './agentChatMessageUtils';
-import { selectedMentionsInText } from './agentChatMentionUtils';
 import { deriveAgentRuntimeStatus } from './agentRuntimeStatus';
 import { readChatStorage, scopedChatStorageKey } from './agent-chat/chatPersistence';
 import { useChatSessionPersistence } from './agent-chat/useChatSessionPersistence';
 import { useNotebookConversation } from './agent-chat/useNotebookConversation';
 import { useChatSessionSelection, useSessionMessageBinding } from './agent-chat/useChatSessionSelection';
-import { readNdjsonRecords } from '../shared/api/ndjson';
 import { ConfirmationReview } from './agent-chat/ConfirmationReview';
 import { useAgentConfirmations } from './agent-chat/useAgentConfirmations';
-import { logError } from '../lib/notifyError';
-import { startChatStream, cancelChatStream } from '../shared/api/chat-streaming';
+import { cancelChatStream } from '../shared/api/chat-streaming';
 import { useChatMentions } from './agent-chat/useChatMentions';
 import { useChatConfiguration } from './agent-chat/useChatConfiguration';
 import { useChatAttachments } from './agent-chat/useChatAttachments';
@@ -35,10 +31,8 @@ import { ChatDock } from './agent-chat/ChatDock';
 import { ChatSessionList } from './agent-chat/ChatSessionList';
 import { useChatMessageActions } from './agent-chat/useChatMessageActions';
 import { useChatRewind } from './agent-chat/useChatRewind';
-import { createChatStreamState } from './agent-chat/streamEventModel';
-import { applyChatStreamEvent } from './agent-chat/applyChatStreamEvent';
-import { recoverChatStream } from './agent-chat/recoverChatStream';
 import { logChatError } from './agent-chat/chatDiagnostics';
+import { submitChatTurn } from './agent-chat/submitChatTurn';
 
 const AgentChat = ({
     storageIdentity = '',
@@ -227,160 +221,15 @@ const AgentChat = ({
         setPendingRewindIndex, setIsRewinding, focusComposerWith,
     });
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (readOnly || (!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
-
-        const turnId = crypto.randomUUID();
-        const processingStartedAt = performance.now();
-        processingStartedAtRef.current = processingStartedAt;
-        const mentions = selectedMentionsInText(inputValue, selectedMentions);
-        const attachmentsPayload = attachments.map((item) => ({
-            name: item.name,
-            size: item.size,
-            type: item.type,
-            path: item.path,
-            url: item.url,
-        }));
-
-        const visibleContent = inputValue.trim() ? inputValue : t('chat.attachments_only_label', "(Attachments)");
-
-        const userMsg = {
-            role: 'user',
-            content: visibleContent,
-            turnId,
-            mentions,
-            attachments: attachmentsPayload,
-        };
-        setMessages(prev => [...prev, userMsg]);
-        setInputValue('');
-        setSelectedMentions([]);
-        setAttachments([]);
-        setShowMentionMenu(false);
-        setIsLoading(true);
-        setProcessingPhase('routing');
-        const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
-        const streamState = createChatStreamState();
-        const streamContext = {
-            t, requestScope, agentId: selectedAgentId, sessionId, turnId,
-            activeScopeRef, activeStreamRef, setMessages, setAgentRuntime, setProcessingPhase,
-            confirmationSummary,
-        };
-
-        try {
-            requestAbortRef.current?.abort();
-            const controller = new AbortController();
-            requestAbortRef.current = controller;
-            const response = await startChatStream({
-                message: inputValue,
-                agent_id: selectedAgentId,
-                session_id: sessionId,
-                llm_mode: 'agent_default',
-                mentions,
-                attachments: attachmentsPayload,
-                context_refs: contextRefs,
-                notebook_id: notebookId || undefined,
-                turn_id: turnId,
-            }, controller.signal);
-
-            if (!response.ok) {
-                let detail = response.statusText;
-                try {
-                    const error = await response.json();
-                    if (error?.detail?.code === 'agent_model_unavailable') {
-                        detail = t('chat.agent_model_unavailable', 'The selected agent model is unavailable. Configure the agent and try again.');
-                    } else if (typeof error?.detail === 'string') {
-                        detail = error?.detail || detail;
-                    }
-                } catch {
-                    // The HTTP status remains a useful fallback for non-JSON errors.
-                }
-                throw new Error(detail);
-            }
-
-            for await (const data of readNdjsonRecords(response, {
-                onMalformed: (error) => logError('chat.stream.record', error),
-            })) {
-                    try {
-                        applyChatStreamEvent(streamState, data, streamContext);
-                    } catch (error) {
-                        logError('chat.stream.event', error);
-                    }
-            }
-            if (!streamState.terminal || !streamState.responseReceived) {
-                setMessages((prev) => {
-                    if (activeScopeRef.current !== requestScope) return prev;
-                    return [...prev, {
-                        role: 'system',
-                        content: `${t('chat.error_prefix', 'Error')}: ${t('chat.empty_response', 'The assistant finished without returning a response. Please try again.')}`,
-                        turnId,
-                    }];
-                });
-            }
-        } catch (error) {
-            let recovered = false;
-            if (
-                error.name !== 'AbortError'
-                && streamState.streamId
-                && activeScopeRef.current === requestScope
-            ) {
-                try {
-                    recovered = await recoverChatStream(streamState, streamContext);
-                } catch (resumeError) {
-                    logChatError('agent-chat-stream-resume', resumeError);
-                }
-            }
-            if (error.name !== 'AbortError' && !recovered && activeScopeRef.current === requestScope) {
-                const errorMessage = typeof error.message === 'string'
-                    ? error.message.trim()
-                    : '';
-                setMessages(prev => [...prev, {
-                    role: 'assistant',
-                    content: `${t('chat.error_prefix', 'Error')}: ${errorMessage || t('errors.unknown', 'Unknown error')}`,
-                    turnId,
-                    errorCode: 'network_error',
-                    retryable: true,
-                    recovery: {
-                        retryable: true,
-                        action: 'retry_message',
-                        automatic: false,
-                        max_attempts: 1,
-                    },
-                }]);
-            }
-        } finally {
-            const elapsedMs = boundedProcessingMs(
-                performance.now() - processingStartedAt,
-            );
-            setMessages((previous) => {
-                if (activeScopeRef.current !== requestScope) return previous;
-                const responseIndex = previous.findLastIndex((message) => (
-                    message?.turnId === turnId && message?.role !== 'user'
-                ));
-                if (responseIndex < 0) return previous;
-                return previous.map((message, index) => (
-                    index === responseIndex
-                        ? {
-                            ...message,
-                            processingMs: elapsedMs,
-                            ...(streamState.metrics ? { timings: streamState.metrics } : {}),
-                            ...Object.fromEntries(
-                                Object.entries(streamState.transparency)
-                                    .filter(([field, value]) => value !== null && message[field] == null),
-                            ),
-                        }
-                        : message
-                ));
-            });
-            requestAbortRef.current = null;
-            activeStreamRef.current = '';
-            processingStartedAtRef.current = null;
-            setIsLoading(false);
-            setProcessingPhase('routing');
-            if (inputRef.current) {
-                inputRef.current.style.height = 'auto';
-            }
-        }
+    const handleSubmit = (event) => {
+        event.preventDefault();
+        return submitChatTurn({
+            t, inputValue, attachments, readOnly, isLoading, agentHasModel, selectedMentions,
+            processingStartedAtRef, setMessages, setInputValue, clearDraftMentions,
+            clearDraftAttachments, setShowMentionMenu, setIsLoading, setProcessingPhase,
+            browserStorageScope, selectedAgentId, sessionId, activeScopeRef, activeStreamRef,
+            setAgentRuntime, confirmationSummary, requestAbortRef, contextRefs, notebookId, inputRef,
+        });
     };
 
     const agentName = agentConfig?.name || 'Gnosi Copilot';
