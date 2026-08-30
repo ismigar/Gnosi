@@ -9,12 +9,16 @@ import {
 } from './agentChatMessageTypes';
 
 const MAX_PROCESSING_MS = 24 * 60 * 60 * 1000;
-const TURN_TIMING_MS_FIELDS: readonly string[] = [
+const TURN_TIMING_MS_FIELDS = [
     'setup_ms', 'routing_ms', 'model_ms', 'tools_ms', 'other_ms', 'total_ms',
-];
-const TURN_TIMING_COUNT_FIELDS: readonly string[] = [
+] as const;
+const TURN_TIMING_COUNT_FIELDS = [
     'input_tokens', 'output_tokens', 'model_calls', 'tool_calls',
-];
+] as const;
+export type TurnMetrics = LooseRecord & Partial<Record<
+    typeof TURN_TIMING_MS_FIELDS[number] | typeof TURN_TIMING_COUNT_FIELDS[number]
+    | 'estimated_cost_usd', number
+>>;
 const TIMING_OBJECT_TOTAL_FIELDS: readonly string[] = [
     'total_ms',
     'total',
@@ -246,9 +250,9 @@ const parseTimingObjectMs = (value: LooseValue): number | null => {
     return null;
 };
 
-export const boundedTurnMetrics = (value: LooseValue): LooseRecord | null => {
+export const boundedTurnMetrics = (value: LooseValue): TurnMetrics | null => {
     if (!isRecord(value)) return null;
-    const metrics: LooseRecord = {};
+    const metrics: TurnMetrics = {};
     TURN_TIMING_MS_FIELDS.forEach((field) => {
         const bounded = boundedProcessingMs(value[field]);
         if (bounded !== null) metrics[field] = bounded;

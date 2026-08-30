@@ -1,6 +1,7 @@
 import { confirmationForStorage, type ConfirmationRecord } from '../agentConfirmationUtils';
 import { boundedProcessingMs, boundedTransparencyMetadata, boundedTurnMetrics } from '../agentChatMessageUtils';
 import { isRecord, stringifyLooseValue, type LooseRecord } from '../agentChatMessageTypes';
+import type { TurnMetrics } from '../agentChatTiming';
 
 export const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 export const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -16,7 +17,7 @@ export interface StoredChatMessage extends Partial<ReturnType<typeof boundedTran
   readonly role?: string;
   readonly confirmation?: ConfirmationRecord;
   readonly processingMs?: number | null;
-  readonly timings?: LooseRecord | null;
+  readonly timings?: TurnMetrics | null;
 }
 
 export interface StoredChatSession {
