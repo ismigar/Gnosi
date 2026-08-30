@@ -125,6 +125,27 @@ After build, artifacts are in `dist/`:
 
 ## Architecture
 
+### Renderer IPC boundary
+
+`ipc-contract.d.ts` defines the data-only desktop API shared with the frontend.
+The standalone CommonJS preload is checked with strict TypeScript/JSDoc; it does
+not import local runtime modules, so it remains compatible with sandboxed
+preloads. Run `pnpm --filter @gnosi/desktop typecheck:ipc` from the repository
+root, and `pnpm test:desktop` for the transport and packaging contracts.
+
+Each method owns one explicit IPC channel. Response decoders reject malformed
+values; IPC failures remain rejected promises. Update callbacks receive only the
+update state, and settings callbacks receive no arguments—never Electron event
+objects or `event.sender`. Both subscription methods return an idempotent
+disposer for that subscription. The existing channel-wide removal methods remain
+available to older consumers. The renderer declaration still accepts partial
+bridges for web-only operation and earlier desktop hosts.
+
+The update contract includes `checking` and `not-available`; these background
+states do not display an update prompt. The bridge tests use a fake host and never
+download/install an update or fill an external form. Passing these tests does not
+replace the real Electron and platform packaging acceptance matrix.
+
 ```
 desktop/
 ├── main.js           # Main process (Electron)

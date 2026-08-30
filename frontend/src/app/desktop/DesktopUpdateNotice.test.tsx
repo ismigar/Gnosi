@@ -65,6 +65,17 @@ function findButton(text: string): HTMLButtonElement {
 }
 
 describe('DesktopUpdateNotice', () => {
+    it.each(['checking', 'not-available'] as const)('keeps %s notifications unobtrusive', async (status) => {
+        window.electronAPI = {
+            getUpdateStatus: () => Promise.resolve({ status }),
+            onUpdateStatus: vi.fn(),
+            removeUpdateListener: vi.fn(),
+        };
+        const mountedContainer = await renderNotice();
+        expect(mountedContainer.textContent).toBe('');
+        expect(mountedContainer.querySelector('[role="status"]')).toBeNull();
+    });
+
     it('stays hidden in the web application', async () => {
         const mountedContainer = await renderNotice();
         expect(mountedContainer.textContent).toBe('');

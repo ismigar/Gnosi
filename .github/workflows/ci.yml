@@ -42,6 +42,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - run: pnpm test:desktop
+      - run: pnpm --filter @gnosi/desktop typecheck:ipc
 
   backend:
     runs-on: ubuntu-latest
