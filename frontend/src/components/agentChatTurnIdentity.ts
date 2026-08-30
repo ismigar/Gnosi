@@ -84,7 +84,7 @@ const extractTurnCandidateId = (
     return null;
 };
 
-export const getTurnId = (message: LooseValue): TurnId => {
+export const getTurnId = (message: unknown): TurnId => {
     if (!isRecord(message)) return null;
     if (message.turnId !== undefined && message.turnId !== null && message.turnId !== '') {
         return message.turnId;
