@@ -1,14 +1,8 @@
-import type { ConfirmationRecord } from '../agentConfirmationUtils';
+import type { ChatConfirmation } from '../../shared/api/chat-confirmations';
 import { isRecord, stringifyLooseValue } from '../agentChatMessageTypes';
 
-export interface AgentConfirmation extends ConfirmationRecord {
+export interface AgentConfirmation extends ChatConfirmation {
   readonly client_scope?: string;
-  readonly agent_id?: string;
-  readonly session_id?: string;
-  readonly title_key?: string;
-  readonly status?: string;
-  readonly destructive?: boolean;
-  readonly details?: Readonly<Record<string, unknown>>;
 }
 
 export function confirmationScope(confirmation: Partial<AgentConfirmation> | null | undefined, browserStorageScope = ''): string {

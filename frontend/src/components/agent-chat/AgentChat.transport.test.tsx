@@ -59,8 +59,8 @@ async function render(node: ReactNode): Promise<void> {
 }
 
 function requestPath(input: RequestInfo | URL): string {
-  if (typeof input === 'string') return input;
-  return input instanceof URL ? input.href : input.url;
+  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.origin);
+  return `${url.pathname}${url.search}`;
 }
 
 async function submit(text: string): Promise<void> {
@@ -136,7 +136,7 @@ describe('AgentChat shared transport integration', () => {
       if (path.startsWith('/api/chat/confirmations/action?')) return Promise.resolve(Response.json({ status: 'completed' }));
       return Promise.resolve(Response.json({ confirmations: [{ confirmation_id: 'action', status: 'pending', details: { body: 'Review this body' } }] }));
     });
-    // The legacy action handler logs the deliberately simulated lost response.
+    // The intentionally lost response must be reconciled, never replayed.
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     try {
       await render(<AgentChat embedded />);
