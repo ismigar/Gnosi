@@ -12,9 +12,12 @@ source_paths:
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
   - backend/services/literature_service.py
-  - frontend/src/pages/SchedulerPage.jsx
+  - frontend/src/features/automations
+  - frontend/src/features/control-center
   - pipeline/skills/scheduler
 tests:
+  - frontend/src/features/automations/SchedulerPage.test.tsx
+  - frontend/src/features/control-center/dashboard/Dashboard.test.tsx
   - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
@@ -33,6 +36,12 @@ tests:
 The scheduler executes configured recurring and one-shot tasks, records history,
 exposes operational state, and coordinates domain jobs such as synchronization,
 publishing, ingestion, maintenance, and planning refresh.
+
+The automation feature owns the task-scheduler screen and interval conversion
+utilities. The control-center feature owns the operational dashboard, history,
+members, and directive dialogs. Each has a public lazy route entry; shared API
+adapters preserve task identity, interval units, permission checks, and payloads.
+Moving a screen never enables a task or starts a job.
 
 Scheduler task metadata, persisted runtime state, and the optional notification
 boundary are strictly typed in dedicated modules. The manager remains below the

@@ -1,7 +1,12 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import HomePage from '../pages/HomePage';
+import HomePage from './HomePage';
+import { Dashboard } from '../features/control-center';
+import { SocialDashboard, ComposerPage } from '../features/social';
+import { MediaCenter } from '../features/media';
+import { SchedulerPage } from '../features/automations';
+import { SharedPage } from '../features/sharing';
 import { NotebooksPage } from '../features/notebooks';
 import { MailPage } from '../features/mail';
 import { CalendarPage } from '../features/calendar';
@@ -21,16 +26,10 @@ import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, va
 // initial: the browser only downloads the route's chunk when it's navigated to.
 // HomePage stays EAGER because it's the most common startup (without a flash of
 // Suspense at the start).
-const Dashboard = lazy(() => import('../pages/Dashboard'));
-const SocialDashboard = lazy(() => import('../pages/SocialDashboard'));
 const VaultDashboard = lazy(() => import('../pages/VaultDashboard'));
 const ZoteroReaderPage = lazy(() =>
   import('../components/Vault/ZoteroReaderTab').then((m) => ({ default: m.ZoteroReaderPage })),
 );
-const MediaCenter = lazy(() => import('../pages/MediaCenter'));
-const SchedulerPage = lazy(() => import('../pages/SchedulerPage'));
-const ComposerPage = lazy(() => import('../pages/ComposerPage'));
-const SharedPage = lazy(() => import('../pages/SharedPage'));
 interface VaultRouteScopeProps {
   readonly children: ReactNode;
 }

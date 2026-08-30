@@ -13,8 +13,10 @@ source_paths:
   - backend/services/data_dir_migration.py
   - backend/utils/cache.py
   - backend/api/system_routes.py
-  - frontend/src/App.jsx
+  - frontend/src/app
 tests:
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/app/shellPages.test.tsx
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
@@ -33,6 +35,11 @@ The foundation assembles every domain into one process, resolves portable
 configuration and paths, owns startup and shutdown, applies shared middleware,
 and exposes the top-level frontend shell. It must remain usable when optional
 integrations are absent.
+
+The frontend `app` directory owns bootstrap, providers, route composition, and
+the eager home screen. Optional domain screens enter through public feature
+modules with independent lazy imports. Composition contracts preserve all 32
+routes, permission wrappers, provider order, and the twenty deferred imports.
 
 ## Backend assembly
 

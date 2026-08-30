@@ -32,7 +32,7 @@ describe('application composition extraction contracts', () => {
 
   it('keeps the twenty optional imports deferred and the Home page eager', () => {
     const sourceRoot = new URL('../', import.meta.url).pathname;
-    const entries = ['calendar', 'contacts', 'graph', 'literature', 'mail', 'notebooks', 'planning', 'reader'];
+    const entries = ['automations', 'calendar', 'contacts', 'control-center', 'graph', 'literature', 'mail', 'media', 'notebooks', 'planning', 'reader', 'sharing', 'social'];
     const files = ['./App.tsx', './routes.tsx', ...entries.map(feature => `../features/${feature}/index.ts`)];
     const imports = files.flatMap(name => collect(source(name), node => {
       if (!ts.isCallExpression(node) || node.expression.kind !== ts.SyntaxKind.ImportKeyword) return undefined;
@@ -43,18 +43,19 @@ describe('application composition extraction contracts', () => {
     }));
     expect(imports.sort()).toEqual([
       'components/AgentChat', 'components/MeetingRecorder', 'components/MeetingReminderWatcher',
-      'components/Vault/ZoteroReaderTab', 'features/calendar/CalendarPage',
-      'features/contacts/ContactsPage', 'features/graph/GraphPage', 'features/literature/LiteraturePage',
-      'features/mail/MailPage', 'features/notebooks/NotebooksPage',
+      'components/Vault/ZoteroReaderTab', 'features/automations/SchedulerPage',
+      'features/calendar/CalendarPage', 'features/contacts/ContactsPage',
+      'features/control-center/Dashboard', 'features/graph/GraphPage', 'features/literature/LiteraturePage',
+      'features/mail/MailPage', 'features/media/MediaCenter', 'features/notebooks/NotebooksPage',
       'features/notebooks/create/NotebookCreateDialog',
       'features/planning/ProjectPlanningPage', 'features/reader/ReaderDashboard',
-      'pages/ComposerPage', 'pages/Dashboard', 'pages/MediaCenter',
-      'pages/SchedulerPage', 'pages/SharedPage', 'pages/SocialDashboard', 'pages/VaultDashboard',
+      'features/sharing/SharedPage', 'features/social/ComposerPage', 'features/social/SocialDashboard',
+      'pages/VaultDashboard',
     ]);
     const eager = collect(source('./routes.tsx'), node => ts.isImportDeclaration(node)
       && ts.isStringLiteral(node.moduleSpecifier) ? node.moduleSpecifier.text : undefined);
-    expect(eager).toContain('../pages/HomePage');
-    expect(eager.filter(path => path.startsWith('../pages/'))).toEqual(['../pages/HomePage']);
+    expect(eager).toContain('./HomePage');
+    expect(eager.filter(path => path.startsWith('../pages/'))).toEqual([]);
   });
 
   it('keeps the original provider order and renders App before the tooltip', () => {

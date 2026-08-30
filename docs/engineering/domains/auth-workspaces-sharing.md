@@ -14,6 +14,7 @@ source_paths:
   - backend/services/vault_routing.py
   - backend/services/active_vault_middleware.py
   - frontend/src/context/AuthContext.jsx
+  - frontend/src/features/sharing
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_auth_enforcement_flag.py
@@ -41,6 +42,11 @@ of the friendly mode label.
 
 The frontend gate selects login or application UI, but all authorization is
 enforced in backend dependencies and services.
+
+The sharing feature exposes its read-only page through a lazy public entry.
+The `/s/:token` route remains outside both the authentication gate and application
+shell. Relocating this screen does not broaden access: the backend still resolves
+the token and expired or invalid links retain their existing error display.
 
 Workspace resolution validates the configured project and Vault roots before
 any bootstrap or path selection. Personal bootstrap is race-safe and confirms
