@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
 import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Brain, Sparkles, Plus, AtSign, Archive, PanelBottomClose, Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2, Blocks } from 'lucide-react';
-import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 import ConfirmModal from './ConfirmModal';
@@ -11,7 +10,6 @@ import {
     mergeConfirmationRecords,
 } from './agentConfirmationUtils';
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
-import { resolveAgentRuntimeSelection } from './agentChatAgentUtils';
 import {
     boundedProcessingMs,
     boundedJob,
@@ -24,7 +22,7 @@ import {
     isRetryableErrorCode,
     processingSeconds,
 } from './agentChatMessageUtils';
-import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
+import { selectedMentionsInText } from './agentChatMentionUtils';
 import { deriveAgentRuntimeStatus } from './agentRuntimeStatus';
 import { toast } from '../lib/toast';
 import { readChatStorage, scopedChatStorageKey } from './agent-chat/chatPersistence';
@@ -39,19 +37,11 @@ import { logError } from '../lib/notifyError';
 import { emitAppEvent } from '../shared/platform/app-events';
 import { streamFetch } from '../shared/api/specialized-transports';
 import { transportFetch } from '../shared/api/transports';
-import { fetchConfiguration } from '../shared/api/configuration';
-import {
-    fetchVaultDatabases,
-    fetchVaultPages,
-    fetchVaultTables,
-} from '../shared/api/vaults';
+import { useChatMentions } from './agent-chat/useChatMentions';
+import { useChatConfiguration } from './agent-chat/useChatConfiguration';
+import { useChatAttachments } from './agent-chat/useChatAttachments';
+import { CHAT_ATTACHMENT_ACCEPT } from './agent-chat/composerModel';
 
-const MAX_CHAT_ATTACHMENT_SIZE = 15 * 1024 * 1024;
-const MAX_CHAT_ATTACHMENTS = 8;
-const CHAT_ATTACHMENT_ACCEPT = [
-    '.txt', '.md', '.markdown', '.csv', '.tsv', '.json', '.yaml', '.yml',
-    '.xml', '.html', '.css', '.js', '.jsx', '.ts', '.tsx', '.py', '.pdf',
-].join(',');
 const DYNAMIC_ICON_NAMES = new Set(iconNames);
 
 const lucideIconName = (name) => name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
@@ -73,18 +63,12 @@ const AgentChat = ({
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [sessionId, setSessionId] = useState('');
-    const [agentConfig, setAgentConfig] = useState(null);
-    const [agentList, setAgentList] = useState([]);
     const [selectedAgentId, setSelectedAgentId] = useState('gnosy');
     const [isMinimized, setIsMinimized] = useState(false);
     const [chatSessions, setChatSessions] = useState([]);
     const [sessionsHydrated, setSessionsHydrated] = useState(false);
     const [hydratedStorageScope, setHydratedStorageScope] = useState('');
     const [showSessionsView, setShowSessionsView] = useState(false);
-    const [mentionCatalog, setMentionCatalog] = useState([]);
-    const [mentionResults, setMentionResults] = useState([]);
-    const [showMentionMenu, setShowMentionMenu] = useState(false);
-    const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1);
     const [selectedMentions, setSelectedMentions] = useState([]);
     const [attachments, setAttachments] = useState([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
@@ -181,131 +165,10 @@ const AgentChat = ({
 
     useSessionMessageBinding(sessionContext);
 
-    useEffect(() => {
-        const current = inputValue || '';
-        const caret = inputRef.current?.selectionStart ?? current.length;
-        const left = current.slice(0, caret);
-        const match = left.match(/(?:^|\s)@([^\s@]{0,40})$/);
-
-        if (!match) {
-            setShowMentionMenu(false);
-            setMentionResults([]);
-            setMentionAnchorIndex(-1);
-            return;
-        }
-
-        const query = (match[1] || '').toLowerCase();
-        const anchor = caret - query.length - 1;
-        const results = mentionCatalog
-            .filter((item) => item.search.includes(query))
-            .slice(0, 8);
-
-        setMentionAnchorIndex(anchor);
-        setMentionResults(results);
-        setShowMentionMenu(results.length > 0);
-    }, [inputValue, mentionCatalog]);
-
-    useEffect(() => {
-        if (!inputRef.current) return;
-        inputRef.current.style.height = 'auto';
-        inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
-    }, [inputValue]);
-
-    const loadConfig = useCallback(async () => {
-        try {
-            const data = await fetchConfiguration();
-            const ai = data.ai || {};
-            const activeId = ai.active_agent_id;
-            // Disabled profiles stay editable in Settings but are not
-            // selectable for a conversation. This also keeps a newly
-            // created LLM Wiki profile with no model from falling back to
-            // an unrelated provider before the user configures it.
-            const agents = (ai.agents || []).filter((agent) => agent.enabled !== false);
-            setAgentList(agents);
-            const selection = resolveAgentRuntimeSelection(
-                agents,
-                forcedAgentId,
-                selectedAgentId,
-                activeId,
-            );
-            const agent = selection.agent;
-            if (agent) {
-                setAgentConfig(agent);
-            }
-            if (selection.selectedAgentId) {
-                setSelectedAgentId(selection.selectedAgentId);
-            }
-        } catch (e) {
-            console.error("Error loading agent config", e);
-        }
-    }, [forcedAgentId, selectedAgentId]);
-
-    // Re-fetch when the Settings modals emit the event (without a reload).
-    useConfigChanged(loadConfig);
-
-    useEffect(() => {
-        if (!agentList.length) return;
-        const selection = resolveAgentRuntimeSelection(
-            agentList,
-            forcedAgentId,
-            selectedAgentId,
-            '',
-        );
-        const next = selection.agent;
-        if (next) {
-            setAgentConfig(next);
-            if (selection.selectedAgentId !== selectedAgentId) {
-                setSelectedAgentId(selection.selectedAgentId);
-            }
-        }
-    }, [forcedAgentId, selectedAgentId, agentList]);
-
-    const loadMentionCatalog = useCallback(async () => {
-        try {
-            const [pages, tables, dbs] = await Promise.all([
-                fetchVaultPages(),
-                fetchVaultTables(),
-                fetchVaultDatabases(),
-            ]);
-
-            const pageItems = (Array.isArray(pages) ? pages : []).map((p) => {
-                const label = p.title || p.name || p.id;
-                return {
-                    id: String(p.id),
-                    type: 'page',
-                    label: String(label),
-                    subtitle: t('chat.mention_type_page', "Page"),
-                    search: `page ${label} ${p.id}`.toLowerCase(),
-                };
-            });
-
-            const tableItems = (Array.isArray(tables) ? tables : []).map((tbl) => {
-                const label = tbl.name || tbl.title || tbl.id;
-                return {
-                    id: String(tbl.id),
-                    type: 'table',
-                    label: String(label),
-                    subtitle: t('chat.mention_type_table', "Table"),
-                    search: `table ${label} ${tbl.id}`.toLowerCase(),
-                };
-            });
-
-            const dbItems = (Array.isArray(dbs) ? dbs : []).map((d) => {
-                const label = d.name || d.title || d.id;
-                return {
-                    id: String(d.id),
-                    type: 'database',
-                    label: String(label),
-                    subtitle: t('chat.mention_type_database', "DB"),
-                    search: `database bd ${label} ${d.id}`.toLowerCase(),
-                };
-            });
-
-            setMentionCatalog([...pageItems, ...tableItems, ...dbItems]);
-        } catch (e) {
-            console.error('Error loading mention catalog', e);
-        }
-    }, [t]);
+    const { mentionResults, showMentionMenu, setShowMentionMenu, applyMention, loadMentionCatalog } =
+        useChatMentions({ inputValue, inputRef, setInputValue, setSelectedMentions });
+    const { agentConfig, agentList, loadConfig } =
+        useChatConfiguration({ forcedAgentId, selectedAgentId, setSelectedAgentId });
 
     useEffect(() => {
         void loadConfig();
@@ -313,43 +176,11 @@ const AgentChat = ({
     }, [loadConfig, loadMentionCatalog]);
 
 
-    const applyMention = (item) => {
-        const current = inputValue || '';
-        const caret = inputRef.current?.selectionStart ?? current.length;
-        if (mentionAnchorIndex < 0 || mentionAnchorIndex > caret) return;
-
-        const token = `${visibleMentionToken(item.label)} `;
-        const before = current.slice(0, mentionAnchorIndex);
-        const after = current.slice(caret);
-        const nextValue = `${before}${token}${after}`;
-        const nextCaret = before.length + token.length;
-
-        setInputValue(nextValue);
-        setSelectedMentions((previous) => [
-            ...previous.filter((mention) => mention.token !== token.trim()),
-            {
-                type: item.type,
-                id: item.id,
-                label: item.label,
-                token: token.trim(),
-            },
-        ]);
-        setShowMentionMenu(false);
-        setMentionResults([]);
-        setMentionAnchorIndex(-1);
-
-        requestAnimationFrame(() => {
-            if (inputRef.current) {
-                inputRef.current.focus();
-                inputRef.current.setSelectionRange(nextCaret, nextCaret);
-            }
+    const { handlePickAttachment, handleAttachmentInputChange, removeAttachment } =
+        useChatAttachments({
+            selectedAgentId, sessionId, attachments, isUploadingAttachment, fileInputRef,
+            setAttachments, setIsUploadingAttachment, setMessages,
         });
-    };
-
-    const handlePickAttachment = () => {
-        if (isUploadingAttachment) return;
-        fileInputRef.current?.click();
-    };
 
     const autoResizeInput = () => {
         if (!inputRef.current) return;
@@ -373,84 +204,6 @@ const AgentChat = ({
         messagesContainerRef.current?.scrollBy({ top: scrollDelta, behavior: 'smooth' });
     };
 
-    const uploadAttachmentFile = async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('agent_id', selectedAgentId);
-        formData.append('session_id', sessionId);
-
-        const res = await transportFetch('/api/chat/attachments', {
-            method: 'POST',
-            body: formData,
-        });
-
-        if (!res.ok) {
-            const detail = await res.text();
-            throw new Error(detail || t('chat.attachment_upload_failed', "The file could not be uploaded"));
-        }
-
-        const data = await res.json();
-        return {
-            id: crypto.randomUUID(),
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            path: data.path || null,
-            url: null,
-        };
-    };
-
-    const handleAttachmentInputChange = async (e) => {
-        const picked = Array.from(e.target.files || []);
-        e.target.value = '';
-        if (!picked.length) return;
-
-        const remainingSlots = Math.max(0, MAX_CHAT_ATTACHMENTS - attachments.length);
-        const validFiles = picked
-            .filter((file) => file.size <= MAX_CHAT_ATTACHMENT_SIZE)
-            .slice(0, remainingSlots);
-        const skipped = picked.length - validFiles.length;
-        if (skipped > 0) {
-            setMessages((prev) => [
-                ...prev,
-                { role: 'system', content: t('chat.attachments_skipped_limits', "Notice: {{count}} file(s) exceed the size or count limit and were not attached.", { count: skipped }) },
-            ]);
-        }
-        if (!validFiles.length) return;
-
-        setIsUploadingAttachment(true);
-        const uploaded = [];
-        try {
-            for (const file of validFiles) {
-                const saved = await uploadAttachmentFile(file);
-                uploaded.push(saved);
-            }
-            setAttachments((prev) => [...prev, ...uploaded]);
-        } catch (error) {
-            for (const item of uploaded) {
-                void transportFetch('/api/chat/attachments', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: item.path, agent_id: selectedAgentId, session_id: sessionId }),
-                }).catch(() => {});
-            }
-            setMessages((prev) => [...prev, { role: 'system', content: t('chat.attachment_upload_error', "Error uploading attachment: {{message}}", { message: error.message }) }]);
-        } finally {
-            setIsUploadingAttachment(false);
-        }
-    };
-
-    const removeAttachment = (attachmentId) => {
-        const target = attachments.find((item) => item.id === attachmentId);
-        setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
-        if (target?.path) {
-            void transportFetch('/api/chat/attachments', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: target.path, agent_id: selectedAgentId, session_id: sessionId }),
-            }).catch((error) => console.warn('Could not delete abandoned chat attachment', error));
-        }
-    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
