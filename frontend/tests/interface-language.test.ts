@@ -7,15 +7,8 @@ import {
     normalizeInterfaceLanguage,
     resolveInitialInterfaceLanguage,
     setInterfaceLanguage,
-} from '../src/lib/interfaceLanguage.js';
-
-function memoryStorage(initial = {}) {
-    const values = new Map(Object.entries(initial));
-    return {
-        getItem: vi.fn((key) => values.get(key) ?? null),
-        setItem: vi.fn((key, value) => values.set(key, value)),
-    };
-}
+} from '../src/lib/interfaceLanguage';
+import { memoryStorage } from './helpers/memory-storage';
 
 describe('interface language resolution', () => {
     test('normalizes supported regional language tags', () => {
@@ -29,7 +22,7 @@ describe('interface language resolution', () => {
             storage: memoryStorage(),
             fetchConfig: vi.fn().mockResolvedValue({
                 ok: true,
-                json: async () => ({ settings: { language: '' } }),
+                json: () => Promise.resolve({ settings: { language: '' } }),
             }),
         });
 
@@ -52,7 +45,7 @@ describe('interface language resolution', () => {
             storage: memoryStorage(),
             fetchConfig: vi.fn().mockResolvedValue({
                 ok: true,
-                json: async () => ({ settings: { language: 'es-ES' } }),
+                json: () => Promise.resolve({ settings: { language: 'es-ES' } }),
             }),
         });
 
@@ -64,7 +57,7 @@ describe('interface language resolution', () => {
             storage: memoryStorage(),
             fetchConfig: vi.fn().mockResolvedValue({
                 ok: true,
-                json: async () => ({ settings: { language: 'de' } }),
+                json: () => Promise.resolve({ settings: { language: 'de' } }),
             }),
         });
         const unavailable = await resolveInitialInterfaceLanguage({
@@ -80,13 +73,13 @@ describe('interface language resolution', () => {
 describe('interface language application', () => {
     test('initialization applies the resolved language without storing an implicit default', async () => {
         const storage = memoryStorage();
-        const i18n = { resolvedLanguage: 'ca', changeLanguage: vi.fn().mockResolvedValue() };
+        const i18n = { resolvedLanguage: 'ca', changeLanguage: vi.fn().mockResolvedValue(undefined) };
 
         await initializeInterfaceLanguage(i18n, {
             storage,
             fetchConfig: vi.fn().mockResolvedValue({
                 ok: true,
-                json: async () => ({ settings: {} }),
+                json: () => Promise.resolve({ settings: {} }),
             }),
         });
 
@@ -96,7 +89,7 @@ describe('interface language application', () => {
 
     test('an explicit choice is normalized, persisted, and applied immediately', async () => {
         const storage = memoryStorage();
-        const i18n = { changeLanguage: vi.fn().mockResolvedValue() };
+        const i18n = { changeLanguage: vi.fn().mockResolvedValue(undefined) };
 
         await setInterfaceLanguage(i18n, 'CA-ad', storage);
 

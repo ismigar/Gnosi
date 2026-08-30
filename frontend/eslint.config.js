@@ -70,7 +70,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
       tseslint.configs.strictTypeChecked,
@@ -127,7 +127,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['vite.config.js', 'test_*.js', 'tests/**/*.js', 'eslint/**/*.js'],
+    files: ['vite.config.js', 'test_*.js', 'tests/**/*.{js,ts,tsx}', 'eslint/**/*.js'],
     languageOptions: {
       globals: globals.node,
     },
