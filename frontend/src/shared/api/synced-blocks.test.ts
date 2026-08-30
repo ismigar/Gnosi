@@ -1,10 +1,11 @@
+import { resetApiTestStorage } from '../../test/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchSyncedBlock, saveSyncedBlock } from './synced-blocks';
 
 
 afterEach(() => {
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 

@@ -1,3 +1,4 @@
+import { resetApiTestStorage } from '../../test/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -7,7 +8,7 @@ import {
 
 
 afterEach(() => {
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 

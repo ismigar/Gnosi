@@ -1,3 +1,4 @@
+import { resetApiTestStorage } from '../../test/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -41,7 +42,7 @@ function stubJson(payload: unknown) {
 
 
 afterEach(() => {
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 

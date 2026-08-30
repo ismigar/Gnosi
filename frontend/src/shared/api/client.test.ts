@@ -1,3 +1,4 @@
+import { resetApiTestStorage, writeApiTestStorage } from '../../test/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { apiClient } from './client';
@@ -5,17 +6,17 @@ import { GnosiApiError, unwrapApiResult } from './errors';
 
 
 afterEach(() => {
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 
 
 describe('apiClient', () => {
   it('adds the current workspace, user and Vault context', async () => {
-    localStorage.setItem('gnosi_workspace_id', 'workspace-1');
-    localStorage.setItem('gnosi_user_id', 'user-1');
-    localStorage.setItem('gnosi_user_email', 'user@example.test');
-    localStorage.setItem('gnosi_active_vault', 'vault-1');
+    writeApiTestStorage('gnosi_workspace_id', 'workspace-1');
+    writeApiTestStorage('gnosi_user_id', 'user-1');
+    writeApiTestStorage('gnosi_user_email', 'user@example.test');
+    writeApiTestStorage('gnosi_active_vault', 'vault-1');
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(new Response(JSON.stringify({ status: 'healthy' }), {
           headers: { 'Content-Type': 'application/json' },

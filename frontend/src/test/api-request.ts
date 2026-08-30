@@ -3,12 +3,20 @@ import {
   listStorageKeyNames,
   removeStorage,
   stringStorageCodec,
+  writeStorage,
 } from '../shared/platform/browser-storage';
 
 /** Reset only the isolated test document's persistent context. */
 export function resetApiTestStorage(): void {
   for (const name of listStorageKeyNames('local')) {
     removeStorage(defineStorageKey(name, stringStorageCodec));
+  }
+}
+
+/** Use exact legacy context keys and fail loudly if the test cannot persist them. */
+export function writeApiTestStorage(name: string, value: string): void {
+  if (!writeStorage(defineStorageKey(name, stringStorageCodec), value)) {
+    throw new Error(`Cannot initialize test storage key ${name}`);
   }
 }
 

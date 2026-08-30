@@ -1,3 +1,4 @@
+import { resetApiTestStorage } from '../../test/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { clearPageEtag, getCachedPageEtag } from './page-etag';
@@ -51,7 +52,7 @@ function conflictResponse(
 
 afterEach(() => {
   clearPageEtag('page-1');
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 

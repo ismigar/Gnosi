@@ -1,3 +1,4 @@
+import { resetApiTestStorage } from '../../test/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GnosiApiError } from './errors';
@@ -38,7 +39,7 @@ import {
 afterEach(() => {
   clearPluginHostPageEtag('page/one');
   clearPluginHostPageEtag('page/conflict');
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 
