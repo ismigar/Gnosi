@@ -5,6 +5,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY .node-version ./
 COPY patches/ patches/
 COPY scripts/verify-toolchain.mjs scripts/verify-toolchain.mjs
 COPY frontend/package.json frontend/package.json
@@ -13,7 +14,8 @@ COPY tests/e2e/package.json tests/e2e/package.json
 
 RUN pnpm install --frozen-lockfile --filter @gnosi/frontend...
 
-# Copy the rest of the frontend code
+# Source is image-owned. Rebuild after code/lock changes; do not mask installed
+# workspace dependencies with host node_modules or anonymous dependency volumes.
 COPY frontend/ frontend/
 
 WORKDIR /app/frontend
@@ -22,4 +24,4 @@ WORKDIR /app/frontend
 EXPOSE 5173
 
 # Command to run the dev server
-CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]
+CMD ["pnpm", "exec", "vite", "--host", "0.0.0.0", "--port", "5173", "--strictPort"]

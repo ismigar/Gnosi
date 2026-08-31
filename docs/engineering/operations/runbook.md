@@ -23,6 +23,7 @@ source_paths:
   - scripts/migrate-data-dir.py
   - backend/services/data_dir_migration.py
   - docker-compose.yml
+  - compose.vaults.yml
   - Dockerfile.backend
   - Dockerfile.frontend
   - desktop/package.json
@@ -31,7 +32,12 @@ source_paths:
   - desktop/electron-builder.yml
   - .github/workflows/build-release.yml
   - .github/workflows/documentation-pages.yml
+  - tests/e2e/tests/setup/auth.setup.ts
+  - tests/e2e/support/auth-playwright.ts
+  - tests/e2e/support/auth-state.ts
 tests:
+  - pipeline/tests/test_native_runtime_wrappers.py
+  - backend/tests/test_vault_creation_membership.py
   - backend/tests/test_data_dir.py
   - backend/tests/test_env_loading.py
   - backend/tests/test_data_dir_migration.py
@@ -65,12 +71,30 @@ corepack pnpm install --frozen-lockfile
 Start the backend and frontend in separate terminals, each at the repository root:
 
 ```sh
-uv run --frozen uvicorn backend.server:app --host 127.0.0.1 --port 5002 --reload --reload-dir backend
+bash scripts/runtime/run_native_dev.sh 5002
 ```
 
 ```sh
-corepack pnpm --filter @gnosi/frontend dev
+bash scripts/runtime/run_native_frontend.sh --config vite.config.js --host 127.0.0.1
 ```
+
+The backend wrapper uses the existing root environment through
+`uv run --project "$BASE" --frozen --no-sync`, calls the canonical Python
+`load_env()` and `resolve_data_dir()`, then starts uvicorn on loopback with
+reload limited to `backend/`. It does not synchronize or install dependencies.
+It neither parses dotenv in shell nor forces a OneDrive vault, provider,
+`HOME_HOST_PATH`, timezone, model or translation endpoint.
+
+The frontend wrapper sets `COREPACK_ENABLE_NETWORK=0` and runs
+`corepack pnpm --filter @gnosi/frontend dev`; pnpm and the locked dependencies
+must already be available. The example passes an explicit Vite configuration
+and loopback host; without `--host`, Vite's configured host applies.
+Set `VITE_BACKEND_HOST` and `VITE_BACKEND_PORT` explicitly for another backend
+(defaults: `localhost` and `5002`). Vite owns frontend dotenv loading; the
+wrapper does not export a default `VITE_FRONTEND_PORT` that would shadow it.
+Both wrappers validate supplied ports in the range 1–65535, forward arguments
+and propagate process exits. The frontend preserves explicit checkout labels
+and reports an already-merged checkout behind `origin/main`.
 
 For a local vault, configure its actual directory and select
 `GNOSI_FILES_PROVIDER=local`; no download helper is required. Keep the active
@@ -188,12 +212,12 @@ host conveniences, not the portable startup contract. Machine-specific service
 definitions, private paths and incident history belong in private
 `WorkspaceTools`, not in public prerequisites.
 
-Inspect `scripts/runtime/run_native_dev.sh` before adopting it: it still has
-a maintainer-specific OneDrive vault fallback and forces
-`ONEDRIVE_WARMUP_MODE=open`, `TZ=Europe/Madrid` and an empty
-`TRANSLATION_SERVER_URL`. Its data fallback handles `GNOSI_LOCAL_DATA`, but
-does not consult `LOCAL_DATA_DIR` before assigning `GNOSI_DATA_DIR`.
-Use the explicit native commands above for the portable baseline.
+Host installation and watchdog scripts still exist; they have not been retired.
+The portable wrappers above do not install or remove existing host services.
+Review `install_native_startup.sh` before use: it terminates listeners on
+5002/5173 and reloads LaunchAgents. Do not run it as a diagnostic. Retain source
+traceability and host-specific warnings until any removal is actually completed
+after caller review and exact private preservation.
 
 For an installation that already uses `scripts/runtime/native_watchdog.sh`,
 inspect `~/.gnosi_native_watchdog.log` for restart loops. Startup grace
@@ -207,30 +231,106 @@ install it without reviewing the host's other Python workloads.
 
 ## Optional Docker deployment
 
-The current Compose file is a development-oriented bundle, not a minimal
-isolated deployment. Configure `VAULT_HOST_PATH` and
-`VAULTS_ROOT_HOST_PATH` explicitly; its fallback paths still name the
-maintainer's OneDrive layout. Review mounts before use: they include the Docker
-socket, the home directory, a private `.antigravity` directory, legacy secrets
-and source code. Their presence does not make private host tooling a Gnosi
-requirement. Review published ports and authentication before exposing a host.
+Docker is a supported, optional self-hosting target. The base
+`docker-compose.yml` needs no host vault directory or maintainer-specific path:
 
-Supply a strong private `GNOSI_JWT_SECRET` to Compose interpolation through the
-shell or local `.env`; a service `env_file` alone does not satisfy its required
-interpolation expression. Compose sets `GNOSI_DATA_DIR=/data`, mounts
-`gnosi_local_data` there and uses `/vault` and `/vaults` for vault mounts.
-The optional bundle also includes Zotero's translation-server.
+| Persistent content | Named volume | Container path |
+| --- | --- | --- |
+| Per-device databases and credentials | `gnosi_local_data` (preserved key) | `/data`, via `GNOSI_DATA_DIR` |
+| Vaults | `gnosi_vaults` (new volume) | `/vaults`, via `GNOSI_VAULTS_ROOT`; active default `/vaults/default` |
 
-`Dockerfile.frontend` installs from `pnpm-lock.yaml` with
-`--frozen-lockfile`. Compose currently masks both `/app/node_modules` and
-`/app/frontend/node_modules` with anonymous volumes. After dependency changes,
-rebuild the frontend image and renew only that service's dependency volumes;
-otherwise old contents can hide the new lock. The backend exports `uv.lock`
-with `--frozen`, then installs runtime requirements after a CPU-only Torch
-wheel. This special wheel step still needs platform validation. Backend source
-reloads through its bind mount; dependency changes require an image rebuild.
-Never use `docker compose down -v` or broad volume pruning as routine repair:
-the named volume contains persistent databases and credentials.
+Existing host vaults are not copied into the new volume automatically. Preserve
+the existing Compose project name when upgrading: it determines named-volume
+identity. Changing it can select empty volumes while old data still exists.
+Back up databases, credentials and vaults before changes. Never use
+`docker compose down -v` or broad volume pruning as a dependency repair.
+
+Published ports default to `127.0.0.1:5002` and `127.0.0.1:5173`.
+`GNOSI_BIND_ADDRESS`, `GNOSI_BACKEND_PORT` and `GNOSI_FRONTEND_PORT` configure
+host publication; internal ports stay 5002/5173 and the frontend proxies to
+`backend:5002`. Compose forces frontend HTTP. Review authentication, TLS and
+network access before changing the bind address to expose the service.
+
+Supply a strong private `GNOSI_JWT_SECRET` through the shell or local `.env`
+for Compose interpolation. A service `env_file` alone cannot satisfy the
+required expression. Compose explicitly sets `GNOSI_REQUIRE_AUTH=1`;
+do not disable authentication to obtain a passing smoke test.
+
+Compose reads an optional shared `env_file` selected by
+`GNOSI_SHARED_ENV_FILE` (fallback `.env.shared.disabled`), then optional `.env`;
+the latter wins for duplicate keys. Explicit service `environment` entries win
+over both files. These are container environment rules: arbitrary host shell
+variables are not automatically forwarded. Compose reads the files on the host,
+without mounting or baking them into images, and clears `GNOSI_SHARED_ENV_FILE`
+inside the backend to avoid reloading a host path. No parent `.env_shared` is
+implicitly required.
+
+The bundle includes Zotero's translation-server internally on 1969, without a
+published host port. `GNOSI_TRANSLATION_IMAGE` selects its image;
+`TRANSLATION_SERVER_URL` defaults to `http://translation-server:1969` only when
+unset and preserves an explicit empty value. Translation is optional to Gnosi,
+but this Compose file declares the sidecar without an optional profile.
+
+To use existing host directories, explicitly add `compose.vaults.yml`:
+
+```sh
+docker compose -f docker-compose.yml -f compose.vaults.yml up -d --build
+```
+
+Before that command, supply both `VAULT_HOST_PATH` (existing active vault) and
+`VAULTS_ROOT_HOST_PATH` (existing parent directory) to Compose interpolation.
+Both are required; both bind mounts use `create_host_path: false` to reject
+missing directories. Prefer absolute paths; relative paths resolve from the
+base Compose file's directory. The override replaces the `/vaults` volume by
+container target, adds the active bind at `/vault`, and sets
+`DIGITAL_BRAIN_VAULT_PATH=/vault`. It preserves `gnosi_local_data:/data` and
+forwards the two selected host paths for file-action translation. This does
+not copy data or provision host helpers.
+
+The base bundle mounts no source code, host dependencies, home directory,
+private `.antigravity` tree, secrets directory or Docker socket. The explicit
+vault override adds only its two selected directories. The backend image's
+Docker CLI does not grant host-engine access without a socket or separately
+configured endpoint. Code and dependencies belong to the images: there is no
+host-source hot reload or anonymous `node_modules` volume to renew. Rebuild
+images after source or lock changes; preserve persistent volumes.
+
+`Dockerfile.frontend` uses Node 22.22.2, pnpm 11.19.0 and
+`--frozen-lockfile`, then serves Vite on strict port 5173. The backend exports
+`uv.lock` with `--frozen`, installs the pinned CPU-only Torch wheel and then
+the exported requirements; uvicorn runs without `--reload`. Wheel availability,
+image builds and startup require platform-specific validation. Static
+source/contract tests do not replace actual Compose merging, engine builds,
+container smoke tests or platform acceptance.
+
+## Authenticated acceptance and QA boundaries
+
+Native acceptance must exercise real registration, workspace and first-vault
+creation, login, `/api/auth/me`, HttpOnly cookies and Playwright authentication
+setup, with clean startup and shutdown. Browser checks must create and edit a
+disposable page, reload and reopen it to verify title/body persistence, inspect
+the console and verify logout. Even a passing fixture and browser flow do not
+certify the full E2E suite, Docker/Electron matrix or release readiness.
+
+E2E setup requires explicit `GNOSI_TEST_EMAIL` and `GNOSI_TEST_PASSWORD` for
+an already provisioned disposable account before networking. It logs in and
+verifies the session through `/api/auth/me`; it does not register accounts or
+invent an admin identity. `GNOSI_TEST_WORKSPACE_ID` must match a verified
+membership; omit it only when exactly one membership exists.
+`GNOSI_TEST_VAULT_ID` is optional and grants no permissions. Keep session state
+private, preferably at a temporary `GNOSI_TEST_STORAGE_STATE`, and do not enable
+credential-bearing setup traces, screenshots, video or diagnostic logging.
+
+`backend/tests/test_vault_creation_membership.py` covers first-vault creation
+with authenticated owner/admin/editor membership, rejects unauthenticated,
+read-only and cross-workspace callers, and checks path confinement and
+organization listing without personal-vault registration. This regression
+coverage does not replace real application/browser validation. The integration
+owner retains the full browser, CI, SOP and platform acceptance gates.
+
+From the repository root, `corepack pnpm test:e2e:contracts` runs offline
+authentication contracts and strict authentication typechecking. It does not
+start the application or replace real login/browser acceptance.
 
 ## Optional Electron packaging
 

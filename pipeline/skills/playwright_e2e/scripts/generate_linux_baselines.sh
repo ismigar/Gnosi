@@ -5,6 +5,8 @@
 # Playwright browsers. Nothing is pulled; dependency installation is container-only.
 # See ../SKILL.md for the temporary Linux opt-in and authentication limitations.
 
+# Do not expand credential checks into inherited shell tracing output.
+set +x
 set -euo pipefail
 
 fail() { echo "✗ $*" >&2; exit 2; }
@@ -14,6 +16,8 @@ if [ "$#" -ne 3 ] || [ "$1" != --update-snapshots ] || [ "$2" != --output-dir ];
 fi
 [ -n "${GNOSI_PLAYWRIGHT_IMAGE:-}" ] || fail 'Set GNOSI_PLAYWRIGHT_IMAGE to a prepared local image.'
 [ -n "${GNOSI_BASE_URL:-}" ] || fail 'Set GNOSI_BASE_URL to the existing frontend URL reachable from the container.'
+[[ "${GNOSI_TEST_EMAIL:-}" =~ [^[:space:]] ]] || fail 'Set GNOSI_TEST_EMAIL for an existing disposable test account.'
+[[ "${GNOSI_TEST_PASSWORD:-}" =~ [^[:space:]] ]] || fail 'Set GNOSI_TEST_PASSWORD for an existing disposable test account.'
 URL_PATTERN='^https?://([^/?#@[:space:]]+)([/?#][^[:space:]]*)?$'
 [[ "$GNOSI_BASE_URL" =~ $URL_PATTERN ]] || fail 'GNOSI_BASE_URL must be HTTP(S), without credentials or whitespace.'
 PROBE_URL="${GNOSI_BASE_URL%%://*}://${BASH_REMATCH[1]}/"
@@ -48,6 +52,7 @@ INPUTS=(
   frontend/package.json desktop/package.json tests/e2e/package.json
   scripts/verify-toolchain.mjs patches/emscripten-wasm-loader@3.0.3.patch
   tests/e2e/playwright.config.ts tests/e2e/tests/setup/auth.setup.ts
+  tests/e2e/support/auth-state.ts tests/e2e/support/auth-playwright.ts
   tests/e2e/tests/visual/regression.spec.ts
 )
 for INPUT in "${INPUTS[@]}"; do
@@ -70,11 +75,15 @@ if docker run --rm --pull=never --init --cap-drop=ALL \
   --mount "type=bind,src=$TASK_DIR/source,dst=/source,readonly" \
   --mount "type=bind,src=$TASK_DIR/output,dst=/export" \
   --env "GNOSI_BASE_URL=$GNOSI_BASE_URL" --env "GNOSI_PROBE_URL=$PROBE_URL" \
-  --env "GNOSI_TEST_VAULT_ID=${GNOSI_TEST_VAULT_ID:-}" \
+  --env GNOSI_TEST_EMAIL --env GNOSI_TEST_PASSWORD \
+  --env GNOSI_TEST_WORKSPACE_ID --env GNOSI_TEST_VAULT_ID \
   --env CI=1 --env PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 --env COREPACK_ENABLE_NETWORK=0 \
   --entrypoint /bin/bash -i -- "$GNOSI_PLAYWRIGHT_IMAGE" -s <<'CONTAINER_SCRIPT'
+set +x
 set -euo pipefail
 fail() { echo "✗ $*" >&2; exit 2; }
+[[ "${GNOSI_TEST_EMAIL:-}" =~ [^[:space:]] ]] || fail 'Container requires GNOSI_TEST_EMAIL for a disposable account.'
+[[ "${GNOSI_TEST_PASSWORD:-}" =~ [^[:space:]] ]] || fail 'Container requires GNOSI_TEST_PASSWORD for a disposable account.'
 [ "$(node --version)" = v22.22.2 ] || fail 'Container requires Node 22.22.2.'
 [ "$(pnpm --version)" = 11.19.0 ] || fail 'Container requires pnpm 11.19.0.'
 if ! STATUS="$(curl --disable --fail --silent --show-error --location \
@@ -87,6 +96,9 @@ fi
 WORK_DIR="$(mktemp -d /tmp/gnosi-linux-work.XXXXXXXX)"
 cp -R /source/. "$WORK_DIR/"
 cd "$WORK_DIR"
+# Never inherit a host state destination or copy an existing session. The real
+# setup owns this container-local file and restricts it to mode 600 before writing.
+export GNOSI_TEST_STORAGE_STATE="$WORK_DIR/.auth/state.json"
 # Skip package lifecycle scripts: only Playwright tests are needed, not Electron
 # native builds. Browser binaries must already match the locked Playwright version.
 pnpm install --frozen-lockfile --ignore-scripts

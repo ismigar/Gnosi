@@ -16,16 +16,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from backend.config.app_config import load_params
 from backend.data.management_db import get_mgmt_db
 from backend.models.management import Vault
-from backend.services.workspace_service import (
-    get_workspace_context,
-    WorkspaceContext,
-    require_role,
-)
 from backend.services.context_vars import get_active_vault_path
-from backend.config.app_config import load_params
 from backend.services.vault_routing import assign_vault_slug, ensure_vault_slugs
+from backend.services.workspace_service import (
+    WorkspaceContext,
+    WorkspaceMembershipContext,
+    get_workspace_context,
+    require_role,
+    require_workspace_role,
+)
 
 router = APIRouter(prefix="/vaults", tags=["Vaults"])
 
@@ -170,10 +172,12 @@ def list_vaults(
     db: Session = Depends(get_mgmt_db),
 ) -> dict[str, Any]:
     """Workspace vaults + which one is active (the one resolved by X-Vault-Id or the main one)."""
-    _ensure_main_vault(db, ctx.workspace_id, _default_vault_path())
-    _prune_container_rows(db, ctx.workspace_id, _default_vault_path())
+    personal = load_params(strict_env=False).gnosi_mode == "personal"
+    if personal:
+        _ensure_main_vault(db, ctx.workspace_id, _default_vault_path())
+        _prune_container_rows(db, ctx.workspace_id, _default_vault_path())
     ensure_vault_slugs(db)
-    active = str(get_active_vault_path() or "")
+    active = str((get_active_vault_path() or "") if personal else ctx.vault_path)
     rows = db.query(Vault).filter(Vault.workspace_id == ctx.workspace_id).all()
     vaults = [
         VaultSummaryResponse(
@@ -190,12 +194,11 @@ def list_vaults(
 
 @router.post(
     "",
-    dependencies=[Depends(require_role("editor"))],
     response_model=VaultMutationResponse,
 )
 def create_vault(
     payload: CreateVaultPayload,
-    ctx: WorkspaceContext = Depends(get_workspace_context),
+    ctx: WorkspaceMembershipContext = Depends(require_workspace_role("editor")),
     db: Session = Depends(get_mgmt_db),
 ) -> dict[str, Any]:
     """Creates a new vault (folder + row). Defaults to a sibling of the main vault."""
@@ -294,8 +297,10 @@ def delete_vault(
     ctx: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
 ) -> dict[str, str]:
-    """Deletes a vault's ROW from the registry. With `delete_files=true` it also DELETES the
-    folder from disk (to discard a whole clone). The active vault and the main vault can't be deleted."""
+    """Delete a vault registration and optionally its files with `delete_files=true`.
+
+    The active vault and the main vault cannot be deleted.
+    """
     v = db.query(Vault).filter(Vault.id == vault_id, Vault.workspace_id == ctx.workspace_id).first()
     if not v:
         raise HTTPException(status_code=404, detail="Vault no trobat")
@@ -317,7 +322,7 @@ def delete_vault(
     if delete_files and vpath:
         # SECURITY: we only delete if the folder lives UNDER the vaults root (…/Gnosi/) and isn't
         # the root or the default vault. This way a `delete_files` can't delete anything arbitrary.
-        # Under Docker the root must come from GNOSI_VAULTS_ROOT: the parent of /vault is `/` and the
+        # Under Docker the root must come from GNOSI_VAULTS_ROOT: /vault's parent is `/`, so the
         # `root in p.parents` check would become true for ANY absolute path.
         try:
             root = _vaults_root().resolve()

@@ -23,6 +23,7 @@ source_paths:
   - scripts/migrate-data-dir.py
   - backend/services/data_dir_migration.py
   - docker-compose.yml
+  - compose.vaults.yml
   - Dockerfile.backend
   - Dockerfile.frontend
   - desktop/package.json
@@ -31,7 +32,12 @@ source_paths:
   - desktop/electron-builder.yml
   - .github/workflows/build-release.yml
   - .github/workflows/documentation-pages.yml
+  - tests/e2e/tests/setup/auth.setup.ts
+  - tests/e2e/support/auth-playwright.ts
+  - tests/e2e/support/auth-state.ts
 tests:
+  - pipeline/tests/test_native_runtime_wrappers.py
+  - backend/tests/test_vault_creation_membership.py
   - backend/tests/test_data_dir.py
   - backend/tests/test_env_loading.py
   - backend/tests/test_data_dir_migration.py
@@ -66,12 +72,31 @@ corepack pnpm install --frozen-lockfile
 Inicieu el backend i el frontend en terminals separats, tots dos a l’arrel del repositori:
 
 ```sh
-uv run --frozen uvicorn backend.server:app --host 127.0.0.1 --port 5002 --reload --reload-dir backend
+bash scripts/runtime/run_native_dev.sh 5002
 ```
 
 ```sh
-corepack pnpm --filter @gnosi/frontend dev
+bash scripts/runtime/run_native_frontend.sh --config vite.config.js --host 127.0.0.1
 ```
+
+El wrapper del backend utilitza l’entorn existent de l’arrel mitjançant
+`uv run --project "$BASE" --frozen --no-sync`, crida les funcions canòniques
+de Python `load_env()` i `resolve_data_dir()` i inicia uvicorn a loopback amb
+recàrrega limitada a `backend/`. No sincronitza ni instal·la dependències.
+No interpreta dotenv al shell ni força un vault OneDrive, un proveïdor,
+`HOME_HOST_PATH`, una zona horària, un model o un endpoint de traducció.
+
+El wrapper del frontend estableix `COREPACK_ENABLE_NETWORK=0` i executa
+`corepack pnpm --filter @gnosi/frontend dev`; pnpm i les dependències fixades
+ja han d’estar disponibles. L’exemple passa una configuració Vite explícita
+i una adreça loopback; sense `--host`, s’aplica el host configurat a Vite.
+Establiu `VITE_BACKEND_HOST` i `VITE_BACKEND_PORT` explícitament per a un altre
+backend (valors predeterminats: `localhost` i `5002`). Vite carrega els seus
+dotenv; el wrapper no exporta un `VITE_FRONTEND_PORT` predeterminat que els
+oculti. Tots dos wrappers validen els ports proporcionats entre 1 i 65535,
+transmeten els arguments i propaguen els codis de sortida. El frontend conserva
+les etiquetes explícites del checkout i avisa si ja s’ha integrat i ha quedat
+enrere respecte d’`origin/main`.
 
 Per a un vault local, configureu-ne el directori real i seleccioneu
 `GNOSI_FILES_PROVIDER=local`; no cal cap servei auxiliar de descàrrega.
@@ -204,13 +229,13 @@ definicions de serveis específiques de cada màquina, les rutes privades i
 l’historial d’incidents pertanyen al repositori privat `WorkspaceTools`,
 no als requisits públics.
 
-Reviseu `scripts/runtime/run_native_dev.sh` abans d’adoptar-lo: encara
-inclou una ruta de vault OneDrive pròpia del mantenidor com a alternativa i
-força `ONEDRIVE_WARMUP_MODE=open`, `TZ=Europe/Madrid` i
-`TRANSLATION_SERVER_URL` buit. La seva alternativa per al directori de
-dades té en compte `GNOSI_LOCAL_DATA`, però no consulta `LOCAL_DATA_DIR`
-abans d’assignar `GNOSI_DATA_DIR`. Utilitzeu les ordres natives explícites
-anteriors com a base portable.
+Els scripts d’instal·lació del host i de watchdog encara existeixen; no s’han
+retirat. Els wrappers portables anteriors no instal·len ni eliminen serveis
+existents del host. Reviseu `install_native_startup.sh` abans d’utilitzar-lo:
+atura els processos que escolten als ports 5002/5173 i recarrega LaunchAgents.
+No l’executeu com a diagnòstic. Mantingueu la traçabilitat del codi i les
+advertències específiques del host fins que una retirada s’hagi completat,
+després de revisar les crides i preservar-ne una còpia privada exacta.
 
 Si una instal·lació ja utilitza `scripts/runtime/native_watchdog.sh`,
 reviseu `~/.gnosi_native_watchdog.log` per detectar bucles de reinici.
@@ -225,34 +250,119 @@ les altres càrregues Python del host.
 
 ## Desplegament Docker opcional
 
-El Compose actual és un conjunt orientat al desenvolupament, no un desplegament
-mínim aïllat. Configureu explícitament `VAULT_HOST_PATH` i
-`VAULTS_ROOT_HOST_PATH`; les rutes alternatives encara fan referència a
-l’organització OneDrive del mantenidor. Reviseu els muntatges abans
-d’utilitzar-lo: inclouen el socket Docker, el directori personal, un directori
-privat `.antigravity`, secrets antics i codi font. Que hi siguin no converteix
-les eines privades del host en requisits de Gnosi. Reviseu els ports publicats
-i l’autenticació abans d’exposar un host.
+Docker és una destinació d’autoallotjament suportada i opcional. El fitxer base
+`docker-compose.yml` no necessita cap directori de vault del host ni rutes
+pròpies del mantenidor:
 
-Proporcioneu un `GNOSI_JWT_SECRET` privat i robust a la interpolació de
-Compose mitjançant el shell o el `.env` local; un `env_file` del servei, per
-si sol, no satisfà l’expressió d’interpolació obligatòria. Compose estableix
-`GNOSI_DATA_DIR=/data`, hi munta `gnosi_local_data` i utilitza `/vault`
-i `/vaults` per als muntatges dels vaults. El conjunt opcional també inclou
-el translation-server de Zotero.
+| Contingut persistent | Volum amb nom | Ruta al contenidor |
+| --- | --- | --- |
+| Bases de dades i credencials per dispositiu | `gnosi_local_data` (clau conservada) | `/data`, mitjançant `GNOSI_DATA_DIR` |
+| Vaults | `gnosi_vaults` (volum nou) | `/vaults`, mitjançant `GNOSI_VAULTS_ROOT`; actiu predeterminat `/vaults/default` |
 
-`Dockerfile.frontend` instal·la les dependències de `pnpm-lock.yaml` amb
-`--frozen-lockfile`. Actualment Compose cobreix tant `/app/node_modules`
-com `/app/frontend/node_modules` amb volums anònims. Després de canviar
-dependències, reconstruïu la imatge del frontend i renoveu només els volums
-de dependències d’aquell servei; si no, el contingut antic pot ocultar el nou
-fitxer de bloqueig. El backend exporta `uv.lock` amb `--frozen` i instal·la
-els requisits d’execució després d’un wheel de Torch només per a CPU. Aquest
-pas especial encara necessita validació per plataforma. El codi del backend
-es recarrega mitjançant el muntatge del codi font; els canvis de dependències
-requereixen reconstruir la imatge. No utilitzeu mai `docker compose down -v`
-ni una eliminació generalitzada de volums com a reparació rutinària: el volum
-amb nom conté bases de dades i credencials persistents.
+Els vaults existents del host no es copien automàticament al volum nou.
+Conserveu el nom del projecte Compose quan actualitzeu: determina la identitat
+dels volums amb nom. Canviar-lo pot seleccionar volums buits mentre les dades
+antigues continuen existint. Feu còpies de seguretat de les bases de dades,
+credencials i vaults abans de canviar res. No utilitzeu mai
+`docker compose down -v` ni una purga generalitzada de volums per reparar
+dependències.
+
+Els ports publicats són `127.0.0.1:5002` i `127.0.0.1:5173` per defecte.
+`GNOSI_BIND_ADDRESS`, `GNOSI_BACKEND_PORT` i `GNOSI_FRONTEND_PORT` configuren
+la publicació al host; els ports interns continuen sent 5002/5173 i el frontend
+fa de proxy cap a `backend:5002`. Compose força HTTP al frontend. Reviseu
+l’autenticació, TLS i l’accés de xarxa abans de canviar l’adreça d’escolta per
+exposar el servei.
+
+Proporcioneu un `GNOSI_JWT_SECRET` privat i robust mitjançant el shell o el
+`.env` local per a la interpolació de Compose. Un `env_file` del servei no
+satisfà, per si sol, l’expressió obligatòria. Compose estableix explícitament
+`GNOSI_REQUIRE_AUTH=1`; no desactiveu l’autenticació per superar una prova bàsica.
+
+Compose llegeix un `env_file` compartit opcional seleccionat amb
+`GNOSI_SHARED_ENV_FILE` (alternativa `.env.shared.disabled`) i després el
+`.env` opcional; aquest últim preval en les claus repetides. Les entrades
+explícites d’`environment` del servei prevalen sobre tots dos fitxers. Són
+regles de l’entorn del contenidor: les variables arbitràries del shell del
+host no es transmeten automàticament. Compose llegeix els fitxers al host,
+sense muntar-los ni incloure’ls a les imatges, i buida `GNOSI_SHARED_ENV_FILE`
+dins del backend per no tornar a carregar una ruta del host. No exigeix
+implícitament cap `.env_shared` dels directoris pare.
+
+El conjunt inclou el translation-server de Zotero internament al port 1969,
+sense publicar-lo al host. `GNOSI_TRANSLATION_IMAGE` en selecciona la imatge;
+`TRANSLATION_SERVER_URL` pren `http://translation-server:1969` només si no
+està definida i conserva un valor buit explícit. La traducció és opcional per
+a Gnosi, però aquest fitxer Compose declara el servei auxiliar sense un perfil
+opcional.
+
+Per utilitzar directoris existents del host, afegiu explícitament
+`compose.vaults.yml`:
+
+```sh
+docker compose -f docker-compose.yml -f compose.vaults.yml up -d --build
+```
+
+Abans d’aquesta ordre, proporcioneu `VAULT_HOST_PATH` (vault actiu existent)
+i `VAULTS_ROOT_HOST_PATH` (directori pare existent) a la interpolació de
+Compose. Totes dues rutes són obligatòries; els dos muntatges utilitzen
+`create_host_path: false` per rebutjar directoris inexistents. Preferiu rutes
+absolutes; les relatives es resolen des del directori del Compose base.
+La sobreescriptura substitueix el volum de `/vaults` segons la destinació al
+contenidor, afegeix el muntatge actiu a `/vault` i estableix
+`DIGITAL_BRAIN_VAULT_PATH=/vault`. Conserva `gnosi_local_data:/data` i
+transmet les dues rutes del host seleccionades per traduir les accions sobre
+fitxers. No copia dades ni configura serveis auxiliars del host.
+
+El conjunt base no munta codi font, dependències del host, directori personal,
+arbre privat `.antigravity`, directori de secrets ni socket Docker. La
+sobreescriptura de vaults afegeix només els dos directoris seleccionats.
+El CLI Docker de la imatge del backend no dona accés al motor del host sense
+un socket o un endpoint configurat separadament. El codi i les dependències
+pertanyen a les imatges: no hi ha recàrrega del codi del host ni volums anònims
+de `node_modules` per renovar. Reconstruïu les imatges si canvien el codi o els
+fitxers de bloqueig; preserveu els volums persistents.
+
+`Dockerfile.frontend` utilitza Node 22.22.2, pnpm 11.19.0 i
+`--frozen-lockfile`, i serveix Vite al port estricte 5173. El backend exporta
+`uv.lock` amb `--frozen`, instal·la el wheel fixat de Torch només per a CPU i
+després els requisits exportats; uvicorn s’executa sense `--reload`.
+La disponibilitat del wheel, les compilacions i l’arrencada requereixen
+validació per plataforma. Els tests estàtics de codi i contractes no
+substitueixen la fusió real de Compose, les compilacions al motor, les proves
+bàsiques dels contenidors ni l’acceptació per plataforma.
+
+## Acceptació autenticada i límits de la QA
+
+L’acceptació nativa ha de provar el registre real, la creació d’un workspace i
+del primer vault, l’inici de sessió, `/api/auth/me`, les cookies HttpOnly i la
+preparació d’autenticació de Playwright, amb arrencada i aturada netes. Al
+navegador cal crear i editar una pàgina descartable, recarregar-la i reobrir-la
+per verificar la persistència del títol i del cos, revisar la consola i
+comprovar el tancament de sessió. Superar la fixture i el flux de navegador
+no acredita tota la suite E2E, la matriu Docker/Electron ni una publicació.
+
+La preparació E2E exigeix `GNOSI_TEST_EMAIL` i `GNOSI_TEST_PASSWORD` explícits
+d’un compte de prova descartable ja creat abans d’accedir a la xarxa. Inicia
+sessió i la verifica amb `/api/auth/me`; no registra comptes ni inventa una
+identitat d’administrador. `GNOSI_TEST_WORKSPACE_ID` ha de correspondre a una
+pertinença verificada; ometeu-lo només si n’hi ha exactament una.
+`GNOSI_TEST_VAULT_ID` és opcional i no concedeix permisos. Mantingueu privat
+l’estat de sessió, preferiblement en un `GNOSI_TEST_STORAGE_STATE` temporal,
+i no activeu traces, captures, vídeo o registres de diagnòstic de la preparació
+que puguin contenir credencials.
+
+`backend/tests/test_vault_creation_membership.py` cobreix la creació del
+primer vault amb pertinença autenticada owner/admin/editor, rebutja peticions
+sense autenticar, de només lectura o d’altres workspaces, i comprova el
+confinament de rutes i el llistat d’organització sense registrar el vault
+personal. Aquesta cobertura de regressió no substitueix la validació real
+de l’aplicació i del navegador. El responsable de la integració manté les
+comprovacions completes de navegador, CI, SOP i acceptació per plataforma.
+
+Des de l’arrel del repositori, `corepack pnpm test:e2e:contracts` executa els
+contractes d’autenticació sense xarxa i la comprovació estricta dels seus tipus.
+No inicia l’aplicació ni substitueix l’acceptació real d’inici de sessió i navegador.
 
 ## Empaquetament Electron opcional
 

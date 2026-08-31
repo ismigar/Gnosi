@@ -62,6 +62,8 @@ jobs:
         run: pnpm guardrails:frontend
       - run: pnpm lint:frontend
       - run: pnpm --filter @gnosi/frontend typecheck
+      - name: Validate authenticated E2E setup without live credentials
+        run: pnpm test:e2e:contracts
       - run: pnpm test:frontend
       - run: pnpm build:frontend
         env:

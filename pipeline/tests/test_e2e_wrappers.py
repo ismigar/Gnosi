@@ -27,8 +27,18 @@ INPUTS = (
     "patches/emscripten-wasm-loader@3.0.3.patch",
     "tests/e2e/playwright.config.ts",
     "tests/e2e/tests/setup/auth.setup.ts",
+    "tests/e2e/support/auth-state.ts",
+    "tests/e2e/support/auth-playwright.ts",
     "tests/e2e/tests/visual/regression.spec.ts",
 )
+TEST_INPUTS = (
+    "GNOSI_TEST_EMAIL",
+    "GNOSI_TEST_PASSWORD",
+    "GNOSI_TEST_WORKSPACE_ID",
+    "GNOSI_TEST_VAULT_ID",
+)
+TEST_EMAIL = "synthetic-linux@example.invalid"
+TEST_PASSWORD = " synthetic password ' \" $(not-a-command) `not-a-command` = marker "
 SNAPSHOTS = tuple(
     f"{route}-{viewport}-visual-linux.png"
     for route in ("home", "vault", "calendar", "contacts")
@@ -89,6 +99,21 @@ if name == "pnpm":
     if os.environ.get("FIXTURE_CONTEXT") == "container":
         assert args == ["--filter", "@gnosi/e2e", "exec", "playwright", "test",
                         "--project=visual", "--update-snapshots", "--workers=1", "--retries=0"]
+        test_inputs = ("GNOSI_TEST_EMAIL", "GNOSI_TEST_PASSWORD",
+                       "GNOSI_TEST_WORKSPACE_ID", "GNOSI_TEST_VAULT_ID")
+        expected_keys = {"GNOSI_TEST_STORAGE_STATE"}
+        for key in test_inputs:
+            expected = os.environ.get("FIXTURE_EXPECT_" + key)
+            assert os.environ.get(key) == expected, "Unexpected test input forwarding"
+            if expected is not None:
+                expected_keys.add(key)
+        assert {key for key in os.environ if key.startswith("GNOSI_TEST_")} == expected_keys
+        state = Path(os.environ["GNOSI_TEST_STORAGE_STATE"])
+        assert state.is_absolute() and state == Path.cwd() / ".auth/state.json"
+        assert not state.exists(), "Container must not reuse host session state"
+        state.parent.mkdir()
+        state.write_text("synthetic container session; never export")
+        state.chmod(0o600)
         spec = Path("tests/e2e/tests/visual/regression.spec.ts")
         assert "test.skip(" not in spec.read_text()
         assert "fixture test body" in spec.read_text()
@@ -131,11 +156,22 @@ if name == "docker":
     Path(os.environ["FIXTURE_SCRIPT"]).write_text(script)
     if "FIXTURE_DOCKER_EXIT" in os.environ:
         sys.exit(int(os.environ["FIXTURE_DOCKER_EXIT"]))
-    child_env = dict(os.environ)
+    # Model Docker isolation: only fixture infrastructure acts as image defaults.
+    # Host test inputs enter the child exclusively through reviewed --env options.
+    child_env = {key: value for key, value in os.environ.items()
+                 if key.startswith("FIXTURE_")
+                 or key in ("PATH", "LC_ALL", "PYTHONDONTWRITEBYTECODE")}
     for i, arg in enumerate(args):
         if arg == "--env":
-            key, value = args[i + 1].split("=", 1)
-            child_env[key] = value
+            key, separator, value = args[i + 1].partition("=")
+            if separator:
+                child_env[key] = value
+            elif key in os.environ:
+                child_env[key] = os.environ[key]
+            else:
+                child_env.pop(key, None)
+    if "FIXTURE_DROP_TEST_INPUT" in os.environ:
+        child_env.pop(os.environ["FIXTURE_DROP_TEST_INPUT"], None)
     child_env["FIXTURE_CONTEXT"] = "container"
     child_env["FIXTURE_EXPORT"] = str(export)
     scratch = Path(os.environ["FIXTURE_TEMP"]) / "container"
@@ -187,6 +223,9 @@ class Harness:
             "PYTHONDONTWRITEBYTECODE": "1",
         }
         env.update(settings)
+        for key in TEST_INPUTS:
+            if key in settings:
+                env["FIXTURE_EXPECT_" + key] = settings[key]
         return subprocess.run(
             [
                 "/bin/bash",
@@ -205,6 +244,8 @@ class Harness:
         options = {
             "GNOSI_BASE_URL": "https://host.docker.internal:5173/path?fixture=1",
             "GNOSI_PLAYWRIGHT_IMAGE": "fixture-image:local",
+            "GNOSI_TEST_EMAIL": TEST_EMAIL,
+            "GNOSI_TEST_PASSWORD": TEST_PASSWORD,
         }
         options.update(settings)
         return self.run(LINUX, "--update-snapshots", "--output-dir", str(self.output), **options)
@@ -384,6 +425,125 @@ def test_linux_requires_explicit_generation_and_inputs(harness: Harness) -> None
     assert not harness.output.exists()
 
 
+@pytest.mark.parametrize("key", ["GNOSI_TEST_EMAIL", "GNOSI_TEST_PASSWORD"])
+@pytest.mark.parametrize("value", [None, "", " ", "\t\r\n"])
+def test_linux_missing_credentials_fail_before_docker(
+    harness: Harness, key: str, value: str | None
+) -> None:
+    settings = {
+        "GNOSI_BASE_URL": "http://fixture:5173",
+        "GNOSI_PLAYWRIGHT_IMAGE": "fixture-image:local",
+        "GNOSI_TEST_EMAIL": TEST_EMAIL,
+        "GNOSI_TEST_PASSWORD": TEST_PASSWORD,
+    }
+    if value is None:
+        settings.pop(key)
+    else:
+        settings[key] = value
+    result = harness.run(
+        LINUX, "--update-snapshots", "--output-dir", str(harness.output), **settings
+    )
+    assert result.returncode == 2
+    assert key in result.stderr
+    assert not harness.calls()
+    assert not harness.output.exists()
+    assert not list(harness.temporary.iterdir())
+    assert TEST_EMAIL not in result.stdout + result.stderr
+    assert TEST_PASSWORD not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("key", ["GNOSI_TEST_EMAIL", "GNOSI_TEST_PASSWORD"])
+def test_linux_container_rechecks_forwarded_credentials_before_tools(
+    harness: Harness, key: str
+) -> None:
+    result = harness.linux(FIXTURE_DROP_TEST_INPUT=key)
+    assert result.returncode == 2
+    assert key in result.stderr
+    assert [call.name for call in harness.calls()] == ["docker"]
+    assert not harness.output.exists()
+
+
+@pytest.mark.parametrize(
+    "workspace,vault", [(None, None), ("", ""), (" selected workspace ", "fixture vault = marker")]
+)
+def test_linux_forwards_test_inputs_only_by_key_and_uses_private_container_state(
+    harness: Harness, workspace: str | None, vault: str | None
+) -> None:
+    host_state = harness.repo / "tests/e2e/tests/.auth/state.json"
+    state_before = host_state.read_bytes()
+    settings = {
+        "GNOSI_TEST_STORAGE_STATE": str(host_state),
+        "GNOSI_TEST_EXTRA_TOKEN": "synthetic extra token must not reach container",
+    }
+    if workspace is not None:
+        settings["GNOSI_TEST_WORKSPACE_ID"] = workspace
+    if vault is not None:
+        settings["GNOSI_TEST_VAULT_ID"] = vault
+    result = harness.linux(**settings)
+    assert result.returncode == 0, result.stdout + result.stderr
+    docker = harness.calls("docker")[0]
+    forwarded = [docker.args[i + 1] for i, arg in enumerate(docker.args) if arg == "--env"]
+    assert [value for value in forwarded if value.startswith("GNOSI_TEST_")] == list(TEST_INPUTS)
+    assert all("=" not in value for value in forwarded if value.startswith("GNOSI_TEST_"))
+    assert host_state.read_bytes() == state_before
+    assert sorted(path.name for path in harness.output.iterdir()) == sorted(SNAPSHOTS)
+    exported_session = harness.output / "state.json"
+    assert not exported_session.exists()
+    script = (harness.root / "container.sh").read_text()
+    assert 'export GNOSI_TEST_STORAGE_STATE="$WORK_DIR/.auth/state.json"' in script
+    recorded = result.stdout + result.stderr + harness.log.read_text() + script
+    for sentinel in (
+        TEST_EMAIL, TEST_PASSWORD, str(host_state), settings["GNOSI_TEST_EXTRA_TOKEN"]
+    ):
+        assert sentinel not in recorded
+    for selector in (workspace, vault):
+        if selector:
+            assert selector not in recorded
+
+
+@pytest.mark.parametrize(
+    "setting,value,expected",
+    [
+        ("FIXTURE_PLAYWRIGHT_EXIT", "0", 0),
+        ("FIXTURE_PLAYWRIGHT_EXIT", "42", 42),
+        ("FIXTURE_INSTALL_EXIT", "45", 45),
+        ("FIXTURE_DOCKER_EXIT", "125", 125),
+    ],
+)
+def test_linux_credentials_do_not_leak_with_inherited_shell_tracing(
+    harness: Harness, setting: str, value: str, expected: int
+) -> None:
+    result = harness.linux(SHELLOPTS="xtrace", **{setting: value})
+    assert result.returncode == expected
+    recorded = result.stdout + result.stderr + harness.log.read_text()
+    assert TEST_EMAIL not in recorded
+    assert TEST_PASSWORD not in recorded
+    assert "synthetic password" not in recorded
+    assert "$(not-a-command)" not in recorded
+
+
+@pytest.mark.parametrize(
+    "relative", ["tests/e2e/support/auth-state.ts", "tests/e2e/support/auth-playwright.ts"]
+)
+@pytest.mark.parametrize("replacement", ["missing", "symlink"])
+def test_linux_auth_helpers_retain_staging_failure_gates(
+    harness: Harness, relative: str, replacement: str
+) -> None:
+    source = harness.repo / relative
+    source.unlink()
+    sentinel = harness.root / "synthetic external helper"
+    sentinel.write_bytes(b"must not copy or alter")
+    if replacement == "symlink":
+        source.symlink_to(sentinel)
+    result = harness.linux()
+    assert result.returncode == 2
+    assert relative in result.stderr
+    assert not harness.calls()
+    assert not harness.output.exists()
+    assert sentinel.read_bytes() == b"must not copy or alter"
+    assert not list(harness.temporary.glob("gnosi-linux-baselines.*"))
+
+
 def repository_bytes(repo: Path) -> dict[str, bytes]:
     return {
         str(path.relative_to(repo)): path.read_bytes() for path in repo.rglob("*") if path.is_file()
@@ -489,6 +649,8 @@ def test_linux_refuses_existing_output_and_symlink_inputs(harness: Harness) -> N
         str(other_output),
         GNOSI_BASE_URL="http://fixture:5173",
         GNOSI_PLAYWRIGHT_IMAGE="fixture-image:local",
+        GNOSI_TEST_EMAIL=TEST_EMAIL,
+        GNOSI_TEST_PASSWORD=TEST_PASSWORD,
     )
     assert result.returncode == 2
     assert not harness.calls()
@@ -506,6 +668,8 @@ def test_linux_cannot_export_into_checkout(harness: Harness, relative: str) -> N
         str(output),
         GNOSI_BASE_URL="http://fixture:5173",
         GNOSI_PLAYWRIGHT_IMAGE="fixture-image:local",
+        GNOSI_TEST_EMAIL=TEST_EMAIL,
+        GNOSI_TEST_PASSWORD=TEST_PASSWORD,
     )
     assert result.returncode == 2
     assert not harness.calls()

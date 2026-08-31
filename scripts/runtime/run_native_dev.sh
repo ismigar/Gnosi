@@ -1,70 +1,59 @@
 #!/usr/bin/env bash
-# Arrenca el BACKEND de Gnosi de manera NATIVA (sense Docker), llegint el vault
-# directament del host (evita l'EDEADLK de OneDrive via Docker/gRPC-FUSE).
-# Ús: run_native_dev.sh [PORT]   (PORT per defecte 5002)
-BASE="$(cd "$(dirname "$0")/../.." && pwd)"
+# Start the native backend using the existing, frozen root Python environment.
+# Usage: run_native_dev.sh [PORT] [UVICORN_ARGS...] (default port: 5002).
+set -euo pipefail
 
-# 1) La configuració del procés té prioritat. Després ve el `.env` local i,
-# només si s'ha configurat explícitament, el fitxer compartit.
-load_env_defaults() {
-  local env_file="$1"
-  [ -f "$env_file" ] || return 0
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      ''|\#*) continue ;;
-      [A-Za-z_]*=*)
-        local key="${line%%=*}"
-        case "$key" in
-          ''|*[!A-Za-z0-9_]*) continue ;;
-        esac
-        if [ -z "${!key+x}" ]; then export "$line"; fi
-        ;;
-    esac
-  done < "$env_file"
+BASE="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd -- "$BASE"
+
+PORT="${1-5002}"
+if (( $# > 0 )); then
+    shift
+fi
+validate_port() {
+    local value="$1"
+    # Bound the length before arithmetic; never evaluate input as shell code.
+    if [[ ! "$value" =~ ^[0-9]{1,5}$ ]] || (( 10#$value < 1 || 10#$value > 65535 )); then
+        echo "ERROR: Backend port must be an integer between 1 and 65535." >&2
+        exit 2
+    fi
 }
-load_env_defaults "$BASE/.env"
-if [ -n "${GNOSI_SHARED_ENV_FILE:-}" ]; then
-  load_env_defaults "$GNOSI_SHARED_ENV_FILE"
-fi
+validate_port "$PORT"
+PORT="$((10#$PORT))"
 
-# 2) Variables específiques del runtime NATIU (sobreescriuen les de Docker)
-# Vault per defecte: mana la configuració efectiva (ja és ruta de host). Només
-# si no hi és, caiem al vault Principal. MAI l'arrel OneDrive-UNED/Gnosi: des
-# del multi-vault és el CONTENIDOR de vaults (Principal/, Notion/, …) —
-# apuntar-hi el backend re-crea tota l'estructura (BD/, Mail/, Assets/…) a
-# l'arrel i el Mail sync hi bolca la bústia sencera.
-export DIGITAL_BRAIN_VAULT_PATH="${DIGITAL_BRAIN_VAULT_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi/Principal}"
-export VAULT_HOST_PATH="$DIGITAL_BRAIN_VAULT_PATH"
-# (BIBLIOTECA_HOST_PATH retirada: la Biblioteca viu DINS de cada vault —
-# vault-first pur, 2026-07-03 — i es resol sempre com <vault>/Biblioteca.)
-export HOME_HOST_PATH="$HOME"
-# Materialització de fitxers online-only d'OneDrive en NATIU. El backend corre
-# sota launchd i un procés de launchd NO pot disparar la baixada on-access
-# (el File Provider torna EDEADLK instantani); per tant llegir-los en procés
-# (mode "direct") NO funciona. El mode "open" ho delega a LaunchServices
-# (`open -g -j -a Preview`), que llança una app GUI a la sessió Aqua que sí pot
-# llegir-los. Vegeu services/files_provider/onedrive.py i la memòria
-# feedback_onedrive_warmup_native (exploració 2026-07-06).
-export ONEDRIVE_WARMUP_MODE="open"
-if [ -z "${GNOSI_DATA_DIR:-}" ]; then
-  if [ -n "${GNOSI_LOCAL_DATA:-}" ]; then
-    export GNOSI_DATA_DIR="$GNOSI_LOCAL_DATA"
-    echo "⚠️  GNOSI_LOCAL_DATA està obsolet; configura GNOSI_DATA_DIR."
-  elif [ "$(uname -s)" = "Darwin" ]; then
-    export GNOSI_DATA_DIR="$HOME/Library/Application Support/Gnosi"
-  else
-    export GNOSI_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gnosi"
-  fi
-fi
-# Àlies compatible durant tota la sèrie 3.x per a complements antics.
-export GNOSI_LOCAL_DATA="${GNOSI_LOCAL_DATA:-$GNOSI_DATA_DIR}"
-export PYTHONPATH="$BASE"
-export AI_MODEL_URL="${AI_MODEL_URL:-http://localhost:11434/v1/chat/completions}"
-export TRANSLATION_SERVER_URL=""   # translation-server queda fora (degrada bé)
-export TZ="Europe/Madrid"
-export PYTHONUNBUFFERED=1
+# Validate forwarded overrides too, while preserving every argument boundary.
+EXPECT_PORT=0
+for ARG in "$@"; do
+    if (( EXPECT_PORT )); then
+        validate_port "$ARG"
+        EXPECT_PORT=0
+    elif [[ "$ARG" == --port ]]; then
+        EXPECT_PORT=1
+    elif [[ "$ARG" == --port=* ]]; then
+        validate_port "${ARG#--port=}"
+    fi
+done
+if (( EXPECT_PORT )); then validate_port ""; fi
 
-PORT="${1:-5002}"
-cd "$BASE"
-echo "🚀 Backend natiu a 127.0.0.1:$PORT | vault=$DIGITAL_BRAIN_VAULT_PATH | data=$GNOSI_DATA_DIR"
-exec uv run uvicorn backend.server:app --host 127.0.0.1 --port "$PORT" --reload --reload-dir backend
+# Do not source or parse dotenv in shell. The canonical loader owns precedence,
+# quoting, explicit shared files and credentials; the resolver owns data aliases.
+# No dependency synchronization, installation, service discovery or fallback.
+exec uv run --project "$BASE" --frozen --no-sync python - "$PORT" "$@" <<'PY'
+import os
+import sys
+
+from backend.config.data_dir import resolve_data_dir
+from backend.config.env_config import load_env
+
+load_env()
+os.environ.setdefault("GNOSI_DATA_DIR", str(resolve_data_dir()))
+os.environ.setdefault("PYTHONUNBUFFERED", "1")
+os.execv(
+    sys.executable,
+    [
+        sys.executable, "-m", "uvicorn", "backend.server:app",
+        "--host", "127.0.0.1", "--port", sys.argv[1],
+        "--reload", "--reload-dir", "backend", *sys.argv[2:],
+    ],
+)
+PY

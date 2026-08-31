@@ -10,14 +10,16 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
-| Playwright | 19 | 49 |
+| Playwright | 21 | 71 |
 | Vitest | 479 | 1961 |
-| pytest | 345 | 2348 |
+| pytest | 348 | 2383 |
 
 ## Fichiers
 
 | Exécuteur | Fichier | Indices de tests | Méthode de comptage |
 | --- | --- | ---: | --- |
+| Playwright | [`tests/e2e/support/auth-playwright.test.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/support/auth-playwright.test.ts) | 10 | call-pattern estimate |
+| Playwright | [`tests/e2e/support/auth-state.test.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/support/auth-state.test.ts) | 12 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/accessibility/accessibility.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/accessibility/accessibility.spec.ts) | 5 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/anon/page-outline.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/anon/page-outline.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/anon/smoke.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/anon/smoke.spec.ts) | 5 | call-pattern estimate |
@@ -782,6 +784,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_vault_assets_files_route_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_assets_files_route_contract.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_vault_canonical_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_canonical_routing.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_vault_comments_links_citations_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_comments_links_citations_contract.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_vault_creation_membership.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_creation_membership.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_vault_daily_notes_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_daily_notes_domain_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_daily_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_daily_response_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_delete_purge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_delete_purge.py) | 4 | Python AST |
@@ -849,10 +852,12 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`pipeline/skills/technical_documentation/tests/test_publication.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_publication.py) | 10 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_validate.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/translate_page/scripts/test_markdown_segmenter.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_page/scripts/test_markdown_segmenter.py) | 44 | Python AST |
+| pytest | [`pipeline/tests/test_container_contract.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_container_contract.py) | 8 | Python AST |
 | pytest | [`pipeline/tests/test_documentation_scanners.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_documentation_scanners.py) | 5 | Python AST |
-| pytest | [`pipeline/tests/test_e2e_wrappers.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_e2e_wrappers.py) | 15 | Python AST |
+| pytest | [`pipeline/tests/test_e2e_wrappers.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_e2e_wrappers.py) | 20 | Python AST |
 | pytest | [`pipeline/tests/test_frontend_api_boundary.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_frontend_api_boundary.py) | 2 | Python AST |
 | pytest | [`pipeline/tests/test_host_tooling.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_host_tooling.py) | 16 | Python AST |
+| pytest | [`pipeline/tests/test_native_runtime_wrappers.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py) | 21 | Python AST |
 | pytest | [`pipeline/tests/test_notion_pipeline.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_notion_pipeline.py) | 1 | Python AST |
 | pytest | [`pipeline/tests/test_portable_ingestion_tools.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_portable_ingestion_tools.py) | 1 | Python AST |
 | pytest | [`pipeline/tests/test_portable_migrations.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_portable_migrations.py) | 1 | Python AST |

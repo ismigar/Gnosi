@@ -6,6 +6,8 @@
   "scripts": {
     "test": "playwright test",
     "test:smoke": "playwright test --project=chromium-anon --workers=1",
+    "test:contracts": "node --experimental-strip-types --test support/auth-state.test.ts support/auth-playwright.test.ts",
+    "typecheck:auth": "node ../../frontend/node_modules/typescript/bin/tsc --noEmit --strict --noUncheckedIndexedAccess --target ES2022 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --types node --typeRoots node_modules/@types support/auth-state.ts support/auth-playwright.ts support/auth-state.test.ts support/auth-playwright.test.ts tests/setup/auth.setup.ts playwright.config.ts",
     "test:a11y": "playwright test --project=accessibility",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",

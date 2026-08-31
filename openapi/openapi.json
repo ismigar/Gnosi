@@ -88294,7 +88294,7 @@
     },
     "/api/vaults/{vault_id}": {
       "delete": {
-        "description": "Deletes a vault's ROW from the registry. With `delete_files=true` it also DELETES the\nfolder from disk (to discard a whole clone). The active vault and the main vault can't be deleted.",
+        "description": "Delete a vault registration and optionally its files with `delete_files=true`.\n\nThe active vault and the main vault cannot be deleted.",
         "operationId": "delete_vault_api_vaults__vault_id__delete",
         "parameters": [
           {

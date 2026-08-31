@@ -6,7 +6,7 @@ Environment names and source-written defaults discovered through static inspecti
 
 Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **89 variables** across **150 source references**.
+Discovered **95 variables** across **160 source references**.
 
 | Variable | Entorno de ejecución | Valor predeterminado en el código | Consumidores |
 | --- | --- | --- | --- |
@@ -15,6 +15,7 @@ Discovered **89 variables** across **150 source references**.
 | `APERTIUM_PUBLIC_API_URL` | Python | unset | [`pipeline/skills/translate_row/scripts/translate_text.py:357`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L357) |
 | `ARTIFICIAL_ANALYSIS_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:611`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L611) |
 | `BASE_URL` | Vite | runtime-provided | [`frontend/src/features/vault/editor/spellcheck/nspellManager.ts:140`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/spellcheck/nspellManager.ts#L140) |
+| `COREPACK_ENABLE_NETWORK` | Python | required | [`pipeline/tests/test_native_runtime_wrappers.py:128`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L128) |
 | `CORS_ORIGINS` | Python | '' | [`backend/app/middleware.py:20`](https://github.com/ismigar/Gnosi/blob/main/backend/app/middleware.py#L20) |
 | `DEEPL_API_KEY` | Python | redacted | [`pipeline/skills/translate_row/scripts/translate_text.py:285`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L285)<br>[`pipeline/skills/translate_row/scripts/translate_text.py:317`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L317) |
 | `DEEPL_API_URL` | Python | DEFAULT_DEEPL_URL | [`pipeline/skills/translate_row/scripts/translate_text.py:438`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L438) |
@@ -24,6 +25,11 @@ Discovered **89 variables** across **150 source references**.
 | `DRUPAL_ROOT_PASSWORD` | Python | redacted | [`backend/domains/mail/connectors/drupal.py:66`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/drupal.py#L66) |
 | `DRUPAL_ROOT_USER` | Python | unset | [`backend/domains/mail/connectors/drupal.py:82`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/drupal.py#L82) |
 | `DRUPAL_URL` | Python | unset | [`backend/domains/mail/connectors/drupal.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/drupal.py#L54) |
+| `FIXTURE_CHILD_EXIT` | Python | '0' | [`pipeline/tests/test_native_runtime_wrappers.py:125`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L125)<br>[`pipeline/tests/test_native_runtime_wrappers.py:129`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L129) |
+| `FIXTURE_GIT` | Python | 'current' | [`pipeline/tests/test_native_runtime_wrappers.py:76`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L76) |
+| `FIXTURE_LOG` | Python | required | [`pipeline/tests/test_native_runtime_wrappers.py:42`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L42) |
+| `FIXTURE_REPO` | Python | required | [`pipeline/tests/test_native_runtime_wrappers.py:74`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L74)<br>[`pipeline/tests/test_native_runtime_wrappers.py:81`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L81)<br>[`pipeline/tests/test_native_runtime_wrappers.py:109`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L109)<br>[`pipeline/tests/test_native_runtime_wrappers.py:118`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L118) |
+| `FIXTURE_UV_EXIT` | Python | '0' | [`pipeline/tests/test_native_runtime_wrappers.py:112`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L112) |
 | `GNOSI_API_TOKEN` | Python | redacted | [`backend/tests/conftest.py:25`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py#L25)<br>[`pipeline/skills/notion_clone/scripts/backfill_notion_views.py:133`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/notion_clone/scripts/backfill_notion_views.py#L133)<br>[`pipeline/utils/rewalk_subpage_parents.py:75`](https://github.com/ismigar/Gnosi/blob/main/pipeline/utils/rewalk_subpage_parents.py#L75) |
 | `GNOSI_BACKEND_URL` | Python | 'http://127.0.0.1:5002' | [`backend/tests/conftest.py:15`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py#L15)<br>[`backend/tests/test_e2e_etag_concurrency.py:20`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_etag_concurrency.py#L20)<br>[`backend/tests/test_e2e_tables_assets.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_tables_assets.py#L24)<br>[`backend/tests/test_vault_trash.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_trash.py#L35) |
 | `GNOSI_CLONE_HEARTBEAT` | Python | str(Path.home() / '.gnosi_clone_heartbeat') | [`backend/api/notion_routes.py:408`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_routes.py#L408) |
@@ -55,7 +61,7 @@ Discovered **89 variables** across **150 source references**.
 | `GNOSI_SHARED_ENV_FILE` | Python | unset | [`scripts/migrate-to-keychain.py:91`](https://github.com/ismigar/Gnosi/blob/main/scripts/migrate-to-keychain.py#L91) |
 | `GNOSI_TROCR_MODEL` | Python | unset | [`backend/services/handwriting.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py#L59) |
 | `GNOSI_VALIDATION_ROOT` | Python | unset | [`backend/config/validation_runtime.py:15`](https://github.com/ismigar/Gnosi/blob/main/backend/config/validation_runtime.py#L15) |
-| `GNOSI_VAULTS_ROOT` | Python | unset | [`backend/api/vaults_routes.py:103`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py#L103) |
+| `GNOSI_VAULTS_ROOT` | Python | unset | [`backend/api/vaults_routes.py:105`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py#L105) |
 | `GNOSI_VAULT_TEMPLATES_INDEX_URL` | Python | DEFAULT_INDEX_URL | [`backend/services/vault_templates.py:107`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_templates.py#L107) |
 | `GNOSI_WHISPER_MODEL` | Python | unset | [`backend/services/transcription.py:76`](https://github.com/ismigar/Gnosi/blob/main/backend/services/transcription.py#L76) |
 | `GROQ_API_KEY` | Python | redacted | [`backend/domains/agent/llm.py:154`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py#L154)<br>[`pipeline/skills/rss_to_audio/scripts/rss_to_audio.py:33`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/rss_to_audio/scripts/rss_to_audio.py#L33) |

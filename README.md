@@ -129,9 +129,22 @@ an existing installation.
 
 ### Run with Docker (optional)
 
+Set a strong random `GNOSI_JWT_SECRET` in the process environment or an untracked
+local `.env` before starting. The bundle requires authentication and publishes
+the backend/frontend on loopback ports 5002/5173 by default.
+
 ```bash
 docker compose up -d --build
 ```
+
+Per-device data persists in `gnosi_local_data` at `/data`; vaults persist in
+`gnosi_vaults` at `/vaults`. No host vault, home directory, private tools or Docker
+socket is mounted implicitly. To use existing host vaults, review
+[`compose.vaults.yml`](compose.vaults.yml), set both required host paths and use
+it explicitly alongside the base Compose file. Keep the existing Compose project
+name when upgrading and never remove its data volumes as a dependency repair.
+See the [operations runbook](docs/engineering/operations/runbook.md) for
+environment precedence, mount selection and deployment validation.
 
 ## Architecture and documentation
 

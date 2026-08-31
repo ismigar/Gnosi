@@ -1,6 +1,6 @@
 ---
 name: playwright-e2e
-description: Run Gnosi Playwright smoke against existing services and explicitly generate isolated Linux visual candidates. Covers the current CI, macOS visual suite and authentication fixture limitations.
+description: Run Gnosi Playwright smoke and authenticated tests against existing disposable services, or explicitly generate isolated Linux visual candidates.
 ---
 
 # Playwright E2E
@@ -79,7 +79,7 @@ Run only one suite at a time per checkout: reports, storage state and
 `.last-run.json` can belong to another run. Config writes HTML and list reports,
 captures failure screenshots, retains failure videos, and traces the first retry.
 
-## Authentication: fixture versus application
+## Authentication against a disposable account
 
 The application has a [login screen](../../../frontend/src/features/auth/LoginPage.tsx).
 [App](../../../frontend/src/app/App.tsx) shows it for unauthenticated users when
@@ -91,15 +91,27 @@ and persists returned user/workspace context. The
 `gnosi_session` cookie. Request-context headers read stored values and retain
 legacy fallback behavior; they are not a replacement for an authenticated session.
 
-The current setup fixture seeds a personal workspace, a fixed fixture email,
-an admin role, Catalan locale and optional `GNOSI_TEST_VAULT_ID`, then saves
-storage state after navigation. It does not perform password login or establish
-a session. Its historical comment is not an application auth contract. Therefore
-projects named `chromium-auth`, `accessibility` and `visual` do not prove login
-coverage and may fail in environments that require a real session. Do not disable
-auth or use a maintainer's credentials to make them pass; fixture modernization
-requires its own scoped change. Anonymous smoke can see the login screen rather
-than the authenticated application shell.
+Setup requires `GNOSI_TEST_EMAIL` and `GNOSI_TEST_PASSWORD` for a disposable
+account provisioned separately. It logs in, requires the HttpOnly cookie and
+verifies the returned identity through `/api/auth/me`. It never registers,
+claims, resets or promotes an account. `GNOSI_TEST_WORKSPACE_ID` must match a
+returned membership; without it, exactly one membership is required. The actual
+role and identity are persisted with Catalan locale and optional
+`GNOSI_TEST_VAULT_ID`; headers do not grant access. Do not use personal credentials
+or disable authentication to satisfy setup.
+
+`GNOSI_TEST_STORAGE_STATE` overrides the ignored `tests/.auth/state.json` output;
+use an absolute path under the disposable validation root for isolated runs.
+The writer refuses symlink destinations and restricts the file to mode600 before
+writing. Setup disables screenshots, video and tracing and authenticates before
+the test-step recorder, sanitizing transport failures. Unset `DEBUG`/`PWDEBUG`;
+do not enable authentication diagnostics that can expose cookies or passwords.
+
+Run `pnpm test:e2e:contracts` for the offline request/validation/permission tests
+and strict setup typing; CI runs this without credentials. These tests do not
+replace actual setup and browser acceptance. Some feature specs mock auth:
+their project name alone does not prove login coverage. Anonymous smoke can see
+the login screen rather than the authenticated application shell.
 
 ## Visual baselines and explicit Linux generation
 
@@ -124,8 +136,10 @@ Set `GNOSI_BASE_URL` explicitly to the existing frontend URL reachable from that
 container, for example `https://host.docker.internal:5173`. There is no default,
 host-local probe or automatic scheme/port substitution. The container performs
 the same bounded final-2xx readiness check and development TLS policy as smoke.
-It receives only that URL, its derived probe origin, optional
-`GNOSI_TEST_VAULT_ID` and fixed CI/tool settings; host credentials are not forwarded.
+It receives only that URL, its derived probe origin, explicitly supplied test
+credentials/selectors and fixed CI/tool settings. Test credentials are forwarded
+by environment key name, never embedded in Docker command arguments. Unrelated
+host credentials and saved sessions are not forwarded.
 
 Run the wrapper with `--update-snapshots --output-dir /absolute/new-candidates-directory`.
 Both flags are required. The output parent must exist, the new directory must
@@ -135,7 +149,8 @@ generation, not a baseline update in source. Do not invoke it as an automatic
 retry or to silence a failing visual comparison.
 
 The wrapper copies only root manifests/locks, the three workspace package
-manifests, the reviewed patch, toolchain check, Playwright config, auth setup and
+manifests, the reviewed patch, toolchain check, Playwright config, auth setup,
+its two production support modules and the
 visual spec into a temporary staging directory. It rejects symlink inputs and
 does not copy host `node_modules`, certificates, `.env`, `.npmrc`, storage state,
 vaults or existing baselines. Only that staging copy is mounted read-only. The
@@ -147,9 +162,10 @@ It runs the toolchain check and verifies lock/workspace bytes remain unchanged.
 Generation explicitly removes the known Darwin-only skip statement from the
 temporary visual spec; it fails if that statement has changed or is not unique.
 The shared spec is untouched. It runs `visual` plus its setup dependency, with
-snapshot updates, one worker and zero retries. The existing setup still does
-not establish a login session, so choose a disposable environment compatible
-with that fixture; never weaken authentication to obtain snapshots.
+snapshot updates, one worker and zero retries. Setup requires a real login on the
+selected disposable backend; its session output stays inside the container.
+Missing test credentials fail before Docker starts. Never weaken authentication
+to obtain snapshots.
 
 On success, it verifies all eight expected `<route>-<viewport>-visual-linux.png`
 files are regular non-symlink PNGs, copies only those names to temporary export
@@ -196,3 +212,7 @@ only; they do not certify application E2E or cross-platform visual acceptance.
 - Note: do not install dependencies into a writable source mount, because that
   can replace host dependencies with Linux binaries. Stage reviewed files and
   install in the disposable container workspace instead.
+- Note: do not seed an invented user or admin role, because browser storage does
+  not authenticate a session. Use login, a verified cookie and actual membership.
+- Note: disabling traces alone does not stop raw API errors entering test reports.
+  Authenticate before the step recorder and return sanitized diagnostic messages.
