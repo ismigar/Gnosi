@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
@@ -17,7 +17,7 @@ class PdfFallbackDependencies:
 
     embedded_metadata: Callable[[bytes], Metadata]
     title_from_filename: Callable[[str], str]
-    parse_authors: Callable[[str], list[Metadata]]
+    parse_authors: Callable[[str], Sequence[Mapping[str, object]]]
     map_zotero_item: Callable[[Metadata], Metadata]
     inject_citation_key: Callable[[Metadata], Metadata]
 

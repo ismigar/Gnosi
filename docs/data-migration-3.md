@@ -77,6 +77,54 @@ pre-migration destination scaffold; it never deletes a preserved cross-volume
 source. Remove an old source manually only after the complete Gnosi 3
 acceptance matrix has passed.
 
+## References configuration outside the checkout
+
+The references-table designation now lives at
+`GNOSI_DATA_DIR/config/references.json`, including the deliberate disabled state,
+linked-attachment base and unknown legacy fields. Native, Docker and desktop
+use the same data-directory rule. Runtime never writes back to the former
+`pipeline/skills/zotero_sync/zotero_db_config.json` file. If that legacy file
+exists but the canonical file is missing, startup stops with a migration
+instruction before database migrations or workers start. Disposable validation
+never inspects the legacy file. A fresh installation needs no migration.
+
+Stop every Gnosi writer and use explicit absolute paths (without symlinks):
+
+```bash
+uv run --frozen --no-sync python scripts/migrate-reference-config.py plan \
+  /absolute/old-checkout/pipeline/skills/zotero_sync/zotero_db_config.json \
+  /absolute/gnosi-data
+uv run --frozen --no-sync python scripts/migrate-reference-config.py migrate \
+  /absolute/old-checkout/pipeline/skills/zotero_sync/zotero_db_config.json \
+  /absolute/gnosi-data --writers-stopped
+```
+
+Planning creates nothing. Execution keeps the original and verifies byte-for-byte
+preservation, including unknown fields and formatting. Only the small JSON is
+copied, not the data directory or its databases. The destination must be a trusted
+local filesystem supporting hard links; unsupported filesystems fail without an
+overwrite fallback. Publication is exclusive and newly created target, payload and
+journal files are private (mode 600 on POSIX). An already-identical target is recorded as
+pre-existing and is never owned by the migration. Different files, symlinks,
+malformed or non-UTF-8 JSON, changed sources and competing migrations are rejected.
+
+Use `status SOURCE DATA_DIR` to verify the journal without writes; repeat
+`migrate SOURCE DATA_DIR --writers-stopped` to resume a prepared or published
+transaction. The OS lock is released even if a process exits. Keep the hidden
+`.references-migration.json` journal and `.references-migration.payload` alongside
+the destination. A malformed or incomplete payload/journal requires operator
+inspection; do not discard it or substitute guessed settings.
+
+Use `rollback SOURCE DATA_DIR --writers-stopped` to reverse the configuration
+migration. It verifies ownership and unchanged bytes before moving the migrated
+target to `.references-migration.recovered.json`. Original, payload, journal and
+recovered file remain available. A pre-existing target stays untouched. If Gnosi
+has since changed/replaced the target, rollback refuses instead of losing those
+settings. Stop writers and reconcile the files manually in that case. Rollback is
+repeatable, but a rolled-back journal cannot silently publish again: preserve and
+review its recovery artifacts before deliberately starting a new transaction.
+Rolling back just this file is not a database downgrade or full 2.x rollback.
+
 ## SQLite schema upgrades
 
 Gnosi upgrades its own SQLite databases through independent Alembic revision

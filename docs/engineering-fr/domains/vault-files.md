@@ -325,9 +325,12 @@ les consommateurs en lecture acceptent des interfaces de mapping et de séquence
 Les références importées reçoivent le contexte de l'utilisateur autorisé avec
 le gestionnaire canonique ; les callbacks tardifs à deux arguments restent
 compatibles. Déduplication, formats, téléchargements et erreurs Pandoc sont
-inchangés. La validation temporaire conserve la désignation de la table
-bibliographique uniquement dans son répertoire de données isolé ; la configuration
-historique normale est préservée jusqu'à sa migration explicite.
+inchangés. Tous les environnements conservent la désignation bibliographique dans
+`GNOSI_DATA_DIR/config/references.json`. L'ancienne configuration nécessite
+`scripts/migrate-reference-config.py` : cette migration explicite sans écrasement
+préserve les octets, champs inconnus et l'original, avec un journal privé et un
+retour arrière récupérable. Le démarrage vérifie ce prérequis avant les migrations
+de bases ou les tâches. La validation temporaire ne consulte jamais les anciens fichiers.
 
 La recherche de métadonnées, la reconnaissance PDF, la traduction d'URL, la
 promotion Zotero, les mises à jour en lot et l'enregistrement des catalogues et

@@ -7,40 +7,67 @@ source_paths:
   - backend/models/management.py
   - backend/api/vault_routes.py
   - backend/services/page_sidecar.py
+  - backend/services/reference_table_config.py
+  - backend/services/reference_config_migration.py
 tests:
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
+  - backend/tests/test_reference_config_migration.py
 ---
 
 # Données et stockage
 
-## Carte de propriété
+## Configuration bibliographique
 
-| Données | Propriétaire durable | Règle de reconstruction ou de récupération |
+`GNOSI_DATA_DIR/config/references.json` contient la désignation de la table
+bibliographique, sa désactivation explicite et les paramètres des pièces jointes
+liées. Les copies dans le code sont migrées explicitement avec
+`scripts/migrate-reference-config.py`, jamais par une requête API ou une copie
+implicite au démarrage. Le migrateur préserve l'original et les champs inconnus,
+vérifie les octets JSON UTF-8, publie sans remplacer un autre fichier et conserve
+un journal privé de récupération. Le démarrage refuse les anciennes configurations
+non migrées avant les mises à niveau des bases et les tâches en arrière-plan.
+
+## Responsabilité des données
+
+| Données | Stockage persistant responsable | Règle de reconstruction ou de récupération |
 | --- | --- | --- |
-| Contenu de la page et première page | Démarqueur de coffre | Sauvegarde et version en fichiers ordinaires. |
-| Pièces jointes et fichiers de bibliothèque | Volet actif | Préserver les références relatives ou portatives. |
-| Métadonnées de la page interne | Vault `.gnosi` sidecars | Migration avec la page; cacher les champs de l'implémentation uniquement du contenu écrit. |
-| Index de pages et de wikilink | Casques de données locaux | Reconstruire à partir de la voûte; les scans partiels ne doivent pas écraser les caches complètes. |
-| Utilisateurs, espaces de travail, membres, accès au coffre, PAT, actions | Gestion SQLite | Sauvegarde en tant qu'état d'application local; jamais cloud-sync la base de données en direct. |
-| Index de courrier, de lecteur, de notification, d'annotation et d'exécution | SQLite local | dépendant du domaine; récupérer auprès des fournisseurs ou des données de source si possible. |
-| Jetons d'Auth et secrets d'intégration | Secrets de données locales ou magasin de titres de service | Reconnectez-vous par machine si vous perdez; ne copiez jamais dans un coffre-fort partagé. |
-| Contrôles des agents | Données locales | Mémoire d'exécution par instance, pas contenu de coffre. |
+| Contenu de page et frontmatter | Vault Markdown | Sauvegarder et versionner comme des fichiers ordinaires. |
+| Pièces jointes et fichiers de bibliothèque | Vault actif | Préserver les références relatives ou portables. |
+| Métadonnées internes des pages | Fichiers auxiliaires `.gnosi` du vault | Migrer avec la page ; garder les champs internes hors du contenu rédigé par l'utilisateur. |
+| Index des pages et wikilinks | Caches de données locales | Reconstruire depuis le vault ; les analyses partielles ne doivent pas remplacer les caches complets. |
+| Utilisateurs, espaces de travail, membres, accès aux vaults, PAT et partages | SQLite de gestion | Sauvegarder comme état local de l'application ; ne jamais synchroniser la base active dans le cloud. |
+| Index de courrier, lecteur, notifications, annotations et exécutions | SQLite local | Selon le domaine, récupérer depuis les fournisseurs ou les données sources lorsque possible. |
+| Jetons OAuth et secrets d'intégration | Secrets locaux ou gestionnaire d'identifiants du système | Reconnecter chaque machine en cas de perte ; ne pas copier dans un vault partagé. |
+| Points de contrôle de l'agent | Données locales | Mémoire d'exécution propre à chaque instance, pas contenu du vault. |
 
-## Format de la valise
+## Format du vault
 
-Une page est un fichier Markdown avec la matière avant YAML. Les identifiants de page stables permettent aux liens et aux relations de survivre aux changements de titre. Les liens visibles humains utilisent la syntaxe wikilink; les pièces jointes et les propriétés évaluées par fichier utilisent des chemins portables ou des métadonnées structurées plutôt que des chemins absolus propres à la machine.
+Une page est un fichier Markdown avec frontmatter YAML. Les identifiants stables
+permettent aux liens et relations de survivre aux changements de titre. Les liens
+visibles utilisent la syntaxe wikilink ; les pièces jointes et propriétés de type
+fichier utilisent des chemins portables ou des métadonnées structurées, pas des
+chemins absolus propres à une machine.
 
-Les vues de type base de données sont des projections sur les pages et les registres. Elles ne remplacent pas Markdown par un magasin relationnel opaque. Les définitions de la vue, les métadonnées du schéma, les formules, les rollups, les relations et l'état de présentation sont résolus par la couche de service du coffre-fort.
+Les vues de type base de données sont des projections sur les pages et registres.
+Elles ne remplacent pas Markdown par un stockage relationnel opaque. La couche de
+services du vault résout les définitions de vues, schémas, formules, rollups,
+relations et états de présentation.
 
-## Rédiger une lettre d'agrément
+## Écritures concurrentes
 
-Page lit exposer un ETag dérivé de la représentation actuelle. Les clients qui changent retournent le ETag attendu; les erreurs rejettent les écrits stale au lieu de surécrire silencieusement un changement concurrent. Les aides à l'écriture atomique ne remplacent les fichiers qu'après la nouvelle représentation est terminée.
+Les lectures de page exposent un ETag dérivé de la représentation actuelle. Les
+clients qui modifient les données renvoient l'ETag attendu ; une différence fait
+rejeter l'écriture obsolète au lieu d'écraser un changement concurrent. Les
+utilitaires d'écriture atomique remplacent le fichier uniquement lorsque la
+nouvelle version est complète.
 
-Les opérations de renommer dépendent de l'index wikilink pour réécrire les liens entrants. Un renommage croise donc l'identité de la page, le nom du fichier, les métadonnées du registre, les sidecars et les index de liens et doit être traité comme une opération coordonnée.
+Renommer nécessite l'index de wikilinks pour actualiser les liens entrants.
+L'opération touche l'identité de page, le nom du fichier, le registre, les fichiers
+auxiliaires et les index de liens ; elle doit être exécutée de façon coordonnée.
 
-## Base de données sur la gestion
+## Base de données de gestion
 
 Les modèles SQLAlchemy représentent :
 
@@ -55,20 +82,57 @@ erDiagram
     USER ||--o{ SHARE_LINK : creates
 ```
 
-Le moteur est initialisé parcimonieusement et protégé contre le premier accès simultané. `Base.metadata.create_all` crée des tables manquantes. Il n'y a pas de cadre général de migration : un petit passe de démarrage idempotent ajoute des colonnes explicitement enregistrées et applique des remplaçages à portée étroite.
+Tous les modèles de gestion héritent d'une même `DeclarativeBase` typée de
+SQLAlchemy. Les fabriques de moteurs et sessions sont initialisées atomiquement
+et renvoient les types concrets `Engine` et `Session`. Les métadonnées et noms de
+tables restent la référence pour Alembic et les installations SQLite existantes.
 
-Seuls les hachés PAT et un préfixe reconnaissable sont maintenus. Les jetons d'action publique sont des identifiants opaques dont les rangées conservent l'état de créateur, de voûte, de permission, d'expiration et de révocation.
+Avant le lancement des tâches, le coordinateur de schémas localise la base de
+gestion, chaque vault dynamique et les stockages auxiliaires persistants de Gnosi.
+Des lignes de révisions Alembic indépendantes reconnaissent des empreintes
+structurelles 2.x révisées, créent des sauvegardes vérifiées et appliquent des
+migrations vers l'avant. Les schémas inconnus ou divergents provoquent un arrêt
+sans modification. Les caches dérivés et les bases externes restent hors de ces migrations.
+
+Seuls les hachages des PAT et un préfixe reconnaissable sont enregistrés. Les
+jetons de partage public sont des identifiants opaques ; leurs lignes conservent
+le créateur, le vault, les permissions, l'expiration et l'état de révocation.
 
 ## Isolation des données locales
 
-`GNOSI_LOCAL_DATA` pointe vers la racine par instance. Le résolveur de chemin crée le cache, le système, le point de contrôle, le journal, l'audio, la sortie, la sauvegarde et les répertoires secrets. `/app/data`; les utilisations de la durée d'exécution native `Gnosi/local_data`.
+`GNOSI_DATA_DIR` désigne la racine de chaque instance. Le résolveur crée les
+répertoires de cache, système, points de contrôle, journaux, audio, sorties,
+sauvegardes et secrets. Docker utilise `/data` ; les valeurs natives suivent la
+convention de données d'application du système. `GNOSI_LOCAL_DATA` reste un alias
+obsolète accepté pendant toute la série 3.x.
 
-Les fichiers SQLite ne doivent pas être placés sur OneDrive, iCloud Drive, Dropbox ou sur un autre calque de synchronisation de fichiers. La synchronisation de fichiers ne fournit pas de sémantique de verrouillage SQLite et peut corrompre ou forquer la base de données.
+Les fichiers SQLite ne doivent pas être placés sur OneDrive, iCloud Drive, Dropbox
+ou une autre couche de synchronisation. Celle-ci ne fournit pas les verrouillages
+requis par SQLite et peut corrompre la base ou en créer des versions divergentes.
 
-## Volets à voile nuageux
+## Vaults avec fichiers dans le cloud
 
-Les adaptateurs de fournisseurs de fichiers séparent le comportement ordinaire du système de fichiers de l'hydratation et de la disponibilité. Lisez les erreurs transitoires par fichier et continuez quand une réponse partielle est significative. Un scan partiel est marqué et ne doit jamais être enregistré comme un cache complet. L'hydratation Native OneDrive utilise un aide-session GUI parce qu'un processus LaunchAgent peut recevoir un `EDEADLK` pour le contenu en ligne seulement.
+Les adaptateurs séparent le comportement ordinaire du système de fichiers du
+téléchargement local à la demande et de la disponibilité. Les lectures gèrent les
+erreurs transitoires par fichier et continuent lorsqu'une réponse partielle est
+utile. Une analyse partielle est signalée et ne remplace jamais un cache complet.
+Sur macOS, le téléchargement à la demande utilise une action de la session
+graphique, car un LaunchAgent peut recevoir `EDEADLK` pour du contenu uniquement en ligne.
+OneDrive, iCloud Drive, Google Drive, Nextcloud et Dropbox disposent d'adaptateurs
+et de préfixes de configuration distincts. Un service inconnu monté sous
+`~/Library/CloudStorage` utilise l'adaptateur générique `fileprovider`. Les dossiers
+montés ordinaires ou entièrement synchronisés utilisent le système de fichiers local.
 
 ## Propriété de la configuration
 
-La configuration est fusionnée à partir des paramètres de base et de l'utilisateur ou de la valle active applicable `.gnosi/params.yaml`Les valeurs d'environnement surpassent les chemins de déploiement et un petit ensemble de comportements de bootstrap. Les lettres de créance sont des références dans le stockage secret local, et non pas des valeurs brutes intégrées dans la configuration du coffre.
+La configuration fusionne récursivement les paramètres de base avec ceux de
+l'utilisateur ou du vault actif dans `.gnosi/params.yaml`. L'environnement est
+prioritaire pour les chemins de déploiement et certains comportements de démarrage.
+Les identifiants font référence au gestionnaire local de secrets, pas à des valeurs
+brutes intégrées dans la configuration du vault.
+
+Les variables du processus sont prioritaires sur le `.env` local de Gnosi. Le
+fichier partagé est chargé uniquement si `GNOSI_SHARED_ENV_FILE` le désigne
+explicitement et reste en lecture seule pour l'application. Les identifiants gérés
+par l'interface utilisent le gestionnaire système, avec repli chiffré sous
+`GNOSI_DATA_DIR/secrets`.

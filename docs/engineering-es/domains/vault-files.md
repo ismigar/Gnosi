@@ -318,9 +318,12 @@ Las propiedades del registro conservan su identidad; los consumidores de lectura
 admiten interfaces de mapeo y secuencia. Las referencias importadas reciben el
 contexto del usuario autorizado cuando usan el manejador canónico de páginas;
 los callbacks tardíos de dos argumentos siguen admitidos. La deduplicación,
-formatos, descargas y errores de Pandoc no cambian. La validación temporal guarda
-la designación de la tabla bibliográfica únicamente en el directorio de datos
-aislado; la configuración heredada habitual se conserva hasta su migración explícita.
+formatos, descargas y errores de Pandoc no cambian. Todos los entornos guardan la
+designación bibliográfica en `GNOSI_DATA_DIR/config/references.json`. La configuración
+antigua requiere `scripts/migrate-reference-config.py`: su migración explícita sin
+sobrescritura conserva los bytes, campos desconocidos y el original, con diario
+privado y reversión recuperable. El arranque comprueba este requisito antes de
+migrar bases de datos o iniciar tareas. La validación temporal nunca consulta archivos antiguos.
 
 La consulta de metadatos, el reconocimiento de PDF, la traducción de URL, la
 promoción de Zotero, las actualizaciones masivas y el registro del catálogo y

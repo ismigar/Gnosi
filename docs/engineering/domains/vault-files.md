@@ -271,9 +271,12 @@ and callable contracts without result casts. Registry properties retain their
 identity; read-only consumers accept mapping/sequence interfaces. Imported
 references receive the authorized user's context when using the canonical page
 handler, while late two-argument overrides remain supported. Deduplication,
-formats, downloads and Pandoc error behavior are unchanged. Disposable validation
-stores the references-table designation only under its isolated data directory;
-normal legacy configuration remains unchanged pending its explicit data migration.
+formats, downloads and Pandoc error behavior are unchanged. All runtimes store the
+references-table designation at `GNOSI_DATA_DIR/config/references.json`. Existing
+source-tree settings require `scripts/migrate-reference-config.py`: its explicit
+no-clobber migration preserves exact bytes, unknown fields and the original, with
+a private journal and recoverable rollback. Startup checks readiness before
+database migrations or workers. Disposable validation never consults legacy files.
 
 Metadata lookup, PDF recognition, URL translation, Zotero promotion, bulk
 updates and citation catalog/search registration share that same narrowed HTTP

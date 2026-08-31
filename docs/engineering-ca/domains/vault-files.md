@@ -322,9 +322,12 @@ Les propietats del registre conserven la identitat; els consumidors de lectura
 admeten interfícies de mapatge i seqüència. Les referències importades reben el
 context de l'usuari autoritzat quan utilitzen el gestor canònic de pàgines;
 els callbacks tardans de dos arguments continuen admesos. La deduplicació, els
-formats, les descàrregues i els errors de Pandoc no canvien. La validació temporal
-desa la designació de la taula bibliogràfica només al directori de dades aïllat;
-la configuració heretada habitual es conserva fins a la seva migració explícita.
+formats, les descàrregues i els errors de Pandoc no canvien. Tots els entorns desen
+la designació bibliogràfica a `GNOSI_DATA_DIR/config/references.json`. La configuració
+antiga requereix `scripts/migrate-reference-config.py`: la migració explícita sense
+sobreescriptures conserva els bytes, camps desconeguts i l'original, amb diari
+privat i reversió recuperable. L'arrencada ho comprova abans de migrar bases de
+dades o iniciar tasques. La validació temporal no consulta mai fitxers antics.
 
 La consulta de metadades, el reconeixement de PDF, la traducció d'URL, la
 promoció de Zotero, les actualitzacions massives i el registre del catàleg i

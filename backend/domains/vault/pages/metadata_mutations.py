@@ -41,7 +41,7 @@ class MetadataMutationDependencies:
     refresh_page_index: Callable[[Path, Metadata, str], None]
     invalidate_citation_index: Callable[[], None]
     invalidate_page_cache: Callable[[], None]
-    table_id: Callable[[Metadata], str]
+    table_id: Callable[[Metadata], str | None]
     table_by_id: Callable[[str], Metadata | None]
     page_write_lock: Callable[[str], Awaitable[asyncio.Lock]]
 
@@ -436,6 +436,8 @@ async def bulk_apply_template(
     if template_metadata.get("is_template") is not True:
         raise HTTPException(status_code=400, detail="Selected page is not a template")
     table_id = dependencies.table_id(template_metadata)
+    if table_id is None:
+        raise HTTPException(status_code=400, detail="Template does not belong to a table")
     table = dependencies.table_by_id(table_id)
     if not table:
         raise HTTPException(status_code=400, detail="Template does not belong to a table")

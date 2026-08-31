@@ -279,7 +279,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from backend.migrations.coordinator import migrate_existing_databases
     from backend.services.auth_service import assert_signing_secret_safe
     from backend.services.durable_job_worker import durable_job_worker
+    from backend.services.reference_table_config import assert_reference_config_ready
 
+    assert_reference_config_ready()
     migrated_databases = migrate_existing_databases(resolve_data_dir())
     log.info("Database schema verification complete (%s stores).", len(migrated_databases))
     assert_signing_secret_safe()

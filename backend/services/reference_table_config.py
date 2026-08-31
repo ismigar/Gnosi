@@ -5,9 +5,9 @@ This configuration was originally shared with the Zotero ↔ Vault sync
 **designation of which Vault table is the Recursos one** (for gating
 the Citations modal, export with resolved citations via pandoc, etc.).
 
-The JSON keeps living at `pipeline/skills/zotero_sync/zotero_db_config.json`
-for compatibility with instances that already had it (we don't migrate data at
-runtime). The directory name is historical — it doesn't imply the sync still exists.
+The JSON lives at GNOSI_DATA_DIR/config/references.json. An older source-tree
+configuration requires the explicit, journaled migration tool before startup;
+runtime never copies or overwrites the legacy file.
 
 Fields kept:
   - `target_table`: UUID of the Vault table designated as Recursos.
@@ -28,7 +28,6 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import Any
 
 from backend.config.data_dir import resolve_data_dir
 from backend.config.validation_runtime import validation_runtime_enabled
@@ -44,33 +43,52 @@ _BASE_DIR = Path(__file__).resolve().parents[2]
 
 
 def _config_path() -> Path:
-    """Keep disposable validation independent of legacy repository state."""
-    if validation_runtime_enabled():
-        return resolve_data_dir() / "config" / "references.json"
-    return _BASE_DIR / "pipeline/skills/zotero_sync/zotero_db_config.json"
+    """Resolve canonical storage, checking any disposable validation boundary."""
+    validation_runtime_enabled()
+    return resolve_data_dir() / "config" / "references.json"
 
 
 CONFIG_PATH = _config_path()
 
-DEFAULT_CONFIG: dict[str, Any] = {
+DEFAULT_CONFIG: dict[str, object] = {
     "target_table": "",
     "references_configured": False,
     "linked_attachments_base": "",
 }
 
 
-def load_json(path: Path, default: Any = None) -> Any:
+def assert_reference_config_ready() -> None:
+    """Fail before startup/writes rather than silently discard a legacy designation."""
+    if validation_runtime_enabled() or CONFIG_PATH.exists():
+        return
+    legacy = _BASE_DIR / "pipeline/skills/zotero_sync/zotero_db_config.json"
+    if legacy.exists() or legacy.is_symlink():
+        raise RuntimeError(
+            "Legacy references configuration requires explicit migration. Stop Gnosi, "
+            "run scripts/migrate-reference-config.py plan SOURCE DATA_DIR, then migrate "
+            "with --writers-stopped; see docs/data-migration-3.md. Original preserved."
+        )
+
+
+def load_json(path: Path, default: dict[str, object] | None = None) -> dict[str, object] | None:
     """Reads a JSON file. Returns `default` if it doesn't exist or is malformed."""
+    if path == CONFIG_PATH:
+        assert_reference_config_ready()
     if path is None or not path.exists():
         return default
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+        value: object = json.loads(path.read_text(encoding="utf-8"))
+        return (
+            {str(key): item for key, item in value.items()} if isinstance(value, dict) else default
+        )
+    except (OSError, ValueError, UnicodeError):
         return default
 
 
-def save_json(path: Path, data: Any) -> None:
+def save_json(path: Path, data: dict[str, object]) -> None:
     """Writes a JSON atomically (avoids corruption mid-write)."""
+    if path == CONFIG_PATH:
+        assert_reference_config_ready()
     path.parent.mkdir(parents=True, exist_ok=True)
     from backend.utils.safe_io import safe_write_json
 
