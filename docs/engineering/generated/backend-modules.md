@@ -11,12 +11,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 46 | 8542 |
-| `api` | 38 | 12829 |
+| `api` | 38 | 12846 |
 | `app` | 8 | 712 |
 | `application root` | 2 | 41 |
 | `config` | 9 | 1049 |
 | `data` | 2 | 214 |
-| `domains` | 417 | 89401 |
+| `domains` | 419 | 89538 |
 | `mcp` | 3 | 429 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1208 |
@@ -26,9 +26,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `security` | 5 | 838 |
 | `services` | 150 | 35467 |
 | `sync` | 1 | 1 |
-| `utils` | 5 | 537 |
+| `utils` | 5 | 549 |
 
-Total: **751 modules** and **155696 source lines**.
+Total: **753 modules** and **155862 source lines**.
 
 ## agent
 
@@ -117,7 +117,7 @@ Total: **751 modules** and **155696 source lines**.
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 695 | 1 | 23 | 9 | 23 | HTTP routes for system notifications, status and filesystem access. |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py) | 185 | 4 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_graph_routes.py) | 32 | 0 | 1 | 1 | 1 | No module docstring |
-| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 610 | 0 | 2 | 0 | 0 | No module docstring |
+| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 627 | 0 | 2 | 0 | 0 | No module docstring |
 | [`backend/api/vault_templates_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_templates_routes.py) | 321 | 7 | 10 | 0 | 8 | Vault template catalog, creation, export, and moderated submission routes. |
 | [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_views_routes.py) | 407 | 4 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
 | [`backend/api/vaults_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py) | 383 | 6 | 10 | 0 | 9 | Vaults API (personal multi-vault mode): list, create and choose vaults. |
@@ -307,7 +307,8 @@ Total: **751 modules** and **155696 source lines**.
 | [`backend/domains/mail/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/cache.py) | 33 | 0 | 4 | 0 | 0 | Bounded process-local mail caches. |
 | [`backend/domains/mail/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/composition.py) | 17 | 0 | 0 | 0 | 0 | Deterministic composition of the mail router. |
 | [`backend/domains/mail/connectors/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/__init__.py) | 1 | 0 | 0 | 0 | 0 | External connectors used by the mail and content workflows. |
-| [`backend/domains/mail/connectors/drupal.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/drupal.py) | 582 | 2 | 23 | 9 | 18 | Drupal sync client (JSON:API + custom `n8n_helper` endpoints). |
+| [`backend/domains/mail/connectors/_drupal_values.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/_drupal_values.py) | 50 | 0 | 6 | 0 | 6 | Native operations on opaque Drupal values; no application schema assertions. |
+| [`backend/domains/mail/connectors/drupal.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/drupal.py) | 612 | 2 | 23 | 9 | 18 | Drupal sync client (JSON:API + custom `n8n_helper` endpoints). |
 | [`backend/domains/mail/ingestion/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/ingestion/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail and feed ingestion services. |
 | [`backend/domains/mail/ingestion/feeds.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/ingestion/feeds.py) | 145 | 0 | 6 | 0 | 2 | No module docstring |
 | [`backend/domains/mail/ingestion/newsletters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/ingestion/newsletters.py) | 476 | 0 | 16 | 0 | 10 | Newsletter ingestion via POP3 (STARTTLS). |
@@ -451,14 +452,14 @@ Total: **751 modules** and **155696 source lines**.
 | [`backend/domains/vault/drawings/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drawings/routes.py) | 186 | 4 | 7 | 4 | 10 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/drawings/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drawings/service.py) | 246 | 4 | 9 | 4 | 9 | Provider-neutral persistence for Tldraw and legacy Excalidraw documents. |
 | [`backend/domains/vault/drupal/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/__init__.py) | 21 | 0 | 0 | 0 | 0 | Typed Vault-to-Drupal synchronization domain. |
-| [`backend/domains/vault/drupal/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/composition.py) | 397 | 0 | 27 | 8 | 25 | Typed Vault domain extracted from the historical route facade. |
-| [`backend/domains/vault/drupal/core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/core.py) | 113 | 0 | 5 | 0 | 5 | Pure Drupal field and identity mappings for Vault rows. |
-| [`backend/domains/vault/drupal/fields.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/fields.py) | 213 | 2 | 4 | 4 | 1 | Build Drupal attributes and relationships from Vault table mappings. |
-| [`backend/domains/vault/drupal/languages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/languages.py) | 220 | 5 | 7 | 4 | 6 | Drupal language and translatable-field discovery with owned caches. |
+| [`backend/domains/vault/drupal/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/composition.py) | 380 | 0 | 27 | 8 | 25 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/drupal/core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/core.py) | 117 | 0 | 5 | 0 | 5 | Pure Drupal field and identity mappings for Vault rows. |
+| [`backend/domains/vault/drupal/fields.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/fields.py) | 215 | 2 | 4 | 4 | 1 | Build Drupal attributes and relationships from Vault table mappings. |
+| [`backend/domains/vault/drupal/languages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/languages.py) | 223 | 5 | 7 | 4 | 6 | Drupal language and translatable-field discovery with owned caches. |
 | [`backend/domains/vault/drupal/markdown.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/markdown.py) | 125 | 1 | 4 | 0 | 4 | Gnosi Markdown preprocessing for Drupal rich-text fields. |
-| [`backend/domains/vault/drupal/matching.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/matching.py) | 133 | 1 | 2 | 1 | 1 | Match existing Drupal nodes to unsynchronized Vault rows by title. |
-| [`backend/domains/vault/drupal/media.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/media.py) | 326 | 4 | 8 | 1 | 6 | Local file resolution and web-safe media preparation for Drupal. |
-| [`backend/domains/vault/drupal/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/service.py) | 715 | 6 | 14 | 10 | 3 | Orchestrate idempotent Vault-row synchronization to Drupal. |
+| [`backend/domains/vault/drupal/matching.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/matching.py) | 137 | 1 | 2 | 1 | 1 | Match existing Drupal nodes to unsynchronized Vault rows by title. |
+| [`backend/domains/vault/drupal/media.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/media.py) | 335 | 4 | 8 | 1 | 6 | Local file resolution and web-safe media preparation for Drupal. |
+| [`backend/domains/vault/drupal/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/service.py) | 720 | 6 | 14 | 10 | 3 | Orchestrate idempotent Vault-row synchronization to Drupal. |
 | [`backend/domains/vault/facade_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/facade_bridge.py) | 40 | 0 | 4 | 0 | 3 | Compatibility export registry for the historical Vault API facade. |
 | [`backend/domains/vault/files/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault file serving, local links, uploads, and physical deletion. |
 | [`backend/domains/vault/files/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/api.py) | 404 | 1 | 24 | 9 | 19 | HTTP adapters and route registration for vault file workflows. |
@@ -561,11 +562,12 @@ Total: **751 modules** and **155696 source lines**.
 | [`backend/domains/vault/tables/status_options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/status_options.py) | 127 | 1 | 6 | 0 | 2 | Best-effort persistence of status values created by action rules. |
 | [`backend/domains/vault/translation/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/__init__.py) | 19 | 0 | 0 | 0 | 0 | Typed Vault translation workflows and compatibility-neutral services. |
 | [`backend/domains/vault/translation/adapters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/adapters.py) | 77 | 0 | 3 | 0 | 3 | Lazy optional-provider adapters for Vault translation workflows. |
-| [`backend/domains/vault/translation/lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/lifecycle.py) | 366 | 1 | 12 | 3 | 11 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/translation/http_values.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/http_values.py) | 19 | 0 | 1 | 0 | 1 | Text narrowing at JSON request boundaries, without coercing malformed input. |
+| [`backend/domains/vault/translation/lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/lifecycle.py) | 387 | 1 | 12 | 3 | 11 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/translation/lookup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/lookup.py) | 131 | 1 | 3 | 2 | 2 | Translation-child discovery with cloud-file recovery. |
 | [`backend/domains/vault/translation/metadata_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/metadata_io.py) | 123 | 1 | 4 | 0 | 2 | Minimal metadata writes used by translation lifecycle effects. |
 | [`backend/domains/vault/translation/page_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/page_service.py) | 237 | 1 | 5 | 2 | 1 | Typed translation workflow for standalone Vault pages. |
-| [`backend/domains/vault/translation/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/routes.py) | 505 | 10 | 10 | 10 | 16 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/translation/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/routes.py) | 512 | 10 | 10 | 10 | 16 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/translation/row_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/row_service.py) | 591 | 2 | 12 | 5 | 1 | Typed, idempotent translation workflow for table rows. |
 | [`backend/domains/vault/translation/staleness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/staleness.py) | 176 | 2 | 5 | 0 | 2 | Propagation of translation staleness after source-page edits. |
 | [`backend/domains/vault/translation/types.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/types.py) | 80 | 4 | 0 | 0 | 3 | Shared strict contracts for Vault translation services. |
@@ -863,5 +865,5 @@ Total: **751 modules** and **155696 source lines**.
 | [`backend/utils/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/cache.py) | 104 | 1 | 0 | 0 | 1 | Thread-safe in-memory cache with TTL and bounded size. |
 | [`backend/utils/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/errors.py) | 49 | 0 | 1 | 0 | 1 | Safe error handling helpers for HTTP responses. |
 | [`backend/utils/http_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/http_retry.py) | 54 | 0 | 1 | 0 | 1 | Tolerant parsing of the HTTP `Retry-After` header (RFC 7231). |
-| [`backend/utils/open_values.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/open_values.py) | 87 | 1 | 12 | 0 | 12 | Native operations on opaque extension values, without schema assertions. |
+| [`backend/utils/open_values.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/open_values.py) | 99 | 1 | 14 | 0 | 14 | Native operations on opaque extension values, without schema assertions. |
 | [`backend/utils/safe_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/safe_io.py) | 243 | 0 | 11 | 0 | 11 | safe_io.py — Atomic and cloud-safe filesystem helpers. |

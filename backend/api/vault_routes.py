@@ -16,6 +16,7 @@ from pathlib import Path as Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, cast
 
 if TYPE_CHECKING:
+    from fastapi import BackgroundTasks as BackgroundTasks, Body as Body
     # Checked aliases of the actual owners, not fabricated Protocol signatures.
     # Runtime __getattr__ below retains late binding and legacy override behavior.
     from _thread import LockType as _typed_LockType
@@ -50,6 +51,10 @@ if TYPE_CHECKING:
     from backend.domains.vault.drupal import fields as _typed_drupal_fields
     from backend.domains.vault.drupal import markdown as _typed_drupal_markdown
     from backend.domains.vault.drupal import languages as _typed_drupal_languages
+    from backend.domains.vault.drupal import core as _typed_drupal_core
+    from backend.domains.vault.drupal import service as _typed_drupal_service
+    from backend.domains.vault.drupal import matching as _typed_drupal_matching
+    from backend.domains.vault.pages.foundation import _vf_page_loader as _vf_page_loader
     from backend.services import action_rules as _typed_action_rules
     from backend.services import translation_index as _typed_translation_index
     from backend.services.translation_helpers import (
@@ -207,6 +212,13 @@ if TYPE_CHECKING:
         _load_translate_row_skill as _load_translate_row_skill,
         _do_translate_row as _do_translate_row,
         _drupal_client_module as _drupal_client_module,
+        _ensure_status_options_persisted as _ensure_status_options_persisted,
+        _DRUPAL_PATH_DEPENDENCIES as _DRUPAL_PATH_DEPENDENCIES,
+        _DRUPAL_MARKDOWN_DEPENDENCIES as _DRUPAL_MARKDOWN_DEPENDENCIES,
+        _DRUPAL_LANGUAGE_DEPENDENCIES as _DRUPAL_LANGUAGE_DEPENDENCIES,
+        _PAGE_TRANSLATION_DEPENDENCIES as _PAGE_TRANSLATION_DEPENDENCIES,
+        _drupal_upload_dependencies as _drupal_upload_dependencies,
+        _drupal_field_dependencies as _drupal_field_dependencies,
     )
     from backend.domains.vault.drupal.composition import (
         _drupal_resolve_local_path as _drupal_resolve_local_path,
@@ -216,6 +228,8 @@ if TYPE_CHECKING:
         _drupal_read_prop_value as _drupal_read_prop_value,
         _drupal_upload_field_image as _drupal_upload_field_image,
         _drupal_coerce_scalar as _drupal_coerce_scalar,
+        _do_sync_drupal_row as _do_sync_drupal_row,
+        _drupal_matching_dependencies as _drupal_matching_dependencies,
     )
     from backend.domains.vault.api.core_routes import create_page as create_page
     from backend.domains.vault.api.core_routes import _stamp_author as _stamp_author
@@ -255,6 +269,9 @@ if TYPE_CHECKING:
     drupal_fields = _typed_drupal_fields
     drupal_markdown = _typed_drupal_markdown
     drupal_languages = _typed_drupal_languages
+    drupal_core = _typed_drupal_core
+    drupal_service = _typed_drupal_service
+    drupal_matching = _typed_drupal_matching
     comments_api = _typed_comments_api
     comments_repository = _typed_comments_repository
     link_parsing = _typed_link_parsing

@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Any, Protocol
+from typing import Protocol
 
 from backend.domains.vault.drupal.core import Metadata
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.utils.open_values import get_value, mapping_items, unpack_pair
 
 
 class JsonResponse(Protocol):
-    def json(self) -> Any: ...
+    def json(self) -> object: ...
 
 
 class DrupalHttpClient(Protocol):
@@ -52,8 +54,8 @@ class DrupalLanguageDependencies:
 language_state = DrupalLanguageState()
 
 
-def _document(value: Any) -> Metadata:
-    return value if isinstance(value, dict) else {}
+def _document(value: object) -> Metadata:
+    return value if is_record(value) else {}
 
 
 async def langcodes(
@@ -74,7 +76,7 @@ async def langcodes(
             )
         document = _document(response.json())
         rows = document.get("data")
-        for raw_row in rows if isinstance(rows, list) else []:
+        for raw_row in rows if is_object_list(rows) else []:
             row = _document(raw_row)
             attributes = _document(row.get("attributes"))
             code = attributes.get("drupal_internal__id")
@@ -160,7 +162,7 @@ async def field_translatable(
             )
         document = _document(response.json())
         raw_data = document.get("data")
-        data = raw_data if isinstance(raw_data, list) else []
+        data = raw_data if is_object_list(raw_data) else []
         if data:
             attributes = _document(_document(data[0]).get("attributes"))
             value = bool(attributes.get("translatable"))
@@ -175,14 +177,15 @@ async def field_translatable(
 
 
 def image_mapping(
-    mapping: Metadata,
-    field_metadata: dict[str, Metadata],
+    mapping: object,
+    field_metadata: Mapping[str, object],
 ) -> tuple[str | None, str | None]:
     """Return the first mapped image/file property and Drupal field."""
-    for raw_ref, raw_field in mapping.items():
+    for pair in mapping_items(mapping):
+        raw_ref, raw_field = unpack_pair(pair)
         ref = str(raw_ref)
         drupal_field = str(raw_field or "")
-        field_type = (field_metadata.get(drupal_field) or {}).get("type")
+        field_type = get_value(field_metadata.get(drupal_field) or {}, "type")
         if drupal_field and field_type in ("image", "file"):
             return ref, drupal_field
     return None, None
@@ -192,13 +195,13 @@ def row_image_alt(
     metadata: Metadata,
     properties_by_ref: dict[str, Metadata],
     image_ref: str | None,
-    read_prop_value: Callable[[Metadata, Metadata | None], Any],
+    read_prop_value: Callable[[Metadata, Metadata | None], object],
 ) -> str:
     """Resolve translation-specific image alt text with historical fallbacks."""
     if image_ref:
         prop = properties_by_ref.get(image_ref)
         value = read_prop_value(metadata, prop)
-        if isinstance(value, dict) and value.get("alt"):
+        if is_record(value) and value.get("alt"):
             return str(value["alt"])
     for key, value in metadata.items():
         if "alt" in str(key).lower() and isinstance(value, str) and value.strip():

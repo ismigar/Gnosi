@@ -4,34 +4,35 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from typing import Any
 
 from backend.domains.vault.drupal.core import DRUPAL_BODY_REF, Metadata
+from backend.domains.vault.registry.records import is_object_list
+from backend.utils.open_values import get_value, mapping_items, unpack_pair
 
 
 @dataclass(frozen=True)
 class DrupalFieldDependencies:
     sync_error: type[Exception]
     markdown_to_html: Callable[[str, dict[str, str | None]], str]
-    read_prop_value: Callable[[Metadata, Metadata | None], Any]
+    read_prop_value: Callable[[Metadata, Metadata | None], object]
     upload_field_image: Callable[
-        [Any, str, str, Metadata, dict[str, str]],
-        Awaitable[Metadata | None],
+        [object, str, str, Metadata, dict[str, object]],
+        Awaitable[dict[str, object] | None],
     ]
     resolve_or_create_term: Callable[
-        [str, str, dict[str, str]],
-        Awaitable[str],
+        [str, str, dict[str, object]],
+        Awaitable[object],
     ]
     coerce_scalar: Callable[[object, str | None], object | None]
 
 
 @dataclass
 class FieldBuildState:
-    attributes: Metadata
-    relationships: Metadata
-    skipped: list[Metadata]
+    attributes: dict[str, object]
+    relationships: dict[str, object]
+    skipped: list[dict[str, object]]
     wikilink_cache: dict[str, str | None]
 
 
@@ -39,12 +40,12 @@ async def _taxonomy_relationship(
     value: object,
     drupal_field: str,
     vocabulary: str,
-    term_cache: dict[str, str],
+    term_cache: dict[str, object],
     dependencies: DrupalFieldDependencies,
-) -> tuple[Metadata | None, list[Metadata]]:
-    names = value if isinstance(value, list) else re.split(r"[;,]", str(value))
-    data: list[Metadata] = []
-    skipped: list[Metadata] = []
+) -> tuple[dict[str, object] | None, list[dict[str, object]]]:
+    names = value if is_object_list(value) else re.split(r"[;,]", str(value))
+    data: list[dict[str, object]] = []
+    skipped: list[dict[str, object]] = []
     for raw_name in names:
         name = str(raw_name).strip()
         if not name:
@@ -93,12 +94,12 @@ async def _build_mapped_value(
     *,
     value: object,
     drupal_field: str,
-    field_config: Metadata,
+    field_config: object,
     field_type: str | None,
     metadata: Metadata,
     bundle: str,
-    term_cache: dict[str, str],
-    image_cache: dict[str, str],
+    term_cache: dict[str, object],
+    image_cache: dict[str, object],
     text_only: bool,
     media_only: bool,
     state: FieldBuildState,
@@ -120,7 +121,7 @@ async def _build_mapped_value(
         relationship, term_skips = await _taxonomy_relationship(
             value,
             drupal_field,
-            str(field_config.get("vocab") or "tags"),
+            str(get_value(field_config, "vocab") or "tags"),
             term_cache,
             dependencies,
         )
@@ -152,18 +153,18 @@ async def _build_mapped_value(
 
 async def build_fields(
     *,
-    mapping: Metadata,
+    mapping: object,
     properties_by_ref: dict[str, Metadata],
-    field_metadata: dict[str, Metadata],
+    field_metadata: Mapping[str, object],
     metadata: Metadata,
     body: str,
     bundle: str,
-    term_cache: dict[str, str],
-    image_cache: dict[str, str],
+    term_cache: dict[str, object],
+    image_cache: dict[str, object],
     dependencies: DrupalFieldDependencies,
     text_only: bool = False,
     media_only: bool = False,
-) -> tuple[Metadata, Metadata, list[Metadata]]:
+) -> tuple[dict[str, object], dict[str, object], list[dict[str, object]]]:
     """Build Drupal attributes, relationships and skipped-field diagnostics."""
     state = FieldBuildState(
         attributes={},
@@ -171,13 +172,14 @@ async def build_fields(
         skipped=[],
         wikilink_cache={},
     )
-    for raw_ref, raw_drupal_field in mapping.items():
+    for pair in mapping_items(mapping):
+        raw_ref, raw_drupal_field = unpack_pair(pair)
         ref = str(raw_ref)
         drupal_field = str(raw_drupal_field or "")
         if not drupal_field:
             continue
         field_config = field_metadata.get(drupal_field) or {}
-        field_type = str(field_config.get("type") or "") or None
+        field_type = str(get_value(field_config, "type") or "") or None
         if ref == DRUPAL_BODY_REF:
             await _build_body_field(
                 drupal_field,

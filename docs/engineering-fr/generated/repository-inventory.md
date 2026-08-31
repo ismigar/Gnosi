@@ -10,8 +10,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Périmètre | Décompte |
 | --- | ---: |
-| Backend Python files | 1126 |
-| Backend Python test files | 375 |
+| Backend Python files | 1137 |
+| Backend Python test files | 384 |
 | Frontend JS/TS source files | 1756 |
 | Frontend unit test files | 468 |
 | Registered FastAPI routers | 36 |
@@ -22,7 +22,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Périmètre | Fichiers | Périmètre fonctionnel |
 | --- | ---: | --- |
-| `backend/` | 1140 | FastAPI, services, models, agents, scheduling, and storage adapters |
+| `backend/` | 1151 | FastAPI, services, models, agents, scheduling, and storage adapters |
 | `frontend/src/` | 1830 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 102 | Reusable application skills and deterministic processing tools |
 | `desktop/` | 76 | Desktop lifecycle, backend packaging, IPC, and updates |

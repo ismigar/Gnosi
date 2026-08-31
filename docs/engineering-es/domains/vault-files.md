@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -25,6 +26,15 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_drupal_connector_discovery_contract.py
+  - backend/tests/test_drupal_connector_http_contract.py
+  - backend/tests/test_drupal_connector_native_contract.py
+  - backend/tests/test_drupal_native_mapping_contract.py
+  - backend/tests/test_drupal_open_core_fields.py
+  - backend/tests/test_drupal_open_languages_markdown.py
+  - backend/tests/test_drupal_open_media.py
+  - backend/tests/test_drupal_service_contract.py
+  - backend/tests/test_translation_http_open_contract.py
   - backend/tests/test_sync_comment_open_contract.py
   - backend/tests/test_sync_comment_bootstrap.py
   - backend/tests/test_translation_open_helpers_contract.py
@@ -98,9 +108,33 @@ por el modelo de respuesta existente sin coerción de campos.
 Estos cambios conservan los límites de captura de errores de los proveedores,
 la recuperación ordenada del disco, los idiomas de destino duplicados y el
 orden de escritura de estados. Las pruebas sintéticas usan dobles de proveedor,
-no cuentas reales de la nube. El HTTP de traducción y la composición Drupal
-todavía contienen tipado heredado; este punto no certifica todo el backend ni
-una migración real de proveedor de nube.
+no cuentas reales de la nube. La composición Drupal y el HTTP de traducción
+comprueban ahora los responsables reales de las dependencias; esto no certifica
+todo el backend, un servidor Drupal real ni una migración de proveedor de nube.
+
+## Contratos del transporte Drupal y del HTTP
+
+El mapeo de campos Drupal, la preparación multimedia, el descubrimiento de idiomas,
+la coincidencia de títulos y la sincronización de filas conservan metadatos abiertos
+e identificadores opacos del conector. Las respuestas construidas tienen tipos
+explícitos; los valores decodificados del transporte no presuponen un esquema de
+la aplicación. Se conservan el orden de campos, los errores parciales, la identidad
+de identificadores en caché y los errores nativos de entrada. Las factorías capturan
+el conector y las clases de error, pero resuelven los miembros sustituibles al
+llamarlos. Pillow sigue siendo opcional y se carga cuando hace falta.
+
+Las rutas de traducción conservan los esquemas existentes de petición y respuesta.
+La publicación masiva Drupal convierte cada identificador a texto y conserva
+duplicados; la traducción masiva filtra identificadores no textuales y elimina
+duplicados tras recortar espacios. Publicar una fila sigue enviando multimedia
+por defecto. Las entradas textuales mantienen los valores alternativos para
+entradas vacías y los errores nativos ante JSON malformado. Los llamadores Python
+no JSON cuya operación strip personalizada devuelve un valor no textual reciben
+un error de tipo explícito; esta comprobación solo HTTP no normaliza YAML ni
+metadatos de plugins. El JSON generado válido con una forma de respuesta incorrecta
+llega a la validación HTTP, no al resultado alternativo por error de proveedor.
+Transportes sintéticos y archivos temporales verifican estos contratos sin leer
+credenciales, publicar contenido ni llamar a proveedores externos.
 
 ## Responsabilidad
 

@@ -3,31 +3,35 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
 
 from backend.domains.vault.drupal.core import Metadata
-from backend.domains.vault.schemas.pages import PagePatchRequest
+from backend.domains.vault.registry.records import RecordReader
+from backend.domains.vault.schemas.pages import PageInfo, PagePatchRequest
+from backend.utils.open_values import item_value
+
+
+Result = dict[str, object]
 
 
 @dataclass(frozen=True)
 class DrupalMatchingDependencies:
     sync_error: type[Exception]
     table_by_id: Callable[[str], Metadata | None]
-    pages_for_table: Callable[[str], list[Any]]
-    find_nodes_by_title: Callable[[str, str], Awaitable[list[Metadata]]]
+    pages_for_table: Callable[[str], list[PageInfo]]
+    find_nodes_by_title: Callable[[str, str], Awaitable[Sequence[RecordReader]]]
     identity_metadata: Callable[[Metadata, object, object, object], Metadata]
     patch_page: Callable[
         [str, PagePatchRequest, BackgroundTasks],
-        Awaitable[Metadata],
+        Awaitable[object],
     ]
 
 
 def _validated_context(
-    payload: Metadata,
+    payload: dict[str, object],
     dependencies: DrupalMatchingDependencies,
 ) -> tuple[str, Metadata, str, bool, set[str] | None]:
     table_id = str(payload.get("table_id") or "").strip()
@@ -52,18 +56,18 @@ def _validated_context(
 
 async def match_drupal_rows(
     background_tasks: BackgroundTasks,
-    payload: Metadata,
+    payload: dict[str, object],
     dependencies: DrupalMatchingDependencies,
-) -> Metadata:
+) -> Result:
     """Match exact titles and optionally persist Drupal identity metadata."""
     table_id, table, bundle, dry_run, wanted = _validated_context(
         payload,
         dependencies,
     )
     rows = await asyncio.to_thread(dependencies.pages_for_table, table_id)
-    matched: list[Metadata] = []
-    unmatched: list[Metadata] = []
-    ambiguous: list[Metadata] = []
+    matched: list[Result] = []
+    unmatched: list[Result] = []
+    ambiguous: list[Result] = []
     for page in rows:
         if wanted is not None and page.id not in wanted:
             continue
@@ -80,24 +84,24 @@ async def match_drupal_rows(
             continue
         if len(found) == 1:
             match = found[0]
-            entry: Metadata = {
+            entry: Result = {
                 "row_id": page.id,
                 "title": title,
-                "nid": match["nid"],
-                "url": match["url"],
-                "uuid": match["uuid"],
+                "nid": item_value(match, "nid"),
+                "url": item_value(match, "url"),
+                "uuid": item_value(match, "uuid"),
             }
             if not dry_run:
                 try:
                     identity = dependencies.identity_metadata(
                         table,
-                        match["uuid"],
-                        match["nid"],
-                        match["url"],
+                        item_value(match, "uuid"),
+                        item_value(match, "nid"),
+                        item_value(match, "url"),
                     )
                     await dependencies.patch_page(
                         page.id,
-                        PagePatchRequest(metadata=identity),
+                        PagePatchRequest.model_validate({"metadata": identity}),
                         background_tasks,
                     )
                     entry["applied"] = True
@@ -112,7 +116,7 @@ async def match_drupal_rows(
                 {
                     "row_id": page.id,
                     "title": title,
-                    "nids": [match["nid"] for match in found],
+                    "nids": [item_value(match, "nid") for match in found],
                 }
             )
     return {

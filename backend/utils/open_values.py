@@ -26,6 +26,18 @@ def iterable_values(value: object) -> Iterable[object]:
     return _NativeIterable(value)
 
 
+def unpack_pair(value: object) -> tuple[object, object]:
+    """Unpack in the consumer body, without generator exception conversion."""
+    first, second = iterable_values(value)
+    return first, second
+
+
+def mapping_items(value: object) -> Iterable[object]:
+    """Preserve items lookup and iteration; callers unpack in their loop body."""
+    items: object = operator.methodcaller("items")(value)
+    return iterable_values(items)
+
+
 def list_values(value: object) -> list[object]:
     """Use list's original iterable and length-hint protocols without wrapping."""
     result: list[object] = list(value)  # type: ignore[call-overload]

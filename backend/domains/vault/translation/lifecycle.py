@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import importlib as _legacy_importlib
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -12,6 +12,7 @@ from fastapi import BackgroundTasks
 
 from backend.domains.vault.drupal.fields import DrupalFieldDependencies
 from backend.domains.vault.drupal.media import DrupalUploadDependencies
+from backend.domains.vault.registry.records import RecordReader
 from backend.domains.vault.translation.adapters import DetectLanguage
 from backend.domains.vault.translation.types import Metadata, Result, TranslateText
 
@@ -22,26 +23,46 @@ else:
 
 
 class DrupalConnector(Protocol):
-    """Real connector capabilities consumed by the lazy media factories."""
+    """Real connector capabilities consumed by lazy Drupal factories."""
 
     @property
     def DrupalSyncError(self) -> type[Exception]: ...
 
+    @property
+    def DrupalNotFound(self) -> type[Exception]: ...
+
     def _client(self) -> httpx.AsyncClient: ...
+
+    def base_url(self) -> str: ...
+
+    async def list_fields(self, bundle: str, /) -> Sequence[RecordReader]: ...
+
+    async def find_nodes_by_title(self, bundle: str, title: str, /) -> Sequence[RecordReader]: ...
+
+    async def create_node(
+        self, bundle: str, attributes: object, relationships: object = None, /,
+        *, langcode: object = None,
+    ) -> object: ...
+
+    async def update_node(
+        self, uuid: object, bundle: str, attributes: object, relationships: object = None, /,
+    ) -> object: ...
+
+    async def add_translation(self, uuid: object, langcode: object, fields: object, /) -> object: ...
 
     def markdown_to_full_html(self, md: str, /) -> str: ...
 
     async def find_existing_file(
         self, filename: str, filesize: int | None = None, /
-    ) -> str | None: ...
+    ) -> object: ...
 
     async def upload_image(
         self, bundle: str, field_name: str, filename: str, data: bytes, /
-    ) -> str: ...
+    ) -> object: ...
 
     async def resolve_or_create_term(
-        self, vocabulary: str, name: str, /, *, cache: dict[str, str] | None = None
-    ) -> str: ...
+        self, vocabulary: str, name: str, /, *, cache: dict[str, object] | None = None
+    ) -> object: ...
 
 
 def _read_deepl_key() -> str:

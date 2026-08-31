@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypeAlias
+
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.utils.open_values import iterable_values
 
 
-Metadata = dict[str, Any]
+Metadata: TypeAlias = PageMetadata
 DRUPAL_BODY_REF = "__body__"
 
 
 def props_by_ref(table: Metadata) -> dict[str, Metadata]:
     """Index table properties by stable ID and display name."""
     result: dict[str, Metadata] = {}
-    for raw_prop in table.get("properties") or []:
-        if not isinstance(raw_prop, dict):
+    for raw_prop in iterable_values(table.get("properties") or []):
+        if not is_record(raw_prop):
             continue
         prop = raw_prop
         prop_id = prop.get("id")
@@ -28,8 +32,8 @@ def props_by_ref(table: Metadata) -> dict[str, Metadata]:
 def find_column(table: Metadata, name: str) -> Metadata | None:
     """Find a property by a case-insensitive display name."""
     target = name.strip().lower()
-    for raw_prop in table.get("properties") or []:
-        if not isinstance(raw_prop, dict):
+    for raw_prop in iterable_values(table.get("properties") or []):
+        if not is_record(raw_prop):
             continue
         if str(raw_prop.get("name") or "").strip().lower() == target:
             return raw_prop
@@ -59,7 +63,7 @@ def identity_metadata(
     return result
 
 
-def read_prop_value(metadata: Metadata, prop: Metadata | None) -> Any:
+def read_prop_value(metadata: Metadata, prop: Metadata | None) -> object:
     """Read a property value using title, stable-ID and name precedence."""
     if not prop:
         return None
@@ -97,7 +101,7 @@ def coerce_scalar(value: object, field_type: str | None) -> object | None:
             return float(value)
         except (TypeError, ValueError):
             return None
-    if isinstance(value, list):
+    if is_object_list(value):
         return ", ".join(str(item) for item in value if item not in (None, ""))
     return str(value)
 

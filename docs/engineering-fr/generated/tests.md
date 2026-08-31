@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 24 | 80 |
 | Vitest | 482 | 1971 |
-| pytest | 409 | 2860 |
+| pytest | 418 | 2948 |
 
 ## Fichiers
 
@@ -611,6 +611,14 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_drawing_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_response_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_drawing_soft_delete.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_soft_delete.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_drawing_typed_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_typed_composition.py) | 1 | Python AST |
+| pytest | [`backend/tests/test_drupal_connector_discovery_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drupal_connector_discovery_contract.py) | 9 | Python AST |
+| pytest | [`backend/tests/test_drupal_connector_http_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drupal_connector_http_contract.py) | 10 | Python AST |
+| pytest | [`backend/tests/test_drupal_connector_native_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drupal_connector_native_contract.py) | 11 | Python AST |
+| pytest | [`backend/tests/test_drupal_native_mapping_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drupal_native_mapping_contract.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_drupal_open_core_fields.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drupal_open_core_fields.py) | 13 | Python AST |
+| pytest | [`backend/tests/test_drupal_open_languages_markdown.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drupal_open_languages_markdown.py) | 11 | Python AST |
+| pytest | [`backend/tests/test_drupal_open_media.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drupal_open_media.py) | 16 | Python AST |
+| pytest | [`backend/tests/test_drupal_service_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drupal_service_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_duplicate_page_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_duplicate_page_index.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_durable_job_worker.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_durable_job_worker.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_e2e_etag_concurrency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_etag_concurrency.py) | 5 | Python AST |
@@ -815,6 +823,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_translate_row_skill.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translate_row_skill.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_translation_drupal_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_drupal_response_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_translation_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_helpers.py) | 38 | Python AST |
+| pytest | [`backend/tests/test_translation_http_open_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_http_open_contract.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_translation_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_index.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_translation_lifecycle_binding_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_lifecycle_binding_contract.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_translation_open_effects_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_open_effects_contract.py) | 5 | Python AST |

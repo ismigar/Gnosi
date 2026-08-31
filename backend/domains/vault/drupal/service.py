@@ -4,43 +4,49 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Protocol
 
 from fastapi import BackgroundTasks, HTTPException
 
 from backend.domains.vault.drupal.core import Metadata
-from backend.domains.vault.schemas.pages import PagePatchRequest
+from backend.domains.vault.registry.records import RecordReader, is_record
+from backend.domains.vault.schemas.pages import PageInfo, PagePatchRequest
+from backend.utils.open_values import get_value
+
+
+Result = dict[str, object]
+VirtualPageLoader = Callable[[str], Iterable[object]]
 
 
 class BuildFields(Protocol):
     def __call__(
         self,
         *,
-        mapping: Metadata,
+        mapping: object,
         props_by_ref: dict[str, Metadata],
         field_meta: dict[str, Metadata],
         metadata: Metadata,
         body: str,
         bundle: str,
-        term_cache: dict[str, str],
-        image_cache: dict[str, str],
+        term_cache: dict[str, object],
+        image_cache: dict[str, object],
         text_only: bool = False,
         media_only: bool = False,
-    ) -> Awaitable[tuple[Metadata, Metadata, list[Metadata]]]: ...
+    ) -> Awaitable[tuple[Result, Result, list[Result]]]: ...
 
 
 class UploadFieldImage(Protocol):
     def __call__(
         self,
-        value: Any,
+        value: object,
         bundle: str,
         drupal_field: str,
         metadata: Metadata,
-        image_cache: dict[str, str],
-    ) -> Awaitable[Metadata | None]: ...
+        image_cache: dict[str, object],
+    ) -> Awaitable[Result | None]: ...
 
 
 @dataclass(frozen=True)
@@ -52,50 +58,50 @@ class DrupalSyncDependencies:
     parse_frontmatter: Callable[[str, Path], tuple[Metadata, str]]
     table_id: Callable[[Metadata], str | None]
     table_by_id: Callable[[str | None], Metadata | None]
-    inject_virtual_fields: Callable[[Metadata, str, Metadata, Any], None]
-    virtual_page_loader: Any
+    inject_virtual_fields: Callable[[Metadata, str, Metadata, VirtualPageLoader], None]
+    virtual_page_loader: VirtualPageLoader
     check_requires: Callable[[Metadata, str, Metadata], tuple[bool, str | None]]
     action_sync_drupal: str
     props_by_ref: Callable[[Metadata], dict[str, Metadata]]
-    list_fields: Callable[[str], Awaitable[list[Metadata]]]
+    list_fields: Callable[[str], Awaitable[Sequence[RecordReader]]]
     build_fields: BuildFields
     resolve_langcode: Callable[[Metadata], Awaitable[str]]
     image_mapping: Callable[
-        [Metadata, dict[str, Metadata]],
+        [object, dict[str, Metadata]],
         tuple[str | None, str | None],
     ]
     field_translatable: Callable[[str, str], Awaitable[bool]]
-    read_prop_value: Callable[[Metadata, Metadata | None], Any]
+    read_prop_value: Callable[[Metadata, Metadata | None], object]
     upload_field_image: UploadFieldImage
     uuid_to_fid: Callable[[object], Awaitable[object | None]]
     row_image_alt: Callable[
         [Metadata, dict[str, Metadata], str | None],
         str,
     ]
-    find_nodes_by_title: Callable[[str, str], Awaitable[list[Metadata]]]
-    add_translation: Callable[[str, str, Metadata], Awaitable[Metadata]]
+    find_nodes_by_title: Callable[[str, str], Awaitable[Sequence[RecordReader]]]
+    add_translation: Callable[[str, str, Result], Awaitable[object]]
     base_url: Callable[[], str]
     create_node: Callable[
-        [str, Metadata, Metadata, str],
-        Awaitable[Metadata],
+        [str, Result, Result, str],
+        Awaitable[object],
     ]
-    update_node: Callable[[str, str, Metadata, Metadata], Awaitable[Metadata]]
+    update_node: Callable[[str, str, Result, Result], Awaitable[object]]
     media_signatures: Callable[
-        [Metadata, dict[str, Metadata], dict[str, Metadata], Metadata],
+        [object, dict[str, Metadata], dict[str, Metadata], Metadata],
         dict[str, str],
     ]
-    existing_translations: Callable[[str], Awaitable[dict[str, Any]]]
-    pages_for_table: Callable[[str], list[Any]]
+    existing_translations: Callable[[str], Awaitable[dict[str, object]]]
+    pages_for_table: Callable[[str], list[PageInfo]]
     identity_metadata: Callable[[Metadata, object, object, object], Metadata]
     status_effect: Callable[
         [Metadata, str, str],
         tuple[Metadata | None, str | None, bool],
     ]
     effect_write_key: Callable[[Metadata, Metadata], str | None]
-    persist_status_options: Callable[[str, list[Any]], None]
+    persist_status_options: Callable[[str, list[object]], None]
     patch_page: Callable[
         [str, PagePatchRequest, BackgroundTasks],
-        Awaitable[Metadata],
+        Awaitable[object],
     ]
     logger: logging.Logger
 
@@ -109,11 +115,11 @@ class SyncContext:
     table_id: str
     table: Metadata
     bundle: str
-    mapping: Metadata
+    mapping: object
     properties_by_ref: dict[str, Metadata]
     field_metadata: dict[str, Metadata]
-    term_cache: dict[str, str] = field(default_factory=dict)
-    image_cache: dict[str, str] = field(default_factory=dict)
+    term_cache: dict[str, object] = field(default_factory=dict)
+    image_cache: dict[str, object] = field(default_factory=dict)
     source_language: str = "en"
 
 
@@ -131,10 +137,10 @@ class NodeState:
     url: str | None
     created: bool = False
     languages: list[str] = field(default_factory=list)
-    skipped_fields: list[Metadata] = field(default_factory=list)
+    skipped_fields: list[Result] = field(default_factory=list)
 
 
-def _field_metadata(fields: list[Metadata]) -> dict[str, Metadata]:
+def _field_metadata(fields: Sequence[RecordReader]) -> dict[str, Metadata]:
     result: dict[str, Metadata] = {}
     for field_config in fields:
         field_name = field_config.get("field_name")
@@ -187,8 +193,7 @@ async def _load_context(
     if not allowed:
         raise HTTPException(status_code=409, detail=reason)
     bundle = str(table.get("drupal_bundle") or "").strip()
-    raw_mapping = table.get("drupal_field_mapping") or {}
-    mapping = cast(Metadata, raw_mapping)
+    mapping = table.get("drupal_field_mapping") or {}
     if not bundle or not mapping:
         raise HTTPException(
             status_code=400,
@@ -217,7 +222,7 @@ async def _load_context(
 async def _text_attributes(
     context: SyncContext,
     dependencies: DrupalSyncDependencies,
-) -> Metadata:
+) -> Result:
     attributes, _relationships, _skipped = await dependencies.build_fields(
         mapping=context.mapping,
         props_by_ref=context.properties_by_ref,
@@ -236,7 +241,7 @@ async def _text_attributes(
 
 async def _translation_image(
     context: SyncContext,
-    skipped_fields: list[Metadata],
+    skipped_fields: list[Result],
     dependencies: DrupalSyncDependencies,
 ) -> TranslationImage:
     image_ref, image_field = dependencies.image_mapping(
@@ -269,7 +274,7 @@ async def _translation_image(
         )
         if relationship:
             data = relationship.get("data")
-            file_uuid = data.get("id") if isinstance(data, dict) else None
+            file_uuid = data.get("id") if is_record(data) else None
             result.shared_fid = await dependencies.uuid_to_fid(file_uuid)
     except Exception as error:
         skipped_fields.append({"field": image_field, "reason": f"image(trad): {error}"})
@@ -281,7 +286,7 @@ def _image_fields(
     context: SyncContext,
     image: TranslationImage,
     dependencies: DrupalSyncDependencies,
-) -> Metadata:
+) -> Result:
     if not (image.shared_fid and image.image_field):
         return {}
     return {
@@ -321,7 +326,7 @@ async def _link_by_title(
     )
 
 
-def _raise_sync_error(error: Exception, skipped: list[Metadata]) -> None:
+def _raise_sync_error(error: Exception, skipped: list[Result]) -> None:
     message = str(error)
     if "field_image" not in message:
         raise HTTPException(status_code=502, detail=f"Drupal: {error}") from error
@@ -339,7 +344,7 @@ def _raise_sync_error(error: Exception, skipped: list[Metadata]) -> None:
 
 async def _upsert_source(
     context: SyncContext,
-    text_attributes: Metadata,
+    text_attributes: Result,
     image: TranslationImage,
     publish: bool,
     state: NodeState,
@@ -362,7 +367,7 @@ async def _upsert_source(
                         ),
                     },
                 )
-                state.nid = response.get("nid")
+                state.nid = get_value(response, "nid")
                 if not state.url and state.nid:
                     state.url = f"{dependencies.base_url()}/node/{state.nid}"
                 state.languages.append(context.source_language)
@@ -388,9 +393,9 @@ async def _upsert_source(
                 relationships,
                 context.source_language,
             )
-            state.uuid = str(response.get("uuid") or "") or None
-            state.nid = response.get("nid")
-            state.url = str(response.get("url") or "") or None
+            state.uuid = str(get_value(response, "uuid") or "") or None
+            state.nid = get_value(response, "nid")
+            state.url = str(get_value(response, "url") or "") or None
             state.created = True
             state.languages.append(context.source_language)
     except dependencies.sync_error as error:
@@ -441,11 +446,11 @@ def sibling_rows(
     nid: object,
     exclude_id: str,
     dependencies: DrupalSyncDependencies,
-) -> list[Any]:
+) -> list[PageInfo]:
     """Find same-node rows in other source languages."""
     if not nid:
         return []
-    siblings: list[Any] = []
+    siblings: list[PageInfo] = []
     try:
         for page in dependencies.pages_for_table(table_id):
             if page.id == exclude_id:
@@ -469,14 +474,14 @@ def sibling_rows(
 async def row_text_fields(
     page_id: str,
     *,
-    mapping: Metadata,
+    mapping: object,
     props_by_ref: dict[str, Metadata],
     field_meta: dict[str, Metadata],
     bundle: str,
-    term_cache: dict[str, str],
-    image_cache: dict[str, str],
+    term_cache: dict[str, object],
+    image_cache: dict[str, object],
     dependencies: DrupalSyncDependencies,
-) -> tuple[Metadata | None, str | None, Metadata | None]:
+) -> tuple[Result | None, str | None, Metadata | None]:
     """Read one row and build only the translated Drupal text fields."""
     file_path = await asyncio.to_thread(dependencies.find_page, page_id)
     if not file_path or not file_path.exists():
@@ -515,8 +520,8 @@ async def _sync_related(
     image: TranslationImage,
     scope: str,
     dependencies: DrupalSyncDependencies,
-) -> list[Metadata]:
-    results: list[Metadata] = []
+) -> list[Result]:
+    results: list[Result] = []
     if scope != "all" or not state.uuid:
         return results
     existing = await dependencies.existing_translations(context.item_id)
@@ -635,7 +640,7 @@ async def _write_identity(
     try:
         await dependencies.patch_page(
             context.item_id,
-            PagePatchRequest(metadata=update),
+            PagePatchRequest.model_validate({"metadata": update}),
             background_tasks,
         )
     except Exception as error:
@@ -654,7 +659,7 @@ async def sync_drupal_row(
     scope: str,
     push_media: bool,
     dependencies: DrupalSyncDependencies,
-) -> Metadata:
+) -> Result:
     """Create or update one Drupal node and its requested translations."""
     context = await _load_context(item_id, dependencies)
     text_attributes = await _text_attributes(context, dependencies)

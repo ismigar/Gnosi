@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -25,6 +26,15 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_drupal_connector_discovery_contract.py
+  - backend/tests/test_drupal_connector_http_contract.py
+  - backend/tests/test_drupal_connector_native_contract.py
+  - backend/tests/test_drupal_native_mapping_contract.py
+  - backend/tests/test_drupal_open_core_fields.py
+  - backend/tests/test_drupal_open_languages_markdown.py
+  - backend/tests/test_drupal_open_media.py
+  - backend/tests/test_drupal_service_contract.py
+  - backend/tests/test_translation_http_open_contract.py
   - backend/tests/test_sync_comment_open_contract.py
   - backend/tests/test_sync_comment_bootstrap.py
   - backend/tests/test_translation_open_helpers_contract.py
@@ -93,9 +103,30 @@ Clipper receipts pass through the existing response model without field coercion
 
 These changes preserve provider error boundaries, sorted disk recovery, duplicate
 target-language behavior and status-write ordering. Synthetic tests exercise
-provider doubles, not live cloud accounts. Translation HTTP and Drupal composition
-still contain legacy typing; this checkpoint does not certify the entire backend
-or a real cloud-provider migration.
+provider doubles, not live cloud accounts. Drupal composition and translation HTTP
+now check actual dependency owners; this does not certify the entire backend,
+a real Drupal server or a cloud-provider migration.
+
+## Drupal transport and HTTP contracts
+
+Drupal field mapping, media preparation, language discovery, title matching and
+row synchronization retain open metadata and opaque connector identifiers.
+Constructed response envelopes have explicit types; decoded transport values are
+not assumed to have an application schema. Field order, partial errors, cached
+identifier identity and native malformed-input errors are preserved. Dependency
+factories capture the connector and error classes, but resolve replaceable
+members when called. Pillow remains an optional, lazily loaded dependency.
+
+Translation routes preserve existing request and response schemas. Drupal bulk
+publishing stringifies every identifier and keeps duplicates; bulk translation
+filters non-text identifiers and deduplicates trimmed strings. Single-row
+publishing still defaults to pushing media. Text inputs retain their false-value
+fallbacks and native errors for malformed JSON. Non-JSON Python callers whose
+custom strip operation returns a non-string receive an explicit type error;
+this HTTP-only check does not normalize YAML or plugin metadata. Generated valid
+JSON with the wrong response shape reaches HTTP validation, not the provider-error
+fallback. Synthetic transports and temporary files verify these contracts without
+reading credentials, publishing content or calling an external provider.
 
 ## Responsibility
 
