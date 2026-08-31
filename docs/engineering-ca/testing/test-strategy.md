@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-31
 source_paths:
+  - package.json
+  - .github/workflows/ci.yml
+  - .github/workflows/build-release.yml
+  - desktop/update-policy.js
   - backend/tests
   - frontend/src
   - frontend/tests/contracts
@@ -11,6 +15,7 @@ source_paths:
   - tests/e2e
   - pyproject.toml
 tests:
+  - backend/tests/test_root_typecheck_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -29,6 +34,22 @@ flowchart TB
 ```
 
 No hi ha cap sola capa suficient. Un frontal construeix captura les importacions i la sintaxi però no una interacció incorrecta. Una prova d' unitat de ruta no prova la integració del navegador. Una instantània no prova persisteix o l' autorització.
+
+## Comprovació unificada de tipus
+
+Executeu `pnpm typecheck` des de l'arrel del repositori. Comprova, en aquest
+ordre, TypeScript del frontend, mypy estricte de tot el backend (excloent-ne
+les proves), mypy estricte de tots els fitxers Python públics indexats del
+pipeline i, finalment, la sintaxi Python de backend, pipeline, scripts i
+extensions. Qualsevol error atura les etapes següents i conserva el codi de sortida.
+
+Les ordres individuals `typecheck:backend-boundaries` i
+`typecheck:pipeline` continuen disponibles. És una comprovació estàtica:
+no substitueix lint, proves unitàries, builds, fluxos de navegador ni validació
+del desplegament. Passar-la no acredita que s'hagin eliminat tots els límits
+amb `Any` explícit. La regressió verifica els àmbits complets i usa executables
+simulats aïllats en POSIX per comprovar l'ordre i la propagació dels errors;
+no acredita l'execució a Windows.
 
 ## Comprovacions del dorsal
 
@@ -108,7 +129,18 @@ els temes clar i fosc.
 
 ## Comprovacions de desplegament
 
-En Docker CI construeix el dorsal i les imatges de la interfície, validen el Compup, i exercicis de salut amb l' emmagatzematge local. El llançament electrònica CI és propietari de la plataforma creuada. Una construcció local de macOS no pot validar defectes Windows i Linux.
+Actualment, la CI de Docker valida Compose i construeix les imatges del backend
+i del frontend; no arrenca contenidors ni verifica el seu estat i la persistència.
+Aquestes proves d'execució continuen sent necessàries abans d'una release.
+
+La CI d'Electron configura paquets per a macOS arm64/x64, Linux arm64 i Windows
+x64. Configurar aquesta matriu, passar proves unitàries desktop o comprovar una
+migració sintètica del perfil del navegador no valida els instal·ladors ni el
+backend congelat. Cada arquitectura requereix evidència d'instal·lació,
+arrencada, persistència i actualització des de 2.x. Actualment, macOS utilitza
+actualitzacions manuals mitjançant l'instal·lador. Una execució local a macOS
+no acredita les altres plataformes: no publiqueu 3.0 abans de superar tota
+la matriu de release.
 
 ## Mapatge de canvi a prova
 

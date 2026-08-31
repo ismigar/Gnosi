@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-31
 source_paths:
+  - package.json
+  - .github/workflows/ci.yml
+  - .github/workflows/build-release.yml
+  - desktop/update-policy.js
   - backend/tests
   - frontend/src
   - frontend/tests/contracts
@@ -11,6 +15,7 @@ source_paths:
   - tests/e2e
   - pyproject.toml
 tests:
+  - backend/tests/test_root_typecheck_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -29,6 +34,22 @@ flowchart TB
 ```
 
 Una compilación de frontend captura importaciones y sintaxis pero no una interacción rota. Una prueba de unidad de ruta no prueba la integración del navegador. Una captura de pantalla no prueba persistencia o autorización.
+
+## Comprobación unificada de tipos
+
+Ejecute `pnpm typecheck` desde la raíz del repositorio. Comprueba, en este
+orden, TypeScript del frontend, mypy estricto de todo el backend (excepto las
+pruebas), mypy estricto de todos los archivos Python públicos indexados del
+pipeline y, finalmente, la sintaxis Python de backend, pipeline, scripts y
+extensiones. Cada error detiene las etapas siguientes y conserva el código de salida.
+
+Las órdenes individuales `typecheck:backend-boundaries` y
+`typecheck:pipeline` siguen disponibles. Es una comprobación estática:
+no sustituye lint, pruebas unitarias, builds, flujos de navegador ni validación
+del despliegue. Superarla no acredita la eliminación de todos los límites
+con `Any` explícito. La regresión comprueba los ámbitos completos y utiliza
+ejecutables simulados aislados en POSIX para verificar el orden y la propagación
+de errores; no acredita la ejecución en Windows.
 
 ## Ensayos de motor
 
@@ -110,7 +131,18 @@ con puntero y teclado en los temas claro y oscuro.
 
 ## Ensayos de despliegue
 
-Docker CI construye imágenes de backend y frontend, valida Composi, y ejerce el punto final de salud con almacenamiento local. Elecron release CI posee un paquete multiplataforma; una compilación local de macOS no puede validar artefactos de Windows y Linux.
+Actualmente, la CI de Docker valida Compose y construye las imágenes de backend
+y frontend; no arranca contenedores ni verifica su estado y persistencia.
+Estas pruebas de ejecución siguen siendo necesarias antes de una release.
+
+La CI de Electron configura paquetes para macOS arm64/x64, Linux arm64 y
+Windows x64. Configurar esa matriz, pasar pruebas unitarias desktop o comprobar
+una migración sintética del perfil del navegador no valida los instaladores
+ni el backend congelado. Cada arquitectura requiere evidencia de instalación,
+arranque, persistencia y actualización desde 2.x. Actualmente, macOS utiliza
+actualizaciones manuales mediante el instalador. Una ejecución local en macOS
+no acredita las otras plataformas: no publique 3.0 antes de superar toda
+la matriz de release.
 
 ## Mapeo de cambio a ensayo
 

@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-31
 source_paths:
+  - package.json
+  - .github/workflows/ci.yml
+  - .github/workflows/build-release.yml
+  - desktop/update-policy.js
   - backend/tests
   - frontend/src
   - frontend/tests/contracts
@@ -11,6 +15,7 @@ source_paths:
   - frontend/package.json
   - frontend/scripts/check-bundle-size.ts
 tests:
+  - backend/tests/test_root_typecheck_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -31,6 +36,21 @@ flowchart TB
 No single layer is sufficient. A frontend build catches imports and syntax but
 not a broken interaction. A route unit test does not prove browser integration.
 A screenshot does not prove persistence or authorization.
+
+## Unified type checking
+
+Run `pnpm typecheck` from the repository root. It runs frontend TypeScript,
+strict mypy across the complete backend (excluding tests), strict mypy across
+every indexed public pipeline Python file, and finally Python syntax checks
+for backend, pipeline, scripts and extensions, in that order. Each failure
+stops the remaining stages and returns its exit status.
+
+The individual commands `typecheck:backend-boundaries` and
+`typecheck:pipeline` remain available. This is a static gate, not a substitute
+for lint, unit tests, builds, browser flows or deployment acceptance. A strict
+pass does not prove that all existing explicit `Any` boundaries are removed.
+The command regression checks complete targets and uses isolated POSIX shims
+to exercise order and failure propagation; it does not prove Windows execution.
 
 ## Backend tests
 
@@ -127,9 +147,17 @@ browser checks cover pointer and keyboard focus in light and dark themes.
 
 ## Deployment tests
 
-Docker CI builds backend and frontend images, validates Compose, and exercises
-the health endpoint with local storage. Electron release CI owns cross-platform
-packaging; a macOS local build cannot validate Windows and Linux artifacts.
+Docker CI currently validates Compose and builds the backend and frontend
+images; it does not start containers or verify their health and persistence.
+Those runtime checks remain required release evidence.
+
+Electron release CI configures packaging for macOS arm64/x64, Linux arm64 and
+Windows x64. Configuring that matrix, running desktop unit tests or checking a
+synthetic browser-profile migration does not prove installer or frozen-backend
+acceptance. Each architecture requires installation, startup, persistent-data
+and 2.x-upgrade evidence. macOS currently uses manual installer updates.
+Do not infer cross-platform acceptance from a local macOS run, or publish 3.0
+before the complete release matrix passes.
 
 ## Change-to-test mapping
 

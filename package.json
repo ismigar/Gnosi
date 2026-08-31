@@ -21,7 +21,7 @@
     "lint": "pnpm lint:frontend && pnpm lint:python",
     "lint:frontend": "pnpm --filter @gnosi/frontend lint",
     "lint:python": "uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy",
-    "typecheck": "pnpm --filter @gnosi/frontend typecheck && uv run python -m compileall -q backend pipeline scripts extensions",
+    "typecheck": "pnpm --filter @gnosi/frontend typecheck && pnpm typecheck:backend-boundaries && pnpm typecheck:pipeline && uv run python -m compileall -q backend pipeline scripts extensions",
     "generate:openapi": "uv run python scripts/generate_openapi.py",
     "check:openapi": "uv run python scripts/generate_openapi.py --check",
     "generate:api-client": "pnpm generate:openapi && pnpm --filter @gnosi/frontend generate:api",

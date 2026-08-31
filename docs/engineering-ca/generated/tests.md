@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 21 | 71 |
 | Vitest | 479 | 1961 |
-| pytest | 362 | 2443 |
+| pytest | 363 | 2447 |
 
 ## Fitxers
 
@@ -748,6 +748,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_resource_lookup_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_resource_lookup_response_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_restore_index_symlink_vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_restore_index_symlink_vault.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_rollup_percent_checked_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rollup_percent_checked_parity.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_root_typecheck_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_root_typecheck_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_rule_engine_derived_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rule_engine_derived_order.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_safe_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_safe_io.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sanitize_html_xss.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sanitize_html_xss.py) | 4 | Python AST |

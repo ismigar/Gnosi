@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-31
 source_paths:
+  - package.json
+  - .github/workflows/ci.yml
+  - .github/workflows/build-release.yml
+  - desktop/update-policy.js
   - backend/tests
   - frontend/src
   - frontend/tests/contracts
@@ -11,6 +15,7 @@ source_paths:
   - tests/e2e
   - pyproject.toml
 tests:
+  - backend/tests/test_root_typecheck_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -29,6 +34,22 @@ flowchart TB
 ```
 
 Une version de la construction de frontend capte les importations et la syntaxe mais pas une interaction rompue. Un test d'unité de route ne prouve pas l'intégration du navigateur. Une capture d'écran ne prouve pas la persistance ou l'autorisation.
+
+## Vérification unifiée des types
+
+Exécuter `pnpm typecheck` à la racine du dépôt. La commande vérifie, dans cet
+ordre, TypeScript du frontend, mypy strict sur tout le backend (hors tests),
+mypy strict sur tous les fichiers Python publics indexés du pipeline, puis
+la syntaxe Python de backend, pipeline, scripts et extensions. Chaque échec
+interrompt les étapes suivantes et conserve son code de sortie.
+
+Les commandes individuelles `typecheck:backend-boundaries` et
+`typecheck:pipeline` restent disponibles. Cette vérification statique ne remplace
+ni lint, ni tests unitaires, ni builds, ni parcours navigateur, ni validation
+du déploiement. Sa réussite ne prouve pas la suppression de toutes les
+frontières avec `Any` explicite. La régression vérifie les périmètres complets
+et utilise des exécutables simulés isolés sous POSIX pour contrôler l'ordre
+et la propagation des erreurs ; elle ne prouve pas l'exécution sous Windows.
 
 ## Essais de l'arrière-pays
 
@@ -111,7 +132,18 @@ sombre.
 
 ## Essais de déploiement
 
-Docker CI construit des images de backend et de frontend, valide Composer et exerce le paramètre santé avec le stockage local. Electron release CI possède des emballages multiplateformes; une compilation locale macOS ne peut pas valider les artefacts Windows et Linux.
+Actuellement, la CI Docker valide Compose et construit les images backend et
+frontend ; elle ne démarre pas les conteneurs et ne vérifie ni leur état ni
+leur persistance. Ces tests d'exécution restent nécessaires avant une release.
+
+La CI Electron configure les paquets pour macOS arm64/x64, Linux arm64 et
+Windows x64. Configurer cette matrice, réussir les tests unitaires desktop
+ou vérifier une migration synthétique du profil du navigateur ne valide
+ni les installateurs ni le backend figé. Chaque architecture exige des preuves
+d'installation, de démarrage, de persistance et de mise à jour depuis 2.x.
+Actuellement, macOS utilise des mises à jour manuelles par installateur.
+Une exécution locale sous macOS ne valide pas les autres plateformes :
+ne pas publier 3.0 avant la réussite de toute la matrice de release.
 
 ## Cartographie de la variation aux essais
 
