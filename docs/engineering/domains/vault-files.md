@@ -36,6 +36,11 @@ tests:
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
+  - backend/tests/test_page_preview_contract.py
+  - backend/tests/test_page_write_inventory_contract.py
+  - backend/tests/test_page_write_open_contract.py
+  - backend/tests/test_page_write_open_cache_contract.py
+  - backend/tests/test_page_write_citation_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -138,6 +143,25 @@ and mapping protocols and their errors; they never assert a returned record
 shape. Tests compare callback timing, legacy sequences, malformed values and
 shared-object identity. This removes broad dynamic namespaces from registry
 and page-foundation composition, not every remaining legacy type in the backend.
+
+## Preview and write contracts
+
+`pages/preview_routes.py` checks facade dependencies against their actual owners.
+Short and full preview payloads share one typed cache envelope and preserve opaque
+title, icon and cover values. Materialization precedes reading; only errno 35
+uses the existing retry schedule. Concurrent requests share the same result,
+and cache storage precedes notification of waiting requests.
+
+Complete and partial saves retain open metadata, nullable ETags, shallow-copy
+timing and callback lookup before argument evaluation. Citation helpers preserve
+dictionary identity for both textual and non-textual keys. The document inventory
+and path resolver retain their original mutation and malformed-input behavior.
+
+Two historical edge cases are characterized, not changed by this refactor:
+a PATCH helper ETag conflict reaches the existing 404 before the service's 409
+branch; cancelling a preview owner removes its in-flight entry without completing
+its shared future. These are compatibility limitations, not successful concurrency
+acceptance. Public schemas and normal write behavior remain unchanged.
 
 ## Backend boundary
 

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from backend.domains.vault.registry.records import RecordReader
+
 from backend.config.logger_config import get_logger
 from backend.domains.notebooks.ingest_storage import (
     _copy_resource_errors,
@@ -309,7 +311,7 @@ def _present_resource(
     resource: sqlite3.Row,
     resource_id: str,
     page: Any,
-    table: dict[str, Any],
+    table: RecordReader,
     source_config: dict[str, Any],
     vault_path: Path,
     force_url_check: bool,

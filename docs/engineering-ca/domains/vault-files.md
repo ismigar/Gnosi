@@ -36,6 +36,11 @@ tests:
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
+  - backend/tests/test_page_preview_contract.py
+  - backend/tests/test_page_write_inventory_contract.py
+  - backend/tests/test_page_write_open_contract.py
+  - backend/tests/test_page_write_open_cache_contract.py
+  - backend/tests/test_page_write_citation_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -148,6 +153,28 @@ la forma d'un registre retornat. Les proves comparen el moment de les crides,
 les seqüències antigues, els valors malformats i la identitat dels objectes
 compartits. Això elimina espais de noms dinàmics amplis de la composició del
 registre i dels fonaments de pàgines, no tots els tipus heretats del backend.
+
+## Contractes de previsualització i escriptura
+
+`pages/preview_routes.py` comprova les dependències de la façana amb els seus
+responsables reals. Les respostes curta i completa comparteixen una estructura
+de memòria cau tipada i preserven els valors opacs de títol, icona i portada.
+La materialització precedeix la lectura; només errno 35 usa la seqüència de
+reintents existent. Les peticions simultànies comparteixen el mateix resultat,
+i la memòria cau s'actualitza abans d'avisar les peticions que esperen.
+
+Els desaments complets i parcials mantenen metadades obertes, ETags anul·lables,
+el moment de les còpies superficials i la resolució del callback abans d'avaluar
+els arguments. Els auxiliars de cites preserven la identitat del diccionari amb
+claus textuals o no textuals. L'inventari de documents i el resolutor de rutes
+conserven les mutacions i el comportament davant d'entrades malformades.
+
+Dos casos històrics queden caracteritzats, sense canviar-los en aquesta
+refactorització: un conflicte d'ETag a l'auxiliar PATCH arriba al 404 existent
+abans de la branca 409 del servei; cancel·lar el propietari d'una previsualització
+retira l'entrada en curs sense completar-ne el futur compartit. Són limitacions
+de compatibilitat, no una validació reeixida de concurrència. Els esquemes públics
+i el comportament ordinari d'escriptura no canvien.
 
 ## Límits del backend
 

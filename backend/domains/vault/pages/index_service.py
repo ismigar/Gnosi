@@ -50,13 +50,13 @@ class PageIndexDependencies:
     enabled_calendar_tables: Callable[[], list[str]]
     hidden_event_ids: Callable[[], set[str]]
     sync_calendars: Callable[[], object]
-    update_path_resolver: Callable[[Path, dict[str, str], list[Path]], None]
+    update_path_resolver: Callable[[Path, dict[object, str], list[Path]], None]
     get_last_vault_sync: Callable[[], float]
     set_last_vault_sync: Callable[[float], None]
     index_lock: LockType
     index_entries: dict[str, dict[str, PageCacheEntry]]
     index_initialized: dict[str, bool]
-    id_to_path: dict[str, dict[str, str]]
+    id_to_path: dict[str, dict[object, str]]
     index_version: dict[str, int]
     body_cache_lock: LockType
     body_cache: dict[str, tuple[int, str]]
@@ -300,8 +300,8 @@ def _entry_mtime(entry: PageCacheEntry) -> float:
     return float(raw_value) if isinstance(raw_value, (int, float)) else 0.0
 
 
-def _reverse_id_map(entries: dict[str, PageCacheEntry]) -> dict[str, str]:
-    result: dict[str, str] = {}
+def _reverse_id_map(entries: dict[str, PageCacheEntry]) -> dict[object, str]:
+    result: dict[object, str] = {}
     for path_key, entry in entries.items():
         raw_page_id = entry.get("id")
         if not raw_page_id:

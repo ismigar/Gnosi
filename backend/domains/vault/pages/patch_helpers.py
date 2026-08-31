@@ -8,15 +8,20 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
 
-Metadata = dict[str, Any]
-PageCacheEntry = dict[str, Any]
+from backend.domains.vault.links.document_cache import BodyCache as BodyCache
+from backend.domains.vault.links.document_inventory import (
+    DocumentCache,
+    LinkableDocument,
+)
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.pages.index_entries import PageCacheEntry as PageCacheEntry
+
+Metadata = PageMetadata
 PageIndexEntries = dict[str, dict[str, PageCacheEntry]]
-PageIdPaths = dict[str, dict[str, str]]
-BodyCache = dict[str, tuple[int, str]]
-IterDocument = tuple[Path, Metadata, str, bool]
-IterDocsCache = dict[str, dict[str, object]]
+PageIdPaths = dict[str, dict[object, str]]
+IterDocument = LinkableDocument
+IterDocsCache = DocumentCache
 PatchReadResult = tuple[
     Path | None,
     Metadata | None,
@@ -41,7 +46,7 @@ class PatchHelperDependencies:
     table_by_id: Callable[[str | None], Metadata | None]
     to_storage_names: Callable[[Metadata, Metadata], tuple[Metadata, bool]]
     created_iso: Callable[[float], str]
-    stamp_system_dates: Callable[[Metadata, Metadata, bool, str | None], object]
+    stamp_system_dates: Callable[[Metadata, Metadata, bool, str | None], Metadata]
     ensure_correct_location: Callable[[Path, Metadata], Path]
     rename_to_title: Callable[[Path, str], Path]
     remove_from_index: Callable[[str, Path], None]
@@ -55,7 +60,7 @@ class PatchHelperDependencies:
         PageCacheEntry,
     ]
     bump_index_version: Callable[[str], None]
-    add_to_path_resolver: Callable[[Path, str | None, Path], object]
+    add_to_path_resolver: Callable[[Path, object, Path], None]
     body_cache_lock: Callable[[], AbstractContextManager[object]]
     body_cache: Callable[[], BodyCache]
     invalidate_page_responses: Callable[[], None]
@@ -168,7 +173,7 @@ def _refresh_patch_page_index(
             metadata,
             content,
         )
-        new_id = cast(str | None, new_entry.get("id"))
+        new_id = new_entry.get("id")
         with dependencies.index_lock():
             dependencies.index_entries().setdefault(vault_key, {})[str(file_path)] = new_entry
             if new_id:
@@ -209,8 +214,7 @@ def _update_iter_documents(
 ) -> None:
     with dependencies.iter_docs_lock():
         cache_entry = dependencies.iter_docs_cache().get(vault_key)
-        docs_value = cache_entry.get("docs") if cache_entry else None
-        docs = cast(list[IterDocument] | None, docs_value)
+        docs = cache_entry.get("docs") if cache_entry else None
         if docs is None:
             return
         path_str = str(file_path)

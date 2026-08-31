@@ -7,10 +7,11 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-Metadata = dict[str, Any]
-PageIdPaths = dict[str, dict[str, str]]
+from backend.domains.vault.pages.foundation_values import PageMetadata
+
+Metadata = PageMetadata
+PageIdPaths = dict[str, dict[object, str]]
 
 
 @dataclass(frozen=True)
@@ -23,7 +24,7 @@ class SaveHelperDependencies:
     table_by_id: Callable[[str | None], Metadata | None]
     to_storage_names: Callable[[Metadata, Metadata], tuple[Metadata, bool]]
     created_iso: Callable[[float], str]
-    stamp_system_dates: Callable[[Metadata, Metadata, bool, str | None], object]
+    stamp_system_dates: Callable[[Metadata, Metadata, bool, str | None], Metadata]
     get_path: Callable[[str], Path]
     is_calendar_entry: Callable[[Metadata], bool]
     resolve_table_folder: Callable[[Metadata], Path | None]
@@ -37,7 +38,7 @@ class SaveHelperDependencies:
     rename_to_title: Callable[[Path, str], Path]
     remove_from_index: Callable[[str, Path], None]
     add_to_index: Callable[[Path], None]
-    create_page_version: Callable[[str, Path], object]
+    create_page_version: Callable[[str, Path], None]
     save_page: Callable[[Path, Metadata, str], None]
     logger: Callable[[], logging.Logger]
 

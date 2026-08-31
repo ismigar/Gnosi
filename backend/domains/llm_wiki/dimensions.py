@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from backend.domains.vault.registry.records import RecordReader
+from backend.utils.open_values import iterable_values
 
-TableLookup = Callable[[str], dict[str, Any] | None]
+TableLookup = Callable[[str], RecordReader | None]
 PagesForTable = Callable[[str], Iterable[Any]]
 CanonicalValue = Callable[[dict[str, Any], Any, list[dict[str, Any]]], Any]
 DimensionOptions = Callable[
@@ -185,11 +186,11 @@ def _copy_configured_dimension(
     return True
 
 
-def _properties_by_id(table: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def _properties_by_id(table: RecordReader) -> dict[str, dict[str, Any]]:
     raw_properties = table.get("properties") or []
     return {
         str(prop.get("id") or ""): dict(prop)
-        for prop in raw_properties
+        for prop in iterable_values(raw_properties)
         if isinstance(prop, dict) and prop.get("id")
     }
 

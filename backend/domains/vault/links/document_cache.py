@@ -10,10 +10,11 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_record
 
 
-Metadata = dict[str, object]
+Metadata = PageMetadata
 BodyCache = dict[str, tuple[int, str]]
 ParsedDocument = tuple[int, Metadata, str]
 ParsedDocumentCache = dict[str, ParsedDocument]
@@ -221,10 +222,10 @@ def load_parsed_cache(dependencies: DocumentCacheDependencies) -> bool:
                 mtime = raw_value.get("mtime_ns") or 0
                 metadata = raw_value.get("metadata")
                 body = raw_value.get("body") or ""
-                if isinstance(mtime, int) and mtime and isinstance(metadata, dict):
+                if isinstance(mtime, int) and mtime and is_record(metadata):
                     dependencies.parsed_cache[str(raw_path)] = (
                         mtime,
-                        cast(Metadata, metadata),
+                        metadata,
                         str(body),
                     )
         dependencies.logger.info(

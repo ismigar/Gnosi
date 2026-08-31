@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Mapping
 from typing import Any, Iterable, Optional
 
 from fastapi import HTTPException
@@ -19,11 +20,13 @@ from backend.domains.notebooks.state import (
 )
 from backend.domains.vault.registry.records import RecordReader, is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.domains.vault.schemas.pages import PageInfo
 from backend.services import llm_wiki_config, llm_wiki_extractors, option_catalogs
 from backend.services.workspace_service import WorkspaceContext
+from backend.utils.open_values import iterable_values
 
 
-def _reference_table() -> tuple[str, dict[str, Any], list[Any]]:
+def _reference_table() -> tuple[str, RegistryData, list[PageInfo]]:
     from backend.domains.vault.citations.export_routes import get_reference_table_id
     from backend.domains.vault.pages.foundation import _get_pages_for_table
     from backend.domains.vault.tables.legacy_composition import _table_by_id
@@ -55,8 +58,8 @@ def _field_name_key(value: Any) -> str:
     return "".join(char for char in _alphabetical_key(value) if char.isalnum())
 
 
-def _resource_filter_properties(table: dict[str, Any]) -> dict[str, RegistryData | None]:
-    properties = [prop for prop in table.get("properties") or [] if is_record(prop)]
+def _resource_filter_properties(table: RecordReader) -> dict[str, RegistryData | None]:
+    properties = [prop for prop in iterable_values(table.get("properties") or []) if is_record(prop)]
 
     def explicit_role(prop: RecordReader) -> str:
         config = prop.get("config")
@@ -107,7 +110,9 @@ def _resource_filter_properties(table: dict[str, Any]) -> dict[str, RegistryData
     }
 
 
-def _raw_property_value(metadata: dict[str, Any], prop: RecordReader | None) -> Any:
+def _raw_property_value(
+    metadata: Mapping[str, object] | Mapping[object, object], prop: RecordReader | None
+) -> object:
     if not prop:
         return None
     for key in (str(prop.get("name") or ""), str(prop.get("id") or "")):
@@ -117,7 +122,7 @@ def _raw_property_value(metadata: dict[str, Any], prop: RecordReader | None) -> 
 
 
 def _resource_filter_values(
-    metadata: dict[str, Any],
+    metadata: Mapping[str, object] | Mapping[object, object],
     prop: RecordReader | None,
     *,
     author: bool = False,
@@ -176,14 +181,14 @@ def _source_property_ids(source_config: dict[str, Any]) -> list[str]:
 
 
 def _resource_source_count(
-    metadata: dict[str, Any],
-    table: dict[str, Any],
+    metadata: RecordReader,
+    table: RecordReader,
     source_config: dict[str, Any],
 ) -> int:
     """Count usable attachment and public HTTP URL cell values for a Resource."""
     props_by_id = {
         str(prop.get("id") or ""): prop
-        for prop in table.get("properties") or []
+        for prop in iterable_values(table.get("properties") or [])
         if isinstance(prop, dict)
     }
     count = 0

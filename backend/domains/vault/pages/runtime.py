@@ -2,10 +2,14 @@
 
 import importlib as _legacy_importlib
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from backend.services.rule_engine import RuleEngine
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 
@@ -208,11 +212,11 @@ class OpenResourceRequest(BaseModel):
     attachments: object | None = None
 
 
-_rule_engines: dict[str, _LegacyAny] = {}
+_rule_engines: dict[str, "RuleEngine"] = {}
 _rule_engine_lock = _legacy.threading.Lock()
 
 
-def get_rule_engine() -> _LegacyAny:
+def get_rule_engine() -> "RuleEngine":
     from backend.services.rule_engine import RuleEngine
 
     v_path = _active_vault_path()

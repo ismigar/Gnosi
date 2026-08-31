@@ -19,6 +19,7 @@ from backend.domains.vault.citations import metadata_lookup
 from backend.domains.vault.citations import pdf_fallback as citation_pdf_fallback
 from backend.domains.vault.citations import search as citation_search
 from backend.domains.vault.citations import web_capture as citation_web_capture
+from backend.domains.vault.citations.authors import MetadataKey
 from backend.domains.vault.pages import metadata_mutations
 from backend.domains.vault.schemas.pages import (
     BulkApplyTemplateRequest,
@@ -83,11 +84,11 @@ class ZoteroExtraPromotionResponse(BaseModel):
 
 
 def _ensure_recursos_citation_key(
-    metadata: dict[str, object],
-    table: dict[str, object] | None = None,
+    metadata: dict[MetadataKey, object],
+    table: Mapping[str, object] | Mapping[object, object] | None = None,
     *,
     regenerate: bool = False,
-) -> dict[str, object]:
+) -> dict[MetadataKey, object]:
     """Guarantees that a page in the REFERENCES TABLE carries a `Citation Key`.
 
     Previously the key was only generated in the metadata lookup; a new entry
@@ -125,7 +126,9 @@ def _ensure_recursos_citation_key(
     return metadata
 
 
-def _dedupe_citation_key(metadata: dict[str, object], page_id: str) -> dict[str, object]:
+def _dedupe_citation_key(
+    metadata: dict[MetadataKey, object], page_id: str
+) -> dict[MetadataKey, object]:
     """Keeps a hand-typed `Citation Key` unique across the references table.
 
     The key is the CSL-JSON `id`: two records sharing one means citeproc only

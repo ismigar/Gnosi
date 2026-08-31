@@ -4,6 +4,8 @@ import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
+from backend.domains.vault.links.document_inventory import DocumentCache
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 _ID_TITLE_TTL = 60.0
 _id_title_cache: dict[_LegacyAny, _LegacyAny] = {}
@@ -150,7 +152,7 @@ def build_id_title_index() -> dict[str, str]:
     return dict(idx)
 
 
-_iter_docs_cache: dict[_LegacyAny, _LegacyAny] = {}
+_iter_docs_cache: DocumentCache = {}
 _iter_docs_lock = _legacy.threading.Lock()
 _ITER_DOCS_TTL = 60.0
 _body_cache: dict[str, tuple[int, str]] = {}

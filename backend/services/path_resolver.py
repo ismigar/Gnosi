@@ -14,7 +14,7 @@ class PathResolver:
     """
 
     _instance: ClassVar[PathResolver | None] = None
-    _id_to_path: ClassVar[dict[str, dict[str, str]]] = {}
+    _id_to_path: ClassVar[dict[str, dict[object, str]]] = {}
     _vault_files: ClassVar[dict[str, list[Path]]] = {}
 
     def __new__(cls) -> PathResolver:
@@ -23,7 +23,7 @@ class PathResolver:
         return cls._instance
 
     def update_index(
-        self, vault_path: Path, id_to_path: dict[str, str], all_files: list[Path]
+        self, vault_path: Path, id_to_path: dict[object, str], all_files: list[Path]
     ) -> None:
         """Populated by vault_routes during indexing."""
         v_str = str(vault_path)
@@ -53,7 +53,7 @@ class PathResolver:
             return list(vault_path.rglob("*.md"))
         return files
 
-    def add_file(self, vault_path: Path, record_id: str | None, file_path: Path) -> None:
+    def add_file(self, vault_path: Path, record_id: object, file_path: Path) -> None:
         """Registers (or relocates) ONE file without waiting for the full rescan.
 
         `update_index` only runs on the vault rescan (600s cooldown and only

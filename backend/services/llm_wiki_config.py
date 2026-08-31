@@ -173,10 +173,10 @@ def _revision(value: Any) -> int:
         return 0
 
 
-def _properties(table: Optional[dict[str, Any]]) -> list[dict[str, Any]]:
+def _properties(table: RecordReader | None) -> list[dict[str, Any]]:
     return [
         cast(dict[str, Any], prop)
-        for prop in ((table or {}).get("properties") or [])
+        for prop in iterable_values((table or {}).get("properties") or [])
         if isinstance(prop, dict)
     ]
 
@@ -367,8 +367,8 @@ def is_source_table(table_id: str) -> bool:
 
 
 def auto_detect_source(
-    table: dict[str, Any],
-    brain_table: Optional[dict[str, Any]] = None,
+    table: RecordReader,
+    brain_table: RecordReader | None = None,
     index_field_ids: Optional[Iterable[str]] = None,
     current: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:

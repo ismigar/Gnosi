@@ -1,19 +1,29 @@
 """Typed Vault domain extracted from the historical route facade."""
 
+from __future__ import annotations
+
+import asyncio
 import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
 
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.pages.patch_helpers import PatchReadResult
+from backend.domains.vault.pages.state import PreviewDocument, PreviewPayload
 from backend.domains.vault.schemas.trash import ResolveByTitleResponse
+from backend.utils.open_values import get_value
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
+router: APIRouter = _legacy.router
 
 
 @router.get("/resolve-by-title", response_model=ResolveByTitleResponse)
-async def resolve_by_title(title: str) -> _LegacyAny:
+async def resolve_by_title(title: str) -> dict[str, object]:
     """Resolve a literal title (or a note alias) to a UUID via _page_index_entries.
 
     Use case: the frontend has received a wikilink `[[Foo]]` but its
@@ -50,7 +60,7 @@ async def resolve_by_title(title: str) -> _LegacyAny:
                 }
             if alias_match is None:
                 meta = entry.get("metadata") or {}
-                for alias in _legacy.normalize_aliases(meta.get("aliases")):
+                for alias in _legacy.normalize_aliases(get_value(meta, "aliases")):
                     if alias.strip().lower() == title_lower:
                         alias_match = entry
                         break
@@ -85,9 +95,7 @@ def _extract_images_from_body(body: str, max_images: int = 6) -> list[str]:
     return out
 
 
-async def _compute_preview(
-    file_path: _legacy.Path, page_id: str
-) -> _legacy.Tuple[_legacy.Dict[str, _legacy.Any], _legacy.Dict[str, _legacy.Any], float]:
+async def _compute_preview(file_path: Path, page_id: str) -> PreviewDocument:
     """Read the file and build the two responses (short + full) for the
     preview, along with the mtime for cache invalidation.
 
@@ -106,7 +114,7 @@ async def _compute_preview(
         mtime = 0.0
     await _legacy._materialize_if_online_only(file_path, page_id)
 
-    def _read_and_parse() -> _LegacyAny:
+    def _read_and_parse() -> tuple[PageMetadata, str, str]:
         if _legacy._is_dashboard_file_path(file_path):
             md, body = _legacy._read_dashboard_file(file_path)
             return (md, body, body)
@@ -132,14 +140,14 @@ async def _compute_preview(
 
     metadata, body, body_full = await _legacy.asyncio.to_thread(_read_and_parse)
     excerpt = _legacy._build_preview_excerpt(body)
-    short = {
+    short: PreviewPayload = {
         "id": str(metadata.get("id") or page_id),
         "title": metadata.get("title", "") or "",
         "excerpt": excerpt,
         "icon": metadata.get("icon"),
         "cover": metadata.get("cover"),
     }
-    full_resp = {
+    full_resp: PreviewPayload = {
         **short,
         "body_md": body_full or "",
         "images": _extract_images_from_body(body_full or ""),
@@ -147,9 +155,7 @@ async def _compute_preview(
     return (short, full_resp, mtime)
 
 
-async def _fetch_preview_with_cache(
-    file_path: _legacy.Path, page_id: str
-) -> _legacy.Tuple[_legacy.Dict[str, _legacy.Any], _legacy.Dict[str, _legacy.Any], float]:
+async def _fetch_preview_with_cache(file_path: Path, page_id: str) -> PreviewDocument:
     """Wrapper with cache + in-flight dedup over `_compute_preview`.
 
     Single robust logic for `get_page_preview` and `bulk_warm_previews`:
@@ -175,9 +181,7 @@ async def _fetch_preview_with_cache(
     with _legacy._preview_inflight_lock:
         existing = _legacy._preview_inflight.get(page_id)
         if existing is None:
-            future: _legacy.asyncio.Future[
-                _legacy.Tuple[_legacy.Dict[str, _legacy.Any], _legacy.Dict[str, _legacy.Any], float]
-            ] = loop.create_future()
+            future: asyncio.Future[PreviewDocument] = loop.create_future()
             _legacy._preview_inflight[page_id] = future
             owner = True
         else:
@@ -273,10 +277,8 @@ _SAVE_HELPER_DEPENDENCIES = _legacy.page_save_helpers.SaveHelperDependencies(
 
 
 def _prepare_save_metadata(
-    metadata: _legacy.Dict[str, _legacy.Any], file_path: _legacy.Optional[_legacy.Path]
-) -> _legacy.Tuple[
-    _legacy.Dict[str, _legacy.Any], _legacy.Optional[_legacy.Dict[str, _legacy.Any]]
-]:
+    metadata: PageMetadata, file_path: Path | None
+) -> tuple[PageMetadata, PageMetadata | None]:
     return _legacy.page_save_helpers.prepare_save_metadata(
         metadata, file_path, _SAVE_HELPER_DEPENDENCIES
     )
@@ -285,20 +287,20 @@ def _prepare_save_metadata(
 def _locate_save_file(
     page_id: str,
     title: str,
-    metadata: _legacy.Dict[str, _legacy.Any],
-    file_path: _legacy.Optional[_legacy.Path],
-) -> _legacy.Path:
+    metadata: PageMetadata,
+    file_path: Path | None,
+) -> Path:
     return _legacy.page_save_helpers.locate_save_file(
         page_id, title, metadata, file_path, _SAVE_HELPER_DEPENDENCIES
     )
 
 
-def _read_save_page(file_path: _legacy.Path) -> _legacy.Tuple[_legacy.Dict[str, _legacy.Any], str]:
+def _read_save_page(file_path: Path) -> tuple[PageMetadata, str]:
     return _legacy.page_save_helpers.read_save_page(file_path, _SAVE_HELPER_DEPENDENCIES)
 
 
 def _write_save_page_with_version(
-    page_id: str, file_path: _legacy.Path, metadata: _legacy.Dict[str, _legacy.Any], content: str
+    page_id: str, file_path: Path, metadata: PageMetadata, content: str
 ) -> None:
     _legacy.page_save_helpers.write_save_page_with_version(
         page_id, file_path, metadata, content, _SAVE_HELPER_DEPENDENCIES
@@ -394,18 +396,16 @@ _PATCH_HELPER_DEPENDENCIES = _legacy.page_patch_helpers.PatchHelperDependencies(
 
 
 def _find_and_read_patch_page(
-    page_id: str, expected_etag: _legacy.Optional[str], force: bool
-) -> _legacy.page_patch_service.PatchReadResult:
+    page_id: str, expected_etag: str | None, force: bool
+) -> PatchReadResult:
     return _legacy.page_patch_helpers.find_and_read_patch_page(
         page_id, expected_etag, force, _PATCH_HELPER_DEPENDENCIES
     )
 
 
 def _prepare_patch_metadata(
-    metadata: _legacy.Dict[str, _legacy.Any], file_path: _legacy.Path
-) -> _legacy.Tuple[
-    _legacy.Dict[str, _legacy.Any], _legacy.Optional[_legacy.Dict[str, _legacy.Any]]
-]:
+    metadata: PageMetadata, file_path: Path
+) -> tuple[PageMetadata, PageMetadata | None]:
     return _legacy.page_patch_helpers.prepare_patch_metadata(
         metadata, file_path, _PATCH_HELPER_DEPENDENCIES
     )
@@ -413,10 +413,10 @@ def _prepare_patch_metadata(
 
 def _relocate_patch_file(
     page_id: str,
-    file_path: _legacy.Path,
-    metadata: _legacy.Dict[str, _legacy.Any],
-    title: _legacy.Optional[str],
-) -> _legacy.Path:
+    file_path: Path,
+    metadata: PageMetadata,
+    title: str | None,
+) -> Path:
     return _legacy.page_patch_helpers.relocate_patch_file(
         page_id, file_path, metadata, title, _PATCH_HELPER_DEPENDENCIES
     )
@@ -424,10 +424,10 @@ def _relocate_patch_file(
 
 def _update_patch_caches(
     page_id: str,
-    file_path: _legacy.Path,
-    metadata: _legacy.Dict[str, _legacy.Any],
+    file_path: Path,
+    metadata: PageMetadata,
     content: str,
-    original_metadata: _legacy.Dict[str, _legacy.Any],
+    original_metadata: PageMetadata,
 ) -> None:
     _legacy.page_patch_helpers.update_patch_caches(
         page_id, file_path, metadata, content, original_metadata, _PATCH_HELPER_DEPENDENCIES

@@ -11,8 +11,8 @@ import time as time
 import urllib.parse
 import uuid as uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime as datetime, timedelta, timezone as timezone
+from pathlib import Path as Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, cast
 
 if TYPE_CHECKING:
@@ -20,6 +20,19 @@ if TYPE_CHECKING:
     # Runtime __getattr__ below retains late binding and legacy override behavior.
     from _thread import LockType as _typed_LockType
     from collections.abc import Callable as _typed_Callable
+    from collections.abc import Awaitable as _typed_Awaitable
+    from asyncio import Lock as _typed_AsyncLock
+    from pathlib import Path as _typed_Path
+    from backend.domains.vault.pages.foundation_values import PageMetadata as _typed_PageMetadata
+    from asyncio import Future as _typed_Future
+    from backend.domains.vault.pages.state import PreviewDocument as _typed_PreviewDocument
+    from backend.domains.vault.api import pages_commands as _typed_page_commands
+    from backend.domains.vault.pages import save_helpers as _typed_save_helpers
+    from backend.domains.vault.pages import save_service as _typed_save_service
+    from backend.domains.vault.pages import patch_helpers as _typed_patch_helpers
+    from backend.domains.vault.pages import patch_service as _typed_patch_service
+    from backend.services.table_system_dates import stamp_system_dates as stamp_system_dates
+    from backend.services.field_resolver import to_storage_names as to_storage_names
     from backend.domains.vault.schemas.pages import PageInfo as _typed_PageInfo
     from backend.api import virtual_fields as _typed_virtual_fields
     from backend.domains.vault.api import pages_queries as _typed_page_queries
@@ -36,6 +49,8 @@ if TYPE_CHECKING:
     from backend.services.context_vars import active_vault_path as active_vault_path
     from backend.domains.vault.api.configuration_routes import (
         _canonicalize_id as _canonicalize_id,
+        _build_preview_excerpt as _build_preview_excerpt,
+        _find_page_path_for_write as _find_page_path_for_write,
         _materialize_if_online_only as _materialize_if_online_only,
         find_page_path as find_page_path,
         get_table_id as get_table_id,
@@ -64,6 +79,10 @@ if TYPE_CHECKING:
     )
     from backend.domains.vault.citations.lookup_routes import (
         _ensure_cite_key_index as _ensure_cite_key_index,
+        _ensure_recursos_citation_key as _ensure_recursos_citation_key,
+        _dedupe_citation_key as _dedupe_citation_key,
+        _invalidate_cite_key_index as _invalidate_cite_key_index,
+        normalize_aliases as normalize_aliases,
     )
     from backend.domains.vault.citations.state import citation_index_state as citation_index_state
     from backend.domains.vault.pages import cache as _typed_page_cache
@@ -85,6 +104,14 @@ if TYPE_CHECKING:
         _process_metadata_paths as _process_metadata_paths,
         _read_dashboard_file as _read_dashboard_file,
         _resolve_table_id_from_context as _resolve_table_id_from_context,
+        _resolve_table_folder_from_metadata as _resolve_table_folder_from_metadata,
+        _resolve_page_context_from_path as _resolve_page_context_from_path,
+        _safe_filename as _safe_filename,
+        _rename_page_file_to_match_title as _rename_page_file_to_match_title,
+        _recompute_cross_record_formulas_for_table as _recompute_cross_record_formulas_for_table,
+        normalize_metadata_ids as normalize_metadata_ids,
+        normalize_table_context as normalize_table_context,
+        ensure_correct_page_location as ensure_correct_page_location,
         parse_frontmatter as parse_frontmatter,
         save_page_md as save_page_md,
     )
@@ -101,10 +128,18 @@ if TYPE_CHECKING:
         _save_page_index_to_disk as _save_page_index_to_disk,
         _vault_cache_key as _vault_cache_key,
         get_p as get_p,
+        get_rule_engine as get_rule_engine,
+        is_calendar_entry as is_calendar_entry,
+        sync_to_google_calendar_if_needed as sync_to_google_calendar_if_needed,
     )
     from backend.domains.vault.links.runtime import (
         _body_cache as _body_cache,
         _body_cache_lock as _body_cache_lock,
+        _iter_docs_cache as _iter_docs_cache,
+        _iter_docs_lock as _iter_docs_lock,
+        update_link_index_for_page as update_link_index_for_page,
+        rewrite_wikilinks_on_title_change as rewrite_wikilinks_on_title_change,
+        _propagate_relation_inverse as _propagate_relation_inverse,
         _STALE_CHECK_TTL as _STALE_CHECK_TTL,
     )
     from backend.domains.vault.tables.legacy_composition import (
@@ -115,6 +150,28 @@ if TYPE_CHECKING:
         vault_view_snapshot_dependencies as vault_view_snapshot_dependencies,
     )
     from backend.domains.vault.files import host_trash as _typed_host_trash
+    from backend.domains.vault.files.route_composition import (
+        _remove_page_from_index_cache as _remove_page_from_index_cache,
+        _add_page_to_index_cache as _add_page_to_index_cache,
+    )
+    from backend.domains.vault.drawings.routes import (
+        _create_page_version as _create_page_version,
+        _create_page_version_from_content as _create_page_version_from_content,
+    )
+    from backend.domains.vault.translation.lifecycle import (
+        _propagate_translation_staleness as _propagate_translation_staleness,
+    )
+    from backend.domains.vault.api.core_routes import _stamp_author as _stamp_author
+    from backend.domains.vault.pages.preview_routes import (
+        _prepare_save_metadata as _prepare_save_metadata,
+        _locate_save_file as _locate_save_file,
+        _read_save_page as _read_save_page,
+        _write_save_page_with_version as _write_save_page_with_version,
+        _find_and_read_patch_page as _find_and_read_patch_page,
+        _prepare_patch_metadata as _prepare_patch_metadata,
+        _relocate_patch_file as _relocate_patch_file,
+        _update_patch_caches as _update_patch_caches,
+    )
     from backend.domains.vault.pages import index_entries as _typed_index_entries
     from backend.domains.vault.pages import resolver as _typed_page_resolver
     from backend.domains.vault.pages import tags as _typed_tags
@@ -150,11 +207,14 @@ if TYPE_CHECKING:
     page_markdown_writer = _typed_markdown_writer
     formula_recalculation = _typed_formula_recalculation
     page_queries_api = _typed_page_queries
+    page_commands_api = _typed_page_commands
+    page_save_helpers = _typed_save_helpers
+    page_save_service = _typed_save_service
+    page_patch_helpers = _typed_patch_helpers
+    page_patch_service = _typed_patch_service
     _vf_inject_for_single_page = _typed_virtual_fields.inject_for_single_page
     _link_index_view = _typed_page_runtime._link_index_view
-    get_rule_engine = _typed_page_runtime.get_rule_engine
     get_page_index_cache_path = _typed_page_runtime.get_page_index_cache_path
-    is_calendar_entry = _typed_page_runtime.is_calendar_entry
     _canonical_visible_table_pages = _typed_page_runtime._canonical_visible_table_pages
     _table_recalc_lock = _typed_page_runtime._table_recalc_lock
     _table_recalc_state = _typed_page_runtime._table_recalc_state
@@ -164,7 +224,6 @@ if TYPE_CHECKING:
     _fetch_preview_with_cache = _typed_preview_routes._fetch_preview_with_cache
     _bulk_warm_one = _typed_preview_routes._bulk_warm_one
     get_indexer_status = _typed_page_cache.get_indexer_status
-    to_storage_names = _typed_field_resolver.to_storage_names
     to_response_names = _typed_field_resolver.to_response_names
     relation_keys_from_table = _typed_relation_links.relation_keys_from_table
     strip_relation_wikilinks = _typed_relation_links.strip_relation_wikilinks
@@ -176,9 +235,17 @@ if TYPE_CHECKING:
     restore_view_fences = _typed_view_snapshot.restore_view_fences
     strip_view_snapshots = _typed_view_snapshot.strip_view_snapshots
 
-    _get_page_write_lock = _typed_page_cache.get_page_write_lock
-    _pages_cache_invalidate_all = _typed_page_cache.invalidate_page_responses
-    _refresh_page_index_entry = _typed_page_index.refresh_page_index_entry
+    _get_page_write_lock: _typed_Callable[[str], _typed_Awaitable[_typed_AsyncLock]] = (
+        _typed_page_cache.get_page_write_lock
+    )
+    _preview_cache_get = _typed_page_cache.get_cached_preview
+    _preview_cache_set = _typed_page_cache.set_cached_preview
+    _preview_inflight: dict[str, _typed_Future[_typed_PreviewDocument]] = page_state.preview_inflight
+    _preview_inflight_lock: _typed_LockType = page_state.preview_inflight_lock
+    _pages_cache_invalidate_all: _typed_Callable[[], None] = _typed_page_cache.invalidate_page_responses
+    _refresh_page_index_entry: _typed_Callable[[_typed_Path, _typed_PageMetadata, str], None] = (
+        _typed_page_index.refresh_page_index_entry
+    )
     _pages_cache_get: _typed_Callable[[str], list[_typed_PageInfo] | None] = (
         _typed_page_cache.get_cached_page_response
     )
@@ -188,7 +255,7 @@ if TYPE_CHECKING:
     _page_index_lock: _typed_LockType = page_state.index_lock
     _page_index_entries: dict[str, dict[str, _typed_PageCacheEntry]] = page_state.index_entries
     _page_index_initialized: dict[str, bool] = page_state.index_initialized
-    _page_id_to_path: dict[str, dict[str, str]] = page_state.id_to_path
+    _page_id_to_path: dict[str, dict[object, str]] = page_state.id_to_path
     _page_index_version: dict[str, int] = page_state.index_version
     _last_stale_check: dict[str, float] = page_state.last_stale_check
 
@@ -201,7 +268,7 @@ from fastapi import (
     Depends,
     File,
     Form,
-    HTTPException,
+    HTTPException as HTTPException,
     Query,
     Request,
     UploadFile,
@@ -298,7 +365,7 @@ from backend.services.content_revision import path_collection_revision as path_c
 from backend.services.rule_engine import RuleEngine
 
 log: logging.Logger = logging.getLogger(__name__)
-import asyncio
+import asyncio as asyncio
 
 from backend.services.frontmatter_fallback import parse_frontmatter_fallback as parse_frontmatter_fallback
 from backend.services.page_sidecar import apply_sidecar_to as apply_sidecar_to
@@ -307,11 +374,12 @@ from backend.services.page_sidecar import vault_root_for
 from backend.services.page_sidecar import delete_sidecar as delete_sidecar_for_page
 from backend.services.page_sidecar import split_metadata as _typed_split_metadata
 split_sidecar_metadata = _typed_split_metadata
-from backend.services.path_resolver import path_resolver
+from backend.services.path_resolver import path_resolver as path_resolver
 from backend.services.plugin_access import require_plugins
 from backend.services.vault_routing import canonical_vault_browser_path
-from backend.services.workspace_service import get_workspace_context, require_role
-from backend.utils.errors import safe_error_detail
+from backend.services.workspace_service import get_workspace_context as get_workspace_context
+from backend.services.workspace_service import require_role as require_role
+from backend.utils.errors import safe_error_detail as safe_error_detail
 from backend.utils.safe_io import (
     file_etag as file_etag,
     file_mtime_ns,

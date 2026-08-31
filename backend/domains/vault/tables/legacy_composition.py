@@ -552,12 +552,9 @@ from backend.domains.vault.links.schemas import LinkMentionsRequest
 from backend.domains.vault.links.state import LinkIndexView, link_index_state
 
 
-def _table_by_id(table_id: str | None) -> dict[_LegacyAny, _LegacyAny] | None:
+def _table_by_id(table_id: str | None) -> RegistryData | None:
     """Return one table through the canonical registry domain."""
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny] | None,
-        registry_api.table_by_id(table_id, registry_api_dependencies),
-    )
+    return registry_api.table_by_id(table_id, registry_api_dependencies)
 
 
 from backend.services.library_paths import library_roots as _library_roots

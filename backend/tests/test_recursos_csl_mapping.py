@@ -12,6 +12,8 @@ wrong output while every endpoint still answered 200:
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from backend.api import vault_routes
@@ -102,19 +104,30 @@ def test_unknown_style_falls_back_to_apa():
     assert _resolve_csl_path("does-not-exist").name == "apa.csl"
 
 
-def test_uploaded_style_id_resolves_to_its_file():
+def test_uploaded_style_id_resolves_to_its_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """User-uploaded styles land in the same catalog dir as the canonical four;
     the hardcoded map used to send every unknown id to apa.csl, so the picker
     showed the uploaded style as active while everything rendered as APA."""
-    from backend.services.csl_styles import STYLES_DIR
-    f = STYLES_DIR / "zztest-uploaded-style.csl"
+    from backend.domains.vault.citations import formatting
+
+    styles = tmp_path / "frontend/public/csl/styles"
+    styles.mkdir(parents=True)
+    module_path = tmp_path / "backend/domains/vault/citations/formatting.py"
+    monkeypatch.setattr(formatting, "__file__", str(module_path))
+
+    def fixture_path(value: str | Path) -> Path:
+        # The fixed Docker candidate must not probe a host-installed catalog.
+        if value == "/app/frontend/public/csl/styles":
+            return tmp_path / "absent-docker-catalog"
+        return Path(value)
+
+    monkeypatch.setattr(formatting, "Path", fixture_path)
+    (styles / "apa.csl").write_text("<style/>", encoding="utf-8")
+    f = styles / "zztest-uploaded-style.csl"
     f.write_text("<style/>", encoding="utf-8")
-    try:
-        assert _resolve_csl_path("zztest-uploaded-style") == f
-        # A path component in the query param must not escape the catalog dir.
-        assert _resolve_csl_path("../../../etc/passwd").name == "apa.csl"
-    finally:
-        f.unlink()
+    assert _resolve_csl_path("zztest-uploaded-style") == f
+    # A path component in the query param must not escape the catalog dir.
+    assert _resolve_csl_path("../../../etc/passwd") == styles / "apa.csl"
 
 
 # ---------- automatic key on create/save ----------

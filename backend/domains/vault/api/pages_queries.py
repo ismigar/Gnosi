@@ -8,11 +8,12 @@ import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.params import Depends as DependsParameter
 
+from backend.domains.vault.pages.state import PreviewDocument, PreviewPayload
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import (
     BulkPreviewWarmResponse,
@@ -54,7 +55,7 @@ class PageQueryDependencies:
     enrich_table_pages: Callable[[str, list[PageInfo]], None]
     visible_table_pages: Callable[[str, list[PageInfo]], list[PageInfo]]
     active_vault_path: Callable[[], Path | None]
-    get_indexer_status: Callable[[str], dict[str, Any]]
+    get_indexer_status: Callable[[str], dict[str, object]]
     cached_entry_count: Callable[[str], int]
     find_page: PageFinder
     materialize_page: Callable[[Path, str], Awaitable[None]]
@@ -68,7 +69,7 @@ class PageQueryDependencies:
     file_etag: Callable[[Path], str | None]
     fetch_preview: Callable[
         [Path, str],
-        Awaitable[tuple[dict[str, Any], dict[str, Any], float]],
+        Awaitable[PreviewDocument],
     ]
     warm_preview: Callable[[str], Awaitable[str]]
     preview_concurrency: int
@@ -186,7 +187,7 @@ async def list_pages_by_table_snapshot(table_id: str) -> TablePagesSnapshot:
     )
 
 
-async def get_indexer_status_endpoint() -> dict[str, Any]:
+async def get_indexer_status_endpoint() -> dict[str, object]:
     """Expose the page-index warmup status so the UI can show 'indexing…'.
 
     States:
@@ -274,7 +275,7 @@ async def get_page(page_id: str) -> dict[str, object]:
         raise HTTPException(status_code=500, detail="Error reading target file") from exc
 
 
-async def get_page_preview(page_id: str, full: bool = False) -> dict[str, Any]:
+async def get_page_preview(page_id: str, full: bool = False) -> PreviewPayload:
     """Preview of a page (title + excerpt/body + icon/cover + images).
 
     By default returns only `excerpt` (for wikilink tooltips).
@@ -302,7 +303,7 @@ async def get_page_preview(page_id: str, full: bool = False) -> dict[str, Any]:
         return full_response if full else short
     except OSError as exc:
         if exc.errno == 35:
-            response: dict[str, Any] = {
+            response: PreviewPayload = {
                 "id": page_id,
                 "title": "",
                 "excerpt": "",

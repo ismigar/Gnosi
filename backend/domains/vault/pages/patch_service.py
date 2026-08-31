@@ -7,20 +7,14 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
 
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.pages.patch_helpers import PatchReadResult as PatchReadResult
 from backend.domains.vault.schemas.pages import PagePatchRequest
 
-Metadata = dict[str, Any]
-PatchReadResult = tuple[
-    Path | None,
-    Metadata | None,
-    str | None,
-    str | None,
-    str | None,
-]
+Metadata = PageMetadata
 
 log = logging.getLogger(__name__)
 
@@ -38,23 +32,23 @@ class PatchPageDependencies:
     dedupe_citation_key: Callable[[Metadata, str], Metadata]
     save_page: Callable[[Path, Metadata, str], None]
     update_caches: Callable[[str, Path, Metadata, str, Metadata], None]
-    create_content_version: Callable[[], Callable[[str, str], object]]
-    create_file_version: Callable[[], Callable[[str, Path], object]]
-    update_link_index: Callable[[], Callable[[Path], object]]
-    rewrite_wikilinks: Callable[[], Callable[[str, str, str], object]]
+    create_content_version: Callable[[], Callable[[str, str], None]]
+    create_file_version: Callable[[], Callable[[str, Path], None]]
+    update_link_index: Callable[[], Callable[[Path], None]]
+    rewrite_wikilinks: Callable[[], Callable[[str, str, str], int]]
     get_table_id: Callable[[Metadata], str | None]
-    recompute_formulas: Callable[[], Callable[[str, str], object]]
+    recompute_formulas: Callable[[], Callable[[str, str], None]]
     sync_calendar: Callable[[Metadata, BackgroundTasks], None]
     propagate_translation: Callable[
         [],
-        Callable[[str, Metadata, Metadata, str, str], object],
+        Callable[[str, Metadata, Metadata, str, str], None],
     ]
     propagate_relations: Callable[
         [],
-        Callable[[str, str | None, Metadata, Metadata], object],
+        Callable[[str, str | None, Metadata, Metadata], None],
     ]
     resolve_page_context: Callable[[Metadata, Path], tuple[str, str | None]]
-    file_etag: Callable[[Path], str]
+    file_etag: Callable[[Path], str | None]
     safe_error_detail: Callable[[Exception, str], str]
 
 

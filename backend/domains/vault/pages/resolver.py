@@ -33,7 +33,7 @@ class PageResolverDependencies:
     index_lock: LockType
     index_entries: dict[str, dict[str, PageCacheEntry]]
     index_initialized: dict[str, bool]
-    id_to_path: dict[str, dict[str, str]]
+    id_to_path: dict[str, dict[object, str]]
     logger: logging.Logger
 
 

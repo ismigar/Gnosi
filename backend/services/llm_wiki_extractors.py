@@ -26,6 +26,7 @@ from backend.domains.llm_wiki import documents as document_domain
 from backend.domains.llm_wiki import origins as origin_domain
 from backend.domains.vault.registry.records import RecordReader
 from backend.services import llm_wiki_config
+from backend.utils.open_values import iterable_values
 
 logger = get_logger(__name__)
 
@@ -92,7 +93,7 @@ def extract_resource_sources(
     metadata: dict[str, Any],
     body: str,
     vault_root: Path,
-    source_table: dict[str, Any],
+    source_table: RecordReader,
     source_config: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Extract every configured attachment followed by every configured URL.
@@ -103,7 +104,7 @@ def extract_resource_sources(
     """
     props_by_id = {
         str(prop.get("id") or ""): prop
-        for prop in source_table.get("properties") or []
+        for prop in iterable_values(source_table.get("properties") or [])
         if isinstance(prop, dict) and prop.get("id")
     }
     raw_inputs: list[tuple[str, str]] = []

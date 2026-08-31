@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 24 | 80 |
 | Vitest | 482 | 1971 |
-| pytest | 393 | 2748 |
+| pytest | 399 | 2797 |
 
 ## Fichiers
 
@@ -527,6 +527,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/agent/generated_tools/test_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/test_sandbox.py) | 0 | Python AST |
 | pytest | [`backend/tests/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/__init__.py) | 0 | Python AST |
 | pytest | [`backend/tests/conftest.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py) | 0 | Python AST |
+| pytest | [`backend/tests/page_write_open_fixtures.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/page_write_open_fixtures.py) | 0 | Python AST |
 | pytest | [`backend/tests/test_academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_academic_connectors.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_academic_connectors_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_academic_connectors_domain_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_action_rules.py) | 14 | Python AST |
@@ -723,9 +724,14 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_packaged_backend_smoke.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_packaged_backend_smoke.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_page_foundation_open_callbacks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_foundation_open_callbacks.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_page_metadata_open_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_metadata_open_contract.py) | 16 | Python AST |
+| pytest | [`backend/tests/test_page_preview_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_preview_contract.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_page_section_upsert.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_section_upsert.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_sidecar.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_page_version_force.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_version_force.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_page_write_citation_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_write_citation_contract.py) | 14 | Python AST |
+| pytest | [`backend/tests/test_page_write_inventory_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_write_inventory_contract.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_page_write_open_cache_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_write_open_cache_contract.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_page_write_open_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_write_open_contract.py) | 17 | Python AST |
 | pytest | [`backend/tests/test_pandoc_bin.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pandoc_bin.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_password_hashing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_password_hashing.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_pat_authentication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pat_authentication.py) | 9 | Python AST |

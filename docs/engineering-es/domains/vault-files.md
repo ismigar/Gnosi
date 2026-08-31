@@ -36,6 +36,11 @@ tests:
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
+  - backend/tests/test_page_preview_contract.py
+  - backend/tests/test_page_write_inventory_contract.py
+  - backend/tests/test_page_write_open_contract.py
+  - backend/tests/test_page_write_open_cache_contract.py
+  - backend/tests/test_page_write_citation_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -150,6 +155,28 @@ las llamadas, las secuencias antiguas, los valores mal formados y la identidad
 de objetos compartidos. Esto elimina espacios de nombres dinámicos amplios de
 la composición del registro y de la base de páginas, no todos los tipos heredados
 del backend.
+
+## Contratos de vista previa y escritura
+
+`pages/preview_routes.py` comprueba las dependencias de la fachada con sus
+responsables reales. Las respuestas corta y completa comparten una estructura
+de caché tipada y preservan los valores opacos de título, icono y portada.
+La materialización precede a la lectura; solo errno 35 usa la secuencia de
+reintentos existente. Las peticiones simultáneas comparten el mismo resultado,
+y la caché se actualiza antes de avisar a las peticiones que esperan.
+
+Los guardados completos y parciales mantienen metadatos abiertos, ETags anulables,
+el momento de las copias superficiales y la resolución del callback antes de
+evaluar sus argumentos. Los auxiliares de citas preservan la identidad del
+diccionario con claves textuales o no textuales. El inventario de documentos y el
+resolutor de rutas conservan las mutaciones y el comportamiento con entradas malformadas.
+
+Dos casos históricos quedan caracterizados, sin cambiarlos en esta refactorización:
+un conflicto de ETag en el auxiliar PATCH llega al 404 existente antes de la rama
+409 del servicio; cancelar al propietario de una vista previa retira su entrada
+en curso sin completar su futuro compartido. Son limitaciones de compatibilidad,
+no una validación satisfactoria de concurrencia. Los esquemas públicos y el
+comportamiento ordinario de escritura no cambian.
 
 ## Límites del backend
 

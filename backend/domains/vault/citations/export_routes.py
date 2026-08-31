@@ -175,7 +175,9 @@ def _normalize_authors_field(v: object) -> str:
     return _authors.normalize_authors_field(v)
 
 
-def _find_structured_authors(metadata: Metadata) -> list[Metadata]:
+def _find_structured_authors(
+    metadata: dict[_authors.MetadataKey, object],
+) -> list[dict[object, object]]:
     return _authors.find_structured_authors(metadata)
 
 
@@ -476,7 +478,9 @@ def _normalize_suggested_item_type(
     return suggested
 
 
-def _citation_key_prop_name(table: Mapping[str, object] | None) -> str | None:
+def _citation_key_prop_name(
+    table: Mapping[str, object] | Mapping[object, object] | None,
+) -> str | None:
     """Actual name of the 'Citation Key' column of a citable table, or None.
 
     Backend mirror of the frontend's `tableHasCitationKey` (VaultDashboard.jsx):

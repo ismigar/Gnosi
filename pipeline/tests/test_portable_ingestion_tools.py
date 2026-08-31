@@ -27,6 +27,7 @@ import httpx
 import pytest
 
 if TYPE_CHECKING:
+    from backend.domains.vault.pages.foundation_values import PageMetadata
     from pipeline.skills.rss_to_audio.scripts.rss_to_audio import Article
 
 
@@ -695,21 +696,22 @@ def check_real_patch_receiver_merges_only_logical_parent(tmp_path: Path) -> None
     from backend.domains.vault.schemas.pages import PagePatchRequest
 
     path = tmp_path / "BD" / "Table" / "child.md"
-    metadata: dict[str, object] = {
+    metadata: PageMetadata = {
         "id": "child",
         "title": "Child",
         "parent_id": "old",
         "table_id": "table",
         "views": [{"id": "opaque-view-id", "plugin": [None, {"custom": True}]}],
+        7: {"opaque": [None, "retained"]},
     }
     original = deepcopy(metadata)
-    saved: list[tuple[Path, dict[str, object], str]] = []
+    saved: list[tuple[Path, PageMetadata, str]] = []
 
     async def lock(_page_id: str) -> asyncio.Lock:
         return asyncio.Lock()
 
     def relocate(
-        page_id: str, actual_path: Path, current: dict[str, object], title: str | None
+        page_id: str, actual_path: Path, current: PageMetadata, title: str | None
     ) -> Path:
         assert page_id == "child" and actual_path == path and title is None
         assert current["table_id"] == "table"
@@ -732,7 +734,7 @@ def check_real_patch_receiver_merges_only_logical_parent(tmp_path: Path) -> None
         create_content_version=lambda: lambda *_args: None,
         create_file_version=lambda: lambda *_args: None,
         update_link_index=lambda: lambda *_args: None,
-        rewrite_wikilinks=lambda: lambda *_args: None,
+        rewrite_wikilinks=lambda: lambda *_args: 0,
         get_table_id=lambda _current: "table",
         recompute_formulas=lambda: lambda *_args: None,
         sync_calendar=lambda *_args: None,

@@ -36,6 +36,11 @@ tests:
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
+  - backend/tests/test_page_preview_contract.py
+  - backend/tests/test_page_write_inventory_contract.py
+  - backend/tests/test_page_write_open_contract.py
+  - backend/tests/test_page_write_open_cache_contract.py
+  - backend/tests/test_page_write_citation_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -154,6 +159,29 @@ retourné. Les tests comparent le moment des appels, les séquences historiques,
 les valeurs mal formées et l'identité des objets partagés. Cela élimine les
 espaces de noms dynamiques larges de la composition du registre et des fondations
 des pages, pas tous les types historiques du backend.
+
+## Contrats d'aperçu et d'écriture
+
+`pages/preview_routes.py` vérifie les dépendances de la façade avec leurs
+propriétaires réels. Les réponses courte et complète partagent une structure
+de cache typée et préservent les valeurs opaques du titre, de l'icône et de la
+couverture. La matérialisation précède la lecture ; seul errno 35 suit la séquence
+de tentatives existante. Les requêtes simultanées partagent le même résultat,
+et le cache est mis à jour avant de notifier les requêtes en attente.
+
+Les sauvegardes complètes et partielles conservent les métadonnées ouvertes,
+les ETags annulables, le moment des copies superficielles et la résolution du
+callback avant l'évaluation des arguments. Les auxiliaires de citation préservent
+l'identité du dictionnaire avec des clés textuelles ou non textuelles. L'inventaire
+des documents et le résolveur de chemins conservent les mutations et le
+comportement face aux entrées mal formées.
+
+Deux cas historiques sont caractérisés sans être modifiés par cette refactorisation :
+un conflit d'ETag dans l'auxiliaire PATCH atteint le 404 existant avant la branche
+409 du service ; annuler le propriétaire d'un aperçu retire son entrée en cours
+sans terminer son futur partagé. Ce sont des limites de compatibilité, pas une
+validation réussie de concurrence. Les schémas publics et le comportement
+ordinaire d'écriture restent inchangés.
 
 ## Frontière du backend
 

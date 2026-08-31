@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Sequence
+from typing import Any, TypeVar
+
+from backend.domains.vault.registry.records import RecordReader, is_object_list, is_record
+
+MetadataKey = TypeVar("MetadataKey", str, object)
 
 
 def parse_authors_to_csl(authors_str: str) -> list[dict[str, str]]:
@@ -62,18 +66,20 @@ def normalize_authors_field(value: object) -> str:
     return one(value)
 
 
-def find_structured_authors(metadata: dict[str, Any]) -> list[dict[str, Any]]:
+def find_structured_authors(
+    metadata: dict[MetadataKey, object],
+) -> list[dict[object, object]]:
     for value in metadata.values():
-        if isinstance(value, list) and any(
-            isinstance(author, dict) and any(key in author for key in ("cognom1", "cognom2", "nom"))
+        if is_object_list(value) and any(
+            is_record(author) and any(key in author for key in ("cognom1", "cognom2", "nom"))
             for author in value
         ):
-            return [author for author in value if isinstance(author, dict)]
+            return [author for author in value if is_record(author)]
     return []
 
 
 def structured_authors_to_csl(
-    authors: list[dict[str, Any]],
+    authors: Sequence[RecordReader],
 ) -> list[dict[str, str]]:
     result: list[dict[str, str]] = []
     for author in authors:
