@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
@@ -20,6 +20,7 @@ tests:
   - frontend/src/features/control-center/dashboard/Dashboard.test.tsx
   - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
+  - backend/tests/test_scheduler_maintenance_scope.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_platform_notifications.py
   - backend/tests/test_planning_scheduler.py
@@ -137,6 +138,21 @@ generate reports, or apply changes within their declared scope. They do not gain
 broader filesystem, secret, Git, or publishing authority because they are
 scheduled.
 
+## Per-device maintenance boundary
+
+`system_maintenance` clears the in-memory application cache and truncates only
+the regular, singly linked `logs/gnosi.log` under the canonical
+`GNOSI_DATA_DIR`, only when selected by the active `LOG_FILE` configuration.
+It preserves the log inode for the running logger. Directory
+components and the file must not be symlinks; invalid paths or platforms without
+safe directory-relative operations skip disk cleanup instead of following them.
+
+It does not clean source trees, Python bytecode, arbitrary configured logs,
+private workspace mailboxes, databases, secrets, Vault documents or synchronized
+folders. The legacy mailbox, temporary-file and bytecode counters remain in the
+response with zero values. Filesystem cleanup of old development checkouts is a
+separate, explicitly reviewed workspace operation, not an application schedule.
+
 ## Daily audio generation
 
 The Reader podcast service uses typed model and language selection, bounded
@@ -160,6 +176,6 @@ active, so output cannot fall through to an ambiguous local path.
 
 Test config resilience, connection alignment, planning schedules, task history,
 overlap prevention, time zones, retry/idempotency, OAI resume and cancellation,
-tombstones, and review new-result detection, plus the Playwright automation
+tombstones, review new-result detection, and maintenance path confinement, plus the Playwright automation
 scout. A representative scheduled integration should run end to end against a
 safe fixture or test account.

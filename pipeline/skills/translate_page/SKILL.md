@@ -1,8 +1,8 @@
 ---
-name: translate_page
-description: Translate a Vault page title and Markdown body, creating one child page per target language while preserving Gnosi directives.
-type: skill
-status: active
+name: translate-page
+description: Translate a Vault page title and Markdown body into language children, updating existing translations and preserving Gnosi directives. Use for the explicit translate-page action or Markdown segmentation maintenance.
+metadata:
+  status: active
 ---
 
 # Skill: translate_page
@@ -10,7 +10,7 @@ status: active
 ## Purpose
 
 Translate the title and body of a Vault Markdown page into user-selected
-languages. Create one child page with `parent_id = page_id` for each language.
+languages. Create or update one child with `parent_id = page_id` for each language.
 This is the full-document counterpart of
 [translate_row](../translate_row/SKILL.md).
 
@@ -28,9 +28,12 @@ Body: { page_id: str, target_languages: [str], button_action: "translate_page" }
 
 ## Architecture
 
-The endpoint in `backend/api/vault_routes.py` loads the page, detects its
-source language, translates its plain title and Markdown body, and creates one
-child page per language through `create_page(...)`.
+The route in `backend/domains/vault/translation/routes.py` delegates through
+the domain lifecycle to `page_service.py`. It loads the page, detects its source
+language and translates its plain title and Markdown body. Existing translation
+children are updated in place; missing languages are created through the page
+write service. The historical `backend/api/vault_routes.py` export remains a
+compatibility boundary, not a second implementation.
 
 `scripts/markdown_segmenter.py` exposes:
 
@@ -44,7 +47,7 @@ Markdown-aware segmentation only.
 ## Markdown segmenter
 
 The body uses enriched Markdown. The Python segmenter mirrors
-`markdown-mapper.js` so `richMarkdownToBlocks` can parse the result without
+`frontend/src/shared/editor/markdown-mapper/` so `richMarkdownToBlocks` can parse the result without
 structural changes. It processes lines with a block-state machine:
 
 - Pass through fenced blocks, including `gnosi-database` and `gnosi-view`;
@@ -57,8 +60,9 @@ structural changes. It processes lines with a block-state machine:
   `[@key]` and `@key`, and link destinations with `XSEGnnnZZZ` tokens. Link
   display text is translated.
 
-The complete contract and v1 limitations are documented in
-`docs/dev_memory/directives/translate_page_skill.md`.
+The executable contract is covered by
+`scripts/test_markdown_segmenter.py` and the backend translation tests. Private
+development directives are not required to use a public checkout.
 
 ## Providers and configuration
 
@@ -85,18 +89,18 @@ work without extra configuration.
 }
 ```
 
-Unlike `translate_row`, do not add `table_id`; the child is a normal page
-stored under `WIKI/`.
+Unlike `translate_row`, do not add `table_id`; the child is a normal page whose
+location is selected by the page write service. Do not hardcode a folder name.
 
 ## Restrictions and edge cases
 
 - Skip a target identical to the source language.
 - Translate only the title when the page body is empty.
-- V1 does not translate emphasis aliases, wikilink aliases, or image alt text;
-  see the directive.
+- V1 does not translate wikilink aliases or image alt text; preserve protected tokens and test enriched Markdown round trips before changing segmentation.
 - The current implementation makes one HTTP request per segment. Long pages
   can hit public Apertium rate limits; batching is future work.
-- Re-running the action creates new child pages; it does not deduplicate.
+- Re-running updates existing language children instead of duplicating them. Preserve origin/language metadata, translated content and the `created`, `updated`, `skipped` response groups.
+- Unit tests must fake providers. A real translation can send selected text to external services or download a local model; it is not an incidental documentation check.
 
 ## Quick test
 

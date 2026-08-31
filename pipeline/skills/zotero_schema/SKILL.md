@@ -1,3 +1,8 @@
+---
+name: zotero-schema
+description: Generate Gnosi's Python and TypeScript item-type constants from the repository-pinned Zotero schema, or perform an explicitly requested pinned schema refresh. Use for mapping or generated-constant maintenance, not runtime downloads.
+---
+
 # Skill: Zotero Schema
 
 The source of truth for Gnosi item types and fields, derived from Zotero's

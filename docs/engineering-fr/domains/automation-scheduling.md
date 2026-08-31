@@ -1,40 +1,59 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
   - backend/scheduler/contracts.py
   - backend/scheduler/notifications.py
+  - backend/platform/notifications.py
   - backend/scheduler/task_handlers.py
+  - backend/scheduler/literature_tasks.py
   - backend/models/scheduler.py
+  - backend/services/durable_job_worker.py
+  - backend/services/literature_service.py
   - frontend/src/features/automations
   - frontend/src/features/control-center
   - pipeline/skills/scheduler
 tests:
-  - backend/tests/test_audio_summarizer.py
-  - backend/tests/test_scheduler_task_handlers_domain_contract.py
-  - backend/tests/test_connection_scheduler_alignment.py
-  - backend/tests/test_planning_scheduler.py
-  - tests/e2e/tests/e2e/automation-scout.spec.ts
   - frontend/src/features/automations/SchedulerPage.test.tsx
   - frontend/src/features/control-center/dashboard/Dashboard.test.tsx
+  - backend/tests/test_audio_summarizer.py
+  - backend/tests/test_scheduler_task_handlers_domain_contract.py
+  - backend/tests/test_scheduler_maintenance_scope.py
+  - backend/tests/test_connection_scheduler_alignment.py
+  - backend/tests/test_platform_notifications.py
+  - backend/tests/test_planning_scheduler.py
+  - backend/tests/test_literature_service.py
+  - backend/tests/test_scheduler_literature_tasks.py
+  - backend/tests/test_durable_job_worker.py
+  - tests/e2e/tests/e2e/automation-scout.spec.ts
 ---
-
 # Automatisation et planification
 
 ## Responsabilité
 
-Le programmeur exécute des tâches récurrentes et uniques configurées, enregistre l'historique, expose l'état opérationnel et coordonne les tâches de domaine telles que la synchronisation, la publication, l'ingestion, la maintenance et la planification de rafraîchissement.
+Le planificateur exécute les tâches configurées, conserve leur historique et
+expose l'état opérationnel de la synchronisation, publication, ingestion,
+maintenance et mise à jour de la planification.
 
-Les métadonnées des tâches, l'état d'exécution persistant et la frontière de
-notification facultative sont strictement typés dans des modules dédiés. Le
-gestionnaire reste sous la limite de taille et valide les dictionnaires de
-tâches hérités avant de construire les tâches d'exécution.
+La fonctionnalité d'automatisation contient l'écran du planificateur et la
+conversion des intervalles. Le centre de contrôle contient le tableau de bord,
+l'historique, les membres et les dialogues de directives. Les routes sont
+chargées à la demande ; les adaptateurs partagés préservent identifiants, unités,
+permissions et payloads. Déplacer un écran n'active aucune tâche ni aucun travail.
+
+Les métadonnées, l'état persistant et la frontière de notification facultative
+ont des contrats typés. Le gestionnaire valide les définitions héritées avant de
+construire les tâches et respecte la limite de taille du code.
 
 ## Modèle de tâche
 
-Une définition de tâche a une identité stable, un état activé, un calendrier, une opération, une configuration et une politique d'exécution. Les enregistrements de l'historique de tâche commencent, complètent, occupent le statut, le message et la durée. Les définitions et les paramètres de connexion sont alignés avant l'exécution, de sorte qu'une tâche ne peut pas utiliser accidentellement une intégration supprimée ou différente.
+Chaque définition possède une identité stable, un état activé, une
+planification, une opération, une configuration et une politique d'exécution.
+L'historique enregistre début, fin, état, message et durée. Les définitions sont
+alignées sur les connexions avant l'exécution afin d'éviter une intégration
+supprimée ou incorrecte.
 
 ## Flux d'exécution
 
@@ -52,38 +71,104 @@ sequenceDiagram
     Manager->>History: Persist status, message, duration
 ```
 
-Les fonctions de la tâche doivent être idempotentes lorsque la répétition est possible. Le gestionnaire protège les instances qui se chevauchent selon la politique de la tâche et utilise des contextes de base de données ou de fournisseur nouveaux. Un redémarrage du processus concilie les horaires de configuration persistante au lieu de ne faire confiance qu'à l'état de mémoire.
+Les opérations doivent être idempotentes lorsqu'elles peuvent être répétées.
+Le gestionnaire contrôle les chevauchements selon la politique de tâche et
+utilise de nouveaux contextes de base de données ou de fournisseur. Après un
+redémarrage, il réconcilie la configuration persistante.
 
-Le gestionnaire conserve le cycle de vie du planificateur, la persistance, le
-contrôle des chevauchements et l'historique. `task_handlers.py` contient la
-politique de répartition et les tâches opérationnelles importantes, y compris
-la maintenance bornée, sans les coupler au fil du planificateur.
+Le démarrage natif active le planificateur par défaut. Les tests déterministes
+et les diagnostics sur des données locales peuvent définir
+`GNOSI_DISABLE_SCHEDULER=1` pour vérifier API et interface sans déclencher
+d'intégrations en attente. Ce réglage ne modifie pas la configuration enregistrée.
 
-## Automatisations des vannes
+Le gestionnaire conserve cycle de vie, persistance, contrôle des chevauchements
+et historique. `task_handlers.py` contient la répartition et les opérations
+importantes, dont la maintenance, sans les coupler au fil du planificateur.
 
-Les règles d'automatisation des vaults combinent déclencheurs, conditions et actions. Les formules de champ dérivées et les groupures sont une évaluation déterministe, et non une exécution arbitraire de code. Les actions externes ou destructrices utilisent les mêmes limites d'autorisation et de confirmation que les actions interactives.
+Les notifications passent par une frontière de plateforme indépendante du
+fournisseur. La persistance en base de données et Markdown fonctionne sur tous
+les hôtes ; les alertes natives macOS sont facultatives. Les journaux Markdown
+résident sous `GNOSI_DATA_DIR`, jamais dans un Vault OneDrive, Google Drive,
+Nextcloud, Dropbox ou d'un autre fournisseur. L'échec d'un canal ne bloque pas les
+autres. L'ancien chemin de la compétence de notification est une façade compatible.
+
+## Synchronisation académique et mise à jour des revues
+
+`academic_repository_sync` est un travail persistant et reprenable pour les index
+OAI locaux. Curseur, compteurs, erreur, annulation et dernière synchronisation
+réussie sont conservés hors de la requête. Un administrateur lance la première
+collecte ; ensuite, la tâche incrémentale quotidienne reprend au dernier point
+complet et applique les marqueurs de suppression OAI.
+
+Les stratégies enregistrées peuvent planifier `academic_review_update`. Chaque
+exécution rejoue la stratégie versionnée, enregistre activité et erreurs
+partielles par source et n'ajoute que les candidats ayant une identité nouvelle
+pour cette revue. La prochaine exécution est enregistrée avec sa configuration.
+
+La file exige une racine `LOCAL_DATA` explicite et échoue avant d'ouvrir SQLite
+si la configuration manque. Les adaptateurs valident les payloads avant leur
+répartition et refusent les inscriptions sans fonction exécutable. La
+synchronisation des contacts transmet explicitement base de données, workspace
+et intégration pour ne pas confondre les arguments.
+
+Les travaux académiques résolvent le Vault actif avant d'accéder à la littérature.
+Sans Vault, ils enregistrent une omission structurée avec zéro travail au lieu
+de construire `Path(None)`. La récupération de la file du Reader vérifie
+l'existence du document associé ; les entrées orphelines ne créent pas de fils
+voués à échouer répétitivement.
+
+## Automatisations du Vault
+
+Les règles combinent déclencheurs, conditions et actions. Les formules et
+rollups sont évalués de manière déterministe, pas comme du code arbitraire. Les
+actions externes ou destructrices gardent les mêmes limites d'autorisation et
+de confirmation que les actions interactives.
 
 ## Travail autonome de qualité
 
-Les boucles de maintenance et de qualité sont des tâches opérationnelles limitées. Elles peuvent diagnostiquer, générer des rapports ou appliquer des modifications dans leur champ d'application déclaré. Elles ne gagnent pas de système de fichiers plus large, secret, Git, ou autorité de publication parce qu'elles sont programmées.
+Les tâches planifiées peuvent diagnostiquer, produire des rapports ou appliquer
+des changements dans leur périmètre. La planification n'élargit pas leurs droits
+sur les fichiers, secrets, Git ou publications.
+
+## Périmètre de maintenance par appareil
+
+`system_maintenance` vide le cache mémoire de l'application et tronque uniquement
+le fichier ordinaire `logs/gnosi.log`, avec un seul lien physique, sous le
+`GNOSI_DATA_DIR` canonique, seulement s'il s'agit du `LOG_FILE` configuré.
+Il conserve l'inode pour le logger actif. Ni les
+répertoires ni le fichier ne peuvent être des liens symboliques. Si le chemin est
+invalide ou si la plateforme ne propose pas d'opérations sûres relatives à un
+répertoire, le nettoyage du disque est omis.
+
+Il ne nettoie ni code source, bytecode, journaux configurés ailleurs, boîtes
+privées du workspace, bases de données, secrets, documents du Vault, ni dossiers
+synchronisés. Les anciens compteurs de boîte, fichiers temporaires et bytecode
+restent présents avec la valeur zéro. Retirer d'anciens checkouts est une
+opération distincte et revue du workspace, pas une tâche de l'application.
 
 ## Génération audio quotidienne
 
-Le service de podcast du Reader utilise une sélection typée du modèle et de la
-langue, des travailleurs TTS bornés par phrase et un remplacement atomique du
-MP3. La génération en arrière-plan capture explicitement le Vault sélectionné et
-refuse de démarrer sans Vault actif, afin d'éviter tout chemin local ambigu.
+Le service de podcast du Reader utilise des contrats typés pour choisir modèle
+et langue, limite les travailleurs TTS par phrase et remplace le MP3 atomiquement.
+Il capture le Vault sélectionné avant de commencer et refuse de démarrer sans
+Vault actif.
 
 ## Invariants
 
-- Les tâches désactivées ou invalides ne sont pas exécutées.
-- Une tâche a un résultat historique durable.
-- Les rétractations ne font pas double emploi avec les effets externes sans stratégie d'idempuissance.
-- Suppression ou réaffectation de la connexion met à jour les horaires dépendants.
-- Le calendrier utilise une sémantique explicite du fuseau horaire.
-- Les exceptions au travail sont isolées de la boucle de planification.
-- Les travaux de base ne réutilisent pas les séances de base de données à demande.
+- Les tâches désactivées ou invalides ne s'exécutent pas.
+- Chaque exécution possède un résultat persistant dans l'historique.
+- Les nouvelles tentatives ne dupliquent pas les effets sans stratégie d'idempotence.
+- Supprimer ou réaffecter une connexion met à jour les planifications dépendantes.
+- Les fuseaux horaires ont une sémantique explicite.
+- Les exceptions n'interrompent pas la boucle du planificateur.
+- Les travaux ne réutilisent pas les sessions de base de données d'une requête.
+- Annuler une collecte OAI conserve son curseur pour la reprendre.
+- Répéter une revue ne duplique pas les résultats déjà identifiés.
 
-## Aspects de vérification
+## Vérification
 
-Testez la résilience de la configuration, l'alignement de la connexion, les calendriers de planification, l'historique des tâches, la prévention des chevauchements, les fuseaux horaires, la réessai/idémpuissance et le scouter d'automatisation Playwright.
+Vérifiez configuration, connexions, intervalles, historique, chevauchements,
+fuseaux horaires, nouvelles tentatives, reprise et annulation OAI, marqueurs de
+suppression, détection des nouveaux résultats et confinement de la maintenance.
+Exécutez aussi les tests Playwright d'automatisation et une intégration
+représentative de bout en bout sur des données synthétiques ou un compte de test.

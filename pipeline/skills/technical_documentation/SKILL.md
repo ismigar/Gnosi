@@ -1,3 +1,8 @@
+---
+name: technical-documentation
+description: Generate and validate Gnosi's engineering portal from reviewed guides and deterministic source catalogs. Use for source-traceable documentation updates and pre-PR gates; never translate generated catalogs with a model.
+---
+
 # SKILL: Technical documentation
 
 > ID: GNOSI-TECHNICAL-DOCUMENTATION-20260802
@@ -46,7 +51,7 @@ development. Normal runs auto-detect the application root from the script
 location.
 
 The pre-PR command is the mandatory local entry point for implementation
-branches covered by the private documentation workflow. It regenerates catalogs
+branches covered by the public documentation workflow. It regenerates catalogs
 before checking them, runs the documentation-tool tests and change-impact gate,
 validates localization and traceability, and builds every strict locale portal.
 Use `--check-only` in read-only automation that must reject stale catalogs

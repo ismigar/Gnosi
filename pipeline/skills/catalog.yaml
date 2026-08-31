@@ -5,7 +5,6 @@ packages:
   calendar_sync: {kind: automation}
   host_open_helper: {kind: infrastructure}
   mail_sync: {kind: automation}
-  maintenance: {kind: automation}
   notification_service: {kind: infrastructure}
   notion_clone: {kind: action}
   playwright_e2e: {kind: developer}
@@ -13,10 +12,8 @@ packages:
   rss_to_audio: {kind: automation}
   scheduler: {kind: infrastructure}
   suggest_connections: {kind: action}
-  team_manager: {kind: developer}
   technical_documentation: {kind: developer}
   translate_page: {kind: action}
   translate_row: {kind: action}
-  ui_stability: {kind: developer}
   vault_core: {kind: developer}
   zotero_schema: {kind: developer}

@@ -1,3 +1,8 @@
+---
+name: python-module-refactor
+description: Analyze top-level Python symbol dependencies and perform explicitly selected, AST-validated extractions or function replacements. Use for mechanical refactors after domain boundaries and compatibility requirements are decided.
+---
+
 # SKILL: Python module refactor
 
 > ID: GNOSI-PYTHON-MODULE-REFACTOR-20260827
@@ -20,7 +25,7 @@ they do not decide domain ownership or change runtime contracts.
   functions, classes or simple assignments to a new module and inserts an
   explicit compatibility import at the first removed extent.
 
-Both tools require explicit source and output or replacement paths. Generated
+These tools require explicit source and output or replacement paths. Generated
 reports and temporary replacement snippets belong under `.tmp/` and must not be
 committed.
 
@@ -33,7 +38,7 @@ uv run python pipeline/skills/python_module_refactor/scripts/analyze_symbol_grap
   backend/api/vault_routes.py --output .tmp/vault-symbol-graph.json
 
 uv run python pipeline/skills/python_module_refactor/scripts/replace_top_level_function.py \
-  backend/api/vault_routes.py save_page .tmp/save-page-wrapper.py
+  path/to/module.py selected_function .tmp/function-wrapper.py
 ```
 
 ## Procedure

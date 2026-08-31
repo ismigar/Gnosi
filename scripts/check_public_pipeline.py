@@ -29,6 +29,9 @@ PRIVATE_FILES = frozenset({
     "pipeline/skills/host_open_helper/com.gnosi.host-open-helper.plist",
 })
 RETIRED_FILES = frozenset({
+    "pipeline/skills/maintenance/SKILL.md",
+    "pipeline/skills/team_manager/SKILL.md",
+    "pipeline/skills/ui_stability/SKILL.md",
     "pipeline/parses/__init__.py",
     "pipeline/parses/robust_ai_parser.py",
     "pipeline/utils/ai_analysis_cache.py",

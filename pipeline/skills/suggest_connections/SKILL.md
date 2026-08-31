@@ -1,3 +1,8 @@
+---
+name: suggest-connections
+description: Maintain Gnosi's evidence-backed Brain connection proposal queue and graph overlay. Use for proposal generation or review behavior, not automatic note creation or unrequested model calls.
+---
+
 # SKILL: Brain Connection Proposals
 
 This skill generates evidence-backed, read-only connection proposals for the
@@ -44,5 +49,6 @@ contradictions, and gaps.
 - Do not write a second generated graph under `BD/`; it diverges from the inbox.
 - Do not call the removed `suggest_connections_digital_brain` module.
 - Do not report a structured generator error as scheduler success.
+- Generating proposals can read selected vault content and invoke configured model providers. Run the CLI only for requested generation; use synthetic proposals and fake providers for tests, never a real vault as incidental QA.
 - Add proposal edges directly from the queue as a non-structural response
   overlay, and invalidate the graph response cache whenever the queue changes.

@@ -1,3 +1,8 @@
+---
+name: notification-service
+description: Use or maintain Gnosi's platform notification dispatcher and its legacy public import. Preserve independent database, per-device Markdown and best-effort OS channels.
+---
+
 # Notification Service Skill
 
 ## Overview
@@ -17,7 +22,7 @@ notify("Sync Complete", "All contacts are up to date.", level="SUCCESS")
 ```
 
 ## Channels
-1. **DB (Database):** Saves to `notifications` table in `gnosi.db`.
+1. **DB (Database):** Saves to the `notifications` table through the management database service; do not hardcode a database filename.
 2. **MD (Markdown):** Appends to
    `${GNOSI_DATA_DIR}/logs/notifications.md`, using the platform default when
    the variable is unset. This path is always per-device and never assumes

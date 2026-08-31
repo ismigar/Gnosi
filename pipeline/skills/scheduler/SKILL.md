@@ -1,3 +1,8 @@
+---
+name: scheduler
+description: Maintain Gnosi's backend scheduler lifecycle, persistence and task dispatch. Use for scheduler startup or task-state regressions, not private development-agent orchestration.
+---
+
 # SKILL: Backend Background Scheduler
 
 This skill defines the technical protocol for managing the Gnosi background task orchestrator (`SchedulerManager`).
@@ -20,13 +25,24 @@ This skill defines the technical protocol for managing the Gnosi background task
 ## 2. Core Principles
 
 ### A. Background Loop
-The `SchedulerManager` initializes a daemon thread on instantiation. The loop wakes up every 60 seconds to evaluate if any enabled tasks have reached their `next_run` timestamp.
+Construction loads configuration but does not start the thread. The application
+lifespan calls `start()` unless `GNOSI_DISABLE_SCHEDULER` disables it. The daemon
+loop checks enabled tasks every 60 seconds using `last_run` and
+`interval_minutes`; do not describe a separate persisted `next_run` timer.
 
 ### B. Non-blocking Execution
-When a task is triggered, it runs in a separate `threading.Thread`. This ensures that long-running tasks (like PDF generation) do not block the scheduler from starting other tasks.
+The scheduler loop is outside the HTTP event loop. `run_task_now()` executes its
+handler synchronously in its caller; individual domain jobs may start their own
+workers. Do not assume every task gets another thread or promise concurrent
+execution from this manager. Preserve domain-specific overlap and job policies.
 
 ### C. State Persistence
-Task definitions and their lifecycle metadata (last run, next run, status) are stored in `data/scheduler_config.json`.
+The configured `SCHEDULER` path holds task definitions and lifecycle metadata.
+A per-device recovery mirror lives at
+`GNOSI_DATA_DIR/system/scheduler_config.local.json`; the manager resolves it
+through the canonical `LOCAL_DATA` path mapping. Execution history uses the
+management database. Preserve both configuration sources when investigating a
+cloud-placeholder read failure; do not replace an unreadable file with defaults.
 
 ---
 
@@ -45,9 +61,11 @@ curl -X POST http://localhost:5002/api/schedulers/{task_name}/run \
 
 ## 4. Restrictions and Edge Cases
 
-- **Daemon State**: Ensure `self.start()` is called during initialization to activate the `_scheduler_loop`.
-- **Config Integrity**: The `data/` directory must be preserved. If `scheduler_config.json` is missing, the manager must safely merge missing tasks from the defaults.
+- **Daemon State**: Keep startup/shutdown in the app lifespan. Unit tests must not start the scheduler or fire overdue integrations.
+- **Config Integrity**: Preserve configured paths and the recovery mirror. Missing tasks may be merged from defaults; unreadable configuration is not evidence that persisted user settings were empty.
 - **Path Sensitivity**: Background tasks must use absolute paths (via `paths_config.py`) to avoid resolution errors when running as a service.
+- **Host lock**: `start()` uses a local POSIX file lock when available; it is not a distributed multi-host lock. Preserve the non-POSIX fallback behavior.
+- **Verification**: Run `backend/tests/test_scheduler_maintenance_scope.py`; its isolated child also selects the task-handler domain contracts before any backend configuration import. Use synthetic scheduler API and lifespan fixtures. Manual API execution is a real operation, not a documentation check.
 
 ---
 

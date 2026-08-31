@@ -38,7 +38,7 @@ class SchedulerManager:
             "default_interval": 1440,  # 24 hours
         },
         "system_maintenance": {
-            "description": "System maintenance (logs, mailbox, sandbox)",
+            "description": "System maintenance (application log and memory cache)",
             "default_interval": 1440,  # 24 hours
         },
         "llm_wiki_maintenance": {
@@ -736,7 +736,7 @@ class SchedulerManager:
         return queue_due_review_updates()
 
     def _task_system_maintenance(self) -> dict[str, Any]:
-        """Comprehensive system cleanup: logs, mailbox, sandbox, and caches."""
+        """Clear the canonical application log and RAM cache, never source or user data."""
         return scheduler_task_handlers.system_maintenance()
 
     def _task_suggest_connections(self) -> dict[str, Any]:

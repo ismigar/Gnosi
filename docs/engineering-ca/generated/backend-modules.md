@@ -21,14 +21,14 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1208 |
 | `platform` | 12 | 1224 |
-| `scheduler` | 6 | 1212 |
+| `scheduler` | 6 | 1186 |
 | `scripts` | 2 | 69 |
 | `security` | 5 | 838 |
 | `services` | 148 | 34771 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 450 |
 
-Total: **736 modules** and **153464 source lines**.
+Total: **736 modules** and **153438 source lines**.
 
 ## agent
 
@@ -664,7 +664,7 @@ Total: **736 modules** and **153464 source lines**.
 | [`backend/scheduler/literature_tasks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/literature_tasks.py) | 53 | 0 | 3 | 0 | 3 | Vault-aware scheduler adapters for academic literature maintenance. |
 | [`backend/scheduler/manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py) | 780 | 1 | 0 | 0 | 1 | Scheduler Manager: Manages scheduled tasks using APScheduler. |
 | [`backend/scheduler/notifications.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/notifications.py) | 7 | 0 | 0 | 0 | 0 | Compatibility facade for the scheduler notification boundary. |
-| [`backend/scheduler/task_handlers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/task_handlers.py) | 343 | 1 | 10 | 0 | 6 | Large scheduler task handlers kept outside the lifecycle manager. |
+| [`backend/scheduler/task_handlers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/task_handlers.py) | 317 | 1 | 9 | 0 | 10 | Large scheduler task handlers kept outside the lifecycle manager. |
 
 ## scripts
 

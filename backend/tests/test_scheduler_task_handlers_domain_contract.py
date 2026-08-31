@@ -1,14 +1,16 @@
-"""Behavior and architecture contracts for extracted scheduler task handlers."""
+"""Contracts selected by test_scheduler_maintenance_scope's isolated child."""
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from backend.scheduler import manager as scheduler_manager_module
-from backend.scheduler import task_handlers
+import pytest
+
+if TYPE_CHECKING:
+    from backend.scheduler import task_handlers
 
 
 class _Manager:
@@ -25,7 +27,9 @@ class _Manager:
         return run
 
 
-def test_dispatch_blocks_missing_plugin_and_calls_enabled_handler() -> None:
+def check_dispatch_blocks_missing_plugin_and_calls_enabled_handler() -> None:
+    from backend.scheduler import task_handlers
+
     fake = _Manager()
     manager = cast(task_handlers.SchedulerTaskPort, fake)
 
@@ -47,36 +51,33 @@ def test_dispatch_blocks_missing_plugin_and_calls_enabled_handler() -> None:
     assert fake.called == ["_task_fetch_mail"]
 
 
-def test_bounded_cleanup_helpers_preserve_counts_and_bytes(tmp_path: Path) -> None:
-    pipeline = tmp_path / "pipeline"
-    log_directory = tmp_path / "logs"
+def check_bounded_real_log_preserves_counts_bytes_and_inode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backend.config import logger_config
+    from backend.scheduler import task_handlers
+
+    data_root = tmp_path.resolve()
+    log_directory = data_root / "logs"
     log_directory.mkdir()
-    log_file = log_directory / "backend.log"
+    log_file = log_directory / "gnosi.log"
     log_file.write_text("123456", encoding="utf-8")
-    sandbox = pipeline / "sandbox"
-    sandbox.mkdir(parents=True)
-    temporary = sandbox / "result.txt"
-    temporary.write_text("1234", encoding="utf-8")
+    inode = log_file.stat().st_ino
+    monkeypatch.setattr(logger_config, "LOG_FILE", log_file)
 
     log_count, log_bytes = task_handlers._purge_logs(
-        log_directory,
-        pipeline,
+        data_root,
         logging.getLogger(__name__),
     )
-    temporary_count, temporary_bytes = task_handlers._purge_temporary_files(
-        pipeline,
-        logging.getLogger(__name__),
-    )
-
     assert (log_count, log_bytes) == (1, 6)
-    assert log_file.read_text(encoding="utf-8").startswith("# Log purged at ")
-    assert (temporary_count, temporary_bytes) == (1, 4)
-    assert not temporary.exists()
+    assert log_file.read_bytes() == b""
+    assert log_file.stat().st_ino == inode
 
 
-def test_scheduler_modules_respect_source_guardrails() -> None:
-    manager_path = Path(scheduler_manager_module.__file__ or "")
-    handlers_path = Path(task_handlers.__file__ or "")
+def check_scheduler_modules_respect_source_guardrails() -> None:
+    scheduler = Path(__file__).resolve().parents[1] / "scheduler"
+    manager_path = scheduler / "manager.py"
+    handlers_path = scheduler / "task_handlers.py"
     assert len(manager_path.read_text(encoding="utf-8").splitlines()) <= 800
     assert len(handlers_path.read_text(encoding="utf-8").splitlines()) <= 800
     assert "backend.scheduler.manager" not in handlers_path.read_text(encoding="utf-8")
