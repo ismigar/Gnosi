@@ -24,6 +24,9 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_vault_core_typed_composition.py
+  - backend/tests/test_vault_media_typed_composition.py
+  - backend/tests/test_vault_citation_export_typed_composition.py
   - backend/tests/test_drawing_typed_composition.py
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -158,11 +161,14 @@ al sistema de archivos y utiliza los contratos multimedia tipados para raíces,
 recorridos, consultas, subidas, datos EXIF e información serializada de archivos.
 Los módulos de dominio nunca importan el router HTTP ni la fachada de compatibilidad.
 
-El módulo HTTP multimedia transitorio acota una sola vez el router heredado
-importado dinámicamente a un `APIRouter` concreto. Los decoradores de rutas y
-los registros delegados de recursos, archivos, iconos y propiedades utilizan
-esa misma instancia tipada, manteniendo estables el orden de registro y el
-contrato OpenAPI sin repartir excepciones de tipado entre los distintos manejadores.
+Las rutas HTTP multimedia importan directamente el router compartido y los
+servicios estables. `media/composition.py` conserva la resolución tardía del
+servicio y los callbacks de duplicación mediante interfaces con nombre; los
+tokens de archivo y bloqueos conservan sus propietarios canónicos. El servicio
+concreto se comprueba contra el contrato de las rutas sin conversiones de
+resultados. Los valores JSON del proveedor no cambian para los clientes Python;
+los modelos HTTP existentes validan la respuesta pública. La conversión única
+de fachada y las anotaciones heredadas de metadatos siguen siendo deuda explícita.
 
 Las rutas de dibujos importan directamente el router compartido y los servicios
 tipados de dibujos e historial. `drawings/composition.py` limita los colaboradores
@@ -295,17 +301,26 @@ falta de un Vault activo como ausencia de una raíz de adjuntos en la nube.
 El orden de las rutas de registro y tablas, los bloqueos, las cachés y los
 candidatos a adjuntos específicos de cada proveedor permanecen sin cambios.
 
-La API principal del Vault reutiliza un único router tipado para los campos
-virtuales, el estado del índice, las notas diarias y la agregación de etiquetas.
-Las etiquetas de usuario para visualización cruzan la capa heredada de
-descriptores del ORM como cadenas concretas, conservando el orden de preferencia
-existente: nombre, correo electrónico e identificador.
+La API principal del Vault importa directamente el router y los servicios y
+limita sus colaboradores de resolución tardía a `CoreVaultPort`. La creación de
+páginas admite metadatos abiertos sin coerciones; la inserción en el índice
+actualiza el propietario existente de la caché. Los nombres de usuario conservan
+las alternativas de nombre, correo e identificador. La creación de notas diarias
+pasa el usuario del espacio de trabajo ya autorizado al servicio canónico, en
+vez de llamar a un manejador HTTP con una dependencia pendiente de resolver.
+Los callbacks explícitos de plugins conservan sus dos argumentos históricos.
+Los permisos, controles de plugins, recuperación de notas existentes, bloqueo
+de creación y esquemas HTTP públicos no cambian.
 
-El formato de las citas y el registro de exportaciones ahora pasan por un único
-router tipado, mientras que la detección, serialización y normalización de
-formatos de referencias devuelven directamente sus contratos nativos estrictos
-de cadenas. Los formatos de exportación, la resolución de citas y el
-comportamiento ante errores de Pandoc permanecen estables.
+La composición de formato, búsqueda, catálogo y exportación de citas utiliza
+contratos explícitos de registros y callbacks sin conversiones de resultados.
+Las propiedades del registro conservan su identidad; los consumidores de lectura
+admiten interfaces de mapeo y secuencia. Las referencias importadas reciben el
+contexto del usuario autorizado cuando usan el manejador canónico de páginas;
+los callbacks tardíos de dos argumentos siguen admitidos. La deduplicación,
+formatos, descargas y errores de Pandoc no cambian. La validación temporal guarda
+la designación de la tabla bibliográfica únicamente en el directorio de datos
+aislado; la configuración heredada habitual se conserva hasta su migración explícita.
 
 La consulta de metadatos, el reconocimiento de PDF, la traducción de URL, la
 promoción de Zotero, las actualizaciones masivas y el registro del catálogo y

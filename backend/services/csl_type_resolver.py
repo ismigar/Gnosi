@@ -88,7 +88,7 @@ LEGACY_TYPE_TO_ZOTERO: dict[str, str] = {
 }
 
 
-def resolve_csl_type(raw: str) -> str:
+def resolve_csl_type(raw: object) -> str:
     if not raw or not isinstance(raw, str):
         return "document"
     if raw in LEGACY_TYPE_ALIASES:

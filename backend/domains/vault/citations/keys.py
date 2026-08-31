@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
 
 from backend.domains.vault.citations.authors import parse_authors_to_csl
-
 
 ORG_KEY_STOPWORDS = {
     "de",
@@ -46,7 +44,7 @@ def normalize_key_part(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", normalized.lower())
 
 
-def first_author_family(authors: Any) -> str:
+def first_author_family(authors: object) -> str:
     if isinstance(authors, list):
         for author in authors:
             if not isinstance(author, dict):
@@ -127,8 +125,8 @@ def alpha_suffix(index: int) -> str:
 
 
 def generate_citation_key(
-    authors: Any,
-    year: Any,
+    authors: object,
+    year: object,
     title: str = "",
     existing: set[str] | None = None,
 ) -> str:
@@ -156,7 +154,7 @@ def generate_citation_key(
 
 def existing_citation_keys(
     active_vault_path: Callable[[], str | Path | None],
-    ensure_index: Callable[[str], dict[str, object]],
+    ensure_index: Callable[[str], Mapping[str, object]],
 ) -> set[str]:
     try:
         vault_path = active_vault_path()
@@ -168,9 +166,9 @@ def existing_citation_keys(
 
 
 def inject_citation_key(
-    suggested: dict[str, Any],
+    suggested: dict[str, object],
     occupied: set[str],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     if not suggested or suggested.get("Citation Key"):
         return suggested
     citation_key = generate_citation_key(

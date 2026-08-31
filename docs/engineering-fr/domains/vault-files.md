@@ -24,6 +24,9 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_vault_core_typed_composition.py
+  - backend/tests/test_vault_media_typed_composition.py
+  - backend/tests/test_vault_citation_export_typed_composition.py
   - backend/tests/test_drawing_typed_composition.py
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -164,12 +167,14 @@ pour les racines, les parcours, les requêtes, les téléversements, les donnée
 et les informations sérialisées des fichiers. Les modules du domaine n'importent
 jamais le routeur HTTP ni la façade de compatibilité.
 
-Le module HTTP transitoire des médias précise une seule fois le type du routeur
-historique importé dynamiquement en le ramenant à un `APIRouter` concret. Les
-décorateurs de routes et les enregistrements délégués de ressources, fichiers,
-icônes et propriétés utilisent tous cette même instance typée, préservant
-l'ordre d'enregistrement et le contrat OpenAPI sans disperser les exceptions
-de typage dans les gestionnaires individuels.
+Les routes HTTP des médias importent directement le routeur partagé et les
+services stables. `media/composition.py` préserve la résolution tardive du service
+et des callbacks de duplication par des interfaces nommées ; les jetons de
+fichier et verrous gardent leurs propriétaires canoniques. Le service concret
+est vérifié contre le contrat des routes sans conversion des résultats.
+Les valeurs JSON du fournisseur restent inchangées pour les clients Python ;
+les modèles HTTP existants valident la réponse publique. La conversion unique
+de façade et les annotations historiques des métadonnées restent une dette explicite.
 
 Les routes de dessins importent directement le routeur partagé et les services
 typés de dessins et d'historique. `drawings/composition.py` limite les collaborateurs
@@ -302,17 +307,27 @@ une absence de racine des pièces jointes cloud. L'ordre des routes de registre
 et de tables, le verrouillage, les caches et les candidats de pièces jointes
 propres aux fournisseurs restent inchangés.
 
-L'API centrale du Vault réutilise un routeur typé unique pour les champs
-virtuels, l'état de l'index, les notes quotidiennes et l'agrégation des
-étiquettes. Les libellés d'affichage des utilisateurs franchissent la frontière
-des descripteurs ORM historiques sous forme de chaînes concrètes, préservant
-le repli existant du nom vers l'adresse e-mail, puis vers l'identifiant.
+L'API centrale du Vault importe directement son routeur et ses services et
+limite les collaborateurs résolus tardivement à `CoreVaultPort`. La création
+de pages accepte les métadonnées ouvertes sans coercition ; l'insertion dans
+l'index met à jour le propriétaire existant du cache. Les noms d'utilisateur
+conservent le repli du nom vers l'adresse e-mail puis l'identifiant. La création
+de notes quotidiennes transmet l'utilisateur déjà autorisé au service canonique,
+au lieu d'appeler un gestionnaire HTTP avec une dépendance non résolue.
+Les callbacks explicites des plugins conservent leurs deux arguments historiques.
+Les permissions, contrôles de plugins, récupération des notes existantes,
+verrou de création et schémas HTTP publics restent inchangés.
 
-Le formatage des citations et l'enregistrement des exports passent désormais
-par un routeur typé unique, tandis que la détection des formats de références,
-la sérialisation et la normalisation renvoient directement leurs chaînes
-natives strictement typées. Les formats d'export, la résolution des citations
-et le comportement des erreurs Pandoc restent stables.
+La composition du formatage, de la recherche, du catalogue et des exports de
+citations utilise des contrats explicites de données et de callbacks, sans
+conversion des résultats. Les propriétés du registre gardent leur identité ;
+les consommateurs en lecture acceptent des interfaces de mapping et de séquence.
+Les références importées reçoivent le contexte de l'utilisateur autorisé avec
+le gestionnaire canonique ; les callbacks tardifs à deux arguments restent
+compatibles. Déduplication, formats, téléchargements et erreurs Pandoc sont
+inchangés. La validation temporaire conserve la désignation de la table
+bibliographique uniquement dans son répertoire de données isolé ; la configuration
+historique normale est préservée jusqu'à sa migration explicite.
 
 La recherche de métadonnées, la reconnaissance PDF, la traduction d'URL, la
 promotion Zotero, les mises à jour en lot et l'enregistrement des catalogues et

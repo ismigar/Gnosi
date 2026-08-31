@@ -24,6 +24,9 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_vault_core_typed_composition.py
+  - backend/tests/test_vault_media_typed_composition.py
+  - backend/tests/test_vault_citation_export_typed_composition.py
   - backend/tests/test_drawing_typed_composition.py
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -145,11 +148,13 @@ uses the typed media contracts for roots, scans, queries, uploads, EXIF data and
 serialized file information. Domain modules never import the HTTP router or
 the compatibility facade.
 
-The transitional media HTTP module narrows the dynamically imported legacy
-router once to a concrete `APIRouter`. Route decorators and delegated asset,
-file, icon and property registrations all use that same typed instance, keeping
-registration order and the OpenAPI contract stable without scattering type
-exceptions across individual handlers.
+Media HTTP routes import the shared router and stable services directly.
+`media/composition.py` preserves late lookup of the service and duplicate-page
+callbacks through named ports; file tokens and locks retain their canonical
+owners. The concrete media service is checked against its route-side contract
+without casting results. Provider JSON leaves remain unchanged for direct
+callers, while the existing HTTP models validate the public response. The single
+facade cast and upstream legacy metadata annotations remain explicit debt.
 
 Drawing routes import the shared router and typed drawing/history services
 directly. `drawings/composition.py` limits remaining late-bound collaborators to
@@ -252,15 +257,23 @@ context-manager decorator for mutation cycles and treats a missing active Vault
 as an absent cloud attachment root. Registry/table route order, locking, caches
 and provider-specific attachment candidates remain unchanged.
 
-The core Vault API reuses one typed router for virtual fields, index status,
-daily notes and tag aggregation. User display labels cross the legacy ORM
-descriptor boundary as concrete strings, preserving the existing fallback from
-name to email to identifier.
+The core Vault API imports its router and services directly and limits remaining
+late-bound collaborators to `CoreVaultPort`. Page creation accepts open metadata
+without coercion; index insertion updates the existing cache owner. User labels
+retain the name, email and identifier fallback. Daily-note creation carries the
+already-authorized workspace user into the canonical page service, rather than
+calling an HTTP handler with an unresolved dependency default. Explicit plugin
+overrides retain their historical two-argument signature. Role and plugin checks,
+existing-note retrieval, the creation lock and public HTTP schemas are unchanged.
 
-Citation formatting and export registration now cross one typed router, while
-reference format detection, serialization and normalization return their native
-strict string contracts directly. Export formats, citation resolution and
-Pandoc error behavior remain stable.
+Citation formatting, search, catalog and export composition use explicit record
+and callable contracts without result casts. Registry properties retain their
+identity; read-only consumers accept mapping/sequence interfaces. Imported
+references receive the authorized user's context when using the canonical page
+handler, while late two-argument overrides remain supported. Deduplication,
+formats, downloads and Pandoc error behavior are unchanged. Disposable validation
+stores the references-table designation only under its isolated data directory;
+normal legacy configuration remains unchanged pending its explicit data migration.
 
 Metadata lookup, PDF recognition, URL translation, Zotero promotion, bulk
 updates and citation catalog/search registration share that same narrowed HTTP

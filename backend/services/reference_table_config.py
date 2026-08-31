@@ -22,12 +22,16 @@ live code ignores them): `enabled`, `mapping`, `last_sync_*`, `existing_pages_st
 `zotero_db`. We don't reproduce them in `DEFAULT_CONFIG` because merging the
 defaults would be semantically false.
 """
+
 from __future__ import annotations
 
 import json
 import threading
 from pathlib import Path
 from typing import Any
+
+from backend.config.data_dir import resolve_data_dir
+from backend.config.validation_runtime import validation_runtime_enabled
 
 # Serializes the WHOLE load→modify→save cycle of the config. There are two writers
 # independent: the designation from Settings (`_set_reference_table_id`) and
@@ -37,7 +41,16 @@ from typing import Any
 cfg_lock = threading.Lock()
 
 _BASE_DIR = Path(__file__).resolve().parents[2]
-CONFIG_PATH = _BASE_DIR / "pipeline/skills/zotero_sync/zotero_db_config.json"
+
+
+def _config_path() -> Path:
+    """Keep disposable validation independent of legacy repository state."""
+    if validation_runtime_enabled():
+        return resolve_data_dir() / "config" / "references.json"
+    return _BASE_DIR / "pipeline/skills/zotero_sync/zotero_db_config.json"
+
+
+CONFIG_PATH = _config_path()
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "target_table": "",
@@ -60,4 +73,5 @@ def save_json(path: Path, data: Any) -> None:
     """Writes a JSON atomically (avoids corruption mid-write)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     from backend.utils.safe_io import safe_write_json
+
     safe_write_json(path, data, indent=2, ensure_ascii=False)

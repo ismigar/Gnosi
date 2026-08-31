@@ -7,8 +7,8 @@ from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
+from backend.domains.vault.citations.export_contracts import ReferenceRegistry, ReferenceTable
 
 Metadata = dict[str, object]
 
@@ -20,17 +20,16 @@ class ReferenceConfigurationDependencies:
     config_path: Path
     defaults: Metadata
     config_lock: AbstractContextManager[object]
-    load_json: Callable[[Path, Metadata], object]
+    load_json: Callable[[Path, Metadata], Mapping[str, object] | None]
     save_json: Callable[[Path, Metadata], None]
-    load_registry: Callable[[], Metadata]
-    citation_key_property: Callable[[Metadata], str | None]
+    load_registry: Callable[[], ReferenceRegistry]
+    citation_key_property: Callable[[ReferenceTable], str | None]
     logger: logging.Logger
 
 
 def _config(dependencies: ReferenceConfigurationDependencies) -> Metadata:
     loaded = dependencies.load_json(dependencies.config_path, {}) or {}
-    values = cast(Mapping[str, object], loaded)
-    return {**dependencies.defaults, **values}
+    return {**dependencies.defaults, **loaded}
 
 
 def _configured_target(config: Metadata) -> str | None:
@@ -39,23 +38,22 @@ def _configured_target(config: Metadata) -> str | None:
 
 
 def _citable_table(
-    registry: Metadata,
+    registry: ReferenceRegistry,
     dependencies: ReferenceConfigurationDependencies,
-) -> Metadata | None:
+) -> ReferenceTable | None:
     tables = registry.get("tables")
     if not isinstance(tables, list):
         return None
     for raw_table in tables:
         if not isinstance(raw_table, dict):
             continue
-        table = cast(Metadata, raw_table)
-        if dependencies.citation_key_property(table):
-            return table
+        if dependencies.citation_key_property(raw_table):
+            return raw_table
     return None
 
 
 def _adopt_table(
-    table: Metadata,
+    table: ReferenceTable,
     dependencies: ReferenceConfigurationDependencies,
 ) -> str | None:
     adopted = str(table.get("id") or "").strip()

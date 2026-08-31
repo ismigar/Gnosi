@@ -2,21 +2,27 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Protocol
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 
 from backend.domains.vault.pages.create_service import (
     CreatePageDependencies,
+)
+from backend.domains.vault.pages.create_service import (
     create_page as create_page_service,
 )
 from backend.domains.vault.pages.patch_service import (
     PatchPageDependencies,
+)
+from backend.domains.vault.pages.patch_service import (
     patch_page as patch_page_service,
 )
 from backend.domains.vault.pages.save_service import (
     SavePageDependencies,
+)
+from backend.domains.vault.pages.save_service import (
     save_page as save_page_service,
 )
 from backend.domains.vault.schemas.pages import (
@@ -30,10 +36,17 @@ class UserContext(Protocol):
     user_id: str
 
 
-CreateHandler = Callable[
-    [PageSaveRequest, BackgroundTasks, UserContext],
-    object,
-]
+class CreateHandler(Protocol):
+    """Actual async route signature, including its optional injected context."""
+
+    def __call__(
+        self,
+        request: PageSaveRequest,
+        background_tasks: BackgroundTasks,
+        context: UserContext = ...,
+    ) -> Awaitable[dict[str, object]]: ...
+
+
 SaveHandler = Callable[
     [str, PageSaveRequest, BackgroundTasks, UserContext],
     object,

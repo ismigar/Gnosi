@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Mapping
 from typing import cast
 
 from backend.domains.vault.tables.catalogs.types import Metadata, Option
@@ -78,14 +79,16 @@ def option_names(options: object) -> list[str]:
     return [str(option["name"]) for option in normalize_options(options)]
 
 
-def get_prop_config(prop: Metadata) -> Metadata:
+def get_prop_config(prop: Mapping[str, object]) -> dict[str, object]:
     config = prop.get("config")
-    return cast(Metadata, config) if isinstance(config, dict) else {}
+    if isinstance(config, dict):
+        return config
+    return {}
 
 
 def get_prop_options(
-    prop: Metadata,
-    option_catalogs: Metadata | None = None,
+    prop: Mapping[str, object],
+    option_catalogs: Mapping[str, object] | None = None,
 ) -> list[Option]:
     """Return effective shared, nested or legacy property options."""
     config = get_prop_config(prop)

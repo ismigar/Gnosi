@@ -7,13 +7,12 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
 
 from backend.domains.vault.schemas.pages import PageSaveRequest
 
-Metadata = dict[str, Any]
+Metadata = dict[str, object]
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +58,7 @@ async def _prepare_metadata(
     user_id: str | None,
     dependencies: CreatePageDependencies,
 ) -> Metadata:
-    metadata = request.metadata.copy()
+    metadata: Metadata = request.metadata.copy()
     metadata["id"] = page_id
     metadata = dependencies.normalize_metadata(metadata)
     metadata, table = dependencies.prepare_table_metadata(metadata)

@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from backend.domains.vault.citations import io_api
 from backend.domains.vault.schemas.pages import PageSaveRequest
+from backend.services.workspace_service import WorkspaceContext, get_workspace_context
 
 
 def _dependencies(tmp_path: Path) -> io_api.ReferencesIoDependencies:
@@ -109,6 +110,12 @@ def test_citation_io_routes_preserve_json_extras_status_and_binary_body(
 ) -> None:
     app = FastAPI()
     app.include_router(_router(tmp_path), prefix="/api/vault")
+    app.dependency_overrides[get_workspace_context] = lambda: WorkspaceContext(
+        "fixture-workspace",
+        "fixture-user",
+        "editor",
+        tmp_path,
+    )
     client = TestClient(app)
 
     imported = client.post(

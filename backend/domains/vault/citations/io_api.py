@@ -4,19 +4,24 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from fastapi.params import Depends as DependsParameter
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict
 
+from backend.domains.vault.citations.export_contracts import (
+    DedupIndexes,
+    Metadata,
+    ReferenceRegistry,
+    ReferenceTable,
+)
 from backend.domains.vault.citations.keys import generate_citation_key
 from backend.domains.vault.schemas.pages import PageSaveRequest
-
+from backend.services.workspace_service import WorkspaceContext, get_workspace_context
 
 log = logging.getLogger(__name__)
 
@@ -70,34 +75,32 @@ class CslStylesResponse(CitationIoResponseModel):
 @dataclass(frozen=True)
 class ReferencesIoDependencies:
     active_vault_path: Callable[[], str | Path | None]
-    load_registry: Callable[[], dict[str, Any]]
-    item_type_catalog_names: Callable[[dict[str, Any], dict[str, Any]], list[str]]
+    load_registry: Callable[[], ReferenceRegistry]
+    item_type_catalog_names: Callable[[ReferenceTable, ReferenceRegistry], list[str]]
     resolve_existing_keys: Callable[[], Callable[[], set[str]]]
     normalize_item_type: Callable[[str, list[str]], str]
-    resolve_ensure_index: Callable[[], Callable[[str], dict[str, dict[str, Any]]]]
+    resolve_ensure_index: Callable[[], Callable[[str], dict[str, Metadata]]]
     find_page: Callable[[str], Path | None]
-    parse_frontmatter: Callable[[str, Path], tuple[dict[str, Any], str]]
+    parse_frontmatter: Callable[[str, Path], tuple[Metadata, str]]
     normalize_doi: Callable[[str], str | None]
     normalize_isbn: Callable[[str], str | None]
     normalize_title: Callable[[object], str]
     detect_format: Callable[[str], str]
-    parse_references: Callable[[str, str], list[dict[str, Any]]]
-    serialize_references: Callable[[list[dict[str, Any]], str], str]
-    find_existing_match: Callable[
-        [dict[str, Any], dict[str, Any], set[str]], tuple[str, str] | None
-    ]
-    add_to_indexes: Callable[[dict[str, Any], str, dict[str, Any]], None]
+    parse_references: Callable[[str, str], list[Metadata]]
+    serialize_references: Callable[[list[Metadata], str], str]
+    find_existing_match: Callable[[Metadata, DedupIndexes, set[str]], tuple[str, str] | None]
+    add_to_indexes: Callable[[Metadata, str, DedupIndexes], None]
     resolve_create_page: Callable[
         [],
         Callable[
             [PageSaveRequest, BackgroundTasks],
-            Awaitable[dict[str, Any]],
+            Awaitable[Metadata],
         ],
     ]
     resolve_invalidate_index: Callable[[], Callable[[], None]]
     page_snapshot: Callable[[], list[object]]
-    list_styles: Callable[[], list[dict[str, Any]]]
-    save_uploaded_style: Callable[[bytes, str], dict[str, Any]]
+    list_styles: Callable[[], Sequence[Mapping[str, object]]]
+    save_uploaded_style: Callable[[bytes, str], Mapping[str, object]]
 
 
 def build_dedup_indexes(
@@ -141,8 +144,8 @@ def collect_table_reference_metas(
     table_id: str,
     wanted: set[str] | None,
     dependencies: ReferencesIoDependencies,
-) -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
+) -> list[Metadata]:
+    result: list[Metadata] = []
     for page in dependencies.page_snapshot():
         if getattr(page, "resolved_table_id", None) != table_id:
             continue
@@ -169,6 +172,25 @@ def collect_table_reference_metas(
     return result
 
 
+async def _create_imported_page(
+    create: Callable[[PageSaveRequest, BackgroundTasks], Awaitable[Metadata]],
+    request: PageSaveRequest,
+    background_tasks: BackgroundTasks,
+    context: WorkspaceContext,
+) -> Metadata:
+    """Pass the authenticated context only to the canonical HTTP handler.
+
+    Legacy plugins/tests may replace the facade callback with a two-argument
+    function. Resolve it once per entry, just as before, and retain that call.
+    Import locally: core composition registers before this citation module.
+    """
+    from backend.domains.vault.api import core_routes
+
+    if create is core_routes.create_page:
+        return await core_routes.create_page(request, background_tasks, context)
+    return await create(request, background_tasks)
+
+
 def register_import_route(
     router: APIRouter,
     *,
@@ -180,6 +202,7 @@ def register_import_route(
         file: UploadFile = File(...),
         table_id: str = Query(...),
         fmt: str = Query("auto"),
+        context: WorkspaceContext = Depends(get_workspace_context),
     ) -> dict[str, object]:
         """Imports a .bib/.ris file, creating pages in the `table_id` table.
 
@@ -236,7 +259,7 @@ def register_import_route(
         item_type_catalog = dependencies.item_type_catalog_names(table, registry)
         vault_keys = dependencies.resolve_existing_keys()()
         vault_path = dependencies.active_vault_path()
-        dedup: dict[str, Any] = (
+        dedup: DedupIndexes = (
             build_dedup_indexes(str(vault_path), dependencies)
             if vault_path
             else {"doi": {}, "isbn": {}, "title": {}}
@@ -282,9 +305,11 @@ def register_import_route(
                 metadata["database_table_id"] = table_id
                 metadata["table_id"] = table_id
                 request = PageSaveRequest(title=title, content="", metadata=metadata)
-                result = await dependencies.resolve_create_page()(
+                result = await _create_imported_page(
+                    dependencies.resolve_create_page(),
                     request,
                     background_tasks,
+                    context,
                 )
                 created.append(
                     {
@@ -343,7 +368,7 @@ def register_catalog_export_routes(
         """
         return {"styles": dependencies.list_styles()}
 
-    async def upload_csl_style(file: UploadFile = File(...)) -> dict[str, Any]:
+    async def upload_csl_style(file: UploadFile = File(...)) -> Mapping[str, object]:
         """Uploads a CSL (`.csl`) file to the catalog.
 
         Validates that it's well-formed CSL XML (root `<style>`, reasonable size),

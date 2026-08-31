@@ -24,6 +24,9 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_vault_core_typed_composition.py
+  - backend/tests/test_vault_media_typed_composition.py
+  - backend/tests/test_vault_citation_export_typed_composition.py
   - backend/tests/test_drawing_typed_composition.py
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -160,12 +163,14 @@ tipats per a arrels, escanejos, consultes, pujades, dades EXIF i informació
 serialitzada dels fitxers. Els mòduls de domini no importen mai l'encaminador
 HTTP ni la façana de compatibilitat.
 
-El mòdul HTTP transitori de multimèdia concreta una sola vegada el tipus de
-l'encaminador heretat importat dinàmicament com a `APIRouter`. Els decoradors
-de rutes i els registres delegats de recursos, fitxers, icones i propietats
-utilitzen aquesta mateixa instància tipada, cosa que manté estables l'ordre de
-registre i el contracte OpenAPI sense dispersar excepcions de tipus entre
-gestors individuals.
+Les rutes HTTP multimèdia importen directament l'encaminador compartit i els
+serveis estables. `media/composition.py` conserva la resolució tardana del servei
+i dels callbacks de duplicació mitjançant ports amb nom; els tokens de fitxer i
+els bloquejos mantenen els seus propietaris canònics. El servei concret es
+comprova contra el contracte de les rutes sense conversions de resultats.
+Els valors JSON del proveïdor no canvien per als clients Python, mentre que els
+models HTTP existents validen la resposta pública. La conversió única de façana
+i les anotacions heretades de metadades continuen sent deute explícit.
 
 Les rutes de dibuixos importen directament l'encaminador compartit i els serveis
 tipats de dibuixos i historial. `drawings/composition.py` limita els col·laboradors
@@ -300,17 +305,26 @@ actiu com l'absència d'una arrel d'adjunts del núvol. L'ordre de les rutes de
 registre i taules, els bloquejos, les memòries cau i els candidats d'adjunts
 específics de cada proveïdor no canvien.
 
-L'API principal de Vault reutilitza un únic encaminador tipat per als camps
-virtuals, l'estat de l'índex, les notes diàries i l'agregació d'etiquetes. Les
-etiquetes de visualització d'usuari travessen el límit dels descriptors de
-l'ORM heretat com a cadenes concretes, tot preservant l'alternativa existent:
-del nom al correu electrònic i, finalment, a l'identificador.
+L'API principal de Vault importa directament l'encaminador i els serveis i
+limita els col·laboradors de vinculació tardana a `CoreVaultPort`. La creació
+de pàgines admet metadades obertes sense coercions; la inserció a l'índex
+actualitza el propietari existent de la memòria cau. Els noms d'usuari conserven
+l'alternativa de nom, correu i identificador. La creació de notes diàries passa
+l'usuari de l'espai de treball ja autoritzat al servei canònic de pàgines, en
+lloc d'invocar un gestor HTTP amb una dependència pendent de resoldre. Els
+callbacks explícits dels plugins conserven els dos arguments històrics.
+Els permisos, els controls de plugins, la recuperació de notes existents,
+el bloqueig de creació i els esquemes HTTP públics no canvien.
 
-El format de citacions i el registre d'exportacions ara passen per un únic
-encaminador tipat, mentre que la detecció del format de referències, la
-serialització i la normalització retornen directament els seus contractes
-natius estrictes de cadena. Els formats d'exportació, la resolució de citacions
-i el comportament davant d'errors de Pandoc es mantenen estables.
+La composició del format, la cerca, el catàleg i l'exportació de citacions utilitza
+contractes explícits de registres i callbacks sense conversions de resultats.
+Les propietats del registre conserven la identitat; els consumidors de lectura
+admeten interfícies de mapatge i seqüència. Les referències importades reben el
+context de l'usuari autoritzat quan utilitzen el gestor canònic de pàgines;
+els callbacks tardans de dos arguments continuen admesos. La deduplicació, els
+formats, les descàrregues i els errors de Pandoc no canvien. La validació temporal
+desa la designació de la taula bibliogràfica només al directori de dades aïllat;
+la configuració heretada habitual es conserva fins a la seva migració explícita.
 
 La consulta de metadades, el reconeixement de PDF, la traducció d'URL, la
 promoció de Zotero, les actualitzacions massives i el registre del catàleg i
