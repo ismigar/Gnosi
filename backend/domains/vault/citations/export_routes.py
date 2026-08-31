@@ -8,6 +8,7 @@ import shutil as _shutil
 import subprocess as _ext_subprocess
 import tempfile as _ext_tempfile
 import uuid as _uuid
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from fastapi import Depends, Query
@@ -122,13 +123,15 @@ _CITATION_FORMATTING_DEPENDENCIES = _formatting.FormattingDependencies(
     parse_frontmatter=_vault.parse_frontmatter,
     resolve_csl_type=_resolve_csl_type,
 )
-_CITATION_SEARCH_DEPENDENCIES = _search.CitationSearchDependencies(
-    page_entry_count=_citation_page_entry_count,
-    page_entries=_citation_page_entries,
-    resolve_reference_table_id=lambda: _vault.get_reference_table_id(),
-    canonicalize_id=lambda page_id: _vault._canonicalize_id(page_id),
-    active_vault_path=_vault.get_active_vault_path,
-    resolve_ensure_index=lambda: _vault._ensure_cite_key_index,
+_CITATION_SEARCH_DEPENDENCIES: _search.CitationSearchDependencies = (
+    _search.CitationSearchDependencies(
+        page_entry_count=_citation_page_entry_count,
+        page_entries=_citation_page_entries,
+        resolve_reference_table_id=lambda: _vault.get_reference_table_id(),
+        canonicalize_id=lambda page_id: _vault._canonicalize_id(page_id),
+        active_vault_path=_vault.get_active_vault_path,
+        resolve_ensure_index=lambda: _vault._ensure_cite_key_index,
+    )
 )
 _REFERENCE_API_DEPENDENCIES = _references_api.ReferenceApiDependencies(
     resolve_get_table_id=lambda: _vault.get_reference_table_id,
@@ -139,7 +142,7 @@ _REFERENCE_API_DEPENDENCIES = _references_api.ReferenceApiDependencies(
     resolve_invalidate_index=lambda: _vault._invalidate_cite_key_index,
     resolve_create_table=lambda: _vault.create_table,
 )
-_REFERENCES_IO_DEPENDENCIES = _io_api.ReferencesIoDependencies(
+_REFERENCES_IO_DEPENDENCIES: _io_api.ReferencesIoDependencies = _io_api.ReferencesIoDependencies(
     active_vault_path=_vault.get_active_vault_path,
     load_registry=lambda: _vault.load_registry(),
     item_type_catalog_names=lambda table, registry: _item_type_catalog_names(table, registry),
@@ -402,7 +405,7 @@ def _org_acronym(family: str) -> str:
     return _keys.organization_acronym(family)
 
 
-def _title_token(title: str) -> str:
+def _title_token(title: object) -> str:
     return _keys.title_token(title)
 
 
@@ -411,7 +414,7 @@ def _alpha_suffix(i: int) -> str:
 
 
 def generate_citation_key(
-    authors: object, year: object, title: str = "", existing: set[str] | None = None
+    authors: object, year: object, title: object = "", existing: set[str] | None = None
 ) -> str:
     return _keys.generate_citation_key(authors, year, title, existing)
 
@@ -473,7 +476,7 @@ def _normalize_suggested_item_type(
     return suggested
 
 
-def _citation_key_prop_name(table: ReferenceTable | None) -> str | None:
+def _citation_key_prop_name(table: Mapping[str, object] | None) -> str | None:
     """Actual name of the 'Citation Key' column of a citable table, or None.
 
     Backend mirror of the frontend's `tableHasCitationKey` (VaultDashboard.jsx):
@@ -481,9 +484,20 @@ def _citation_key_prop_name(table: ReferenceTable | None) -> str | None:
     normalized (lowercase, no spaces), is `citationkey`. We return the
     actual name (e.g. 'Citation Key') so we can write to it with the exact key
     read by `_recursos_metadata_to_csl` and the citation index."""
-    for p in (table or {}).get("properties", []) or []:
-        if str(p.get("name") or "").lower().replace(" ", "") == "citationkey":
-            return p.get("name")
+    properties = (table or {}).get("properties", []) or []
+    if not isinstance(properties, Iterable):
+        raise TypeError("Citation table properties must be iterable")
+    raw_property: object
+    for raw_property in properties:
+        if not isinstance(raw_property, Mapping):
+            raise TypeError("Citation table properties must contain mappings")
+        prop: Mapping[object, object] = raw_property
+        name = prop.get("name")
+        if str(name or "").lower().replace(" ", "") == "citationkey":
+            name = prop.get("name")
+            if not isinstance(name, str):
+                raise TypeError("Citation Key property name must be a string")
+            return name
     return None
 
 

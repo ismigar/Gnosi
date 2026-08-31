@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from fastapi.params import File as FileParameter
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 
@@ -51,6 +52,7 @@ def test_pdf_recognition_route_keeps_required_multipart_upload() -> None:
     assert len(route.dependant.body_params) == 1
     upload = route.dependant.body_params[0]
     assert upload.name == "file"
+    assert isinstance(upload.field_info, FileParameter)
     assert upload.field_info.media_type == "multipart/form-data"
 
 
@@ -130,20 +132,20 @@ def test_resource_lookup_models_preserve_historical_json_shapes() -> None:
 def test_lookup_handler_keeps_mapping_semantics_for_internal_consumers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from backend.domains.vault.citations import lookup_routes
+    from backend.domains.vault.citations import lookup_routes, metadata_lookup
 
-    payload = {
+    payload: metadata_lookup.LookupResponse = {
         "source": "crossref",
         "identifier": "10.1000/typed",
         "suggested": {"Title": "A typed resource"},
         "error": None,
     }
 
-    async def fake_resolve_metadata(*_args: object) -> dict[str, object]:
+    async def fake_resolve_metadata(*_args: object) -> metadata_lookup.LookupResponse:
         return payload
 
     monkeypatch.setattr(
-        lookup_routes._legacy.metadata_lookup,
+        metadata_lookup,
         "resolve_metadata",
         fake_resolve_metadata,
     )

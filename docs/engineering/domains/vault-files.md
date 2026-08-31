@@ -27,6 +27,8 @@ tests:
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
+  - backend/tests/test_vault_citation_lookup_typed_composition.py
+  - backend/tests/test_citation_shared_lookup_contracts.py
   - backend/tests/test_drawing_typed_composition.py
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -141,8 +143,8 @@ extraction, and stable file serialization. `backend/services/media_service.py`
 remains the compatible Python facade: it preserves the historical class,
 singleton, callable shape, descriptors, state and errors while resolving
 mutable state and replaceable collaborators late. Its internal constructor now
-has an explicit `None` return annotation, removing the final handwritten
-backend typing exception without changing construction behavior. The facade
+has an explicit `None` return annotation, removing its former constructor
+typing exception without changing construction behavior. The facade
 validates that an active vault exists before crossing a filesystem boundary and
 uses the typed media contracts for roots, scans, queries, uploads, EXIF data and
 serialized file information. Domain modules never import the HTTP router or
@@ -194,7 +196,7 @@ from the table domain on the broad legacy authentication composition. The
 legacy router registers the domain routes flat for compatibility with route
 inventory consumers and re-exports the supported Python callables.
 
-`backend/api/vault_routes.py` is now a 283-line compatibility bootstrap rather
+`backend/api/vault_routes.py` is a compatibility bootstrap rather
 than an implementation owner. Typed modules under `backend/domains/vault`
 own the remaining API, annotation, citation, drawing, Drupal, file, knowledge,
 link, media, page, registry, table, and translation behavior. The bootstrap
@@ -282,6 +284,15 @@ Metadata lookup, PDF recognition, URL translation, Zotero promotion, bulk
 updates and citation catalog/search registration share that same narrowed HTTP
 boundary. Provider fallbacks, editor permissions and citation-key uniqueness
 remain late-bound and behavior-compatible.
+
+Citation lookup uses direct service imports and checked aliases of the actual
+callback owners under `TYPE_CHECKING`; runtime overrides remain late-bound. No
+module or result cast is needed for this composition. Tests verify both import
+orders, exact HTTP schemas, callback replacement during a lookup and preservation
+of unknown metadata. Citation title fallback retains Python's native errors via
+`citations/title_regex.py`; its single documented type-check exception applies
+only to native validation of invalid input, never to returned application data.
+Remaining legacy types in upstream registry/page providers are separate debt.
 
 Markdown import, inline comments, synchronized blocks, link navigation and
 unlinked mentions share a typed page-synchronization router. Request models use

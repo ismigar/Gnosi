@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 21 | 71 |
 | Vitest | 479 | 1961 |
-| pytest | 358 | 2439 |
+| pytest | 359 | 2440 |
 
 ## Fitxers
 
@@ -580,6 +580,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_carddav_vcard_unfold.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_carddav_vcard_unfold.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_citation_io_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_io_response_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_citation_key_and_pubmed.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_key_and_pubmed.py) | 41 | Python AST |
+| pytest | [`backend/tests/test_citation_shared_lookup_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_shared_lookup_contracts.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_cleanup_notion_views.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_cleanup_notion_views.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_comments_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_comments_race.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_config_language_locale.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_config_language_locale.py) | 1 | Python AST |

@@ -13,7 +13,58 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, cast
+
+if TYPE_CHECKING:
+    # Checked aliases of the actual owners, not fabricated Protocol signatures.
+    # Runtime __getattr__ below retains late binding and legacy override behavior.
+    from backend.domains.vault.api.configuration_routes import (
+        find_page_path as find_page_path,
+        get_table_id as get_table_id,
+    )
+    from backend.domains.vault.citations.export_routes import (
+        _CITATION_SEARCH_DEPENDENCIES as _CITATION_SEARCH_DEPENDENCIES,
+        _REFERENCES_IO_DEPENDENCIES as _REFERENCES_IO_DEPENDENCIES,
+        _alpha_suffix as _alpha_suffix,
+        _arxiv_to_recursos as _arxiv_to_recursos,
+        _citation_key_prop_name as _citation_key_prop_name,
+        _crossref_to_recursos as _crossref_to_recursos,
+        _existing_citation_keys as _existing_citation_keys,
+        _find_structured_authors as _find_structured_authors,
+        _html_meta_to_recursos as _html_meta_to_recursos,
+        _http_get as _http_get,
+        _http_get_public as _http_get_public,
+        _inject_citation_key as _inject_citation_key,
+        _normalize_arxiv as _normalize_arxiv,
+        _normalize_doi as _normalize_doi,
+        _normalize_isbn as _normalize_isbn,
+        _normalize_suggested_item_type as _normalize_suggested_item_type,
+        _openlibrary_to_recursos as _openlibrary_to_recursos,
+        _parse_authors_to_csl as _parse_authors_to_csl,
+        generate_citation_key as generate_citation_key,
+        get_reference_table_id as get_reference_table_id,
+    )
+    from backend.domains.vault.citations.lookup_routes import (
+        _ensure_cite_key_index as _ensure_cite_key_index,
+    )
+    from backend.domains.vault.citations.state import citation_index_state as citation_index_state
+    from backend.domains.vault.pages import cache as _typed_page_cache
+    from backend.domains.vault.pages import index_service as _typed_page_index
+    from backend.domains.vault.pages.foundation import (
+        parse_frontmatter as parse_frontmatter,
+        save_page_md as save_page_md,
+    )
+    from backend.domains.vault.registry.runtime import (
+        load_registry as load_registry,
+        registry_mutation as registry_mutation,
+        save_registry as save_registry,
+    )
+    from backend.domains.vault.tables.legacy_composition import _table_by_id as _table_by_id
+
+    _get_page_write_lock = _typed_page_cache.get_page_write_lock
+    _pages_cache_invalidate_all = _typed_page_cache.invalidate_page_responses
+    _get_pages_snapshot = _typed_page_index.get_pages_snapshot
+    _refresh_page_index_entry = _typed_page_index.refresh_page_index_entry
 
 import requests
 import yaml
@@ -129,7 +180,7 @@ from backend.services.vault_routing import canonical_vault_browser_path
 from backend.services.workspace_service import get_workspace_context, require_role
 from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import (
-    file_etag,
+    file_etag as file_etag,
     file_mtime_ns,
     safe_write_bytes,
     safe_write_json,

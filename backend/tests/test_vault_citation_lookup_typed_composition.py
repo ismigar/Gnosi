@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import ast
 import importlib
 import json
 import os
@@ -37,7 +38,8 @@ LOOKUP_PATHS = (
 )
 
 
-def test_citation_lookup_composition_in_isolated_subprocess() -> None:
+@pytest.mark.parametrize("first_module", ["facade", "lookup"])
+def test_citation_lookup_composition_in_isolated_subprocess(first_module: str) -> None:
     with tempfile.TemporaryDirectory(prefix="gnosi-lookup-composition-") as temporary:
         root = Path(temporary).resolve()
         for name in ("data", "vault", "host"):
@@ -56,6 +58,7 @@ def test_citation_lookup_composition_in_isolated_subprocess() -> None:
             "GNOSI_RUN_LIVE_E2E": "0",
             "GNOSI_REQUIRE_AUTH": "1",
             "GNOSI_JWT_SECRET": "synthetic-lookup-fixture-not-an-account-key",
+            "GNOSI_LOOKUP_IMPORT_FIRST": first_module,
         }
         result = subprocess.run(
             [
@@ -113,11 +116,152 @@ def isolated_backend() -> Iterator[None]:
         guard.setattr(socket, "create_connection", forbidden)
         guard.setattr(socket.socket, "connect", forbidden)
         guard.setattr(subprocess, "Popen", forbidden)
-        importlib.import_module("backend.api.vault_routes")
+        first_module = (
+            "backend.domains.vault.citations.lookup_routes"
+            if os.environ["GNOSI_LOOKUP_IMPORT_FIRST"] == "lookup"
+            else "backend.api.vault_routes"
+        )
+        importlib.import_module(first_module)
         from backend.config.validation_runtime import validation_runtime_enabled
 
         assert validation_runtime_enabled()
         yield
+
+
+def check_checked_facade_aliases_match_runtime_owners(isolated_backend: None) -> None:
+    """Every type-only claim must match the real export, in both import orders."""
+    from backend.api import vault_routes as facade
+
+    source = ast.parse((ROOT / "backend/api/vault_routes.py").read_text())
+    block = next(
+        statement
+        for statement in source.body
+        if isinstance(statement, ast.If)
+        and isinstance(statement.test, ast.Name)
+        and statement.test.id == "TYPE_CHECKING"
+    )
+    modules: dict[str, object] = {}
+    declared: set[str] = set()
+    for statement in block.body:
+        if isinstance(statement, ast.ImportFrom):
+            assert statement.module is not None
+            owner = importlib.import_module(statement.module)
+            for alias in statement.names:
+                name = alias.asname or alias.name
+                value = getattr(owner, alias.name)
+                if name.startswith("_typed_"):
+                    modules[name] = value
+                else:
+                    assert getattr(facade, name) is value, name
+                    declared.add(name)
+        elif isinstance(statement, ast.Assign):
+            assert len(statement.targets) == 1
+            target = statement.targets[0]
+            value = statement.value
+            assert isinstance(target, ast.Name)
+            assert isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name)
+            expected = getattr(modules[value.value.id], value.attr)
+            assert getattr(facade, target.id) is expected, target.id
+            declared.add(target.id)
+    lookup = ast.parse((ROOT / "backend/domains/vault/citations/lookup_routes.py").read_text())
+    used = {
+        node.attr
+        for node in ast.walk(lookup)
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "_vault"
+    }
+    # file_etag is an explicit real import; every dynamic dependency is checked.
+    from backend.utils.safe_io import file_etag
+
+    assert facade.file_etag is file_etag
+    assert used <= declared | {"file_etag"}
+
+
+def check_lookup_keeps_late_provider_mapping_and_unknown_values(
+    isolated_backend: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backend.api import vault_routes as facade
+    from backend.domains.vault.citations import lookup_routes as routes
+
+    extension = {"opaque": [False, 0, None, {"label": "Mercè"}]}
+    metadata: dict[str, object] = {"Title": "Synthetic bibliography", "extension": extension}
+    calls: list[str] = []
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("Only the selected provider may be invoked")
+
+    def normalize(value: dict[str, object]) -> dict[str, object]:
+        assert value is metadata and value["extension"] is extension
+        calls.append("normalize")
+        value["Item Type"] = "document"
+        return value
+
+    def inject(value: dict[str, object]) -> dict[str, object]:
+        assert value is metadata
+        calls.append("key")
+        value["Citation Key"] = "synthetic2026"
+        monkeypatch.setattr(facade, "_normalize_suggested_item_type", normalize)
+        return value
+
+    def map_work(work: dict[str, object]) -> dict[str, object]:
+        assert work == {"title": "provider"}
+        calls.append("map")
+        monkeypatch.setattr(facade, "_inject_citation_key", inject)
+        return metadata
+
+    def fetch(url: str) -> str:
+        assert url == "https://api.crossref.org/works/10.1234/synthetic"
+        calls.append("fetch")
+        monkeypatch.setattr(facade, "_crossref_to_recursos", map_work)
+        return json.dumps({"message": {"title": "provider"}})
+
+    for name in (
+        "_crossref_to_recursos",
+        "_inject_citation_key",
+        "_normalize_suggested_item_type",
+        "_http_get_public",
+    ):
+        monkeypatch.setattr(facade, name, forbidden)
+    monkeypatch.setattr(facade, "_http_get", fetch)
+    result = asyncio.run(routes.lookup_metadata({"doi": "10.1234/synthetic"}))
+    assert result == {
+        "source": "crossref",
+        "identifier": "10.1234/synthetic",
+        "suggested": metadata,
+        "error": None,
+    }
+    assert result["suggested"] is metadata
+    assert metadata["extension"] is extension
+    assert calls == ["fetch", "map", "key", "normalize"]
+
+
+def check_authorship_preserves_property_and_extension_identity(
+    isolated_backend: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backend.api import vault_routes as facade
+    from backend.domains.vault.citations import lookup_routes as routes
+
+    property_definition = MappingProxyType({"type": "autoria", "name": "Autoría"})
+    table: dict[str, object] = {"properties": (property_definition,)}
+    assert routes._reference_autoria_prop(table) is property_definition
+    monkeypatch.setattr(facade, "get_reference_table_id", lambda: "refs")
+    monkeypatch.setattr(facade, "get_table_id", lambda metadata: "refs")
+    extension: list[object] = [False, None, {"nested": [0, ""]}]
+    metadata: dict[str, object] = {"Authors": "Rodoreda, Mercè", "extension": extension}
+    assert routes._fill_autoria_from_authors(metadata, table) is metadata
+    assert metadata == {
+        "Autoría": [{"nom": "Mercè", "cognom1": "Rodoreda", "cognom2": ""}],
+        "extension": extension,
+    }
+    assert metadata["extension"] is extension
+    authors = metadata["Autoría"]
+    metadata["Authors"] = "Roig, Montserrat"
+    assert routes._fill_autoria_from_authors(metadata, table) is metadata
+    assert metadata["Autoría"] is authors
+    assert metadata["Authors"] == "Roig, Montserrat"
 
 
 def _pdf_dependencies(

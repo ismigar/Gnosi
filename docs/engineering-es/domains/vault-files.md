@@ -27,6 +27,8 @@ tests:
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
+  - backend/tests/test_vault_citation_lookup_typed_composition.py
+  - backend/tests/test_citation_shared_lookup_contracts.py
   - backend/tests/test_drawing_typed_composition.py
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -154,8 +156,8 @@ rutas permitidas, la extracción EXIF y la serialización estable de archivos.
 conserva la clase histórica, el singleton, la forma de invocación, los
 descriptores, el estado y los errores, resolviendo el estado mutable y los
 colaboradores sustituibles en el momento de uso. Su constructor interno ahora
-tiene una anotación explícita de retorno `None`, lo que elimina la última
-excepción de tipado del backend escrito manualmente sin cambiar el comportamiento
+tiene una anotación explícita de retorno `None`, lo que elimina la antigua
+excepción de tipado de ese constructor sin cambiar el comportamiento
 de construcción. La fachada valida que exista un Vault activo antes de acceder
 al sistema de archivos y utiliza los contratos multimedia tipados para raíces,
 recorridos, consultas, subidas, datos EXIF e información serializada de archivos.
@@ -219,7 +221,7 @@ los consumidores del inventario de rutas y reexporta los objetos invocables de
 Python admitidos.
 
 `backend/api/vault_routes.py` es ahora un módulo de inicialización de
-compatibilidad de 283 líneas, en lugar de ser responsable de la implementación.
+compatibilidad, sin asumir la implementación del dominio.
 Los módulos tipados de `backend/domains/vault` se encargan del comportamiento
 restante de API, anotaciones, citas, dibujos, Drupal, archivos, conocimiento,
 enlaces, multimedia, páginas, registro de configuración, tablas y traducción.
@@ -331,6 +333,15 @@ la búsqueda de citas comparten esa misma capa HTTP de tipo acotado. Los
 mecanismos alternativos de proveedores, los permisos del editor y la unicidad
 de las claves de cita siguen resolviéndose en el momento de uso y conservan
 su comportamiento.
+
+La consulta bibliográfica importa los servicios directamente y declara bajo
+`TYPE_CHECKING` alias comprobados de los propietarios reales de los callbacks,
+sin conversiones de módulos ni resultados. La sustitución tardía sigue vigente.
+Las pruebas cubren ambos órdenes de importación, los esquemas HTTP exactos y
+la identidad de los metadatos desconocidos. `citations/title_regex.py` conserva
+los errores nativos de Python: la única excepción documentada del verificador
+valida entradas incorrectas y nunca afecta a los datos devueltos. Los tipos
+heredados de proveedores de registro y páginas siguen siendo deuda separada.
 
 La importación de Markdown, los comentarios en línea, los bloques sincronizados,
 la navegación por enlaces y las menciones sin enlazar comparten un router tipado

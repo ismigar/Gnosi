@@ -27,6 +27,8 @@ tests:
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
+  - backend/tests/test_vault_citation_lookup_typed_composition.py
+  - backend/tests/test_citation_shared_lookup_contracts.py
   - backend/tests/test_drawing_typed_composition.py
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -159,8 +161,8 @@ fichiers. `backend/services/media_service.py` reste la façade Python compatible
 elle préserve la classe historique, le singleton, la forme des objets
 appelables, les descripteurs, l'état et les erreurs, tout en résolvant tardivement
 l'état mutable et les dépendances remplaçables. Son constructeur interne possède
-désormais une annotation de retour explicite `None`, supprimant la dernière
-exception de typage du backend écrit à la main sans modifier le comportement
+désormais une annotation de retour explicite `None`, supprimant l'ancienne
+exception de typage de ce constructeur sans modifier le comportement
 de construction. La façade vérifie l'existence d'un Vault actif avant de franchir
 une frontière du système de fichiers et utilise les contrats de médias typés
 pour les racines, les parcours, les requêtes, les téléversements, les données EXIF
@@ -225,7 +227,7 @@ compatible avec les consommateurs de l'inventaire des routes et réexporte les
 objets Python appelables pris en charge.
 
 `backend/api/vault_routes.py` est désormais un module d'initialisation de
-compatibilité de 283 lignes, et ne porte plus l'implémentation. Les modules
+compatibilité, sans porter l'implémentation du domaine. Les modules
 typés de `backend/domains/vault` gèrent les comportements restants des API,
 annotations, citations, dessins, Drupal, fichiers, connaissances, liens,
 médias, pages, registres, tables et traductions. Le module d'initialisation
@@ -338,6 +340,15 @@ recherches de citations partagent cette même frontière HTTP au type précisé.
 Les mécanismes de repli des fournisseurs, les permissions d'édition et
 l'unicité des clés de citation restent à liaison tardive et conservent leur
 comportement.
+
+La recherche bibliographique importe directement les services et déclare sous
+`TYPE_CHECKING` des alias vérifiés des propriétaires réels des callbacks, sans
+conversion de modules ni de résultats. Leur remplacement tardif reste possible.
+Les tests couvrent les deux ordres d'importation, les schémas HTTP exacts et
+l'identité des métadonnées inconnues. `citations/title_regex.py` conserve les
+erreurs natives de Python : son unique exception documentée de vérification
+valide les entrées incorrectes, jamais les données renvoyées. Les anciens types
+des fournisseurs de registre et de pages restent une dette distincte.
 
 L'import Markdown, les commentaires en ligne, les blocs synchronisés, la
 navigation par liens et les mentions non liées partagent un routeur typé de

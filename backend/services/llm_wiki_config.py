@@ -183,10 +183,7 @@ def _legacy_reference_table_id() -> str:
     try:
         from backend.api import vault_routes
 
-        get_reference_table_id = cast(
-            Callable[[], str | None],
-            vault_routes.get_reference_table_id,
-        )
+        get_reference_table_id = vault_routes.get_reference_table_id
         return str(get_reference_table_id() or "").strip()
     except Exception:
         return ""

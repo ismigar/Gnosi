@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from backend.domains.vault.citations.authors import parse_authors_to_csl
+from backend.domains.vault.citations.title_regex import title_tokens
 
 ORG_KEY_STOPWORDS = {
     "de",
@@ -85,7 +86,10 @@ def organization_acronym(family: str) -> str:
     return acronym if len(acronym) >= 2 else ""
 
 
-def title_token(title: str) -> str:
+def title_token(title: object) -> str:
+    # Validate only at the fallback boundary: an author family can make an
+    # invalid raw title irrelevant, and falsey metadata historically means "".
+    source = title or ""
     stopwords = {
         "the",
         "a",
@@ -109,7 +113,7 @@ def title_token(title: str) -> str:
         "i",
         "y",
     }
-    for token in re.findall(r"[a-zA-ZÀ-ÿ0-9]+", title or ""):
+    for token in title_tokens(source):
         if normalize_key_part(token) and normalize_key_part(token) not in stopwords:
             return str(token)
     return ""
@@ -127,7 +131,7 @@ def alpha_suffix(index: int) -> str:
 def generate_citation_key(
     authors: object,
     year: object,
-    title: str = "",
+    title: object = "",
     existing: set[str] | None = None,
 ) -> str:
     raw_family = first_author_family(authors)

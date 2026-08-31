@@ -27,6 +27,8 @@ tests:
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
+  - backend/tests/test_vault_citation_lookup_typed_composition.py
+  - backend/tests/test_citation_shared_lookup_contracts.py
   - backend/tests/test_drawing_typed_composition.py
   - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
@@ -155,8 +157,8 @@ dels fitxers. `backend/services/media_service.py` continua sent la façana Pytho
 compatible: conserva la classe històrica, la instància única, la forma
 d'invocació, els descriptors, l'estat i els errors, i resol amb vinculació
 tardana l'estat mutable i els col·laboradors substituïbles. El seu constructor
-intern ara té una anotació explícita de retorn `None`, que elimina l'última
-excepció de tipatge del codi del backend escrit a mà sense canviar el
+intern ara té una anotació explícita de retorn `None`, que elimina l'antiga
+excepció de tipatge d'aquest constructor sense canviar el
 comportament de construcció. La façana valida que hi hagi un vault actiu abans
 de travessar un límit del sistema de fitxers i utilitza els contractes multimèdia
 tipats per a arrels, escanejos, consultes, pujades, dades EXIF i informació
@@ -220,8 +222,8 @@ registra les rutes de domini en una estructura plana per mantenir la
 compatibilitat amb els consumidors de l'inventari de rutes i reexporta els
 elements invocables de Python admesos.
 
-`backend/api/vault_routes.py` és ara un mòdul d'arrencada de compatibilitat de
-283 línies, en lloc de ser responsable de la implementació. Els mòduls tipats
+`backend/api/vault_routes.py` és un mòdul d'arrencada de compatibilitat,
+sense assumir la implementació del domini. Els mòduls tipats
 de `backend/domains/vault` són responsables del comportament restant d'API,
 anotacions, citacions, dibuixos, Drupal, fitxers, coneixement, enllaços,
 multimèdia, pàgines, registre, taules i traducció. El mòdul d'arrencada carrega
@@ -335,6 +337,15 @@ la cerca de citacions comparteixen aquest mateix límit HTTP de tipus concret.
 Les alternatives de proveïdor, els permisos d'edició i la unicitat de les claus
 de citació continuen resolent-se amb vinculació tardana i preserven el
 comportament compatible.
+
+La consulta bibliogràfica importa els serveis directament i declara sota
+`TYPE_CHECKING` àlies comprovats dels propietaris reals dels callbacks, sense
+conversions de mòduls ni resultats. La substitució tardana continua funcionant.
+Les proves cobreixen els dos ordres d'importació, els esquemes HTTP exactes i
+la identitat de les metadades desconegudes. `citations/title_regex.py` conserva
+els errors natius de Python: l'única excepció documentada del verificador valida
+entrades incorrectes i mai afecta dades retornades. Els tipus heretats dels
+proveïdors de registre i pàgines continuen sent feina pendent separada.
 
 La importació de Markdown, els comentaris en línia, els blocs sincronitzats,
 la navegació per enllaços i les mencions sense enllaç comparteixen un

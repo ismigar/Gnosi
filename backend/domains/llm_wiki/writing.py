@@ -14,6 +14,7 @@ class SavePage(Protocol):
         path: Path,
         metadata: dict[str, Any],
         body: str,
+        /,
     ) -> object: ...
 
 
