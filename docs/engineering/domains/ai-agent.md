@@ -55,6 +55,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_observability_contracts.py
+  - backend/tests/test_agent_observability_policy.py
   - frontend/src/features/agent/public-entry.test.ts
   - frontend/src/features/agent/chat/AgentChat.transport.test.tsx
   - frontend/src/features/agent/chat/submitChatTurn.test.ts
@@ -722,8 +724,9 @@ analysis retains its JSON snapshots and batch checkpoints, while the queue is
 the source of truth for orchestration.
 
 Every model and tool operation emits a bounded span correlated by the turn
-`trace_id`. Span attributes are allowlisted and redacted; prompts, sources,
-arguments and raw provider output are never persisted as telemetry. Tool calls
+`trace_id`. Span attribute names are allowlisted; callers must not place prompts,
+sources, arguments or raw provider output under those allowed names. This filter
+does not inspect arbitrary text for secrets. Tool calls
 also pass through argument-size validation, descriptor timeouts, output limits
 and the existing role/confirmation policy.
 
@@ -850,3 +853,28 @@ the request language instead of guessing a capability.
 
 Verification uses the deterministic universal-turn corpus, focused phase-two
 tests, the full `backend/tests` suite and the documentation gate.
+
+## Local diagnostic span contracts
+
+`agent_observability.py` accepts arbitrary attribute values and a mutable context
+holder. Its produced `SpanRecord` maps string keys to `SpanValue` primitives:
+strings, integers, floats and booleans. The contract is not a rigid event schema:
+allowed attributes can override status and duration. Typing preserves the existing
+value conversions, exception behavior and shared record identity.
+
+The service examines the first 32 input entries before filtering by `SAFE_KEYS`.
+Strings are whitespace-normalized and limited to 240 characters; booleans and
+numeric values retain their existing representation. Unknown keys are dropped.
+Filtering by name is not content redaction: never hide private content under an
+allowed provider, model or status key.
+
+The in-memory buffer holds at most 2,000 spans; a query returns at most 200 and
+shares the stored dictionaries. This is not a size or retention cap on the
+append-only `agent_spans.jsonl` file. An `OSError` during append does not block the
+operation or discard the in-memory record; other exceptions retain their normal
+propagation. Context-manager errors record the exception class, not its message.
+
+Tests use disposable logs, controlled clocks and owned threads. The real policy
+wrapper is exercised with an inert model to verify response/exception identity
+and absence of synthetic prompt/error content in diagnostics. No provider call
+or real user log is required for these checks.

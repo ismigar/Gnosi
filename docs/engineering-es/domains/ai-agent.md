@@ -17,10 +17,13 @@ source_paths:
   - backend/api/ai_routes.py
   - backend/api/tools_routes.py
   - backend/services/artificial_analysis.py
+  - backend/services/agent_observability.py
   - frontend/src/features/agent
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_observability_contracts.py
+  - backend/tests/test_agent_observability_policy.py
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
   - backend/tests/test_llm_wiki_lint_edge_contracts.py
@@ -217,3 +220,32 @@ Solo.
 ## Enfoque de verificación
 
 Ejecute enrutamiento de modelos, eliminación de proveedores, fiabilidad, tiempos de espera, reintento y resiliencia MCP, catálogo de habilidades/tiempo de ejecución/API, validación de herramientas generadas, contención de contexto, carrera de confirmación/expiración, pedidos de chat y flujos de chat del navegador.
+
+## Contratos de los registros locales de diagnóstico
+
+`agent_observability.py` acepta valores arbitrarios de atributos y un contenedor
+mutable de contexto. El `SpanRecord` producido asocia claves de texto con
+primitivas `SpanValue`: cadenas, enteros, decimales y booleanos. No es un esquema
+rígido de evento: los atributos permitidos pueden reemplazar el estado y la
+duración. El tipado conserva las conversiones, los errores y la identidad
+compartida de los registros existentes.
+
+El servicio examina las primeras 32 entradas antes de filtrarlas con `SAFE_KEYS`.
+Normaliza los espacios de las cadenas y las limita a 240 caracteres; los
+booleanos y valores numéricos conservan su representación existente. Descarta
+las claves desconocidas. Filtrar por nombre no elimina secretos del contenido:
+no introduzcas información privada bajo una clave permitida de proveedor,
+modelo o estado.
+
+La memoria contiene como máximo 2.000 registros; una consulta devuelve como
+máximo 200 y comparte los diccionarios almacenados. Esto no limita el tamaño ni
+la retención del archivo acumulativo `agent_spans.jsonl`. Un `OSError` durante
+la escritura no bloquea la operación ni descarta el registro en memoria; las
+demás excepciones mantienen su propagación normal. Los errores del gestor de
+contexto registran la clase de la excepción, no su mensaje.
+
+Las pruebas usan archivos temporales, relojes controlados e hilos propios.
+El gestor real de política se ejecuta con un modelo inerte para comprobar la
+identidad de respuestas y excepciones y que el contenido ficticio de solicitudes
+y errores no entre en los diagnósticos. No requieren llamadas a proveedores
+ni lectura de registros reales del usuario.

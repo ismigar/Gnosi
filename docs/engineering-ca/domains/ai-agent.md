@@ -17,10 +17,13 @@ source_paths:
   - backend/api/ai_routes.py
   - backend/api/tools_routes.py
   - backend/services/artificial_analysis.py
+  - backend/services/agent_observability.py
   - frontend/src/features/agent
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_observability_contracts.py
+  - backend/tests/test_agent_observability_policy.py
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
   - backend/tests/test_llm_wiki_lint_edge_contracts.py
@@ -214,3 +217,31 @@ Sol.
 ## Concentrat de verificació
 
 Executa model rout, esborrat del proveïdor, fiabilitat, temps d' espera, MCP reintentar i resicionar, catàleg de habilitat/runtime/API, validació d' eines generada, contenidor de context, confirmació/expiry, ordenació de xat, i xat del navegador fluxos.
+
+## Contractes dels registres locals de diagnòstic
+
+`agent_observability.py` accepta valors d’atribut arbitraris i un contenidor
+mutable de context. El `SpanRecord` produït associa claus de text amb primitives
+`SpanValue`: cadenes, enters, decimals i booleans. No és un esquema rígid
+d’esdeveniment: els atributs permesos poden substituir l’estat i la durada.
+El tipatge conserva les conversions, els errors i la identitat compartida dels
+registres existents.
+
+El servei examina les primeres 32 entrades abans de filtrar-les amb `SAFE_KEYS`.
+Normalitza els espais de les cadenes i les limita a 240 caràcters; els booleans
+i els valors numèrics conserven la representació existent. Descarta les claus
+desconegudes. Filtrar pel nom no elimina secrets del contingut: no posis
+informació privada sota una clau permesa de proveïdor, model o estat.
+
+La memòria conté com a màxim 2.000 registres; una consulta en retorna com a màxim
+200 i comparteix els diccionaris desats. Això no limita la mida ni la retenció
+del fitxer acumulatiu `agent_spans.jsonl`. Un `OSError` durant l’escriptura no
+bloqueja l’operació ni descarta el registre en memòria; les altres excepcions
+mantenen la propagació normal. Els errors del gestor de context desen la classe
+de l’excepció, no el missatge.
+
+Les proves utilitzen fitxers temporals, rellotges controlats i fils propis.
+El gestor real de política s’exercita amb un model inert per comprovar la
+identitat de respostes i excepcions i que el contingut fictici de peticions
+i errors no entri als diagnòstics. No cal cridar cap proveïdor ni llegir
+registres reals de l’usuari.

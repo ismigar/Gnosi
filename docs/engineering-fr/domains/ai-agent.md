@@ -21,6 +21,7 @@ source_paths:
   - backend/services/agent_cancellation.py
   - backend/services/provider_health.py
   - backend/services/artificial_analysis.py
+  - backend/services/agent_observability.py
   - backend/services/agent_capability_health.py
   - backend/services/agent_stream_protocol.py
   - backend/agent/provider_resilience.py
@@ -32,6 +33,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_observability_contracts.py
+  - backend/tests/test_agent_observability_policy.py
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
   - backend/tests/test_llm_wiki_lint_edge_contracts.py
@@ -281,7 +284,12 @@ Avant de sélectionner les capacités, l'interprète sémantique normalise l'int
 
 Les capacités de base utilisent la file d'attente SQLite locale. Un travail a une clé idempotence, budget de tentative, location et battement du cœur; un bail expiré peut être récupéré après un redémarrage du processus ou quand un second travailleur est actif. L'analyse du lecteur conserve ses instantanés JSON et les points de contrôle des lots, tandis que la file d'attente est la source de vérité pour l'orchestration.
 
-Chaque opération de modèle et d'outil émet un étalon délimité corrélé par le virage `trace_id`Les attributs de l'échelle sont autorisés et édités; les instructions, les sources, les arguments et la sortie brute du fournisseur ne sont jamais maintenus comme télémétrie. Les appels à outils passent également par la validation de la taille des arguments, les délais de décompte des descripteurs, les limites de sortie et la politique de rôle/confirmation existante.
+Chaque opération de modèle ou d’outil émet un enregistrement de diagnostic
+corrélé au `trace_id` du tour. Les noms d’attributs sont limités à une liste
+autorisée ; les appelants ne doivent pas y placer de requêtes, sources,
+arguments ou sorties brutes du fournisseur. Ce filtre ne recherche pas les
+secrets dans un texte arbitraire. Les appels d’outils restent soumis à la
+validation de taille, aux délais et à la politique de rôle et de confirmation.
 
 La recherche du cerveau maintient son cache de compatibilité JSON plus un sidecar FTS5. Le sidecar rétrécit les candidats lexiques avant le classement des hybrides vectoriels déterministes et expose les métadonnées de fraîcheur pour le diagnostic. Si le sidecar n'est pas disponible, le cache JSON reste un remède sûr.
 
@@ -292,3 +300,32 @@ Les limites de sécurité restent conservatrices : les outils générés sont re
 Le dispéditeur d'exécution réveille maintenant la file d'attente durable au démarrage de l'application, de sorte que le travail du lecteur est récupéré sans demande d'état. Les mises à jour de Brain FTS sont incrémentales et portent un marqueur d'arrêt explicite. Les outils générés approuvés sont chargés comme des proxies sous-process-backed avec des limites de ressources; les schémas de descripteur JSON sont vérifiés avant et après exécution, avec des compensateurs revus en option pour des défaillances partielles. Un endpoint de replay uniquement des métadonnées expose le plan, l'erreur, le timing et les événements de vérification par trace id. Les demandes ambiguës s'arrêtent à l'interprète sémantique et demandent le sujet manquant dans la langue de la demande au lieu de de deviner une capacité.
 
 La vérification utilise le corpus déterministe universel-tour, les tests de phase 2 ciblés, le complet `backend/tests` Suite et la porte de documentation.
+
+## Contrats des diagnostics locaux
+
+`agent_observability.py` accepte des valeurs d’attribut arbitraires et un
+conteneur de contexte modifiable. Le `SpanRecord` produit associe des clés
+textuelles aux primitives `SpanValue` : chaînes, entiers, flottants et booléens.
+Ce n’est pas un schéma d’événement rigide : les attributs autorisés peuvent
+remplacer le statut et la durée. Le typage conserve les conversions, les erreurs
+et l’identité partagée des enregistrements existants.
+
+Le service examine les 32 premières entrées avant le filtrage par `SAFE_KEYS`.
+Il normalise les espaces des chaînes et les limite à 240 caractères ; les
+booléens et valeurs numériques conservent leur représentation existante. Les
+clés inconnues sont ignorées. Filtrer les noms ne supprime pas les secrets du
+contenu : ne placez pas d’informations privées sous une clé autorisée de
+fournisseur, de modèle ou de statut.
+
+La mémoire conserve au plus 2 000 enregistrements ; une requête en retourne au
+plus 200 et partage les dictionnaires stockés. Cela ne limite ni la taille ni
+la rétention du fichier cumulatif `agent_spans.jsonl`. Une `OSError` pendant
+l’écriture ne bloque pas l’opération et conserve l’enregistrement en mémoire ;
+les autres exceptions se propagent normalement. Les erreurs du gestionnaire
+de contexte enregistrent la classe de l’exception, pas son message.
+
+Les tests utilisent des fichiers temporaires, des horloges contrôlées et des
+threads propres au test. La politique réelle est exercée avec un modèle inerte
+pour vérifier l’identité des réponses et exceptions et l’absence du contenu
+fictif des requêtes et erreurs dans les diagnostics. Aucun appel de fournisseur
+ni journal réel de l’utilisateur n’est nécessaire.

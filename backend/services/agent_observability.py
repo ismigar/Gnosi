@@ -15,15 +15,17 @@ import uuid
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Optional
+from typing import Iterator, Mapping, Optional, TypeAlias
 
 from backend.config.data_dir import resolve_data_dir
 
 MAX_SPANS = 2_000
 MAX_ATTRIBUTES = 32
 MAX_VALUE_CHARS = 240
+SpanValue: TypeAlias = str | int | float | bool
+SpanRecord: TypeAlias = dict[str, SpanValue]
 _TRACE_ID: contextvars.ContextVar[str] = contextvars.ContextVar("gnosi_trace_id", default="")
-_SPANS: deque[dict[str, Any]] = deque(maxlen=MAX_SPANS)
+_SPANS: deque[SpanRecord] = deque(maxlen=MAX_SPANS)
 _LOCK = threading.RLock()
 
 SAFE_KEYS = frozenset({
@@ -45,8 +47,8 @@ def current_trace_id() -> str:
     return _TRACE_ID.get() or ""
 
 
-def _safe_attributes(attributes: Optional[Mapping[str, Any]]) -> dict[str, Any]:
-    safe: dict[str, Any] = {}
+def _safe_attributes(attributes: Optional[Mapping[object, object]]) -> SpanRecord:
+    safe: SpanRecord = {}
     for key, value in list((attributes or {}).items())[:MAX_ATTRIBUTES]:
         normalized_key = str(key or "")[:64]
         if normalized_key not in SAFE_KEYS:
@@ -70,12 +72,12 @@ def record_span(
     *,
     trace_id: str = "",
     started_at: Optional[float] = None,
-    status: str = "ok",
-    attributes: Optional[Mapping[str, Any]] = None,
-) -> dict[str, Any]:
+    status: object = "ok",
+    attributes: Optional[Mapping[object, object]] = None,
+) -> SpanRecord:
     """Record a bounded span and return the redacted representation."""
     started = started_at or time.monotonic()
-    span = {
+    span: SpanRecord = {
         "span_id": uuid.uuid4().hex[:16],
         "trace_id": (trace_id or current_trace_id() or new_trace_id())[:64],
         "name": str(name or "agent.operation")[:96],
@@ -95,9 +97,14 @@ def record_span(
 
 
 @contextlib.contextmanager
-def span(name: str, *, trace_id: str = "", attributes: Optional[Mapping[str, Any]] = None) -> Iterator[dict[str, Any]]:
+def span(
+    name: str,
+    *,
+    trace_id: str = "",
+    attributes: Optional[Mapping[object, object]] = None,
+) -> Iterator[dict[object, object]]:
     started = time.monotonic()
-    holder: dict[str, Any] = {"status": "ok"}
+    holder: dict[object, object] = {"status": "ok"}
     try:
         yield holder
     except Exception as error:
@@ -105,10 +112,16 @@ def span(name: str, *, trace_id: str = "", attributes: Optional[Mapping[str, Any
         raise
     finally:
         holder["duration_ms"] = int((time.monotonic() - started) * 1000)
-        record_span(name, trace_id=trace_id, started_at=started, status=holder.get("status", "ok"), attributes={**(attributes or {}), **holder})
+        record_span(
+            name,
+            trace_id=trace_id,
+            started_at=started,
+            status=holder.get("status", "ok"),
+            attributes={**(attributes or {}), **holder},
+        )
 
 
-def recent_spans(trace_id: str = "", limit: int = 100) -> list[dict[str, Any]]:
+def recent_spans(trace_id: str = "", limit: int = 100) -> list[SpanRecord]:
     wanted = str(trace_id or "")
     with _LOCK:
         values = list(_SPANS)
