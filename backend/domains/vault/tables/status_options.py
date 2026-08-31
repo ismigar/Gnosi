@@ -6,10 +6,13 @@ import logging
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import cast
+
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.registry.state import RegistryData
+from backend.domains.vault.tables.catalogs.types import Option
 
 
-Metadata = dict[str, object]
+Metadata = RegistryData
 WantedOption = tuple[str, str]
 
 
@@ -24,25 +27,25 @@ class StatusOptionDependencies:
     status_role: str
     is_global_status_property: Callable[[Metadata], bool]
     status_catalog_reference: str
-    normalize_options: Callable[[object], list[Metadata]]
+    normalize_options: Callable[[object], list[Option]]
     auto_color: Callable[[str], str]
     ensure_options_exist: Callable[[Metadata, list[WantedOption]], bool]
     logger: logging.Logger
 
 
 def _mapping(value: object) -> Metadata:
-    return cast(Metadata, value) if isinstance(value, dict) else {}
+    return value if is_record(value) else {}
 
 
 def _table(registry: Metadata, table_id: str) -> Metadata | None:
     tables = registry.get("tables")
-    if not isinstance(tables, list):
+    if not is_object_list(tables):
         return None
     return next(
         (
-            cast(Metadata, table)
+            table
             for table in tables
-            if isinstance(table, dict) and table.get("id") == table_id
+            if is_record(table) and table.get("id") == table_id
         ),
         None,
     )
@@ -55,7 +58,7 @@ def _wanted(values: list[object]) -> list[WantedOption]:
 def _global_catalog(registry: Metadata, reference: str) -> list[object]:
     catalogs = _mapping(registry.setdefault("option_catalogs", {}))
     raw_catalog = catalogs.setdefault(reference, [])
-    catalog = cast(list[object], raw_catalog) if isinstance(raw_catalog, list) else []
+    catalog = raw_catalog if is_object_list(raw_catalog) else []
     catalogs[reference] = catalog
     registry["option_catalogs"] = catalogs
     return catalog
@@ -73,7 +76,7 @@ def _append_global_options(
     for value, group in wanted:
         if value in names:
             continue
-        option: Metadata = {"name": value, "color": dependencies.auto_color(value)}
+        option: Option = {"name": value, "color": dependencies.auto_color(value)}
         if group:
             option["group"] = group
         catalog.append(option)

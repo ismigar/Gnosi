@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
 
+from backend.domains.vault.api.pages_commands import PatchHandler, SaveHandler
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.pages.patch_helpers import PatchReadResult
 from backend.domains.vault.pages.state import PreviewDocument, PreviewPayload
@@ -473,6 +474,8 @@ _PATCH_PAGE_DEPENDENCIES = _legacy.page_patch_service.PatchPageDependencies(
     file_etag=_legacy.file_etag,
     safe_error_detail=_legacy.safe_error_detail,
 )
+save_page: SaveHandler
+patch_page: PatchHandler
 save_page, patch_page = _legacy.page_commands_api.register_write_routes(
     router,
     editor_dependency=_legacy.require_role("editor"),

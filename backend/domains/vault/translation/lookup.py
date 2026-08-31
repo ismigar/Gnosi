@@ -4,25 +4,27 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
 
+from backend.domains.vault.pages.index_entries import PageCacheEntry
 from backend.domains.vault.pages.state import PageState
+from backend.domains.vault.schemas.pages import PageInfo
 from backend.domains.vault.translation.types import Metadata
 
 
 @dataclass(frozen=True)
 class TranslationLookupDependencies:
-    page_snapshot: Callable[[], list[Any]]
-    find_translations: Callable[[str, Iterable[Any]], dict[str, Any]]
-    canonicalize_id: Callable[[Any], str]
+    page_snapshot: Callable[[], list[PageInfo]]
+    find_translations: Callable[[str, Iterable[object]], dict[str, object]]
+    canonicalize_id: Callable[[object], str]
     materialize: Callable[[Path, str], Awaitable[object]]
     read_frontmatter_partial: Callable[[Path], tuple[Metadata, str]]
     active_vault_path: Callable[[], Path | None]
-    build_page_cache_entry: Callable[[Path, Any], dict[str, Any]]
+    build_page_cache_entry: Callable[[Path, os.stat_result], PageCacheEntry]
     bump_page_index_version: Callable[[str], None]
     invalidate_pages: Callable[[], None]
     page_state: PageState
@@ -32,10 +34,10 @@ class TranslationLookupDependencies:
 async def existing_translations(
     origin_id: str,
     dependencies: TranslationLookupDependencies,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Return indexed child translations without adding disk I/O."""
 
-    def _work() -> dict[str, Any]:
+    def _work() -> dict[str, object]:
         try:
             return dependencies.find_translations(
                 origin_id,
@@ -77,9 +79,9 @@ async def recover_translations_from_disk(
     table_directory: Path,
     known_langs: Iterable[object],
     dependencies: TranslationLookupDependencies,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Recover unindexed cloud-backed translation children from one table."""
-    recovered: dict[str, Any] = {}
+    recovered: dict[str, object] = {}
     target = dependencies.canonicalize_id(origin_id)
     if not target:
         return recovered

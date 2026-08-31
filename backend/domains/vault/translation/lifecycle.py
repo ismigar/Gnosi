@@ -1,10 +1,47 @@
 """Typed Vault domain extracted from the historical route facade."""
 
-import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+from __future__ import annotations
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+import importlib as _legacy_importlib
+from collections.abc import Iterable
+from pathlib import Path
+from typing import TYPE_CHECKING, Protocol
+
+import httpx
+from fastapi import BackgroundTasks
+
+from backend.domains.vault.drupal.fields import DrupalFieldDependencies
+from backend.domains.vault.drupal.media import DrupalUploadDependencies
+from backend.domains.vault.translation.adapters import DetectLanguage
+from backend.domains.vault.translation.types import Metadata, Result, TranslateText
+
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
+
+
+class DrupalConnector(Protocol):
+    """Real connector capabilities consumed by the lazy media factories."""
+
+    @property
+    def DrupalSyncError(self) -> type[Exception]: ...
+
+    def _client(self) -> httpx.AsyncClient: ...
+
+    def markdown_to_full_html(self, md: str, /) -> str: ...
+
+    async def find_existing_file(
+        self, filename: str, filesize: int | None = None, /
+    ) -> str | None: ...
+
+    async def upload_image(
+        self, bundle: str, field_name: str, filename: str, data: bytes, /
+    ) -> str: ...
+
+    async def resolve_or_create_term(
+        self, vocabulary: str, name: str, /, *, cache: dict[str, str] | None = None
+    ) -> str: ...
 
 
 def _read_deepl_key() -> str:
@@ -13,10 +50,10 @@ def _read_deepl_key() -> str:
     Returns "" when unavailable — the skills degrade to free providers /
     visible placeholders rather than failing.
     """
-    return _strict_cast(str, _legacy.translation_adapters.read_deepl_key(_legacy.log))
+    return _legacy.translation_adapters.read_deepl_key(_legacy.log)
 
 
-def _load_translate_row_skill() -> _LegacyAny:
+def _load_translate_row_skill() -> tuple[TranslateText, DetectLanguage]:
     """Lazy import of the row skill (translate, detect_source_lang).
 
     Deferred so a missing optional dependency never breaks app startup —
@@ -25,37 +62,31 @@ def _load_translate_row_skill() -> _LegacyAny:
     return _legacy.translation_adapters.load_translate_row_skill(_legacy.log)
 
 
-async def _get_existing_translations(origin_id: str) -> dict[str, _LegacyAny]:
+async def _get_existing_translations(origin_id: str) -> dict[str, object]:
     """Return ``{lang: PageInfo}`` of translation children already created for an
     origin. Powers idempotent re-translation: a language that already has a
     subitem/subpage is updated in place instead of duplicated. The lookup runs
     over the TTL-cached page snapshot (in-memory) so it adds no disk I/O.
     """
-    return _strict_cast(
-        dict[str, _LegacyAny],
-        await _legacy.translation_lookup.existing_translations(
-            origin_id, _TRANSLATION_LOOKUP_DEPENDENCIES
-        ),
+    return await _legacy.translation_lookup.existing_translations(
+        origin_id, _TRANSLATION_LOOKUP_DEPENDENCIES
     )
 
 
 async def _recover_translations_from_disk(
-    origin_id: str, table_dir: _legacy.Path, known_langs: _LegacyAny
-) -> dict[str, _LegacyAny]:
+    origin_id: str, table_dir: Path, known_langs: Iterable[object]
+) -> dict[str, object]:
     """Safety net for translate-row idempotency under OneDrive.
 
     Scans the table directory only when the in-memory snapshot misses a target
     language, materializes cloud files and repairs the canonical page index.
     """
-    return _strict_cast(
-        dict[str, _LegacyAny],
-        await _legacy.translation_lookup.recover_translations_from_disk(
-            origin_id, table_dir, known_langs, _TRANSLATION_LOOKUP_DEPENDENCIES
-        ),
+    return await _legacy.translation_lookup.recover_translations_from_disk(
+        origin_id, table_dir, known_langs, _TRANSLATION_LOOKUP_DEPENDENCIES
     )
 
 
-def _ensure_status_options_persisted(table_id: str, values: list[_LegacyAny]) -> None:
+def _ensure_status_options_persisted(table_id: str, values: list[object]) -> None:
     """Best-effort: ensures in the ON-DISK registry that the status field has the
     `values` options (directive §4.1.5: a rule never fails due to an
     incomplete catalog). Called when an action_rules effect has had to create an
@@ -199,22 +230,19 @@ _PAGE_TRANSLATION_DEPENDENCIES = _legacy.translation_page_service.PageTranslatio
 
 
 def _write_metadata_key_on_disk(
-    page_id: str, file_path: _legacy.Path, key: str, value: _LegacyAny
+    page_id: str, file_path: Path, key: str, value: object
 ) -> bool:
     """Writes a SINGLE metadata key directly to the file (without going through
     the PATCH: no rule engine, no etags, no re-resolution by id — we already have the path).
     Idempotent: if the value is already there, it doesn't write. Refreshes the cache like the
     staleness flag does. Used by action_rules effects on the original."""
-    return _strict_cast(
-        bool,
-        _legacy.translation_metadata_io.write_metadata_key_on_disk(
-            page_id, file_path, key, value, _TRANSLATION_METADATA_DEPENDENCIES
-        ),
+    return _legacy.translation_metadata_io.write_metadata_key_on_disk(
+        page_id, file_path, key, value, _TRANSLATION_METADATA_DEPENDENCIES
     )
 
 
 def _set_translation_stale_on_disk(
-    page_id: str, file_path: _legacy.Path, stale_status: tuple[_LegacyAny, ...] | None = None
+    page_id: str, file_path: Path, stale_status: tuple[Metadata, object] | None = None
 ) -> bool:
     """Flag a single translation page as stale on disk. Idempotent.
 
@@ -222,18 +250,15 @@ def _set_translation_stale_on_disk(
     change directly with ``save_page_md`` — NOT through the PATCH handler — so it
     never re-enters the rule engine, etag checks, or this very propagation.
     """
-    return _strict_cast(
-        bool,
-        _legacy.translation_metadata_io.set_translation_stale_on_disk(
-            page_id, file_path, stale_status, _TRANSLATION_METADATA_DEPENDENCIES
-        ),
+    return _legacy.translation_metadata_io.set_translation_stale_on_disk(
+        page_id, file_path, stale_status, _TRANSLATION_METADATA_DEPENDENCIES
     )
 
 
 def _propagate_translation_staleness(
     origin_id: str,
-    old_md: dict[_LegacyAny, _LegacyAny] | None,
-    new_md: dict[_LegacyAny, _LegacyAny] | None,
+    old_md: Metadata | None,
+    new_md: Metadata | None,
     old_body: str | None,
     new_body: str | None,
 ) -> None:
@@ -256,13 +281,13 @@ def _propagate_translation_staleness(
 
 async def _do_translate_row(
     item_id: str,
-    target_languages: list[_LegacyAny],
+    target_languages: list[object],
     *,
-    translate_fn: _LegacyAny,
-    detect_fn: _LegacyAny,
+    translate_fn: TranslateText,
+    detect_fn: DetectLanguage,
     deepl_api_key: str,
-    background_tasks: _legacy.BackgroundTasks,
-) -> dict[_LegacyAny, _LegacyAny]:
+    background_tasks: BackgroundTasks,
+) -> Result:
     """Translate one row's translatable fields into one subitem per language.
 
     Creates the per-language subitem the first time and UPDATES it in place on
@@ -270,21 +295,18 @@ async def _do_translate_row(
     `translation_lang`). Raises HTTPException for caller-visible problems; the
     single endpoint re-raises them, the bulk endpoint catches them per item.
     """
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny],
-        await _legacy.translation_row_service.translate_row(
-            item_id,
-            target_languages,
-            translate_fn=translate_fn,
-            detect_fn=detect_fn,
-            deepl_api_key=deepl_api_key,
-            background_tasks=background_tasks,
-            dependencies=_ROW_TRANSLATION_DEPENDENCIES,
-        ),
+    return await _legacy.translation_row_service.translate_row(
+        item_id,
+        target_languages,
+        translate_fn=translate_fn,
+        detect_fn=detect_fn,
+        deepl_api_key=deepl_api_key,
+        background_tasks=background_tasks,
+        dependencies=_ROW_TRANSLATION_DEPENDENCIES,
     )
 
 
-def _drupal_client_module() -> _LegacyAny:
+def _drupal_client_module() -> DrupalConnector:
     """Resolve the compatibility connector lazily for optional Drupal usage."""
     from backend.services import drupal_sync_service as drupal
 
@@ -314,7 +336,7 @@ _DRUPAL_LANGUAGE_DEPENDENCIES = _legacy.drupal_languages.DrupalLanguageDependenc
 )
 
 
-def _drupal_upload_dependencies() -> _LegacyAny:
+def _drupal_upload_dependencies() -> DrupalUploadDependencies:
     drupal = _legacy._drupal_client_module()
     return _legacy.drupal_media.DrupalUploadDependencies(
         resolve_local_path=lambda value: _legacy._drupal_resolve_local_path(value),
@@ -328,7 +350,7 @@ def _drupal_upload_dependencies() -> _LegacyAny:
     )
 
 
-def _drupal_field_dependencies() -> _LegacyAny:
+def _drupal_field_dependencies() -> DrupalFieldDependencies:
     drupal = _legacy._drupal_client_module()
     return _legacy.drupal_fields.DrupalFieldDependencies(
         sync_error=drupal.DrupalSyncError,

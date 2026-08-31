@@ -212,7 +212,7 @@ _CREATE_PAGE_DEPENDENCIES = _page_create_service.CreatePageDependencies(
     ),
     emit_created=_emit_page_created,
 )
-create_page = _page_commands_api.register_create_route(
+create_page: _page_commands_api.CreateHandler = _page_commands_api.register_create_route(
     router,
     editor_dependency=_require_role("editor"),
     workspace_context_dependency=_get_workspace_context,

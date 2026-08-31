@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - backend/api/public_routes.py
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
@@ -24,6 +25,15 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_sync_comment_open_contract.py
+  - backend/tests/test_sync_comment_bootstrap.py
+  - backend/tests/test_translation_open_helpers_contract.py
+  - backend/tests/test_translation_open_io_contract.py
+  - backend/tests/test_translation_open_services_contract.py
+  - backend/tests/test_translation_open_effects_contract.py
+  - backend/tests/test_translation_lifecycle_binding_contract.py
+  - backend/tests/test_translation_request_validation_contract.py
+  - backend/tests/test_public_clip_receipt_contract.py
   - backend/tests/test_translation_provider_contracts.py
   - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
@@ -63,6 +73,34 @@ tests:
 ---
 
 # Vault y archivos
+
+## Contratos de comentarios y traducciones
+
+La persistencia de comentarios valida solo el diccionario o lista raíz
+almacenado; conserva las claves desconocidas, los valores anidados y la identidad
+de los registros. Los modelos HTTP siguen validando las respuestas.
+`comments/composition.py` construye dependencias resueltas en el momento de uso
+en el punto de registro original y permite importar primero la fachada o los
+comentarios. La importación Markdown conserva el corte nativo del ID en
+colisiones de nombres. Las suscripciones SSE siguen limitadas al vault y
+retiran su propia cola al cancelarse.
+
+Los helpers de traducción, la búsqueda, los efectos de metadatos y los servicios
+de filas y páginas usan metadatos abiertos sin suponer claves YAML solo
+textuales. El ciclo de vida comprueba los responsables reales de los callbacks
+y un protocolo de conector cargado cuando se necesita; conserva las dependencias
+capturadas y resuelve tarde los miembros sustituibles. Los resultados de
+creación de páginas usan un contrato de lectura de campos, distinto de los
+metadatos mutables. Los handlers de escritura registrados mantienen el retorno
+asíncrono y el contexto inyectado opcional. Los resultados de Web Clipper pasan
+por el modelo de respuesta existente sin coerción de campos.
+
+Estos cambios conservan los límites de captura de errores de los proveedores,
+la recuperación ordenada del disco, los idiomas de destino duplicados y el
+orden de escritura de estados. Las pruebas sintéticas usan dobles de proveedor,
+no cuentas reales de la nube. El HTTP de traducción y la composición Drupal
+todavía contienen tipado heredado; este punto no certifica todo el backend ni
+una migración real de proveedor de nube.
 
 ## Responsabilidad
 

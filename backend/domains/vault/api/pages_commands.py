@@ -47,14 +47,28 @@ class CreateHandler(Protocol):
     ) -> Awaitable[dict[str, object]]: ...
 
 
-SaveHandler = Callable[
-    [str, PageSaveRequest, BackgroundTasks, UserContext],
-    object,
-]
-PatchHandler = Callable[
-    [str, PagePatchRequest, BackgroundTasks, UserContext],
-    object,
-]
+class SaveHandler(Protocol):
+    """Actual async save handler with its optional injected context."""
+
+    def __call__(
+        self,
+        page_id: str,
+        request: PageSaveRequest,
+        background_tasks: BackgroundTasks,
+        context: UserContext = ...,
+    ) -> Awaitable[dict[str, object]]: ...
+
+
+class PatchHandler(Protocol):
+    """Actual async patch handler with its optional injected context."""
+
+    def __call__(
+        self,
+        page_id: str,
+        request: PagePatchRequest,
+        background_tasks: BackgroundTasks,
+        context: UserContext = ...,
+    ) -> Awaitable[dict[str, object]]: ...
 
 
 def register_create_route(

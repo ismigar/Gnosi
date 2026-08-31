@@ -9,14 +9,21 @@ They live in `services/` (not inline in `vault_routes`) for two reasons:
    idempotency) and the save hooks (`patch_page`/`save_page`, for obsolescence
    marking) need the same lookup and comparison logic.
 
-No I/O, no FastAPI, no backend imports: data goes in, data comes out.
+No I/O or FastAPI; shared value contracts only: data goes in, data comes out.
 """
 import re
 from collections.abc import Callable, Iterable
-from typing import Any, Dict, Optional, cast
+from typing import TypeVar
+
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import RecordReader, is_object_list, is_record
+from backend.utils.open_values import iterable_values
 
 
-def canonicalize_id(page_id: Any) -> str:
+PageT = TypeVar("PageT")
+
+
+def canonicalize_id(page_id: object) -> str:
     """Normalizes a UUID for robust comparison.
 
     IDs can come with dashes (`df361486-5ff3-...`, standard UUID form) or
@@ -29,17 +36,17 @@ def canonicalize_id(page_id: Any) -> str:
     return str(page_id or "").strip().lower().replace("-", "")
 
 
-def _meta_of(page: Any) -> Dict[str, Any]:
+def _meta_of(page: object) -> PageMetadata:
     """Extracts the metadata dict from a `PageInfo` or from a plain dict."""
     if page is None:
         return {}
-    md = getattr(page, "metadata", None)
-    if md is None and isinstance(page, dict):
+    md: object = getattr(page, "metadata", None)
+    if md is None and is_record(page):
         md = page.get("metadata")
-    return cast(Dict[str, Any], md) if isinstance(md, dict) else {}
+    return md if is_record(md) else {}
 
 
-def find_translations_of(origin_id: str, pages: Iterable[Any]) -> Dict[str, Any]:
+def find_translations_of(origin_id: str, pages: Iterable[PageT]) -> dict[str, PageT]:
     """Returns `{lang: page}` of the child translations of an original.
 
     A translation is a page with `metadata.translation_origin_id` equal to
@@ -51,7 +58,7 @@ def find_translations_of(origin_id: str, pages: Iterable[Any]) -> Dict[str, Any]
     seen wins — the caller will reuse one of them and the rest can be cleaned up manually.
     
     """
-    out: Dict[str, Any] = {}
+    out: dict[str, PageT] = {}
     target = canonicalize_id(origin_id)
     if not target:
         return out
@@ -67,10 +74,10 @@ def find_translations_of(origin_id: str, pages: Iterable[Any]) -> Dict[str, Any]
 
 def translatable_content_changed(
     translatable_keys: Iterable[str],
-    old_md: Optional[Dict[str, Any]],
-    new_md: Optional[Dict[str, Any]],
-    old_body: Optional[str] = None,
-    new_body: Optional[str] = None,
+    old_md: RecordReader | None,
+    new_md: RecordReader | None,
+    old_body: str | None = None,
+    new_body: str | None = None,
     *,
     title_matters: bool = False,
 ) -> bool:
@@ -140,7 +147,7 @@ def _strip_accents(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
 
 
-def normalize_lang_code(value: Any) -> str:
+def normalize_lang_code(value: object) -> str:
     """Normalizes a language value ("Català", "EN-GB", "ca") to an ISO 639-1 code.
 
     Returns '' if it can't be determined.
@@ -159,7 +166,7 @@ def normalize_lang_code(value: Any) -> str:
     return prefix if len(prefix) == 2 and prefix.isalpha() else ""
 
 
-def detect_record_source_lang(metadata: Optional[Dict[str, Any]]) -> str:
+def detect_record_source_lang(metadata: object) -> str:
     """Source language of a record, read from its "Idioma" field (or a synonym).
 
     Returns the ISO 639-1 code, or '' if the record doesn't have a recognizable
@@ -167,26 +174,26 @@ def detect_record_source_lang(metadata: Optional[Dict[str, Any]]) -> str:
     The key name is compared accent/case-insensitively.
     
     """
-    if not metadata or not isinstance(metadata, dict):
+    if not metadata or not is_record(metadata):
         return ""
     for key, val in metadata.items():
         norm_key = _strip_accents(str(key).lower())
         if norm_key in _LANGUAGE_FIELD_NAMES:
-            code = normalize_lang_code(val[0] if isinstance(val, list) and val else val)
+            code = normalize_lang_code(val[0] if is_object_list(val) and val else val)
             if code:
                 return code
     return ""
 
 
-def detect_record_lang_raw(metadata: Optional[Dict[str, Any]]) -> str:
+def detect_record_lang_raw(metadata: object) -> str:
     """RAW value (lowercase) of the row's "Idioma" field, WITHOUT truncating to 2
     letters. E.g. "EN-GB" → "en-gb". '' if it doesn't have one. For targets that accept
     regional codes (like Drupal, which can have "en-gb")."""
-    if not metadata or not isinstance(metadata, dict):
+    if not metadata or not is_record(metadata):
         return ""
     for key, val in metadata.items():
         if _strip_accents(str(key).lower()) in _LANGUAGE_FIELD_NAMES:
-            v = val[0] if isinstance(val, list) and val else val
+            v = val[0] if is_object_list(val) and val else val
             return str(v or "").strip().lower()
     return ""
 
@@ -198,37 +205,37 @@ def detect_record_lang_raw(metadata: Optional[Dict[str, Any]]) -> str:
 # in, data out) so the test doesn't have to import the whole backend.
 
 
-def find_language_property(properties: Optional[Iterable[Any]]) -> Optional[Dict[str, Any]]:
+def find_language_property(properties: Iterable[object] | None) -> PageMetadata | None:
     """Returns the "Idioma" property (or a synonym) from a list of table
     properties, or None if there isn't one. The name is compared accent/case-insensitively
     (mirrors `detect_record_source_lang`)."""
     for p in properties or []:
-        if not isinstance(p, dict):
+        if not is_record(p):
             continue
         if _strip_accents(str(p.get("name") or "").lower()) in _LANGUAGE_FIELD_NAMES:
             return p
     return None
 
 
-def _select_option_values(prop: Dict[str, Any]) -> list[str]:
+def _select_option_values(prop: PageMetadata) -> list[str]:
     """Selectable values of a select: `config.options` (nested, what the inline PATCH
     writes) or `options` (top-level, what the modal's save writes). Each
     option can be a string or a dict {name/label/value}. Returns clean strings."""
     cfg = prop.get("config")
-    raw = None
-    if isinstance(cfg, dict) and isinstance(cfg.get("options"), list):
+    raw: object = None
+    if is_record(cfg) and isinstance(cfg.get("options"), list):
         raw = cfg["options"]
     elif isinstance(prop.get("options"), list):
         raw = prop["options"]
     out: list[str] = []
-    for o in raw or []:
-        label = (o.get("name") or o.get("label") or o.get("value")) if isinstance(o, dict) else o
+    for o in iterable_values(raw or []):
+        label = (o.get("name") or o.get("label") or o.get("value")) if is_record(o) else o
         if isinstance(label, str) and label.strip():
             out.append(label.strip())
     return out
 
 
-def language_field_value(prop: Dict[str, Any], target_lang: str) -> str:
+def language_field_value(prop: PageMetadata, target_lang: str) -> str:
     """Value to write to the language field for `target_lang`.
 
     Prioritizes an existing option from the select's catalog that matches the
@@ -250,9 +257,9 @@ def language_field_value(prop: Dict[str, Any], target_lang: str) -> str:
 
 
 def language_field_assignment(
-    properties: Optional[Iterable[Any]],
+    properties: Iterable[object] | None,
     target_lang: str,
-    parent_metadata: Optional[Dict[str, Any]] = None,
+    parent_metadata: object = None,
 ) -> tuple[str | None, str | list[str] | None]:
     """(key, value) to mark the language field of a translation, or (None, None) if
     the table has no language field or the code can't be resolved.
@@ -275,7 +282,7 @@ def language_field_assignment(
         return None, None
     ptype = str(prop.get("type") or "").lower().replace("-", "_")
     is_multi = ptype in ("multi_select", "multiselect")
-    if not is_multi and isinstance(parent_metadata, dict):
+    if not is_multi and is_record(parent_metadata):
         name = prop.get("name")
         field_id = prop.get("id")
         parent_val = parent_metadata.get(name) if isinstance(name, str) else None
@@ -304,7 +311,7 @@ _IMAGE_NAME_EXCLUDE_RE = re.compile(
 )
 
 
-def is_image_field_name(name: Any) -> bool:
+def is_image_field_name(name: object) -> bool:
     """True if the field NAME denotes an image (Imatge/Cover/Foto…), excluding
     those that denote text about the image (Alt/Caption/Peu…)."""
     s = str(name or "")
@@ -313,18 +320,18 @@ def is_image_field_name(name: Any) -> bool:
     return bool(_IMAGE_NAME_RE.search(s))
 
 
-def is_composite_image_value(val: Any) -> bool:
+def is_composite_image_value(val: object) -> bool:
     """True if the value is a composite image map (has non-empty src/url/path)."""
-    return isinstance(val, dict) and any(
+    return is_record(val) and any(
         isinstance((source := val.get(k)), str) and bool(source.strip())
         for k in _IMAGE_SRC_KEYS
     )
 
 
 def translate_image_field(
-    val: Any,
+    val: object,
     translate_one: Callable[[str], tuple[str, str]],
-) -> tuple[Any, set[str], bool]:
+) -> tuple[object, set[str], bool]:
     """Translate the text subfields of an image field, keeping the image.
 
     `translate_one(text) -> (translated, provider)`. Returns
@@ -335,7 +342,7 @@ def translate_image_field(
       - If `val` is a string (path) it is returned as-is (the path is not translated).
     
     """
-    if not isinstance(val, dict):
+    if not is_record(val):
         return val, set(), False
     out = dict(val)
     providers: set[str] = set()

@@ -75,6 +75,12 @@ def set_value(container: object, key: object, value: object) -> None:
     container[key] = value  # type: ignore[index]
 
 
+def item_value(container: object, key: object) -> object:
+    """Preserve native item/slice lookup without asserting a result shape."""
+    result: object = container[key]  # type: ignore[index]
+    return result
+
+
 def pop_value(container: object, key: object, default: object) -> object:
     """Preserve native pop lookup, explicit default and arbitrary result."""
     result: object = container.pop(key, default)  # type: ignore[attr-defined]

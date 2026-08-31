@@ -1,7 +1,7 @@
 import hashlib as hashlib
 import json as json
 import logging
-import os
+import os as os
 import re as re
 import shutil as shutil
 import subprocess
@@ -25,6 +25,43 @@ if TYPE_CHECKING:
     from pathlib import Path as _typed_Path
     from backend.domains.vault.pages.foundation_values import PageMetadata as _typed_PageMetadata
     from asyncio import Future as _typed_Future
+    from backend.domains.vault.comments import api as _typed_comments_api
+    from backend.domains.vault.comments import repository as _typed_comments_repository
+    from backend.domains.vault.comments.composition import (
+        _get_comments_path as _get_comments_path,
+        _load_comments as _load_comments,
+        _save_comments as _save_comments,
+    )
+    from backend.domains.vault.pages.sync_routes import (
+        _inline_comments_path as _inline_comments_path,
+        _load_inline_comments as _load_inline_comments,
+    )
+    from backend.domains.vault.links import parsing as _typed_link_parsing
+    from backend.domains.vault.links.api import mentions as _typed_link_mentions_api
+    from backend.domains.vault.links.api import navigation as _typed_link_navigation_api
+    from backend.domains.vault.translation import adapters as _typed_translation_adapters
+    from backend.domains.vault.translation import lookup as _typed_translation_lookup
+    from backend.domains.vault.translation import metadata_io as _typed_translation_metadata_io
+    from backend.domains.vault.translation import staleness as _typed_translation_staleness
+    from backend.domains.vault.translation import row_service as _typed_translation_row_service
+    from backend.domains.vault.translation import page_service as _typed_translation_page_service
+    from backend.domains.vault.tables import status_options as _typed_table_status_options
+    from backend.domains.vault.drupal import media as _typed_drupal_media
+    from backend.domains.vault.drupal import fields as _typed_drupal_fields
+    from backend.domains.vault.drupal import markdown as _typed_drupal_markdown
+    from backend.domains.vault.drupal import languages as _typed_drupal_languages
+    from backend.services import action_rules as _typed_action_rules
+    from backend.services import translation_index as _typed_translation_index
+    from backend.services.translation_helpers import (
+        find_translations_of as find_translations_of,
+        translatable_content_changed as translatable_content_changed,
+        detect_record_source_lang as detect_record_source_lang,
+        detect_record_lang_raw as detect_record_lang_raw,
+        is_composite_image_value as is_composite_image_value,
+        is_image_field_name as is_image_field_name,
+        translate_image_field as translate_image_field,
+        language_field_assignment as language_field_assignment,
+    )
     from backend.domains.vault.pages.state import PreviewDocument as _typed_PreviewDocument
     from backend.domains.vault.api import pages_commands as _typed_page_commands
     from backend.domains.vault.pages import save_helpers as _typed_save_helpers
@@ -48,6 +85,7 @@ if TYPE_CHECKING:
     from backend.services import view_snapshot as _typed_view_snapshot
     from backend.services.context_vars import active_vault_path as active_vault_path
     from backend.domains.vault.api.configuration_routes import (
+        _COMMENTS_DEPENDENCIES as _COMMENTS_DEPENDENCIES,
         _canonicalize_id as _canonicalize_id,
         _build_preview_excerpt as _build_preview_excerpt,
         _find_page_path_for_write as _find_page_path_for_write,
@@ -92,6 +130,7 @@ if TYPE_CHECKING:
         _build_cache_entry_from_memory as _build_cache_entry_from_memory,
         _build_page_cache_entry as _build_page_cache_entry,
         _is_metadata_stub as _is_metadata_stub,
+        _read_frontmatter_partial as _read_frontmatter_partial,
     )
     from backend.domains.vault.pages.index_service import (
         _bump_page_index_version as _bump_page_index_version,
@@ -133,6 +172,9 @@ if TYPE_CHECKING:
         sync_to_google_calendar_if_needed as sync_to_google_calendar_if_needed,
     )
     from backend.domains.vault.links.runtime import (
+        _LINK_API_DEPENDENCIES as _LINK_API_DEPENDENCIES,
+        _current_vault_key as _current_vault_key,
+        register_page_in_index as register_page_in_index,
         _body_cache as _body_cache,
         _body_cache_lock as _body_cache_lock,
         _iter_docs_cache as _iter_docs_cache,
@@ -160,9 +202,25 @@ if TYPE_CHECKING:
     )
     from backend.domains.vault.translation.lifecycle import (
         _propagate_translation_staleness as _propagate_translation_staleness,
+        _get_existing_translations as _get_existing_translations,
+        _read_deepl_key as _read_deepl_key,
+        _load_translate_row_skill as _load_translate_row_skill,
+        _do_translate_row as _do_translate_row,
+        _drupal_client_module as _drupal_client_module,
     )
+    from backend.domains.vault.drupal.composition import (
+        _drupal_resolve_local_path as _drupal_resolve_local_path,
+        _drupal_shrink_pdf as _drupal_shrink_pdf,
+        _drupal_shrink_image as _drupal_shrink_image,
+        _drupal_md_to_html as _drupal_md_to_html,
+        _drupal_read_prop_value as _drupal_read_prop_value,
+        _drupal_upload_field_image as _drupal_upload_field_image,
+        _drupal_coerce_scalar as _drupal_coerce_scalar,
+    )
+    from backend.domains.vault.api.core_routes import create_page as create_page
     from backend.domains.vault.api.core_routes import _stamp_author as _stamp_author
     from backend.domains.vault.pages.preview_routes import (
+        patch_page as patch_page,
         _prepare_save_metadata as _prepare_save_metadata,
         _locate_save_file as _locate_save_file,
         _read_save_page as _read_save_page,
@@ -184,6 +242,24 @@ if TYPE_CHECKING:
     from backend.services.context_vars import get_active_vault_path as get_active_vault_path
     from backend.services.library_paths import library_roots as _typed_library_roots
 
+    translation_adapters = _typed_translation_adapters
+    translation_lookup = _typed_translation_lookup
+    translation_metadata_io = _typed_translation_metadata_io
+    translation_staleness = _typed_translation_staleness
+    translation_row_service = _typed_translation_row_service
+    translation_page_service = _typed_translation_page_service
+    table_status_options = _typed_table_status_options
+    action_rules_service = _typed_action_rules
+    translation_index = _typed_translation_index
+    drupal_media = _typed_drupal_media
+    drupal_fields = _typed_drupal_fields
+    drupal_markdown = _typed_drupal_markdown
+    drupal_languages = _typed_drupal_languages
+    comments_api = _typed_comments_api
+    comments_repository = _typed_comments_repository
+    link_parsing = _typed_link_parsing
+    link_mentions_api = _typed_link_mentions_api
+    link_navigation_api = _typed_link_navigation_api
     file_host_trash = _typed_host_trash
     page_index_entries = _typed_index_entries
     page_index_service = _typed_page_index
@@ -265,7 +341,7 @@ from fastapi import (
     APIRouter,
     BackgroundTasks,
     Body,
-    Depends,
+    Depends as Depends,
     File,
     Form,
     HTTPException as HTTPException,
@@ -375,8 +451,8 @@ from backend.services.page_sidecar import delete_sidecar as delete_sidecar_for_p
 from backend.services.page_sidecar import split_metadata as _typed_split_metadata
 split_sidecar_metadata = _typed_split_metadata
 from backend.services.path_resolver import path_resolver as path_resolver
-from backend.services.plugin_access import require_plugins
-from backend.services.vault_routing import canonical_vault_browser_path
+from backend.services.plugin_access import require_plugins as require_plugins
+from backend.services.vault_routing import canonical_vault_browser_path as canonical_vault_browser_path
 from backend.services.workspace_service import get_workspace_context as get_workspace_context
 from backend.services.workspace_service import require_role as require_role
 from backend.utils.errors import safe_error_detail as safe_error_detail
@@ -387,7 +463,7 @@ from backend.utils.safe_io import (
     safe_write_json as safe_write_json,
     safe_write_text as safe_write_text,
     sanitize_path_segment as sanitize_path_segment,
-    sanitize_rel_folder,
+    sanitize_rel_folder as sanitize_rel_folder,
     sanitize_vault_title as sanitize_vault_title,
 )
 

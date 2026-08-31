@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - backend/api/public_routes.py
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
@@ -24,6 +25,15 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_sync_comment_open_contract.py
+  - backend/tests/test_sync_comment_bootstrap.py
+  - backend/tests/test_translation_open_helpers_contract.py
+  - backend/tests/test_translation_open_io_contract.py
+  - backend/tests/test_translation_open_services_contract.py
+  - backend/tests/test_translation_open_effects_contract.py
+  - backend/tests/test_translation_lifecycle_binding_contract.py
+  - backend/tests/test_translation_request_validation_contract.py
+  - backend/tests/test_public_clip_receipt_contract.py
   - backend/tests/test_translation_provider_contracts.py
   - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
@@ -63,6 +73,33 @@ tests:
 ---
 
 # Vault i fitxers
+
+## Contractes de comentaris i traduccions
+
+La persistència de comentaris valida només el diccionari o llista arrel desat;
+conserva les claus desconegudes, els valors imbricats i la identitat dels registres.
+Els models HTTP continuen validant les respostes. `comments/composition.py`
+construeix dependències resoltes en el moment d’ús al punt de registre original
+i admet importar primer la façana o els comentaris. La importació Markdown
+preserva el tall natiu de l’ID en col·lisions de noms. Les subscripcions SSE
+continuen limitades al vault i retiren la seva pròpia cua en cancel·lar-se.
+
+Els helpers de traducció, la cerca, els efectes de metadades i els serveis de
+files i pàgines utilitzen metadades obertes sense suposar claus YAML només
+textuals. El cicle de vida comprova els responsables reals dels callbacks i un
+protocol de connector carregat quan cal; manté les dependències capturades i
+resol tard els membres substituïbles. Els resultats de creació de pàgines usen
+un contracte de lectura de camps, diferent de les metadades mutables. Els
+handlers d’escriptura registrats conserven el retorn asíncron i el context
+injectat opcional. Els resultats de Web Clipper passen pel model de resposta
+existent sense coerció de camps.
+
+Aquests canvis preserven els límits de captura d’errors dels proveïdors, la
+recuperació ordenada del disc, els idiomes de destí duplicats i l’ordre
+d’escriptura d’estats. Les proves sintètiques utilitzen dobles de proveïdor,
+no comptes reals del núvol. L’HTTP de traducció i la composició Drupal encara
+contenen tipatge heretat; aquest punt no certifica tot el backend ni una
+migració real de proveïdor del núvol.
 
 ## Responsabilitat
 

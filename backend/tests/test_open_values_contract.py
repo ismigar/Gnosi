@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterator
 
 import pytest
 
-from backend.utils.open_values import append_value, contains_value, float_value, get_value, integer_value, iterable_values, iterate_values, length_value, list_values, pop_value, set_value
+from backend.utils.open_values import append_value, contains_value, float_value, get_value, integer_value, item_value, iterable_values, iterate_values, length_value, list_values, pop_value, set_value
 
 
 def outcome(operation: Callable[[], object]) -> object:
@@ -26,6 +26,27 @@ class LegacySequence:
     def __getitem__(self, index: int) -> object:
         self.calls.append(index)
         return self.values[index]
+
+
+@pytest.mark.parametrize("value", [None, 7, "Mercè", [1, 2, 3], (1, 2), {"key": [None]}])
+@pytest.mark.parametrize("key", ["key", 0, slice(None, 8)])
+def test_item_and_slice_preserve_native_results_and_errors(value: object, key: object) -> None:
+    expected = outcome(lambda: eval("value[key]", {"value": value, "key": key}))
+    assert outcome(lambda: item_value(value, key)) == expected
+
+
+def test_item_lookup_calls_extension_once_and_preserves_result_identity() -> None:
+    selected = slice(None, 8)
+    events: list[object] = []
+    result = object()
+
+    class Extension:
+        def __getitem__(self, key: object) -> object:
+            events.append(key)
+            return result
+
+    assert item_value(Extension(), selected) is result
+    assert events == [selected] and events[0] is selected
 
 
 class BrokenIterable:

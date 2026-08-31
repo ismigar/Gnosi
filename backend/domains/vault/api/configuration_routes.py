@@ -4,52 +4,20 @@ import importlib as _legacy_importlib
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
+from backend.domains.vault.comments import composition as _comment_composition
+from backend.domains.vault.comments.api import CommentDependencies as _typed_CommentDependencies
+from backend.domains.vault.comments.composition import (
+    _get_comments_path as _get_comments_path,
+    _load_comments as _load_comments,
+    _save_comments as _save_comments,
+)
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 
 
-def _get_comments_path() -> _legacy.Path:
-    return _legacy.comments_repository.comments_path(_legacy.get_p)
-
-
-def _load_comments() -> dict[_LegacyAny, _LegacyAny]:
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny],
-        _legacy.comments_repository.load_page_comments(_get_comments_path),
-    )
-
-
-def _save_comments(data: dict[_LegacyAny, _LegacyAny]) -> None:
-    _legacy.comments_repository.save_page_comments(
-        _get_comments_path, _legacy.safe_write_json, data
-    )
-
-
-_COMMENTS_DEPENDENCIES = _legacy.comments_api.CommentDependencies(
-    resolve_page_loader=lambda: _legacy._load_comments,
-    resolve_page_saver=lambda: _legacy._save_comments,
-    resolve_inline_loader=lambda: _legacy._load_inline_comments,
-    resolve_inline_path=lambda: _legacy._inline_comments_path,
-    resolve_json_writer=lambda: _legacy.safe_write_json,
-)
+_COMMENTS_DEPENDENCIES: _typed_CommentDependencies = _comment_composition.build_dependencies()
 list_page_comments, add_page_comment, update_page_comment, delete_page_comment = (
-    _legacy.comments_api.register_page_comment_routes(
-        _legacy.router,
-        get_dependencies=[_legacy.Depends(_legacy.require_plugins("page-comments"))],
-        post_dependencies=[
-            _legacy.Depends(_legacy.require_role("editor")),
-            _legacy.Depends(_legacy.require_plugins("page-comments")),
-        ],
-        patch_dependencies=[
-            _legacy.Depends(_legacy.require_role("editor")),
-            _legacy.Depends(_legacy.require_plugins("page-comments")),
-        ],
-        delete_dependencies=[
-            _legacy.Depends(_legacy.require_role("editor")),
-            _legacy.Depends(_legacy.require_plugins("page-comments")),
-        ],
-        workspace_context_dependency=_legacy.get_workspace_context,
-        dependencies=_COMMENTS_DEPENDENCIES,
-    )
+    _comment_composition.register_page_comments(_COMMENTS_DEPENDENCIES)
 )
 from backend.domains.configuration import llm_wiki as llm_wiki_configuration
 from backend.domains.configuration import llm_wiki_records, llm_wiki_schema, plugin_state

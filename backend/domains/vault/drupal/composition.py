@@ -113,7 +113,7 @@ def _drupal_identity_meta(
 
 
 def _drupal_read_prop_value(
-    metadata: dict[_LegacyAny, _LegacyAny], prop: dict[_LegacyAny, _LegacyAny]
+    metadata: dict[_LegacyAny, _LegacyAny], prop: dict[_LegacyAny, _LegacyAny] | None
 ) -> _LegacyAny:
     """Value of a property in the frontmatter, prioritized title→id→name."""
     return _legacy.drupal_core.read_prop_value(metadata, prop)

@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - backend/api/public_routes.py
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
@@ -24,6 +25,15 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_sync_comment_open_contract.py
+  - backend/tests/test_sync_comment_bootstrap.py
+  - backend/tests/test_translation_open_helpers_contract.py
+  - backend/tests/test_translation_open_io_contract.py
+  - backend/tests/test_translation_open_services_contract.py
+  - backend/tests/test_translation_open_effects_contract.py
+  - backend/tests/test_translation_lifecycle_binding_contract.py
+  - backend/tests/test_translation_request_validation_contract.py
+  - backend/tests/test_public_clip_receipt_contract.py
   - backend/tests/test_translation_provider_contracts.py
   - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
@@ -63,6 +73,29 @@ tests:
 ---
 
 # Vault and files
+
+## Comment and translation contracts
+
+Comment persistence validates only the stored dictionary/list root; unknown keys,
+nested values and record identity remain intact. HTTP models still validate
+responses. `comments/composition.py` builds late-bound dependencies at the original
+registration point and supports facade-first or comment-first imports. Markdown
+imports preserve native ID slicing for filename collisions. SSE subscriptions
+remain vault-scoped and remove their own queues on cancellation.
+
+Translation helpers, lookup, metadata effects and row/page services use open
+metadata without asserting string-only YAML keys. The lifecycle checks actual
+callback owners and a lazy connector protocol; captured dependencies stay
+captured and replaceable members stay late-bound. Page creation receipts use a
+read-only named-field contract, distinct from mutable metadata. Registered write
+handlers retain their asynchronous return and optional injected context. Web
+Clipper receipts pass through the existing response model without field coercion.
+
+These changes preserve provider error boundaries, sorted disk recovery, duplicate
+target-language behavior and status-write ordering. Synthetic tests exercise
+provider doubles, not live cloud accounts. Translation HTTP and Drupal composition
+still contain legacy typing; this checkpoint does not certify the entire backend
+or a real cloud-provider migration.
 
 ## Responsibility
 

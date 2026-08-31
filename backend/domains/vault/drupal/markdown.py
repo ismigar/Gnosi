@@ -7,8 +7,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.domains.vault.drupal.core import Metadata
 from backend.domains.vault.pages.state import PageState
+from backend.domains.vault.registry.records import RecordReader
 
 
 EMBED_RE = re.compile(r"!\[\[([^\]]+)\]\]")
@@ -21,7 +21,7 @@ class DrupalMarkdownDependencies:
     active_vault_path: Callable[[], Path | None]
     page_state: PageState
     find_page: Callable[[str], Path | None]
-    parse_frontmatter: Callable[[str, Path], tuple[Metadata, str]]
+    parse_frontmatter: Callable[[str, Path], tuple[RecordReader, str]]
     markdown_to_html: Callable[[str], str]
 
 

@@ -6,19 +6,30 @@ import json
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Protocol
 
 from fastapi import HTTPException
 
 from backend.domains.vault.comments.state import page_comments_io_lock
+from backend.domains.vault.registry.records import is_object_list, is_record
 
 
-Comment = dict[str, Any]
-PageCommentMap = dict[str, list[Comment]]
+Comment = dict[str, object]
+# Stored JSON is only checked at its root; HTTP models validate comment shapes.
+PageCommentMap = dict[object, object]
+InlineComments = list[object]
 
 
 class JsonWriter(Protocol):
-    def __call__(self, path: Path, data: object, **kwargs: object) -> None: ...
+    def __call__(
+        self,
+        path: Path,
+        data: object,
+        /,
+        *,
+        indent: int | None = None,
+        ensure_ascii: bool = True,
+    ) -> None: ...
 
 
 def comments_path(get_path: Callable[[str], Path]) -> Path:
@@ -31,10 +42,10 @@ def load_page_comments(resolve_path: Callable[[], Path]) -> PageCommentMap:
             path = resolve_path()
             if not path.exists():
                 return {}
-            data = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
+            data: object = json.loads(path.read_text(encoding="utf-8"))
+            if not is_record(data):
                 return {}
-            return cast(PageCommentMap, data)
+            return data
         except Exception:
             return {}
 
@@ -63,21 +74,22 @@ def inline_comments_path(
     return directory / f"{safe_id}.json"
 
 
-def load_inline_comments(resolve_path: Callable[[str], Path], page_id: str) -> list[Comment]:
+def load_inline_comments(resolve_path: Callable[[str], Path], page_id: str) -> InlineComments:
     path = resolve_path(page_id)
     if not path.exists():
         return []
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, list):
+        data: object = json.loads(path.read_text(encoding="utf-8"))
+        if not is_object_list(data):
             return []
-        return cast(list[Comment], data)
+        return data
     except Exception:
         return []
 
 
 __all__ = [
     "Comment",
+    "InlineComments",
     "JsonWriter",
     "PageCommentMap",
     "comments_path",

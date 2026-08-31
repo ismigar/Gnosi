@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import BackgroundTasks
 
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import RecordReader
 from backend.domains.vault.schemas.pages import PagePatchRequest, PageSaveRequest
 
 
-Metadata = dict[str, Any]
-Result = dict[str, Any]
+Metadata = PageMetadata
+Result = dict[str, object]
 
 
 class PageLike(Protocol):
@@ -60,8 +62,10 @@ class TranslateTitle(Protocol):
     ) -> tuple[str, str]: ...
 
 
-CreatePage = Callable[[PageSaveRequest, BackgroundTasks], Awaitable[Result]]
-PatchPage = Callable[[str, PagePatchRequest, BackgroundTasks], Awaitable[Result]]
+# Consumers read named receipt fields, not mutable page metadata. This accepts
+# the actual string-keyed route receipt and extension-owned open dictionaries.
+CreatePage = Callable[[PageSaveRequest, BackgroundTasks], Awaitable[RecordReader]]
+PatchPage = Callable[[str, PagePatchRequest, BackgroundTasks], Awaitable[RecordReader]]
 
 
 __all__ = [

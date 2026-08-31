@@ -1,10 +1,12 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
+from pathlib import Path
 from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
 from backend.domains.vault.links.document_inventory import DocumentCache
+from backend.domains.vault.links.api.dependencies import LinkApiDependencies
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 _ID_TITLE_TTL = 60.0
@@ -338,7 +340,7 @@ _LINK_INDEX_DEPENDENCIES = _legacy.link_index_service.LinkIndexDependencies(
     parse_frontmatter=_legacy.parse_frontmatter,
     write_text=_legacy.safe_write_text,
 )
-_LINK_API_DEPENDENCIES = _legacy.LinkApiDependencies(
+_LINK_API_DEPENDENCIES = LinkApiDependencies(
     read_state=_legacy._link_index_view,
     build_id_title_index=build_id_title_index,
     build_alias_index=_build_alias_index,
@@ -578,7 +580,7 @@ get_global_index, get_alias_index = _legacy.link_overview_api.register_routes(
 get_link_preview = _legacy.link_preview_api.register_route(_legacy.router, _LINK_API_DEPENDENCIES)
 
 
-def register_page_in_index(file_path: _legacy.Path) -> None:
+def register_page_in_index(file_path: Path) -> None:
     """Inserts/updates in the in-memory page-index a page that was just written
     to disk, so it appears IMMEDIATELY in /pages (without waiting for the rebuild) and
     is deletable by id. Used by the importer, the web clipper, and the

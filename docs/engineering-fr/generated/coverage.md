@@ -9,7 +9,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 584 | 187 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 976 | 233 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 977 | 233 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 435 | 103 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 59 | 26 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 126 | 47 | 0 |
@@ -20,7 +20,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 25 | 7 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 68 | 18 | 0 |
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 130 | 36 | 0 |
-| `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 40 | 23 | 0 |
+| `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 40 | 24 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 16 | 8 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 99 | 29 | 0 |
 

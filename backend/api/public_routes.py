@@ -430,12 +430,12 @@ async def public_clip(
             background_tasks,
             context,
         )
-        return PublicClipResponse(
-            status="clipped",
-            id=res.get("id"),
-            path=res.get("folder") or table.get("name") or "",
-            table=table.get("name") or table.get("id"),
-        ).model_dump(exclude_unset=True)
+        return PublicClipResponse.model_validate({
+            "status": "clipped",
+            "id": res.get("id"),
+            "path": res.get("folder") or table.get("name") or "",
+            "table": table.get("name") or table.get("id"),
+        }).model_dump(exclude_unset=True)
 
     if "clipped" not in tags:
         tags.append("clipped")
@@ -446,5 +446,5 @@ async def public_clip(
         "note_type": "clip",
         "created": datetime.now(timezone.utc).isoformat(),
     }
-    res = _write_vault_page("Clips", title, body_md, extra)
-    return PublicClipResponse(status="clipped", **res).model_dump(exclude_unset=True)
+    clip_receipt = _write_vault_page("Clips", title, body_md, extra)
+    return PublicClipResponse(status="clipped", **clip_receipt).model_dump(exclude_unset=True)
