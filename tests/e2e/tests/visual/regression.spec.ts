@@ -21,14 +21,16 @@ const ROUTES = [
   { path: '/vault', name: 'vault' },
   { path: '/calendar', name: 'calendar' },
   { path: '/contacts', name: 'contacts' },
-];
+] as const;
 
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 720 },
   { name: 'mobile', width: 390, height: 844 },
 ];
 
-const DYNAMIC_MASKS: Record<string, string> = {
+type VisualRoute = (typeof ROUTES)[number]['path'];
+
+const DYNAMIC_MASKS: Record<VisualRoute, string> = {
   '/': '.gnosi-vault-badge',
   '/vault': '.vault-shell__sidebar-content',
   '/calendar': [
@@ -40,7 +42,7 @@ const DYNAMIC_MASKS: Record<string, string> = {
   '/contacts': '.gnosi-vault-badge, .contact-list__items',
 };
 
-const READY_SELECTORS: Record<string, string> = {
+const READY_SELECTORS: Record<VisualRoute, string> = {
   '/': '.home-page',
   '/vault': '.vault-shell',
   '/calendar': '.calendar-workspace',
@@ -49,7 +51,7 @@ const READY_SELECTORS: Record<string, string> = {
 
 type VisualViewport = (typeof VIEWPORTS)[number];
 
-async function prepareVisualState(page: Page, route: string, viewport: VisualViewport) {
+async function prepareVisualState(page: Page, route: VisualRoute, viewport: VisualViewport) {
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
   await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await page.evaluate(() => {

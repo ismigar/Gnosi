@@ -107,8 +107,10 @@ writing. Setup disables screenshots, video and tracing and authenticates before
 the test-step recorder, sanitizing transport failures. Unset `DEBUG`/`PWDEBUG`;
 do not enable authentication diagnostics that can expose cookies or passwords.
 
-Run `pnpm test:e2e:contracts` for the offline request/validation/permission tests
-and strict setup typing; CI runs this without credentials. These tests do not
+Run `pnpm test:e2e:contracts` for offline authentication, JSON and API-route
+contracts plus strict typing of every active E2E TypeScript spec and support file;
+CI runs this without credentials. The focused `typecheck:auth` alias remains
+available. These tests do not
 replace actual setup and browser acceptance. Some feature specs mock auth:
 their project name alone does not prove login coverage. Anonymous smoke can see
 the login screen rather than the authenticated application shell.
@@ -202,6 +204,11 @@ only; they do not certify application E2E or cross-platform visual acceptance.
 
 ## Failure lessons
 
+- Note: do not match API fixtures with a glob such as `**/api/integrations**`;
+  Vite's `/src/shared/api/integrations.ts` also matches, replacing source code
+  with JSON and leaving a blank page. Match the exact URL pathname and test
+  rejection of source-module paths as well as unrelated API operations.
+
 - Note: do not return success when a service is unavailable, because callers
   then accept a smoke suite that never ran. Fail before invoking Playwright.
 - Note: do not accept a redirect status or ignore curl's exit code, because a
@@ -216,3 +223,13 @@ only; they do not certify application E2E or cross-platform visual acceptance.
   not authenticate a session. Use login, a verified cookie and actual membership.
 - Note: disabling traces alone does not stop raw API errors entering test reports.
   Authenticate before the step recorder and return sanitized diagnostic messages.
+- Note: chat streaming rewrites `/api/chat` to
+  `/api/v1/vaults/{slug}/ai/chat` after vault selection. Match both exact endpoint
+  forms in provider doubles; do not let a legacy-only interceptor fall through
+  to a backend or broadly mock session/replay requests. Dashboard requests default
+  to the configured browser origin; any `GNOSI_API_BASE` override must also point
+  at the disposable instance, never a personal service.
+- Note: moving the E2E directory must not rewrite fixture IDs or HTTP paths.
+  Keep notebook IDs and endpoint matchers consistent, and verify visible controls
+  against the current product plus its pre-refactor source before changing a
+  stale assertion. A green setup-only typecheck does not cover feature specs.

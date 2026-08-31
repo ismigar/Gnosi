@@ -40,7 +40,7 @@
     "test:desktop": "pnpm --filter @gnosi/desktop test",
     "test:python": "uv run pytest",
     "test:e2e": "pnpm --filter @gnosi/e2e test",
-    "test:e2e:contracts": "pnpm --filter @gnosi/e2e test:contracts && pnpm --filter @gnosi/e2e typecheck:auth",
+    "test:e2e:contracts": "pnpm --filter @gnosi/e2e test:contracts && pnpm --filter @gnosi/e2e typecheck",
     "test:e2e:smoke": "pnpm --filter @gnosi/e2e test:smoke",
     "test:e2e:a11y": "pnpm --filter @gnosi/e2e test:a11y",
     "test:e2e:ui": "pnpm --filter @gnosi/e2e test:ui",

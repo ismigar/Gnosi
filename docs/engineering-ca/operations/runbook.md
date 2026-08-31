@@ -363,8 +363,12 @@ de l’aplicació i del navegador. El responsable de la integració manté les
 comprovacions completes de navegador, CI, SOP i acceptació per plataforma.
 
 Des de l’arrel del repositori, `corepack pnpm test:e2e:contracts` executa els
-contractes d’autenticació sense xarxa i la comprovació estricta dels seus tipus.
-No inicia l’aplicació ni substitueix l’acceptació real d’inici de sessió i navegador.
+contractes d’autenticació, JSON i rutes d’API sense xarxa, i després comprova
+estrictament els tipus de tots els fitxers TypeScript E2E actius i de suport:
+proves de funcionalitats, anònimes, d’accessibilitat i visuals. L’àlies específic
+`typecheck:auth` continua disponible. No inicia l’aplicació ni substitueix
+l’acceptació real d’inici de sessió i navegador; els tests JavaScript arxivats
+queden fora d’aquesta comprovació.
 
 ## Empaquetament Electron opcional
 

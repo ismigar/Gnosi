@@ -10,16 +10,18 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
-| Playwright | 21 | 71 |
-| Vitest | 480 | 1967 |
-| pytest | 367 | 2504 |
+| Playwright | 23 | 79 |
+| Vitest | 481 | 1968 |
+| pytest | 367 | 2505 |
 
 ## Files
 
 | Runner | File | Test signals | Counting method |
 | --- | --- | ---: | --- |
+| Playwright | [`tests/e2e/support/api-routes.test.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/support/api-routes.test.ts) | 4 | call-pattern estimate |
 | Playwright | [`tests/e2e/support/auth-playwright.test.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/support/auth-playwright.test.ts) | 10 | call-pattern estimate |
 | Playwright | [`tests/e2e/support/auth-state.test.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/support/auth-state.test.ts) | 12 | call-pattern estimate |
+| Playwright | [`tests/e2e/support/json-value.test.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/support/json-value.test.ts) | 4 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/accessibility/accessibility.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/accessibility/accessibility.spec.ts) | 5 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/anon/page-outline.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/anon/page-outline.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/anon/smoke.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/anon/smoke.spec.ts) | 5 | call-pattern estimate |
@@ -168,6 +170,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/notebooks/create/NotebookCreateDialog.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/create/NotebookCreateDialog.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/notebooks/create/notebookResourceCatalog.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/create/notebookResourceCatalog.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/notebooks/detail/NotebookDetail.behavior.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/detail/NotebookDetail.behavior.test.tsx) | 14 | call-pattern estimate |
+| Vitest | [`frontend/src/features/notebooks/detail/NotebookLibrary.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/detail/NotebookLibrary.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/notebooks/detail/notebookModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/detail/notebookModel.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/notebooks/model/notebookTableActions.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/model/notebookTableActions.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/notebooks/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/public-entry.test.ts) | 1 | call-pattern estimate |
@@ -752,7 +755,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_resource_lookup_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_resource_lookup_response_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_restore_index_symlink_vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_restore_index_symlink_vault.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_rollup_percent_checked_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rollup_percent_checked_parity.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_root_typecheck_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_root_typecheck_contract.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_root_typecheck_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_root_typecheck_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_rule_engine_derived_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rule_engine_derived_order.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_safe_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_safe_io.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sanitize_html_xss.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sanitize_html_xss.py) | 4 | Python AST |

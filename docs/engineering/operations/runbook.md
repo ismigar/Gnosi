@@ -331,8 +331,11 @@ coverage does not replace real application/browser validation. The integration
 owner retains the full browser, CI, SOP and platform acceptance gates.
 
 From the repository root, `corepack pnpm test:e2e:contracts` runs offline
-authentication contracts and strict authentication typechecking. It does not
-start the application or replace real login/browser acceptance.
+authentication, JSON and API-route contracts, then strictly type-checks all
+active E2E TypeScript specs and support files, including feature, anonymous,
+accessibility and visual tests. The focused `typecheck:auth` alias remains
+available. It does not start the application or replace real login/browser
+acceptance; archived JavaScript specs are outside this check.
 
 ## Optional Electron packaging
 

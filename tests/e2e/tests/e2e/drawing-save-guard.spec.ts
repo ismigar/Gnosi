@@ -1,5 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
+import { requireJsonObject } from '../../support/json-value.ts';
+
 /**
  * TldrawEditor — save integrity guard (tldraw_save_integrity.md directive).
  *
@@ -153,9 +155,13 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
         await expect.poll(() => puts.length, { timeout: 10_000 }).toBeGreaterThan(baseline);
 
         // The PUT must carry the stroke in the snapshot (not an empty canvas)
-        const lastPut = JSON.parse(puts[puts.length - 1]);
+        const lastRawPut = puts.at(-1);
+        if (lastRawPut === undefined) throw new Error('Expected a saved drawing request');
+        const lastPut = requireJsonObject(JSON.parse(lastRawPut));
         expect(lastPut.title).toBe('Guard Happy');
-        const storeRecords = Object.keys(lastPut?.data?.document?.store ?? {});
+        const data = requireJsonObject(lastPut.data);
+        const document = requireJsonObject(data.document);
+        const storeRecords = Object.keys(requireJsonObject(document.store));
         expect(storeRecords.some((k) => k.startsWith('shape:')), 'el snapshot du shapes').toBe(true);
     });
 });

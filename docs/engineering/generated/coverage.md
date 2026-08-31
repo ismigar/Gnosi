@@ -14,7 +14,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 59 | 26 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 126 | 45 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 199 | 72 | 0 |
-| `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 49 | 12 | 0 |
+| `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 81 | 32 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 79 | 25 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 25 | 7 | 0 |

@@ -29,6 +29,10 @@ EXPECTED_COMMANDS = [
         "extensions",
     ],
 ]
+E2E_COMMANDS = [
+    ["pnpm", "--filter", "@gnosi/e2e", "test:contracts"],
+    ["pnpm", "--filter", "@gnosi/e2e", "typecheck"],
+]
 
 
 def _scripts() -> dict[str, str]:
@@ -76,9 +80,33 @@ def test_pipeline_target_uses_the_complete_indexed_source_checker() -> None:
     assert (ROOT / "scripts/check_public_pipeline.py").is_file()
 
 
-@pytest.mark.parametrize("failure_at", [0, 1, 2, 3, 4])
+def test_e2e_contract_gate_checks_all_active_typescript_sources() -> None:
+    commands = [shlex.split(command.strip())
+                for command in _scripts()["test:e2e:contracts"].split("&&")]
+    assert commands == E2E_COMMANDS
+    manifest = json.loads((ROOT / "tests/e2e/package.json").read_text())
+    assert manifest["scripts"]["typecheck"] == (
+        "node ../../frontend/node_modules/typescript/bin/tsc --project tsconfig.json"
+    )
+    assert "typecheck:auth" in manifest["scripts"]  # Backwards-compatible focused alias.
+    configuration = json.loads((ROOT / "tests/e2e/tsconfig.json").read_text())
+    assert configuration["include"] == ["**/*.ts", "**/*.tsx"]
+    assert configuration["exclude"] == ["node_modules", "playwright-report", "test-results"]
+    for option in ("strict", "noEmit", "noUncheckedIndexedAccess"):
+        assert configuration["compilerOptions"][option] is True
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    assert "run: pnpm test:e2e:contracts" in workflow
+
+
+@pytest.mark.parametrize(("script_name", "commands", "failure_at"), [
+    ("typecheck", EXPECTED_COMMANDS, failure_at) for failure_at in range(5)
+] + [
+    ("test:e2e:contracts", E2E_COMMANDS, failure_at) for failure_at in range(3)
+])
 @pytest.mark.skipif(os.name != "posix", reason="Executable shims exercise the POSIX shell contract")
-def test_root_command_preserves_order_and_failure_status(failure_at: int, tmp_path: Path) -> None:
+def test_root_command_preserves_order_and_failure_status(
+    script_name: str, commands: list[list[str]], failure_at: int, tmp_path: Path,
+) -> None:
     executables = tmp_path / "bin"
     executables.mkdir()
     calls_path = tmp_path / "calls.jsonl"
@@ -112,7 +140,7 @@ raise SystemExit(16 + stage if stage == failure_at else 0)
         "GNOSI_GATE_FAILURE": str(failure_at),
     }
     result = subprocess.run(
-        ["/bin/sh", "-c", _scripts()["typecheck"]],
+        ["/bin/sh", "-c", _scripts()[script_name]],
         cwd=tmp_path,
         env=environment,
         capture_output=True,
@@ -121,6 +149,6 @@ raise SystemExit(16 + stage if stage == failure_at else 0)
         check=False,
     )
     assert result.returncode == (16 + failure_at if failure_at else 0), result.stderr
-    expected_count = failure_at or len(EXPECTED_COMMANDS)
+    expected_count = failure_at or len(commands)
     recorded: object = [json.loads(line) for line in calls_path.read_text().splitlines()]
-    assert recorded == EXPECTED_COMMANDS[:expected_count]
+    assert recorded == commands[:expected_count]

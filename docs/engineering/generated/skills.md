@@ -15,7 +15,7 @@ Discovered **15 documented runtime skills**.
 | `mail_sync` | SKILL: Mail Sync | 85 | 0 | [`pipeline/skills/mail_sync/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/mail_sync/SKILL.md) |
 | `notification_service` | Notification Service Skill | 38 | 1 | [`pipeline/skills/notification_service/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/notification_service/SKILL.md) |
 | `notion_clone` | Skill: Notion Clone | 94 | 3 | [`pipeline/skills/notion_clone/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/notion_clone/SKILL.md) |
-| `playwright_e2e` | Playwright E2E | 218 | 2 | [`pipeline/skills/playwright_e2e/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/playwright_e2e/SKILL.md) |
+| `playwright_e2e` | Playwright E2E | 235 | 2 | [`pipeline/skills/playwright_e2e/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/playwright_e2e/SKILL.md) |
 | `python_module_refactor` | SKILL: Python module refactor | 95 | 3 | [`pipeline/skills/python_module_refactor/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/python_module_refactor/SKILL.md) |
 | `rss_to_audio` | SKILL: RSS to Audio Podcast | 91 | 1 | [`pipeline/skills/rss_to_audio/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/rss_to_audio/SKILL.md) |
 | `scheduler` | SKILL: Backend Background Scheduler | 77 | 0 | [`pipeline/skills/scheduler/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/scheduler/SKILL.md) |

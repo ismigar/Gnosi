@@ -76,7 +76,7 @@ export default function NotebookLibrary({ onCreate }: { onCreate: () => void }) 
                     )}
                     <div className="notebook-grid">
                         {data.items.map((notebook) => (
-                            <button key={notebook.id} className="notebook-card" onClick={() => { void navigate(vaultPath('notebooks', notebook.id)); }}>
+                            <button key={notebook.id} className="notebook-card" aria-label={notebook.title} onClick={() => { void navigate(vaultPath('notebooks', notebook.id)); }}>
                                 <div className="notebook-card__top">
                                     <span className="notebook-card__icon"><BookOpen size={19} /></span>
                                     <StatusBadge status={notebook.status} />

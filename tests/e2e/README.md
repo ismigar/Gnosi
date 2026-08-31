@@ -101,6 +101,7 @@ and started the chosen services:
 ```bash
 pnpm --filter @gnosi/e2e exec playwright test --project=setup --workers=1
 pnpm --filter @gnosi/e2e exec playwright test --project=chromium-auth --workers=1
+pnpm --filter @gnosi/e2e typecheck
 pnpm test:e2e:a11y
 pnpm test:e2e
 pnpm --filter @gnosi/e2e report
@@ -112,7 +113,31 @@ for setup diagnostics. API setup success alone is not a browser or release test.
 Some feature specs mock auth responses; their project name does not prove a real
 authenticated flow. The principal must verify the unmocked cookie/browser flow.
 
+Dashboard API requests default to the configured browser origin through its
+`/api` proxy, not a separate localhost:5002 service. If `GNOSI_API_BASE` is supplied,
+it must explicitly select the same disposable backend. Chat mocks cover both
+`/api/chat` and `/api/v1/vaults/{slug}/ai/chat`; session and replay endpoints are
+separate contracts, not swallowed by that matcher.
+
+For title-editing acceptance, set `GNOSI_TEST_TABLE_ID` to an ordinary table
+provisioned with at least two rows inside the selected disposable vault. An
+explicit target opens through the real sidebar and fails if its rows cannot
+render; it never silently skips. This editing flow does not certify cold
+direct-deep-link startup or reload readiness.
+Without this selector, the spec discovers a suitable table and may skip when
+none is available. Discovery uses the configured workspace/vault selectors.
+Mail fixtures cover legacy and vault-scoped APIs; integrations matching excludes
+Vite source-module paths so the mock cannot replace application code with JSON.
+
 ## Offline worker validation
+
+The root `pnpm test:e2e:contracts` command runs offline authentication, JSON and
+API-route contracts, then strict TypeScript checking of all active E2E `.ts` and
+`.tsx` files through `tsconfig.json`. This includes feature, anonymous,
+accessibility and visual specs, not just setup. The focused `typecheck:auth`
+alias remains available for compatibility. Neither check launches browsers or
+certifies actual feature behavior; archived JavaScript under `tests/legacy` is
+not part of the configured projects or this TypeScript check.
 
 These commands use only synthetic in-memory profiles, request doubles and
 disposable files created by the tests themselves. They do not run Playwright,

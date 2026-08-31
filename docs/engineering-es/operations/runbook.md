@@ -371,8 +371,12 @@ aplicación y del navegador. El responsable de integración mantiene las
 comprobaciones completas de navegador, CI, SOP y aceptación por plataforma.
 
 Desde la raíz del repositorio, `corepack pnpm test:e2e:contracts` ejecuta los
-contratos de autenticación sin red y la comprobación estricta de sus tipos.
-No inicia la aplicación ni sustituye la aceptación real de inicio de sesión y navegador.
+contratos de autenticación, JSON y rutas de API sin red, y después comprueba
+estrictamente los tipos de todos los archivos TypeScript E2E activos y de apoyo:
+pruebas funcionales, anónimas, de accesibilidad y visuales. El alias específico
+`typecheck:auth` sigue disponible. No inicia la aplicación ni sustituye la
+aceptación real de inicio de sesión y navegador; las pruebas JavaScript archivadas
+quedan fuera de esta comprobación.
 
 ## Empaquetado Electron opcional
 

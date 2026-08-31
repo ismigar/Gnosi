@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+import { integrationsDocumentRoute, mailApiPath } from '../../support/api-routes.ts';
+
 /**
  * Reply to an email with inline images (cid:) from the original message:
  *  - buildQuotedHtml rewrites src="cid:..." → URL /api/mail/.../cid/...
@@ -49,7 +51,7 @@ test.describe('Mail reply amb cid: citat', () => {
   test.describe.configure({ timeout: 90_000 });
 
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/integrations**', (route) =>
+    await page.route(integrationsDocumentRoute, (route) =>
       route.fulfill({
         json: {
           mail_accounts: [{ email: ACCOUNT, provider: 'imap', display_name: 'PW Cid' }],
@@ -58,11 +60,12 @@ test.describe('Mail reply amb cid: citat', () => {
       }),
     );
 
-    // All of /api/mail/** mocked: the test doesn't depend on real accounts or
+    // Legacy and vault-scoped mail mocked: no real account or provider calls or
     // write drafts to the vault (composer autosave every 2 s).
-    await page.route('**/api/mail/**', (route) => {
+    await page.route((url) => mailApiPath(url) !== null, (route) => {
       const url = new URL(route.request().url());
-      const path = url.pathname;
+      const path = mailApiPath(url);
+      if (path === null) throw new Error('Unexpected non-mail fixture request');
       const method = route.request().method();
 
       if (path === '/api/mail/messages' && method === 'GET') {
@@ -147,7 +150,8 @@ test.describe('Mail reply amb cid: citat', () => {
     });
     const [replyReq] = await Promise.all([
       page.waitForRequest(
-        (r) => r.url().includes(`/api/mail/messages/${MSG_ID}/reply`) && r.method() === 'POST',
+        (r) => mailApiPath(new URL(r.url())) === `/api/mail/messages/${MSG_ID}/reply`
+          && r.method() === 'POST',
         { timeout: 15_000 },
       ),
       sendBtn.click(),

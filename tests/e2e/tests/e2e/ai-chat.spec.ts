@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
+import { chatStreamRoute } from '../../support/api-routes.ts';
+
 /**
  * AI Chat E2E: floating chat button is visible globally, opens panel, has textarea.
  *
@@ -9,14 +11,10 @@ import { test, expect, type Page } from '@playwright/test';
 
 test.describe('AI Chat', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/health', (route) => route.fulfill({
-      json: { status: 'ok', gnosi_mode: 'personal', require_auth: false },
+    await page.route('**/api/vault/plugins', (route) => route.fulfill({
+      json: { enabled_builtin: ['ai-platform'], enabled_third_party: [], disabled: [], settings: {} },
     }));
-    await page.route('**/api/auth/me', (route) => route.fulfill({
-      status: 401,
-      contentType: 'application/json',
-      body: JSON.stringify({ detail: 'Not authenticated' }),
-    }));
+    // Keep setup's real login and membership; model/data responses remain controlled fixtures.
     await page.addInitScript(() => {
       const openDock = () => {
         document.body.dataset.gnosiFloatingDock = 'open';
@@ -46,7 +44,7 @@ test.describe('AI Chat', () => {
     }
     await page.route('**/api/chat/confirmations**', (route) => route.fulfill({ json: [] }));
 
-    await page.route('**/api/chat', async (route) => {
+    await page.route(chatStreamRoute, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/x-ndjson',
@@ -124,9 +122,11 @@ test.describe('AI Chat', () => {
   });
 
   test('shows live and saved response processing seconds', async ({ page }) => {
-    await page.unroute('**/api/chat');
-    await page.route('**/api/chat', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 1_100));
+    let finishResponse: (() => void) | undefined;
+    const responseReady = new Promise<void>((resolve) => { finishResponse = resolve; });
+    await page.unroute(chatStreamRoute);
+    await page.route(chatStreamRoute, async (route) => {
+      await responseReady;
       await route.fulfill({
         status: 200,
         contentType: 'application/x-ndjson',
@@ -144,9 +144,13 @@ test.describe('AI Chat', () => {
     await textarea.fill('Time this response');
     await textarea.press('Enter');
 
-    await expect(page.getByText(/(?:processing|processant|procesando|traitement).*[01] s/i)).toBeVisible();
+    try {
+      await expect(page.getByText(/(?:Understanding request|Entenent la petició|Entendiendo la petición|Compréhension de la demande).*?(?:[1-9]\d*(?:\.\d+)?|0\.[1-9]\d*) s/i)).toBeVisible();
+    } finally {
+      finishResponse?.();
+    }
     await expect(page.getByText('Timed response')).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText(/test-model · [12] s/)).toBeVisible();
+    await expect(page.getByText(/test-model · (?:[1-9]\d*(?:\.\d+)?|0\.[1-9]\d*) s/)).toBeVisible();
   });
 
   test('rewinds a complete turn through the canonical session endpoint', async ({ page }) => {
@@ -181,8 +185,8 @@ test.describe('AI Chat', () => {
   });
 
   test('a pending turn exposes cancellation and locks the agent selector', async ({ page }) => {
-    await page.unroute('**/api/chat');
-    await page.route('**/api/chat', async (route) => {
+    await page.unroute(chatStreamRoute);
+    await page.route(chatStreamRoute, async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1_000));
       await route.fulfill({
         status: 200,
@@ -210,7 +214,12 @@ test.describe('AI Chat', () => {
       { timeout: 15_000 },
     );
     await page.addInitScript(() => {
-      const storageScope = 'retention-test:personal:personal';
+      // Setup owns the identity and vault; seed that scope without replacing it.
+      const storageScope = [
+        localStorage.getItem('gnosi_active_vault') || 'default',
+        localStorage.getItem('gnosi_workspace_id') || 'personal',
+        localStorage.getItem('gnosi_user_id') || 'personal',
+      ].join(':');
       const sessions = Array.from({ length: 21 }, (_, index) => ({
         id: `session-${index}`,
         title: `Session ${index}`,
@@ -220,7 +229,6 @@ test.describe('AI Chat', () => {
         createdAt: 1_000 - index,
         updatedAt: 1_000 - index,
       }));
-      localStorage.setItem('gnosi_active_vault', 'retention-test');
       localStorage.setItem(
         `agent_chat_sessions_v2:${storageScope}`,
         JSON.stringify(sessions),

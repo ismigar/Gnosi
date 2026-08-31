@@ -6,6 +6,10 @@ test.describe('Autonomous quality scout', () => {
   test.skip(!testVaultId, 'GNOSI_TEST_VAULT_ID is required for the isolated Proves vault');
 
   test('uses the isolated vault and detects application-level failures', async ({ page }) => {
+    if (!testVaultId) {
+      test.skip();
+      return;
+    }
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('/', { waitUntil: 'domcontentloaded' });

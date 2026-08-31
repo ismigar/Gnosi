@@ -383,8 +383,11 @@ navigateur. Le responsable de l’intégration conserve les contrôles complets
 du navigateur, de la CI, du SOP et de l’acceptation par plateforme.
 
 Depuis la racine du dépôt, `corepack pnpm test:e2e:contracts` exécute les
-contrats d’authentification hors ligne et la vérification stricte de leurs types.
-Il ne démarre pas l’application et ne remplace pas l’acceptation réelle de la
+contrats d’authentification, JSON et de routage d’API hors ligne, puis vérifie
+strictement les types de tous les fichiers TypeScript E2E actifs et de support :
+tests fonctionnels, anonymes, d’accessibilité et visuels. L’alias ciblé
+`typecheck:auth` reste disponible. Les tests JavaScript archivés sont exclus de
+cette vérification. Il ne démarre pas l’application et ne remplace pas l’acceptation réelle de la
 connexion et du navigateur.
 
 ## Création facultative des paquets Electron

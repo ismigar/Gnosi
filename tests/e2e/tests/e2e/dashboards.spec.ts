@@ -15,7 +15,8 @@ import { test, expect } from '@playwright/test';
  * format is `.json`; this test makes no claims about .md vs .json.
  */
 
-const API_BASE = process.env.GNOSI_API_BASE || 'http://localhost:5002';
+// Relative requests use the same explicit disposable origin as the browser.
+const API_BASE = process.env.GNOSI_API_BASE || '';
 
 test.describe('Dashboards', () => {
   test('POST is_dashboard=true crea pàgina a .Dashboards i GET la retorna', async ({ request }) => {
