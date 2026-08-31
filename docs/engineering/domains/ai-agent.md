@@ -371,7 +371,7 @@ than an instruction.
 Exhaustive inventories reuse the locally persisted parsed-document and link
 indexes. Relation ids are expanded to indexed target titles, so a record linked
 to a matching project or source remains discoverable without reopening every
-OneDrive document. Normal Gnosi writes update these indexes; periodic index
+cloud-synced document. Normal Gnosi writes update these indexes; periodic index
 maintenance reconciles external edits. Records absent from the cache fall back
 to a direct bounded read. Semantic top-k search remains the evidence-discovery
 path for lookups and analyses and is never presented as a complete inventory.
@@ -710,7 +710,8 @@ removes only obsolete Gnosi-managed entries.
 Run model routing, provider deletion, reliability, timeouts, MCP retry and
 resilience, skill catalog/runtime/API, generated-tool validation, context
 containment, confirmation race/expiry, chat ordering, and browser chat flows.
-# Universal agent runtime
+
+## Universal agent runtime
 
 Gnosi routes every turn through a bounded, provider-neutral contract. Before
 capability selection, the semantic interpreter normalizes multilingual intent,
@@ -737,7 +738,7 @@ the JSON cache remains a safe fallback.
 
 Explicit turn identifiers are claimed durably in the workspace/user/session
 scope. A duplicate request is rejected instead of executing the same action or
-background job twice. The SSE stream emits `progress` events with node, phase,
+background job twice. The NDJSON stream emits `progress` events with node, phase,
 elapsed time and bounded call counters so clients can render responsive
 progress without reading internal prompts.
 

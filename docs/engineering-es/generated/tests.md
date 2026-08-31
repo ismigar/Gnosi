@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 21 | 71 |
 | Vitest | 480 | 1967 |
-| pytest | 366 | 2500 |
+| pytest | 367 | 2504 |
 
 ## Archivos
 
@@ -860,6 +860,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`desktop/tests/test_backend_resources.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_backend_resources.py) | 31 | Python AST |
 | pytest | [`extensions/office/libreoffice-cite/tests/test_doc_traversal.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/office/libreoffice-cite/tests/test_doc_traversal.py) | 9 | Python AST |
 | pytest | [`pipeline/skills/python_module_refactor/tests/test_tools.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/python_module_refactor/tests/test_tools.py) | 7 | Python AST |
+| pytest | [`pipeline/skills/technical_documentation/tests/test_ai_guide_parity.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_ai_guide_parity.py) | 4 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_change_impact.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_change_impact.py) | 12 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_frontend_routes.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_frontend_routes.py) | 6 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_generate.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_generate.py) | 16 | Python AST |
