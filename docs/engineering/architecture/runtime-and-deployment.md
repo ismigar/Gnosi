@@ -4,8 +4,6 @@ last_verified: 2026-08-31
 source_paths:
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
-  - scripts/runtime/install_native_startup.sh
-  - scripts/runtime/native_watchdog.sh
   - backend/config/env_config.py
   - backend/config/data_dir.py
   - frontend/vite.config.js
@@ -165,14 +163,15 @@ and Trash actions. Cloud-file helpers can hydrate online-only files; vendor
 recovery belongs to the selected adapter. These are optional integrations
 requiring explicit provisioning, not portable startup prerequisites.
 
-`scripts/runtime/install_native_startup.sh` and
-`scripts/runtime/native_watchdog.sh` still exist; they have not been retired.
-The installer stops listeners on 5002/5173 and reloads LaunchAgents. The
-watchdog can kill broadly matching multiprocessing workers and restart via
-launchd; do not execute either script as a generic diagnostic. Keep their
-source traceability and warnings until removal actually follows caller review
-and exact private preservation. Portable wrapper changes do not uninstall
-existing host services.
+The 15 historical host-runtime scripts (installers, watchdogs and host tools),
+plus the obsolete `run_brain.sh` and `run_prod.sh` launchers, have been retired
+from the public repository. Host operations belong in private `WorkspaceTools`.
+The historical `install_native_startup.sh` stops listeners on 5002/5173 and
+reloads LaunchAgents. A preserved `native_watchdog.sh` can kill broadly matching
+multiprocessing workers and restart via launchd; do not execute either script
+as a generic diagnostic. Review the actual installed configuration and private
+procedures. This checkout cleanup does not change, migrate or uninstall
+installed host services. Portable wrappers remain the native startup contract.
 
 ## Port and process invariants
 

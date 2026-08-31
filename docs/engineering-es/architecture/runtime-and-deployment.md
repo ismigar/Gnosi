@@ -4,8 +4,6 @@ last_verified: 2026-08-31
 source_paths:
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
-  - scripts/runtime/install_native_startup.sh
-  - scripts/runtime/native_watchdog.sh
   - backend/config/env_config.py
   - backend/config/data_dir.py
   - frontend/vite.config.js
@@ -182,14 +180,17 @@ pueden hidratar archivos solo en línea; la recuperación de cada proveedor
 corresponde a su adaptador. Son integraciones opcionales que requieren
 configuración explícita, no requisitos de arranque portable.
 
-`scripts/runtime/install_native_startup.sh` y
-`scripts/runtime/native_watchdog.sh` todavía existen; no se han retirado.
-El instalador detiene los procesos que escuchan en 5002/5173 y recarga
-LaunchAgents. El watchdog puede matar procesos multiprocessing con una selección
-amplia y reiniciar mediante launchd; no ejecute ninguno como diagnóstico
-genérico. Conserve su trazabilidad y advertencias hasta una retirada real,
-tras revisar las llamadas y conservar una copia privada exacta. Los cambios en
-los wrappers portables no desinstalan servicios existentes del host.
+Los 15 scripts históricos del runtime del host (instaladores, watchdogs y
+herramientas del host), junto con los lanzadores obsoletos `run_brain.sh` y
+`run_prod.sh`, se han retirado del repositorio público. Las operaciones del host
+pertenecen al repositorio privado `WorkspaceTools`. El instalador histórico
+`install_native_startup.sh` detiene los procesos que escuchan en 5002/5173 y
+recarga LaunchAgents. Una copia conservada de `native_watchdog.sh` puede matar
+procesos multiprocessing con una selección amplia y reiniciar mediante launchd;
+no ejecute ninguno como diagnóstico genérico. Revise la configuración real
+instalada y los procedimientos privados. Esta limpieza del checkout no modifica,
+migra ni desinstala los servicios instalados del host. Los wrappers portables
+siguen siendo el contrato de arranque nativo.
 
 ## Invariantes de puertos y procesos
 

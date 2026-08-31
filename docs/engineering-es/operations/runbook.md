@@ -9,8 +9,7 @@ source_paths:
   - uv.lock
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
-  - scripts/runtime/install_native_startup.sh
-  - scripts/runtime/native_watchdog.sh
+  - scripts/check_public_runtime.py
   - frontend/vite.config.js
   - backend/app/health_contracts.py
   - backend/config/data_dir.py
@@ -228,23 +227,26 @@ recuperación de OneDrive a otros proveedores.
 
 ## Configuración opcional del host macOS
 
-`scripts/runtime/install_native_startup.sh` instala LaunchAgents que invocan
-los scripts de arranque nativo. Las instalaciones existentes pueden escribir
-registros en `~/Library/Logs/Gnosi`; revise su configuración real. Son
+Los 15 scripts históricos del runtime del host (instaladores, watchdogs y
+herramientas del host), junto con los lanzadores obsoletos `run_brain.sh` y
+`run_prod.sh`, se han retirado del repositorio público. Las operaciones del host
+pertenecen al repositorio privado `WorkspaceTools`. Ejecute `pnpm check:runtime`
+tras preparar los cambios revisados: CI rechaza scripts retirados, enlaces
+simbólicos y estado local en el índice Git. Las instalaciones existentes
+pueden escribir registros en `~/Library/Logs/Gnosi`; revise su configuración real. Son
 facilidades opcionales del host, no el contrato de arranque portable. Las
 definiciones de servicios específicas de cada máquina, las rutas privadas y
 el historial de incidentes pertenecen al repositorio privado `WorkspaceTools`,
 no a los requisitos públicos.
 
-Los scripts de instalación del host y de watchdog todavía existen; no se han
-retirado. Los wrappers portables anteriores no instalan ni eliminan servicios
-existentes del host. Revise `install_native_startup.sh` antes de utilizarlo:
+Esta limpieza del checkout no modifica, migra ni desinstala los servicios
+instalados del host. Los wrappers portables anteriores no instalan ni eliminan
+servicios existentes del host. El instalador histórico `install_native_startup.sh`
 detiene los procesos que escuchan en 5002/5173 y recarga LaunchAgents.
-No lo ejecute como diagnóstico. Mantenga la trazabilidad del código y las
-advertencias específicas del host hasta que una retirada se haya completado,
-tras revisar las llamadas y conservar una copia privada exacta.
+No ejecute los instaladores o watchdogs conservados como diagnóstico; revise
+la configuración real instalada y los procedimientos privados.
 
-Si una instalación ya utiliza `scripts/runtime/native_watchdog.sh`, revise
+Si una instalación aún utiliza una copia conservada de `native_watchdog.sh`, revise
 `~/.gnosi_native_watchdog.log` para detectar bucles de reinicio. El margen
 de arranque (`GNOSI_NATIVE_STARTUP_GRACE`) y el intervalo mínimo entre
 reinicios (`GNOSI_NATIVE_WATCHDOG_COOLDOWN`) son de 600 segundos por defecto.

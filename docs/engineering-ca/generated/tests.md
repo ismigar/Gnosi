@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 21 | 71 |
 | Vitest | 479 | 1961 |
-| pytest | 348 | 2383 |
+| pytest | 350 | 2402 |
 
 ## Fitxers
 
@@ -855,6 +855,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`pipeline/tests/test_container_contract.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_container_contract.py) | 8 | Python AST |
 | pytest | [`pipeline/tests/test_documentation_scanners.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_documentation_scanners.py) | 5 | Python AST |
 | pytest | [`pipeline/tests/test_e2e_wrappers.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_e2e_wrappers.py) | 20 | Python AST |
+| pytest | [`pipeline/tests/test_find_connections_wrapper.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_find_connections_wrapper.py) | 8 | Python AST |
 | pytest | [`pipeline/tests/test_frontend_api_boundary.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_frontend_api_boundary.py) | 2 | Python AST |
 | pytest | [`pipeline/tests/test_host_tooling.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_host_tooling.py) | 16 | Python AST |
 | pytest | [`pipeline/tests/test_native_runtime_wrappers.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py) | 21 | Python AST |
@@ -862,6 +863,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`pipeline/tests/test_portable_ingestion_tools.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_portable_ingestion_tools.py) | 1 | Python AST |
 | pytest | [`pipeline/tests/test_portable_migrations.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_portable_migrations.py) | 1 | Python AST |
 | pytest | [`pipeline/tests/test_public_pipeline.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_public_pipeline.py) | 9 | Python AST |
+| pytest | [`pipeline/tests/test_public_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_public_runtime.py) | 11 | Python AST |
 | pytest | [`pipeline/tests/test_sqlite_schema_audit.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_sqlite_schema_audit.py) | 4 | Python AST |
 | pytest | [`pipeline/tests/test_zotero_constants.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_zotero_constants.py) | 7 | Python AST |
 | pytest | [`tests/manual/ingest-feeds.py`](https://github.com/ismigar/Gnosi/blob/main/tests/manual/ingest-feeds.py) | 0 | Python AST |

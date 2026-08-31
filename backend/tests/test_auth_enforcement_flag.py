@@ -18,7 +18,6 @@ The enforcement is an app-wide dependency rather than per-route gating, because
 a survey found 50 routes that never touch `get_workspace_context` and would
 otherwise have stayed open.
 """
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -284,23 +283,16 @@ def test_health_advertises_enforcement_off(client, enforcement_off):
     assert client.get("/api/health").json()["require_auth"] is False
 
 
-def test_on_config_is_gated_and_the_watchdog_does_not_use_it(client, enforcement_on):
+def test_on_config_stays_gated_and_is_not_a_liveness_probe(client, enforcement_on):
     """`/api/config` is admin-gated at the router, so it can never be a probe.
 
-    It was allowlisted and `native_watchdog.sh` polled it — the gate would have
-    waved it through and `require_role("admin")` would have 401'd anyway,
-    restart-looping the watchdog. The probe now targets /api/health.
+    Historical host watchdogs are no longer shipped in public Gnosi. Keep the
+    authentication contract independent of those private service implementations:
+    liveness is public, configuration is not.
     """
     assert client.get("/api/config").status_code == 401
 
-    watchdog = (
-        Path(__file__).resolve().parents[2]
-        / "scripts"
-        / "runtime"
-        / "native_watchdog.sh"
-    ).read_text()
-    assert "/api/health" in watchdog
-    assert "5002/api/config" not in watchdog
+    assert client.get("/api/health").status_code == 200
 
 
 def test_on_login_stays_reachable(client, enforcement_on):

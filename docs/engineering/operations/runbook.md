@@ -9,8 +9,7 @@ source_paths:
   - uv.lock
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
-  - scripts/runtime/install_native_startup.sh
-  - scripts/runtime/native_watchdog.sh
+  - scripts/check_public_runtime.py
   - frontend/vite.config.js
   - backend/app/health_contracts.py
   - backend/config/data_dir.py
@@ -205,21 +204,24 @@ instructions to other providers.
 
 ## Optional macOS host provisioning
 
-`scripts/runtime/install_native_startup.sh` installs LaunchAgents that call
-the native wrapper scripts. Existing installations may write logs under
+The 15 historical host-runtime scripts (installers, watchdogs and host tools),
+plus the obsolete `run_brain.sh` and `run_prod.sh` launchers, have been retired
+from the public repository. Host operations belong in private `WorkspaceTools`.
+Run `pnpm check:runtime` after staging reviewed changes: CI rejects retired
+runtime sources, symbolic links and local state in the Git index.
+Existing installations may write logs under
 `~/Library/Logs/Gnosi`; inspect their actual configuration. These are optional
 host conveniences, not the portable startup contract. Machine-specific service
 definitions, private paths and incident history belong in private
 `WorkspaceTools`, not in public prerequisites.
 
-Host installation and watchdog scripts still exist; they have not been retired.
+This checkout cleanup does not change, migrate or uninstall installed host services.
 The portable wrappers above do not install or remove existing host services.
-Review `install_native_startup.sh` before use: it terminates listeners on
-5002/5173 and reloads LaunchAgents. Do not run it as a diagnostic. Retain source
-traceability and host-specific warnings until any removal is actually completed
-after caller review and exact private preservation.
+The historical `install_native_startup.sh` terminates listeners on 5002/5173
+and reloads LaunchAgents. Do not run preserved installers or watchdogs as
+diagnostics; review the actual installed configuration and private procedures.
 
-For an installation that already uses `scripts/runtime/native_watchdog.sh`,
+For an installation that still uses a preserved `native_watchdog.sh`,
 inspect `~/.gnosi_native_watchdog.log` for restart loops. Startup grace
 (`GNOSI_NATIVE_STARTUP_GRACE`) and restart cooldown
 (`GNOSI_NATIVE_WATCHDOG_COOLDOWN`) both default to 600 seconds; retain adequate

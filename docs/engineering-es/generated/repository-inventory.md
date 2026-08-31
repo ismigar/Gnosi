@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | --- |
 | `backend/` | 1072 | FastAPI, services, models, agents, scheduling, and storage adapters |
 | `frontend/src/` | 1827 | React application, UI behavior, state, and browser integrations |
-| `pipeline/` | 86 | Reusable application skills and deterministic processing tools |
+| `pipeline/` | 88 | Reusable application skills and deterministic processing tools |
 | `desktop/` | 70 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 44 | Office, browser, plugin, marketplace, and external-system adapters |
 | `tests/e2e/` | 35 | Host-level Playwright acceptance tests |
-| `scripts/` | 40 | Native, self-host, release, and maintenance scripts |
+| `scripts/` | 24 | Native, self-host, release, and maintenance scripts |
 
 ## Límite de exclusión
 

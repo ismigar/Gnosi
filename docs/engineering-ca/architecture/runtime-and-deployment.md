@@ -4,8 +4,6 @@ last_verified: 2026-08-31
 source_paths:
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
-  - scripts/runtime/install_native_startup.sh
-  - scripts/runtime/native_watchdog.sh
   - backend/config/env_config.py
   - backend/config/data_dir.py
   - frontend/vite.config.js
@@ -179,14 +177,17 @@ hidratar fitxers només en línia; la recuperació de cada proveïdor correspon 
 seu adaptador. Són integracions opcionals que requereixen configuració explícita,
 no requisits d’arrencada portable.
 
-`scripts/runtime/install_native_startup.sh` i
-`scripts/runtime/native_watchdog.sh` encara existeixen; no s’han retirat.
-L’instal·lador atura els processos que escolten a 5002/5173 i recarrega
-LaunchAgents. El watchdog pot matar processos multiprocessing amb una selecció
-àmplia i reiniciar mitjançant launchd; no executeu cap dels dos com a diagnòstic
-genèric. Conserveu-ne la traçabilitat i les advertències fins a una retirada real,
-després de revisar les crides i preservar una còpia privada exacta. Els canvis
-als wrappers portables no desinstal·len serveis existents del host.
+Els 15 scripts històrics del runtime del host (instal·ladors, watchdogs i eines
+del host), juntament amb els llançadors obsolets `run_brain.sh` i `run_prod.sh`,
+s’han retirat del repositori públic. Les operacions del host pertanyen al
+repositori privat `WorkspaceTools`. L’instal·lador històric
+`install_native_startup.sh` atura els processos que escolten a 5002/5173 i
+recarrega LaunchAgents. Una còpia preservada de `native_watchdog.sh` pot matar
+processos multiprocessing amb una selecció àmplia i reiniciar mitjançant launchd;
+no executeu cap dels dos com a diagnòstic genèric. Reviseu la configuració real
+instal·lada i els procediments privats. Aquesta neteja del checkout no modifica,
+migra ni desinstal·la els serveis instal·lats del host. Els wrappers portables
+continuen sent el contracte d’arrencada nativa.
 
 ## Invariants de ports i processos
 

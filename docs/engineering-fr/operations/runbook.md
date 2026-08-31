@@ -9,8 +9,7 @@ source_paths:
   - uv.lock
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
-  - scripts/runtime/install_native_startup.sh
-  - scripts/runtime/native_watchdog.sh
+  - scripts/check_public_runtime.py
   - frontend/vite.config.js
   - backend/app/health_contracts.py
   - backend/config/data_dir.py
@@ -234,24 +233,27 @@ les instructions de récupération OneDrive aux autres fournisseurs.
 
 ## Configuration facultative de l’hôte macOS
 
-`scripts/runtime/install_native_startup.sh` installe des LaunchAgents qui
-appellent les scripts de démarrage natif. Les installations existantes peuvent
+Les 15 anciens scripts d’exécution de l’hôte (installateurs, watchdogs et outils
+de l’hôte), ainsi que les lanceurs obsolètes `run_brain.sh` et `run_prod.sh`,
+ont été retirés du dépôt public. Les opérations de l’hôte relèvent du dépôt
+privé `WorkspaceTools`. Exécutez `pnpm check:runtime` après avoir indexé les
+changements examinés : CI rejette les scripts retirés, les liens symboliques et
+l’état local dans l’index Git. Les installations existantes peuvent
 écrire leurs journaux dans `~/Library/Logs/Gnosi` ; examinez leur configuration
 réelle. Ce sont des commodités facultatives de l’hôte, pas le contrat de
 démarrage portable. Les définitions de services propres à chaque machine,
 les chemins privés et l’historique des incidents relèvent du dépôt privé
 `WorkspaceTools`, pas des prérequis publics.
 
-Les scripts d’installation de l’hôte et de watchdog existent toujours ; ils
-n’ont pas été retirés. Les scripts portables ci-dessus n’installent ni ne
-suppriment les services existants de l’hôte. Examinez
-`install_native_startup.sh` avant de l’utiliser : il arrête les processus à
-l’écoute sur 5002/5173 et recharge les LaunchAgents. Ne l’exécutez pas comme
-diagnostic. Conservez la traçabilité du code et les avertissements propres à
-l’hôte jusqu’à un retrait effectif, après examen des appels et conservation
-d’une copie privée exacte.
+Ce nettoyage du checkout ne modifie, ne migre ni ne désinstalle les services
+installés de l’hôte. Les scripts portables ci-dessus n’installent ni ne
+suppriment les services existants de l’hôte. L’ancien installateur
+`install_native_startup.sh` arrête les processus à l’écoute sur 5002/5173 et
+recharge les LaunchAgents. N’exécutez pas les installateurs ou watchdogs conservés
+comme diagnostic ; examinez la configuration réellement installée et les
+procédures privées.
 
-Si une installation utilise déjà `scripts/runtime/native_watchdog.sh`,
+Si une installation utilise encore une copie conservée de `native_watchdog.sh`,
 examinez `~/.gnosi_native_watchdog.log` pour repérer les boucles de
 redémarrage. Le délai de démarrage (`GNOSI_NATIVE_STARTUP_GRACE`) et le
 délai minimal entre redémarrages (`GNOSI_NATIVE_WATCHDOG_COOLDOWN`) sont

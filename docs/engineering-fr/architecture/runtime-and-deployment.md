@@ -4,8 +4,6 @@ last_verified: 2026-08-31
 source_paths:
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
-  - scripts/runtime/install_native_startup.sh
-  - scripts/runtime/native_watchdog.sh
   - backend/config/env_config.py
   - backend/config/data_dir.py
   - frontend/vite.config.js
@@ -185,15 +183,17 @@ récupération propre à un fournisseur relève de son adaptateur. Ces intégrat
 facultatives nécessitent une configuration explicite ; elles ne sont pas des
 prérequis au démarrage portable.
 
-`scripts/runtime/install_native_startup.sh` et
-`scripts/runtime/native_watchdog.sh` existent toujours ; ils n’ont pas été
-retirés. L’installateur arrête les processus à l’écoute sur 5002/5173 et recharge
-les LaunchAgents. Le watchdog peut tuer des processus multiprocessing selon une
-sélection large et redémarrer via launchd ; n’exécutez aucun de ces scripts comme
-diagnostic générique. Conservez leur traçabilité et leurs avertissements jusqu’à
-un retrait effectif, après examen des appels et conservation d’une copie privée
-exacte. Les modifications des scripts portables ne désinstallent pas les services
-existants de l’hôte.
+Les 15 anciens scripts d’exécution de l’hôte (installateurs, watchdogs et outils
+de l’hôte), ainsi que les lanceurs obsolètes `run_brain.sh` et `run_prod.sh`,
+ont été retirés du dépôt public. Les opérations de l’hôte relèvent du dépôt
+privé `WorkspaceTools`. L’ancien installateur `install_native_startup.sh` arrête
+les processus à l’écoute sur 5002/5173 et recharge les LaunchAgents. Une copie
+conservée de `native_watchdog.sh` peut tuer des processus multiprocessing selon
+une sélection large et redémarrer via launchd ; n’exécutez aucun de ces scripts
+comme diagnostic générique. Examinez la configuration réellement installée et
+les procédures privées. Ce nettoyage du checkout ne modifie, ne migre ni ne
+désinstalle les services installés de l’hôte. Les scripts portables restent le
+contrat de démarrage natif.
 
 ## Invariants des ports et des processus
 

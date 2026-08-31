@@ -9,8 +9,7 @@ source_paths:
   - uv.lock
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
-  - scripts/runtime/install_native_startup.sh
-  - scripts/runtime/native_watchdog.sh
+  - scripts/check_public_runtime.py
   - frontend/vite.config.js
   - backend/app/health_contracts.py
   - backend/config/data_dir.py
@@ -221,23 +220,26 @@ OneDrive a altres proveïdors.
 
 ## Configuració opcional del host macOS
 
-`scripts/runtime/install_native_startup.sh` instal·la LaunchAgents que
-invoquen els scripts d’arrencada nativa. Les instal·lacions existents poden
+Els 15 scripts històrics del runtime del host (instal·ladors, watchdogs i eines
+del host), juntament amb els llançadors obsolets `run_brain.sh` i `run_prod.sh`,
+s’han retirat del repositori públic. Les operacions del host pertanyen al
+repositori privat `WorkspaceTools`. Executeu `pnpm check:runtime` després de
+preparar els canvis revisats: CI rebutja scripts retirats, enllaços simbòlics i
+estat local a l’índex Git. Les instal·lacions existents poden
 escriure registres a `~/Library/Logs/Gnosi`; reviseu-ne la configuració real.
 Són facilitats opcionals del host, no el contracte d’arrencada portable. Les
 definicions de serveis específiques de cada màquina, les rutes privades i
 l’historial d’incidents pertanyen al repositori privat `WorkspaceTools`,
 no als requisits públics.
 
-Els scripts d’instal·lació del host i de watchdog encara existeixen; no s’han
-retirat. Els wrappers portables anteriors no instal·len ni eliminen serveis
-existents del host. Reviseu `install_native_startup.sh` abans d’utilitzar-lo:
+Aquesta neteja del checkout no modifica, migra ni desinstal·la els serveis
+instal·lats del host. Els wrappers portables anteriors no instal·len ni eliminen
+serveis existents del host. L’instal·lador històric `install_native_startup.sh`
 atura els processos que escolten als ports 5002/5173 i recarrega LaunchAgents.
-No l’executeu com a diagnòstic. Mantingueu la traçabilitat del codi i les
-advertències específiques del host fins que una retirada s’hagi completat,
-després de revisar les crides i preservar-ne una còpia privada exacta.
+No executeu els instal·ladors o watchdogs preservats com a diagnòstic; reviseu
+la configuració real instal·lada i els procediments privats.
 
-Si una instal·lació ja utilitza `scripts/runtime/native_watchdog.sh`,
+Si una instal·lació encara utilitza una còpia preservada de `native_watchdog.sh`,
 reviseu `~/.gnosi_native_watchdog.log` per detectar bucles de reinici.
 El marge d’arrencada (`GNOSI_NATIVE_STARTUP_GRACE`) i l’interval mínim entre
 reinicis (`GNOSI_NATIVE_WATCHDOG_COOLDOWN`) són de 600 segons per defecte.
