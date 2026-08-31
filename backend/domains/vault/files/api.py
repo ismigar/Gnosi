@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.params import Depends as DependsParameter
@@ -28,7 +27,7 @@ from backend.domains.vault.files.thumbnails import (
 )
 from backend.platform.files.base import FilesProvider
 
-Metadata = dict[str, Any]
+Metadata = property_service.Metadata
 
 
 @dataclass(frozen=True)
@@ -36,8 +35,8 @@ class FileApiDependencies:
     """File services composed by the legacy vault router."""
 
     get_path: Callable[[str], Path]
-    active_vault_path: Callable[[], Path]
-    library_roots: Callable[[Path], Sequence[Path]]
+    active_vault_path: Callable[[], Path | None]
+    library_roots: Callable[[Path | None], Sequence[Path]]
     provider: Callable[[], FilesProvider]
     serving_state: FileServingState
     local_files: local_service.LocalFileDependencies

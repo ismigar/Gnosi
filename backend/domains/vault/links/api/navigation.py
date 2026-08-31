@@ -8,13 +8,12 @@ import time
 import urllib.parse
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any
-
 from fastapi import APIRouter
 from fastapi.params import Depends as DependsParameter
 
 from backend.domains.vault.links.api.dependencies import LinkApiDependencies
 from backend.domains.vault.links.index_service import LINK_INDEX_SCHEMA_VERSION
+from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.links.schemas import (
     VaultBacklinkResponse,
     VaultOutlinksResponse,
@@ -81,7 +80,7 @@ def _fallback_matches_target(
 
 
 def _fallback_metadata_matches(
-    metadata: dict[str, Any],
+    metadata: PageMetadata,
     target_id: str,
     matches_target: Callable[[str], bool],
 ) -> bool:

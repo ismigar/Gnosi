@@ -1,17 +1,22 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
+import operator
 from pathlib import Path
 from typing import TYPE_CHECKING
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
 
 from pydantic import BaseModel
 
-if TYPE_CHECKING:
-    from backend.services.rule_engine import RuleEngine
+from backend.domains.vault.links.state import LinkIndexView
+from backend.domains.vault.pages.disk_cache import prepare_page_index
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.utils.open_values import contains_value
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+    from backend.services.rule_engine import RuleEngine
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
 
 
 def _active_vault_path() -> Path:
@@ -53,7 +58,7 @@ def get_p(key: str) -> Path:
     return mapping.get(key, base / key.lower())
 
 
-def __getattr__(name: str) -> _LegacyAny:
+def __getattr__(name: str) -> object:
     path_keys = {
         "VAULT_PATH": "VAULT",
         "ASSETS_PATH": "ASSETS",
@@ -103,25 +108,28 @@ def __getattr__(name: str) -> _LegacyAny:
     raise AttributeError(f"module {__name__} has no attribute {name}")
 
 
-def _link_index_view() -> _legacy.LinkIndexView:
-    module = _legacy
+def _link_index_view() -> LinkIndexView:
+    if TYPE_CHECKING:
+        from backend.api import vault_routes as module
+    else:
+        module = _legacy
     return _legacy.LinkIndexView(
-        outlinks_by_source=getattr(module, "_outlinks_by_source"),
-        outlink_kinds_by_source=getattr(module, "_outlink_kinds_by_source"),
-        backlinks_by_target=getattr(module, "_backlinks_by_target"),
-        backlinks_by_target_title=getattr(module, "_backlinks_by_target_title"),
-        tokens_by_source=getattr(module, "_tokens_by_source"),
-        page_meta_by_id=getattr(module, "_page_meta_by_id"),
-        lock=getattr(module, "_link_index_lock"),
-        built=getattr(module, "_link_index_built"),
-        build_ts=getattr(module, "_link_index_build_ts"),
-        source_count=getattr(module, "_link_index_source_count"),
-        rebuild_in_progress=getattr(module, "_link_index_rebuild_in_progress"),
-        rebuild_state_lock=getattr(module, "_link_index_rebuild_state_lock"),
+        outlinks_by_source=module._outlinks_by_source,
+        outlink_kinds_by_source=module._outlink_kinds_by_source,
+        backlinks_by_target=module._backlinks_by_target,
+        backlinks_by_target_title=module._backlinks_by_target_title,
+        tokens_by_source=module._tokens_by_source,
+        page_meta_by_id=module._page_meta_by_id,
+        lock=module._link_index_lock,
+        built=module._link_index_built,
+        build_ts=module._link_index_build_ts,
+        source_count=module._link_index_source_count,
+        rebuild_in_progress=module._link_index_rebuild_in_progress,
+        rebuild_state_lock=module._link_index_rebuild_state_lock,
     )
 
 
-def _clear_page_index_cache() -> _LegacyAny:
+def _clear_page_index_cache() -> None:
     """Clears the internal page index cache and unmarks initialization so the
     next access rebuilds it.
 
@@ -175,11 +183,12 @@ def purge_vault_caches(v_str: str) -> None:
 
 
 def sync_to_google_calendar_if_needed(
-    metadata: dict[_LegacyAny, _LegacyAny], background_tasks: _legacy.BackgroundTasks
-) -> _LegacyAny:
+    metadata: PageMetadata, background_tasks: _legacy.BackgroundTasks
+) -> None:
     source = metadata.get("source", "")
-    if "Google Calendar" in source and metadata.get("uid"):
-        match = _legacy.re.search("\\((.*?)\\)", source)
+    if contains_value(source, "Google Calendar") and metadata.get("uid"):
+        # The string pattern defines the match type; re validates the raw input.
+        match = _legacy.re.search("\\((.*?)\\)", source)  # type: ignore[call-overload]
         if match:
             email = match.group(1)
             event_uid = metadata.get("uid")
@@ -196,8 +205,8 @@ def sync_to_google_calendar_if_needed(
 class DrawingSaveRequest(BaseModel):
     __module__ = "backend.api.vault_routes"
     title: str
-    data: dict[_LegacyAny, _LegacyAny]
-    metadata: dict[_LegacyAny, _LegacyAny] = {}
+    data: dict[object, object]
+    metadata: PageMetadata = {}
 
 
 class DailyNoteRequest(BaseModel):
@@ -228,7 +237,7 @@ def get_rule_engine() -> "RuleEngine":
         return _rule_engines[v_str]
 
 
-def get_custom_icons_path() -> _LegacyAny:
+def get_custom_icons_path() -> Path:
     return _legacy.assets_api.get_custom_icons_path()
 
 
@@ -260,7 +269,7 @@ def _vault_cache_key() -> str:
 _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS = 300
 
 
-def get_page_index_cache_path(v_str: str | None = None) -> _LegacyAny:
+def get_page_index_cache_path(v_str: str | None = None) -> Path:
     p = _legacy.get_p("PAGE_INDEX_CACHE")
     if not p:
         p = _legacy.resolve_data_dir() / "cache" / "vault_page_index.json"
@@ -346,7 +355,7 @@ def kickoff_index_warmup(v_path: _legacy.Path) -> None:
             "error": None,
         }
 
-    def _run() -> _LegacyAny:
+    def _run() -> None:
         try:
             _legacy._load_id_title_from_disk(v_str)
             _legacy._refresh_id_title_index(v_str)
@@ -386,7 +395,7 @@ def kickoff_index_warmup(v_path: _legacy.Path) -> None:
     t.start()
 
 
-def _save_page_index_to_disk(v_str: str) -> _LegacyAny:
+def _save_page_index_to_disk(v_str: str) -> None:
     """Persists the in-memory cache for a specific vault to disk."""
     try:
         cache_path = get_page_index_cache_path(v_str)
@@ -400,7 +409,7 @@ def _save_page_index_to_disk(v_str: str) -> _LegacyAny:
         _legacy.log.error(f"❌ Error saving page index cache for {v_str}: {e}")
 
 
-def _load_page_index_from_disk(v_str: str) -> _LegacyAny:
+def _load_page_index_from_disk(v_str: str) -> bool:
     """Loads the persistent cache for a specific vault into memory."""
     try:
         cache_path = get_page_index_cache_path(v_str)
@@ -412,18 +421,13 @@ def _load_page_index_from_disk(v_str: str) -> _LegacyAny:
                 )
                 cache_path = legacy_path
         if cache_path.exists():
-            data = _legacy.json.loads(cache_path.read_text(encoding="utf-8"))
+            data, id_map, files_ordered = prepare_page_index(
+                _legacy.json.loads(cache_path.read_text(encoding="utf-8")), _legacy.Path
+            )
             with _page_index_lock:
                 _page_index_entries[v_str] = data
                 _page_index_initialized[v_str] = True
                 _legacy._bump_page_index_version(v_str)
-                id_map = {}
-                files_ordered = []
-                for p_str, entry in data.items():
-                    files_ordered.append(_legacy.Path(p_str))
-                    pid = entry.get("id")
-                    if pid:
-                        id_map[pid] = p_str
                 _page_id_to_path[v_str] = id_map
                 try:
                     _legacy.path_resolver.update_index(_legacy.Path(v_str), id_map, files_ordered)
@@ -442,76 +446,68 @@ def preload_page_index_from_disk(v_path: _legacy.Path) -> bool:
     """Public startup-safe wrapper to preload one vault's page index cache."""
     if not v_path:
         return False
-    return _strict_cast(bool, _load_page_index_from_disk(str(v_path)))
+    return _load_page_index_from_disk(str(v_path))
 
 
 _normalize_custom_icons = _legacy.normalize_custom_icons
 
 
 def _load_custom_icons() -> list[str]:
-    return _strict_cast(list[str], _legacy.assets_api._load_custom_icons())
+    return _legacy.assets_api._load_custom_icons()
 
 
 def _save_custom_icons(values: list[str]) -> list[str]:
-    return _strict_cast(list[str], _legacy.assets_api._save_custom_icons(values))
+    return _legacy.assets_api._save_custom_icons(values)
 
 
 def _is_image_upload(file: _legacy.UploadFile) -> bool:
-    return _strict_cast(bool, _legacy.assets_api._is_image_upload(file))
+    return _legacy.assets_api._is_image_upload(file)
 
 
 def _upload_image_to_assets_subdir(file: _legacy.UploadFile, subdir: str) -> dict[str, str]:
-    return _strict_cast(
-        dict[str, str], _legacy.assets_api._upload_image_to_assets_subdir(file, subdir)
-    )
+    return _legacy.assets_api._upload_image_to_assets_subdir(file, subdir)
 
 
 def _normalize_icon_extension(filename: str, content_type: str) -> str:
-    return _strict_cast(str, _legacy.assets_api._normalize_icon_extension(filename, content_type))
+    return _legacy.assets_api._normalize_icon_extension(filename, content_type)
 
 
 def _store_icon_bytes(payload: bytes, source_name: str, content_type: str) -> dict[str, str | None]:
-    return _strict_cast(
-        dict[str, str | None],
-        _legacy.assets_api._store_icon_bytes(payload, source_name, content_type),
-    )
+    return _legacy.assets_api._store_icon_bytes(payload, source_name, content_type)
 
 
 def _maybe_create_icon_thumbnail(icon_path: _legacy.Path, digest: str) -> str | None:
-    return _strict_cast(
-        str | None, _legacy.assets_api._maybe_create_icon_thumbnail(icon_path, digest)
-    )
+    return _legacy.assets_api._maybe_create_icon_thumbnail(icon_path, digest)
 
 
 def _normalize_resource_title(value: str) -> str:
-    return _strict_cast(str, _legacy.table_rows._normalize_resource_title(value))
+    return _legacy.table_rows._normalize_resource_title(value)
 
 
 def _resource_visible_record(page: _legacy.PageInfo) -> bool:
-    return _strict_cast(bool, _legacy.table_rows._resource_visible_record(page))
+    return _legacy.table_rows._resource_visible_record(page)
 
 
 def _canonical_visible_table_pages(
     table_id: str, pages: list[_legacy.PageInfo]
 ) -> list[_legacy.PageInfo]:
-    return _strict_cast(
-        list[_legacy.PageInfo], _legacy.table_rows.canonical_visible_table_pages(table_id, pages)
-    )
+    return _legacy.table_rows.canonical_visible_table_pages(table_id, pages)
 
 
-def is_calendar_entry(metadata: dict[_LegacyAny, _LegacyAny] | None) -> bool:
+def is_calendar_entry(metadata: PageMetadata | None) -> bool:
     """Decides if a page should be saved as a calendar appointment."""
     if not metadata:
         return False
     if str(metadata.get("note_type") or "").strip().lower() == "daily":
         return False
-    source = (metadata.get("source") or "").strip().lower()
+    stripped: object = operator.methodcaller("strip")(metadata.get("source") or "")
+    source: object = operator.methodcaller("lower")(stripped)
     has_date = bool(metadata.get("date"))
     has_table = bool(_legacy.get_table_id(metadata))
     return has_date and (source in {"gnosi", "gnosi vault"} or not has_table)
 
 
-def init_vault() -> _LegacyAny:
+def init_vault() -> None:
     """Initializes the basic environment."""
     if not _legacy.get_p("VAULT"):
         _legacy.log.info("⚠️ Bunker in 'pending' mode: Starting without structural Vault path.")
@@ -535,14 +531,14 @@ def init_vault() -> _LegacyAny:
                 _legacy.log.error(f"Error initializing structural directory {p}: {e}")
 
 
-def ensure_default_registry_structure() -> _LegacyAny:
+def ensure_default_registry_structure() -> None:
     """Ensures the existence of the default DB and an initial table."""
     _legacy.registry_defaults.ensure_default_registry_structure(
         _legacy.default_registry_dependencies
     )
 
 
-def _ensure_default_registry_structure_locked() -> _LegacyAny:
+def _ensure_default_registry_structure_locked() -> None:
     """Compatibility adapter for callers already holding the registry lock."""
     _legacy.registry_defaults.ensure_default_registry_structure(
         _legacy.default_registry_dependencies

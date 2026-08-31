@@ -6,10 +6,13 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TypedDict
+
+from backend.domains.vault.comments.repository import PageCommentMap
+from backend.domains.vault.pages.foundation_values import PageMetadata
 
 
-Metadata = dict[str, Any]
+Metadata = PageMetadata
 
 
 class PurgeResult(TypedDict):
@@ -31,8 +34,8 @@ class PurgeDependencies:
     vault_root: Callable[[], Path]
     delete_metadata_sidecar: Callable[[Path, str], None]
     validate_page_id: Callable[[str], str]
-    load_comments: Callable[[], dict[str, Any]]
-    save_comments: Callable[[dict[str, Any]], None]
+    load_comments: Callable[[], PageCommentMap]
+    save_comments: Callable[[PageCommentMap], None]
     inline_comments_path: Callable[[str], Path]
     logger: logging.Logger
 

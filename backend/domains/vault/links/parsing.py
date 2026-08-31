@@ -6,7 +6,9 @@ import re
 import urllib.parse
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_object_list
 
 WIKILINK_RE = re.compile(r"!?\[\[([^\]|]+(?:#[^\]|]+)?)(?:\|.*?)?\]\]")
 MDLINK_RE = re.compile(r"\[.*?\]\((.*?)\)")
@@ -53,14 +55,14 @@ def _mark_ref(
 
 
 def _add_metadata_ref(
-    value: Any,
+    value: object,
     kind: str,
     refs: set[str],
     kinds: dict[str, str],
 ) -> None:
     if value is None:
         return
-    if isinstance(value, list):
+    if is_object_list(value):
         for item in value:
             _add_metadata_ref(item, kind, refs, kinds)
         return
@@ -84,7 +86,7 @@ def _add_metadata_ref(
 
 
 def extract_outlinks_with_kinds(
-    metadata: dict[str, Any],
+    metadata: PageMetadata,
     body: str,
 ) -> tuple[set[str], dict[str, str]]:
     refs: set[str] = set()
@@ -107,7 +109,7 @@ def extract_outlinks_with_kinds(
     return refs, kinds
 
 
-def extract_outlinks(metadata: dict[str, Any], body: str) -> set[str]:
+def extract_outlinks(metadata: PageMetadata, body: str) -> set[str]:
     refs, _ = extract_outlinks_with_kinds(metadata, body)
     return refs
 
@@ -126,7 +128,7 @@ def tokenize_body(body: str) -> frozenset[str]:
     return frozenset(token for token in tokens if len(token) >= 2)
 
 
-def resolve_page_id(metadata: dict[str, Any], file_path: Path) -> str:
+def resolve_page_id(metadata: PageMetadata, file_path: Path) -> str:
     return str(metadata.get("id") or metadata.get("migration_id") or file_path.stem).strip()
 
 

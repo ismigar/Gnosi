@@ -62,18 +62,18 @@ def parse_frontmatter(raw: str, path: Path) -> tuple[PageMetadata, str]:
     return parse(raw, path)
 
 
-def table_pages(table_id: str) -> list[Any]:
+def table_pages(table_id: object) -> list[Any]:
     from backend.api import vault_routes
 
-    get_pages = cast(Callable[[str], Iterable[Any]], vault_routes._get_pages_for_table)
+    get_pages = cast(Callable[[object], Iterable[Any]], vault_routes._get_pages_for_table)
     return list(get_pages(table_id) or [])
 
 
-def table_by_id(table_id: str) -> dict[str, Any] | None:
+def table_by_id(table_id: object) -> dict[str, Any] | None:
     from backend.api import vault_routes
 
     get_table = cast(
-        Callable[[str], dict[str, Any] | None],
+        Callable[[object], dict[str, Any] | None],
         vault_routes._table_by_id,
     )
     return get_table(table_id)

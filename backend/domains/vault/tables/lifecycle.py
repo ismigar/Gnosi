@@ -31,7 +31,7 @@ DeferredRewrite = tuple[Path, str, str] | None
 
 
 class FallbackSanitizer(Protocol):
-    def __call__(self, value: object, *, fallback: str) -> str: ...
+    def __call__(self, value: object, /, *, fallback: str) -> str: ...
 
 
 @dataclass(frozen=True)

@@ -60,7 +60,7 @@ async def update_registry(
 
 
 def table_by_id(
-    table_id: str | None,
+    table_id: object,
     dependencies: RegistryApiDependencies,
 ) -> RegistryData | None:
     """Return one registry table by immutable ID."""

@@ -9,11 +9,14 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.pages.index_entries import PageCacheEntry
+from backend.services.relation_sync import RelationChange as RelationChange
 
-Metadata = dict[str, object]
-PageCache = dict[str, dict[str, Metadata]]
-PagePaths = dict[str, dict[str, str]]
-RelationChange = tuple[str, str, str]
+
+Metadata = PageMetadata
+PageCache = dict[str, dict[str, PageCacheEntry]]
+PagePaths = dict[str, dict[object, str]]
 
 
 @dataclass(frozen=True)
@@ -32,7 +35,7 @@ class RelationSyncDependencies:
     save_page: Callable[[Path, Metadata, str], None]
     update_link_index: Callable[[Path], None]
     active_vault_path: Callable[[], Path | None]
-    build_page_cache_entry: Callable[[Path, os.stat_result], Metadata]
+    build_page_cache_entry: Callable[[Path, os.stat_result], PageCacheEntry]
     page_index_lock: Callable[[], AbstractContextManager[object]]
     page_index_entries: Callable[[], PageCache]
     page_id_to_path: Callable[[], PagePaths]

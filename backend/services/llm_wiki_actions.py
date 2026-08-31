@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Protocol, cast
 
+from backend.utils.open_values import get_value, iterable_values
+
 
 @dataclass
 class LlmWikiActionError(ValueError):
@@ -188,9 +190,9 @@ def run_maintenance(*, semantic: bool = False) -> Dict[str, Any]:
         raise LlmWikiActionError(400, "No Brain table is configured")
     index_report = llm_wiki_indices.rebuild_indexes(brain_table_id, config)
     source_ids = [
-        str(item.get("table_id") or "")
-        for item in config.get("source_tables") or []
-        if item.get("table_id")
+        str(get_value(item, "table_id") or "")
+        for item in iterable_values(config.get("source_tables") or [])
+        if get_value(item, "table_id")
     ]
     lint_report = llm_wiki_lint.run_lint(brain_table_id, source_ids)
     queued = llm_wiki_suggestions.generate_suggestions(brain_table_id) if semantic else 0

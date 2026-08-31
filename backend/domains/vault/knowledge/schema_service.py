@@ -1,15 +1,28 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+from typing import TYPE_CHECKING, TypeVar
 
 from backend.domains.configuration import (
     llm_wiki_records as _llm_wiki_records,
     llm_wiki_schema as _llm_wiki_schema,
 )
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import RecordReader, is_record
+from backend.utils.open_values import (
+    append_value,
+    get_value,
+    integer_value,
+    iterable_values,
+    mapping_items,
+    set_value,
+    unpack_pair,
+)
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
 _BRAIN_SCHEMA_DEFINITIONS: list[tuple[str, str, dict[str, str]]] = [
     (
         "note_type",
@@ -58,8 +71,10 @@ _BRAIN_SOURCE_NAMES = {"ca": "Font", "en": "Source", "es": "Fuente", "fr": "Sour
 _BRAIN_SOURCE_SINGULAR_TOKENS = {"font", "source", "fuente"}
 _BRAIN_SOURCE_PLURAL_TOKENS = {"fonts", "sources", "fuentes"}
 BRAIN_SOURCE_CONTRACT_REVISION = 2
+Config = dict[str, object]
+ConfigT = TypeVar("ConfigT", Config, PageMetadata)
 _BRAIN_VIEW_DEF_RE = _legacy.re.compile("<!--\\s*gnosi-view:def\\s+(?P<payload>\\{.*?\\})\\s*-->")
-_BRAIN_ROLE_SPECS: dict[_LegacyAny, _LegacyAny] = {
+_BRAIN_ROLE_SPECS: dict[str, tuple[set[str], str]] = {
     "note_type": ({"tipusdenota", "notetype", "tipodenota", "typedenote"}, "select"),
     "idea_type": (
         {"tipus", "tipusdidea", "ideatype", "tipodeidea", "typedidee", "classe"},
@@ -85,11 +100,9 @@ _BRAIN_ROLE_SPECS: dict[_LegacyAny, _LegacyAny] = {
 }
 
 
-def _brain_property(
-    role: str, name: str, ptype: str, brain_table_id: str = ""
-) -> dict[_LegacyAny, _LegacyAny]:
+def _brain_property(role: str, name: str, ptype: str, brain_table_id: str = "") -> PageMetadata:
     """Build a localized seed property while keeping relation targets stable."""
-    prop = {"id": str(_legacy.uuid.uuid4()), "name": name, "type": ptype}
+    prop: PageMetadata = {"id": str(_legacy.uuid.uuid4()), "name": name, "type": ptype}
     if ptype == "relation":
         if role == "based_on":
             if brain_table_id:
@@ -126,9 +139,9 @@ def _ensure_default_db_group() -> None:
     with _legacy.registry_mutation():
         reg = _legacy.load_registry()
         dbs = reg.setdefault("databases", [])
-        if any((d.get("id") == "gnosi_vault_db" for d in dbs)):
+        if any((get_value(d, "id") == "gnosi_vault_db" for d in iterable_values(dbs))):
             return
-        dbs.append({"id": "gnosi_vault_db", "name": "Gnosi Vault", "folder": "BD"})
+        append_value(dbs, {"id": "gnosi_vault_db", "name": "Gnosi Vault", "folder": "BD"})
         _legacy.save_registry(reg)
         _legacy.log.info("🧠 Created the `gnosi_vault_db` database group in the sidebar registry")
 
@@ -174,12 +187,12 @@ def _brain_schema_token(value: object) -> str:
     return "".join((ch for ch in normalized if ch.isalnum() and (not unicodedata.combining(ch))))
 
 
-def _infer_brain_roles(table: dict[_LegacyAny, _LegacyAny] | None) -> dict[_LegacyAny, _LegacyAny]:
+def _infer_brain_roles(table: RecordReader | None) -> dict[str, str]:
     """Map semantic role names to existing Brain property ids."""
     properties = [
         prop
-        for prop in (table or {}).get("properties") or []
-        if isinstance(prop, dict) and prop.get("id")
+        for prop in iterable_values((table or {}).get("properties") or [])
+        if is_record(prop) and prop.get("id")
     ]
     roles = {}
     for role, (tokens, expected_type) in _BRAIN_ROLE_SPECS.items():
@@ -214,37 +227,38 @@ def _dimension_name_key(value: object) -> str:
     }.get(token, token)
 
 
-def _brain_property_id_hints(
-    cfg: dict[_LegacyAny, _LegacyAny], brain_table: dict[_LegacyAny, _LegacyAny] | None
-) -> dict[str, str]:
+def _brain_property_id_hints(cfg: RecordReader, brain_table: RecordReader | None) -> dict[str, str]:
     """Recover legacy property ids from persisted role and dimension mappings."""
     hints: dict[str, str] = {}
-    for role, property_id in (cfg.get("brain_roles") or {}).items():
+    for pair in mapping_items(cfg.get("brain_roles") or {}):
+        role, property_id = unpack_pair(pair)
         stable_id = str(property_id or "")
         if not stable_id:
             continue
         for token in _brain_role_tokens(str(role)):
             hints[token] = stable_id
     brain_properties = [
-        prop for prop in (brain_table or {}).get("properties") or [] if isinstance(prop, dict)
+        prop
+        for prop in iterable_values((brain_table or {}).get("properties") or [])
+        if is_record(prop)
     ]
-    for field_id in cfg.get("index_field_ids") or []:
+    for field_id in iterable_values(cfg.get("index_field_ids") or []):
         stable_id = str(field_id or "")
         source_keys: set[str] = set()
-        for source in cfg.get("source_tables") or []:
-            mapping = (source.get("dimension_mappings") or {}).get(stable_id) or {}
-            source_property_id = str(mapping.get("source_property_id") or "")
-            source_table = _legacy._table_by_id(str(source.get("table_id") or "")) or {}
+        for source in iterable_values(cfg.get("source_tables") or []):
+            mapping = get_value(get_value(source, "dimension_mappings") or {}, stable_id) or {}
+            source_property_id = str(get_value(mapping, "source_property_id") or "")
+            source_table = _legacy._table_by_id(str(get_value(source, "table_id") or "")) or {}
             source_property = next(
                 (
                     prop
-                    for prop in source_table.get("properties") or []
-                    if str(prop.get("id") or "") == source_property_id
+                    for prop in iterable_values(source_table.get("properties") or [])
+                    if str(get_value(prop, "id") or "") == source_property_id
                 ),
                 None,
             )
             if source_property:
-                source_keys.add(_dimension_name_key(source_property.get("name")))
+                source_keys.add(_dimension_name_key(get_value(source_property, "name")))
         candidates = [
             prop
             for prop in brain_properties
@@ -286,7 +300,7 @@ def _merge_relation_values(*values: object) -> list[object]:
 
 
 def _migrate_brain_source_metadata(
-    brain_table_id: str, canonical_name: str, legacy_names: set[str]
+    brain_table_id: object, canonical_name: str, legacy_names: set[str]
 ) -> int:
     """Move duplicate source values to the canonical Brain relation."""
     if not legacy_names:
@@ -315,18 +329,18 @@ def _migrate_brain_source_metadata(
     return migrated
 
 
-def _source_filter_rule(canonical_name: str) -> dict[_LegacyAny, _LegacyAny]:
+def _source_filter_rule(canonical_name: str) -> PageMetadata:
     return {"field": canonical_name, "value": "this"}
 
 
 def _is_source_filter(rule: object, source_names: set[str]) -> bool:
-    return isinstance(rule, dict) and _brain_schema_token(rule.get("field")) in {
+    return is_record(rule) and _brain_schema_token(rule.get("field")) in {
         _brain_schema_token(name) for name in source_names
     }
 
 
 def _strip_source_filter_nodes(node: object, source_names: set[str]) -> object:
-    if not isinstance(node, dict):
+    if not is_record(node):
         return node
     rules = node.get("rules")
     if not isinstance(rules, list):
@@ -346,7 +360,7 @@ def _strip_source_filter_nodes(node: object, source_names: set[str]) -> object:
 
 
 def _normalize_brain_source_view(
-    view: dict[_LegacyAny, _LegacyAny], canonical_name: str, source_names: set[str]
+    view: PageMetadata, canonical_name: str, source_names: set[str]
 ) -> bool:
     """Guarantee one contextual source filter while preserving other filters."""
     before = _legacy.json.dumps(view, sort_keys=True, ensure_ascii=False)
@@ -369,9 +383,7 @@ def _normalize_brain_source_view(
             if remaining_tree is None
             else {"conjunction": "and", "rules": [source_rule, remaining_tree]}
         )
-    return _strict_cast(
-        bool, before != _legacy.json.dumps(view, sort_keys=True, ensure_ascii=False)
-    )
+    return before != _legacy.json.dumps(view, sort_keys=True, ensure_ascii=False)
 
 
 def _embedded_view_ids_for_table(table_id: str) -> set[str]:
@@ -388,17 +400,17 @@ def _embedded_view_ids_for_table(table_id: str) -> set[str]:
             continue
         for match in _BRAIN_VIEW_DEF_RE.finditer(raw):
             try:
-                payload = _legacy.json.loads(match.group("payload"))
+                payload: object = _legacy.json.loads(match.group("payload"))
             except (TypeError, ValueError):
                 continue
-            view_id = str(payload.get("view_id") or "").strip()
+            view_id = str(get_value(payload, "view_id") or "").strip()
             if view_id:
                 view_ids.add(view_id)
     return view_ids
 
 
 def _normalize_brain_source_views(
-    brain_table_id: str, source_table_id: str, canonical_name: str, source_names: set[str]
+    brain_table_id: object, source_table_id: str, canonical_name: str, source_names: set[str]
 ) -> int:
     """Repair every Brain view embedded in pages of one configured source."""
     embedded_ids = _embedded_view_ids_for_table(source_table_id)
@@ -408,15 +420,17 @@ def _normalize_brain_source_views(
     with _legacy.registry_mutation():
         registry = _legacy.load_registry()
         views = registry.get("views") or []
-        by_id = {str(view.get("id") or ""): view for view in views if isinstance(view, dict)}
+        by_id = {
+            str(view.get("id") or ""): view for view in iterable_values(views) if is_record(view)
+        }
         pending = list(embedded_ids)
         while pending:
             view_id = pending.pop()
             view = by_id.get(view_id)
             if not view:
                 continue
-            for tab_id in view.get("tabs") or []:
-                tab_id = str(tab_id or "")
+            for raw_tab_id in iterable_values(view.get("tabs") or []):
+                tab_id = str(raw_tab_id or "")
                 if tab_id and tab_id not in embedded_ids:
                     embedded_ids.add(tab_id)
                     pending.append(tab_id)
@@ -441,7 +455,7 @@ def _normalize_brain_source_views(
 
 
 def ensure_brain_source_relation(
-    brain_table_id: str, source_table_id: str, locale: str = "en"
+    brain_table_id: object, source_table_id: str, locale: str = "en"
 ) -> str:
     """Return the single canonical Brain relation targeting one source table.
 
@@ -480,9 +494,9 @@ def _brain_record_dependencies() -> _llm_wiki_records.BrainRecordDependencies:
 
 
 def _normalize_brain_page_contract(
-    metadata: dict[_LegacyAny, _LegacyAny],
-    config: dict[_LegacyAny, _LegacyAny],
-    brain_table: dict[_LegacyAny, _LegacyAny],
+    metadata: PageMetadata,
+    config: RecordReader,
+    brain_table: PageMetadata,
     source_titles: dict[tuple[str, str], str],
 ) -> bool:
     """Normalize visible note types, source cardinality, and source labels."""
@@ -491,9 +505,7 @@ def _normalize_brain_page_contract(
     )
 
 
-def _normalize_existing_brain_pages(
-    brain_table_id: str, config: dict[_LegacyAny, _LegacyAny]
-) -> int:
+def _normalize_existing_brain_pages(brain_table_id: object, config: RecordReader) -> int:
     """Migrate existing managed notes to the current singular-source contract."""
     return _llm_wiki_records.normalize_existing_brain_pages(
         brain_table_id, config, _brain_record_dependencies()
@@ -501,8 +513,8 @@ def _normalize_existing_brain_pages(
 
 
 def _reconcile_llm_wiki_source_contract(
-    cfg: dict[_LegacyAny, _LegacyAny],
-) -> dict[_LegacyAny, _LegacyAny]:
+    cfg: ConfigT,
+) -> ConfigT | Config:
     """Apply the singular-source schema and embedded-view migration once."""
     from backend.services import llm_wiki_config
 
@@ -512,13 +524,15 @@ def _reconcile_llm_wiki_source_contract(
     locale = str(cfg.get("ui_locale") or "en")
     brain_table = _legacy._table_by_id(brain_id)
     _legacy.ensure_brain_table_schema(brain_id, locale, _brain_property_id_hints(cfg, brain_table))
-    changed = int(cfg.get("source_contract_revision") or 0) < BRAIN_SOURCE_CONTRACT_REVISION
-    for source in cfg.get("source_tables") or []:
+    changed = (
+        integer_value(cfg.get("source_contract_revision") or 0) < BRAIN_SOURCE_CONTRACT_REVISION
+    )
+    for source in iterable_values(cfg.get("source_tables") or []):
         relation_id = ensure_brain_source_relation(
-            brain_id, str(source.get("table_id") or ""), locale
+            brain_id, str(get_value(source, "table_id") or ""), locale
         )
-        if relation_id and relation_id != str(source.get("relation_property_id") or ""):
-            source["relation_property_id"] = relation_id
+        if relation_id and relation_id != str(get_value(source, "relation_property_id") or ""):
+            set_value(source, "relation_property_id", relation_id)
             changed = True
     roles = _infer_brain_roles(_legacy._table_by_id(brain_id))
     if roles != (cfg.get("brain_roles") or {}):

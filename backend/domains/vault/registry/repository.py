@@ -22,6 +22,7 @@ class JsonWriter(Protocol):
         self,
         path: Path,
         data: object,
+        /,
         *,
         indent: int,
         ensure_ascii: bool,

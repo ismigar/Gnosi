@@ -54,7 +54,7 @@ SYSTEM_TITLES = {
 }
 
 
-def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str, str]:
+def ensure_system_pages(brain_table_id: object, config: dict[str, Any]) -> dict[str, str]:
     """Create the three system pages without adopting same-title manual pages."""
     migrate_managed_frontmatter(brain_table_id)
     brain_table = _table(brain_table_id) or {}
@@ -99,7 +99,7 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
     }
 
 
-def migrate_managed_frontmatter(brain_table_id: str) -> int:
+def migrate_managed_frontmatter(brain_table_id: object) -> int:
     """Move legacy managed metadata from Brain Markdown files to sidecars."""
     migrated = 0
     for page in _brain_pages(brain_table_id):
@@ -578,7 +578,7 @@ def _set_visible_note_type(
 
 
 def _upsert_managed_page(
-    brain_table_id: str,
+    brain_table_id: object,
     title: str,
     role: str,
     managed_key: str,
@@ -632,7 +632,7 @@ def _upsert_managed_page(
 
 
 def _find_managed_page(
-    brain_table_id: str,
+    brain_table_id: object,
     role: str,
     *,
     selector: Optional[dict[str, Any]] = None,
@@ -684,11 +684,11 @@ def _read_page(path: Optional[Path]) -> tuple[PageMetadata, str]:
     )
 
 
-def _brain_pages(brain_table_id: str) -> list[Any]:
+def _brain_pages(brain_table_id: object) -> list[Any]:
     return llm_wiki_legacy_ports.table_pages(brain_table_id)
 
 
-def _table(table_id: str) -> Optional[dict[str, Any]]:
+def _table(table_id: object) -> Optional[dict[str, Any]]:
     return llm_wiki_legacy_ports.table_by_id(table_id)
 
 

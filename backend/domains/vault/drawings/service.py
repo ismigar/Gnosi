@@ -173,8 +173,8 @@ def backup_drawing_version(
 async def save_drawing(
     drawing_id: str,
     title: str,
-    data: JsonObject,
-    metadata: JsonObject,
+    data: object,
+    metadata: object,
     dependencies: DrawingDependencies,
 ) -> DrawingSummary:
     """Persist a Tldraw document and snapshot its previous version."""

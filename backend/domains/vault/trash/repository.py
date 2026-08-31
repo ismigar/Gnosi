@@ -8,15 +8,19 @@ import shutil
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
-FrontmatterParser = Callable[[str, Path | None], tuple[dict[str, Any], str]]
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_record
+
+FrontmatterParser = Callable[[str, Path | None], tuple[PageMetadata, str]]
+TrashMetadata = dict[object, object]
 
 
 class JsonWriter(Protocol):
     """Atomic JSON writer supplied by the platform boundary."""
 
-    def __call__(self, path: Path, obj: Any, **dumps_kwargs: Any) -> None: ...
+    def __call__(self, path: Path, obj: object, **dumps_kwargs: object) -> None: ...
 
 
 log = logging.getLogger(__name__)
@@ -55,14 +59,14 @@ class TrashRepository:
             raise ValueError(f"Unsafe trash entry id: {page_id!r}")
         return self.root() / normalized
 
-    def move_page(self, page_id: str, file_path: Path) -> dict[str, Any]:
+    def move_page(self, page_id: str, file_path: Path) -> TrashMetadata:
         entry_dir = self.entry_dir(page_id)
         sidecar_path = entry_dir / "_trash.json"
         if sidecar_path.exists():
             if not file_path.exists():
                 try:
-                    data = json.loads(sidecar_path.read_text(encoding="utf-8"))
-                    if isinstance(data, dict):
+                    data: object = json.loads(sidecar_path.read_text(encoding="utf-8"))
+                    if is_record(data):
                         return data
                 except (OSError, json.JSONDecodeError):
                     pass
@@ -101,7 +105,7 @@ class TrashRepository:
             size_bytes = 0
 
         shutil.move(str(file_path), str(entry_dir / "page.md"))
-        sidecar: dict[str, Any] = {
+        sidecar: TrashMetadata = {
             "id": page_id,
             "title": title,
             "deleted_at": datetime.now(tz=timezone.utc).isoformat(),
@@ -114,15 +118,15 @@ class TrashRepository:
         self.write_json(sidecar_path, sidecar, indent=2)
         return sidecar
 
-    def restore_page(self, page_id: str) -> dict[str, Any]:
+    def restore_page(self, page_id: str) -> TrashMetadata:
         vault_root_resolved = self.vault_root.resolve()
         entry_dir = self.entry_dir(page_id)
         sidecar_path = entry_dir / "_trash.json"
         if not sidecar_path.exists():
             raise FileNotFoundError(f"No trash entry for {page_id}")
 
-        loaded = json.loads(sidecar_path.read_text(encoding="utf-8"))
-        if not isinstance(loaded, dict):
+        loaded: object = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        if not is_record(loaded):
             raise ValueError(f"Invalid trash sidecar for {page_id}")
         sidecar = dict(loaded)
         original_path = str(sidecar.get("original_path") or f"{page_id}.md")
@@ -149,8 +153,8 @@ class TrashRepository:
         sidecar["restored_path"] = str(target.relative_to(vault_root_resolved))
         return sidecar
 
-    def list_entries(self) -> list[dict[str, Any]]:
-        entries: list[dict[str, Any]] = []
+    def list_entries(self) -> list[TrashMetadata]:
+        entries: list[TrashMetadata] = []
         now_utc = datetime.now(tz=timezone.utc)
         for entry_dir in self.root().iterdir():
             if not entry_dir.is_dir():
@@ -158,8 +162,8 @@ class TrashRepository:
             sidecar_path = entry_dir / "_trash.json"
             if sidecar_path.exists():
                 try:
-                    loaded = json.loads(sidecar_path.read_text(encoding="utf-8"))
-                    data = dict(loaded) if isinstance(loaded, dict) else {}
+                    loaded: object = json.loads(sidecar_path.read_text(encoding="utf-8"))
+                    data = dict(loaded) if is_record(loaded) else {}
                 except (OSError, json.JSONDecodeError) as exc:
                     log.warning("Corrupt sidecar at %s: %s", entry_dir, exc)
                     data = {
@@ -192,4 +196,4 @@ class TrashRepository:
         return entries
 
 
-__all__ = ["FrontmatterParser", "JsonWriter", "TrashRepository"]
+__all__ = ["FrontmatterParser", "JsonWriter", "TrashMetadata", "TrashRepository"]

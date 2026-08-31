@@ -16,10 +16,19 @@ import threading
 import unicodedata
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional, cast
+from typing import Any, Callable, Iterable, Optional, TypeGuard, cast
 
 from backend.domains.vault.registry.records import RecordReader, is_record
-from backend.utils.open_values import get_value, iterable_values
+from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import get_value, item_value, iterable_values
+
+Config = dict[str, object]
+
+
+def _is_string_record(value: object) -> TypeGuard[Config]:
+    """Narrow normalized JSON objects without copying or coercing keys."""
+    return isinstance(value, dict) and all(isinstance(key, str) for key in value)
+
 
 cfg_lock = threading.RLock()
 
@@ -30,7 +39,7 @@ CATEGORICAL_TYPES = {"relation", "select", "multi_select", "status"}
 FILE_TYPES = {"files", "file", "attachment", "attachments"}
 URL_TYPES = {"url"}
 
-DEFAULT_CONFIG: dict[str, Any] = {
+DEFAULT_CONFIG: Config = {
     "version": CONFIG_VERSION,
     # Generated Brain content is English by default. UI copy remains localized.
     "ui_locale": "en",
@@ -76,7 +85,7 @@ def config_path() -> Path:
     """Return ``<active vault>/.gnosi/llm_wiki.json``."""
     from backend.api import vault_routes
 
-    get_p = cast(Callable[[str], Path], vault_routes.get_p)
+    get_p = vault_routes.get_p
     return Path(get_p("GNOSI_CONFIG")) / CONFIG_FILENAME
 
 
@@ -84,11 +93,11 @@ def _norm(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
 
 
-def _property_id(prop: dict[str, Any]) -> str:
+def _property_id(prop: RecordReader) -> str:
     return str(prop.get("id") or "").strip()
 
 
-def _property_type(prop: dict[str, Any]) -> str:
+def _property_type(prop: RecordReader) -> str:
     return str(prop.get("type") or "").strip().lower()
 
 
@@ -173,11 +182,11 @@ def _revision(value: Any) -> int:
         return 0
 
 
-def _properties(table: RecordReader | None) -> list[dict[str, Any]]:
+def _properties(table: RecordReader | None) -> list[RegistryData]:
     return [
-        cast(dict[str, Any], prop)
+        prop
         for prop in iterable_values((table or {}).get("properties") or [])
-        if isinstance(prop, dict)
+        if is_record(prop)
     ]
 
 
@@ -205,7 +214,7 @@ def _empty_source(table_id: str, *, include_body: bool = False) -> dict[str, Any
     }
 
 
-def normalize_config(raw: Any, *, reference_table_id: str = "") -> dict[str, Any]:
+def normalize_config(raw: Any, *, reference_table_id: str = "") -> Config:
     """Normalize a v1/v2 payload without touching disk.
 
     A v1 ``target_table`` becomes ``brain_table_id``.  When v1 had a
@@ -291,7 +300,7 @@ def _normalize_dimension_mappings(value: Any) -> dict[str, dict[str, Any]]:
     return out
 
 
-def load_config() -> dict[str, Any]:
+def load_config() -> Config:
     """Read and normalize the active vault configuration."""
     path = config_path()
     try:
@@ -301,7 +310,7 @@ def load_config() -> dict[str, Any]:
     return normalize_config(data, reference_table_id=_legacy_reference_table_id())
 
 
-def save_config(cfg: dict[str, Any]) -> dict[str, Any]:
+def save_config(cfg: object) -> Config:
     """Normalize and atomically persist a v2 configuration."""
     from backend.utils.safe_io import safe_write_json
 
@@ -312,7 +321,7 @@ def save_config(cfg: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def migrate_config() -> dict[str, Any]:
+def migrate_config() -> Config:
     """Persist the normalized v2 representation when the file is still v1."""
     path = config_path()
     try:
@@ -341,24 +350,24 @@ def set_brain_table_id(table_id: str | None) -> None:
         save_config(cfg)
 
 
-def set_full_config(cfg: dict[str, Any]) -> dict[str, Any]:
+def set_full_config(cfg: object) -> Config:
     with cfg_lock:
         return save_config(cfg)
 
 
 def get_source_table_ids() -> list[str]:
     return [
-        str(source.get("table_id") or "")
-        for source in load_config().get("source_tables") or []
-        if str(source.get("table_id") or "")
+        str(get_value(source, "table_id") or "")
+        for source in iterable_values(load_config().get("source_tables") or [])
+        if str(get_value(source, "table_id") or "")
     ]
 
 
-def get_source_config(table_id: str) -> Optional[dict[str, Any]]:
+def get_source_config(table_id: str) -> Config | None:
     wanted = str(table_id or "").strip()
-    for source in load_config().get("source_tables") or []:
-        if source.get("table_id") == wanted:
-            return cast(dict[str, Any], deepcopy(source))
+    for source in iterable_values(load_config().get("source_tables") or []):
+        if _is_string_record(source) and source.get("table_id") == wanted:
+            return deepcopy(source)
     return None
 
 
@@ -370,7 +379,7 @@ def auto_detect_source(
     table: RecordReader,
     brain_table: RecordReader | None = None,
     index_field_ids: Optional[Iterable[str]] = None,
-    current: Optional[dict[str, Any]] = None,
+    current: RecordReader | None = None,
 ) -> dict[str, Any]:
     """Fill missing source roles from property types and semantic names.
 
@@ -380,7 +389,10 @@ def auto_detect_source(
     table_id = str(table.get("id") or "").strip()
     result = _empty_source(table_id)
     if current:
-        result.update(normalize_config({"source_tables": [current]})["source_tables"][0])
+        normalized_sources = normalize_config({"source_tables": [current]}).get("source_tables")
+        normalized_current = item_value(normalized_sources, 0)
+        if _is_string_record(normalized_current):
+            result.update(normalized_current)
 
     props = _properties(table)
     by_id = {_property_id(prop): prop for prop in props if _property_id(prop)}
@@ -455,18 +467,18 @@ def _compatible_dimension_types(source_type: str, brain_type: str) -> bool:
 
 
 def property_by_id(
-    table: Optional[dict[str, Any]],
+    table: RecordReader | None,
     property_id: str,
-) -> Optional[dict[str, Any]]:
+) -> RegistryData | None:
     wanted = str(property_id or "").strip()
     return next((p for p in _properties(table) if _property_id(p) == wanted), None)
 
 
 def eligible_index_properties(
-    brain_table: Optional[dict[str, Any]],
+    brain_table: RecordReader | None,
     *,
     excluded_ids: Optional[Iterable[str]] = None,
-) -> list[dict[str, Any]]:
+) -> list[RegistryData]:
     """Categorical Brain properties that can produce deterministic indexes."""
     excluded = set(_unique_strings(list(excluded_ids or [])))
     return [

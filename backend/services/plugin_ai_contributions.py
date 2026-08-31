@@ -36,7 +36,7 @@ from backend.services.agent_skill_catalog import (
     register_plugin_tool_provider,
 )
 from backend.services.context_vars import get_active_vault_path
-from backend.utils.safe_io import safe_write_json, safe_write_text
+from backend.utils.safe_io import PathLike, safe_write_json, safe_write_text
 
 logger = get_logger(__name__)
 
@@ -46,8 +46,8 @@ _reconcile_lock = threading.RLock()
 _registered_plugin_ids: set[str] = set()
 
 
-def _write_plugin_state_json(path: Path, payload: Any, **options: Any) -> None:
-    safe_write_json(path, payload, **options)
+def _write_plugin_state_json(path: PathLike, obj: Any, **dumps_kwargs: Any) -> None:
+    safe_write_json(path, obj, **dumps_kwargs)
 
 
 def _runtime_context() -> tuple[Path, dict[str, Any]]:

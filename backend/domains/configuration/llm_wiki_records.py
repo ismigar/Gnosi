@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from backend.domains.vault.pages.foundation_values import PageMetadata
-from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.registry.records import RecordReader, is_object_list, is_record
 from backend.domains.vault.schemas.pages import PageInfo
 
 
@@ -21,8 +21,8 @@ SourceTitles = dict[tuple[str, str], str]
 class BrainRecordDependencies:
     """Schema, page, storage, and note-type ports for Brain record migration."""
 
-    table_by_id: Callable[[str], Metadata | None]
-    pages_for_table: Callable[[str], list[PageInfo]]
+    table_by_id: Callable[[object], Metadata | None]
+    pages_for_table: Callable[[object], list[PageInfo]]
     parse_frontmatter: Callable[[str, Path], tuple[Metadata, str]]
     source_title: Callable[[Metadata, Path, Metadata, Metadata], str]
     merge_page_metadata: Callable[[Metadata, str], Metadata]
@@ -30,7 +30,7 @@ class BrainRecordDependencies:
     save_page: Callable[[Path, Metadata, str], None]
     register_page: Callable[[Path], None]
     metadata_note_type: Callable[[Metadata], str]
-    note_type_value: Callable[[str, Metadata, Metadata | None], object]
+    note_type_value: Callable[[str, RecordReader, Metadata | None], object]
     logger: logging.Logger
 
 
@@ -58,7 +58,7 @@ def _properties_by_id(brain_table: Metadata) -> dict[str, Metadata]:
 
 def _normalize_note_type(
     metadata: Metadata,
-    config: Metadata,
+    config: RecordReader,
     properties: dict[str, Metadata],
     dependencies: BrainRecordDependencies,
 ) -> tuple[str, str]:
@@ -80,7 +80,7 @@ def _normalize_note_type(
 
 
 def _source_relations(
-    config: Metadata,
+    config: RecordReader,
     properties: dict[str, Metadata],
 ) -> tuple[set[str], dict[str, Metadata]]:
     source_names: set[str] = set()
@@ -101,7 +101,7 @@ def _source_relations(
     return source_names, relations
 
 
-def _resource_index_title(config: Metadata, source_title: str) -> str:
+def _resource_index_title(config: RecordReader, source_title: str) -> str:
     locale = str(config.get("ui_locale") or "en").split("-", 1)[0].lower()
     prefix = {
         "ca": "Índex",
@@ -114,7 +114,7 @@ def _resource_index_title(config: Metadata, source_title: str) -> str:
 
 def _normalize_source_link(
     metadata: Metadata,
-    config: Metadata,
+    config: RecordReader,
     source_titles: SourceTitles,
     relations: dict[str, Metadata],
     semantic_kind: str,
@@ -138,7 +138,7 @@ def _normalize_source_link(
 
 def normalize_brain_page_contract(
     metadata: Metadata,
-    config: Metadata,
+    config: RecordReader,
     brain_table: Metadata,
     source_titles: SourceTitles,
     dependencies: BrainRecordDependencies,
@@ -168,7 +168,7 @@ def normalize_brain_page_contract(
 
 
 def _source_titles(
-    config: Metadata,
+    config: RecordReader,
     dependencies: BrainRecordDependencies,
 ) -> SourceTitles:
     result: SourceTitles = {}
@@ -204,7 +204,7 @@ def _source_titles(
 
 def _normalize_managed_page(
     page: PageInfo,
-    config: Metadata,
+    config: RecordReader,
     brain_table: Metadata,
     source_titles: SourceTitles,
     dependencies: BrainRecordDependencies,
@@ -235,8 +235,8 @@ def _normalize_managed_page(
 
 
 def normalize_existing_brain_pages(
-    brain_table_id: str,
-    config: Metadata,
+    brain_table_id: object,
+    config: RecordReader,
     dependencies: BrainRecordDependencies,
 ) -> int:
     """Migrate managed notes to the current singular-source contract."""

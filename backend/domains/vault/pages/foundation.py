@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib as _legacy_importlib
+from collections.abc import Callable
 from pathlib import Path
 from re import Pattern
 from types import ModuleType
@@ -15,6 +16,8 @@ from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
 from backend.domains.vault.tables.formula_recalculation import FormulaRecalculationDependencies
 from backend.utils.open_values import iterable_values
+
+_sanitize_asset_segment: Callable[[object, str], str]
 
 if TYPE_CHECKING:
     from backend.api import vault_routes as _legacy
@@ -379,7 +382,7 @@ def _write_dashboard_file(
     title: str,
     metadata: RegistryData,
     content: str,
-    parent_id: str | None = None,
+    parent_id: object = None,
     is_database: bool = False,
 ) -> None:
     payload = {
@@ -508,7 +511,7 @@ def _strip_virtual_keys(metadata: RegistryData, table: RegistryData | None) -> R
     return {k: v for k, v in metadata.items() if k not in drop}
 
 
-def _get_pages_for_table(table_id: str) -> list[PageInfo]:
+def _get_pages_for_table(table_id: object) -> list[PageInfo]:
     """Fast-path for pages belonging to one table."""
     return _legacy.table_rows.get_pages_for_table(table_id, _legacy.table_row_query_dependencies)
 

@@ -1,13 +1,15 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from backend.domains.configuration import llm_wiki as _llm_wiki_configuration
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import RecordReader
+from backend.utils.open_values import get_value, integer_value, iterable_values, set_value
 from backend.domains.vault.knowledge.contracts import (
     BrainTableClearResponse,
     BrainTableCreateRequest,
@@ -19,27 +21,30 @@ from backend.domains.vault.knowledge.contracts import (
     LlmWikiSettingsResponse,
 )
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
+router: APIRouter = _legacy.router
 
 
 def _contract_payload(
-    payload: BaseModel | dict[_LegacyAny, _LegacyAny] | None,
-) -> dict[_LegacyAny, _LegacyAny]:
+    payload: BaseModel | PageMetadata | None,
+) -> RecordReader:
     if isinstance(payload, BaseModel):
         return payload.model_dump(exclude_unset=True)
     return payload or {}
 
 
 @router.get("/brain-table", response_model=BrainTableStatusResponse)
-async def get_brain_table() -> _LegacyAny:
+async def get_brain_table() -> dict[str, object]:
     """Return the designated Brain table status for Settings and UI gating.
 
     Resolve the per-vault designation in the active vault.
     """
     from backend.services import llm_wiki_config as bw
 
-    cfg = bw.migrate_config()
+    cfg: dict[str, object] = bw.migrate_config()
     tid = cfg.get("brain_table_id")
     t = _legacy._table_by_id(tid) if tid else None
     return {
@@ -47,7 +52,9 @@ async def get_brain_table() -> _LegacyAny:
         "configured": bool(tid),
         "name": t.get("name") if t else None,
         "source_table_ids": [
-            item.get("table_id") for item in cfg.get("source_tables") or [] if item.get("table_id")
+            get_value(item, "table_id")
+            for item in iterable_values(cfg.get("source_tables") or [])
+            if get_value(item, "table_id")
         ],
         "index_field_ids": cfg.get("index_field_ids") or [],
     }
@@ -60,7 +67,7 @@ async def get_brain_table() -> _LegacyAny:
 )
 async def set_brain_table(
     payload: BrainTableSelectionRequest = _legacy.Body(...),
-) -> _LegacyAny:
+) -> dict[str, object]:
     """Designate an existing table as the Brain and guarantee its
     knowledge schema (note type, sources, verification status, and more)."""
     from backend.services import llm_wiki_config as bw
@@ -74,15 +81,16 @@ async def set_brain_table(
     locale = str(payload_data.get("ui_locale") or payload_data.get("language") or "en")
     _legacy._ensure_default_db_group()
     added = _legacy.ensure_brain_table_schema(table_id, locale)
-    cfg = bw.migrate_config()
+    cfg: dict[str, object] = bw.migrate_config()
     cfg["ui_locale"] = locale
     cfg["brain_table_id"] = table_id
     cfg["target_table"] = table_id
     cfg["brain_roles"] = _legacy._infer_brain_roles(_legacy._table_by_id(table_id))
-    for source in cfg.get("source_tables") or []:
-        source["relation_property_id"] = _legacy.ensure_brain_source_relation(
-            table_id, str(source.get("table_id") or ""), locale
+    for source in iterable_values(cfg.get("source_tables") or []):
+        relation_id = _legacy.ensure_brain_source_relation(
+            table_id, str(get_value(source, "table_id") or ""), locale
         )
+        set_value(source, "relation_property_id", relation_id)
     cfg["source_contract_revision"] = _legacy.BRAIN_SOURCE_CONTRACT_REVISION
     cfg = bw.set_full_config(cfg)
     from backend.services import llm_wiki_indices
@@ -104,7 +112,7 @@ async def set_brain_table(
 )
 async def create_brain_table(
     payload: BrainTableCreateRequest | None = _legacy.Body(default=None),
-) -> _LegacyAny:
+) -> dict[str, object]:
     """Create and designate a new Brain table with the knowledge schema."""
     from backend.services import llm_wiki_config as bw
 
@@ -118,7 +126,7 @@ async def create_brain_table(
         "fr": "Cerveau",
     }.get(language, "Brain")
     new_id = str(_legacy.uuid.uuid4())
-    table = {
+    table: PageMetadata = {
         "id": new_id,
         "name": name,
         "database_id": "gnosi_vault_db",
@@ -129,20 +137,21 @@ async def create_brain_table(
     }
     created = await _legacy.create_table(table)
     _legacy._ensure_default_db_group()
-    cfg = bw.migrate_config()
+    cfg: dict[str, object] = bw.migrate_config()
     cfg["ui_locale"] = locale
     cfg["brain_table_id"] = created["id"]
     cfg["target_table"] = created["id"]
     cfg["brain_roles"] = _legacy._infer_brain_roles(_legacy._table_by_id(created["id"]))
-    for source in cfg.get("source_tables") or []:
-        source["relation_property_id"] = _legacy.ensure_brain_source_relation(
-            created["id"], str(source.get("table_id") or ""), locale
+    for source in iterable_values(cfg.get("source_tables") or []):
+        relation_id = _legacy.ensure_brain_source_relation(
+            created["id"], str(get_value(source, "table_id") or ""), locale
         )
+        set_value(source, "relation_property_id", relation_id)
     cfg["source_contract_revision"] = _legacy.BRAIN_SOURCE_CONTRACT_REVISION
     cfg["index_field_ids"] = [
         field_id
         for role in ("areas", "tags")
-        if (field_id := str(cfg["brain_roles"].get(role) or ""))
+        if (field_id := str(get_value(cfg["brain_roles"], role) or ""))
     ]
     cfg = bw.set_full_config(cfg)
     from backend.services import llm_wiki_indices
@@ -161,7 +170,7 @@ async def create_brain_table(
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=BrainTableClearResponse,
 )
-async def clear_brain_table() -> _LegacyAny:
+async def clear_brain_table() -> dict[str, object]:
     """Disable the Brain designation without deleting any table."""
     from backend.services import llm_wiki_config as bw
 
@@ -169,7 +178,7 @@ async def clear_brain_table() -> _LegacyAny:
     return {"table_id": None, "configured": False}
 
 
-def _llm_wiki_config_response(cfg: dict[_LegacyAny, _LegacyAny]) -> dict[_LegacyAny, _LegacyAny]:
+def _llm_wiki_config_response(cfg: RecordReader) -> dict[str, object]:
     """Enrich the persisted contract with validation and runtime capabilities."""
     from backend.services import llm_wiki_config as wiki_cfg
     from backend.services import llm_wiki_storage
@@ -178,9 +187,9 @@ def _llm_wiki_config_response(cfg: dict[_LegacyAny, _LegacyAny]) -> dict[_Legacy
     brain_id = str(cfg.get("brain_table_id") or "")
     brain = _legacy._table_by_id(brain_id) if brain_id else None
     source_ids = [
-        str(item.get("table_id") or "")
-        for item in cfg.get("source_tables") or []
-        if item.get("table_id")
+        str(get_value(item, "table_id") or "")
+        for item in iterable_values(cfg.get("source_tables") or [])
+        if get_value(item, "table_id")
     ]
     missing = []
     if brain_id and (not brain):
@@ -189,11 +198,11 @@ def _llm_wiki_config_response(cfg: dict[_LegacyAny, _LegacyAny]) -> dict[_Legacy
         if not _legacy._table_by_id(source_id):
             missing.append({"kind": "source_table", "id": source_id})
     source_relation_ids = {
-        str(item.get("relation_property_id") or "")
-        for item in cfg.get("source_tables") or []
-        if item.get("relation_property_id")
+        str(get_value(item, "relation_property_id") or "")
+        for item in iterable_values(cfg.get("source_tables") or [])
+        if get_value(item, "relation_property_id")
     }
-    note_type_id = str((cfg.get("brain_roles") or {}).get("note_type") or "")
+    note_type_id = str(get_value(cfg.get("brain_roles") or {}, "note_type") or "")
     eligible = wiki_cfg.eligible_index_properties(
         brain, excluded_ids=source_relation_ids | {note_type_id}
     )
@@ -218,7 +227,7 @@ def _llm_wiki_config_response(cfg: dict[_LegacyAny, _LegacyAny]) -> dict[_Legacy
     }
 
 
-def _llm_wiki_property_options(prop: dict[_LegacyAny, _LegacyAny]) -> list[dict[str, str]]:
+def _llm_wiki_property_options(prop: RecordReader) -> list[dict[str, str]]:
     """Return canonical existing values for one categorical Brain property."""
     if str(prop.get("type") or "") == "relation":
         target_id = str(prop.get("relation_database_id") or "")
@@ -236,8 +245,8 @@ def _llm_wiki_property_options(prop: dict[_LegacyAny, _LegacyAny]) -> list[dict[
         )
     raw_options = (
         prop.get("options")
-        or (prop.get("config") or {}).get("options")
-        or (prop.get("select") or {}).get("options")
+        or get_value(prop.get("config") or {}, "options")
+        or get_value(prop.get("select") or {}, "options")
         or []
     )
     return [
@@ -245,7 +254,7 @@ def _llm_wiki_property_options(prop: dict[_LegacyAny, _LegacyAny]) -> list[dict[
             "label": str(option.get("name") if isinstance(option, dict) else option),
             "value": str(option.get("name") if isinstance(option, dict) else option),
         }
-        for option in raw_options
+        for option in iterable_values(raw_options)
         if str(option.get("name") if isinstance(option, dict) else option).strip()
     ]
 
@@ -255,12 +264,15 @@ def _llm_wiki_property_options(prop: dict[_LegacyAny, _LegacyAny]) -> list[dict[
     response_model=LlmWikiSettingsResponse,
     response_model_exclude_unset=True,
 )
-async def get_llm_wiki_config() -> _LegacyAny:
+async def get_llm_wiki_config() -> dict[str, object]:
     """Return the migrated v2 per-vault LLM Wiki configuration."""
     from backend.services import llm_wiki_config
 
-    cfg = await _legacy.asyncio.to_thread(llm_wiki_config.migrate_config)
-    if int(cfg.get("source_contract_revision") or 0) < _legacy.BRAIN_SOURCE_CONTRACT_REVISION:
+    cfg: dict[str, object] = await _legacy.asyncio.to_thread(llm_wiki_config.migrate_config)
+    if (
+        integer_value(cfg.get("source_contract_revision") or 0)
+        < _legacy.BRAIN_SOURCE_CONTRACT_REVISION
+    ):
         cfg = await _legacy.asyncio.to_thread(_legacy._reconcile_llm_wiki_source_contract, cfg)
     return await _legacy.asyncio.to_thread(_llm_wiki_config_response, cfg)
 
@@ -288,8 +300,8 @@ _LLM_WIKI_CONFIG_DEPENDENCIES = _llm_wiki_configuration.LlmWikiConfigDependencie
     response_model_exclude_unset=True,
 )
 async def put_llm_wiki_config(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[object, object] = _legacy.Body(...),
+) -> dict[str, object]:
     """Validate and atomically save Brain, sources, roles, and index fields."""
     return await _llm_wiki_configuration.put_config(payload, _LLM_WIKI_CONFIG_DEPENDENCIES)
 
@@ -301,8 +313,8 @@ async def put_llm_wiki_config(
     response_model_exclude_unset=True,
 )
 async def create_standard_llm_wiki_brain(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(default=None),
-) -> _LegacyAny:
+    payload: dict[object, object] = _legacy.Body(default=None),
+) -> dict[str, object]:
     """Compatibility-namespaced alias used by the v2 Settings panel."""
     request = BrainTableCreateRequest.model_validate(payload or {})
     result = await create_brain_table(request)

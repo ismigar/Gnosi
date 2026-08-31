@@ -1,14 +1,21 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+from typing import TYPE_CHECKING, Never
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
+from backend.domains.llm_wiki.lint_contracts import LintReport
+from backend.domains.vault.knowledge.native_calls import capture_append
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.utils.open_values import get_value, iterable_values
+
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
+router: APIRouter = _legacy.router
 LLM_WIKI_PROCESSED_COL = "Processat pel Cervell"
 
 
@@ -68,7 +75,7 @@ class LlmWikiJobResponse(BaseModel):
     started_at: float | None = None
     updated_at: float | None = None
     finished_at: float | None = None
-    index_report: dict[str, _LegacyAny] | None = None
+    index_report: dict[str, object] | None = None
 
 
 class LlmWikiProcessStartResponse(BaseModel):
@@ -94,7 +101,7 @@ class LlmWikiLintReportResponse(BaseModel):
 class LlmWikiMaintenanceResponse(BaseModel):
     """Index, lint and suggestion totals returned by Brain maintenance."""
 
-    indexes: dict[str, _LegacyAny]
+    indexes: dict[str, object]
     lint: LlmWikiLintReportResponse
     suggestions_queued: int
     suggestions_pending: int
@@ -110,21 +117,34 @@ def ensure_llm_wiki_column(reference_table_id: str) -> bool:
     with _legacy.registry_mutation():
         reg = _legacy.load_registry()
         table = next(
-            (t for t in reg.get("tables", []) or [] if t.get("id") == reference_table_id), None
+            (
+                t
+                for t in iterable_values(reg.get("tables", []) or [])
+                if get_value(t, "id") == reference_table_id
+            ),
+            None,
         )
         if not table:
             return False
-        props = table.setdefault("properties", [])
+        from operator import methodcaller
+
+        props: object = methodcaller("setdefault", "properties", [])(table)
+        append_property = capture_append(props)
         norm = LLM_WIKI_PROCESSED_COL.lower().replace(" ", "")
-        if any((str(p.get("name") or "").lower().replace(" ", "") == norm for p in props)):
+        if any(
+            (
+                str(get_value(p, "name") or "").lower().replace(" ", "") == norm
+                for p in iterable_values(props)
+            )
+        ):
             return False
-        props.append(
+        append_property(
             {
                 "id": str(_legacy.uuid.uuid4()),
                 "name": LLM_WIKI_PROCESSED_COL,
                 "type": "date",
                 "system": True,
-            }
+            },
         )
         _legacy.save_registry(reg)
         _legacy.log.info(
@@ -135,7 +155,7 @@ def ensure_llm_wiki_column(reference_table_id: str) -> bool:
         return True
 
 
-def _resource_processed_value(metadata: dict[_LegacyAny, _LegacyAny]) -> str:
+def _resource_processed_value(metadata: PageMetadata) -> str:
     """The `Processat pel Cervell` value in a row's metadata, or ''."""
     for k in (LLM_WIKI_PROCESSED_COL, LLM_WIKI_PROCESSED_COL.lower()):
         v = (metadata or {}).get(k)
@@ -161,22 +181,22 @@ def _llm_wiki_title_value(value: object) -> str:
 
 
 def _llm_wiki_source_title(
-    metadata: dict[_LegacyAny, _LegacyAny],
+    metadata: PageMetadata,
     path: _legacy.Path,
-    source_table: dict[_LegacyAny, _LegacyAny],
-    source_config: dict[_LegacyAny, _LegacyAny],
+    source_table: PageMetadata,
+    source_config: PageMetadata,
 ) -> str:
     """Resolve a source title from its configured title property before UID fallbacks."""
     title_property_id = str(source_config.get("title_property_id") or "")
     title_property = next(
         (
             prop
-            for prop in source_table.get("properties") or []
-            if str(prop.get("id") or "") == title_property_id
+            for prop in iterable_values(source_table.get("properties") or [])
+            if str(get_value(prop, "id") or "") == title_property_id
         ),
         None,
     )
-    title_property_name = str((title_property or {}).get("name") or "")
+    title_property_name = str(get_value(title_property or {}, "name") or "")
     candidates = [
         metadata.get(title_property_name) if title_property_name else None,
         metadata.get(title_property_id) if title_property_id else None,
@@ -210,7 +230,7 @@ def mark_resource_processed(page_id: str, date_str: str) -> bool:
 )
 async def llm_wiki_process(
     payload: LlmWikiProcessRequest = _legacy.Body(...),
-) -> _LegacyAny:
+) -> dict[str, object]:
     """Start a durable ingest for one row of a configured source table."""
     from backend.services.llm_wiki_actions import LlmWikiActionError, start_source_process
 
@@ -234,7 +254,7 @@ async def llm_wiki_process(
 )
 async def llm_wiki_status(
     item_id: str, source_table_id: str = _legacy.Query(default="")
-) -> _LegacyAny:
+) -> dict[str, object]:
     """Non-blocking status of a resource's ongoing/last ingest (for polling)."""
     from backend.services.llm_wiki_actions import LlmWikiActionError, process_status
 
@@ -251,7 +271,9 @@ async def llm_wiki_status(
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
 )
-async def llm_wiki_evidence(resource_id: str, snapshot_id: str, segment_id: str) -> _LegacyAny:
+async def llm_wiki_evidence(
+    resource_id: str, snapshot_id: str, segment_id: str
+) -> dict[str, object]:
     """Return one persisted normalized source segment for a citation drawer."""
     from backend.services import llm_wiki_storage
 
@@ -269,7 +291,7 @@ async def llm_wiki_evidence(resource_id: str, snapshot_id: str, segment_id: str)
     response_model=LlmWikiMaintenanceResponse,
     response_model_exclude_unset=True,
 )
-async def llm_wiki_maintenance(semantic: bool = _legacy.Query(default=False)) -> _LegacyAny:
+async def llm_wiki_maintenance(semantic: bool = _legacy.Query(default=False)) -> dict[str, object]:
     """Rebuild managed indexes/cache and run deterministic lint.
 
     ``semantic=true`` additionally runs the connection/contradiction proposal
@@ -288,7 +310,7 @@ async def llm_wiki_maintenance(semantic: bool = _legacy.Query(default=False)) ->
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
 )
-async def llm_wiki_lint(suggest: bool = _legacy.Query(default=False)) -> _LegacyAny:
+async def llm_wiki_lint(suggest: bool = _legacy.Query(default=False)) -> LintReport:
     """Run deterministic lint and optionally request a manual semantic pass."""
     from backend.services import llm_wiki_config, llm_wiki_lint, llm_wiki_suggestions
 
@@ -311,7 +333,7 @@ async def llm_wiki_lint(suggest: bool = _legacy.Query(default=False)) -> _Legacy
     response_model=BrainSuggestionListResponse,
     response_model_exclude_unset=True,
 )
-async def llm_wiki_list_suggestions() -> _LegacyAny:
+async def llm_wiki_list_suggestions() -> dict[str, list[dict[str, object]]]:
     """Return pending read-only connection proposals for the Brain inbox."""
     from backend.services import llm_wiki_suggestions
 
@@ -324,8 +346,8 @@ async def llm_wiki_list_suggestions() -> _LegacyAny:
     response_model=None,
 )
 async def llm_wiki_accept_suggestion(
-    suggestion_id: str, payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(default=None)
-) -> _LegacyAny:
+    suggestion_id: str, payload: dict[object, object] = _legacy.Body(default=None)
+) -> Never:
     """Permanent-note creation was removed; proposals are read-only."""
     raise _legacy.HTTPException(
         status_code=410, detail="Connection proposals cannot create permanent notes"
@@ -337,7 +359,7 @@ async def llm_wiki_accept_suggestion(
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=BrainSuggestionRejectedResponse,
 )
-async def llm_wiki_reject_suggestion(suggestion_id: str) -> _LegacyAny:
+async def llm_wiki_reject_suggestion(suggestion_id: str) -> dict[str, str]:
     """Discards a pending suggestion (no note is created)."""
     from backend.services import llm_wiki_suggestions
 
@@ -354,7 +376,7 @@ async def llm_wiki_reject_suggestion(suggestion_id: str) -> _LegacyAny:
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=BrainSuggestionRejectedResponse,
 )
-async def llm_wiki_dismiss_suggestion(suggestion_id: str) -> _LegacyAny:
+async def llm_wiki_dismiss_suggestion(suggestion_id: str) -> dict[str, str]:
     """Dismiss a read-only connection proposal."""
     return await llm_wiki_reject_suggestion(suggestion_id)
 
@@ -364,7 +386,7 @@ async def llm_wiki_dismiss_suggestion(suggestion_id: str) -> _LegacyAny:
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=None,
 )
-async def llm_wiki_reformulate(suggestion_id: str) -> _LegacyAny:
+async def llm_wiki_reformulate(suggestion_id: str) -> dict[str, list[dict[str, str]]]:
     """Labeled variants of a suggestion's draft, to pick with one click."""
     from backend.services import llm_wiki_assist, llm_wiki_suggestions
 
@@ -391,7 +413,7 @@ async def llm_wiki_reformulate(suggestion_id: str) -> _LegacyAny:
 )
 async def llm_wiki_dictate(
     suggestion_id: str, audio: _legacy.UploadFile = _legacy.File(...)
-) -> _LegacyAny:
+) -> dict[str, object]:
     """Dictated edit for a suggestion: transcribe (faster-whisper) and
     reconstruct the intent with the note's context + personal glossary.
     The result is a PROPOSAL ("Did you mean…?") — the frontend never applies it
@@ -436,8 +458,8 @@ async def llm_wiki_dictate(
     response_model=None,
 )
 async def llm_wiki_glossary_learn(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[object, object] = _legacy.Body(...),
+) -> dict[str, int]:
     """Stores a user-confirmed correction pair (heard → meant): the personal
     glossary the dictation corrector learns from."""
     from backend.services import llm_wiki_assist

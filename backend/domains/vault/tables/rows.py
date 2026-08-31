@@ -255,7 +255,7 @@ def canonical_visible_table_pages(
 
 def _matches_table(
     entry: PageCacheEntry,
-    table_id: str,
+    table_id: object,
     folder_to_table: dict[str, str],
     all_prefixes: list[str],
 ) -> bool:
@@ -278,7 +278,7 @@ def _matches_table(
 
 def _page_from_entry(
     entry: PageCacheEntry,
-    table_id: str,
+    table_id: object,
     dependencies: TableRowQueryDependencies,
 ) -> PageInfo:
     raw_metadata = entry.get("metadata") or {}
@@ -303,7 +303,7 @@ def _page_from_entry(
 
 
 def get_pages_for_table(
-    table_id: str,
+    table_id: object,
     dependencies: TableRowQueryDependencies,
 ) -> list[PageInfo]:
     """Build PageInfo only for cached entries belonging to one table."""

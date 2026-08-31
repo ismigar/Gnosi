@@ -5,15 +5,17 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 from fastapi import HTTPException
 
+from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.registry.state import RegistryData
 from backend.services import llm_wiki_config, llm_wiki_indices
+from backend.utils.open_values import get_value, iterable_values, set_value
 
 
-Config = dict[str, Any]
-Table = dict[str, Any]
+Config = dict[str, object]
+Table = RegistryData
 
 
 @dataclass(frozen=True)
@@ -21,8 +23,8 @@ class LlmWikiConfigDependencies:
     """Late-bound facade ports needed to validate and save one configuration."""
 
     table_by_id: Callable[[str], Table | None]
-    infer_brain_roles: Callable[[Table | None], Config]
-    property_options: Callable[[Table], list[Config]]
+    infer_brain_roles: Callable[[Table | None], dict[str, str]]
+    property_options: Callable[[Table], list[dict[str, str]]]
     ensure_default_db_group: Callable[[], None]
     ensure_brain_schema: Callable[[str, str], int]
     ensure_source_relation: Callable[[str, str, str], str]
@@ -33,15 +35,15 @@ class LlmWikiConfigDependencies:
 def _properties_by_id(table: Table | None) -> dict[str, Table]:
     return {
         str(prop.get("id") or ""): prop
-        for prop in (table or {}).get("properties") or []
-        if isinstance(prop, dict) and prop.get("id")
+        for prop in iterable_values((table or {}).get("properties") or [])
+        if is_record(prop) and prop.get("id")
     }
 
 
 def _validate_tables(
     normalized: Config,
     dependencies: LlmWikiConfigDependencies,
-) -> tuple[str, Table, list[Config]]:
+) -> tuple[str, Table, list[RegistryData]]:
     brain_id = str(normalized.get("brain_table_id") or "")
     brain = dependencies.table_by_id(brain_id) if brain_id else None
     if not brain_id or not brain:
@@ -49,7 +51,7 @@ def _validate_tables(
     raw_sources = normalized.get("source_tables")
     if not raw_sources:
         raise HTTPException(status_code=400, detail="At least one source table is required")
-    sources = [source for source in raw_sources if isinstance(source, dict)]
+    sources = [source for source in iterable_values(raw_sources) if is_record(source)]
     for source in sources:
         source_id = str(source.get("table_id") or "")
         if source_id == brain_id:
@@ -106,14 +108,14 @@ def _validate_source_fields(
         )
     invalid_file_ids = [
         field_id
-        for field_id in prepared.get("attachment_property_ids") or []
-        if str((source_properties.get(field_id) or {}).get("type") or "").lower()
+        for field_id in iterable_values(prepared.get("attachment_property_ids") or [])
+        if str(get_value(get_value(source_properties, field_id) or {}, "type") or "").lower()
         not in llm_wiki_config.FILE_TYPES
     ]
     invalid_url_ids = [
         field_id
-        for field_id in prepared.get("url_property_ids") or []
-        if str((source_properties.get(field_id) or {}).get("type") or "").lower()
+        for field_id in iterable_values(prepared.get("url_property_ids") or [])
+        if str(get_value(get_value(source_properties, field_id) or {}, "type") or "").lower()
         not in llm_wiki_config.URL_TYPES | {"text", "rich_text"}
     ]
     if invalid_file_ids or invalid_url_ids:
@@ -125,7 +127,7 @@ def _validate_source_fields(
 
 def _fixed_values(
     field_id: str,
-    mapping: Config,
+    mapping: object,
     brain_property: Table,
     dependencies: LlmWikiConfigDependencies,
 ) -> object:
@@ -133,11 +135,11 @@ def _fixed_values(
         str(item["label"]).strip().casefold(): item["value"]
         for item in dependencies.property_options(brain_property)
     }
-    raw_values = mapping.get("fixed_value")
+    raw_values = get_value(mapping, "fixed_value")
     raw_values = raw_values if isinstance(raw_values, list) else [raw_values]
     values = [
         canonical.get(str(value or "").strip().casefold())
-        for value in raw_values
+        for value in iterable_values(raw_values)
         if str(value or "").strip()
     ]
     if not values or any(value is None for value in values):
@@ -154,14 +156,14 @@ def _validate_dimension_mapping(
     *,
     field_id: str,
     source_id: str,
-    mapping: Config,
+    mapping: object,
     source_properties: dict[str, Table],
     brain_property: Table,
     dependencies: LlmWikiConfigDependencies,
 ) -> None:
-    mode = str(mapping.get("mode") or "ai")
+    mode = str(get_value(mapping, "mode") or "ai")
     if mode == "source":
-        source_property = source_properties.get(str(mapping.get("source_property_id") or ""))
+        source_property = source_properties.get(str(get_value(mapping, "source_property_id") or ""))
         if not source_property or not llm_wiki_config._compatible_dimension_types(
             str(source_property.get("type") or ""),
             str(brain_property.get("type") or ""),
@@ -178,16 +180,17 @@ def _validate_dimension_mapping(
                 detail=f"Relation mapping for {field_id} points to a different table",
             )
     elif mode == "fixed":
-        mapping["fixed_value"] = _fixed_values(
+        fixed = _fixed_values(
             field_id,
             mapping,
             brain_property,
             dependencies,
         )
+        set_value(mapping, "fixed_value", fixed)
 
 
 def _prepare_source(
-    source: Config,
+    source: RegistryData,
     brain: Table,
     requested_index_ids: list[str],
     dependencies: LlmWikiConfigDependencies,
@@ -208,7 +211,7 @@ def _prepare_source(
     _validate_source_fields(source_id, prepared, source_properties)
     mappings = prepared.get("dimension_mappings") or {}
     for field_id in requested_index_ids:
-        mapping = mappings.get(field_id) or {"mode": "ai"}
+        mapping = get_value(mappings, field_id) or {"mode": "ai"}
         _validate_dimension_mapping(
             field_id=field_id,
             source_id=source_id,
@@ -222,17 +225,17 @@ def _prepare_source(
 
 def _validate_before_mutation(
     brain: Table,
-    sources: list[Config],
+    sources: list[RegistryData],
     requested_index_ids: list[str],
     dependencies: LlmWikiConfigDependencies,
 ) -> None:
     preliminary_roles = dependencies.infer_brain_roles(brain)
     configured_source_ids = {str(source.get("table_id") or "") for source in sources}
     existing_relation_ids = {
-        str(prop.get("id") or "")
-        for prop in brain.get("properties") or []
-        if prop.get("type") == "relation"
-        and str(prop.get("relation_database_id") or "") in configured_source_ids
+        str(get_value(prop, "id") or "")
+        for prop in iterable_values(brain.get("properties") or [])
+        if get_value(prop, "type") == "relation"
+        and str(get_value(prop, "relation_database_id") or "") in configured_source_ids
     }
     note_type_id = str(preliminary_roles.get("note_type") or "")
     _validate_index_ids(
@@ -242,13 +245,13 @@ def _validate_before_mutation(
 
 
 async def put_config(
-    payload: Config,
+    payload: object,
     dependencies: LlmWikiConfigDependencies,
 ) -> Config:
     """Validate, normalize and atomically persist the LLM Wiki configuration."""
     normalized = llm_wiki_config.normalize_config(payload)
     brain_id, brain, sources = _validate_tables(normalized, dependencies)
-    requested_index_ids = [str(field_id) for field_id in normalized.get("index_field_ids") or []]
+    requested_index_ids = [str(field_id) for field_id in iterable_values(normalized.get("index_field_ids") or [])]
     _validate_before_mutation(brain, sources, requested_index_ids, dependencies)
     prepared_sources = [
         _prepare_source(source, brain, requested_index_ids, dependencies) for source in sources
@@ -269,7 +272,7 @@ async def put_config(
     normalized["source_tables"] = prepared_sources
 
     brain_after_relations = dependencies.table_by_id(brain_id)
-    note_type_id = str(normalized["brain_roles"].get("note_type") or "")
+    note_type_id = str(get_value(normalized["brain_roles"], "note_type") or "")
     _validate_index_ids(
         requested_index_ids,
         _eligible_index_ids(brain_after_relations, relation_ids | {note_type_id}),

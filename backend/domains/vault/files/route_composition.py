@@ -1,14 +1,22 @@
 """Typed Vault domain extracted from the historical route facade."""
 
-import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
+from __future__ import annotations
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+import importlib as _legacy_importlib
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+    from backend.domains.vault.trash.purge import PurgeResult
+    from backend.domains.vault.trash.repository import TrashMetadata
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
 
 TRASH_RETENTION_DAYS = 90
 
 
-def _trash_root() -> _legacy.Path:
+def _trash_root() -> Path:
     """Root of the Vault trash. Call it only from worker threads
     (it touches the filesystem). Creates the directory if it doesn't exist."""
     return _legacy.TrashRepository(
@@ -19,7 +27,7 @@ def _trash_root() -> _legacy.Path:
     ).root()
 
 
-def _trash_entry_dir(page_id: str) -> _legacy.Path:
+def _trash_entry_dir(page_id: str) -> Path:
     return _legacy.TrashRepository(
         _legacy.get_p("VAULT"),
         retention_days=TRASH_RETENTION_DAYS,
@@ -28,7 +36,7 @@ def _trash_entry_dir(page_id: str) -> _legacy.Path:
     ).entry_dir(page_id)
 
 
-def _move_page_to_trash(page_id: str, file_path: _legacy.Path) -> _legacy.Dict[str, _legacy.Any]:
+def _move_page_to_trash(page_id: str, file_path: Path) -> TrashMetadata:
     """Moves a .md file to `.trash/{page_id}/page.md` and writes the sidecar.
 
     Returns the trash metadata (id, deleted_at, original_path, ...).
@@ -44,7 +52,7 @@ def _move_page_to_trash(page_id: str, file_path: _legacy.Path) -> _legacy.Dict[s
     ).move_page(page_id, file_path)
 
 
-def _restore_page_from_trash(page_id: str) -> _legacy.Dict[str, _legacy.Any]:
+def _restore_page_from_trash(page_id: str) -> TrashMetadata:
     """Inverse of `_move_page_to_trash`. Restores the file to `original_path`.
 
     Raises `FileNotFoundError` if the trash doesn't contain the entry,
@@ -60,7 +68,7 @@ def _restore_page_from_trash(page_id: str) -> _legacy.Dict[str, _legacy.Any]:
     ).restore_page(page_id)
 
 
-def _read_trash_entries() -> _legacy.List[_legacy.Dict[str, _legacy.Any]]:
+def _read_trash_entries() -> list[TrashMetadata]:
     """Reads all `.trash/*/_trash.json` sidecars. Tolerates entries without
     a sidecar (they are returned with `deleted_at=None` and a fallback title)."""
     return _legacy.TrashRepository(
@@ -79,7 +87,7 @@ async def _materialize_trash_sidecar(page_id: str) -> None:
     loop; only the async materialization happens here. `page.md` is not downloaded
     (unnecessary: the restore move is a rename and the purge only does unlink)."""
 
-    def _existing_sidecar() -> _legacy.Optional[_legacy.Path]:
+    def _existing_sidecar() -> Path | None:
         sidecar = _trash_entry_dir(page_id) / "_trash.json"
         return sidecar if sidecar.exists() else None
 
@@ -97,7 +105,7 @@ async def _materialize_all_trash_sidecars() -> None:
     thread; only the async materialization happens on the event loop. Without this, the
     dataless sidecars crash with EDEADLK and the entries show up as "(corrupt)"."""
 
-    def _scan_sidecars() -> _legacy.List[_legacy.Path]:
+    def _scan_sidecars() -> list[Path]:
         root = _trash_root()
         if not root.exists():
             return []
@@ -130,7 +138,7 @@ _TRASH_PURGE_DEPENDENCIES = _legacy.trash_purge.PurgeDependencies(
 )
 
 
-def _purge_trash_entry(page_id: str) -> _legacy.Dict[str, _legacy.Any]:
+def _purge_trash_entry(page_id: str) -> PurgeResult:
     """Permanently deletes an entry from the trash."""
     return _legacy.trash_purge.purge_trash_entry(page_id, _TRASH_PURGE_DEPENDENCIES)
 
@@ -142,7 +150,7 @@ def _force_index_rescan() -> None:
 
 
 def _remove_page_from_index_cache(
-    page_id: str, old_path: _legacy.Optional[_legacy.Path] = None
+    page_id: str, old_path: Path | None = None
 ) -> None:
     """Removes ONE entry from the index cache without clearing it entirely.
 
@@ -175,7 +183,7 @@ def _remove_page_from_index_cache(
     with _legacy._iter_docs_lock:
         _dc_entry = _legacy._iter_docs_cache.get(v_str)
         docs = _dc_entry.get("docs") if _dc_entry else None
-        if docs is not None and removed_paths:
+        if docs is not None and removed_paths and _dc_entry is not None:
             _dc_entry["docs"] = [d for d in docs if str(d[0]) not in removed_paths]
     with _legacy._id_title_lock:
         _it_entry = _legacy._id_title_cache.get(v_str)
@@ -184,7 +192,7 @@ def _remove_page_from_index_cache(
     _legacy._pages_cache_invalidate_all()
 
 
-def _add_page_to_index_cache(file_path: _legacy.Path) -> None:
+def _add_page_to_index_cache(file_path: Path) -> None:
     """Inserts ONE entry into the index cache without rescanning the whole vault.
 
     Symmetric to `_remove_page_from_index_cache`. Useful when we've just created

@@ -6,10 +6,12 @@ import logging
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import Any
+from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import iterable_values
 
 
-Metadata = dict[str, Any]
+Metadata = RegistryData
 
 
 @dataclass(frozen=True)
@@ -27,17 +29,17 @@ class BrainSchemaDependencies:
     source_name: Callable[[str], str]
     source_singular_tokens: frozenset[str]
     source_plural_tokens: frozenset[str]
-    migrate_source_metadata: Callable[[str, str, set[str]], int]
-    normalize_source_views: Callable[[str, str, str, set[str]], int]
+    migrate_source_metadata: Callable[[object, str, set[str]], int]
+    normalize_source_views: Callable[[object, str, str, set[str]], int]
     logger: logging.Logger
 
 
-def _find_table(registry: Metadata, table_id: str) -> Metadata | None:
+def _find_table(registry: Metadata, table_id: object) -> Metadata | None:
     return next(
         (
             table
-            for table in registry.get("tables", []) or []
-            if isinstance(table, dict) and table.get("id") == table_id
+            for table in iterable_values(registry.get("tables", []) or [])
+            if is_record(table) and table.get("id") == table_id
         ),
         None,
     )
@@ -116,7 +118,7 @@ def ensure_brain_table_schema(
         if not table:
             return 0
         raw_properties = table.setdefault("properties", [])
-        properties = [prop for prop in raw_properties if isinstance(prop, dict)]
+        properties = [prop for prop in iterable_values(raw_properties) if is_record(prop)]
         added = _add_missing_properties(table_id, locale, properties, dependencies)
         repaired = _repair_property_ids(
             properties,
@@ -186,7 +188,7 @@ def _create_source_relation(
     properties: list[Metadata],
     dependencies: BrainSchemaDependencies,
 ) -> Metadata:
-    relation = {
+    relation: Metadata = {
         "id": dependencies.new_uuid(),
         "name": _unique_source_name(
             canonical_name,
@@ -250,7 +252,7 @@ def _merge_duplicates(
             source_names.add(duplicate_name)
     aliases = [
         str(alias)
-        for alias in canonical.get("aliases") or []
+        for alias in iterable_values(canonical.get("aliases") or [])
         if str(alias).strip() and str(alias) != canonical_name
     ]
     for name in sorted(legacy_names):
@@ -268,7 +270,7 @@ def _merge_duplicates(
 
 
 def ensure_brain_source_relation(
-    brain_table_id: str,
+    brain_table_id: object,
     source_table_id: str,
     locale: str,
     dependencies: BrainSchemaDependencies,
@@ -286,7 +288,7 @@ def ensure_brain_source_relation(
         if not brain or not source:
             return ""
         raw_properties = brain.setdefault("properties", [])
-        properties = [prop for prop in raw_properties if isinstance(prop, dict)]
+        properties = [prop for prop in iterable_values(raw_properties) if is_record(prop)]
         compatible = _compatible_relations(properties, source_table_id, dependencies)
         changed = not compatible
         canonical = (

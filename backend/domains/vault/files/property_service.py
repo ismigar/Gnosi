@@ -9,11 +9,12 @@ import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from fastapi import HTTPException, UploadFile
 
-Metadata = dict[str, Any]
+from backend.domains.vault.registry.state import RegistryData
+
+Metadata = RegistryData
 TableResolver = Callable[
     [str, Metadata],
     tuple[Metadata | None, Metadata | None],
@@ -37,8 +38,8 @@ class PropertyFileDependencies:
     property_assets_dir: Callable[[Metadata, Metadata | None, str], Path]
     sanitize_filename: Callable[[str], str]
     sanitize_segment: Callable[[str, str], str]
-    active_vault_path: Callable[[], Path]
-    library_roots: Callable[[Path], Sequence[Path]]
+    active_vault_path: Callable[[], Path | None]
+    library_roots: Callable[[Path | None], Sequence[Path]]
 
 
 def normalize_storage_folder(storage_folder: str) -> str:

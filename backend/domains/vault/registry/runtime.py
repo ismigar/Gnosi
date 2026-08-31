@@ -240,7 +240,7 @@ def _sort_key_name(item: RegistryData) -> tuple[int, str]:
 _HOST_OPEN_HELPER_URL = os.environ.get(
     "GNOSI_HOST_OPEN_HELPER_URL"
 ) or default_host_helper_url("/open")
-_HOST_TRASH_HELPER_URL = os.environ.get(
+_HOST_TRASH_HELPER_URL: str = os.environ.get(
     "GNOSI_HOST_TRASH_HELPER_URL", _HOST_OPEN_HELPER_URL.rsplit("/", 1)[0] + "/trash"
 )
 

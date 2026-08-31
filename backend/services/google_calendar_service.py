@@ -68,7 +68,7 @@ def get_google_calendar_free_busy(
     )
 
 
-def update_google_event(email: str, event_uid: str, patch_data: dict[str, Any]) -> bool:
+def update_google_event(email: str, event_uid: object, patch_data: dict[str, Any]) -> bool:
     return bool(
         _canonical_update_google_event(
             email,

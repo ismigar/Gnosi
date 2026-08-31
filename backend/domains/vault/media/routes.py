@@ -40,6 +40,7 @@ from backend.domains.vault.media.schemas import (
     MediaViewResponse,
 )
 from backend.domains.vault.media.unsplash_payload import search_payload as _search_payload
+from backend.domains.vault.registry.state import RegistryData
 from backend.services.workspace_service import require_role as _require_role
 from backend.utils.errors import safe_error_detail as _safe_error_detail
 
@@ -266,8 +267,8 @@ serve_vault_raw_file = _files_api.serve_vault_raw_file
 serve_thumb = _files_api.serve_thumb
 register_local_file = _files_api.register_local_file
 serve_local_file = _files_api.serve_local_file
-_THUMB_DAEMON_URL = _default_thumb_daemon_url()
-_THUMB_DAEMON_TIMEOUT = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
+_THUMB_DAEMON_URL: str = _default_thumb_daemon_url()
+_THUMB_DAEMON_TIMEOUT: float = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
 _THUMB_ROOTS_MAP = _file_thumbnails.THUMB_ROOTS_MAP
 
 
@@ -316,8 +317,8 @@ def _effective_storage_folder(configured_storage: str, requested_storage: str) -
 
 def _resolve_storage_dir(
     storage_folder: str,
-    table: dict[str, object] | None,
-    database: dict[str, object] | None,
+    table: RegistryData | None,
+    database: RegistryData | None,
     property_name: str,
     dest_folder: str = "",
 ) -> tuple[Path, str]:
