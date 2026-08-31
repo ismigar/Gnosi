@@ -13,8 +13,8 @@ const workflow = yaml.load(fs.readFileSync(
   path.join(__dirname, '../.github/workflows/build-release.yml'), 'utf8',
 ));
 
-test('preflight checks identity after pinned Node and before dependency installs or builds', () => {
-  const { steps } = workflow.jobs.preflight;
+function assertSourceIdentity(candidate) {
+  const { steps } = candidate.jobs.preflight;
   const checkout = steps[0];
   const gateIndex = steps.findIndex((step) => step.name === 'Verify release source identity');
   const nodeIndex = steps.findIndex((step) => step.uses?.startsWith('actions/setup-node@'));
@@ -24,15 +24,13 @@ test('preflight checks identity after pinned Node and before dependency installs
   const gate = steps[gateIndex];
   const beforeGate = steps.slice(0, gateIndex);
   assert.deepEqual(beforeGate.map((step) => step.name), ['Checkout', 'Setup pnpm', 'Setup Node.js']);
+  assert.equal(steps.length, 4, 'preflight contains only checkout, pnpm, Node and source identity');
   assert.match(beforeGate[1].uses, /^pnpm\/action-setup@/);
+  assert.equal(beforeGate[1].with.version, '11.19.0');
   assert.ok([undefined, false].includes(beforeGate[1].with.run_install),
     'pnpm setup must not install project dependencies before the guard');
   for (const step of beforeGate) {
     assert.equal(step.run, undefined, 'no dependency install, build or other command before the guard');
-  }
-  for (const name of ['Setup Python 3.11', 'Setup uv', 'Install frozen Node dependencies',
-    'Install frozen Python dependencies', 'Build frontend']) {
-    assert.ok(steps.findIndex((step) => step.name === name) > gateIndex, `${name} must follow the guard`);
   }
   assert.match(checkout.uses, /^actions\/checkout@/);
   assert.equal(checkout.with.ref, '${{ github.sha }}');
@@ -48,15 +46,50 @@ test('preflight checks identity after pinned Node and before dependency installs
   });
   assert.equal(gate.if, undefined);
   assert.equal(gate['continue-on-error'], undefined);
-  assert.equal(workflow.jobs.preflight['continue-on-error'], undefined);
-  assert.doesNotMatch(gate.run, /\$\{\{/);
-  for (const jobName of ['build-macos', 'build-linux', 'build-windows']) {
-    const job = workflow.jobs[jobName];
-    assert.ok([job.needs].flat().includes('preflight'));
-    assert.equal(job.steps.find((step) => step.uses?.startsWith('actions/checkout@'))
-      .with.ref, '${{ github.sha }}');
+  assert.equal(candidate.jobs.preflight['continue-on-error'], undefined);
+  assert.equal(candidate.jobs.preflight.if, undefined);
+  for (const step of steps) {
+    assert.equal(step.if, undefined);
+    assert.equal(step['continue-on-error'], undefined);
   }
+  assert.doesNotMatch(gate.run, /\$\{\{/);
+  for (const jobName of ['build-macos', 'build-linux', 'build-windows', 'release']) {
+    const job = candidate.jobs[jobName];
+    const checkouts = job.steps.filter((step) => step.uses?.startsWith('actions/checkout@'));
+    assert.equal(checkouts.length, 1, `${jobName} must have exactly one source checkout`);
+    assert.equal(checkouts[0].with.ref, '${{ github.sha }}');
+  }
+}
+
+test('preflight only verifies exact caller source before shared CI installs or builds', () => {
+  assertSourceIdentity(workflow);
 });
+
+for (const [label, mutate] of [
+  ['dispatch tag checkout', (candidate) => { candidate.jobs.preflight.steps[0].with.ref = '${{ inputs.tag }}'; }],
+  ['branch checkout during collection', (candidate) => {
+    candidate.jobs.release.steps.find((step) => step.uses?.startsWith('actions/checkout@')).with.ref = 'main';
+  }],
+  ['default platform checkout', (candidate) => {
+    delete candidate.jobs['build-linux'].steps.find((step) => step.uses?.startsWith('actions/checkout@')).with.ref;
+  }],
+  ['shallow history', (candidate) => { candidate.jobs.preflight.steps[0].with['fetch-depth'] = 1; }],
+  ['dependency installation', (candidate) => { candidate.jobs.preflight.steps[1].with.run_install = true; }],
+  ['duplicated quality check', (candidate) => { candidate.jobs.preflight.steps.push({ run: 'pnpm test:desktop' }); }],
+  ['tag instead of expected SHA', (candidate) => {
+    candidate.jobs.preflight.steps[3].env.EXPECTED_SHA = '${{ inputs.tag }}';
+  }],
+  ['lost caller event', (candidate) => { candidate.jobs.preflight.steps[3].env.RELEASE_EVENT = 'workflow_call'; }],
+  ['manual tag ignored', (candidate) => { candidate.jobs.preflight.steps[3].env.REQUESTED_TAG = '${{ github.ref_name }}'; }],
+  ['tag push ignored', (candidate) => { candidate.jobs.preflight.steps[3].env.REF_TAG = '${{ inputs.tag }}'; }],
+]) {
+  test(`source identity contract rejects ${label}`, () => {
+    assertSourceIdentity(workflow);
+    const candidate = structuredClone(workflow);
+    mutate(candidate);
+    assert.throws(() => assertSourceIdentity(candidate), assert.AssertionError);
+  });
+}
 
 function fixture(t, objectFormat = 'sha1') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gnosi-source-identity-'));
@@ -155,11 +188,14 @@ test('requires exact existing tag, not a similarly named branch or current HEAD'
 });
 
 for (const annotated of [false, true]) {
-  test(`rejects wrong commit behind ${annotated ? 'annotated' : 'lightweight'} tag`, (t) => {
-    const f = fixture(t);
-    f.tag('v3.0.0', f.second, annotated);
-    reject(f.probe(), /Release tag does not match EXPECTED_SHA/);
-  });
+  for (const event of ['push', 'workflow_dispatch']) {
+    test(`rejects ${event} wrong commit behind ${annotated ? 'annotated' : 'lightweight'} tag`, (t) => {
+      const f = fixture(t);
+      f.tag('v3.0.0', f.second, annotated);
+      reject(f.probe({ RELEASE_EVENT: event, REF_TYPE: 'tag', REF_TAG: 'v3.0.0' }),
+        /Release tag does not match EXPECTED_SHA/);
+    });
+  }
   for (const kind of ['blob', 'tree']) {
     test(`rejects ${annotated ? 'annotated' : 'lightweight'} tag targeting ${kind}`, (t) => {
       const f = fixture(t);
@@ -170,12 +206,15 @@ for (const annotated of [false, true]) {
   }
 }
 
-test('rejects checkout at another commit instead of silently checking out the tag', (t) => {
-  const f = fixture(t);
-  f.tag();
-  f.git(['update-ref', 'HEAD', f.second]);
-  reject(f.probe(), /Checked-out HEAD does not match EXPECTED_SHA/);
-});
+for (const event of ['push', 'workflow_dispatch']) {
+  test(`rejects ${event} checkout at another commit without changing source`, (t) => {
+    const f = fixture(t);
+    f.tag();
+    f.git(['update-ref', 'HEAD', f.second]);
+    reject(f.probe({ RELEASE_EVENT: event, REF_TYPE: 'tag', REF_TAG: 'v3.0.0' }),
+      /Checked-out HEAD does not match EXPECTED_SHA/);
+  });
+}
 
 for (const sha of ['', 'HEAD', '--help', 'a'.repeat(39), 'b'.repeat(41), 'a'.repeat(40) + '\n']) {
   test(`rejects malformed expected SHA ${JSON.stringify(sha)}`, (t) => {

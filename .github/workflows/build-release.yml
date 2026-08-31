@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build Release Candidate
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to publish (for example v3.0.0-rc.1)'
+        description: 'Tag to build without publishing (for example v3.0.0-rc.1)'
         required: true
         type: string
 
@@ -45,30 +45,16 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           EXPECTED_SHA: ${{ github.sha }}
         run: node desktop/scripts/release-source-identity.cjs
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.11'
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v10.0.1
-        with:
-          version: '0.9.15'
-      - name: Install frozen Node dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install frozen Python dependencies
-        run: uv sync --frozen
-      - name: Check deterministic OpenAPI and generated frontend client
-        run: pnpm check:api-client
-      - name: Build frontend
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: pnpm build:frontend
-      - name: Test desktop runtime
-        run: pnpm test:desktop
+
+  quality:
+    needs: preflight
+    uses: ./.github/workflows/ci.yml
+    with:
+      release_candidate: true
 
   build-macos:
     name: build-macos-${{ matrix.arch }}
-    needs: preflight
+    needs: [preflight, quality]
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -139,7 +125,7 @@ jobs:
           retention-days: 5
 
   build-linux:
-    needs: preflight
+    needs: [preflight, quality]
     runs-on: [self-hosted, Linux, ARM64]
     steps:
       - name: Checkout
@@ -188,7 +174,7 @@ jobs:
           retention-days: 5
 
   build-windows:
-    needs: [preflight, build-macos]
+    needs: [preflight, quality, build-macos]
     runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
@@ -247,10 +233,11 @@ jobs:
           retention-days: 5
 
   release:
-    needs: [build-macos, build-linux, build-windows]
+    name: Collect candidate (publication disabled)
+    needs: [quality, build-macos, build-linux, build-windows]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -293,12 +280,26 @@ jobs:
             exit 1
           fi
           printf 'tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
-      - name: Download architecture-separated artifacts
+      - name: Download macos-arm64 artifacts
         uses: actions/download-artifact@v8
         with:
-          path: artifacts-incoming
-          pattern: '*'
-          merge-multiple: false
+          name: macos-arm64
+          path: artifacts-incoming/macos-arm64
+      - name: Download macos-x64 artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: macos-x64
+          path: artifacts-incoming/macos-x64
+      - name: Download linux-arm64 artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-arm64
+          path: artifacts-incoming/linux-arm64
+      - name: Download windows-x64 artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-x64
+          path: artifacts-incoming/windows-x64
       - name: Validate and collect release artifacts
         env:
           RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
@@ -321,16 +322,16 @@ jobs:
           node frontend/scripts/release-notes.mjs \
             --version "${{ steps.release_tag.outputs.tag }}" \
             --output artifacts/release-notes.md
-      - name: Publish release
-        uses: softprops/action-gh-release@v3
+      # These artifacts are review inputs, not approval of the complete native,
+      # Docker, installer and 2.x upgrade matrix. No public release is mutated.
+      - name: Upload validated release candidate
+        uses: actions/upload-artifact@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ steps.release_tag.outputs.tag }}
-          name: Gnosi ${{ steps.release_tag.outputs.tag }}
-          draft: false
-          prerelease: ${{ contains(steps.release_tag.outputs.tag, '-') }}
-          body_path: artifacts/release-notes.md
-          files: |
+          name: candidate-${{ steps.release_tag.outputs.tag }}-${{ github.sha }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 5
+          path: |
+            artifacts/release-notes.md
             artifacts/*.dmg
             artifacts/*.zip
             artifacts/*.AppImage

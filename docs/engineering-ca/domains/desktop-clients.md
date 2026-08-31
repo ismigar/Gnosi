@@ -38,6 +38,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-candidate-policy.test.js
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
@@ -61,6 +62,33 @@ tests:
 ---
 
 # Aplicació d’escriptori i clients complementaris
+
+## Distribució només de candidats
+
+`Build Release Candidate` no crea esborranys de GitHub, no publica releases ni
+modifica els seus fitxers. El token només pot llegir el contingut del repositori.
+Primer comprova la identitat del tag; després crida la CI existent al mateix
+commit. La construcció de cada arquitectura espera que aquesta CI passi.
+La CI reutilitzable no hereta secrets.
+
+La CI del candidat inclou documentació, frontend, backend, prova nativa bàsica
+i construcció d'imatges Docker. Les PR es comproven contra la seva base exacta;
+els candidats validen els catàlegs actuals i els portals estrictes de tots els
+idiomes contra el seu SHA, sense simular una revisió d'impacte d'una PR.
+Aquests controls no acrediten arrencada i persistència dels contenidors,
+tots els fluxos autenticats, instal·lació neta, signatura ni actualització real 2.x.
+
+Després de construir totes les plataformes i validar els fitxers, l'execució
+puja un artefacte d'Actions `candidate-<tag>-<sha>-<attempt>`, conservat cinc dies.
+Conté instal·ladors, manifests d'actualització, índexs i notes. Només es baixen
+els quatre artefactes d'arquitectura identificats pel nom, de manera que una
+reexecució no incorpora un candidat anterior. Els artefactes d'Actions no són
+emmagatzematge confidencial: mai no han de contenir credencials ni dades personals.
+
+La distribució pública queda desactivada fins a completar la matriu nativa,
+Docker, instal·ladors i actualització 2.x i revisar un procés de publicació
+separat. Un candidat correcte no autoritza publicar 3.0.0. Aquest workflow no
+canvia les releases públiques existents ni els canals d'actualització.
 
 ## Identitat del codi de release
 
@@ -228,10 +256,9 @@ d'empaquetatge multiplataforma.
 Abans de crear l'etiqueta, la PR de release ha de superar la validació del
 frontend, els tests backend, la QA nativa al navegador i la porta de
 documentació d’enginyeria. Després de la integració, el workflow públic canònic
-construeix el commit revisat. El workflow de release és l’únic responsable de
-les etiquetes oficials, els artefactes multiplataforma, els catàlegs signats,
-les notes i els esborranys. No hi ha cap sincronitzador de repositoris en aquest
-flux. Els artefactes de macOS, Windows i Linux es revisen abans de publicar-los.
+construeix el commit revisat i recull artefactes multiplataforma, catàlegs signats
+i notes. No crea tags ni esborranys de GitHub; la distribució pública continua
+desactivada segons el límit descrit més amunt.
 
 La preparació de la v2.0.0 segueix aquest límit: les notes localitzades
 incloses i el changelog generat es publiquen amb els manifests sincronitzats,
@@ -247,6 +274,12 @@ La preparació de la v2.0.5 afegeix una comprovació obligatòria de metadades
 abans de l'empaquetatge per plataforma. Rebutja un tag si els manifests
 d'Electron i del frontend, el lockfile del monorepo, els quatre catàlegs de
 release localitzats i el changelog generat no descriuen la mateixa versió.
+
+Els jobs actuals utilitzen Node 22.22.2 i locks congelats. La CI compartida
+segueix la comprovació d'identitat. Les dues arquitectures de macOS s'executen
+en sèrie; Windows espera macOS i Linux pot executar-se alhora. La concurrència
+es limita per ref Git, no amb un bloqueig global del host; això no acredita
+capacitat disponible ni absència d'altres tasques als runners.
 
 ## clipper web
 
@@ -267,7 +300,7 @@ Les API específiques de l' oficina estan aïllats darrere dels traverals i les 
 Temps d' espera.
 - Autenticació de clients de composició per al dorsal i segueixen- lo en el seu estret
 Captura o àmbit de citació.
-- Els esborranys de llançament estan inspeccionats abans de publicar-los.
+- Els candidats mai no publiquen ni modifiquen una release pública automàticament.
 
 ## Acceptació local de la distribució
 
@@ -291,12 +324,12 @@ No repara catàlegs ni desplega documentació; la publicació continua separada 
 
 ## Concentrat de verificació
 
-Abans de publicar, el workflow instal·la les dependències de producció de desktop
+Abans de pujar el candidat, el workflow instal·la les dependències de producció de desktop
 segons el lock, sense executar scripts d'instal·lació, baixa cada arquitectura
 a una carpeta separada i executa `release-artifacts.cjs collect`. Aquest pas
 comprova que el tag coincideix amb la versió del codi, verifica referències i
 hashos SHA-512, rebutja fitxers absents o duplicats i agrupa les dues arquitectures
-de Mac en un sol `latest-mac.yml`. Els índexs públics i la publicació només
+de Mac en un sol `latest-mac.yml`. La generació d'índexs i la pujada del candidat només
 s'executen si la comprovació passa. Les proves locals amb dades fictícies no
 substitueixen la matriu real de construcció i actualització per plataforma.
 

@@ -40,6 +40,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-candidate-policy.test.js
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
@@ -63,6 +64,35 @@ tests:
 ---
 
 # Application de bureau et clients complémentaires
+
+## Distribution de candidats uniquement
+
+`Build Release Candidate` ne crée aucun brouillon GitHub, ne publie aucune
+release et ne modifie pas leurs fichiers. Son jeton ne peut que lire le contenu
+du dépôt. Il vérifie d'abord l'identité du tag, puis appelle la CI existante au
+même commit. Chaque construction d'architecture attend la réussite de cette CI.
+La CI réutilisable n'hérite d'aucun secret.
+
+La CI du candidat comprend documentation, frontend, backend, test natif de base
+et construction des images Docker. Les PR sont comparées à leur base exacte ;
+les candidats valident les catalogues actuels et tous les portails linguistiques
+stricts à leur SHA, sans prétendre refaire une revue d'impact de PR.
+Ces contrôles ne prouvent ni démarrage et persistance des conteneurs, ni tous
+les parcours authentifiés, ni installation propre, signature ou mise à niveau 2.x réelle.
+
+Après construction de toutes les plateformes et validation des fichiers, le run
+dépose un artefact Actions `candidate-<tag>-<sha>-<attempt>`, conservé cinq jours.
+Il contient installateurs, manifestes de mise à jour, index et notes. Seuls les
+quatre artefacts d'architecture désignés par leur nom sont téléchargés, afin
+d'exclure un candidat précédent lors d'une nouvelle tentative. Les artefacts
+Actions ne sont pas un stockage confidentiel et ne doivent jamais contenir de
+secrets ou de données personnelles.
+
+La distribution publique reste désactivée jusqu'à l'acceptation complète de
+la matrice native, Docker, installateurs et mises à niveau 2.x, puis la revue
+d'un processus de publication distinct. Un candidat réussi n'autorise pas la
+publication de 3.0.0. Ce workflow ne modifie ni les releases publiques existantes
+ni les canaux de mise à jour.
 
 ## Identité du code de release
 
@@ -196,7 +226,7 @@ Le catalogue des releases, les notes traduites, le changelog, les manifestes rac
 
 `frontend/src/features/control-center/releases/releases.json` est l'historique de libérations groupées canonique. Le synchroniseur de version maintient le manifeste frontal, le manifeste Electron et l'entrée d'espace de travail frontal dans le fichier de verrouillage monorepo identique. `downloadUrl`; ce champ n'est ajouté qu'après l'existence de la balise immuable et de ses objets de plateforme. Comme la version frontale manifeste est une limite de bureau à impact élevé, chaque requête de tirage de la version préparée rafraîchit également ce contrat révisé et ses miroirs localisés, même lorsque le patch ne change pas le comportement d'exécution. Avant de préparer le patch stable suivant, l'entrée stable précédente doit déjà lier à sa version publiée de sorte que l'historique groupé reste complet sur les mises à jour séquentielles. Les notes de patch ne comprennent que les corrections fusionnées après cette balise précédente; elles ne répètent pas les modifications déjà publiées.
 
-Avant de créer le tag, la PR de release doit réussir les validations du frontend, les tests backend, les contrôles natifs dans le navigateur et la validation documentaire. Après intégration, le workflow public canonique construit le commit examiné. Le workflow de release est seul responsable des tags officiels, artefacts multiplateformes, catalogues signés, notes et brouillons. Aucun synchroniseur de dépôts n’intervient. Les artefacts macOS, Windows et Linux sont examinés avant publication.
+Avant de créer le tag, la PR de release doit réussir les validations du frontend, les tests backend, les contrôles natifs dans le navigateur et la validation documentaire. Après intégration, le workflow canonique construit le commit examiné et rassemble artefacts multiplateformes, catalogues signés et notes. Il ne crée ni tags ni brouillons GitHub ; la distribution publique reste désactivée selon la limite décrite plus haut.
 
 La préparation de la v2.0.0 respecte cette limite : les notes localisées
 incluses et le changelog généré sont livrés avec les manifestes synchronisés,
@@ -214,6 +244,12 @@ avant l'empaquetage par plateforme. Un tag est refusé si les manifestes
 Electron et frontend, le fichier de verrouillage du monorepo, les quatre
 catalogues de version localisés et le journal généré ne décrivent pas la même
 version.
+
+Les jobs actuels utilisent Node 22.22.2 et des dépendances verrouillées. La CI
+partagée suit la vérification d'identité. Les deux architectures macOS sont
+sérialisées ; Windows attend macOS, tandis que Linux peut s'exécuter en parallèle.
+La concurrence est limitée par ref Git, pas par un verrou global de l'hôte ;
+cela ne prouve ni la capacité disponible ni l'absence d'autres travaux sur les runners.
 
 ## Récupérateur Web
 
@@ -234,7 +270,7 @@ Les API spécifiques à un bureau sont isolées derrière les aides à la traver
 C'est l'heure de la course.
 - Les clients de l'entreprise se font authentifier sur le moteur et restent dans leur étroite
 la portée de la capture ou de la citation.
-- Les ébauches de publication sont inspectées avant leur publication.
+- Les candidats ne publient ni ne modifient automatiquement aucune release publique.
 
 ## Validation locale de la distribution
 
@@ -259,13 +295,13 @@ séparée sur main.
 
 ## Aspects de vérification
 
-Avant publication, le workflow installe les dépendances de production de desktop
+Avant le dépôt du candidat, le workflow installe les dépendances de production de desktop
 selon le verrou, sans scripts d'installation, télécharge chaque architecture
 dans un répertoire distinct, puis exécute `release-artifacts.cjs collect`.
 Cette étape vérifie la correspondance du tag avec la version du code, les
 références et empreintes SHA-512, rejette les fichiers manquants ou en collision
 et rassemble les deux architectures Mac dans un seul `latest-mac.yml`.
-Les index publics et la publication ne démarrent qu'après validation. Les tests
+La génération des index et le dépôt du candidat suivent cette validation. Les tests
 locaux synthétiques ne remplacent pas les constructions et mises à jour réelles
 de la matrice des plateformes.
 

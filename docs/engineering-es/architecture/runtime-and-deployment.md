@@ -165,9 +165,11 @@ de macOS recrea una ventana principal cuando se ha cerrado la última.
 Las órdenes de menú destinadas al renderer enfocan una ventana existente o
 esperan a que el nuevo renderer esté disponible antes de entregarlas.
 
-Los jobs de compilación y publicación producen instaladores por plataforma y
-los metadatos de actualización que necesita `electron-updater`. Los borradores
-no se publican hasta que un mantenedor revisa todos los artefactos. Los
+Los jobs de candidatos producen instaladores y metadatos para `electron-updater`
+después de que pase la CI compartida en el mismo commit. Conservan un artefacto
+de Actions cinco días, no un borrador ni una release de GitHub. La publicación
+queda desactivada hasta la aceptación completa y la revisión de un proceso separado;
+véase la [distribución de candidatos](../domains/desktop-clients.md). Los
 destinos configurados y los contratos estáticos no acreditan una instalación
 limpia, el primer arranque, la actualización, la reversión, la firma ni la
 conservación de datos; cada plataforma exige pruebas propias.

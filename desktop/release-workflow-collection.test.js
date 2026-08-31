@@ -30,27 +30,67 @@ test('release prepares locked collector dependencies without running install scr
   assert.ok(pnpm.index < node.index && node.index < install.index && install.index < collect.index);
 });
 
-test('release preserves architecture directories until validated collection before publication', () => {
-  const download = find('Download architecture-separated artifacts');
+const GROUPS = ['macos-arm64', 'macos-x64', 'linux-arm64', 'windows-x64'];
+
+function assertArchitectureDownloads(releaseSteps) {
+  const downloads = releaseSteps.filter((step) => step.uses?.startsWith('actions/download-artifact@'));
+  assert.equal(downloads.length, GROUPS.length, 'download exactly four architecture artifacts');
+  for (const group of GROUPS) {
+    const matches = downloads.filter((step) => step.name === `Download ${group} artifacts`);
+    assert.equal(matches.length, 1, `one download for ${group}`);
+    const [download] = matches;
+    assert.equal(download.uses, 'actions/download-artifact@v8');
+    assert.deepEqual(download.with, { name: group, path: `artifacts-incoming/${group}` });
+    assert.equal(download.if, undefined);
+    assert.equal(download['continue-on-error'], undefined);
+  }
+}
+
+test('release downloads only named architectures before validated candidate collection', () => {
+  assertArchitectureDownloads(steps);
   const collect = find('Validate and collect release artifacts');
   const indexes = find('Build signed public indexes');
-  const publish = find('Publish release');
-  assert.equal(download.step.with.path, 'artifacts-incoming');
-  assert.equal(download.step.with['merge-multiple'], false);
-  assert.equal(download.step.with.pattern, '*');
+  const notes = find('Render public release notes');
+  const upload = find('Upload validated release candidate');
   assert.equal(collect.step.run,
     'node desktop/scripts/release-artifacts.cjs collect artifacts-incoming artifacts "$RELEASE_TAG"');
   assert.equal(collect.step.env.RELEASE_TAG, '${{ steps.release_tag.outputs.tag }}');
-  assert.ok(download.index < collect.index && collect.index < indexes.index && indexes.index < publish.index);
-  for (const { step } of [download, collect]) {
+  for (const group of GROUPS) {
+    assert.ok(find(`Download ${group} artifacts`).index < collect.index);
+  }
+  assert.ok(collect.index < indexes.index && indexes.index < notes.index && notes.index < upload.index);
+  assert.equal(upload.index, steps.length - 1, 'candidate upload must be the final step');
+  for (const { step } of [collect, indexes, notes, upload]) {
     assert.equal(step['continue-on-error'], undefined);
     assert.equal(step.if, undefined);
   }
   assert.equal(workflow.jobs.release['continue-on-error'], undefined);
-  assert.deepEqual(workflow.jobs.release.needs, ['build-macos', 'build-linux', 'build-windows']);
-  assert.match(publish.step.with.files, /artifacts\/latest\*\.yml/);
-  assert.doesNotMatch(publish.step.with.files, /artifacts-incoming/);
+  assert.deepEqual(workflow.jobs.release.needs, ['quality', 'build-macos', 'build-linux', 'build-windows']);
+  assert.match(upload.step.with.path, /artifacts\/latest\*\.yml/);
+  assert.doesNotMatch(upload.step.with.path, /artifacts-incoming/);
 });
+
+for (const [label, mutate] of [
+  ['wildcard rerun download', (downloads) => {
+    delete downloads[0].with.name;
+    downloads[0].with.pattern = '*';
+  }],
+  ['previous candidate artifact', (downloads) => { downloads[0].with.name = 'candidate-v3.0.0-sha-1'; }],
+  ['merged architecture files', (downloads) => { downloads[0].with['merge-multiple'] = true; }],
+  ['shared destination', (downloads) => { downloads[0].with.path = 'artifacts-incoming'; }],
+  ['missing architecture', (downloads) => { downloads.pop(); }],
+  ['duplicate architecture', (downloads) => { downloads.push(structuredClone(downloads[0])); }],
+  ['different run', (downloads) => { downloads[0].with['run-id'] = 123; }],
+  ['conditional download', (downloads) => { downloads[0].if = '${{ always() }}'; }],
+  ['ignored download failure', (downloads) => { downloads[0]['continue-on-error'] = true; }],
+]) {
+  test(`architecture download contract rejects ${label}`, () => {
+    assertArchitectureDownloads(steps);
+    const downloads = structuredClone(steps.filter((step) => step.uses?.startsWith('actions/download-artifact@')));
+    mutate(downloads);
+    assert.throws(() => assertArchitectureDownloads(downloads), assert.AssertionError);
+  });
+}
 
 test('collector receives exactly the four architecture groups produced by build jobs', () => {
   const uploads = ['build-macos', 'build-linux', 'build-windows'].flatMap((name) => {

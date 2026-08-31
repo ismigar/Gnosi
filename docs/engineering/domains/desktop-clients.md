@@ -40,6 +40,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-candidate-policy.test.js
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
@@ -63,6 +64,33 @@ tests:
 ---
 
 # Desktop and companion clients
+
+## Candidate-only distribution
+
+`Build Release Candidate` does not create a GitHub draft, publish a release or
+modify existing release assets. Its repository token has read-only contents
+permission. Tag identity must pass before the workflow calls the existing CI
+at the same commit; architecture builds wait for that CI to succeed. No secrets
+are inherited by the reusable CI.
+
+Candidate CI includes documentation, frontend, backend, native smoke and Docker
+image builds. Documentation still uses the exact base for PRs; for candidates
+it checks current catalogs and all strict locale portals at the candidate SHA,
+without claiming a new PR impact review. These existing checks do not prove
+container startup/persistence, full authenticated browser flows, clean platform
+installation, signing or a real 2.x upgrade.
+
+After all platform builds and artifact validation succeed, the run uploads an
+Actions artifact named `candidate-<tag>-<sha>-<attempt>`, retained for five days.
+It contains installers, update manifests, generated indexes and release notes.
+Only the four named architecture artifacts are downloaded, so reruns cannot
+ingest a previous collected candidate. Actions artifacts are not confidential
+storage and must never contain credentials or user data.
+
+Public distribution remains disabled pending the complete native, Docker,
+installer and 2.x upgrade acceptance matrix and a separately reviewed publication
+path. A successful candidate is not permission to publish 3.0.0. Existing public
+releases and updater channels are not changed by this workflow.
 
 ## Release source identity
 
@@ -276,10 +304,9 @@ Windows CRLF checkout does not fail the cross-platform packaging gate.
 
 Before tagging, the release PR must pass frontend validation, backend tests,
 native browser QA, and the engineering-documentation gate. After merge, the
-canonical public workflow builds the reviewed commit. The release workflow is
-the sole owner of official tags, cross-platform artifacts, signed catalogs,
-release notes and drafts. The resulting macOS, Windows and Linux artifacts are
-inspected before publication.
+canonical candidate workflow builds the reviewed commit and collects
+cross-platform artifacts, signed catalogs and release notes. It does not create
+tags or GitHub drafts. Public distribution remains disabled as described above.
 
 The v2.0.0 preparation follows this boundary: its localized bundled notes and
 generated changelog ship with the synchronized manifests, while the immutable
@@ -295,14 +322,11 @@ The v2.0.5 preparation adds a mandatory metadata preflight before platform
 packaging. Gnosi 3 extends that contract to the root, desktop, frontend and
 Python manifests plus the single pnpm and uv locks.
 
-The v2.0.6 preparation makes the local release deterministic before dispatch.
-Every build uses Node 22.22.2 and clean lockfile installs. A reusable preflight
-checks version alignment, available disk, idle architecture-specific runners,
-and concurrent release runs. Platform jobs are deliberately serialized as
-Linux, macOS ARM64, macOS X64, and Windows because the runners share one
-physical Mac host; this prevents virtual machines and native packaging from
-competing for memory, CPU, and disk. Workflow-level concurrency also prevents
-two release attempts from overlapping.
+Current candidate jobs use Node 22.22.2 and frozen lockfile installs. Shared CI
+follows source-identity preflight. The two macOS architectures are serialized;
+Windows also waits for macOS, while Linux can run alongside macOS. Concurrency
+is scoped to the Git ref, not a global host lock. Do not infer host capacity or
+runner idleness from this workflow.
 
 ## Web clipper
 
@@ -333,7 +357,7 @@ application for every unit test.
   runtime.
 - Companion clients authenticate to the backend and remain within their narrow
   capture or citation scope.
-- Release drafts are inspected before publication.
+- Candidate artifacts never publish or modify a public release automatically.
 
 ## Local release acceptance
 
@@ -358,12 +382,12 @@ separate main-branch workflow.
 
 ## Verification focus
 
-Before publication, the release job installs the locked desktop production
+Before candidate upload, the collection job installs the locked desktop production
 dependencies with lifecycle scripts disabled, downloads each architecture into
 its own directory, and runs `release-artifacts.cjs collect`. Collection checks
 the tag against the checked-out desktop version, verifies manifest references
 and SHA-512 hashes, rejects missing or colliding assets, and combines both Mac
-architectures into one `latest-mac.yml`. Public indexes and release publication
+architectures into one `latest-mac.yml`. Index generation and candidate upload
 run only after this check succeeds. Local fixture tests verify this wiring but
 do not replace the real platform build and update matrix.
 

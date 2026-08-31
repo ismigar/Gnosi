@@ -166,9 +166,11 @@ recrée une fenêtre principale après la fermeture de la dernière. Les command
 de menu destinées au renderer ciblent une fenêtre existante ou attendent
 qu’un nouveau renderer soit disponible avant leur transmission.
 
-Les jobs de compilation et de publication produisent les installateurs par
-plateforme et les métadonnées nécessaires à `electron-updater`. Les brouillons
-restent non publiés jusqu’à l’examen de tous les artefacts par un mainteneur.
+Les jobs de candidats produisent les installateurs et métadonnées pour
+`electron-updater` après la réussite de la CI partagée au même commit. Ils
+conservent un artefact Actions cinq jours, sans brouillon ni release GitHub.
+La publication reste désactivée jusqu'à l'acceptation complète et la revue d'un
+processus distinct ; voir la [distribution des candidats](../domains/desktop-clients.md).
 Les cibles configurées et les contrats statiques ne prouvent ni une installation
 vierge, ni le premier lancement, ni la mise à jour, ni le retour arrière,
 ni la signature, ni la préservation des données ; chaque plateforme nécessite

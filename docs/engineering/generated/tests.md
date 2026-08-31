@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 21 | 71 |
 | Vitest | 480 | 1967 |
-| pytest | 364 | 2464 |
+| pytest | 364 | 2470 |
 
 ## Files
 
@@ -864,7 +864,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`pipeline/skills/technical_documentation/tests/test_generated_localization.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_generated_localization.py) | 9 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_localize.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_localize.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_pre_pr.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_pre_pr.py) | 4 | Python AST |
-| pytest | [`pipeline/skills/technical_documentation/tests/test_publication.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_publication.py) | 10 | Python AST |
+| pytest | [`pipeline/skills/technical_documentation/tests/test_publication.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_publication.py) | 16 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_validate.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/translate_page/scripts/test_markdown_segmenter.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_page/scripts/test_markdown_segmenter.py) | 44 | Python AST |
 | pytest | [`pipeline/tests/test_container_contract.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_container_contract.py) | 8 | Python AST |

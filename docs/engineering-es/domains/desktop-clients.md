@@ -38,6 +38,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-candidate-policy.test.js
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
@@ -61,6 +62,34 @@ tests:
 ---
 
 # Aplicación de escritorio y clientes complementarios
+
+## Distribución solo de candidatos
+
+`Build Release Candidate` no crea borradores de GitHub, no publica releases ni
+modifica sus archivos. El token solo puede leer el contenido del repositorio.
+Primero comprueba la identidad del tag; después llama a la CI existente en el
+mismo commit. La construcción de cada arquitectura espera a que pase esa CI.
+La CI reutilizable no hereda secretos.
+
+La CI del candidato incluye documentación, frontend, backend, prueba nativa
+básica y construcción de imágenes Docker. Las PR se comprueban contra su base
+exacta; los candidatos validan los catálogos actuales y los portales estrictos
+de todos los idiomas en su SHA, sin simular una revisión de impacto de una PR.
+Estos controles no acreditan arranque y persistencia de contenedores, todos
+los flujos autenticados, instalación limpia, firma ni actualización real 2.x.
+
+Tras construir todas las plataformas y validar los archivos, la ejecución
+sube un artefacto de Actions `candidate-<tag>-<sha>-<attempt>`, conservado cinco días.
+Contiene instaladores, manifiestos de actualización, índices y notas. Solo se
+descargan los cuatro artefactos de arquitectura identificados por nombre, para
+no incorporar un candidato anterior al repetir la ejecución. Los artefactos
+de Actions no son almacenamiento confidencial: nunca deben contener credenciales
+ni datos personales.
+
+La distribución pública queda desactivada hasta completar la matriz nativa,
+Docker, instaladores y actualización 2.x y revisar un proceso de publicación
+separado. Un candidato correcto no autoriza publicar 3.0.0. Este workflow no
+cambia las releases públicas existentes ni los canales de actualización.
 
 ## Identidad del código de release
 
@@ -231,10 +260,9 @@ empaquetado multiplataforma.
 Antes de crear la etiqueta, la PR de release debe superar la validación del
 frontend, los tests backend, la QA nativa en el navegador y la puerta de
 documentación de ingeniería. Tras la integración, el workflow público canónico
-construye el commit revisado. El workflow de release es el único responsable
-de las etiquetas oficiales, los artefactos multiplataforma, los catálogos
-firmados, las notas y los borradores. No interviene un sincronizador de
-repositorios. Los artefactos de macOS, Windows y Linux se revisan antes de publicarlos.
+construye el commit revisado y reúne artefactos multiplataforma, catálogos firmados
+y notas. No crea tags ni borradores de GitHub; la distribución pública sigue
+desactivada según el límite descrito anteriormente.
 
 La preparación de la v2.0.0 sigue este límite: las notas localizadas incluidas
 y el changelog generado se publican con los manifiestos sincronizados, mientras
@@ -251,6 +279,12 @@ La preparación de la v2.0.5 añade una comprobación obligatoria de metadatos
 antes del empaquetado por plataforma. Rechaza una etiqueta si los manifiestos
 de Electron y del frontend, el lockfile del monorepo, los cuatro catálogos de
 release localizados y el changelog generado no describen la misma versión.
+
+Los jobs actuales utilizan Node 22.22.2 y locks congelados. La CI compartida
+sigue a la comprobación de identidad. Las dos arquitecturas macOS se ejecutan
+en serie; Windows espera a macOS y Linux puede ejecutarse a la vez. La concurrencia
+se limita por ref Git, no con un bloqueo global del host; esto no acredita
+capacidad disponible ni ausencia de otras tareas en los runners.
 
 ## Cortapapeles web
 
@@ -271,7 +305,7 @@ Las API específicas de la oficina se aíslan detrás de ayudantes de traversal 
 tiempo de ejecución.
 - Los clientes acompañantes autentican el motor y permanecen dentro de su estrecho
 captura o alcance de citación.
-- Los borradores de la versión se inspeccionan antes de su publicación.
+- Los candidatos nunca publican ni modifican una release pública automáticamente.
 
 ## Aceptación local de la distribución
 
@@ -295,12 +329,12 @@ No repara catálogos ni despliega documentación; la publicación sigue separada
 
 ## Enfoque de verificación
 
-Antes de publicar, el workflow instala las dependencias de producción de desktop
+Antes de subir el candidato, el workflow instala las dependencias de producción de desktop
 según el lock, sin ejecutar scripts de instalación, descarga cada arquitectura
 en una carpeta separada y ejecuta `release-artifacts.cjs collect`. Este paso
 comprueba que el tag coincide con la versión del código, verifica referencias y
 hashes SHA-512, rechaza archivos ausentes o duplicados y reúne ambas arquitecturas
-de Mac en un único `latest-mac.yml`. Los índices públicos y la publicación solo
+de Mac en un único `latest-mac.yml`. La generación de índices y la subida del candidato solo
 se ejecutan si esta comprobación pasa. Las pruebas locales con datos ficticios
 no sustituyen la matriz real de construcción y actualización por plataforma.
 

@@ -162,9 +162,11 @@ recrea una finestra principal quan s’ha tancat l’última. Les ordres de men�
 destinades al renderer enfoquen una finestra existent o esperen que el nou
 renderer estigui disponible abans de lliurar-les.
 
-Els jobs de compilació i publicació produeixen instal·ladors per plataforma i
-les metadades d’actualització que necessita `electron-updater`. Els esborranys
-no es publiquen fins que un mantenidor revisa tots els artefactes. Les
+Els jobs de candidats produeixen instal·ladors i metadades per a `electron-updater`
+després que la CI compartida passi al mateix commit. Conserven un artefacte
+d'Actions cinc dies, no un esborrany ni una release de GitHub. La publicació
+queda desactivada fins a l'acceptació completa i la revisió d'un procés separat;
+vegeu la [distribució de candidats](../domains/desktop-clients.md). Les
 destinacions configurades i els contractes estàtics no acrediten una
 instal·lació neta, la primera arrencada, l’actualització, la reversió, la
 signatura ni la preservació de dades; cada plataforma exigeix evidència pròpia.

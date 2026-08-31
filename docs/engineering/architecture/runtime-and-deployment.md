@@ -150,9 +150,12 @@ window, and macOS Dock activation recreates a main window after the last one has
 closed. Renderer-bound menu commands focus an existing Gnosi window or wait for
 a newly created renderer before delivery.
 
-Build and release jobs produce platform installers plus the update metadata
-required by `electron-updater`. Release drafts remain unpublished until a
-maintainer inspects all platform artifacts. Configured targets and static
+Candidate jobs produce platform installers plus the update metadata required
+by `electron-updater`, after shared CI succeeds at the exact candidate commit.
+They retain an Actions artifact for five days, not a GitHub draft or public
+release. Publication is disabled pending complete acceptance and a separately
+reviewed publication path; see [candidate distribution](../domains/desktop-clients.md).
+Configured targets and static
 contracts do not prove clean installation, first launch, update, rollback,
 signing or data preservation; every platform requires independent evidence.
 

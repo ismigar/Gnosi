@@ -15,6 +15,67 @@ RELEASE_WORKFLOW = APP_ROOT / ".github/workflows/build-release.yml"
 SIDEBAR_SOURCE = APP_ROOT / "frontend/src/app/navigation/sidebar/appSidebarModel.ts"
 CANONICAL_URL = "https://gnosi.temenosismael.org/engineering/"
 WorkflowMapping: TypeAlias = dict[str | bool, object]
+CI_COMMANDS = {
+    "documentation": [
+        "uv sync --frozen --group docs",
+        'test -n "$PR_BASE_SHA"',
+        'git cat-file -e "${PR_BASE_SHA}^{commit}"',
+        "uv run --frozen --group docs python "
+        "pipeline/skills/technical_documentation/scripts/pre_pr.py "
+        '--check-only --base-ref "$PR_BASE_SHA"',
+    ],
+    "frontend": [
+        "pnpm install --frozen-lockfile",
+        "uv sync --frozen",
+        "pnpm check:api-client",
+        "pnpm guardrails:frontend",
+        "pnpm lint:frontend",
+        "pnpm --filter @gnosi/frontend typecheck",
+        "pnpm test:e2e:contracts",
+        "pnpm test:frontend",
+        "pnpm build:frontend",
+        "pnpm test:desktop",
+        "pnpm --filter @gnosi/desktop typecheck:ipc",
+    ],
+    "backend": [
+        "uv sync --frozen",
+        "uv run python scripts/check_public_pipeline.py",
+        "uv run python scripts/check_public_runtime.py",
+        "uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy",
+        "uv run python scripts/check-source-guardrails.py --require-pruned",
+        "uv run mypy --strict --exclude '^backend/tests/' backend",
+        "uv run python scripts/check_public_pipeline.py --typecheck",
+        "uv run ruff check --select E,F,I desktop/scripts/backend_resources.py "
+        "desktop/tests/test_backend_resources.py",
+        "uv run mypy --strict --explicit-package-bases desktop/scripts/backend_resources.py "
+        "desktop/tests/test_backend_resources.py",
+        "uv run python desktop/scripts/backend_resources.py check-source --repository .",
+        "uv run python -m compileall -q backend pipeline scripts extensions",
+        "uv run pytest",
+    ],
+    "native-smoke": [
+        "pnpm install --frozen-lockfile",
+        "uv sync --frozen",
+        "pnpm test:e2e:install",
+        *r'''uv run uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
+pnpm dev:frontend -- --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
+for attempt in $(seq 1 60); do
+  curl --fail --silent http://127.0.0.1:5002/api/health >/dev/null \
+    && curl --fail --silent http://127.0.0.1:5173/ >/dev/null \
+    && exit 0
+  sleep 2
+done
+tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
+tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
+exit 1'''.splitlines(),
+        "pnpm test:e2e:smoke",
+    ],
+    "docker": [
+        "docker compose config --quiet",
+        "docker build --file Dockerfile.frontend --tag gnosi-frontend:ci .",
+        "docker build --file Dockerfile.backend --tag gnosi-backend:ci .",
+    ],
+}
 
 
 def workflow_mapping(value: object) -> WorkflowMapping:
@@ -57,17 +118,27 @@ def ci_workflow() -> WorkflowMapping:
     return workflow_mapping(yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8")))
 
 
-def test_ci_documentation_gate_runs_on_every_pr_only(ci_workflow: WorkflowMapping) -> None:
-    """Implementation PRs need the gate even when no docs file changes."""
+def test_ci_documentation_gate_runs_on_every_pr_and_candidate(
+    ci_workflow: WorkflowMapping,
+) -> None:
+    """Reusable CI retains its caller event, so candidate docs need an explicit input."""
     # PyYAML's YAML 1.1 loader interprets the GitHub Actions key `on` as True.
     events = workflow_mapping(ci_workflow.get("on", ci_workflow.get(True)))
     assert "pull_request" in events
     assert events["pull_request"] in (None, {})
     assert "pull_request_target" not in events
     assert workflow_mapping(events["push"])["branches"] == ["main"]
+    call = workflow_mapping(events["workflow_call"])
+    assert "secrets" not in call
+    inputs = workflow_mapping(call["inputs"])
+    assert set(inputs) == {"release_candidate"}
+    candidate = workflow_mapping(inputs["release_candidate"])
+    assert candidate["type"] == "boolean"
+    assert candidate["default"] is False
+    assert candidate.get("required", False) is False
     job = workflow_job(ci_workflow, "documentation")
-    assert job["if"] == "github.event_name == 'pull_request'"
-    assert not job.get("continue-on-error", False)
+    assert job["if"] == "github.event_name == 'pull_request' || inputs.release_candidate"
+    assert "continue-on-error" not in job
     assert "needs" not in job
 
 
@@ -91,8 +162,10 @@ def test_ci_documentation_gate_has_no_write_authority(ci_workflow: WorkflowMappi
     assert all(not step.get("continue-on-error", False) for step in steps)
 
 
-def test_ci_documentation_gate_fetches_the_exact_base(ci_workflow: WorkflowMapping) -> None:
-    """Full history must make an arbitrary PR base available for Git diff."""
+def test_ci_documentation_gate_fetches_the_exact_base_or_candidate_sha(
+    ci_workflow: WorkflowMapping,
+) -> None:
+    """PRs use their exact base; tag/manual candidates check catalogs at their own SHA."""
     steps = workflow_steps(workflow_job(ci_workflow, "documentation"))
     checkout = next(
         step for step in steps
@@ -101,9 +174,11 @@ def test_ci_documentation_gate_fetches_the_exact_base(ci_workflow: WorkflowMappi
     checkout_settings = workflow_mapping(checkout["with"])
     assert checkout_settings["fetch-depth"] == 0
     assert checkout_settings["persist-credentials"] is False
-    assert "ref" not in checkout_settings
+    assert checkout_settings["ref"] == "${{ github.sha }}"
     gate = next(step for step in steps if "pre_pr.py" in workflow_text(step.get("run", "")))
-    assert workflow_mapping(gate["env"])["PR_BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
+    assert workflow_mapping(gate["env"])["PR_BASE_SHA"] == (
+        "${{ github.event.pull_request.base.sha || github.sha }}"
+    )
     commands = workflow_text(gate["run"]).splitlines()
     assert commands[:2] == [
         'test -n "$PR_BASE_SHA"',
@@ -143,6 +218,146 @@ def test_ci_documentation_gate_uses_frozen_docs_and_check_only(
         "$PR_BASE_SHA",
     ]
     assert all("if" not in step for step in steps)
+
+
+def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
+    ci_workflow: WorkflowMapping,
+) -> None:
+    """The reusable entry point must retain the existing CI checks, in order."""
+    jobs = workflow_mapping(ci_workflow["jobs"])
+    assert set(jobs) == set(CI_COMMANDS)
+    for name, expected_commands in CI_COMMANDS.items():
+        job = workflow_job(ci_workflow, name)
+        assert "uses" not in job
+        assert "needs" not in job
+        assert "continue-on-error" not in job
+        if name == "documentation":
+            assert job["if"] == "github.event_name == 'pull_request' || inputs.release_candidate"
+        else:
+            assert "if" not in job
+        steps = workflow_steps(job)
+        assert all("if" not in step and "continue-on-error" not in step for step in steps)
+        commands = [
+            line for step in steps if "run" in step
+            for line in workflow_text(step["run"]).splitlines()
+        ]
+        assert commands == expected_commands, name
+
+
+def test_ci_checks_out_caller_sha_without_credentials_in_every_job(
+    ci_workflow: WorkflowMapping,
+) -> None:
+    """All five checks validate the caller source, including manual and tag builds."""
+    assert set(workflow_mapping(ci_workflow["jobs"])) == set(CI_COMMANDS)
+    for name in CI_COMMANDS:
+        steps = workflow_steps(workflow_job(ci_workflow, name))
+        checkouts = [
+            step for step in steps
+            if workflow_text(step.get("uses", "")).startswith("actions/checkout@")
+        ]
+        assert len(checkouts) == 1, name
+        assert checkouts[0] == steps[0], name
+        settings = workflow_mapping(checkouts[0]["with"])
+        assert settings["ref"] == "${{ github.sha }}", name
+        assert settings["persist-credentials"] is False, name
+        if name == "documentation":
+            assert settings["fetch-depth"] == 0
+        else:
+            assert settings["submodules"] == "recursive", name
+
+
+@pytest.mark.parametrize("condition", [
+    "github.event_name == 'pull_request'",
+    "github.event_name == 'pull_request' || github.event_name == 'workflow_call'",
+    "github.event_name == 'pull_request' || github.event_name == 'push'",
+    "inputs.release_candidate",
+    "always()",
+])
+def test_candidate_documentation_rejects_caller_event_shortcuts(
+    ci_workflow: WorkflowMapping, condition: str,
+) -> None:
+    """workflow_call is a declaration, not the event seen by a reused workflow."""
+    test_ci_documentation_gate_runs_on_every_pr_and_candidate(ci_workflow)
+    jobs = workflow_mapping(ci_workflow["jobs"])
+    job = workflow_job(ci_workflow, "documentation")
+    job["if"] = condition
+    jobs["documentation"] = job
+    ci_workflow["jobs"] = jobs
+    with pytest.raises(AssertionError):
+        test_ci_documentation_gate_runs_on_every_pr_and_candidate(ci_workflow)
+
+
+@pytest.mark.parametrize("base", [
+    "${{ github.event.pull_request.base.sha }}",
+    "${{ github.sha }}",
+    "${{ github.event.pull_request.base.sha || inputs.tag }}",
+    "origin/main",
+])
+def test_candidate_documentation_rejects_missing_or_moving_base(
+    ci_workflow: WorkflowMapping, base: str,
+) -> None:
+    """Neither candidate builds nor PRs may lose their exact comparison source."""
+    test_ci_documentation_gate_fetches_the_exact_base_or_candidate_sha(ci_workflow)
+    job = workflow_job(ci_workflow, "documentation")
+    steps = workflow_steps(job)
+    gate = next(step for step in steps if "pre_pr.py" in workflow_text(step.get("run", "")))
+    gate["env"] = {"PR_BASE_SHA": base}
+    job["steps"] = steps
+    jobs = workflow_mapping(ci_workflow["jobs"])
+    jobs["documentation"] = job
+    ci_workflow["jobs"] = jobs
+    with pytest.raises(AssertionError):
+        test_ci_documentation_gate_fetches_the_exact_base_or_candidate_sha(ci_workflow)
+
+
+@pytest.mark.parametrize("name", CI_COMMANDS)
+@pytest.mark.parametrize("field,value", [
+    ("ref", "${{ inputs.tag }}"),
+    ("ref", "main"),
+    ("ref", "${{ github.event.pull_request.head.sha }}"),
+    ("persist-credentials", True),
+])
+def test_ci_rejects_checkout_source_or_credential_regressions(
+    ci_workflow: WorkflowMapping, name: str, field: str, value: object,
+) -> None:
+    """Every CI checkout must reject tag/branch drift and retained credentials."""
+    test_ci_checks_out_caller_sha_without_credentials_in_every_job(ci_workflow)
+    job = workflow_job(ci_workflow, name)
+    steps = workflow_steps(job)
+    settings = workflow_mapping(steps[0]["with"])
+    settings[field] = value
+    steps[0]["with"] = settings
+    job["steps"] = steps
+    jobs = workflow_mapping(ci_workflow["jobs"])
+    jobs[name] = job
+    ci_workflow["jobs"] = jobs
+    with pytest.raises(AssertionError):
+        test_ci_checks_out_caller_sha_without_credentials_in_every_job(ci_workflow)
+
+
+@pytest.mark.parametrize("name", CI_COMMANDS)
+def test_ci_rejects_removed_or_softened_commands(
+    ci_workflow: WorkflowMapping, name: str,
+) -> None:
+    """A missing check or a swallowed exit status is not equivalent validation."""
+    test_ci_preserves_all_five_jobs_commands_and_fatal_gates(ci_workflow)
+    original_steps = workflow_steps(workflow_job(ci_workflow, name))
+    for index, step in enumerate(original_steps):
+        if "run" not in step:
+            continue
+        for replacement in (None, workflow_text(step["run"]).rstrip() + " || true"):
+            changed_steps = [dict(entry) for entry in original_steps]
+            if replacement is None:
+                del changed_steps[index]
+            else:
+                changed_steps[index]["run"] = replacement
+            job = workflow_job(ci_workflow, name)
+            job["steps"] = changed_steps
+            jobs = workflow_mapping(ci_workflow["jobs"])
+            jobs[name] = job
+            ci_workflow["jobs"] = jobs
+            with pytest.raises(AssertionError):
+                test_ci_preserves_all_five_jobs_commands_and_fatal_gates(ci_workflow)
 
 
 @pytest.mark.parametrize("field,value", [
