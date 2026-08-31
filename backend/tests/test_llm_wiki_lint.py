@@ -1,9 +1,8 @@
 """Deterministic contract tests for the LLM Wiki lint report."""
 
-from typing import Any
-
 import pytest
 
+from backend.domains.llm_wiki.lint_contracts import LintNote
 from backend.services import llm_wiki_lint as lint
 
 
@@ -19,7 +18,7 @@ def _note(
     managed_stale: bool = False,
     source_table_id: str = "",
     resource_id: str = "",
-) -> dict[str, Any]:
+) -> LintNote:
     out_ids, out_titles = lint._outbound_targets(body)
     return {
         "id": note_id,

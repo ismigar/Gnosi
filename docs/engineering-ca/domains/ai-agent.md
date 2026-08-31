@@ -1,10 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_lint.py
+  - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_pdf_annotations.py
   - backend/domains/agent
   - backend/domains/configuration/agent
@@ -22,6 +23,7 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
+  - backend/tests/test_llm_wiki_lint_edge_contracts.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
@@ -182,6 +184,15 @@ El lint determinista del Brain separa comprovacions acotades de notes òrfenes,
 revisions antigues, referències absents, claus duplicades, cites trencades,
 reprocessament i deriva d'índexs. Manté el format de l'informe sense necessitar
 cap proveïdor de models.
+
+`backend/domains/llm_wiki/lint_contracts.py` defineix la projecció normalitzada de
+les notes, les vuit categories de resultats, els recomptes i l'informe complet
+al punt on es construeixen. Són diccionaris ordinaris amb tipus estàtics precisos,
+no models de validació ni esquemes imposats a metadades arbitràries desades.
+La ruta HTTP pot afegir recomptes opcionals de suggeriments; el diagnòstic pur no
+els emet. Es conserven l'ordre, el tractament de dates, la descodificació de cites
+i els límits de resultats. L'entrada de pàgines encara és dinàmica; el seu
+contracte i la composició de rutes continuen pendents de tipatge separat.
 
 Les cites PDF fonamentades tenen una frontera de persistència determinista. La
 geometria es resol reutilitzant un document per adjunt, els ressaltats gestionats

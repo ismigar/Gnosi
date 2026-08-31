@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/configuration/plugin_state.py
@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_assist.py
   - backend/services/llm_wiki_suggestions.py
   - backend/services/llm_wiki_storage.py
@@ -61,6 +62,7 @@ tests:
   - backend/tests/test_capability_automations.py
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
+  - backend/tests/test_llm_wiki_lint_edge_contracts.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
@@ -652,16 +654,25 @@ rebuild and incremental upsert paths retain their cache invalidation behaviour.
 The same late-bound path port owns Vault, `.gnosi` and local-data resolution for
 the personal dictation glossary, connection queue and durable Brain jobs,
 snapshots, manifests and synchronized page sidecars. Queue and lint scans use
-the typed table-page port, preserving existing runtime replacements while
-preventing dynamic facade values from escaping into persistence logic.
-The ingestion facade also consumes these typed late-bound ports for Brain page
-enumeration, table lookup and processed-state updates, preserving runtime plugin
-replacement while keeping domain dependency contracts statically checked.
+the late-bound table-page port, preserving existing runtime replacements.
+That input port still returns dynamically typed pages; its metadata contract
+remains separate typing debt.
+The ingestion facade uses the same late-bound ports for Brain page enumeration,
+table lookup and processed-state updates. Runtime plugin replacement is preserved,
+but the broad `Any` annotations in these ports do not prove complete typing.
 
 Deterministic Brain lint is split into bounded checks for orphan notes, stale
 reviews, missing cross-references, duplicate provenance keys, retained managed
 notes, broken evidence citations, reprocessing and resource-index drift. The
 report shape and finding limits remain stable and require no model provider.
+
+`backend/domains/llm_wiki/lint_contracts.py` defines the normalized note projection,
+all eight finding categories, counts and complete report at their producer.
+These are ordinary dictionaries with precise static types, not runtime models
+or schemas asserted over arbitrary stored metadata. The HTTP route may add
+optional suggestion totals; pure lint does not emit them. Output order,
+date handling, citation decoding and truncation are unchanged. The legacy
+page-input boundary and route composition still require separate typing work.
 
 Grounded PDF citations use a separate deterministic persistence boundary. It
 resolves quote geometry with one cached document handle per attachment, upserts

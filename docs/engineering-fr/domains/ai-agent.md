@@ -1,10 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_lint.py
+  - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_pdf_annotations.py
   - backend/domains/agent
   - backend/domains/configuration/agent
@@ -33,6 +34,7 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
+  - backend/tests/test_llm_wiki_lint_edge_contracts.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
@@ -233,6 +235,16 @@ Le lint déterministe du Brain sépare des contrôles bornés pour les notes
 orphelines, les révisions anciennes, les renvois manquants, les clés dupliquées,
 les citations cassées, le retraitement et la dérive des index. Le format du
 rapport reste stable sans dépendre d'un fournisseur de modèles.
+
+`backend/domains/llm_wiki/lint_contracts.py` définit la projection normalisée des
+notes, les huit catégories de résultats, les compteurs et le rapport complet
+à l'endroit où ils sont construits. Ce sont des dictionnaires ordinaires avec
+des types statiques précis, et non des modèles de validation ou des schémas
+imposés aux métadonnées enregistrées. La route HTTP peut ajouter des compteurs
+facultatifs de suggestions ; le diagnostic seul ne les produit pas. L'ordre,
+le traitement des dates, le décodage des citations et les limites restent inchangés.
+Les pages en entrée restent typées dynamiquement ; leur contrat et la composition
+des routes nécessitent encore un travail de typage distinct.
 
 Les citations PDF fondées utilisent une frontière de persistance déterministe.
 La géométrie est résolue en réutilisant un document par pièce jointe, les
