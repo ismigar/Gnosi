@@ -83,6 +83,7 @@ def test_walk_filesystem_preserves_partial_results_on_error(
     vault.mkdir()
     home.mkdir()
     monkeypatch.setenv("DIGITAL_BRAIN_VAULT_PATH", str(vault))
+    monkeypatch.setenv("VAULT_HOST_PATH", str(vault))
     monkeypatch.setenv("HOME_HOST_PATH", str(home))
 
     def failing_walk(*_args: object, **_kwargs: object) -> Any:

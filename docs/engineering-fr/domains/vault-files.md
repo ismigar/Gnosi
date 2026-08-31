@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -24,6 +24,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_drawing_typed_composition.py
+  - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
   - backend/tests/test_purge_cleanup.py
@@ -169,12 +171,16 @@ icônes et propriétés utilisent tous cette même instance typée, préservant
 l'ordre d'enregistrement et le contrat OpenAPI sans disperser les exceptions
 de typage dans les gestionnaires individuels.
 
-La frontière des dessins applique la même spécialisation d'un routeur unique
-aux opérations CRUD et à l'enregistrement délégué de l'historique. Les sauvegardes
-des dessins, la suppression récupérable, les délais de récupération, les
-permissions et l'ordre des routes restent sous la responsabilité des services
-de domaine existants, tandis que l'interface de composition HTTP est strictement
-typée.
+Les routes de dessins importent directement le routeur partagé et les services
+typés de dessins et d'historique. `drawings/composition.py` limite les collaborateurs
+résolus tardivement à `DrawingVaultPort` : chemins, corbeille, sérialisation et
+callbacks d'historique. Le port ne contient aucun membre `Any` ; son unique
+conversion de compatibilité reste transitoire jusqu'à la composition indépendante
+des fournisseurs historiques. Elle ne prouve pas le typage complet de la façade
+ni du modèle de requête historique partagé. Les résultats ne sont pas normalisés
+pour satisfaire le typage : les appels directs gardent les données originales et
+les modèles HTTP imposent le contrat existant. Sauvegardes, récupération,
+permissions, résolution des callbacks, métadonnées et ordre des routes sont préservés.
 
 La composition des aperçus et des sauvegardes de pages partage également un
 routeur dont le type a été précisé, pour la résolution des titres et
@@ -321,11 +327,15 @@ synchronisation des pages. Les modèles de requête utilisent directement Pydant
 tout en conservant leur identité de module historique, préservant ainsi les
 noms des schémas, le comportement SSE et le document OpenAPI produit.
 
-Les opérations CRUD des annotations PDF suivent le même modèle : des classes
-de base Pydantic directes pour les requêtes et un routeur typé unique,
-avec conservation de l'identité historique des schémas. Le filtrage des URI
-sources, l'ordre des pages, les permissions d'édition et la sérialisation des
-annotations restent inchangés.
+Le CRUD des annotations PDF importe directement le routeur partagé et les
+dépendances d'autorisation et de persistance. Des payloads `TypedDict` nommés
+décrivent les dictionnaires renvoyés aux appelants Python, sans conversion de
+type ni `Any`. Les rectangles stockés conservent le décodage JSON d'origine ;
+les modèles HTTP valident toujours leur forme. Les identités des schémas, le
+filtrage par URI, l'ordre par page et date de création, les permissions, les mises
+à jour avec champs nuls ou omis et le schéma SQLite restent inchangés. Les tests
+SQLite et HTTP isolés couvrent les deux ordres d'importation : façade d'abord
+ou domaine d'abord.
 
 L'administration du Vault échoue désormais explicitement avec une réponse
 signalant l'indisponibilité du service lorsque le chemin du Vault principal

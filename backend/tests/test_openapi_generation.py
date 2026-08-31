@@ -17,6 +17,7 @@ from scripts.generate_openapi import _configure_isolated_runtime
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 GENERATOR = REPOSITORY_ROOT / "scripts" / "generate_openapi.py"
 EXPECTED_HASH = REPOSITORY_ROOT / "backend" / "tests" / "contracts" / "openapi.sha256"
+COMMITTED_SCHEMA = REPOSITORY_ROOT / "openapi" / "openapi.json"
 
 
 def _generate(output: Path) -> subprocess.CompletedProcess[str]:
@@ -39,6 +40,7 @@ def test_openapi_generator_is_byte_stable_and_matches_frozen_contract(tmp_path: 
     assert first_run.returncode == 0, first_run.stderr
     assert second_run.returncode == 0, second_run.stderr
     assert first.read_bytes() == second.read_bytes()
+    assert first.read_bytes() == COMMITTED_SCHEMA.read_bytes()
     assert (
         hashlib.sha256(first.read_bytes()).hexdigest()
         == EXPECTED_HASH.read_text(encoding="utf-8").strip()

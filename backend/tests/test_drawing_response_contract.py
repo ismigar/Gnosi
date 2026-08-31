@@ -10,8 +10,10 @@ import pytest
 from fastapi import APIRouter, UploadFile
 from fastapi.routing import APIRoute
 
-from backend.api import handwriting_routes
+from backend.api import handwriting_routes, vault_routes
 from backend.domains.vault.drawings import routes as drawing_routes
+from backend.domains.vault.drawings import service as drawing_service
+from backend.domains.vault.pages.runtime import DrawingSaveRequest
 
 
 def _route(router: APIRouter, method: str, path: str) -> APIRoute:
@@ -86,17 +88,17 @@ def test_drawing_operations_preserve_historical_json_shapes(
     async def delete_drawing(*_args: object) -> dict[str, Any]:
         return deleted
 
-    monkeypatch.setattr(drawing_routes._legacy.drawing_service, "list_drawings", list_drawings)
-    monkeypatch.setattr(drawing_routes._legacy.drawing_service, "get_drawing", get_drawing)
-    monkeypatch.setattr(drawing_routes._legacy.drawing_service, "save_drawing", save_drawing)
-    monkeypatch.setattr(drawing_routes._legacy.drawing_service, "delete_drawing", delete_drawing)
+    monkeypatch.setattr(drawing_service, "list_drawings", list_drawings)
+    monkeypatch.setattr(drawing_service, "get_drawing", get_drawing)
+    monkeypatch.setattr(drawing_service, "save_drawing", save_drawing)
+    monkeypatch.setattr(drawing_service, "delete_drawing", delete_drawing)
     monkeypatch.setattr(
-        drawing_routes._legacy,
+        vault_routes,
         "_validate_safe_page_id",
         lambda drawing_id: drawing_id,
     )
 
-    request = drawing_routes._legacy.DrawingSaveRequest(
+    request = DrawingSaveRequest(
         title="Architecture",
         data=document,
         metadata={},

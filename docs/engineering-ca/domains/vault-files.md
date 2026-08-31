@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -24,6 +24,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_drawing_typed_composition.py
+  - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
   - backend/tests/test_purge_cleanup.py
@@ -165,12 +167,16 @@ utilitzen aquesta mateixa instància tipada, cosa que manté estables l'ordre de
 registre i el contracte OpenAPI sense dispersar excepcions de tipus entre
 gestors individuals.
 
-El límit dels dibuixos aplica la mateixa concreció de tipus d'un únic
-encaminador al CRUD de dibuixos i al registre delegat de l'historial. Les còpies
-de seguretat dels dibuixos, l'eliminació lògica, els terminis de recuperació,
-els permisos i l'ordre de les rutes continuen sota la responsabilitat dels
-serveis de domini existents, mentre que la superfície de composició HTTP té
-tipatge estricte.
+Les rutes de dibuixos importen directament l'encaminador compartit i els serveis
+tipats de dibuixos i historial. `drawings/composition.py` limita els col·laboradors
+amb vinculació tardana a `DrawingVaultPort`: rutes, paperera, serialització i
+callbacks d'historial. El port no té membres `Any`; la seva única conversió de
+compatibilitat és transitòria fins a separar la composició dels proveïdors
+heretats. No acredita el tipatge complet de la façana ni del model de petició
+històric compartit. No es normalitzen els resultats només per tipar-los: les
+crides directes conserven les dades originals i els models HTTP imposen el
+contracte existent. Es preserven còpies, recuperació, permisos, moment de
+resolució dels callbacks, valors de metadades i ordre de les rutes.
 
 La composició de previsualització i desament de pàgines també comparteix un
 únic encaminador de tipus concret per resoldre títols i delegar el registre de
@@ -320,10 +326,15 @@ utilitzen Pydantic directament i conserven la seva identitat històrica de
 mòdul, preservant els noms dels esquemes, el comportament SSE i la sortida
 OpenAPI.
 
-El CRUD d'anotacions PDF segueix el mateix model: classes base de petició
-directament de Pydantic i un únic encaminador tipat, amb la identitat històrica
-dels esquemes preservada. El filtratge per URI d'origen, l'ordre de les
-pàgines, els permisos d'edició i la serialització d'anotacions no canvien.
+El CRUD d'anotacions PDF importa directament l'encaminador compartit i les
+dependències d'autorització i persistència. Els payloads `TypedDict` amb nom
+descriuen els diccionaris retornats als consumidors Python sense conversions
+de tipus ni `Any`. Els rectangles desats conserven la descodificació JSON
+original; els models de resposta HTTP continuen validant-ne la forma. No canvien
+les identitats dels esquemes, el filtratge per URI, l'ordre per pàgina i data de
+creació, els permisos, les actualitzacions amb camps nuls o omesos ni l'esquema
+SQLite. Les proves aïllades SQLite i HTTP cobreixen els dos ordres d'importació:
+primer la façana o primer el domini.
 
 L'administració de Vault ara falla explícitament amb una resposta de servei
 no disponible quan falta la ruta del Vault principal, en lloc de construir una

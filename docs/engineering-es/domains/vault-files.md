@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -24,6 +24,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_drawing_typed_composition.py
+  - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
   - backend/tests/test_purge_cleanup.py
@@ -162,12 +164,16 @@ los registros delegados de recursos, archivos, iconos y propiedades utilizan
 esa misma instancia tipada, manteniendo estables el orden de registro y el
 contrato OpenAPI sin repartir excepciones de tipado entre los distintos manejadores.
 
-La capa de dibujos aplica la misma acotación a un único router para las
-operaciones CRUD de dibujos y el registro delegado del historial. Las copias de
-seguridad de dibujos, la eliminación lógica, los plazos de recuperación, los
-permisos y el orden de las rutas siguen siendo responsabilidad de sus servicios
-de dominio existentes, mientras que la interfaz de composición HTTP tiene un
-contrato estricto.
+Las rutas de dibujos importan directamente el router compartido y los servicios
+tipados de dibujos e historial. `drawings/composition.py` limita los colaboradores
+con resolución tardía a `DrawingVaultPort`: rutas, papelera, serialización y
+callbacks del historial. El puerto no tiene miembros `Any`; su única conversión
+de compatibilidad es transitoria hasta separar la composición de los proveedores
+heredados. No acredita el tipado completo de la fachada ni del modelo de petición
+histórico compartido. No se normalizan resultados solo para tiparlos: las llamadas
+directas conservan los datos originales y los modelos HTTP imponen el contrato
+existente. Se preservan copias, recuperación, permisos, momento de resolución de
+callbacks, valores de metadatos y orden de rutas.
 
 La composición de la vista previa y el guardado de páginas también comparte un
 único router de tipo acotado para la resolución de títulos y el registro delegado
@@ -314,10 +320,15 @@ de sincronización de páginas. Los modelos de solicitud utilizan Pydantic
 directamente y mantienen la identidad histórica de su módulo, conservando los
 nombres de los esquemas, el comportamiento SSE y la salida OpenAPI.
 
-Las operaciones CRUD de anotaciones PDF siguen el mismo modelo: clases base de
-solicitud directamente de Pydantic y un único router tipado, manteniendo la
-identidad histórica del esquema. El filtrado de URI de origen, el orden de las
-páginas, los permisos del editor y la serialización de anotaciones no cambian.
+El CRUD de anotaciones PDF importa directamente el router compartido y las
+dependencias de autorización y persistencia. Los payloads `TypedDict` con nombre
+describen los diccionarios devueltos a los consumidores Python sin conversiones
+de tipo ni `Any`. Los rectángulos guardados conservan la decodificación JSON
+original; los modelos HTTP siguen validando su forma. No cambian las identidades
+de los esquemas, el filtrado por URI, el orden por página y fecha de creación,
+los permisos, las actualizaciones con campos nulos u omitidos ni el esquema
+SQLite. Las pruebas aisladas SQLite y HTTP cubren ambos órdenes de importación:
+primero la fachada o primero el dominio.
 
 La administración del Vault ahora falla explícitamente con una respuesta de
 servicio no disponible cuando falta la ruta principal del Vault, en lugar de

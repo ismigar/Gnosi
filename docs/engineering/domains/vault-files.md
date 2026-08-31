@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -24,6 +24,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_drawing_typed_composition.py
+  - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
   - backend/tests/test_purge_cleanup.py
@@ -149,10 +151,15 @@ file, icon and property registrations all use that same typed instance, keeping
 registration order and the OpenAPI contract stable without scattering type
 exceptions across individual handlers.
 
-The drawings boundary applies the same single-router narrowing to drawing CRUD
-and delegated history registration. Drawing backups, soft deletion, recovery
-windows, permissions and route ordering remain owned by their existing domain
-services while the HTTP composition surface is strict.
+Drawing routes import the shared router and typed drawing/history services
+directly. `drawings/composition.py` limits remaining late-bound collaborators to
+`DrawingVaultPort`: paths, trash, serialization and history callbacks. The port
+has no `Any` members; its single compatibility cast remains transitional until
+the legacy providers are independently composed. It does not prove complete
+typing of the wider facade or the shared historical request model. Return values
+are not normalized merely for typing: direct callers retain the original drawing
+data, while HTTP response models enforce the existing contract. Backups, recovery,
+permissions, callback timing, metadata values and route ordering are preserved.
 
 Page preview and save composition likewise share one narrowed router for title
 resolution and delegated preview/write registration. Cache identity, alias
@@ -265,10 +272,14 @@ unlinked mentions share a typed page-synchronization router. Request models use
 Pydantic directly while retaining their historical module identity, preserving
 schema names, SSE behavior and OpenAPI output.
 
-PDF annotation CRUD follows the same model: direct Pydantic request bases and a
-single typed router, with historical schema identity retained. Source URI
-filtering, page ordering, editor permissions and annotation serialization are
-unchanged.
+PDF annotation CRUD imports the shared router, authorization and persistence
+dependencies directly. Named `TypedDict` payloads describe the dictionaries
+returned to Python callers without casts or `Any`. Stored rectangles retain
+the original JSON decoding behavior; HTTP response models still validate their
+shape. Request and response schema identities, source URI filtering, page and
+creation-time ordering, editor permissions, null/omitted update semantics and
+the SQLite schema remain unchanged. Isolated SQLite and HTTP tests cover both
+facade-first and domain-first import order.
 
 Vault administration now fails explicitly with a service-unavailable response
 when the primary Vault path is absent, rather than constructing a path from

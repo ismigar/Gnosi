@@ -1,23 +1,36 @@
 import json
 import stat
+from types import SimpleNamespace
 
 import backend.security.keychain_manager as keychain_module
 from backend.security.keychain_manager import KeychainManager
 
 
 def _fallback_manager(tmp_path, monkeypatch, *, system="Linux"):
+    # Keep OS discovery and all secret-store adapters synthetic before the
+    # constructor runs; fallback data and legacy input both belong to tmp_path.
+    monkeypatch.setattr(
+        keychain_module, "platform", SimpleNamespace(system=lambda: system)
+    )
+    monkeypatch.setattr(keychain_module, "os", SimpleNamespace(environ={}))
+    monkeypatch.setattr(KeychainManager, "_check_docker", lambda self: False)
     monkeypatch.setattr(
         keychain_module,
         "resolve_data_dir",
         lambda **_kwargs: tmp_path,
     )
     manager = KeychainManager()
-    manager.system = system
-    manager._is_docker = False
     monkeypatch.setattr(manager, "_portable_save", lambda *_: False)
     monkeypatch.setattr(manager, "_portable_get", lambda *_: None)
     monkeypatch.setattr(manager, "_portable_delete", lambda *_: False)
+    monkeypatch.setattr(manager, "_macos_save", lambda *_: False)
+    monkeypatch.setattr(manager, "_macos_get", lambda *_: None)
+    monkeypatch.setattr(manager, "_macos_delete", lambda *_: False)
+    monkeypatch.setattr(manager, "_macos_list", lambda: [])
     monkeypatch.setattr(manager, "_legacy_fallback_path", lambda: tmp_path / "legacy.enc")
+    # The real public API and encryption still run. Only this module's policy
+    # seam is overridden; GNOSI_VALIDATION_ROOT remains set for every other unit.
+    monkeypatch.setattr(keychain_module, "validation_runtime_enabled", lambda: False)
     return manager
 
 

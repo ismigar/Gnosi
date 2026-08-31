@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-
 JsonObject = dict[str, object]
 DrawingSummary = dict[str, object]
 

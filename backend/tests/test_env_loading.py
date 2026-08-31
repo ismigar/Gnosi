@@ -1,6 +1,31 @@
 import os
 
+import pytest
+
 import backend.config.env_config as env_config
+
+
+@pytest.fixture(autouse=True)
+def _synthetic_environment_loader(tmp_path, monkeypatch):
+    """Exercise file precedence without opening any host configuration/store."""
+    monkeypatch.setattr(env_config, "PROJECT_ROOT", tmp_path)
+    _reset_loader(monkeypatch, tmp_path / ".env")
+    monkeypatch.delenv("GNOSI_SHARED_ENV_FILE", raising=False)
+    monkeypatch.setattr(env_config, "_is_docker", lambda: False)
+
+    def forbidden_keychain():
+        pytest.fail("Environment file tests must not consult a credential store")
+
+    monkeypatch.setattr(
+        "backend.security.keychain_manager.get_keychain", forbidden_keychain
+    )
+    # Override only this unit's policy seam, after bounding all its inputs.
+    # The outer validation root and every other module's guard stay active.
+    monkeypatch.setattr(env_config, "validation_runtime_enabled", lambda: False)
+    yield
+    # load_env writes directly to os.environ, outside monkeypatch's tracking.
+    # Clear only values loaded by this fixture, never the caller's loader state.
+    env_config._clear_values_loaded_by_gnosi()
 
 
 def _reset_loader(monkeypatch, local_env):
@@ -8,8 +33,8 @@ def _reset_loader(monkeypatch, local_env):
     monkeypatch.setattr(env_config, "ENV_LOCATIONS", [local_env])
     monkeypatch.setattr(env_config, "_loaded", False)
     monkeypatch.setattr(env_config, "_keychain_loaded", True)
-    env_config._loaded_file_values.clear()
-    env_config._loaded_keychain_values.clear()
+    monkeypatch.setattr(env_config, "_loaded_file_values", {})
+    monkeypatch.setattr(env_config, "_loaded_keychain_values", {})
 
 
 def test_environment_precedence_is_process_then_local_then_shared(tmp_path, monkeypatch):

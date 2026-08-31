@@ -1,14 +1,20 @@
 """Typed Vault domain extracted from the historical route facade."""
 
-import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+from __future__ import annotations
 
-from fastapi import APIRouter
+from pathlib import Path
+
+from fastapi import Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, JsonValue, RootModel
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
+from backend.api.vault_routes import router as router
+from backend.domains.vault.api import history as _history_api
+from backend.domains.vault.drawings import service as _drawing_service
+from backend.domains.vault.drawings.composition import drawing_dependencies as _drawing_dependencies
+from backend.domains.vault.drawings.composition import vault as _vault
+from backend.domains.vault.history.repository import HistoryRepository as _HistoryRepository
+from backend.domains.vault.pages.runtime import DrawingSaveRequest as _DrawingSaveRequest
+from backend.services.workspace_service import require_role as _require_role
 
 
 class DrawingSummaryResponse(BaseModel):
@@ -41,45 +47,27 @@ class DrawingDeleteResponse(BaseModel):
     deleted_at: str | None
     title: str
 
-_DRAWING_DEPENDENCIES = _legacy.drawing_service.DrawingDependencies(
-    drawings_directory=lambda: _legacy.get_p("DIBUIXOS"),
-    vault_root=lambda: _legacy.get_p("VAULT"),
-    move_to_trash=lambda drawing_id, path: _legacy.cast(
-        _legacy.drawing_service.JsonObject, _legacy._move_page_to_trash(drawing_id, path)
-    ),
-    trash_entry_directory=lambda drawing_id: _legacy._trash_entry_dir(drawing_id),
-    write_drawing_json=lambda path, payload: _legacy.safe_write_json(
-        path, payload, indent=2, ensure_ascii=False
-    ),
-    write_trash_json=lambda path, payload: _legacy.safe_write_json(path, payload, indent=2),
-    copy_file=lambda source, target: _legacy.shutil.copy2(source, target),
-    current_time=_legacy.time.time,
-    timestamp_label=lambda: _legacy.datetime.now().strftime("%Y%m%d_%H%M%S"),
-    modified_iso=lambda timestamp: _legacy.datetime.fromtimestamp(timestamp).isoformat(),
-    logger=_legacy.log,
-)
+_DRAWING_DEPENDENCIES = _drawing_dependencies()
 
 
 @router.get("/drawings", response_model=list[DrawingSummaryResponse])
-async def list_drawings() -> list[dict[str, JsonValue]]:
+async def list_drawings() -> list[dict[str, object]]:
     """Lists all drawings in the vault (tldraw and excalidraw)."""
-    result = await _legacy.drawing_service.list_drawings(_DRAWING_DEPENDENCIES)
-    return _strict_cast(list[dict[str, JsonValue]], result)
+    return await _drawing_service.list_drawings(_DRAWING_DEPENDENCIES)
 
 
 @router.get("/drawings/{drawing_id}", response_model=DrawingDocumentResponse)
-async def get_drawing(drawing_id: str) -> dict[str, JsonValue]:
+async def get_drawing(drawing_id: str) -> object:
     """Returns the data of a Tldraw drawing."""
     try:
-        result = await _legacy.drawing_service.get_drawing(drawing_id, _DRAWING_DEPENDENCIES)
-        return _strict_cast(dict[str, JsonValue], result)
-    except _legacy.drawing_service.DrawingNotFoundError:
-        raise _legacy.HTTPException(status_code=404, detail="Drawing not found")
-    except _legacy.drawing_service.DrawingReadError:
-        raise _legacy.HTTPException(status_code=500, detail="Error reading target file")
+        return await _drawing_service.get_drawing(drawing_id, _DRAWING_DEPENDENCIES)
+    except _drawing_service.DrawingNotFoundError:
+        raise HTTPException(status_code=404, detail="Drawing not found")
+    except _drawing_service.DrawingReadError:
+        raise HTTPException(status_code=500, detail="Error reading target file")
 
 
-def _backup_drawing_version(drawing_id: str, file_path: _legacy.Path) -> None:
+def _backup_drawing_version(drawing_id: str, file_path: Path) -> None:
     """Copies the current .tldraw.json to .history/{id}/{ts}.tldraw.json before
     overwriting it. Last line of defense against clients that save an empty
     canvas after a failed load (directive tldraw_save_integrity.md).
@@ -87,38 +75,37 @@ def _backup_drawing_version(drawing_id: str, file_path: _legacy.Path) -> None:
     client saving in a loop from clobbering the good backup with empty versions.
 
     """
-    _legacy.drawing_service.backup_drawing_version(drawing_id, file_path, _DRAWING_DEPENDENCIES)
+    _drawing_service.backup_drawing_version(drawing_id, file_path, _DRAWING_DEPENDENCIES)
 
 
 @router.put(
     "/drawings/{drawing_id}",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(_require_role("editor"))],
     response_model=DrawingSaveResponse,
 )
 async def save_drawing(
     drawing_id: str,
-    request: _legacy.DrawingSaveRequest,
-) -> dict[str, JsonValue]:
+    request: _DrawingSaveRequest,
+) -> dict[str, object]:
     """Saves or updates a Tldraw drawing."""
     try:
-        result = await _legacy.drawing_service.save_drawing(
+        return await _drawing_service.save_drawing(
             drawing_id,
             request.title,
-            _legacy.cast(_legacy.drawing_service.JsonObject, request.data),
-            _legacy.cast(_legacy.drawing_service.JsonObject, request.metadata or {}),
+            request.data,
+            request.metadata or {},
             _DRAWING_DEPENDENCIES,
         )
-        return _strict_cast(dict[str, JsonValue], result)
-    except _legacy.drawing_service.DrawingWriteError:
-        raise _legacy.HTTPException(status_code=500, detail="Error writing target file")
+    except _drawing_service.DrawingWriteError:
+        raise HTTPException(status_code=500, detail="Error writing target file")
 
 
 @router.delete(
     "/drawings/{drawing_id}",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(_require_role("editor"))],
     response_model=DrawingDeleteResponse,
 )
-async def delete_drawing(drawing_id: str) -> dict[str, JsonValue]:
+async def delete_drawing(drawing_id: str) -> dict[str, object]:
     """Soft-delete: moves the drawing to the trash, like pages.
 
     It used to do a direct `unlink()`: instant and IRREVERSIBLE deletion —
@@ -131,18 +118,17 @@ async def delete_drawing(drawing_id: str) -> dict[str, JsonValue]:
     Restore/Purge and the 90-day cron work for free.
 
     """
-    drawing_id = _legacy._validate_safe_page_id(drawing_id)
+    drawing_id = _vault._validate_safe_page_id(drawing_id)
     try:
-        result = await _legacy.drawing_service.delete_drawing(
+        return await _drawing_service.delete_drawing(
             drawing_id,
             _DRAWING_DEPENDENCIES,
         )
-        return _strict_cast(dict[str, JsonValue], result)
-    except _legacy.drawing_service.DrawingNotFoundError:
-        raise _legacy.HTTPException(status_code=404, detail="Drawing not found")
+    except _drawing_service.DrawingNotFoundError:
+        raise HTTPException(status_code=404, detail="Drawing not found")
 
 
-def _create_page_version(page_id: str, file_path: _legacy.Path, force: bool = False) -> _LegacyAny:
+def _create_page_version(page_id: str, file_path: Path, force: bool = False) -> None:
     """Saves a version of the current file to .history/{page_id}/{timestamp}.md if cooldown passed.
 
     `force=True` skips the cooldown: it's for the SAFETY snapshots
@@ -153,12 +139,12 @@ def _create_page_version(page_id: str, file_path: _legacy.Path, force: bool = Fa
     the restore (reproduced: restoring v1 with v3 on disk lost v3 forever).
 
     """
-    _legacy.HistoryRepository(_legacy.get_p("VAULT")).create_file_version(
+    _HistoryRepository(_vault.get_p("VAULT")).create_file_version(
         page_id, file_path, force=force
     )
 
 
-def _create_page_version_from_content(page_id: str, original_content: str) -> _LegacyAny:
+def _create_page_version_from_content(page_id: str, original_content: str) -> None:
     """Variant of `_create_page_version` that writes the original content
     directly as passed in as a parameter, without needing to `shutil.copy2` the
     file. Meant to run as a `background_task` AFTER the
@@ -170,31 +156,31 @@ def _create_page_version_from_content(page_id: str, original_content: str) -> _L
     Keeps the original 10 min cooldown.
 
     """
-    _legacy.HistoryRepository(_legacy.get_p("VAULT")).create_content_version(
+    _HistoryRepository(_vault.get_p("VAULT")).create_content_version(
         page_id, original_content
     )
 
 
-_legacy.history_api.configure(
-    _legacy.history_api.HistoryDependencies(
-        vault_root=lambda: _legacy.get_p("VAULT"),
-        validate_page_id=_legacy._validate_safe_page_id,
-        validate_timestamp=_legacy._validate_history_timestamp,
-        parse_frontmatter=_legacy.parse_frontmatter,
-        find_page=lambda page_id: _legacy.find_page_path(page_id),
+_history_api.configure(
+    _history_api.HistoryDependencies(
+        vault_root=lambda: _vault.get_p("VAULT"),
+        validate_page_id=_vault._validate_safe_page_id,
+        validate_timestamp=_vault._validate_history_timestamp,
+        parse_frontmatter=_vault.parse_frontmatter,
+        find_page=lambda page_id: _vault.find_page_path(page_id),
         create_page_version=lambda page_id, file_path, force: _create_page_version(
             page_id, file_path, force=force
         ),
-        get_table_id=_legacy.get_table_id,
-        recompute_formulas=_legacy._recompute_cross_record_formulas_for_table,
+        get_table_id=_vault.get_table_id,
+        recompute_formulas=_vault._recompute_cross_record_formulas_for_table,
     )
 )
-_legacy.history_api.register_routes(
+_history_api.register_routes(
     router,
-    editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    admin_dependencies=[_legacy.Depends(_legacy.require_role("admin"))],
+    editor_dependencies=[Depends(_require_role("editor"))],
+    admin_dependencies=[Depends(_require_role("admin"))],
 )
-get_page_history = _legacy.history_api.get_page_history
-get_page_version_content = _legacy.history_api.get_page_version_content
-restore_page_version = _legacy.history_api.restore_page_version
-purge_page_history = _legacy.history_api.purge_page_history
+get_page_history = _history_api.get_page_history
+get_page_version_content = _history_api.get_page_version_content
+restore_page_version = _history_api.restore_page_version
+purge_page_history = _history_api.purge_page_history

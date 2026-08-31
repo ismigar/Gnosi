@@ -48,8 +48,14 @@ def vault(tmp_path, monkeypatch):
         "---\nid: gamma\ntitle: Gamma\n---\nBody\n", encoding="utf-8"
     )
 
-    monkeypatch.setenv("DIGITAL_BRAIN_VAULT_PATH", str(vault))
-    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "localdata"))
+    for child in ("data", "host"):
+        (tmp_path / child).mkdir()
+    monkeypatch.setenv("GNOSI_VALIDATION_ROOT", str(tmp_path))
+    for name, child in (
+        ("GNOSI_DATA_DIR", "data"), ("DIGITAL_BRAIN_VAULT_PATH", "vault"),
+        ("VAULT_HOST_PATH", "vault"), ("HOME_HOST_PATH", "host"),
+    ):
+        monkeypatch.setenv(name, str(tmp_path / child))
     # Gate _request_dir_warmup: tests must never spawn a real `open` process.
     monkeypatch.setenv("ONEDRIVE_WARMUP_MODE", "daemon")
 

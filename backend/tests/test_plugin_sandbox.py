@@ -18,6 +18,18 @@ from backend.services import plugin_system as ps  # noqa: E402
 pytestmark = pytest.mark.skipif(not sb.node_available(), reason="node no disponible")
 
 
+@pytest.fixture
+def active_vault(tmp_path):
+    """Restore request-local state even when a Node/plugin assertion fails."""
+    from backend.services.context_vars import active_vault_path
+
+    token = active_vault_path.set(tmp_path)
+    try:
+        yield tmp_path
+    finally:
+        active_vault_path.reset(token)
+
+
 def _install_backend_plugin(base: Path, pid: str, code: str, permissions, events):
     d = base / "plugins" / pid
     d.mkdir(parents=True, exist_ok=True)
@@ -187,12 +199,10 @@ def test_sandbox_permission_denied(tmp_path):
     assert not any("CAP_ERROR" in l["message"] for l in res["logs"])
 
 
-def test_sandbox_settings_roundtrip(tmp_path):
+def test_sandbox_settings_roundtrip(tmp_path, active_vault):
     # settings.set saves and settings.get reads, per plugin. Real handlers of the
     # dispatcher (they touch `.gnosi/plugins.json` via the state), with the vault in tmp.
-    from backend.services.context_vars import active_vault_path
     from backend.services.plugin_dispatcher import _HOST_HANDLERS
-    active_vault_path.set(tmp_path)
     (tmp_path / ".gnosi").mkdir(parents=True, exist_ok=True)
     sb.set_host_handlers(_HOST_HANDLERS)
 
@@ -209,11 +219,9 @@ def test_sandbox_settings_roundtrip(tmp_path):
     assert any("theme dark n 42" in l["message"] for l in res["logs"])
 
 
-def test_sandbox_create_page(tmp_path):
+def test_sandbox_create_page(tmp_path, active_vault):
     # vault.createPage creates a new .md in the vault (tmp). Requires vault:write.
-    from backend.services.context_vars import active_vault_path
     from backend.services.plugin_dispatcher import _HOST_HANDLERS
-    active_vault_path.set(tmp_path)
     (tmp_path / ".gnosi").mkdir(parents=True, exist_ok=True)
     sb.set_host_handlers(_HOST_HANDLERS)
 
@@ -232,13 +240,11 @@ def test_sandbox_create_page(tmp_path):
     assert any("Nova del plugin" in p.name for p in mds)
 
 
-def test_sandbox_write_page_preserves_frontmatter(tmp_path):
+def test_sandbox_write_page_preserves_frontmatter(tmp_path, active_vault):
     # writePage must NOT overwrite the frontmatter: a page is created with
     # metadata, the plugin writes a new body, and the metadata must survive.
-    from backend.services.context_vars import active_vault_path
     from backend.services.plugin_dispatcher import _HOST_HANDLERS
     from backend.api.vault_routes import save_page_md, parse_frontmatter, register_page_in_index
-    active_vault_path.set(tmp_path)
     (tmp_path / ".gnosi").mkdir(parents=True, exist_ok=True)
     sb.set_host_handlers(_HOST_HANDLERS)
 
