@@ -2,9 +2,6 @@ schema_version: 1
 purpose: development-and-automation-classification
 agent_assignable_default: false
 packages:
-  autonomous_loop: {kind: developer}
-  auto_improver: {kind: developer}
-  backup_projectes: {kind: automation}
   calendar_sync: {kind: automation}
   host_open_helper: {kind: infrastructure}
   mail_sync: {kind: automation}
@@ -12,10 +9,7 @@ packages:
   notification_service: {kind: infrastructure}
   notion_clone: {kind: action}
   playwright_e2e: {kind: developer}
-  proves_dataset: {kind: developer}
-  publisher: {kind: automation}
   python_module_refactor: {kind: developer}
-  release_preflight: {kind: developer}
   rss_to_audio: {kind: automation}
   scheduler: {kind: infrastructure}
   suggest_connections: {kind: action}
@@ -24,6 +18,5 @@ packages:
   translate_page: {kind: action}
   translate_row: {kind: action}
   ui_stability: {kind: developer}
-  vault_ai_assistant: {kind: developer}
   vault_core: {kind: developer}
   zotero_schema: {kind: developer}

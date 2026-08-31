@@ -8,7 +8,18 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict, cast
+
+if TYPE_CHECKING:
+    from torch import LongTensor, Tensor
+    from transformers.generation.utils import GenerateOutput
+
+    class _MarianGenerator(Protocol):
+        """The batch-generation call supported by Marian's GenerationMixin."""
+
+        def generate(
+            self, *, max_length: int, num_beams: int, **inputs: Tensor,
+        ) -> GenerateOutput | LongTensor: ...
 
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
@@ -156,7 +167,12 @@ class OfflineTranslator:
                 batch = [f"{self.target_prefix} {text}" for text in batch]
             inputs = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True, max_length=512)
             with torch.no_grad():
-                outputs = self.model.generate(**inputs, max_length=512, num_beams=1)
+                # Transformers' internal mixin self protocol is broader than
+                # Marian's declared attributes. Keep its bound-method dispatch
+                # and exact return union while typing only the call we use.
+                outputs = cast("_MarianGenerator", self.model).generate(
+                    **inputs, max_length=512, num_beams=1,
+                )
             results.extend(self.tokenizer.batch_decode(outputs, skip_special_tokens=True))
         return results
 

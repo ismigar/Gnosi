@@ -11,11 +11,34 @@ source_paths:
   - mkdocs-ca.yml
   - mkdocs-es.yml
   - mkdocs-fr.yml
+  - scripts/check_public_pipeline.py
+  - pipeline/README.md
 tests:
   - pipeline/skills/technical_documentation/tests
+  - pipeline/tests/test_public_pipeline.py
 ---
 
 # Documentation maintenance
+
+## Public and private tooling
+
+Gnosi is the canonical public source repository. Private machine provisioning,
+backups, Drupal operations and personal-vault maintenance belong in a separate
+private workspace repository, never in a mirrored public export. Reviewed old
+copies are preserved with hashes before removal; this source cleanup neither
+rewrites history nor deletes user data or installed services.
+
+`pnpm check:pipeline` checks the Git index, including ignored files that were
+force-added. It rejects known private packages, caches, data and environment
+files, and external code links. Stage intended removals before checking: an
+unstaged deletion is still public in the index. The checker reads metadata only;
+it does not execute skills or inspect secrets. Passing it is not a complete
+secret audit or proof that every public tool has completed its portability review.
+
+Public translation, notifications, host-helper support, social publishing and
+backend scheduling keep their existing application contracts. The retired
+development orchestrator and personal publishing instructions are not runtime
+dependencies. Public skill classification is checked against the actual packages.
 
 ## Reviewed versus generated content
 
@@ -31,8 +54,18 @@ manually duplicate a 400-operation API table in a reviewed guide.
 
 From `Gnosi/`:
 
+Run the complete gate before staging the final change and again after staging.
+The second run must leave no generated diff:
+
+```bash
+uv run --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
+```
+
+Individual steps for diagnosis, using the same Python environment:
+
 ```bash
 python pipeline/skills/technical_documentation/scripts/generate.py
+python pipeline/skills/technical_documentation/scripts/localize.py --generated-only
 python pipeline/skills/technical_documentation/scripts/generate.py --check
 python pipeline/skills/technical_documentation/scripts/validate.py
 python pipeline/skills/technical_documentation/scripts/localize.py --check
@@ -130,10 +163,12 @@ current tree. `localize.py --check` requires Catalan, Spanish, and French tree
 parity. MkDocs strict mode validates navigation and documentation links in all
 four portals.
 
-Reviewed guides are localized in every portal. French keeps deterministic
-generated source catalogs in canonical English because route names, code
-identifiers, and extracted source descriptions are reference evidence rather
-than reviewed prose; its navigation and surrounding portal remain localized.
+Reviewed guides are localized in every portal. Generated catalogs localize known
+headings and fixed labels deterministically in Catalan, Spanish and French;
+source-derived cells, identifiers, paths and code remain byte-identical to
+English. Run `localize.py --generated-only` to refresh these catalogs without
+models or application imports. Never run full machine translation for a catalog
+refresh.
 
 These controls cannot prove prose semantics. Reviewers must compare claims with
 the linked source and tests.

@@ -16,7 +16,7 @@ def command_labels(*, check_only: bool) -> list[str]:
     ]
 
 
-def test_update_mode_regenerates_before_verifying_catalogs():
+def test_update_mode_regenerates_before_verifying_catalogs() -> None:
     """Local pre-PR runs must write catalogs before enforcing a clean result."""
     labels = command_labels(check_only=False)
 
@@ -36,7 +36,7 @@ def test_update_mode_regenerates_before_verifying_catalogs():
     ]
 
 
-def test_check_only_mode_never_writes_generated_pages():
+def test_check_only_mode_never_writes_generated_pages() -> None:
     """Read-only automation must reject stale catalogs without mutating them."""
     labels = command_labels(check_only=True)
 
@@ -51,7 +51,7 @@ def test_check_only_mode_never_writes_generated_pages():
     assert locale_commands[0].arguments[-1] == "--check"
 
 
-def test_gate_builds_every_supported_documentation_locale():
+def test_gate_builds_every_supported_documentation_locale() -> None:
     """The local gate must cover the same strict locale portals as CI."""
     labels = command_labels(check_only=False)
 
@@ -90,7 +90,10 @@ def test_check_only_stages_builds_outside_checkout(
             (site / "index.html").write_bytes(b"fixture build output")
             build_paths.append(site)
 
-    monkeypatch.setattr(pre_pr.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        "pipeline.skills.technical_documentation.scripts.pre_pr.subprocess.run",
+        fake_run,
+    )
     assert pre_pr.main(["--check-only"]) == 0
     assert len(build_paths) == len(set(build_paths)) == 4
     assert all(not path.exists() for path in build_paths)

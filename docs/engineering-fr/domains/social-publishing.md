@@ -6,7 +6,6 @@ source_paths:
   - backend/services/social_clients.py
   - frontend/src/features/social
   - frontend/src/features/media
-  - pipeline/skills/publisher
 tests:
   - backend/tests/test_social_clients_contract.py
   - backend/tests/test_media_upload.py
@@ -20,6 +19,11 @@ tests:
 # Édition sociale et médias
 
 ## Responsabilité
+
+Les anciennes instructions de publication Drupal propres au mainteneur ne font
+pas partie de l'application publique. Retirer ce paquet du pipeline ne supprime
+pas la publication sociale : les routes et adaptateurs indiqués ci-dessus
+restent la voie prise en charge.
 
 Ce domaine prépare, programme, publie et observe le contenu sur les réseaux sociaux configurés. Le centre de médias fournit des actifs visuels et des métadonnées réutilisables. L'édition est toujours un effet externe.
 

@@ -76,21 +76,21 @@ def iter_markdown_files(vault_root: Path) -> Iterable[Path]:
         yield path
 
 
-def parse_frontmatter_raw(content: str) -> Tuple[dict, str]:
+def parse_frontmatter_raw(content: str) -> Tuple[dict[object, object], str]:
     """Simplified version — does NOT merge the sidecar (we're migrating toward the sidecar)."""
     m = _FM_RE.match(content)
     if not m:
         return {}, content
     try:
-        meta = yaml.safe_load(m.group(1)) or {}
+        meta: object = yaml.safe_load(m.group(1)) or {}
         if not isinstance(meta, dict):
             return {}, content
-        return meta, content[m.end():]
+        return dict(meta), content[m.end():]
     except yaml.YAMLError:
         return {}, content
 
 
-def render_frontmatter(metadata: dict) -> str:
+def render_frontmatter(metadata: dict[object, object]) -> str:
     if not metadata:
         return "---\n---\n"
     yaml_str = yaml.dump(
@@ -110,7 +110,7 @@ def migrate_file(path: Path, vault_root: Path, dry_run: bool) -> str:
     if not metadata:
         return "no-frontmatter"
 
-    has_sidecar_keys = any(is_sidecar_key(k) for k in metadata.keys())
+    has_sidecar_keys = any(isinstance(k, str) and is_sidecar_key(k) for k in metadata)
     if not has_sidecar_keys:
         return "clean"
 
@@ -120,7 +120,14 @@ def migrate_file(path: Path, vault_root: Path, dry_run: bool) -> str:
         # report it so the user can resolve it manually.
         return "no-id"
 
-    fm_meta, sc_meta = split_metadata(metadata)
+    # The backend sidecar API accepts text keys. YAML also accepts dates,
+    # numbers and booleans as keys; keep those opaque entries in their order.
+    text_meta = {key: value for key, value in metadata.items() if isinstance(key, str)}
+    public_meta, sc_meta = split_metadata(text_meta)
+    fm_meta = {
+        key: value for key, value in metadata.items()
+        if not isinstance(key, str) or key in public_meta
+    }
 
     if dry_run:
         return "migrated"

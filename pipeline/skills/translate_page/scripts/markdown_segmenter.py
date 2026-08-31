@@ -26,11 +26,14 @@ from __future__ import annotations
 import re
 from typing import Callable, Optional
 
+from pipeline.skills.translate_row.scripts.translate_text import (
+    detect_source_lang as detect_source_lang,
+)
+
 # Reuse the translation primitives from the translate_row skill. `translate()` returns
 # (text, provider); `detect_source_lang` is re-exported for the endpoint's convenience.
 from pipeline.skills.translate_row.scripts.translate_text import (  # noqa: F401
     translate as _default_translate,
-    detect_source_lang as detect_source_lang,
 )
 
 # ---------------------------------------------------------------------------
@@ -80,19 +83,22 @@ _CITE_NAKED_RE = re.compile(r"(^|[\s(])@([a-z][a-z0-9_:-]*)\b", re.IGNORECASE)
 _HAS_WORD_RE = re.compile(r"[^\W\d_]{2,}", re.UNICODE)
 
 
-def _new_token(counter: list) -> str:
+def _new_token(counter: list[int]) -> str:
     token = f"XSEG{counter[0]:03d}ZZZ"
     counter[0] += 1
     return token
 
 
-def _restore_tokens(text: str, mapping: dict) -> str:
+def _restore_tokens(text: str, mapping: dict[str, str]) -> str:
     """Reverse the inline-token protection. Tolerant to MT case mangling."""
     out = text
     for token, original in mapping.items():
+        def restore(_match: re.Match[str], value: str = original) -> str:
+            return value
+
         out = re.sub(
             re.escape(token),
-            lambda _m, _o=original: _o,  # lambda repl avoids backreference interpolation
+            restore,  # A callable replacement avoids backreference interpolation.
             out,
             flags=re.IGNORECASE,
         )
@@ -109,13 +115,13 @@ def _translate_inline_text(text: str, tr: Callable[[str], str]) -> str:
     if not text or not text.strip():
         return text
 
-    mapping: dict = {}
+    mapping: dict[str, str] = {}
     counter = [0]
 
-    def protect(pattern, s):
+    def protect(pattern: re.Pattern[str], s: str) -> str:
         return pattern.sub(lambda m: _stash(m.group(0), mapping, counter), s)
 
-    def _stash(value, mp, cnt):
+    def _stash(value: str, mp: dict[str, str], cnt: list[int]) -> str:
         token = _new_token(cnt)
         mp[token] = value
         return token
@@ -181,7 +187,14 @@ def _translate_line(line: str, tr: Callable[[str], str]) -> str:
     return _translate_inline_text(line, tr)
 
 
-def _make_translator(src, tgt, deepl_api_key, softcatala_url, translate_fn, providers):
+def _make_translator(
+    src: str,
+    tgt: str,
+    deepl_api_key: Optional[str],
+    softcatala_url: Optional[str],
+    translate_fn: Optional[Callable[[str, str, str], str | tuple[str, str]]],
+    providers: set[str],
+) -> Callable[[str], str]:
     """Build a ``str -> str`` translator that records each provider used."""
 
     def _tr(text: str) -> str:
@@ -205,8 +218,8 @@ def translate_markdown(
     *,
     deepl_api_key: Optional[str] = None,
     softcatala_url: Optional[str] = None,
-    translate_fn: Optional[Callable] = None,
-) -> tuple[str, set]:
+    translate_fn: Optional[Callable[[str, str, str], str | tuple[str, str]]] = None,
+) -> tuple[str, set[str]]:
     """Translate the natural-language text of an enriched-markdown body.
 
     Returns ``(translated_markdown, providers)``. Structure (code fences, ``:::``
@@ -214,14 +227,14 @@ def translate_markdown(
     transclusions, wikilinks, citations, links/images, HTML tags) is preserved so the
     result re-parses cleanly. ``translate_fn`` is injectable for tests.
     """
-    providers: set = set()
+    providers: set[str] = set()
     if not body or src == tgt:
         return body, providers
 
     tr = _make_translator(src, tgt, deepl_api_key, softcatala_url, translate_fn, providers)
 
     lines = body.split("\n")
-    out: list = []
+    out: list[str] = []
     i = 0
     n = len(lines)
 
@@ -310,12 +323,12 @@ def translate_title(
     *,
     deepl_api_key: Optional[str] = None,
     softcatala_url: Optional[str] = None,
-    translate_fn: Optional[Callable] = None,
+    translate_fn: Optional[Callable[[str, str, str], str | tuple[str, str]]] = None,
 ) -> tuple[str, str]:
     """Translate a page title (plain text). Returns ``(translated, provider)``."""
     if not title or not title.strip() or src == tgt:
         return title, "noop"
-    providers: set = set()
+    providers: set[str] = set()
     tr = _make_translator(src, tgt, deepl_api_key, softcatala_url, translate_fn, providers)
     translated = _translate_inline_text(title, tr)
     provider = "mixed" if len(providers) > 1 else next(iter(providers), "noop")

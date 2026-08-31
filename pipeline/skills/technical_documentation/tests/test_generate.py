@@ -41,7 +41,7 @@ def test_secret_defaults_are_always_redacted() -> None:
     assert format_environment_default("EXAMPLE_TIMEOUT", ast.Constant(value="30")) == "'30'"
 
 
-def test_safe_unparse_normalizes_lambda_spacing() -> None:
+def test_safe_unparse_normalizes_lambda_without_arguments() -> None:
     """Generated expressions remain stable across supported Python versions."""
     expression = ast.parse("lambda: value", mode="eval").body
 

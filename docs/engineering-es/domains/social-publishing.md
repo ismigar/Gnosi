@@ -6,7 +6,6 @@ source_paths:
   - backend/services/social_clients.py
   - frontend/src/features/social
   - frontend/src/features/media
-  - pipeline/skills/publisher
 tests:
   - backend/tests/test_social_clients_contract.py
   - backend/tests/test_media_upload.py
@@ -20,6 +19,11 @@ tests:
 # Publicaciones y medios de comunicación sociales
 
 ## Responsabilidad
+
+Las instrucciones históricas de publicación en Drupal específicas del mantenedor
+no forman parte de la aplicación pública. Retirar aquel paquete del pipeline no
+elimina la publicación social: las rutas y los adaptadores indicados arriba
+siguen siendo la vía compatible.
 
 Este dominio prepara, programa, publica y observa contenidos en redes sociales configuradas. El centro de medios proporciona activos visuales y metadatos reutilizables. La publicación siempre es un efecto externo.
 

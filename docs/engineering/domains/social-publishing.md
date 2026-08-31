@@ -8,7 +8,6 @@ source_paths:
   - backend/domains/social
   - frontend/src/features/social
   - frontend/src/features/media
-  - pipeline/skills/publisher
 tests:
   - frontend/src/features/social/SocialDashboard.test.tsx
   - frontend/src/features/social/ContentCalendar.test.tsx
@@ -27,6 +26,10 @@ tests:
 This domain prepares, schedules, publishes, and observes content across
 configured social networks. The media center provides reusable visual assets
 and metadata. Publishing is always an external effect.
+
+The historical maintainer-specific Drupal publishing instructions are not part
+of the public runtime. Removing that pipeline package does not remove social
+publishing: the routes and adapters listed above remain the supported path.
 
 The social feature owns its dashboard, composer, scheduled-content calendar,
 history, and private UI components. The media feature separately owns asset

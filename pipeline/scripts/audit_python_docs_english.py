@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import tokenize
+from collections.abc import Iterator
 from pathlib import Path
 
 
@@ -125,7 +126,7 @@ def is_intentional_runtime_string(text: str) -> bool:
     return False
 
 
-def iter_files(root: Path, suffixes: set[str]):
+def iter_files(root: Path, suffixes: set[str]) -> Iterator[Path]:
     if root.is_file():
         if root.suffix.lower() in suffixes:
             yield root
@@ -235,18 +236,18 @@ def scan_python(
         for node in ast.walk(tree):
             if id(node) in skipped_runtime_nodes:
                 continue
-            values: list[str] = []
+            string_values: list[str] = []
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                values.append(node.value)
+                string_values.append(node.value)
             elif isinstance(node, ast.JoinedStr):
-                values.extend(
+                string_values.extend(
                     value.value
                     for value in node.values
                     if isinstance(value, ast.Constant) and isinstance(value.value, str)
                 )
-            if not values:
+            if not string_values:
                 continue
-            text = " ".join(values)
+            text = " ".join(string_values)
             if is_intentional_runtime_string(text):
                 continue
             candidates.append((getattr(node, "lineno", 1), "runtime-string", text, text))

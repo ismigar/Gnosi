@@ -277,7 +277,10 @@ def test_pre_pr_refreshes_locales_after_new_english_bytes(
         else:
             assert localize.main(list(arguments[2:])) == 0
 
-    monkeypatch.setattr(pre_pr.subprocess, "run", run_fixture_command)
+    monkeypatch.setattr(
+        "pipeline.skills.technical_documentation.scripts.pre_pr.subprocess.run",
+        run_fixture_command,
+    )
     commands = [
         command for command in pre_pr.build_commands(base_ref=None, check_only=False)
         if command.arguments[1].endswith(("generate.py", "localize.py"))

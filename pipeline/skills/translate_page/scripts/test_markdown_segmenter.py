@@ -7,17 +7,66 @@ Run from `Gnosi`:
 A fake translator wraps natural-language text in « » so each assertion can tell what was
 translated apart from what was preserved verbatim. No network is used.
 """
-from pipeline.skills.translate_page.scripts.markdown_segmenter import (
-    translate_markdown,
-    translate_title,
-)
+from __future__ import annotations
+
+import importlib.util
+import inspect
+import re
+import sys
+from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING
+
+import pytest
 
 
-def _fake(text, src, tgt):
+class _TranslationPrimitives(ModuleType):
+    """Fail closed if a test accidentally selects the real provider path."""
+
+    @staticmethod
+    def translate(
+        text: str,
+        source_lang: str,
+        target_lang: str,
+        *,
+        deepl_api_key: str | None = None,
+        softcatala_url: str | None = None,
+    ) -> tuple[str, str]:
+        raise AssertionError("Tests must inject a local translator")
+
+    @staticmethod
+    def detect_source_lang(text: str) -> str:
+        return "synthetic"
+
+
+def _load_segmenter() -> ModuleType:
+    """Load a private copy without importing providers, models or the backend."""
+    name = "pipeline.skills.translate_row.scripts.translate_text"
+    spec = importlib.util.spec_from_file_location(
+        "_markdown_segmenter_test", Path(__file__).with_name("markdown_segmenter.py")
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setitem(sys.modules, name, _TranslationPrimitives(name))
+        spec.loader.exec_module(module)
+    return module
+
+
+if TYPE_CHECKING:
+    from pipeline.skills.translate_page.scripts import markdown_segmenter as _segmenter
+else:
+    _segmenter = _load_segmenter()
+
+translate_markdown = _segmenter.translate_markdown
+translate_title = _segmenter.translate_title
+
+
+def _fake(text: str, src: str, tgt: str) -> tuple[str, str]:
     return f"«{text}»", "fake"
 
 
-def tr(body):
+def tr(body: str) -> str:
     out, providers = translate_markdown(body, "ca", "en", translate_fn=_fake)
     return out
 
@@ -25,36 +74,36 @@ def tr(body):
 # --- Plain text & line markers --------------------------------------------------------
 
 
-def test_paragraph_translated():
+def test_paragraph_translated() -> None:
     assert tr("Hola món") == "«Hola món»"
 
 
-def test_heading_marker_preserved():
+def test_heading_marker_preserved() -> None:
     assert tr("## Títol de secció") == "## «Títol de secció»"
 
 
-def test_bullet_marker_preserved():
+def test_bullet_marker_preserved() -> None:
     assert tr("- un element") == "- «un element»"
 
 
-def test_nested_bullet_indentation_preserved():
+def test_nested_bullet_indentation_preserved() -> None:
     assert tr("    - element niuat") == "    - «element niuat»"
 
 
-def test_numbered_marker_preserved():
+def test_numbered_marker_preserved() -> None:
     assert tr("1. primer") == "1. «primer»"
 
 
-def test_checklist_marker_preserved():
+def test_checklist_marker_preserved() -> None:
     assert tr("- [ ] tasca pendent") == "- [ ] «tasca pendent»"
     assert tr("- [x] tasca feta") == "- [x] «tasca feta»"
 
 
-def test_blockquote_marker_preserved():
+def test_blockquote_marker_preserved() -> None:
     assert tr("> una cita") == "> «una cita»"
 
 
-def test_callout_header_preserved():
+def test_callout_header_preserved() -> None:
     out = tr("> [!info] Atenció")
     assert out == "> [!info] «Atenció»"
 
@@ -62,38 +111,38 @@ def test_callout_header_preserved():
 # --- Passthrough blocks (never translated) --------------------------------------------
 
 
-def test_code_fence_passthrough():
+def test_code_fence_passthrough() -> None:
     src = '```python\nprint("hola")\n```'
     assert tr(src) == src
 
 
-def test_gnosi_database_fence_passthrough():
+def test_gnosi_database_fence_passthrough() -> None:
     src = '```gnosi-database\n{\n  "table_id": "abc",\n  "title": "Recursos"\n}\n```'
     assert tr(src) == src
 
 
-def test_gnosi_view_fence_passthrough():
+def test_gnosi_view_fence_passthrough() -> None:
     src = '```gnosi-view\n{\n  "view_id": "v1",\n  "heading": "Registres"\n}\n```'
     assert tr(src) == src
 
 
-def test_bibliography_passthrough():
+def test_bibliography_passthrough() -> None:
     assert tr("{{bibliography}}") == "{{bibliography}}"
     assert tr("{{bibliography:apa}}") == "{{bibliography:apa}}"
     assert tr("{{bibliography:apa:ca-AD}}") == "{{bibliography:apa:ca-AD}}"
 
 
-def test_transclusion_line_passthrough():
+def test_transclusion_line_passthrough() -> None:
     assert tr("![[document-id]]") == "![[document-id]]"
     assert tr("![[document-id|Àlies]]") == "![[document-id|Àlies]]"
     assert tr("![[document-id#secció|Àlies]]") == "![[document-id#secció|Àlies]]"
 
 
-def test_horizontal_rule_passthrough():
+def test_horizontal_rule_passthrough() -> None:
     assert tr("---") == "---"
 
 
-def test_directive_markers_passthrough():
+def test_directive_markers_passthrough() -> None:
     src = ":::column-list\n:::column {width=0.5}\nContingut\n:::\n:::"
     out = tr(src)
     lines = out.split("\n")
@@ -104,11 +153,11 @@ def test_directive_markers_passthrough():
     assert lines[4] == ":::"
 
 
-def test_toggle_label_translated_marker_preserved():
+def test_toggle_label_translated_marker_preserved() -> None:
     assert tr(":::toggle Obre'm") == ":::toggle «Obre'm»"
 
 
-def test_gnosi_ignore_block_passthrough():
+def test_gnosi_ignore_block_passthrough() -> None:
     src = ":::gnosi-ignore\nText que NO s'ha de traduir\n:::"
     assert tr(src) == src
 
@@ -116,55 +165,55 @@ def test_gnosi_ignore_block_passthrough():
 # --- Inline protection ----------------------------------------------------------------
 
 
-def test_inline_code_preserved():
+def test_inline_code_preserved() -> None:
     out = tr("Executa `npm run build` ara")
     assert "`npm run build`" in out
     assert out == "«Executa `npm run build` ara»"
 
 
-def test_link_text_translated_url_preserved():
+def test_link_text_translated_url_preserved() -> None:
     out = tr("Vegeu [la guia](https://example.com/path) per saber-ne més")
     assert "(https://example.com/path)" in out
     assert "[la guia]" in out  # brackets survive; inner text rides along in « »
 
 
-def test_image_preserved():
+def test_image_preserved() -> None:
     out = tr("Mira ![diagrama](https://img.example/a.png) aquí")
     assert "![diagrama](https://img.example/a.png)" in out
 
 
-def test_file_sentinel_url_preserved():
+def test_file_sentinel_url_preserved() -> None:
     url = "https://gnosi-file-protocol.local/Users/x/doc.pdf"
     out = tr(f"Obre [el fitxer]({url})")
     assert f"({url})" in out
 
 
-def test_wikilink_preserved():
+def test_wikilink_preserved() -> None:
     out = tr("Consulta [[altra-pagina]] també")
     assert "[[altra-pagina]]" in out
 
 
-def test_wikilink_with_alias_preserved():
+def test_wikilink_with_alias_preserved() -> None:
     out = tr("Consulta [[altra-pagina|el resum]] també")
     assert "[[altra-pagina|el resum]]" in out
 
 
-def test_bracket_citation_preserved():
+def test_bracket_citation_preserved() -> None:
     out = tr("Com diu [@smith2020] al seu treball")
     assert "[@smith2020]" in out
 
 
-def test_naked_citation_preserved():
+def test_naked_citation_preserved() -> None:
     out = tr("Com diu @smith2020 al seu treball")
     assert "@smith2020" in out
 
 
-def test_html_tags_preserved():
+def test_html_tags_preserved() -> None:
     out = tr("Primera línia<br>\nsegona")
     assert "<br>" in out
 
 
-def test_line_with_only_image_not_wrapped():
+def test_line_with_only_image_not_wrapped() -> None:
     # No translatable text remains after protection → returned untouched.
     assert tr("![sol](https://img.example/x.png)") == "![sol](https://img.example/x.png)"
 
@@ -172,7 +221,7 @@ def test_line_with_only_image_not_wrapped():
 # --- GFM tables -----------------------------------------------------------------------
 
 
-def test_table_cells_translated_separator_intact():
+def test_table_cells_translated_separator_intact() -> None:
     src = "| Nom | Edat |\n| --- | --- |\n| Anna | 30 |"
     out = tr(src)
     lines = out.split("\n")
@@ -185,7 +234,7 @@ def test_table_cells_translated_separator_intact():
 # --- Whole-document round trip --------------------------------------------------------
 
 
-def test_complex_document_structure_preserved():
+def test_complex_document_structure_preserved() -> None:
     src = "\n".join([
         "# Introducció",
         "",
@@ -221,25 +270,150 @@ def test_complex_document_structure_preserved():
 # --- Guards ---------------------------------------------------------------------------
 
 
-def test_same_lang_is_noop():
+def test_same_lang_is_noop() -> None:
     body = "# Títol\nText"
     out, providers = translate_markdown(body, "ca", "ca", translate_fn=_fake)
     assert out == body
     assert providers == set()
 
 
-def test_empty_body():
+def test_empty_body() -> None:
     out, providers = translate_markdown("", "ca", "en", translate_fn=_fake)
     assert out == ""
 
 
-def test_translate_title_plain():
+def test_translate_title_plain() -> None:
     out, provider = translate_title("El meu document", "ca", "en", translate_fn=_fake)
     assert out == "«El meu document»"
     assert provider == "fake"
 
 
-def test_translate_title_same_lang_noop():
+def test_translate_title_same_lang_noop() -> None:
     out, provider = translate_title("Títol", "ca", "ca", translate_fn=_fake)
     assert out == "Títol"
     assert provider == "noop"
+
+
+# --- Callable contracts and boundary cases --------------------------------------------
+
+
+def test_string_callable_is_synchronous_and_receives_positional_languages() -> None:
+    calls: list[tuple[str, str, str]] = []
+
+    class Translator:
+        def __call__(self, text: str, source: str, target: str, /) -> str:
+            calls.append((text, source, target))
+            return f"«{text}»"
+
+    translator = Translator()
+    assert not inspect.iscoroutinefunction(translate_markdown)
+    assert not inspect.iscoroutinefunction(translate_title)
+    assert translate_markdown("Hola\nAdéu", "ca", "en", translate_fn=translator) == (
+        "«Hola»\n«Adéu»", {"fake"}
+    )
+    assert calls == [("Hola", "ca", "en"), ("Adéu", "ca", "en")]
+    assert translate_title("Títol", "ca", "en", translate_fn=translator) == (
+        "«Títol»", "fake"
+    )
+    assert calls[-1] == ("Títol", "ca", "en")
+
+
+def test_tuple_callable_tracks_distinct_providers() -> None:
+    providers = iter(("first", "second", "first"))
+
+    def translator(text: str, src: str, tgt: str) -> tuple[str, str]:
+        return f"«{text}»", next(providers)
+
+    assert translate_markdown("Hola\nAdéu\nHola", "ca", "en", translate_fn=translator) == (
+        "«Hola»\n«Adéu»\n«Hola»", {"first", "second"}
+    )
+
+
+@pytest.mark.parametrize("text", ["", " \t\n", "123 _ x", "`codi`", "![alt](url)"])
+def test_protected_or_empty_inputs_skip_translation(text: str) -> None:
+    # The local default raises if either entry point tries to translate.
+    assert translate_markdown(text, "ca", "en") == (text, set())
+    assert translate_title(text, "ca", "en") == (text, "noop")
+
+
+def test_same_language_skips_translator() -> None:
+    assert translate_markdown("Hola", "ca", "ca") == ("Hola", set())
+    assert translate_title("Hola", "ca", "ca") == ("Hola", "noop")
+
+
+def test_default_provider_options_are_forwarded(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, str, str, str | None, str | None]] = []
+
+    def translator(
+        text: str,
+        source_lang: str,
+        target_lang: str,
+        *,
+        deepl_api_key: str | None = None,
+        softcatala_url: str | None = None,
+    ) -> tuple[str, str]:
+        calls.append((text, source_lang, target_lang, deepl_api_key, softcatala_url))
+        return f"«{text}»", "local"
+
+    monkeypatch.setattr(_segmenter, "_default_translate", translator)
+    assert translate_markdown(
+        "Hola", "ca", "en", deepl_api_key="synthetic", softcatala_url="https://example.invalid"
+    ) == ("«Hola»", {"local"})
+    assert translate_title("Títol", "ca", "en") == ("«Títol»", "local")
+    assert calls == [
+        ("Hola", "ca", "en", "synthetic", "https://example.invalid"),
+        ("Títol", "ca", "en", None, None),
+    ]
+
+
+def test_injected_provider_exceptions_propagate() -> None:
+    failure = RuntimeError("synthetic failure")
+
+    def translator(text: str, src: str, tgt: str) -> str:
+        raise failure
+
+    with pytest.raises(RuntimeError) as markdown_error:
+        translate_markdown("Hola", "ca", "en", translate_fn=translator)
+    with pytest.raises(RuntimeError) as title_error:
+        translate_title("Títol", "ca", "en", translate_fn=translator)
+    assert markdown_error.value is failure
+    assert title_error.value is failure
+
+
+def test_detection_reexport_preserves_callable_identity() -> None:
+    assert _segmenter.detect_source_lang is _TranslationPrimitives.detect_source_lang
+
+
+def test_multiple_tokens_restore_case_insensitively_and_literally() -> None:
+    source = r'Vegeu `\1\g<name>` i [[Pàgina|Àlies]] i [guia](https://example.invalid/A) @Clau'
+
+    def translator(text: str, src: str, tgt: str) -> str:
+        return "«" + re.sub(r"XSEG\d+ZZZ", lambda match: match.group().lower(), text) + "»"
+
+    assert translate_markdown(source, "ca", "en", translate_fn=translator) == (
+        f"«{source}»", {"fake"}
+    )
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        "~~~text\nContingut\n```\nMés contingut\n~~~",
+        "````text\nContingut\n```",  # Current grammar accepts a shorter closing fence.
+        ":::gnosi-ignore\nExterior\n:::gnosi-ignore\nInterior\n:::\nExterior\n:::",
+    ],
+)
+def test_protected_blocks_resume_at_the_current_closing_boundary(block: str) -> None:
+    assert tr(f"Abans\n{block}\nDesprés\n") == f"«Abans»\n{block}\n«Després»\n"
+
+
+@pytest.mark.parametrize("block", ["```\nText\n", ":::gnosi-ignore\nText\n"])
+def test_unterminated_protected_blocks_remain_unchanged(block: str) -> None:
+    assert translate_markdown(block, "ca", "en") == (block, set())
+
+
+def test_table_escaping_and_empty_cells_keep_current_behavior() -> None:
+    source = "  | Nom | Dada |\n  | :--- | ---: |\n  | A\\|B | |\nText"
+    assert tr(source) == (
+        "  | «Nom» | «Dada» |\n  | :--- | ---: |\n  | A\\\\|B |  |\n«Text»"
+    )
