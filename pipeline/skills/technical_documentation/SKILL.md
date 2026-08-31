@@ -22,6 +22,9 @@ reading local secrets.
 - Generated reference: `docs/engineering/generated/`.
 - Domain coverage configuration: `domains.json`.
 - Generator: `scripts/generate.py`.
+- Catalog owners: `catalog_common.py`, `api_catalog.py`, `backend_catalog.py`,
+  `model_catalog.py`, `frontend_catalog.py`, `configuration_catalog.py`, and
+  `inventory_catalogs.py` under `scripts/`. They never import the CLI.
 - Validator: `scripts/validate.py`.
 - Functional change gate: `scripts/check_change_impact.py`.
 - Portal configuration: `mkdocs.yml` at the application root.
@@ -95,6 +98,14 @@ Markdown parser or a proof of prose meaning. Keep the link/metadata validator,
 strict portal builds and human/browser review as independent gates.
 
 ## Generation rules
+
+The CLI retains explicit compatibility exports and owns coverage diagnostics.
+When extracting catalog logic, preserve existing signatures and exact output
+bytes on identical inputs; source inventory changes are separate from rendering
+changes. Use the pre-extraction synthetic golden test and compare all nine
+catalogs against the immutable baseline. Run `pnpm check:pipeline:structure`
+after staging: every indexed Python file, including tests, must remain within
+800 lines and complexity 15. No local exclusion or suppression bypasses this gate.
 
 1. Inspect source only; never import `backend.server` or another runtime module.
 2. Use Python AST for routers, functions, docstrings, and environment access.

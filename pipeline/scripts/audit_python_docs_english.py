@@ -162,13 +162,8 @@ def detected_languages(texts: list[str], language_detector: Path | None) -> list
     return [language if language in {"ca", "es"} else None for language in detected]
 
 
-def scan_python(
-    path: Path,
-    *,
-    inspect_strings: bool = False,
-    language_detector: Path | None = None,
-) -> int:
-    source = path.read_text(encoding="utf-8", errors="replace")
+def _python_comment_candidates(source: str) -> list[tuple[int, str, str, str]]:
+    """Collect comments in token order, retaining the original error fallback."""
     candidates: list[tuple[int, str, str, str]] = []
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
@@ -180,15 +175,11 @@ def scan_python(
         if "@language-example" in token.string:
             continue
         candidates.append((token.start[0], "comment", token.string, strip_intentional_examples(token.string)))
+    return candidates
 
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        languages = detected_languages([item[3] for item in candidates], language_detector)
-        for (line, kind, text, _), language in zip(candidates, languages):
-            if language:
-                report(path, line, kind, text, language)
-        return sum(bool(language) for language in languages)
+
+def _python_skipped_runtime_nodes(tree: ast.Module) -> set[int]:
+    """Keep docstrings and descendants of formatted strings out of runtime hits."""
     skipped_runtime_nodes: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.JoinedStr):
@@ -202,6 +193,29 @@ def scan_python(
                 and isinstance(body[0].value.value, str)
             ):
                 skipped_runtime_nodes.add(id(body[0].value))
+    return skipped_runtime_nodes
+
+
+def _python_string_values(node: ast.AST) -> list[str]:
+    """Read only literal text, without evaluating formatted expressions."""
+    values: list[str] = []
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        values.append(node.value)
+    elif isinstance(node, ast.JoinedStr):
+        values.extend(
+            value.value
+            for value in node.values
+            if isinstance(value, ast.Constant) and isinstance(value.value, str)
+        )
+    return values
+
+
+def _append_python_documentation_candidates(
+    tree: ast.Module,
+    candidates: list[tuple[int, str, str, str]],
+    skipped_runtime_nodes: set[int],
+) -> None:
+    """Append docstrings and positional log arguments in AST traversal order."""
     for node in ast.walk(tree):
         if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             docstring = ast.get_docstring(node, clean=False)
@@ -220,37 +234,50 @@ def scan_python(
             continue
         for argument in node.args:
             skipped_runtime_nodes.update(id(child) for child in ast.walk(argument))
-            values: list[str] = []
-            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
-                values.append(argument.value)
-            elif isinstance(argument, ast.JoinedStr):
-                values.extend(
-                    value.value
-                    for value in argument.values
-                    if isinstance(value, ast.Constant) and isinstance(value.value, str)
-                )
+            values = _python_string_values(argument)
             text = " ".join(values)
             if text:
                 candidates.append((argument.lineno, f"{owner}.{node.func.attr}", text, text))
+
+
+def _append_python_runtime_candidates(
+    tree: ast.Module,
+    candidates: list[tuple[int, str, str, str]],
+    skipped_runtime_nodes: set[int],
+) -> None:
+    """Append remaining runtime literals without reclassifying compatibility data."""
+    for node in ast.walk(tree):
+        if id(node) in skipped_runtime_nodes:
+            continue
+        string_values = _python_string_values(node)
+        if not string_values:
+            continue
+        text = " ".join(string_values)
+        if is_intentional_runtime_string(text):
+            continue
+        candidates.append((getattr(node, "lineno", 1), "runtime-string", text, text))
+
+
+def scan_python(
+    path: Path,
+    *,
+    inspect_strings: bool = False,
+    language_detector: Path | None = None,
+) -> int:
+    source = path.read_text(encoding="utf-8", errors="replace")
+    candidates = _python_comment_candidates(source)
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        languages = detected_languages([item[3] for item in candidates], language_detector)
+        for (line, kind, text, _), language in zip(candidates, languages):
+            if language:
+                report(path, line, kind, text, language)
+        return sum(bool(language) for language in languages)
+    skipped_runtime_nodes = _python_skipped_runtime_nodes(tree)
+    _append_python_documentation_candidates(tree, candidates, skipped_runtime_nodes)
     if inspect_strings:
-        for node in ast.walk(tree):
-            if id(node) in skipped_runtime_nodes:
-                continue
-            string_values: list[str] = []
-            if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                string_values.append(node.value)
-            elif isinstance(node, ast.JoinedStr):
-                string_values.extend(
-                    value.value
-                    for value in node.values
-                    if isinstance(value, ast.Constant) and isinstance(value.value, str)
-                )
-            if not string_values:
-                continue
-            text = " ".join(string_values)
-            if is_intentional_runtime_string(text):
-                continue
-            candidates.append((getattr(node, "lineno", 1), "runtime-string", text, text))
+        _append_python_runtime_candidates(tree, candidates, skipped_runtime_nodes)
 
     languages = detected_languages([item[3] for item in candidates], language_detector)
     findings = 0

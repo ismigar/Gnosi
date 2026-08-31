@@ -211,6 +211,22 @@ def _make_translator(
     return _tr
 
 
+def _copy_ignored_block(lines: list[str], i: int, out: list[str]) -> int:
+    """Copy one gnosi-ignore block, including nested blocks and its close."""
+    out.append(lines[i])
+    i += 1
+    depth = 1
+    while i < len(lines) and depth > 0:
+        s = lines[i].strip()
+        if _GNOSI_IGNORE_RE.match(s):
+            depth += 1
+        elif _DIRECTIVE_CLOSE_RE.match(s):
+            depth -= 1
+        out.append(lines[i])
+        i += 1
+    return i
+
+
 def translate_markdown(
     body: str,
     src: str,
@@ -259,17 +275,7 @@ def translate_markdown(
 
         # 2. gnosi-ignore — passthrough the whole block (with nesting).
         if _GNOSI_IGNORE_RE.match(stripped):
-            out.append(line)
-            i += 1
-            depth = 1
-            while i < n and depth > 0:
-                s = lines[i].strip()
-                if _GNOSI_IGNORE_RE.match(s):
-                    depth += 1
-                elif _DIRECTIVE_CLOSE_RE.match(s):
-                    depth -= 1
-                out.append(lines[i])
-                i += 1
+            i = _copy_ignored_block(lines, i, out)
             continue
 
         # 3. Other ::: directive lines (column-list, column, toggle, close).

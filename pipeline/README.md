@@ -33,8 +33,12 @@ to external code. An unstaged deletion still exists in the index and must fail.
 Run `pnpm typecheck:pipeline` after staging as well. It checks every indexed Python
 file, including tests and files inside ignored directories, with strict mypy and
 no directory exclusions. It fails on missing sources or an empty source set.
-The public CI runs both checks; checking only the backend does not cover these
-tools.
+Run `pnpm check:pipeline:structure` to enforce 800 lines per Python module and
+cyclomatic complexity at most 15. This explicit source-reading mode uses the same
+complete index, includes tests and force-added ignored files, rejects missing or
+external sources and has no size allowlist. The default boundary command remains
+metadata-only. Public CI runs all three checks; checking only the backend does
+not cover these tools.
 
 Obsolete parser/cache, Wiki/BD helpers, the personal full Notion importer and
 standalone mail/calendar synchronizers were preserved privately before source

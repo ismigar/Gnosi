@@ -98,6 +98,8 @@ jobs:
       - run: uv sync --frozen
       - name: Reject private tools and generated pipeline state
         run: uv run python scripts/check_public_pipeline.py
+      - name: Enforce public pipeline size and complexity limits
+        run: uv run python scripts/check_public_pipeline.py --structure
       - name: Reject retired host operations and local runtime state
         run: uv run python scripts/check_public_runtime.py
       - run: uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy

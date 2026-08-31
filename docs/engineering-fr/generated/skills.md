@@ -20,7 +20,7 @@ Discovered **15 documented runtime skills**.
 | `rss_to_audio` | SKILL: RSS to Audio Podcast | 91 | 1 | [`pipeline/skills/rss_to_audio/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/rss_to_audio/SKILL.md) |
 | `scheduler` | SKILL: Backend Background Scheduler | 77 | 0 | [`pipeline/skills/scheduler/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/scheduler/SKILL.md) |
 | `suggest_connections` | SKILL: Brain Connection Proposals | 54 | 0 | [`pipeline/skills/suggest_connections/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/suggest_connections/SKILL.md) |
-| `technical_documentation` | SKILL: Technical documentation | 194 | 7 | [`pipeline/skills/technical_documentation/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/SKILL.md) |
+| `technical_documentation` | SKILL: Technical documentation | 205 | 14 | [`pipeline/skills/technical_documentation/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/SKILL.md) |
 | `translate_page` | Skill: translate_page | 110 | 3 | [`pipeline/skills/translate_page/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_page/SKILL.md) |
 | `translate_row` | Skill: translate_row | 173 | 2 | [`pipeline/skills/translate_row/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/SKILL.md) |
 | `vault_core` | SKILL: Vault Core Management | 54 | 0 | [`pipeline/skills/vault_core/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/vault_core/SKILL.md) |

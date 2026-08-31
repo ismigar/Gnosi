@@ -221,12 +221,11 @@ def _table_id_for_page(
     return max(candidates, key=lambda item: len(item[1].parts))[0]
 
 
-def _replace_view_field_refs(container: object, replacements: dict[str, str]) -> bool:
-    """Rewrite field-name positions in a view without touching filter values."""
+def _replace_view_list_refs(container: Record, replacements: dict[str, str]) -> bool:
+    """Retain list equality checks and in-place updates to field descriptors."""
 
-    if not _is_record(container):
-        return False
     changed = False
+
     def replace_value(value: object) -> object:
         if isinstance(value, str):
             return replacements.get(value, value)
@@ -239,7 +238,6 @@ def _replace_view_field_refs(container: object, replacements: dict[str, str]) ->
         return value
 
     list_keys = ("visibleProperties", "visible_properties", "columns")
-    scalar_keys = ("groupBy", "dateField", "coverField", "groupSort")
     for key in list_keys:
         values = container.get(key)
         if isinstance(values, list):
@@ -247,11 +245,13 @@ def _replace_view_field_refs(container: object, replacements: dict[str, str]) ->
             if new_values != values:
                 container[key] = new_values
                 changed = True
-    for key in scalar_keys:
-        value = container.get(key)
-        if isinstance(value, str) and value in replacements:
-            container[key] = replacements[value]
-            changed = True
+    return changed
+
+
+def _replace_view_sort_refs(container: Record, replacements: dict[str, str]) -> bool:
+    """Update sort and filter fields in their existing traversal order."""
+
+    changed = False
     sort_value = container.get("sort")
     sort_items = _items(sort_value, "sort") if isinstance(sort_value, list) else [sort_value]
     for item in sort_items:
@@ -269,6 +269,21 @@ def _replace_view_field_refs(container: object, replacements: dict[str, str]) ->
                     if isinstance(field, str) and field in replacements:
                         item["field"] = replacements[field]
                         changed = True
+    return changed
+
+
+def _replace_view_field_refs(container: object, replacements: dict[str, str]) -> bool:
+    """Rewrite field-name positions in a view without touching filter values."""
+
+    if not _is_record(container):
+        return False
+    changed = _replace_view_list_refs(container, replacements)
+    for key in ("groupBy", "dateField", "coverField", "groupSort"):
+        value = container.get(key)
+        if isinstance(value, str) and value in replacements:
+            container[key] = replacements[value]
+            changed = True
+    changed = _replace_view_sort_refs(container, replacements) or changed
     for key in ("columnWidths", "aggregations"):
         values = container.get(key)
         if _is_record(values):
@@ -325,6 +340,23 @@ def migrate_registry(registry: Record, locale: str) -> tuple[Record, dict[str, i
     return migrated, report
 
 
+def _page_date_source_keys(table: Record) -> dict[str, list[object]]:
+    """Collect property names, aliases and IDs without normalizing their order."""
+
+    old_by_role: dict[str, list[object]] = {"created": [], "modified": []}
+    for prop in _records(table.get("properties", []) or [], "Table properties"):
+        role = prop.get("system_date_role")
+        if not isinstance(role, str) or role not in old_by_role:
+            continue
+        old_by_role[role].append(str(prop.get("name") or ""))
+        old_by_role[role].extend(
+            str(alias) for alias in _items(prop.get("aliases", []) or [], "Property aliases")
+        )
+        if prop.get("id"):
+            old_by_role[role].append(str(prop["id"]))
+    return old_by_role
+
+
 def _migrate_page(
     path: Path,
     table: Record,
@@ -346,18 +378,7 @@ def _migrate_page(
     page_id = str(metadata.get("id") or "").strip()
     notion_dates = (notion_dates_by_page or {}).get(page_id)
 
-    old_by_role: dict[str, list[object]] = {"created": [], "modified": []}
-    for prop in _records(table.get("properties", []) or [], "Table properties"):
-        role = prop.get("system_date_role")
-        if not isinstance(role, str) or role not in old_by_role:
-            continue
-        old_by_role[role].append(str(prop.get("name") or ""))
-        old_by_role[role].extend(
-            str(alias) for alias in _items(prop.get("aliases", []) or [], "Property aliases")
-        )
-        if prop.get("id"):
-            old_by_role[role].append(str(prop["id"]))
-
+    old_by_role = _page_date_source_keys(table)
     labels = system_date_labels(locale)
     for key in metadata:
         if key in _PROTECTED_METADATA:

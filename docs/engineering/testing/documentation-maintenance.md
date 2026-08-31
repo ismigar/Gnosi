@@ -46,6 +46,18 @@ backend scheduling keep their existing application contracts. The retired
 development orchestrator and personal publishing instructions are not runtime
 dependencies. Public skill classification is checked against the actual packages.
 
+Run `pnpm check:pipeline:structure` after staging to enforce 800 lines per indexed
+Python module and cyclomatic complexity at most 15, including tests and ignored
+files. It rejects missing or external sources; local Ruff exclusions and
+suppression comments cannot bypass it. This explicit mode reads source, while
+the default boundary check remains metadata-only. CI runs all three checks.
+
+The catalog generator separates common source primitives, API discovery, backend
+metrics, data models, frontend routes, configuration and inventories into leaf
+modules. `generate.py` retains CLI orchestration, coverage diagnostics and explicit
+compatibility imports. Extraction tests preserve all nine catalog outputs; static
+generation never imports the application or runs providers.
+
 ## Reviewed versus generated content
 
 Reviewed pages explain intent, boundaries, flows, invariants, failure behavior,

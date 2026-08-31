@@ -44,6 +44,18 @@ La traducció, les notificacions, l'ajudant d'obertura de fitxers, la publicaci�
 social i la planificació del backend mantenen els contractes existents. L'antic
 orquestrador de desenvolupament no era una dependència d'aquests serveis.
 
+Executeu `pnpm check:pipeline:structure` després de preparar l'índex per limitar
+cada mòdul Python indexat a 800 línies i la complexitat ciclomàtica a 15, inclosos
+tests i fitxers ignorats. Rebutja fonts absents o externes; les exclusions locals
+de Ruff i els comentaris de supressió no permeten evitar-lo. Aquest mode explícit
+llegeix codi; el control per defecte només llegeix metadades. CI executa els tres controls.
+
+El generador separa primitives comunes, descobriment d'API, mètriques del backend,
+models de dades, rutes frontend, configuració i inventaris en mòduls independents.
+`generate.py` conserva l'orquestració CLI, els diagnòstics de cobertura i les
+importacions explícites de compatibilitat. Les proves d'extracció preserven els
+nou catàlegs; la generació estàtica no importa l'aplicació ni executa proveïdors.
+
 ## Contingut revisat i contingut generat
 
 Les pàgines revisades expliquen la intenció, els límits, els fluxos, les invariants,

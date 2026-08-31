@@ -33,6 +33,7 @@ import time
 import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Protocol
 
 import httpx
 
@@ -80,29 +81,14 @@ def clone_page_id(notion_page_id: str) -> str:
     return str(uuid.uuid5(_CLONE_NS, "page:" + str(notion_page_id or "").replace("-", "")))
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--vault-id", required=True, help="clone vault id (GET /api/vaults)")
-    ap.add_argument("--backend", default="http://localhost:5002")
-    ap.add_argument(
-        "--apply", action="store_true", help="apply the PATCH requests (dry-run by default)"
-    )
-    args = ap.parse_args(argv, namespace=_Arguments())
+class _BlockReader(Protocol):
+    """The block lookup needed while resolving page parents."""
 
-    # Same credential contract as backend/api/notion_routes.py: get_raw resolves
-    # secure-store references, using canonical configured data paths. Import
-    # lazily so CLI help and pure ID helpers do not initialize credentials/data.
-    from backend.services.integration_manager import integration_manager
-    from backend.services.notion_importer import NotionClient
+    def get_block(self, block_id: str) -> Mapping[str, object]: ...
 
-    raw_integration: object = integration_manager.get_raw("notion")
-    token = _text(_record(raw_integration)["token"])
-    client = NotionClient(token)
 
-    print("1) Searching for pages in Notion...", flush=True)
-    pages = client.search_pages()
-    print(f"   {len(pages)} pages", flush=True)
-
+def _resolve_parent_pairs(pages: Sequence[object], client: _BlockReader) -> dict[str, str]:
+    """Resolve parents with a cache scoped to this one page traversal."""
     block_owner_cache: dict[str, Mapping[object, object]] = {}
 
     def parent_page_of(p: Mapping[object, object]) -> str | None:
@@ -127,13 +113,40 @@ def main(argv: Sequence[str] | None = None) -> int:
                 continue
             return None  # database_id, workspace, unknown
 
-    print("2) Resolving child → parent pairs...", flush=True)
     pairs: dict[str, str] = {}
     for raw_page in pages:
         p = _record(raw_page)
         pp = parent_page_of(p)
         if pp:
             pairs[_text(p["id"])] = pp
+    return pairs
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--vault-id", required=True, help="clone vault id (GET /api/vaults)")
+    ap.add_argument("--backend", default="http://localhost:5002")
+    ap.add_argument(
+        "--apply", action="store_true", help="apply the PATCH requests (dry-run by default)"
+    )
+    args = ap.parse_args(argv, namespace=_Arguments())
+
+    # Same credential contract as backend/api/notion_routes.py: get_raw resolves
+    # secure-store references, using canonical configured data paths. Import
+    # lazily so CLI help and pure ID helpers do not initialize credentials/data.
+    from backend.services.integration_manager import integration_manager
+    from backend.services.notion_importer import NotionClient
+
+    raw_integration: object = integration_manager.get_raw("notion")
+    token = _text(_record(raw_integration)["token"])
+    client = NotionClient(token)
+
+    print("1) Searching for pages in Notion...", flush=True)
+    pages = client.search_pages()
+    print(f"   {len(pages)} pages", flush=True)
+
+    print("2) Resolving child → parent pairs...", flush=True)
+    pairs = _resolve_parent_pairs(pages, client)
     print(f"   {len(pairs)} pages with a parent page in Notion", flush=True)
 
     print("3) Reading the clone vault...", flush=True)

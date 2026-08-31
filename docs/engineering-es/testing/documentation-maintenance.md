@@ -49,6 +49,18 @@ El orquestador de desarrollo retirado y las instrucciones personales de publicac
 no son dependencias de ejecución. La clasificación de habilidades públicas se
 comprueba contra los paquetes reales.
 
+Ejecute `pnpm check:pipeline:structure` tras preparar el índice para limitar cada
+módulo Python indexado a 800 líneas y la complejidad ciclomática a 15, incluidos
+tests y archivos ignorados. Rechaza fuentes ausentes o externas; las exclusiones
+locales de Ruff y los comentarios de supresión no permiten evitarlo. Este modo
+explícito lee código; el control predeterminado solo lee metadatos. CI ejecuta los tres controles.
+
+El generador separa primitivas comunes, descubrimiento de API, métricas del backend,
+modelos de datos, rutas frontend, configuración e inventarios en módulos independientes.
+`generate.py` conserva la orquestación CLI, los diagnósticos de cobertura y las
+importaciones explícitas de compatibilidad. Las pruebas de extracción preservan
+los nueve catálogos; la generación estática no importa la aplicación ni ejecuta proveedores.
+
 ## Contenido revisado y generado
 
 Las páginas revisadas explican la intención, los límites, los flujos, las

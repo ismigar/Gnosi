@@ -78,6 +78,31 @@ def scan_python(path: str, src: str) -> tuple[int, int, int]:
     return comment, docstring, other
 
 
+def _scan_line_comment(src: str, start: int) -> tuple[int, bool]:
+    """Return the first newline or EOF and whether the comment contains non-ASCII."""
+    j, n = start + 2, len(src)
+    has = False
+    while j < n and src[j] != "\n":
+        if ord(src[j]) > 127:
+            has = True
+        j += 1
+    return j, has
+
+
+def _scan_block_comment(
+    src: str, start: int, line: int, comment_nonascii_lines: set[int],
+) -> tuple[int, int]:
+    """Accumulate comment line hits, preserving unterminated-block advancement."""
+    j, n = start + 2, len(src)
+    while j < n and not (src[j] == "*" and j + 1 < n and src[j + 1] == "/"):
+        if src[j] == "\n":
+            line += 1
+        elif ord(src[j]) > 127:
+            comment_nonascii_lines.add(line)
+        j += 1
+    return j + 2, line
+
+
 def scan_cstyle(src: str) -> tuple[int, int]:
     """Char-scanner for JS/TS: separate // and /* */ (and /** */) comments from strings.
 
@@ -88,7 +113,6 @@ def scan_cstyle(src: str) -> tuple[int, int]:
     string_has = 0
     line = 1
     STRING = None  # current quote char or None
-    template_expr_depth = 0
     while i < n:
         c = src[i]
         nxt = src[i + 1] if i + 1 < n else ""
@@ -108,25 +132,13 @@ def scan_cstyle(src: str) -> tuple[int, int]:
             continue
         # not in string
         if c == "/" and nxt == "/":
-            j = i + 2
-            has = False
-            while j < n and src[j] != "\n":
-                if ord(src[j]) > 127:
-                    has = True
-                j += 1
+            j, has = _scan_line_comment(src, i)
             if has:
                 comment_nonascii_lines.add(line)
             i = j
             continue
         if c == "/" and nxt == "*":
-            j = i + 2
-            while j < n and not (src[j] == "*" and j + 1 < n and src[j + 1] == "/"):
-                if src[j] == "\n":
-                    line += 1
-                elif ord(src[j]) > 127:
-                    comment_nonascii_lines.add(line)
-                j += 1
-            i = j + 2
+            i, line = _scan_block_comment(src, i, line, comment_nonascii_lines)
             continue
         if c in ("'", '"', "`"):
             STRING = c

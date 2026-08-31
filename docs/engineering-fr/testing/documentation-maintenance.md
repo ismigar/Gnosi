@@ -49,6 +49,19 @@ L'orchestrateur de développement retiré et les instructions personnelles de
 publication ne sont pas des dépendances d'exécution. La classification des
 compétences publiques est vérifiée contre les paquets réels.
 
+Exécutez `pnpm check:pipeline:structure` après préparation de l'index pour limiter
+chaque module Python indexé à 800 lignes et la complexité cyclomatique à 15,
+tests et fichiers ignorés compris. Il rejette les sources absentes ou externes ;
+les exclusions locales de Ruff et les commentaires de suppression ne le contournent
+pas. Ce mode explicite lit le code ; le contrôle par défaut ne lit que les métadonnées.
+CI exécute les trois contrôles.
+
+Le générateur sépare les primitives communes, la découverte d'API, les métriques du
+backend, les modèles de données, les routes frontend, la configuration et les inventaires.
+`generate.py` conserve l'orchestration CLI, les diagnostics de couverture et les
+imports explicites de compatibilité. Les tests d'extraction préservent les neuf
+catalogues ; la génération statique n'importe pas l'application et n'exécute aucun fournisseur.
+
 ## Contenu révisé et généré
 
 Les pages révisées expliquent l'intention, les limites, les flux, les invariants,

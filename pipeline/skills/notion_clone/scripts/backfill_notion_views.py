@@ -33,7 +33,7 @@ import os
 import re
 import sys
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NotRequired, TypedDict
@@ -270,6 +270,157 @@ def append_embed(content: str, embed: str) -> str:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+def _plan_page_views(
+    pg: VaultPage,
+    host: str,
+    block_ids: list[str],
+    content: str,
+    resolve: Callable[[str], dict[str, object] | None],
+    apply: bool,
+    stats: Stats,
+) -> tuple[str, int, list[tuple[list[CloneView], list[str]]], bool]:
+    """Reconcile every block before permitting writes for this page."""
+    new_content = content
+    page_changes = 0
+    tag = "apply" if apply else "dry"
+    planned: list[tuple[list[CloneView], list[str]]] = []
+    page_failed = False
+    for bid in block_ids:
+        view_md = notion_mcp.fetch(bid)
+        time.sleep(0.15)
+        if not view_md:
+            stats["errors"].append({"page": pg["rel"], "block": bid, "error": "empty view fetch"})
+            page_failed = True
+            continue
+        try:
+            # gvs = REAL tabs (without the MCP's "suggested" charts);
+            # gvs_all includes the charts so we can delete the ones a previous
+            # step may have created.
+            gvs = _clone_views(build_clone_views(host, pg["table_id"], bid, view_md, resolve))
+            gvs_all = _clone_views(build_clone_views(
+                host, pg["table_id"], bid, view_md, resolve, skip_types=()
+            ))
+        except Exception as e:  # noqa: BLE001
+            stats["errors"].append({"page": pg["rel"], "block": bid, "error": str(e)})
+            page_failed = True
+            continue
+        if not gvs:
+            continue
+        anchor = gvs[0]
+        # Only the anchor's embed goes in the BODY: out with tab defs
+        # stacked from a previous run, and chart defs.
+        drop_ids = ({g.id for g in gvs_all} | {g.id for g in gvs}) - {anchor.id}
+        before = new_content
+        new_content = remove_view_defs(new_content, drop_ids)
+        if anchor.id not in EMBED_RE.findall(new_content):
+            new_content = append_embed(new_content, nvr.view_embed(anchor.id))
+            log(f"[{tag}] {pg['rel']}: block {bid[:8]}… new anchor appended")
+        if new_content != before:
+            page_changes += 1
+            tabs = [g.name for g in gvs[1:]]
+            log(f"[{tag}] {pg['rel']}: block {bid[:8]}… 1 embed + {len(tabs)} tabs"
+                + (f" ({', '.join(tabs)})" if tabs else ""))
+        planned.append((gvs, sorted({g.id for g in gvs_all} - {g.id for g in gvs})))
+    return new_content, page_changes, planned, page_failed
+
+
+def _apply_planned_views(
+    planned: list[tuple[list[CloneView], list[str]]],
+    api: str,
+    hdrs: dict[str, str],
+    apply: bool,
+    stats: Stats,
+) -> None:
+    """Upsert tabs and remove chart views in their existing request order."""
+    for gvs, chart_ids in planned:
+        if apply:
+            for gv in gvs:   # upsert all of them (the anchor carries `tabs`)
+                r = httpx.post(f"{api}/vault/views", headers=hdrs, json=gv.payload, timeout=60)
+                r.raise_for_status()
+                stats["views_upserted"] += 1
+            # delete chart views created by mistake from the registry
+            for gid in chart_ids:
+                dr = httpx.delete(f"{api}/vault/views/{gid}", headers=hdrs, timeout=60)
+                if dr.status_code < 300:
+                    stats["chart_views_deleted"] = stats.get("chart_views_deleted", 0) + 1
+                elif dr.status_code != 404:
+                    dr.raise_for_status()
+        else:
+            stats["views_upserted"] += len(gvs)
+
+
+def _backfill_page(
+    pg: VaultPage,
+    mapping: dict[str, str],
+    resolve: Callable[[str], dict[str, object] | None],
+    api: str,
+    hdrs: dict[str, str],
+    apply: bool,
+    state_path: Path | None,
+    stats: Stats,
+) -> None:
+    """Fetch, reconcile and record one mapped page, preserving retry boundaries."""
+    nid = mapping.get(pg["id"])
+    if not nid:
+        stats["unmapped"] += 1
+        log(f"[skip] no Notion mapping: {pg['rel']}")
+        return
+    host = nid.replace("-", "")
+    page_md = ""
+    for backoff in (0, 2, 4):
+        if backoff:
+            time.sleep(backoff)
+        page_md = notion_mcp.fetch(nid)
+        if page_md:
+            break
+    if not page_md:
+        stats["mcp_empty"] += 1
+        log(f"[err] empty MCP fetch: {pg['rel']}")
+        return
+    block_ids = notion_mcp_md.extract_db_ids(page_md)
+    try:
+        text = pg["path"].read_text(encoding="utf-8")
+    except Exception as e:  # noqa: BLE001
+        stats["errors"].append({"page": pg["rel"], "error": f"read: {e}"})
+        return
+    try:
+        _, content = parse_frontmatter(text)
+    except (ValueError, yaml.YAMLError) as exc:
+        stats["errors"].append({"page": pg["rel"], "error": f"frontmatter: {exc}"})
+        return
+    new_content, page_changes, planned, page_failed = _plan_page_views(
+        pg, host, block_ids, content, resolve, apply, stats
+    )
+    # Validate every block and payload before the first write or resume record.
+    if page_failed:
+        return
+    for gvs, chart_ids in planned:
+        for gv in gvs:
+            json.dumps(gv.payload)
+    _apply_planned_views(planned, api, hdrs, apply, stats)
+    if new_content != content and apply:
+        r = httpx.patch(f"{api}/vault/pages/{pg['id']}", headers=hdrs,
+                        json={"content": new_content}, timeout=120)
+        r.raise_for_status()
+    stats["embeds_added"] += page_changes
+    stats["pages"] += 1
+    if state_path and apply:
+        with state_path.open("a") as f:
+            f.write(json.dumps({"id": pg["id"], "rel": pg["rel"], "added": page_changes}) + "\n")
+    time.sleep(0.15)
+
+
+def _read_resume_ids(state_path: Path | None) -> set[str]:
+    """Read completed page IDs with the existing JSONL validation order."""
+    done_ids: set[str] = set()
+    if state_path and state_path.exists():
+        for line in state_path.read_text().splitlines():
+            if line.strip():
+                record = _object(json.loads(line), "Resume record")
+                done_ids.add(_string(record.get("id"), "Resume page ID"))
+    return done_ids
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault-dir", required=True)
@@ -292,13 +443,8 @@ def main() -> int:
         log(f"Notion MCP is unavailable: {reason}")
         return 1
 
-    done_ids: set[str] = set()
     state_path = Path(args.state) if args.state else None
-    if state_path and state_path.exists():
-        for line in state_path.read_text().splitlines():
-            if line.strip():
-                record = _object(json.loads(line), "Resume record")
-                done_ids.add(_string(record.get("id"), "Resume page ID"))
+    done_ids = _read_resume_ids(state_path)
 
     pages = scan_vault(vault_dir, args.only)
     if args.ids:
@@ -340,106 +486,7 @@ def main() -> int:
     for pg in pages:
         if pg["id"] in done_ids:
             continue
-        nid = mapping.get(pg["id"])
-        if not nid:
-            stats["unmapped"] += 1
-            log(f"[skip] no Notion mapping: {pg['rel']}")
-            continue
-        host = nid.replace("-", "")
-        page_md = ""
-        for backoff in (0, 2, 4):
-            if backoff:
-                time.sleep(backoff)
-            page_md = notion_mcp.fetch(nid)
-            if page_md:
-                break
-        if not page_md:
-            stats["mcp_empty"] += 1
-            log(f"[err] empty MCP fetch: {pg['rel']}")
-            continue
-        block_ids = notion_mcp_md.extract_db_ids(page_md)
-        try:
-            text = pg["path"].read_text(encoding="utf-8")
-        except Exception as e:  # noqa: BLE001
-            stats["errors"].append({"page": pg["rel"], "error": f"read: {e}"})
-            continue
-        try:
-            _, content = parse_frontmatter(text)
-        except (ValueError, yaml.YAMLError) as exc:
-            stats["errors"].append({"page": pg["rel"], "error": f"frontmatter: {exc}"})
-            continue
-        new_content = content
-        page_changes = 0
-        tag = "apply" if args.apply else "dry"
-        planned: list[tuple[list[CloneView], list[str]]] = []
-        page_failed = False
-        for bid in block_ids:
-            view_md = notion_mcp.fetch(bid)
-            time.sleep(0.15)
-            if not view_md:
-                stats["errors"].append({"page": pg["rel"], "block": bid, "error": "empty view fetch"})
-                page_failed = True
-                continue
-            try:
-                # gvs = REAL tabs (without the MCP's "suggested" charts);
-                # gvs_all includes the charts so we can delete the ones a previous
-                # step may have created.
-                gvs = _clone_views(build_clone_views(host, pg["table_id"], bid, view_md, resolve))
-                gvs_all = _clone_views(build_clone_views(
-                    host, pg["table_id"], bid, view_md, resolve, skip_types=()
-                ))
-            except Exception as e:  # noqa: BLE001
-                stats["errors"].append({"page": pg["rel"], "block": bid, "error": str(e)})
-                page_failed = True
-                continue
-            if not gvs:
-                continue
-            anchor = gvs[0]
-            # Only the anchor's embed goes in the BODY: out with tab defs
-            # stacked from a previous run, and chart defs.
-            drop_ids = ({g.id for g in gvs_all} | {g.id for g in gvs}) - {anchor.id}
-            before = new_content
-            new_content = remove_view_defs(new_content, drop_ids)
-            if anchor.id not in EMBED_RE.findall(new_content):
-                new_content = append_embed(new_content, nvr.view_embed(anchor.id))
-                log(f"[{tag}] {pg['rel']}: block {bid[:8]}… new anchor appended")
-            if new_content != before:
-                page_changes += 1
-                tabs = [g.name for g in gvs[1:]]
-                log(f"[{tag}] {pg['rel']}: block {bid[:8]}… 1 embed + {len(tabs)} tabs"
-                    + (f" ({', '.join(tabs)})" if tabs else ""))
-            planned.append((gvs, sorted({g.id for g in gvs_all} - {g.id for g in gvs})))
-        # Validate every block and payload before the first write or resume record.
-        if page_failed:
-            continue
-        for gvs, chart_ids in planned:
-            for gv in gvs:
-                json.dumps(gv.payload)
-        for gvs, chart_ids in planned:
-            if args.apply:
-                for gv in gvs:   # upsert all of them (the anchor carries `tabs`)
-                    r = httpx.post(f"{api}/vault/views", headers=hdrs, json=gv.payload, timeout=60)
-                    r.raise_for_status()
-                    stats["views_upserted"] += 1
-                # delete chart views created by mistake from the registry
-                for gid in chart_ids:
-                    dr = httpx.delete(f"{api}/vault/views/{gid}", headers=hdrs, timeout=60)
-                    if dr.status_code < 300:
-                        stats["chart_views_deleted"] = stats.get("chart_views_deleted", 0) + 1
-                    elif dr.status_code != 404:
-                        dr.raise_for_status()
-            else:
-                stats["views_upserted"] += len(gvs)
-        if new_content != content and args.apply:
-            r = httpx.patch(f"{api}/vault/pages/{pg['id']}", headers=hdrs,
-                            json={"content": new_content}, timeout=120)
-            r.raise_for_status()
-        stats["embeds_added"] += page_changes
-        stats["pages"] += 1
-        if state_path and args.apply:
-            with state_path.open("a") as f:
-                f.write(json.dumps({"id": pg["id"], "rel": pg["rel"], "added": page_changes}) + "\n")
-        time.sleep(0.15)
+        _backfill_page(pg, mapping, resolve, api, hdrs, args.apply, state_path, stats)
 
     log("\n=== SUMMARY ===")
     log(json.dumps({k: v for k, v in stats.items() if k != "errors"}, ensure_ascii=False))

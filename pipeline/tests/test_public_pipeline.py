@@ -12,6 +12,7 @@ import pytest
 from scripts.check_public_pipeline import (
     RETIRED_FILES,
     IndexedFile,
+    check_pipeline_structure,
     indexed_files,
     typecheck_pipeline,
     violations,
@@ -156,3 +157,82 @@ def test_boundary_is_wired_into_ci_and_root_command() -> None:
     assert manifest["scripts"]["check:pipeline"] == command
     assert manifest["scripts"]["typecheck:pipeline"] == command + " --typecheck"
     assert command + " --typecheck" in backend_job
+    assert manifest["scripts"]["check:pipeline:structure"] == command + " --structure"
+    assert command + " --structure" in backend_job
+
+
+@pytest.mark.parametrize("lines,ruff_status,expected", [(800, 0, 0), (801, 0, 1), (1, 2, 2)])
+def test_structure_checks_all_indexed_source_and_propagates_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lines: int, ruff_status: int, expected: int,
+) -> None:
+    names = ["pipeline/tests/test_example.py", "pipeline/legacy/portable.py"]
+    for name in names:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# fixture\n" * lines, encoding="utf-8")
+    calls: list[list[str]] = []
+
+    def run(args: list[str], *, cwd: Path, check: bool) -> subprocess.CompletedProcess[str]:
+        assert cwd == tmp_path.resolve()
+        assert check is False
+        calls.append(args)
+        return subprocess.CompletedProcess(args, ruff_status)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    entries = [IndexedFile("100644", name) for name in names]
+    assert check_pipeline_structure(tmp_path, entries) == expected
+    assert calls == [[
+        sys.executable, "-m", "ruff", "check", "--isolated", "--select", "C901",
+        "--config", "lint.mccabe.max-complexity=15", "--no-respect-gitignore",
+        "--ignore-noqa", *sorted(names),
+    ]]
+
+
+def test_structure_fails_closed_before_reading_missing_or_external_source(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="empty"):
+        check_pipeline_structure(tmp_path, [])
+    entry = IndexedFile("100644", "pipeline/linked/source.py")
+    with pytest.raises(ValueError, match="Missing or external"):
+        check_pipeline_structure(tmp_path, [entry])
+    external = tmp_path / "outside"
+    external.mkdir()
+    (external / "source.py").write_text("value = 1\n", encoding="utf-8")
+    repository = tmp_path / "repository"
+    (repository / "pipeline").mkdir(parents=True)
+    (repository / "pipeline/linked").symlink_to(external, target_is_directory=True)
+    with pytest.raises(ValueError, match="Missing or external"):
+        check_pipeline_structure(repository, [entry])
+    with pytest.raises(ValueError, match="boundary violations"):
+        check_pipeline_structure(repository, [IndexedFile("100644", "pipeline/secrets/tool.py")])
+
+
+def test_structure_real_ruff_cannot_hide_indexed_complexity_with_config_or_noqa(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "pipeline/ignored/test_complex.py"
+    source.parent.mkdir(parents=True)
+    (tmp_path / ".gitignore").write_text("pipeline/ignored/\n", encoding="utf-8")
+    (tmp_path / "ruff.toml").write_text('exclude = ["pipeline"]\n', encoding="utf-8")
+    text = "def complex_example(value):  # noqa: C901\n"
+    text += "".join(f"    if value == {index}:\n        return {index}\n" for index in range(16))
+    source.write_text(text, encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "-f", "pipeline"], check=True)
+    assert check_pipeline_structure(tmp_path, indexed_files(tmp_path)) == 1
+    source.write_text("def simple_example():\n    return 1\n", encoding="utf-8")
+    assert check_pipeline_structure(tmp_path, indexed_files(tmp_path)) == 0
+
+
+def test_default_boundary_remains_metadata_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    from scripts import check_public_pipeline as checker
+
+    def entries(root: Path) -> list[IndexedFile]:
+        return [IndexedFile("100644", "pipeline/absent.py")]
+
+    monkeypatch.setattr(checker, "indexed_files", entries)
+    monkeypatch.setattr(sys, "argv", ["check_public_pipeline.py", "--repository", str(tmp_path)])
+    assert checker.main() == 0
+    monkeypatch.setattr(sys, "argv", [*sys.argv, "--structure"])
+    assert checker.main() == 1

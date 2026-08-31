@@ -40,6 +40,7 @@ CI_COMMANDS = {
     "backend": [
         "uv sync --frozen",
         "uv run python scripts/check_public_pipeline.py",
+        "uv run python scripts/check_public_pipeline.py --structure",
         "uv run python scripts/check_public_runtime.py",
         "uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy",
         "uv run python scripts/check-source-guardrails.py --require-pruned",

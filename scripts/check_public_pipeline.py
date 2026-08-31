@@ -109,8 +109,8 @@ def violations(entries: Iterable[IndexedFile]) -> list[str]:
     return sorted(issues)
 
 
-def typecheck_pipeline(root: Path, entries: list[IndexedFile]) -> int:
-    """Check every indexed Python source, including tests and ignored directories."""
+def validated_python_sources(root: Path, entries: list[IndexedFile]) -> list[str]:
+    """Select the complete index and reject missing or escaping working-tree paths."""
     if violations(entries):
         raise ValueError("Resolve public source boundary violations before type-checking")
     sources = sorted(entry.path for entry in entries if entry.path.endswith(".py"))
@@ -125,6 +125,13 @@ def typecheck_pipeline(root: Path, entries: list[IndexedFile]) -> int:
             or not target.resolve(strict=True).is_relative_to(root)
         ):
             raise ValueError(f"Missing or external pipeline source: {source}")
+    return sources
+
+
+def typecheck_pipeline(root: Path, entries: list[IndexedFile]) -> int:
+    """Check every indexed Python source, including tests and ignored directories."""
+    sources = validated_python_sources(root, entries)
+    root = root.resolve(strict=True)
     LOG.info("Strict type-check of all %s indexed pipeline Python files", len(sources))
     result = subprocess.run(
         [sys.executable, "-m", "mypy", "--strict", "--explicit-package-bases", *sources],
@@ -134,11 +141,47 @@ def typecheck_pipeline(root: Path, entries: list[IndexedFile]) -> int:
     return result.returncode
 
 
+def check_pipeline_structure(root: Path, entries: list[IndexedFile]) -> int:
+    """Enforce 800 lines per indexed Python module and complexity at most 15."""
+    sources = validated_python_sources(root, entries)
+    root = root.resolve(strict=True)
+    oversized = []
+    for source in sources:
+        line_count = len((root / source).read_text(encoding="utf-8").splitlines())
+        if line_count > 800:
+            oversized.append(f"{source}: {line_count} lines exceeds 800")
+    for issue in oversized:
+        LOG.error("%s", issue)
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "ruff", "check", "--isolated", "--select", "C901",
+            "--config", "lint.mccabe.max-complexity=15", "--no-respect-gitignore",
+            "--ignore-noqa",
+            *sources,
+        ],
+        cwd=root,
+        check=False,
+    )
+    if result.returncode:
+        return result.returncode
+    if oversized:
+        return 1
+    LOG.info(
+        "Pipeline structure passed for %s indexed Python files (800 lines/15 complexity)",
+        len(sources),
+    )
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", type=Path, default=ROOT)
-    parser.add_argument(
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument(
         "--typecheck", action="store_true", help="Strictly check all indexed Python"
+    )
+    modes.add_argument(
+        "--structure", action="store_true", help="Check indexed Python module size and complexity"
     )
     args = parser.parse_args()
     try:
@@ -146,6 +189,8 @@ def main() -> int:
         issues = violations(entries)
         if not issues and args.typecheck:
             return typecheck_pipeline(args.repository, entries)
+        if not issues and args.structure:
+            return check_pipeline_structure(args.repository, entries)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         LOG.error("Public pipeline check failed: %s", error)
         return 1
