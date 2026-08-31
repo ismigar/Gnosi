@@ -8,13 +8,18 @@ source_paths:
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - backend/domains/configuration/api/settings.py
+  - backend/domains/configuration/plugin_state.py
+  - backend/mcp/http_client.py
   - backend/services/data_dir_migration.py
+  - backend/utils/cache.py
   - backend/api/system_routes.py
   - frontend/src/app
   - frontend/src/shared
   - frontend/src/generated
   - frontend/feature-public-entries.json
 tests:
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/app/shellPages.test.tsx
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
@@ -23,43 +28,67 @@ tests:
   - backend/tests/test_data_dir_migration.py
   - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
-  - frontend/src/app/composition.contract.test.ts
-  - frontend/src/app/shellPages.test.tsx
 ---
 
-# Fundación y duración de la plataforma
+# Base de la plataforma y entorno de ejecución
 
 ## Responsabilidad
 
-La fundación ensambla cada dominio en un proceso, resuelve la configuración y rutas portátiles, posee el inicio y apagado, aplica middleware compartido y expone el frontend de nivel superior. Debe permanecer útil cuando no haya integraciones opcionales.
+La base de la plataforma integra todos los dominios en un proceso, resuelve la configuración y las rutas portátiles, gestiona el arranque y el apagado, aplica middleware compartido y expone el shell principal del frontend. Debe seguir siendo utilizable aunque no estén presentes las integraciones opcionales.
 
-## Montaje del motor
+El directorio `app` del frontend gestiona el arranque, los proveedores, la
+composición de rutas y la pantalla de inicio de carga inmediata. Las pantallas
+opcionales de cada dominio se importan a través de módulos públicos de features
+con cargas diferidas independientes. Los contratos de composición conservan las
+32 rutas, los wrappers de permisos, el orden de proveedores y los veinte imports
+diferidos.
 
-`backend/server.py` construye la instancia FastAPI, middleware, manejo de excepciones, montaje del lector estático, vida útil y routers. El orden del router es explícito porque el contexto del espacio de trabajo y los prefijos amplios pueden superponerse. [Catálogo API](../generated/api-catalog.md) registra cada montaje y ruta estática.
+## Composición del backend
 
-Lifespan startup realiza estas clases de trabajo:
+`backend/server.py` construye la instancia FastAPI, el middleware, los manejadores de excepciones, el montaje estático del lector, el ciclo de vida y los routers. El orden de los routers es explícito porque el contexto del workspace y los prefijos amplios pueden solaparse. El [catálogo API](../generated/api-catalog.md) generado registra cada montaje y ruta estáticos.
+El registro de composición importa directamente cada router canónico de dominio;
+las fachadas API heredadas se mantienen solo para imports de compatibilidad.
+Las anotaciones de las rutas deben conservar la representación OpenAPI congelada,
+por lo que los handlers sin un modelo de respuesta explícito mantienen su contrato
+de respuesta inferido.
 
-El módulo de ciclo de vida mantiene `lifespan` como orquestador lineal. Funciones
-acotadas gestionan plugins, agente, índices, reparación de tablas, correo y
-apagado sin alterar el orden ni el aislamiento de errores.
+El arranque del ciclo de vida realiza estas clases de trabajo:
 
-1. Afirmar que un despliegue expuesto no está utilizando un desarrollo público JWT
-secreto.
-2. Comience el programador y el mantenimiento de confirmación-retención.
-3. Reconcile las contribuciones de plugin antes de crear capacidades de agente.
-4. Conectar clientes MCP, descubrir herramientas y compilar el gráfico de agente predeterminado.
-5. Precarga persistía los índices de bóveda sincrónicamente, luego refrescalos en el
-antecedentes donde la política de proveedor de archivos lo permite.
-6. Cargar cachés derivados antes de que cualquier ahorro pueda truncarlos.
-7. Comiencen a trabajar por cuenta IMAP IDLE.
+El módulo de ciclo de vida mantiene el gestor de contexto público `lifespan`
+como orquestador lineal. Funciones acotadas gestionan la reconciliación de plugins,
+el arranque del agente, la precarga de índices, la reparación de tablas, los workers
+de correo y el apagado con límites, conservando el orden documentado y el aislamiento
+de fallos.
 
-Los fallos en el inicio opcional de IA o integración se registran y se aíslan. Los fallos de inicialización de datos de seguridad y núcleo no se convierten silenciosamente en un comportamiento saludable.
+La reconciliación temprana de plugins es independiente del transporte: puede leer
+el estado normalizado de cada vault, persistido atómicamente, antes de importar
+módulos de rutas HTTP. Así, la construcción del agente no depende del orden de
+inicialización de la fachada del vault, y el arranque normal converge en el mismo
+almacén de estado compartido por el proceso.
+
+1. Comprobar que un despliegue expuesto no utiliza un secreto JWT público de desarrollo.
+2. Iniciar el planificador y el mantenimiento de la retención de confirmaciones.
+3. Reconciliar las contribuciones de plugins antes de construir las capacidades del agente.
+4. Conectar los clientes MCP, descubrir herramientas y compilar el grafo del agente predeterminado.
+5. Precargar los índices persistidos del vault de forma síncrona y después actualizarlos
+   en segundo plano donde lo permita la política del proveedor de archivos.
+6. Cargar las cachés derivadas antes de que cualquier guardado pueda truncarlas.
+7. Iniciar los workers IMAP IDLE de cada cuenta.
+
+Los fallos de arranque de la IA o de integraciones opcionales se registran y se aíslan. Los fallos de seguridad o de inicialización de datos esenciales no se ocultan presentando el sistema como operativo.
+
+Las cachés compartidas dentro del proceso utilizan una única implementación
+TTL/LRU acotada y protegida mediante bloqueo, y aceptan factorías de valores
+explícitamente tipadas y sin argumentos. El transporte HTTP de MCP con streaming
+restringe cada payload SSE decodificado a un objeto JSON antes de devolverlo al
+cliente JSON-RPC; los eventos malformados o que no sean objetos nunca entran en
+el entorno de ejecución tipado.
 
 ## Combinación de configuración
 
-`load_params()` combina la aplicación YAML con el usuario actual o configuración de la válvula activa. Los valores del diccionario se fusionan recursivamente. `.gnosi/params.yaml` se convierte en el objetivo de persistencia para la configuración de bóvedas. La resolución de trayectoria aplica valores de entorno de implementación explícitos.
+`load_params()` combina el YAML versionado de la aplicación con la configuración del usuario actual o del vault activo. Los diccionarios se fusionan recursivamente. El archivo `.gnosi/params.yaml` del vault activo pasa a ser el destino de persistencia de los ajustes de ese vault. Después, la resolución de rutas aplica los valores explícitos del entorno de despliegue.
 
-Una credencial de entorno legado puede crear un proveedor una vez, pero una lápida de desconexión persistente impide que reaparezca después de la eliminación deliberada.
+La configuración de IA que requiere credenciales almacena referencias. Una credencial de entorno heredada puede crear un proveedor una vez, pero una marca persistida de desconexión impide que reaparezca tras eliminarlo deliberadamente.
 
 La frontera de escritura de Configuración valida agentes gestionados y
 estrategias de modelo, guarda contraseñas y claves fuera del YAML, trata el mapa
@@ -69,30 +98,33 @@ forma atómica e invalida agentes compilados solo tras un cambio de IA.
 La migración de datos locales es una máquina de estados con diario. La
 verificación del origen, el movimiento atómico en el mismo volumen, el staging
 entre volúmenes, la verificación del destino y el rollback automático son fases
-separadas. Cada base SQLite pasa checkpoint e `integrity_check`, y las copias
+separadas. Cada base SQLite pasa un checkpoint y una comprobación de integridad, y las copias
 se comparan con un inventario con hash antes de sustituir una estructura vacía.
 
-Las rutas del sistema separan la orquestación HTTP de los ayudantes acotados de
+Las rutas del sistema separan la orquestación HTTP de los helpers acotados de
 navegación y búsqueda. La búsqueda prioriza el vault activo y las carpetas
 habituales, incluida la raíz neutral `Library/CloudStorage` que usan OneDrive,
 Google Drive, Dropbox, Box y otros proveedores de archivos de macOS. Las rutas
 locales y Docker se mapean sin incorporar ningún proveedor al modelo de datos.
 
-## Carcasa de la interfaz
+## Shell del frontend
 
-`app/App.tsx` espera a que se inicie la autenticación antes de seleccionar el shell de uso compartido, de acceso público o de aplicación. Las páginas pesadas están cargadas de páginas sueltas. El shell global posee superficies de navegación y de interacción disponibles a nivel mundial; las páginas de ruta poseen contenido de dominio. `/s/:token` Renders fuera de la cáscara autenticada por diseño.
+`app/App.tsx` espera a que termine el arranque de autenticación antes de seleccionar la página pública compartida, el inicio de sesión o el shell de la aplicación. Las páginas pesadas se cargan de forma diferida. El shell global gestiona la navegación y las interacciones disponibles en toda la aplicación; las páginas de las rutas gestionan el contenido del dominio. Por diseño, `/s/:token` se renderiza fuera del shell autenticado.
 
 ## Invariantes
 
-- Puerto `5002` es el contrato de motor; `5173` es el contrato de frontend.
-- El código de aplicación utiliza el autoritativo `Gnosi/` árbol.
-- Las cadenas visibles de Frontend usan todos los catálogos locales.
-- Las importaciones en tiempo de ejecución no deben utilizarse para la generación de documentación.
-- Una bóveda no disponible está representada explícitamente; una ruta segura temporal puede
-evitar fallos en el tiempo de importación, pero no debe presentarse como contenido configurado.
-- El calentamiento de caché derivado no puede retrasar la primera respuesta útil cuando un disco seguro
-La instantánea existe.
+- El puerto `5002` es el contrato del backend; el `5173`, el del frontend.
+- El código de la aplicación utiliza el árbol autoritativo `Gnosi/`.
+- Las cadenas visibles del frontend utilizan todos los catálogos de idioma.
+- La generación de documentación no debe importar módulos del entorno de ejecución.
+- Las órdenes operativas puntuales residen en `scripts/`; los paquetes de producción
+  no contienen sincronizadores provisionales, sondas que modifiquen datos ni scripts
+  de reparación con rutas de máquina fijas.
+- Un vault no disponible se representa explícitamente; una ruta temporal segura puede
+  evitar fallos durante la importación, pero no debe presentarse como contenido configurado.
+- La precarga de cachés derivadas no puede retrasar la primera respuesta útil cuando
+  existe una instantánea segura en disco.
 
 ## Diagnóstico de fallo
 
-Comprobar la propiedad del proceso, `/api/health`, `/api/config`, y `/api/vault/pages` Una respuesta de salud exitosa con una petición de almacén vacía o fallida indica problemas de configuración o de proveedor de archivos en lugar de un servidor muerto. Vea el [Manual de operaciones](../operations/runbook.md).
+Compruebe qué proceso está atendiendo el servicio, `/api/health`, `/api/config` y `/api/vault/pages`, en ese orden. Una respuesta de salud correcta junto con una petición al vault vacía o fallida indica problemas de configuración o del proveedor de archivos, no un servidor detenido. Consulte el [manual de operaciones](../operations/runbook.md).

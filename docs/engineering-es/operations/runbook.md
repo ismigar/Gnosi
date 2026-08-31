@@ -124,7 +124,7 @@ Ejecute `corepack pnpm build:frontend` desde la raíz del repositorio. Las
 comprobaciones previas incluyen el contrato de la configuración real de Vite.
 Por defecto, los recursos utilizan `/`: los enlaces profundos y las recargas
 resuelven JavaScript, estilos e iconos desde la raíz del origen. El mismo
-artefacto sirve para el web HTTP y el protocolo estándar `app://gnosi` de
+artefacto sirve para el alojamiento web HTTP y el protocolo estándar `app://gnosi` de
 Electron; Electron no necesita una base relativa `./`.
 
 `VITE_BASE_PATH` se mantiene como configuración explícita de la base de recursos.

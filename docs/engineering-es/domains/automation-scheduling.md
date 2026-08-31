@@ -33,9 +33,9 @@ tests:
 
 ## Responsabilidad
 
-El planificador ejecuta las tareas configuradas, conserva el historial y expone
-el estado operativo de sincronización, publicación, ingestión, mantenimiento y
-actualización de la planificación.
+El planificador ejecuta las tareas periódicas y puntuales configuradas, conserva
+el historial, expone el estado operativo y coordina trabajos de sincronización,
+publicación, ingestión, mantenimiento y actualización de la planificación.
 
 La funcionalidad de automatizaciones contiene la pantalla del planificador y
 la conversión de intervalos. El centro de control contiene el panel operativo,
@@ -44,7 +44,7 @@ los adaptadores compartidos preservan identificadores, unidades, permisos y
 payloads. Mover una pantalla no habilita tareas ni inicia trabajos.
 
 Los metadatos, el estado persistido y la frontera opcional de notificaciones
-tienen contratos tipados. El gestor valida las definiciones heredadas antes de
+tienen contratos estrictamente tipados en módulos específicos. El gestor valida las definiciones heredadas antes de
 construir tareas de ejecución y respeta el límite de tamaño del código.
 
 ## Modelo de tarea
@@ -81,11 +81,12 @@ interruptor no modifica la configuración guardada.
 
 El gestor conserva ciclo de vida, persistencia, solapamientos e historial;
 `task_handlers.py` contiene el despacho y las operaciones grandes, incluido el
-mantenimiento, sin acoplarlas al hilo del planificador.
+mantenimiento acotado. Así, su ejecución es reutilizable y estrictamente tipada,
+sin acoplarla al ciclo de vida del hilo del planificador.
 
 Las notificaciones utilizan una frontera de plataforma independiente del
 proveedor. La persistencia en base de datos y Markdown está disponible en todos
-los hosts; las alertas nativas de macOS son opcionales. Los logs Markdown viven
+los hosts; las alertas nativas de macOS se intentan sin garantizar su entrega. Los logs Markdown viven
 bajo `GNOSI_DATA_DIR`, no dentro de un Vault de OneDrive, Google Drive, Nextcloud,
 Dropbox u otros proveedores. El fallo de un canal no bloquea los demás. La
 antigua ruta de la habilidad de notificaciones es una fachada de compatibilidad.
@@ -110,10 +111,10 @@ explícitamente base de datos, workspace e integración para evitar confundir
 argumentos.
 
 Los trabajos académicos resuelven el Vault activo antes de acceder a literatura.
-Sin Vault, registran una omisión estructurada con cero trabajos en vez de
+Sin Vault, registran una omisión estructurada como resultado correcto, con cero trabajos en vez de
 construir `Path(None)`. La recuperación de la cola del Reader comprueba que
-existe el documento del trabajo; los registros huérfanos no crean hilos que
-fallarán repetidamente.
+existe el documento del trabajo gestionado por el proveedor antes de reclamarlo;
+los registros huérfanos se rechazan una sola vez y nunca crean hilos destinados a fallar.
 
 ## Automatizaciones del Vault
 
@@ -124,7 +125,7 @@ confirmación que las interactivas.
 
 ## Trabajo autónomo de calidad
 
-Las tareas programadas pueden diagnosticar, generar informes o aplicar cambios
+Los ciclos de mantenimiento y calidad son tareas operativas acotadas. Pueden diagnosticar, generar informes o aplicar cambios
 dentro de su ámbito. La programación no amplía los permisos sobre archivos,
 secretos, Git o publicaciones.
 
@@ -148,7 +149,8 @@ separada y revisada del workspace, no una tarea programada de la aplicación.
 
 El servicio de pódcast del Reader selecciona modelo e idioma con contratos
 tipados, limita los trabajadores TTS por frase y sustituye el MP3 atómicamente.
-Captura el Vault seleccionado antes de comenzar y rechaza el inicio sin Vault activo.
+Captura el Vault seleccionado antes de comenzar y rechaza el inicio sin Vault activo,
+para impedir que la salida acabe en una ruta local ambigua.
 
 ## Invariantes
 
@@ -164,7 +166,8 @@ Captura el Vault seleccionado antes de comenzar y rechaza el inicio sin Vault ac
 
 ## Verificación
 
-Compruebe configuración, conexiones, intervalos, historial, solapamientos, zonas
+Compruebe la resistencia de la configuración a fallos, la coherencia de las conexiones,
+las tareas de planificación, el historial, los solapamientos, las zonas
 horarias, reintentos, reanudación y cancelación OAI, marcas de eliminación,
 detección de nuevos resultados y confinamiento del mantenimiento. Ejecute también
 las pruebas de automatización de Playwright y una integración representativa de

@@ -10,30 +10,30 @@ source_paths:
   - frontend/src
   - frontend/tests/contracts
   - frontend/feature-public-entries.json
-  - frontend/package.json
-  - frontend/scripts/check-bundle-size.ts
   - tests/e2e
   - pyproject.toml
+  - frontend/package.json
+  - frontend/scripts/check-bundle-size.ts
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
-# Estrategia de ensayo
+# Estrategia de pruebas
 
 ## Capas de calidad
 
 ```mermaid
 flowchart TB
-    Static["Comprobaciones estáticas\nSintaxis de Python, ESLint, i18n"] --> Unit["Pruebas de unidad\nnormalizadores, políticas, algoritmos"]
-    Unit --> Integration["Pruebas de integración\nroutes, almacenamiento, adaptadores"]
-    Integration --> E2E["Navegador de reproducción y servicios de ejecución"]
+    Static["Comprobaciones estáticas\nSintaxis de Python, ESLint, i18n"] --> Unit["Pruebas unitarias\nnormalizadores, políticas, algoritmos"]
+    Unit --> Integration["Pruebas de integración\nrutas, almacenamiento, adaptadores"]
+    Integration --> E2E["Playwright\nnavegador real y servicios en ejecución"]
     E2E --> Visual["Inspecciones visuales y instantáneas de regresión"]
-    Integration --> Deploy["Pruebas de humo de contenedores y embalajes"]
+    Integration --> Deploy["Pruebas básicas de Docker y paquetes"]
 ```
 
-Una compilación de frontend captura importaciones y sintaxis pero no una interacción rota. Una prueba de unidad de ruta no prueba la integración del navegador. Una captura de pantalla no prueba persistencia o autorización.
+Ninguna capa es suficiente por sí sola. La compilación del frontend detecta errores de importación y sintaxis, pero no una interacción rota. Una prueba unitaria de ruta no demuestra la integración con el navegador. Una captura de pantalla no demuestra persistencia ni autorización.
 
 ## Comprobación unificada de tipos
 
@@ -51,22 +51,22 @@ con `Any` explícito. La regresión comprueba los ámbitos completos y utiliza
 ejecutables simulados aislados en POSIX para verificar el orden y la propagación
 de errores; no acredita la ejecución en Windows.
 
-## Ensayos de motor
+## Pruebas del backend
 
-Pytest cubre servicios, dependencias de rutas, normalización, almacenamiento, seguridad, concurrencia y casos de regresión. Las pruebas utilizan directorios de almacén temporal y de datos locales. Los proveedores externos son anodados a menos que una prueba esté marcada explícitamente como live/E2E.
+Pytest cubre servicios, dependencias de rutas, normalización, almacenamiento, seguridad, concurrencia y regresiones. Las pruebas utilizan directorios temporales para vaults y datos locales. Los proveedores externos se sustituyen por stubs salvo que la prueba esté marcada explícitamente como live/E2E.
 
 Las suites importantes incluyen:
 
-- Auth, PAT, bootstrap de espacio de trabajo, roles y superficies públicas.
-- Contención de caminos, escrituras seguras, Etags, razas, registro y comportamiento de sidecar.
-- Fórmulas, rollups, filtros mecanografiados, relaciones, planificación y programación.
-- Enviar MIME/CID, contactos fusionar/vCard, contención de calendario y recordatorios.
+- Autenticación, PAT, inicialización del workspace, roles e interfaces públicas.
+- Confinamiento de rutas, escrituras seguras, ETags, condiciones de carrera, registro y sidecars.
+- Fórmulas, rollups, filtros tipados, relaciones, planificación y tareas programadas.
+- MIME/CID del correo, fusión de contactos y vCard, confinamiento de calendario y recordatorios.
 - Enrutamiento de IA, habilidades, resiliencia MCP, confirmaciones y herramientas generadas.
 - Complementos, importaciones, citas, normalización de lectores, XSS y SSRF.
 
-## Ensayos de la interfaz
+## Pruebas del frontend
 
-Vitest cubre componentes, ganchos, registros, formatos de utilidades, lógica de vista tecleada y comportamiento de estado. ESLint y la producción Vite build son obligatorios. `check:i18n` verifica que las claves referenciadas orientadas al usuario existen en cada localización.
+Vitest cubre componentes, hooks, registros, utilidades de formato, lógica tipada de vistas y comportamiento del estado. ESLint y la compilación de producción con Vite son obligatorios. `check:i18n` verifica que las claves referenciadas de textos visibles para el usuario existan en todos los idiomas.
 
 La compilación debe terminar con cero errores. Las advertencias existentes no son permiso para añadir nuevas advertencias sin revisión.
 
@@ -86,6 +86,14 @@ código están en `frontend/tests/contracts/`; el guardrail complementa el lint 
 Se debe verificar la implementación después del traslado; esta documentación
 no acredita que la verificación global haya pasado.
 
+En máquinas con recursos limitados, ejecute las comprobaciones de compilación y
+tipado que consumen mucha CPU por separado de la suite completa con DOM real.
+Si el trabajo en paralelo provoca que las pruebas agoten sus plazos, repita la
+suite afectada de forma aislada y después la suite completa con un número acotado
+de workers (por ejemplo, `pnpm --filter @gnosi/frontend exec vitest run
+--maxWorkers=2 --minWorkers=2`). Mantenga intactas las aserciones y los plazos;
+superar una ejecución aislada no demuestra que la suite completa pase.
+
 ## Límites de tamaño de producción
 
 El build del frontend ejecuta `scripts/check-bundle-size.ts` después de Vite.
@@ -101,17 +109,18 @@ rendimiento óptimo.
 
 ## Pruebas visuales y de extremo a extremo
 
-Playwright se ejecuta como un proyecto a nivel de host contra la aplicación nativa. Una configuración anónima cubre el arranque y el comportamiento público; la configuración autenticada cubre la funcionalidad del espacio de trabajo.
+Playwright se ejecuta como un proyecto del host contra la aplicación nativa. La configuración anónima cubre el arranque y el comportamiento público; la autenticada cubre la funcionalidad del workspace. Las pruebas de dominio ejercitan Vault, paneles, correo, calendario, contactos, dibujos, automatización, chat del agente y navegación.
 
-Las instantáneas visuales cubren páginas de escritorio y móviles representativas. Para un cambio de interfaz de usuario, inspeccione la página real renderizada, haga clic en el control cambiado, vea la consola y tome una captura de pantalla. Confirme que los modos, superposiciones, tostadas y menús utilizan el sistema registrado de índice z y no atrapan la interacción.
+Las instantáneas visuales cubren páginas representativas de escritorio y móvil. Ante un cambio de interfaz, inspeccione la página renderizada, pulse el control modificado, observe la consola y tome una captura. Confirme que los modales, las capas superpuestas, las notificaciones emergentes y los menús utilizan el sistema registrado de z-index y no bloquean la interacción.
 
-## Puerta de accesibilidad
+## Control de accesibilidad
 
-El proyecto `accessibility` de Playwright es una puerta bloqueante de WCAG 2.2
+El proyecto `accessibility` de Playwright es un control bloqueante de WCAG 2.2
 AA. Ejecuta axe sobre doce rutas seleccionadas del producto en los
 temas claro y oscuro, incluidos el contraste de color, las etiquetas, las
 regiones y las relaciones ARIA. El marcado propio de la aplicación siempre
-permanece dentro de la auditoría. Los datos de prueba deterministas activan los
+permanece dentro de la auditoría y la suite no mantiene una lista permanente de
+infracciones permitidas. Los datos de prueba deterministas activan los
 módulos opcionales de la matriz de rutas, y cada ruta también falla si el
 navegador genera un error de página no controlado; una superficie rota no
 puede superar axe.
@@ -126,10 +135,12 @@ contraste en claro y oscuro. Un resultado verde cubre estos casos y estados,
 no todas las interacciones, tecnologías de asistencia, datos personales ni la
 conformidad completa con WCAG.
 
-Las pruebas de interacción complementan axe con navegación de salto, foco
-visible y ordenado, teclado completo, foco roving de las pestañas móviles,
-Escape en diálogos cancelables, focus trap y retorno del foco, nombres
-accesibles y anuncios de cambio de ruta.
+Las comprobaciones de interacción complementan axe en aspectos que el análisis
+estático no puede demostrar: navegación de salto, foco visible y orden lógico,
+manejo completo por teclado, desplazamiento del foco entre pestañas móviles,
+Escape en diálogos cancelables, confinamiento y restauración del foco, nombres
+accesibles y anuncios de cambio de ruta. Los cambios compartidos de foco,
+modales, navegación o tokens de color deben superar este proyecto antes de una release.
 
 El estilo global de foco utiliza el atributo `data-focus-modality` en la raíz
 del documento. La activación con puntero elimina los contornos genéricos; con
@@ -139,7 +150,7 @@ editables del Vault conservan únicamente el cursor de escritura. Las pruebas
 unitarias cubren los cambios de modalidad y las pruebas de navegador, el foco
 con puntero y teclado en los temas claro y oscuro.
 
-## Ensayos de despliegue
+## Pruebas de despliegue
 
 Actualmente, la CI de Docker valida Compose y construye las imágenes de backend
 y frontend; no arranca contenedores ni verifica su estado y persistencia.
@@ -154,18 +165,18 @@ actualizaciones manuales mediante el instalador. Una ejecución local en macOS
 no acredita las otras plataformas: no publique 3.0 antes de superar toda
 la matriz de release.
 
-## Mapeo de cambio a ensayo
+## Correspondencia entre cambios y pruebas
 
 | Cambio | Pruebas mínimas |
 | --- | --- |
-| Documentación revisada pura | Verificación del generador, validador, construcción de documentos estrictos, humo de documentos del navegador. |
-| Lógica de catálogo generada | Pruebas de unidades generadoras, determinismo de dos carreras, validador, construcción de documentos estrictos. |
-| Comportamiento del motor | Regresión de pisteles estrecha más suite de integración afectada. |
-| Comportamiento de la interfaz | Vitest cuando sea posible, comprobación i18n, producción, acción del navegador y captura de pantalla. |
+| Solo documentación revisada | Comprobación del generador, validador, compilación estricta de documentación y prueba básica del portal en el navegador. |
+| Lógica de generación de catálogos | Pruebas unitarias del generador, determinismo entre dos ejecuciones, validador y compilación estricta de documentación. |
+| Comportamiento del backend | Regresión acotada con pytest y suite de integración afectada. |
+| Comportamiento del frontend | Vitest cuando sea viable, comprobación i18n, compilación de producción, acción en el navegador y captura. |
 | Accesibilidad o token compartido de interfaz | Vitest de la primitiva, paridad de los cuatro idiomas, matriz axe en claro y oscuro, pruebas de teclado y captura del navegador. |
-| Auth/seguridad/comportamiento de la ruta | Pruebas negativas e intentos de alcance cruzado, no sólo el camino dorado. |
-| Despliegue/dependencia | Verificación nativa más Docker o paquete CI según proceda. |
+| Autenticación, seguridad o comportamiento de rutas | Pruebas negativas e intentos de acceso entre ámbitos, además del caso correcto. |
+| Despliegue o dependencias | Verificación nativa y CI de Docker o empaquetado, según corresponda. |
 
 ## Catálogo de pruebas
 
-Los generados [catálogo de pruebas](../generated/tests.md) lista archivos de prueba y señales de navegación. La colección Runner sigue siendo autorizada para los recuentos de pruebas ejecutables.
+El [catálogo de pruebas](../generated/tests.md) generado enumera los archivos de pruebas propios y las señales de navegación. La recopilación del ejecutor sigue siendo la fuente autoritativa del número de pruebas ejecutables.

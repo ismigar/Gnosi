@@ -371,8 +371,9 @@ comportament compatible.
 La consulta bibliogràfica importa els serveis directament i declara sota
 `TYPE_CHECKING` àlies comprovats dels propietaris reals dels callbacks, sense
 conversions de mòduls ni resultats. La substitució tardana continua funcionant.
-Les proves cobreixen els dos ordres d'importació, els esquemes HTTP exactes i
-la identitat de les metadades desconegudes. `citations/title_regex.py` conserva
+Les proves cobreixen els dos ordres d'importació, els esquemes HTTP exactes,
+la substitució de callbacks durant una consulta i la preservació de metadades
+desconegudes. `citations/title_regex.py` conserva
 els errors natius de Python: l'única excepció documentada del verificador valida
 entrades incorrectes i mai afecta dades retornades. Els tipus heretats dels
 proveïdors de registre i pàgines continuen sent feina pendent separada.

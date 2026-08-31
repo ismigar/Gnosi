@@ -7,6 +7,7 @@ source_paths:
   - pipeline/skills/technical_documentation/scripts/check_change_impact.py
   - pipeline/skills/technical_documentation/scripts/generate.py
   - pipeline/skills/technical_documentation/scripts/localize.py
+  - pipeline/skills/technical_documentation/scripts/reviewed_contracts.py
   - mkdocs.yml
   - mkdocs-ca.yml
   - mkdocs-es.yml
@@ -88,7 +89,7 @@ El repositori públic `ismigar/Gnosi` el construeix directament amb
 Amb cada canvi rellevant enviat a la branca pública `main`, el workflow verifica
 els catàlegs i les versions localitzades, valida la traçabilitat, construeix els
 quatre portals MkDocs en mode estricte i publica l'arbre `site/` a GitHub Pages.
-Publicar aquest directori pare conserva el segment `/engineering/` de l'URL.
+Publicar el directori pare `site/` conserva el segment `/engineering/` de l'URL.
 
 La barra lateral de Gnosi enllaça amb aquesta adreça. L'etiqueta està traduïda als
 quatre idiomes i el portal s'obre fora de les rutes internes de l'aplicació.
@@ -159,7 +160,14 @@ com a ubicacions actuals del codi.
 El validador comprova avisos de generació, metadades, camins de codi i proves,
 enllaços interns, guies requerides, camins absoluts locals i possibles secrets.
 `generate.py --check` compara els fitxers versionats amb el codi actual.
-`localize.py --check` comprova la paritat dels arbres català, castellà i francès.
+`localize.py --check` comprova la paritat dels arbres català, castellà i francès
+i protegeix el contingut tècnic de les guies revisades: frontmatter exacte,
+multiplicitat dels fragments de codi, exemples delimitats, identificadors,
+fletxes i ordre dels diagrames Mermaid, destinacions d'enllaços i URL. La prosa,
+les etiquetes dels diagrames i els fragments d'encapçalaments locals poden
+variar; modificar identificadors, ordres o rutes de codi fa fallar la comprovació
+amb el nom de pàgina i la categoria, sense mostrar els valors del document.
+Aquesta comprovació de només lectura no inicialitza cap model de traducció.
 MkDocs en mode estricte valida la navegació i els enllaços dels quatre portals.
 
 Els catàlegs tradueixen determinísticament els títols i les etiquetes fixes.

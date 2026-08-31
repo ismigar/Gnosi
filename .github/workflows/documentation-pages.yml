@@ -41,6 +41,8 @@ jobs:
         run: uv run python pipeline/skills/technical_documentation/scripts/generate.py --check
       - name: Validate traceability and links
         run: uv run python pipeline/skills/technical_documentation/scripts/validate.py
+      - name: Validate reviewed translations and localized catalogs
+        run: uv run --frozen --group docs python pipeline/skills/technical_documentation/scripts/localize.py --check
       - name: Build localized portals
         run: |
           uv run mkdocs build --strict --config-file mkdocs.yml

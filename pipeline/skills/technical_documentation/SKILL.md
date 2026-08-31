@@ -80,6 +80,20 @@ refreshes documentation or configuration.
 - Full/reviewed localization remains an explicit separate operation using the
   offline translator; never invoke it to refresh generated catalogs.
 
+## Reviewed-guide convergence
+
+Review localized prose against the full English guide and linked source;
+correct malformed translation and missing caveats without retranslating
+already-correct passages or generated catalogs. Run `localize.py --check`
+after editing. For reviewed pages it compares exact front matter, code-span
+multiplicity, fenced examples, Mermaid IDs/arrows/order, link targets and URLs.
+Displayed node labels, edge/message captions and participant display names may
+translate; structural IDs and executable examples may not. Local heading
+fragments may differ. Diagnostics report the file and category, not raw values.
+The checker supports this portal's Markdown conventions; it is not a general
+Markdown parser or a proof of prose meaning. Keep the link/metadata validator,
+strict portal builds and human/browser review as independent gates.
+
 ## Generation rules
 
 1. Inspect source only; never import `backend.server` or another runtime module.

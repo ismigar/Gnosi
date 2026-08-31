@@ -264,7 +264,7 @@ La política de recursos lee el código fuente sin importar la aplicación.
 Conserva los recursos de Alembic, las instrucciones del agente, las skills de
 traducción dinámica, los plugins de ejemplo y los estilos bibliográficos.
 Rechaza recursos ausentes, modificados, no revisados o inseguros, en lugar de
-incluir recursivamente bóvedas, bases de datos, configuración, secretos o
+incluir recursivamente vaults, bases de datos, configuración, secretos o
 herramientas generadas. El hook `afterPack` comprueba el ASAR real y los recursos
 de Python antes de la firma. Los recursos gráficos pertenecen a
 `desktop/assets/`; los paquetes generados, a `desktop/dist/` y
@@ -370,7 +370,7 @@ publicar 3.0.0.
 
 El capturador web envía `POST /api/public/clip` con un token de acceso personal
 y lee la configuración de los campos solicitados y del destino desde
-`GET /api/public/clip/config`. El backend elige la bóveda de destino; la
+`GET /api/public/clip/config`. El backend elige el vault de destino; la
 extensión no obtiene acceso arbitrario al sistema de archivos. Su token y la
 URL del backend se guardan en el almacenamiento local de la extensión. El
 empaquetado para navegadores y la aceptación en sus tiendas son independientes
@@ -389,7 +389,7 @@ normal del inicio de Gnosi.
 El cliente de LibreOffice es un gestor de protocolo Python/UNO que usa
 `urllib` de la biblioteca estándar. Lee `api_token` de su propia configuración
 o de `GNOSI_API_TOKEN`; no des por hecho que comparte la sesión del navegador.
-Ambos clientes usan los endpoints de formato de citas de la bóveda y el
+Ambos clientes usan los endpoints de formato de citas del vault y el
 procesamiento Pandoc/CSL del backend. El formato sensible al contexto necesita
 las claves del documento en orden, incluidas las citas repetidas. La
 actualización de Writer recorre tablas anidadas; los encabezados y pies de
@@ -402,7 +402,7 @@ con datos simulados.
 
 La prueba básica del backend empaquetado exige una respuesta de estado HTTP 200
 de tamaño limitado con `status: ok`, `mode: FastAPI` y una identidad nueva de
-la prueba en `gnosi_mode`. Usa rutas desechables de datos y bóvedas, desactiva
+la prueba en `gnosi_mode`. Usa rutas desechables de datos y vaults, desactiva
 la automatización operativa y recoge su proceso hijo tanto si tiene éxito como
 si falla. `GNOSI_VALIDATION_ROOT` valida todos los selectores y bloquea los
 archivos de entorno locales y compartidos y el acceso al almacén de

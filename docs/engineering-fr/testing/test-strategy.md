@@ -10,30 +10,30 @@ source_paths:
   - frontend/src
   - frontend/tests/contracts
   - frontend/feature-public-entries.json
-  - frontend/package.json
-  - frontend/scripts/check-bundle-size.ts
   - tests/e2e
   - pyproject.toml
+  - frontend/package.json
+  - frontend/scripts/check-bundle-size.ts
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
-# Stratégie d'essai
+# Stratégie de test
 
-## Calques de qualité
+## Niveaux de vérification de la qualité
 
 ```mermaid
 flowchart TB
     Static["Contrôles statiques\nSyntaxe de Python, ESLint, i18n"] --> Unit["Tests unitaires\normalisateurs, politiques, algorithmes"]
-    Unit --> Integration["Tests d'intégration, stockage, adaptateurs"]
-    Integration --> E2E["Playwright\nreal navigateur et services en cours d'exécution"]
+    Unit --> Integration["Tests d'intégration\nroutes, stockage, adaptateurs"]
+    Integration --> E2E["Playwright\nnavigateur réel et services actifs"]
     E2E --> Visual["Inspection visuelle et instantanés de régression"]
-    Integration --> Deploy["Essais de fumigation de la bidon et de l ' emballage"]
+    Integration --> Deploy["Tests de bon fonctionnement de Docker et des paquets"]
 ```
 
-Une version de la construction de frontend capte les importations et la syntaxe mais pas une interaction rompue. Un test d'unité de route ne prouve pas l'intégration du navigateur. Une capture d'écran ne prouve pas la persistance ou l'autorisation.
+Aucun niveau ne suffit à lui seul. Un build du frontend détecte les erreurs d'import et de syntaxe, mais pas une interaction défaillante. Un test unitaire de route ne prouve pas l'intégration dans le navigateur. Une capture d'écran ne prouve ni la persistance ni l'autorisation.
 
 ## Vérification unifiée des types
 
@@ -51,22 +51,22 @@ frontières avec `Any` explicite. La régression vérifie les périmètres compl
 et utilise des exécutables simulés isolés sous POSIX pour contrôler l'ordre
 et la propagation des erreurs ; elle ne prouve pas l'exécution sous Windows.
 
-## Essais de l'arrière-pays
+## Tests du backend
 
-Pytest couvre les services, les dépendances d'itinéraire, la normalisation, le stockage, la sécurité, la concurrence et les cas de régression. Les tests utilisent des coffres-forts temporaires et des répertoires de données locales. Les fournisseurs externes sont taboussés à moins qu'un test ne soit explicitement marqué comme live/E2E.
+Pytest couvre les services, les dépendances des routes, la normalisation, le stockage, la sécurité, la concurrence et les régressions. Les tests utilisent des répertoires temporaires de vaults et de données locales. Les fournisseurs externes sont simulés sauf si le test est explicitement marqué live/E2E.
 
 Les suites importantes comprennent:
 
-- Auth, PAT, bootstrap, rôles et surfaces publiques.
-- Contenance de chemin, écrits sûrs, ETags, races, registre et comportement sidecar.
-- Formules, rollups, filtres dactylographiés, relations, planification et calendrier.
-- Mail MIME/CID, contacts fusion/vCard, confinement de calendrier et rappels.
-- AI routage, compétences, résilience MCP, confirmations et outils générés.
+- Authentification, PAT, amorçage des workspaces, rôles et interfaces publiques.
+- Confinement des chemins, écritures sûres, ETags, concurrence, registre et fichiers auxiliaires.
+- Formules, rollups, filtres typés, relations, planification de projets et tâches planifiées.
+- MIME/CID du courrier, fusion des contacts et vCard, confinement du calendrier et rappels.
+- Routage IA, compétences, résilience MCP, confirmations et outils générés.
 - Plugins, importations, citations, normalisation du lecteur, XSS et SSRF.
 
-## Essais frontaliers
+## Tests du frontend
 
-Vitest couvre les composants, les crochets, les registres, les utilitaires de formatage, la logique de visualisation dactylographiée et le comportement d'état. `check:i18n` vérifie que les clés référencées orientées vers l'utilisateur existent dans chaque localité.
+Vitest couvre les composants, hooks, registres, utilitaires de formatage, logique typée des vues et comportement de l'état. ESLint et le build Vite de production sont obligatoires. `check:i18n` vérifie la présence de chaque clé référencée visible par l'utilisateur dans tous les catalogues linguistiques.
 
 La compilation doit se terminer par zéro erreur. Les avertissements existants ne sont pas la permission d'ajouter de nouveaux avertissements sans examen.
 
@@ -86,6 +86,14 @@ Les contrats globaux du code résident dans `frontend/tests/contracts/` ;
 le guardrail complète le lint AST. Vérifier l'implémentation après le déplacement ;
 cette documentation ne prouve pas la réussite de la vérification globale.
 
+Sur les machines aux ressources limitées, exécutez les contrôles de build et de
+typage coûteux en CPU séparément de la suite complète utilisant le DOM réel.
+Si des traitements parallèles provoquent des dépassements de délai, relancez
+la suite concernée isolément, puis la suite complète avec un nombre borné de
+workers, par exemple `pnpm --filter @gnosi/frontend exec vitest run
+--maxWorkers=2 --minWorkers=2`. Conservez les assertions et les délais des tests ;
+la réussite isolée ne prouve pas que toute la suite passe.
+
 ## Limites de taille de production
 
 Le build frontend exécute `scripts/check-bundle-size.ts` après Vite. Les limites
@@ -99,19 +107,20 @@ dépendances, ni le transfert compressé, ni le temps de démarrage. L'avertisse
 existant de Vite à 1 500 kB reste visible ; ces limites empêchent la croissance
 sans prouver que les performances sont optimales.
 
-## Essais visuels de bout en bout
+## Tests de bout en bout et visuels
 
-Playwright fonctionne comme un projet de niveau hôte contre l'application native. Une configuration anonyme couvre le démarrage et le comportement public; la configuration authentifiée couvre la fonctionnalité de l'espace de travail. Exercice de tests de domaine Vault, tableau de bord, courrier, calendrier, contacts, dessins, automatisation, chat agent et navigation.
+Playwright s'exécute comme projet sur l'hôte contre l'application native. Une préparation anonyme couvre le démarrage et le comportement public ; la préparation authentifiée couvre les fonctions du workspace. Les tests des domaines exercent le vault, le tableau de bord, le courrier, le calendrier, les contacts, les dessins, l'automatisation, le chat de l'agent et la navigation.
 
-Les instantanés visuels couvrent les pages représentatives des bureaux et des mobiles. Pour un changement d'interface, inspectez la page rendue, cliquez sur le contrôle modifié, regardez la console et prenez une capture d'écran. Confirmez que les modaux, les superpositions, les toasts et les menus utilisent le système d'index z enregistré et ne captent pas l'interaction.
+Les instantanés visuels couvrent des pages représentatives sur ordinateur et mobile. Pour une modification d'interface, inspectez la page réellement rendue, cliquez sur le contrôle modifié, surveillez la console et prenez une capture d'écran. Vérifiez que les fenêtres modales, superpositions, notifications et menus utilisent le système de z-index enregistré et ne bloquent pas les interactions.
 
-## Porte d’accessibilité
+## Contrôle bloquant d'accessibilité
 
-Le projet Playwright `accessibility` est une porte bloquante WCAG 2.2 AA. Il
+Le projet Playwright `accessibility` est un contrôle bloquant WCAG 2.2 AA. Il
 exécute axe sur douze itinéraires sélectionnés du produit dans
 les thèmes clair et sombre, y compris le contraste des couleurs, les étiquettes,
 les régions et les relations ARIA. Le balisage propre à l’application reste
-toujours dans l’audit. Les données de test déterministes activent les modules
+toujours dans l’audit, sans liste permanente d'exceptions aux violations.
+Les données de test déterministes activent les modules
 optionnels de la matrice d’itinéraires, et chaque itinéraire échoue également
 en cas d’erreur de page non gérée dans le navigateur ; une surface défaillante
 ne peut pas réussir axe.
@@ -126,10 +135,13 @@ de contraste clair/sombre. Un résultat positif couvre ces cas et états, pas
 toutes les interactions, technologies d’assistance, données personnelles ni
 la conformité WCAG complète.
 
-Les tests d’interaction complètent axe avec la navigation d’évitement, le focus
-visible et ordonné, le clavier complet, le focus roving des onglets mobiles,
-Échap dans les dialogues annulables, le focus trap et le retour du focus, les
-noms accessibles et les annonces de changement d’itinéraire.
+Les assertions d'interaction complètent axe pour les comportements que l'analyse
+statique ne prouve pas : navigation d'évitement, focus visible et ordre logique,
+utilisation complète au clavier, déplacement du focus entre onglets mobiles,
+Échap dans les dialogues annulables, confinement et restauration du focus,
+noms accessibles et annonces de changement de route. Les changements du focus
+partagé, des modales, de la navigation ou des tokens de couleur doivent réussir
+ce projet avant publication.
 
 Le style global du focus utilise l’attribut `data-focus-modality` à la racine
 du document. L’activation au pointeur supprime les contours génériques ; au
@@ -140,7 +152,7 @@ saisie. Les tests unitaires couvrent les transitions de modalité et les tests
 du navigateur, le focus au pointeur et au clavier dans les thèmes clair et
 sombre.
 
-## Essais de déploiement
+## Tests de déploiement
 
 Actuellement, la CI Docker valide Compose et construit les images backend et
 frontend ; elle ne démarre pas les conteneurs et ne vérifie ni leur état ni
@@ -155,18 +167,18 @@ Actuellement, macOS utilise des mises à jour manuelles par installateur.
 Une exécution locale sous macOS ne valide pas les autres plateformes :
 ne pas publier 3.0 avant la réussite de toute la matrice de release.
 
-## Cartographie de la variation aux essais
+## Correspondance entre changements et tests
 
 | Changement | Preuve minimale |
 | --- | --- |
-| Documents purement réexaminés | Contrôle du générateur, validateur, stricte construction de documents, navigateur de documents de fumée. |
-| Logique générée du catalogue | Essais d'unités de générateur, déterminisme à deux commandes, validateur, construction de documents stricts. |
-| Comportement du moteur | Régression des pytests étroits plus suite d'intégration affectée. |
-| Comportement de la frontée | Vitest lorsque possible, i18n vérifier, construction de production, action du navigateur et capture d'écran. |
+| Documentation révisée uniquement | Contrôle du générateur, validateur, build documentaire strict, test de bon fonctionnement du portail dans le navigateur. |
+| Logique des catalogues générés | Tests unitaires du générateur, déterminisme sur deux exécutions, validateur, build documentaire strict. |
+| Comportement du backend | Régression pytest ciblée et suite d'intégration concernée. |
+| Comportement du frontend | Vitest lorsque possible, contrôle i18n, build de production, action dans le navigateur et capture d'écran. |
 | Accessibilité ou jeton d’interface partagé | Vitest de la primitive, parité des quatre langues, matrice axe en clair et sombre, tests clavier et capture du navigateur. |
-| Comportement de l'autorité/de la sécurité/de la voie | Tests négatifs et tentatives croisées, pas seulement le chemin doré. |
-| Déploiement/dépendance | Vérification autochtone plus Docker ou colis IC, selon le cas. |
+| Authentification, sécurité ou chemins | Tests négatifs et tentatives d'accès hors périmètre, pas uniquement le parcours nominal. |
+| Déploiement ou dépendances | Vérification native et CI Docker ou des paquets selon le cas. |
 
-## Catalogue d'essai
+## Catalogue des tests
 
-Les [catalogue d'essai](../generated/tests.md) La collection Runner reste autorisée pour les comptes de tests exécutables.
+Le [catalogue de tests](../generated/tests.md) généré répertorie les fichiers de tests propres au projet et les repères de navigation. La collecte par les exécuteurs de tests reste la référence pour le nombre de tests exécutables.

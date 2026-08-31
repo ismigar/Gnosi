@@ -6,13 +6,13 @@ source_paths:
 tests: []
 ---
 
-# Comptes de décision architecturaux
+# Registre des décisions d'architecture
 
-Les EIM prennent en compte les décisions durables, le contexte, les conséquences et les solutions de rechange. Ils ne remplacent pas la documentation du domaine; ils expliquent pourquoi une limite est difficile à modifier.
+Les ADR consignent les décisions durables, leur contexte, leurs conséquences et les alternatives. Ils ne remplacent pas la documentation des domaines ; ils expliquent pourquoi une frontière est difficile à modifier.
 
 | ADR | État | Décision |
 | --- | --- | --- |
 | [0001](0001-local-first-source-of-truth.md) | Accepté | Markdown Vault est la source de connaissances durable. |
 | [0002](0002-documentation-as-code.md) | Accepté | La documentation technique combine la prose revue et la référence générée. |
 
-Les nouveaux EIM utilisent le numéro à quatre chiffres suivant et comprennent le contexte, la décision, les conséquences, les solutions de rechange et l'impact de la vérification.
+Les nouveaux ADR utilisent le numéro à quatre chiffres suivant et comprennent le contexte, la décision, les conséquences, les alternatives et l'impact sur la vérification. Les décisions remplacées restent dans l'historique et renvoient à celles qui les remplacent.

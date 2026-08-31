@@ -274,9 +274,10 @@ error until a new refresh succeeds.
 
 Operators can inspect the notebook SQLite repository and durable job queue
 below `LOCAL_DATA`, but must not move either into a shared Vault. Backend code
-reloads in native development; dependency changes still require a backend
-LaunchAgent restart. The same configuration-derived paths are used in native
-and Docker deployments.
+reloads in native development, but dependency changes require updating the locked
+environment and restarting the backend process. Restart its LaunchAgent only
+when that optional macOS arrangement is used. The same configuration-derived
+paths are used in native and Docker deployments.
 
 ## Verification boundaries
 

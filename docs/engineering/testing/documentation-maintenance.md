@@ -7,6 +7,7 @@ source_paths:
   - pipeline/skills/technical_documentation/scripts/check_change_impact.py
   - pipeline/skills/technical_documentation/scripts/generate.py
   - pipeline/skills/technical_documentation/scripts/localize.py
+  - pipeline/skills/technical_documentation/scripts/reviewed_contracts.py
   - mkdocs.yml
   - mkdocs-ca.yml
   - mkdocs-es.yml
@@ -165,7 +166,12 @@ The validator checks generated notices, metadata, source/test paths, internal
 links, required domain guides, local absolute paths, and obvious secret
 material. `generate.py --check` independently compares committed output to the
 current tree. `localize.py --check` requires Catalan, Spanish, and French tree
-parity. MkDocs strict mode validates navigation and documentation links in all
+parity and protects technical content in reviewed guides: exact front matter,
+code-span multiplicity, fenced examples, Mermaid IDs/arrows/order, link targets
+and URLs. Prose, diagram captions and localized heading fragments may differ;
+changed identifiers, commands or source paths fail with the page and category,
+without echoing document values. This read-only check does not initialize a
+translation model. MkDocs strict mode validates navigation and documentation links in all
 four portals.
 
 Reviewed guides are localized in every portal. Generated catalogs localize known

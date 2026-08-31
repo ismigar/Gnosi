@@ -436,6 +436,35 @@ def test_pages_workflow_publishes_from_the_canonical_root() -> None:
     assert workflow_mapping(upload_step["with"])["path"] == "site"
 
 
+def test_pages_localization_check_is_fatal_read_only_and_precedes_builds() -> None:
+    """Publishing must reject stale translations before creating its artifact."""
+    workflow = workflow_mapping(yaml.safe_load(PAGES_WORKFLOW.read_text(encoding="utf-8")))
+    job = workflow_job(workflow, "build")
+    assert "if" not in job and "continue-on-error" not in job
+    steps = workflow_steps(job)
+    checks = [
+        (index, step) for index, step in enumerate(steps)
+        if "localize.py" in workflow_text(step.get("run", ""))
+    ]
+    assert len(checks) == 1
+    index, check = checks[0]
+    assert "if" not in check and "continue-on-error" not in check
+    assert workflow_text(check["run"]) == (
+        "uv run --frozen --group docs python "
+        "pipeline/skills/technical_documentation/scripts/localize.py --check"
+    )
+    builds = [
+        position for position, step in enumerate(steps)
+        if "mkdocs build" in workflow_text(step.get("run", ""))
+    ]
+    assert builds and all(index < position for position in builds)
+    uploads = [
+        position for position, step in enumerate(steps)
+        if workflow_text(step.get("uses", "")).startswith("actions/upload-pages-artifact@")
+    ]
+    assert len(uploads) == 1 and max(builds) < uploads[0]
+
+
 def test_sidebar_uses_the_canonical_public_url() -> None:
     """The in-app entry and MkDocs canonical URL remain aligned."""
     mkdocs_config = (APP_ROOT / "mkdocs.yml").read_text(encoding="utf-8")

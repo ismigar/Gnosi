@@ -61,3 +61,9 @@ Python environment and pnpm workspace; this pipeline has no independent
 dependency installation. Generated references must be regenerated, never patched
 by hand. A passing catalog build does not certify live cloud integrations or
 desktop installers.
+
+Reviewed translations also preserve the source guide's metadata, code examples,
+identifiers, diagram structure and link destinations. The localization check
+rejects technical drift without loading a translation model or rewriting pages.
+This does not prove prose equivalence: review translated explanations and inspect
+the rendered guides alongside the automated checks.

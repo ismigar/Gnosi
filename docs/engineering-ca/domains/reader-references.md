@@ -21,6 +21,8 @@ source_paths:
   - backend/services/literature_import_service.py
   - backend/services/literature_ai_service.py
   - backend/services/references_io.py
+  - backend/services/import_dedup.py
+  - backend/services/audio_summarizer.py
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
@@ -31,6 +33,7 @@ tests:
   - backend/tests/test_vault_export_domain_contract.py
   - backend/tests/test_citation_key_and_pubmed.py
   - backend/tests/test_references_io.py
+  - backend/tests/test_import_dedup.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_e2e_import_references_item_type.py
   - backend/tests/test_literature_models.py
@@ -39,6 +42,7 @@ tests:
   - backend/tests/test_lookup_normalizers.py
   - backend/tests/test_html_meta_attr_order.py
   - backend/tests/test_literature_service.py
+  - backend/tests/test_literature_import_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/features/reader/ReaderDashboard.test.tsx
   - frontend/src/features/reader/public-entry.test.ts
@@ -49,33 +53,68 @@ tests:
 
 # Lector, referències i citacions
 
+Els dominis de frontend amb tipatge estricte `features/reader/` i
+`features/literature/` gestionen les seves pàgines, components locals, estat
+i proves. Cadascun exposa una entrada pública diferida, de manera que la
+lectura de canals i la cerca bibliogràfica es carreguen independentment.
+Els estils de Literatura mantenen l'ordre de cascada existent dins de la
+funcionalitat. Els adaptadors compartits de peticions, la integració Zotero,
+la configuració de proveïdors i la renderització de citacions no es dupliquen
+en aquests dominis.
+
 Les rutes, l'emmagatzematge, l'anàlisi i les fonts del Reader viuen ara a
 `backend/domains/reader/`; els repositoris, la cerca, la sincronització i
 l'emmagatzematge bibliogràfic, a `backend/domains/literature/`. Els mòduls antics
 es mantenen com a façanes compatibles.
+
+L'anàlisi del Reader que depèn del vault, l'accés a resultats, la represa,
+la cancel·lació, la recuperació d'articles antics i la generació de pòdcasts
+passen per una única comprovació de vault actiu. Si falta context, retornen
+una resposta recuperable de servei no disponible abans de crear treballs o
+fils; les rutes vàlides del vault i els payloads existents es mantenen estables.
+La generació de pòdcasts consumeix directament el generador canònic tipat de
+sessions de base de dades i el tanca al bloc `finally` existent; no hi ha cap
+conversió de tipus ni fàbrica duplicada de sessions entre l'orquestració del
+Reader i la persistència.
 
 Les rutes HTTP, els models canònics i els serveis de revisió sistemàtica estan
 tipats estrictament. El recompte PRISMA, les transicions de cribratge,
 l'evidència d'accés obert i les exportacions CSV/JSON/Markdown/SVG viuen al
 domini pur `review_logic.py`; les funcions històriques continuen com a façanes.
 
-## Reversió
+## Responsabilitat
 
-Aquest domini combina la lectura de fonts/news lletres amb un gestor de referències compatible amb el Zotero, renderitzat de citació CSL, identificador i importació web, lectura PDF/EPUB i anotacions que poden convertir-se en proves citables.
+Aquest domini combina la lectura de canals i butlletins amb un gestor de
+referències compatible amb Zotero, renderització de citacions CSL, importació
+per identificadors i web, lectura PDF/EPUB i anotacions que poden esdevenir
+evidència citable.
 
-## Referència d' ingestió
+## Ingestió de referències
 
 Crossref, Open Library, arXiv, PubMed i les metadades HTML tenen normalitzadors
 tipats separats a `backend/domains/vault/citations/normalizers/`. Conserven els
 payloads canònics de Zotero i el comportament de funció pura, mentre que
 `backend/services/lookup_normalizers.py` continua sent la façana compatible.
 
-Les referències entren a través del DOI, ISBN, arXiv, PMID, BibTeX, RIS, fitxers o URL web. Els identificadors i el servidor de traducció Zo- servidor produeixen metadades específiques del proveïdor. Normalitza els mapes a l' esquema de referència configurat, genera una clau de citació estable, candidats de desuplicats, i escriu un registre de continguts.
+Les referències entren per DOI, ISBN, arXiv, PMID, BibTeX, RIS, fitxers o URL
+web. Els resolutors d'identificadors i Zotero translation-server produeixen
+metadades específiques del proveïdor. Els normalitzadors les mapen a l'esquema
+configurat, generen una clau de citació estable, dedupliquen candidats i
+escriuen un registre al vault.
 
 `backend/services/references_io.py` és el límit tipat i determinista de BibTeX/RIS.
 Els seus ajudants petits d'anàlisi, normalització, mapatge de camps i serialització
 preserven l'ordre, l'escapat, la resolució del tipus i el contracte públic
 d'importació/exportació, sense persistència ni xarxa ocultes.
+El deduplicador pur d'importacions utilitza estructures explícites de metadades
+i índexs d'identificadors. Manté la prioritat clau de citació, DOI, ISBN i
+títol normalitzat; una entrada creada en la mateixa importació s'afegeix
+idempotentment als mateixos índexs. Les entrades del catàleg CSL i el mapatge
+declaratiu de Zotero a Recursos exposen contractes serialitzables explícits,
+preservant els extres arbitraris del proveïdor al límit JSON extern. Els
+ressaltats de citacions gestionats per Brain utilitzen mapatge tipat SQLAlchemy;
+l'única excepció sense tipatge queda a l'adaptador opcional `pypdfium2`, que
+no publica el marcador `py.typed`.
 
 L'orquestració de consulta, que és només de lectura, viu al domini de citacions,
 manté la prioritat DOI → arXiv → PMID → ISBN → URL i fa passar les URL aportades
@@ -84,15 +123,22 @@ La taula de Recursos designada es llegeix d'una configuració canònica única;
 només els vaults heretats que mai no s'han configurat poden adoptar automàticament
 la primera taula amb Citation Key, sota el mateix bloqueig que Configuració.
 
-El servidor de traducció és un port opcional. L' operació nativa pot executar- se sense ell; els resoldors específics d' identificador i les referències existents continuen treballant. Els errors de traducció web retornen errors no vàlids en lloc d' un registre buit.
+El servidor de traducció és un servei auxiliar opcional. L'execució nativa pot
+prescindir-ne; els resolutors específics d'identificador i les referències
+existents continuen funcionant. Les fallades de traducció web retornen errors
+que orienten la resolució, en lloc de presentar un registre buit com un èxit.
 
 `citations/pdf_fallback.py` deriva un registre citable de les metadades PDF quan
 falla la resolució d'identificadors. `citations/web_capture.py` selecciona i
 mapeja resultats Zotero, i `platform/translation_server.py` gestiona el transport HTTP.
 
-## Un descobriment acadèmic Federed
+## Descobriment acadèmic federat
 
-La configuració del repositori dels connectors de recursos integrats mentre que `/api/vault/reference-table` Encara queda l'única font de veritat per a la taula de recursos de destí. `/literature` Executa cada connector seleccionat de forma independent i els resultats parcials de fluxos; una fallada de quota o proveïdor està connectada a aquesta font sense descartar resultats sans.
+El connector integrat Recursos gestiona la configuració de repositoris;
+`/api/vault/reference-table` continua sent l'única font de veritat de la taula
+Recursos de destinació. `/literature` executa cada connector seleccionat
+independentment i transmet resultats parcials; els errors de quota o proveïdor
+s'associen a aquella font sense descartar els resultats correctes.
 
 `backend/domains/literature/connectors/` gestiona el transport HTTPS acotat,
 l'auditoria de peticions, la normalització canònica, OAI-PMH i JSON personalitzat,
@@ -102,31 +148,72 @@ El port tipat resol els col·laboradors de la façana en cada crida perquè les 
 i integracions puguin substituir transport, validació, parsers i dispatch sense
 duplicar estat mutable.
 
-`AcademicWork` és el connector canònica. Les unió de connectors. Les unions de desterministes usen, per ordre, normalitzat DOI, PMID o PMCID, l' identificador arXiv, ISBN- 13, i el títol normalitzat més d' any i cognom del primer autor. Un títol bot només és un avís. Fusionat funciona mantenint totes les ocurrències de codi font, localització, subtitulació específica, nombre de paquets provat i variants contradicades.
+`AcademicWork` és el contracte canònic dels connectors. Les unions deterministes
+utilitzen, per ordre, DOI normalitzat, PMID o PMCID, identificador arXiv sense
+versió, ISBN-13 i títol normalitzat més any i cognom del primer autor. Una
+coincidència aproximada de títol només és un avís. Les obres fusionades conserven
+totes les aparicions a les fonts, ubicacions obertes, recomptes de citacions
+per proveïdor, procedència de cada camp i variants en conflicte.
 
-La vista prèvia és de només lectura. L' adjunt complet de text és una acció de manual diferent i s' ofereix només per a una ubicació anomenada oberta. Importa mapes que funcionen entre el mapa de recursos compatible amb el Zotero i repeteix la identitat que coincideix dins d' un bloc atòmic. Quan existeix un registre de recursos, l' API retorna el registre en comptes de crear un duplicat.
+La previsualització és de només lectura. Adjuntar el text complet és una acció
+manual separada, disponible només per a una ubicació oberta verificada. La
+importació passa l'obra fusionada pel mapatge compartit de Recursos compatible
+amb Zotero i repeteix la comprovació d'identitat sota un bloqueig atòmic. Si
+ja hi ha un registre de Recursos coincident, l'API el retorna sense duplicar-lo.
 
-## Comentaris de literatura
+L'adaptador d'importació concreta tots els objectes imbricats del proveïdor
+—publicació, identificadors, dates, ubicacions d'accés obert i extres Zotero—
+en un únic límit de mapatge abans de convertir-los. Els payloads de creadors
+només es mantenen intencionadament heterogenis al punt de connexió amb Zotero;
+les claus deterministes d'obra, la injecció de claus de citació, la pertinença
+als quaderns i la reutilització de duplicats mantenen el comportament existent.
 
-L'estat de revisió del sistema és emmagatzemat en quatre taules de la idepotència gestionades Vult: `Literature Reviews`, `Literature Activities`, `Literature Candidates`, i afegeix només- hi `Literature Decisions`. The Search phone Search Search Search phones, errors parcials, operacions de IA, decisions de projecció i exportacions, per tant, continuen sent auditives i sincronitzats amb la volta principal.
+## Revisions de literatura
 
-Un únic visor i doble punts de projecció comparteixen el mateix model de fase. En mode cec, s' oculta una decisió de revisor fins que ambdós revisors es dirigeixen a consens explícit. L' IA també pot proposar consultes editables, tornar a fer la pantalla, la pantalla o la sintetitzen metadades, però no pot excloure un candidat o una declaració més enllà del títol, abstracte, o el text proporcionat en realitat.
+L'estat de revisió sistemàtica es desa en quatre taules del vault gestionades
+idempotentment: `Literature Reviews`, `Literature Activities`,
+`Literature Candidates` i `Literature Decisions`, aquesta última només amb
+addicions. Les estratègies de cerca, les consultes exactes als proveïdors, els
+errors parcials, les operacions d'IA, les decisions de cribratge i les
+exportacions continuen sent auditables i sincronitzades amb el vault principal.
 
-Els índexs OAI i l'estat de cerca temporals es reconstrueixen i viuen a sota `LOCAL_DATA`; protocols, històries, candidats, decisions i artefactes d'auditories segueixen en la caixa principal. Les credencials del repositori usen les claus natives Cocadena o l' entorn desplegament i mai s' escriuen a la volta o a l' estat del connector.
+El cribratge amb un revisor i el doble cec comparteixen el mateix model de
+fases. En mode cec, la decisió d'un revisor s'oculta fins que tots dos l'han
+enviada; els conflictes passen a consens explícit. La IA pot proposar consultes
+editables, reordenar, cribrar o sintetitzar metadades recuperades, però no pot
+excloure candidats ni afirmar evidència més enllà del títol, resum o text
+complet efectivament proporcionat.
+Tant l'alternativa per coincidència de tokens com el reordenador opcional
+d'embeddings locals utilitzen un mateix registre tipat de classificació,
+preservant l'ordre per puntuació i posició original entre les implementacions.
 
-## Camí de la Citació
+Els índexs OAI i l'estat temporal de cerca es poden reconstruir i resideixen
+sota `LOCAL_DATA`; protocols, historials, candidats, decisions i artefactes
+d'auditoria es mantenen al vault principal. Les credencials de repositori
+utilitzen Keychain natiu o l'entorn de desplegament i mai no s'escriuen al
+vault ni a l'estat del connector.
+Les files OAI filtrades conserven la llista canònica tipada d'obres del
+connector sense conversions posteriors. L'OCR PDF opcional i l'anàlisi EPUB
+limiten les excepcions de tipatge als imports exactes de `pypdfium2` i
+`ebooklib`, paquets que no publiquen `py.typed`; els objectes dinàmics no
+surten de l'adaptador de documents.
+
+## Flux de citació
 
 ```mermaid
 flowchart LR
-    Record["Pàgina de referència"] --> CSL["Cerca normalització de l' element CSL"]
-    CSL --> Citeproc["Motor citproc + estil seleccionat"]
-    Citeproc --> Text["Citació de text"]
+    Record["Pàgina de referència"] --> CSL["Normalització de l'element CSL"]
+    CSL --> Citeproc["Motor citeproc + estil seleccionat"]
+    Citeproc --> Text["Citació dins del text"]
     Citeproc --> Bibliography["Bibliografia"]
-    Annotation["Anotació PDF"] --> Evidence["Cometes persistents/ cometes"]
+    Annotation["Anotació PDF"] --> Evidence["Cita o evidència persistent"]
     Evidence --> Record
 ```
 
-Els valors CSL es derivaen de la matèria de referència usant mapes de camp explícits. Llista de noms, dates, tipus d' element, escapat de BibTeX/LaTeX, i Zotero `extra` Les metadades requereixen normalització. L' esquema adversat protegeix els tipus d' element compatibles i camps des de la deriva de dalt a baix.
+Els valors CSL deriven del frontmatter de referències amb mapatges de camps
+explícits. Les llistes de noms, dates, tipus d'element, escapament BibTeX/LaTeX
+i metadades `extra` de Zotero requereixen normalització. L'esquema fixat
+protegeix els tipus i camps compatibles davant dels canvis del projecte d'origen.
 
 `backend/domains/vault/citations/exporting.py` gestiona la neteja del Markdown,
 la resolució del subconjunt de citacions, els marcadors de bibliografia,
@@ -135,29 +222,46 @@ conserva la signatura pública i injecta els ports de fitxers, CSL i processos.
 
 ## Lector i anotacions
 
-El lector de Zotero mostra el contingut PDF i EPUB. Gnosi és propietari del pont que localitza fitxers, serveix intervals de bytes segurs, rep anotacions i enllaços marcats de nou als registres Vulta. Les files d' anotacions inclouen URI de codi font, pàgina, tipus, geometria, text, etiquetes, claus estables, clau i marques horàries.
+El lector Zotero inclòs mostra PDF i EPUB. Gnosi gestiona el pont que localitza
+fitxers, serveix intervals de bytes segurs, rep anotacions i enllaça l'evidència
+seleccionada amb registres del vault. Les anotacions inclouen URI d'origen,
+pàgina, tipus, geometria, text, comentari, etiquetes, clau gestionada estable
+i marques temporals.
 
-Els punts finals de fitxer validen la contenció i gestionen la hidratació en núvol. Els identificadors d' anotacions persistents impedeixen que una cita generada de duplicació cada vegada que es reoberta un document.
+Els endpoints de fitxers validen el confinament i gestionen la hidratació del
+núvol. Els identificadors persistents d'anotació impedeixen duplicar una cita
+generada cada vegada que es reobre el document.
 
-## Fonts i comentaris
+## Canals i butlletins
 
-Els models del lector emmagatzemen fonts, articles, estat de lectura, extrets de contingut complet i un compte de butlletí informatiu. La font d' agestió usa punts de desat de transacció per tant una entrada mal formatada no pot tornar a rodar tot el lot. Els excers i l' extracció de text complet són separats; la truncació no ha de recuperar permanentment el contingut recuperat.
+Els models del Reader desen fonts, articles, estat de lectura, contingut
+complet extret i un compte de butlletins. La ingestió de canals utilitza
+savepoints de transacció perquè una entrada malformada no reverteixi tot el
+lot. Els extractes i l'extracció de text complet són separats; truncar durant
+la ingestió no ha de descartar permanentment contingut d'origen recuperable.
 
 ## Invariants
 
-- Les claus de Citació segueixen estables a menys que l' usuari canviï explícitament les dades d' identitat.
-- La importació està desordenada per identificadors autoritativa i metadades normalitzades.
-- Un fracàs d' origen alimentat no pot tornar amb resultats no vàlids.
-- La semblança aproximada mai fusionar l' acadèmic funciona automàticament.
-- Les mètriques de la Citització segueixen separades pel proveïdor i mai s'han afegit juntes.
-- Els suggeriments de la IA mai es converteixen en decisions finals de projecció sense una acció humana.
-- Les rutes dels fitxers del lector no poden escapar arrels permeses.
-- Una identitat del document i geometria de pàgina sobreviuen a les reinicis.
-- Els lectors interns de venedor són tractats com a codi de transmissió; integració local
-Les modificacions són explícites i reprosionables.
-- Les contrasenyes de la configuració del butlletí de diari antic es tracten com a secrets fins i tot
-Quan un model antic encara expos un camp de compatibilitat.
+- Les claus de citació són estables tret que l'usuari canviï explícitament dades d'identitat.
+- La importació deduplica per identificadors autoritatius i metadades normalitzades.
+- La fallada d'una font federada no pot invalidar resultats ja retornats per altres fonts.
+- La similitud aproximada no fusiona mai obres acadèmiques automàticament.
+- Les mètriques de citacions es mantenen separades per proveïdor i no se sumen mai entre si.
+- Els suggeriments d'IA no es converteixen en decisions finals de cribratge sense acció humana.
+- Les rutes de fitxers del lector no poden sortir de les arrels permeses.
+- La identitat del document i la geometria de pàgina d'una anotació sobreviuen als reinicis.
+- Els components interns del lector inclòs es tracten com a codi del projecte
+  d'origen; els canvis locals d'integració són explícits i reproduïbles.
+- Les contrasenyes de configuracions antigues de butlletins es tracten com a
+  secrets encara que un model antic exposi un camp de compatibilitat.
 
-## Concentrat de verificació
+## Aspectes que cal verificar
 
-Executeu la clau de citació, PubMed, el tipus d' element, l' estil CSL, l' execució de referència i/O, l' anotació, la resolució de rutes, la importació de desenganys, i les proves de salvament. Afegiu connectors normalització, OAI tokens i la làpida, SSRF/XML, Retització parcial, revisió de dalton- error, la resolució actual, importació i proves PRISMA. El navegador ha d' obrir un document de fix i exercit d' anotacions, després executeu una literatura progressista, examinació, provada i un resultat d' importació desupida.
+Executeu proves de claus de citació, PubMed, tipus d'element, estils CSL,
+escapament BibTeX, entrada/sortida de referències, anotacions, confinament de
+rutes, deduplicació d'importacions i savepoints de canals. Afegiu proves de
+normalització de connectors, tokens i marques d'eliminació OAI, SSRF/XML,
+errors parcials, cegament de revisions, importacions concurrents i recomptes
+PRISMA. La validació al navegador ha d'obrir un document de prova real i
+comprovar un cicle de citació o anotació; després ha de fer una cerca progressiva
+de literatura, inspeccionar-ne la procedència i importar un resultat deduplicat.

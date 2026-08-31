@@ -45,10 +45,10 @@ The strictly typed `frontend/src/features/mail/` domain owns mailbox page
 composition, mail components, tags and saved-view hooks, and their tests.
 Application routes consume its public lazy entry without eagerly loading the
 mailbox or composer. Shared HTTP adapters keep the existing API contracts.
-The BlockNote mail editor and its adapter remain outside this domain while
-shared with the settings screen; there are no copied implementations or
-compatibility facades. Moving ownership does not change sending, draft saving,
-folder identity, privacy, or provider operations.
+The BlockNote mail editor and its adapter belong to this domain. Settings
+consumes the editor through its explicitly reviewed public entry; there are no
+copied implementations or compatibility facades. Moving ownership does not change
+sending, draft saving, folder identity, privacy, or provider operations.
 
 ## Synchronization
 

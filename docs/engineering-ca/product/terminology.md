@@ -9,32 +9,36 @@ source_paths:
 tests: []
 ---
 
-# Termologia
+# Terminologia
 
-| TermEthiopian month 8 - ShortName | El significat d' enginyeria |
+| Terme | Significat en enginyeria |
 | --- | --- |
-| VaultCity name (optional, probably does not need a translation) | Un directori amb fitxers Markdown i actius formen un espai de coneixement. |
-| Pàgina | Un document Markdown amb YAML front i un estable `id`. |
-| Base de dades o taula | Una vista estructurada sobre pàgines, normalment s' abasta a una carpeta i esquema en comptes d' una taula SQL separada. |
-| Visualitza | Una projecció desada d' una base de dades: tipus, filtres, ordenació, agrupament, camps i estat de disposició. |
-| Registeria | Les metadades de Gnosi-maned descriuen bases de dades, vistes, esquemes o catàlegs. |
-| metadata de cara a cara | Intern `.gnosi` Les dades associades amb contingut però intencionadament separades des dels camps de marca desplegables de l' usuari. |
-| Base de dades de gestió | Estat SQLite local per a identitats, espais de treball, afiliació, accés de la volta, fitxes i enllaços de compartició. |
-| Dades locals | Per bases de dades d' exemple, caches, índexs, secrets, registres, sortides i punts de control. No ha de ser una sincronització en núvol. |
-| Mode personal | Mode d' usuari únic per omissió amb autenticació o no es requereix explícitament. |
-| Mode d' organització | Mode autenticat amb l' afiliació de l' espai de treball i els rols ordenats. |
-| Espai de treball | Límits administrativa que els grups i les cambres registrades. |
-| habilitat d' execució | Una capacitat d' aplicació documentada a sota `pipeline/skills/`; no és un connector d' agent de desenvolupament. |
-| Eina | Una operació cal· lable disponible a un agent, possiblement descobert a través de MC o generada localment. |
-| MCP | Protocol de model Context, usat per descobrir i invocar eines d' agent extern. |
-| Directiva | La memòria d'enginyeria descriu un procediment, decisió, incident, restricció o pla d' implementació. |
-| Referència generada | La documentació determinista derivada de la font actual sense importar l' hora d' execució. |
-| Font de la veritat | Les dades que no poden reparar-se d'una altra representació autoritiva. |
-| Dades derivades | Memòria cau o índex que es pot reconstruir des d'una font de veritat. |
-| Proveïdor de fitxers | Adaptador de sistema de fitxers local o de seguretat de núvol, com ara la hidratació i les comprovacions de disponibilitat. |
-| Servidor de traducció | El dipòsit de l'art del Zotero que tradueix pàgines web i identificadors a metadades de referència normalitzades. |
-| PAT | Accés personal Token, la base de dades de gestió tan sols desa la seva haixix i el prefix a mostrar. |
+| Vault | Directori els fitxers Markdown i recursos del qual formen un espai de coneixement. |
+| Pàgina | Document Markdown amb frontmatter YAML i un `id` estable. |
+| Base de dades o taula | Vista estructurada sobre pàgines, normalment limitada a una carpeta i un esquema, en lloc d'una taula SQL separada. |
+| Vista | Projecció desada d'una base de dades: tipus, filtres, ordenació, agrupació, camps i estat de disposició. |
+| Registre | Metadades gestionades per Gnosi que descriuen bases de dades, vistes, esquemes o catàlegs. |
+| Metadades auxiliars | Dades internes de `.gnosi` associades al contingut però separades intencionadament dels camps Markdown escrits per l'usuari. |
+| Base de dades de gestió | Estat SQLite exclusivament local per a identitats, espais de treball, pertinences, accés al vault, tokens i enllaços compartits. |
+| Dades locals | Bases de dades, memòries cau, índexs, secrets, registres, sortides i punts de control de cada instància. No s'han de sincronitzar al núvol. |
+| Mode personal | Mode predeterminat d'un sol usuari que omet l'autenticació, tret que s'exigeixi explícitament. |
+| Mode d'organització | Mode autenticat amb pertinença a espais de treball i rols ordenats. |
+| Espai de treball | Límit administratiu que agrupa membres i vaults registrats. |
+| Habilitat d'execució | Capacitat documentada de l'aplicació a `pipeline/skills/`; no és un complement d'un agent de desenvolupament. |
+| Eina | Operació invocable disponible per a un agent, possiblement descoberta via MCP o generada localment. |
+| MCP | Model Context Protocol, utilitzat per descobrir i invocar eines externes d'agent. |
+| Directiva | Memòria d'enginyeria que descriu un procediment, decisió, incident, restricció o pla d'implementació. |
+| Referència generada | Documentació determinista derivada del codi actual sense importar l'entorn d'execució. |
+| Font de veritat | Dades la pèrdua de les quals no es pot reparar a partir d'una altra representació autoritativa. |
+| Dades derivades | Memòria cau o índex que es pot reconstruir a partir d'una font de veritat. |
+| Proveïdor de fitxers | Adaptador del comportament del sistema de fitxers local o del núvol, com ara la hidratació i les comprovacions de disponibilitat. |
+| Servidor de traducció | Servei auxiliar de Zotero que converteix pàgines web i identificadors en metadades bibliogràfiques normalitzades. |
+| PAT | Personal Access Token; la base de dades de gestió només en desa el hash i el prefix visible. |
 
-## Límit de l' activació
+## Límit dels canvis de nom
 
-Identificadors històrics com `vault`, `DIGITAL_BRAIN_VAULT_PATH`, i algunes claus d'integració heretats de Temenos encara són contractes de compatibilitat. El llenguatge públic usa Gnosi i coneixement on les migració han finalitzat. Els identificadors no només es reanomenaven per a fer uniforme de documentació.
+Identificadors històrics com `vault`, `DIGITAL_BRAIN_VAULT_PATH` i algunes
+claus d'integració antigues amb prefix Temenos continuen sent contractes de
+compatibilitat. El llenguatge públic del producte utilitza Gnosi i Knowledge
+on les migracions han finalitzat. No es canvien identificadors només per
+uniformitzar la terminologia de la documentació.

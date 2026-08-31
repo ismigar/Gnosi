@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-08-02
 source_paths:
+  - pyproject.toml
+  - uv.lock
   - mkdocs.yml
   - pipeline/skills/technical_documentation/SKILL.md
   - pipeline/skills/technical_documentation/scripts/generate.py
@@ -9,40 +11,38 @@ tests:
   - pipeline/skills/technical_documentation/tests
 ---
 
-# ADR 0002: documentation examinée plus référence générée
+# ADR 0002 : documentation révisée et références générées depuis le code
 
-- État d ' avancement: accepté
+- Statut : accepté
 - Date de la décision : 2026-08-02
 
 ## Contexte
 
-Gnosi possède des centaines de modules backend et frontend et une mémoire d'implémentation étendue. Un fichier d'architecture unique manuellement maintenu ne peut pas énumérer l'API, la configuration, les composants, les tests et les compétences actuels sans dérive.
+Gnosi possède des centaines de modules backend et frontend et une vaste mémoire d'implémentation. Un fichier d'architecture unique maintenu manuellement ne peut pas énumérer l'API, la configuration, les composants, les tests et les compétences actuels sans devenir obsolète. Une prose entièrement générée serait exhaustive, mais incapable d'expliquer l'intention, et risquerait de transformer des noms en affirmations fausses.
 
 ## Décision
 
-Maintenir un portail d'ingénierie MkDocs dans l'arbre d'application faisant autorité. Les pages revues par l'homme ont leur propre but, architecture, comportement du domaine, sécurité, opérations et décisions. Un générateur de bibliothèques standard déterministe possède des catalogues sources. Les pages générées sont engagées et vérifiées en CI.
+Maintenir un portail d'ingénierie MkDocs dans l'arborescence de référence de l'application. Les pages révisées par des humains décrivent l'objectif, l'architecture, le comportement des domaines, la sécurité, les opérations et les décisions. Un générateur déterministe utilisant la bibliothèque standard produit les catalogues du code source. Les pages générées sont versionnées et vérifiées en CI.
 
-Le générateur effectue une inspection statique et n'importe jamais l'application ou lit la configuration locale/secrets.
+Le générateur effectue une inspection statique ; il n'importe jamais l'application et ne lit ni configuration locale ni secrets.
 
 ## Conséquences
 
-- Les ingénieurs peuvent naviguer de l'intention à la source exacte et les tests.
-- Les différences générées révèlent des changements de surface pendant l'examen.
-- La propriété de domaine reste à la `domains.json`.
-- Les examinateurs vérifient toujours la sémantique de la prose; l'automatisation vérifie la traçabilité, pas
-la justesse des explications humaines.
-- Les outils de documentation utilisent un fichier d'exigences isolé et ne perturbent pas la
-jeu de dépendance ML en cours d'exécution.
+- Les ingénieurs peuvent naviguer de l'intention au code source exact et aux tests.
+- Les différences générées révèlent les changements d'interface lors de la revue.
+- La répartition des responsabilités des domaines reste définie explicitement dans `domains.json`.
+- Les réviseurs vérifient toujours le sens de la prose ; l'automatisation contrôle la traçabilité, pas la justesse des explications humaines.
+- Les dépendances documentaires utilisent le groupe optionnel `docs` de
+  `pyproject.toml` et le `uv.lock` partagé, pas un fichier de dépendances ni
+  un environnement séparé. Générer les catalogues n'importe pas la pile ML de l'application.
 
-## Autres solutions de remplacement rejetées
+## Alternatives rejetées
 
-- Un manuel monolithique : mauvaise navigation, examen des conflits et dérive rapide.
-- Les chaînes de pression seules: insuffisantes pour les flux de composants croisés et opérationnelles
-les décisions.
-- Importation en temps de marche de FastAPI pour chaque construction de documents: effets secondaires, hôte
-les dépendances, le chargement secret et l'initialisation de la base de données.
-- Sortie générée non engagée : les changements deviennent invisibles dans l'examen de code.
+- Un manuel monolithique : navigation difficile, conflits de revue et obsolescence rapide.
+- Les docstrings seules : insuffisantes pour les flux entre composants et les décisions opérationnelles.
+- Importer FastAPI à l'exécution pour chaque build documentaire : effets de bord, dépendances de l'hôte, chargement de secrets et initialisation de bases de données.
+- Ne pas versionner les fichiers générés : leurs changements deviennent invisibles lors de la revue de code.
 
 ## Impact de la vérification
 
-CI exécute des tests d'unités de générateur, contrôle de sortie, validation du portail et construction stricte de MkDocs. Le navigateur QA vérifie le portail rendu et les diagrammes de la Sirene.
+La CI exécute les tests unitaires du générateur, le contrôle des fichiers générés obsolètes, la validation du portail et le build strict de MkDocs. La QA dans le navigateur vérifie le portail rendu et les diagrammes Mermaid.

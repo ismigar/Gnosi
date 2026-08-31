@@ -33,7 +33,8 @@ tests:
 
 ## Responsabilitat
 
-El planificador executa les tasques configurades, conserva l'historial i exposa
+El planificador executa les tasques configurades recurrents o d'una sola execució,
+conserva l'historial i exposa
 l'estat operatiu de la sincronització, publicació, ingestió, manteniment i
 actualització de la planificació.
 
@@ -81,11 +82,13 @@ interruptor no modifica la configuració desada.
 
 El gestor conserva el cicle de vida, la persistència, els solapaments i
 l'historial; `task_handlers.py` conté el despatx i les operacions grans,
-inclòs el manteniment, sense acoblar-les al fil del planificador.
+inclòs el manteniment acotat. Això permet reutilitzar l'execució amb tipatge
+estricte sense acoblar-la al cicle de vida del fil del planificador.
 
 Les notificacions passen per una frontera de plataforma independent del
 proveïdor. La persistència en base de dades i Markdown funciona a tots els hosts;
-les alertes natives de macOS són opcionals. Els logs Markdown viuen sota
+les alertes natives de macOS s'intenten sense garantir-ne el lliurament.
+Els logs Markdown viuen sota
 `GNOSI_DATA_DIR`, no dins d'un Vault de OneDrive, Google Drive, Nextcloud,
 Dropbox o altres proveïdors. La fallada d'un canal no bloqueja els altres.
 L'antic camí de l'habilitat de notificacions és una façana de compatibilitat.
@@ -110,9 +113,10 @@ passa explícitament base de dades, workspace i integració per evitar confondre
 els arguments.
 
 Els treballs acadèmics resolen el Vault actiu abans d'accedir a literatura. Sense
-Vault, registren una omissió estructurada amb zero treballs en lloc de construir
+Vault, registren una omissió estructurada considerada correcta, amb zero treballs, en lloc de construir
 `Path(None)`. La recuperació de la cua del Reader comprova que el document del
-treball existeix; els registres orfes no creen fils que fallaran repetidament.
+treball del proveïdor encara existeix abans de reclamar-lo; els registres orfes
+es rebutgen una vegada i no creen fils que fallaran repetidament.
 
 ## Automatitzacions del Vault
 
@@ -147,7 +151,8 @@ revisada del workspace, no una tasca programada de l'aplicació.
 
 El servei de pòdcast del Reader selecciona model i idioma amb contractes tipats,
 limita els treballadors TTS per frase i substitueix l'MP3 atòmicament. Captura el
-Vault seleccionat abans de començar i rebutja l'arrencada sense Vault actiu.
+Vault seleccionat abans de començar i rebutja l'arrencada sense Vault actiu,
+per evitar escriure la sortida en una ruta local ambigua.
 
 ## Invariants
 

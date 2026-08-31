@@ -7,6 +7,7 @@ source_paths:
   - pipeline/skills/technical_documentation/scripts/check_change_impact.py
   - pipeline/skills/technical_documentation/scripts/generate.py
   - pipeline/skills/technical_documentation/scripts/localize.py
+  - pipeline/skills/technical_documentation/scripts/reviewed_contracts.py
   - mkdocs.yml
   - mkdocs-ca.yml
   - mkdocs-es.yml
@@ -18,20 +19,21 @@ tests:
   - pipeline/tests/test_public_pipeline.py
 ---
 
-# Entretien de la documentation
+# Maintenance de la documentation
 
 ## Outils publics et privés
 
 Gnosi est le dépôt source public canonique. La configuration des machines, les
 sauvegardes, Drupal et la maintenance des vaults personnels appartiennent à un
-dépôt privé séparé. Les versions historiques examinées sont conservées avec leurs
+dépôt privé séparé, jamais à un export public en miroir. Les versions historiques examinées sont conservées avec leurs
 empreintes avant leur retrait ; ce nettoyage ne réécrit pas l'historique et ne
 supprime ni données utilisateur ni services installés.
 
 `pnpm check:pipeline` contrôle les noms et modes de l'index Git, y compris les
 fichiers ignorés ajoutés explicitement. Il rejette les paquets privés connus,
 caches, données, fichiers d'environnement et liens vers du code externe.
-Les suppressions examinées doivent être préparées dans l'index avant le contrôle.
+Les suppressions examinées doivent être préparées dans l'index avant le contrôle :
+une suppression non indexée reste publique dans l'index.
 Il n'exécute aucune compétence et ne lit aucun secret ; il ne remplace pas un
 audit complet des secrets ou de la portabilité.
 
@@ -43,14 +45,17 @@ fournisseurs ni de migrations.
 
 La traduction, les notifications, l'assistant d'ouverture des fichiers, la
 publication sociale et la planification du backend conservent leurs contrats.
-L'ancien orchestrateur de développement n'était pas une dépendance de ces services.
+L'orchestrateur de développement retiré et les instructions personnelles de
+publication ne sont pas des dépendances d'exécution. La classification des
+compétences publiques est vérifiée contre les paquets réels.
 
 ## Contenu révisé et généré
 
 Les pages révisées expliquent l'intention, les limites, les flux, les invariants,
 le comportement en cas d'erreur, la sécurité, les opérations et la vérification.
-Les pages générées énumèrent des faits extraits du code : modules, routes,
-variables d'environnement, exports, tests et paquets de compétences.
+Les pages générées énumèrent les faits extractibles de manière fiable : modules,
+décorateurs de routes, références aux variables d'environnement, routes du
+frontend, exports, tests et paquets de compétences d'exécution.
 
 Ne déduisez pas l'architecture à partir des seuls noms. Ne recopiez pas
 manuellement un tableau de 400 opérations d'API dans un guide.
@@ -91,7 +96,7 @@ Le dépôt public `ismigar/Gnosi` le construit directement avec
 À chaque changement pertinent envoyé sur la branche publique `main`, le workflow
 vérifie les catalogues et versions localisées, valide la traçabilité, construit
 les quatre portails MkDocs en mode strict et publie `site/` via GitHub Pages.
-Publier ce répertoire parent préserve le segment `/engineering/` de l'URL.
+Publier le répertoire parent `site/` préserve le segment `/engineering/` de l'URL.
 
 La barre latérale de Gnosi pointe vers cette adresse. Son libellé est traduit
 dans les quatre langues et le portail s'ouvre hors des routes internes de l'app.
@@ -154,21 +159,32 @@ Les changements limités à `*.test.*`, `*.spec.*`, `__tests__/`, `tests/` et CS
 restent exemptés. Déplacer une UI ordinaire n'en fait pas du code à fort impact.
 Les changements sensibles exigent une documentation en anglais ; les versions
 catalane, espagnole et française conservent les mêmes chemins techniques.
-Les fixtures historiques peuvent garder d'anciens chemins, sans les présenter
-comme des emplacements actuels du code.
+Les fixtures synthétiques historiques peuvent garder d'anciens chemins ; ajoutez
+des régressions pour les nouveaux chemins sans présenter ces fixtures comme
+des emplacements actuels du code.
 
 ## Validation contre les divergences
 
 Le validateur contrôle les avis de génération, métadonnées, chemins source et
 tests, liens internes, guides requis, chemins absolus locaux et secrets possibles.
 `generate.py --check` compare les fichiers versionnés au code actuel.
-`localize.py --check` vérifie la parité des arbres catalan, espagnol et français.
-MkDocs en mode strict valide la navigation et les liens des quatre portails.
+`localize.py --check` exige la parité des arbres catalan, espagnol et français
+et protège le contenu technique des guides révisés : frontmatter exact,
+multiplicité des segments de code inline, exemples en blocs, identifiants,
+flèches et ordre Mermaid, destinations des liens et URL. La prose, les libellés
+des diagrammes et les fragments de titres localisés peuvent différer ; les
+identifiants, commandes ou chemins source modifiés provoquent un échec indiquant
+la page et la catégorie, sans afficher les valeurs du document. Ce contrôle
+en lecture seule n'initialise aucun modèle de traduction. MkDocs strict valide
+la navigation et les liens documentaires des quatre portails.
 
-Les titres et libellés fixes des catalogues sont traduits de façon déterministe.
-Les données extraites du code, identifiants et chemins restent identiques à
-l'anglais. `localize.py --generated-only` les actualise sans modèles ni imports
-de l'application. N'utilisez pas de traduction automatique complète pour les régénérer.
+Les guides révisés sont localisés dans chaque portail. Les titres connus et
+libellés fixes des catalogues générés sont traduits de façon déterministe en
+catalan, espagnol et français. Les cellules issues du code source, identifiants,
+chemins et code restent identiques octet par octet à l'anglais.
+`localize.py --generated-only` actualise ces catalogues sans modèles ni imports
+de l'application. N'utilisez jamais la traduction automatique complète pour
+actualiser les catalogues.
 
 Ces contrôles ne prouvent pas l'exactitude de la prose : comparez les affirmations
 au code et aux tests liés.

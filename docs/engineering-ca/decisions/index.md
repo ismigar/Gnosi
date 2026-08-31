@@ -6,13 +6,17 @@ source_paths:
 tests: []
 ---
 
-# Expanctors de decisions d' arquitectura
+# Registres de decisions d'arquitectura
 
-ADRs captureu decisions durables, context, conseqüències i alternatives. No substitueixen documentació de domini; explica per què un límit és difícil de canviar.
+Els ADR recullen decisions duradores, el seu context, les conseqüències i les
+alternatives. No substitueixen la documentació de domini; expliquen per què
+un límit és difícil de canviar.
 
-| ADR | Estat | DecisióStencils |
+| ADR | Estat | Decisió |
 | --- | --- | --- |
-| [0001](0001-local-first-source-of-truth.md) | Acceptat | Markdown Vult és la font de coneixement justificable. |
-| [0002](0002-documentation-as-code.md) | Acceptat | La documentació d' enginyeria combina el prose i la referència generada. |
+| [0001](0001-local-first-source-of-truth.md) | Acceptat | El vault Markdown és la font persistent del coneixement. |
+| [0002](0002-documentation-as-code.md) | Acceptat | La documentació d'enginyeria combina prosa revisada i referència generada. |
 
-Els DRs nous usen el següent número de quatre xifres i inclouen context, decisió, conseqüències, alternatives i impacte de verificació. Les decisions superes segueixen en la història i l' enllaç al seu substitut.
+Els ADR nous utilitzen el número següent de quatre xifres i inclouen context,
+decisió, conseqüències, alternatives i impacte en la verificació. Les decisions
+substituïdes es mantenen a l'historial i enllacen amb les que les substitueixen.

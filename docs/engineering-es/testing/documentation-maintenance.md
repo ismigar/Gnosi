@@ -7,6 +7,7 @@ source_paths:
   - pipeline/skills/technical_documentation/scripts/check_change_impact.py
   - pipeline/skills/technical_documentation/scripts/generate.py
   - pipeline/skills/technical_documentation/scripts/localize.py
+  - pipeline/skills/technical_documentation/scripts/reviewed_contracts.py
   - mkdocs.yml
   - mkdocs-ca.yml
   - mkdocs-es.yml
@@ -24,14 +25,15 @@ tests:
 
 Gnosi es el repositorio fuente público canónico. La configuración de máquina,
 las copias de seguridad, Drupal y el mantenimiento de vaults personales pertenecen
-a un repositorio privado separado. Las versiones históricas revisadas se conservan
+a un repositorio privado separado, nunca a una exportación pública en espejo. Las versiones históricas revisadas se conservan
 con hashes antes de retirarlas; esta limpieza no reescribe el historial ni elimina
 datos de usuario o servicios instalados.
 
 `pnpm check:pipeline` comprueba nombres y modos del índice Git, incluidos los
 archivos ignorados añadidos explícitamente. Rechaza paquetes privados conocidos,
-caches, datos, archivos de entorno y enlaces a código externo. Hay que preparar
-las eliminaciones revisadas en el índice antes de comprobarlo. No ejecuta
+cachés, datos, archivos de entorno y enlaces a código externo. Hay que preparar
+las eliminaciones revisadas en el índice antes de comprobarlo: una eliminación
+no añadida al índice sigue siendo pública en él. El checker solo lee metadatos. No ejecuta
 habilidades ni lee secretos; no sustituye una auditoría completa de secretos o
 portabilidad.
 
@@ -41,16 +43,19 @@ ignorados. No excluye directorios; si no hay fuentes o falta un archivo, falla.
 CI lo ejecuta además de la comprobación del backend. No ejecuta proveedores ni
 migraciones.
 
-La traducción, las notificaciones, el asistente de apertura de archivos, la
+La traducción, las notificaciones, el soporte de servicios auxiliares del host, la
 publicación social y la planificación del backend mantienen sus contratos.
-El antiguo orquestador de desarrollo no era una dependencia de esos servicios.
+El orquestador de desarrollo retirado y las instrucciones personales de publicación
+no son dependencias de ejecución. La clasificación de habilidades públicas se
+comprueba contra los paquetes reales.
 
 ## Contenido revisado y generado
 
 Las páginas revisadas explican la intención, los límites, los flujos, las
 invariantes, el comportamiento ante errores, la seguridad, las operaciones y
 la verificación. Las páginas generadas enumeran hechos extraíbles del código:
-módulos, rutas, variables de entorno, exportaciones, pruebas y habilidades.
+módulos, decoradores de rutas, referencias a variables de entorno, rutas del
+frontend, exportaciones, pruebas y paquetes de habilidades de ejecución.
 
 No deduzca decisiones arquitectónicas solo a partir de nombres. No duplique
 manualmente una tabla de 400 operaciones de la API dentro de una guía.
@@ -90,7 +95,7 @@ El repositorio público `ismigar/Gnosi` lo construye directamente mediante
 Con cada cambio relevante enviado a la rama pública `main`, el workflow verifica
 catálogos y versiones localizadas, valida la trazabilidad, construye los cuatro
 portales MkDocs en modo estricto y publica `site/` en GitHub Pages. Publicar
-ese directorio padre conserva el segmento `/engineering/` de la URL.
+el directorio padre `site/` conserva el segmento `/engineering/` de la URL.
 
 La barra lateral de Gnosi enlaza con esa dirección. Su etiqueta está traducida
 a los cuatro idiomas y el portal se abre fuera de las rutas internas de la app.
@@ -153,20 +158,29 @@ Los cambios solo en `*.test.*`, `*.spec.*`, `__tests__/`, `tests/` y CSS
 siguen exentos. Trasladar UI ordinaria no la convierte en código de alto impacto.
 Los cambios sensibles requieren documentación en inglés; las versiones catalana,
 española y francesa conservan las mismas rutas técnicas. Las fixtures históricas
-pueden mantener rutas antiguas, pero no deben presentarse como ubicaciones
-actuales del código.
+pueden mantener rutas antiguas; añada regresiones para las rutas nuevas sin presentar
+aquellas fixtures como ubicaciones actuales del código.
 
 ## Validación contra divergencias
 
 El validador comprueba avisos de generación, metadatos, rutas de código y pruebas,
 enlaces internos, guías requeridas, rutas absolutas locales y posibles secretos.
 `generate.py --check` compara los archivos versionados con el código actual.
-`localize.py --check` verifica la paridad de los árboles catalán, español y francés.
+`localize.py --check` exige la paridad de los árboles catalán, español y francés
+y protege el contenido técnico de las guías revisadas: frontmatter exacto,
+número de apariciones de cada fragmento de código inline, bloques de ejemplo,
+identificadores, flechas y orden de Mermaid, destinos de enlaces y URL.
+La prosa, las etiquetas de diagramas y los fragmentos de encabezados traducidos
+pueden variar; cambiar identificadores, órdenes o rutas de código produce un
+fallo que indica la página y la categoría sin mostrar los valores del documento.
+Esta comprobación de solo lectura no inicializa ningún modelo de traducción.
 MkDocs en modo estricto valida navegación y enlaces en los cuatro portales.
 
-Los catálogos traducen sus títulos y etiquetas fijas de forma determinista.
-Los datos extraídos del código, identificadores y rutas permanecen idénticos
-al inglés. `localize.py --generated-only` los actualiza sin modelos ni imports
+Las guías revisadas están traducidas en todos los portales. Los catálogos generados
+traducen los encabezados conocidos y las etiquetas fijas de forma determinista
+al catalán, español y francés. Las celdas derivadas del código, los identificadores,
+las rutas y el código permanecen idénticos byte a byte al inglés.
+`localize.py --generated-only` los actualiza sin modelos ni imports
 de la aplicación. No utilice traducción automática completa para regenerarlos.
 
 Estos controles no prueban que la prosa sea correcta: hay que comparar las

@@ -148,13 +148,13 @@ las páginas.
 
 ```mermaid
 flowchart LR
-    Pages["Markdown records"] --> Schema["Typed schema"]
-    Schema --> Derived["Formulas and rollups"]
-    Derived --> Filter["Typed filters"]
-    Filter --> Sort["Stable sort"]
-    Sort --> Group["Grouping"]
-    Group --> Projection["Visible fields and layout"]
-    Projection --> Table["Table / gallery / board / calendar / timeline"]
+    Pages["Registros Markdown"] --> Schema["Esquema tipado"]
+    Schema --> Derived["Fórmulas y rollups"]
+    Derived --> Filter["Filtros tipados"]
+    Filter --> Sort["Ordenación estable"]
+    Sort --> Group["Agrupación"]
+    Group --> Projection["Campos visibles y disposición"]
+    Projection --> Table["Tabla / galería / tablero / calendario / línea temporal"]
 ```
 
 Los valores tipados deben compararse según el tipo declarado de su campo. Una

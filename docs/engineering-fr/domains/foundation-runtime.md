@@ -8,13 +8,18 @@ source_paths:
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - backend/domains/configuration/api/settings.py
+  - backend/domains/configuration/plugin_state.py
+  - backend/mcp/http_client.py
   - backend/services/data_dir_migration.py
+  - backend/utils/cache.py
   - backend/api/system_routes.py
   - frontend/src/app
   - frontend/src/shared
   - frontend/src/generated
   - frontend/feature-public-entries.json
 tests:
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/app/shellPages.test.tsx
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
@@ -23,43 +28,65 @@ tests:
   - backend/tests/test_data_dir_migration.py
   - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
-  - frontend/src/app/composition.contract.test.ts
-  - frontend/src/app/shellPages.test.tsx
 ---
 
-# Fondation de la plateforme et durée d'exécution
+# Socle de la plateforme et environnement d'exécution
 
 ## Responsabilité
 
-La fondation assemble chaque domaine en un seul processus, résout la configuration et les chemins portables, possède le démarrage et l'arrêt, applique des middlewares partagés et expose le shell frontal de haut niveau. Il doit rester utilisable lorsque les intégrations facultatives sont absentes.
+Le socle assemble les domaines dans un processus unique, résout la configuration et les chemins portables, gère le démarrage et l'arrêt, applique les middlewares partagés et expose le shell principal du frontend. Il doit rester utilisable sans les intégrations facultatives.
 
-## assemblage de l'arrière-pays
+Le répertoire `app` du frontend gère l'amorçage, les fournisseurs, la composition
+des routes et l'accueil chargé immédiatement. Les écrans facultatifs des
+domaines passent par leurs modules publics avec des imports différés indépendants.
+Les contrats de composition préservent les 32 routes, les contrôles de permissions,
+l'ordre des fournisseurs et les vingt imports différés.
 
-`backend/server.py` construit l'instance FastAPI, middleware, gestion d'exception, montage de lecteur statique, durée de vie, et routeurs. L'ordre du routeur est explicite parce que le contexte de l'espace de travail et les préfixes larges peuvent se chevaucher. [Catalogue API](../generated/api-catalog.md) enregistre chaque montage et itinéraire statique.
+## Assemblage du backend
 
-Le démarrage Lifespan effectue ces classes de travail:
+`backend/server.py` construit l'instance FastAPI, les middlewares, la gestion
+des exceptions, le montage statique du lecteur, le cycle de vie et les routeurs.
+Leur ordre est explicite, car le contexte du workspace et les préfixes généraux
+peuvent se chevaucher. Le [catalogue API](../generated/api-catalog.md) généré
+répertorie chaque montage et route statiques. Le registre de composition importe
+directement chaque routeur canonique de domaine ; les anciennes façades API ne
+restent disponibles que pour les imports de compatibilité. Les annotations des
+routes doivent préserver la représentation OpenAPI figée : les gestionnaires
+sans modèle de réponse explicite conservent leur contrat de réponse inféré.
+
+Le démarrage du cycle de vie effectue les catégories de travail suivantes :
 
 Le module de cycle de vie conserve `lifespan` comme orchestrateur linéaire. Des
 fonctions bornées gèrent les plugins, l'agent, les index, la réparation des
 tables, le courrier et l'arrêt sans modifier l'ordre ni l'isolation des erreurs.
 
-1. Assertion qu'un déploiement exposé n'utilise pas un JWT de développement public
-secret.
-2. Commencez le programmeur et la maintenance de la confirmation-rétention.
-3. Reconcile les contributions plugin avant de construire les capacités agent.
-4. Connectez les clients MCP, découvrez les outils et compilez le graphique par défaut de l'agent.
-5. Précharge persiste des indices de voûte synchrone, puis les rafraîchir dans le
-les renseignements sur les conditions dans lesquelles la politique du fournisseur de fichiers le permet.
-6. Chargez les caches dérivés avant que tout enregistrement ne puisse les tronquer.
-7. Démarrez les travailleurs IMAP IDLE par compte.
+La réconciliation précoce des plugins est indépendante du transport : elle lit
+l'état normalisé et persisté atomiquement par vault avant tout import de module
+de routes HTTP. La construction de l'agent ne dépend donc pas de l'ordre
+d'initialisation des façades du vault, tandis que le démarrage normal converge
+vers le même magasin d'état partagé par le processus.
+
+1. Vérifier qu'un déploiement exposé n'utilise pas le secret JWT public de développement.
+2. Démarrer le planificateur et la maintenance de la rétention des confirmations.
+3. Réconcilier les contributions des plugins avant de construire les capacités de l'agent.
+4. Connecter les clients MCP, découvrir les outils et compiler le graphe par défaut de l'agent.
+5. Précharger les index persistés des vaults de manière synchrone, puis les actualiser en arrière-plan lorsque la politique du fournisseur de fichiers le permet.
+6. Charger les caches dérivés avant qu'une sauvegarde puisse les tronquer.
+7. Démarrer les workers IMAP IDLE de chaque compte.
 
 Les défaillances de l'IA ou du démarrage optionnel de l'intégration sont enregistrées et isolées. Les défaillances de sécurité et d'initialisation des données de base ne sont pas converties silencieusement en comportement sain.
 
-## Configuration fusion
+Les caches partagés dans le processus utilisent une implémentation TTL/LRU
+unique, bornée et verrouillée, avec des fabriques de valeurs sans argument
+explicitement typées. Le transport HTTP MCP en streaming vérifie que chaque
+payload SSE décodé est un objet JSON avant de le renvoyer au client JSON-RPC ;
+les événements malformés ou non objets n'entrent jamais dans le runtime typé.
 
-`load_params()` combine l'application version YAML avec la configuration utilisateur actuel ou active-vault. Les valeurs du dictionnaire se fusionnent récursivement. `.gnosi/params.yaml` devient la cible de persistance pour les réglages à spectromètre de voûte. La résolution du chemin applique ensuite des valeurs explicites d'environnement de déploiement.
+## Fusion de la configuration
 
-Une ancienne accréditation d'environnement peut créer un fournisseur une fois, mais une pierre tombale de déconnexion persistante empêche sa réapparition après suppression délibérée.
+`load_params()` combine le YAML versionné de l'application avec la configuration de l'utilisateur courant ou du vault actif. Les dictionnaires sont fusionnés récursivement. Le fichier `.gnosi/params.yaml` du vault actif devient la destination persistante des paramètres propres au vault. La résolution des chemins applique ensuite les valeurs explicites de l'environnement de déploiement.
+
+La configuration IA contenant des identifiants secrets stocke des références. Un ancien identifiant d'environnement peut créer un fournisseur une fois, mais un marqueur de déconnexion persisté empêche sa réapparition après une suppression délibérée.
 
 La frontière d'écriture des paramètres valide les agents gérés et les
 stratégies de modèle, conserve mots de passe et clés hors du YAML, traite la
@@ -71,7 +98,7 @@ La migration des données locales est une machine à états journalisée. La
 vérification de la source, le renommage atomique sur un même volume, la zone de
 transit entre volumes, la vérification de la destination et le retour arrière
 automatique sont des phases distinctes. Chaque base SQLite passe un checkpoint
-et `integrity_check`, et toute copie est comparée à un inventaire haché avant de
+et un contrôle d'intégrité, et toute copie est comparée à un inventaire haché avant de
 remplacer une structure vide.
 
 Les routes système séparent l'orchestration HTTP des fonctions bornées de
@@ -81,21 +108,20 @@ par OneDrive, Google Drive, Dropbox, Box et d'autres fournisseurs de fichiers
 macOS. Les chemins locaux et Docker sont mappés sans intégrer un fournisseur au
 modèle de données.
 
-## Coquille de la façade
+## Shell du frontend
 
-`app/App.tsx` attend que l'authentification bootstrap soit activée avant de sélectionner le partage public, la connexion ou la coque d'application. Les pages lourdes sont chargées par paresse. La coque globale possède la navigation et les surfaces d'interaction disponibles dans le monde entier; les pages d'itinéraires contiennent leur propre domaine. `/s/:token` rend à l'extérieur de la coque authentifiée par conception.
+`app/App.tsx` attend l'initialisation de l'authentification avant de choisir entre partage public, connexion et shell de l'application. Les pages lourdes sont chargées à la demande. Le shell global gère la navigation et les interactions disponibles dans toute l'application ; les pages des routes portent le contenu des domaines. Par conception, `/s/:token` est rendu hors du shell authentifié.
 
 ## Invariants
 
-- Port `5002` est le contrat de service; `5173` C'est le contrat de front-end.
-- Le code d'application utilise le code faisant autorité `Gnosi/` arbre.
-- Les chaînes visibles Frontend utilisent tous les catalogues locaux.
-- Les importations en cours ne doivent pas être utilisées par génération de documentation.
-- Une voûte non disponible est représentée explicitement; une trajectoire de sécurité temporaire peut être
-éviter les pannes de temps d'importation mais ne doit pas être présenté comme contenu configuré.
-- Le réchauffement du cache dérivé ne peut pas retarder la première réponse utile lorsqu'un disque sûr
-le snapshot existe.
+- Le port `5002` est le contrat du backend ; `5173` est celui du frontend.
+- Le code applicatif utilise l'arborescence de référence `Gnosi/`.
+- Les chaînes visibles du frontend utilisent tous les catalogues linguistiques.
+- La génération documentaire ne doit pas importer le runtime.
+- Les commandes opérationnelles ponctuelles résident dans `scripts/` ; les paquets de production ne contiennent ni synchroniseurs expérimentaux, ni sondes modifiant les données, ni scripts de réparation propres à une machine.
+- Un vault indisponible est représenté explicitement ; un chemin temporaire sûr peut éviter un échec à l'import, mais ne doit pas être présenté comme du contenu configuré.
+- Le préchargement des caches dérivés ne doit pas retarder la première réponse utile lorsqu'un instantané fiable existe sur disque.
 
-## Diagnostic d'échec
+## Diagnostic des échecs
 
-vérifier la propriété du processus, `/api/health`, `/api/config`, et `/api/vault/pages` dans cet ordre. Une réponse de santé réussie avec une requête de coffre vide ou échoué indique la configuration ou le problème du fournisseur de fichiers plutôt qu'un serveur mort. Voir la [carnet d'opérations](../operations/runbook.md).
+Vérifiez le propriétaire du processus, `/api/health`, `/api/config` et `/api/vault/pages`, dans cet ordre. Une réponse de santé réussie accompagnée d'une requête de vault vide ou en échec indique un problème de configuration ou de fournisseur de fichiers plutôt qu'un serveur arrêté. Consultez le [guide d'exploitation](../operations/runbook.md).

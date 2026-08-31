@@ -80,20 +80,20 @@ directas y la interfaz OpenAPI estable byte a byte.
 
 ```mermaid
 sequenceDiagram
-    participant UI as Vault UI or editor
-    participant R as Vault domain API
-    participant C as Vault context
-    participant F as File provider
-    participant I as Page and link indexes
-    UI->>R: Read page by stable id
-    R->>C: Resolve authorized active vault
-    C->>I: Resolve id to current path
-    I->>F: Read Markdown when cache is insufficient
-    F-->>R: Content, metadata, and ETag
-    R-->>UI: Editable representation
-    UI->>R: Save with expected ETag
-    R->>F: Atomic write if ETag still matches
-    R->>I: Refresh page and relationship entries
+    participant UI as Interfaz o editor del vault
+    participant R as API del dominio Vault
+    participant C as Contexto del vault
+    participant F as Proveedor de archivos
+    participant I as Índices de páginas y enlaces
+    UI->>R: Leer página por identificador estable
+    R->>C: Resolver vault activo autorizado
+    C->>I: Resolver identificador a ruta actual
+    I->>F: Leer Markdown si la caché no basta
+    F-->>R: Contenido, metadatos y ETag
+    R-->>UI: Representación editable
+    UI->>R: Guardar con el ETag esperado
+    R->>F: Escritura atómica si el ETag sigue coincidiendo
+    R->>I: Actualizar entradas de páginas y relaciones
 ```
 
 La identidad de una página es independiente de su título y su ruta. El frontmatter
@@ -368,8 +368,9 @@ su comportamiento.
 La consulta bibliográfica importa los servicios directamente y declara bajo
 `TYPE_CHECKING` alias comprobados de los propietarios reales de los callbacks,
 sin conversiones de módulos ni resultados. La sustitución tardía sigue vigente.
-Las pruebas cubren ambos órdenes de importación, los esquemas HTTP exactos y
-la identidad de los metadatos desconocidos. `citations/title_regex.py` conserva
+Las pruebas cubren ambos órdenes de importación, los esquemas HTTP exactos,
+la sustitución de callbacks durante una consulta y la conservación de los
+metadatos desconocidos. `citations/title_regex.py` conserva
 los errores nativos de Python: la única excepción documentada del verificador
 valida entradas incorrectas y nunca afecta a los datos devueltos. Los tipos
 heredados de proveedores de registro y páginas siguen siendo deuda separada.

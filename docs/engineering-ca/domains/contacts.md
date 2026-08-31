@@ -9,20 +9,30 @@ source_paths:
   - backend/services/google_contacts_service.py
   - frontend/src/features/contacts
 tests:
-  - backend/tests/test_contacts_sync_merge.py
-  - backend/tests/test_carddav_vcard_unfold.py
-  - backend/tests/test_vcard_escaping.py
-  - tests/e2e/tests/e2e/contacts.spec.ts
   - frontend/src/features/contacts/components/ContactList.test.tsx
   - frontend/src/features/contacts/components/ContactForm.test.tsx
   - frontend/src/features/contacts/public-entry.test.ts
+  - backend/tests/test_contacts_sync_merge.py
+  - backend/tests/test_google_contacts_service.py
+  - backend/tests/test_carddav_vcard_unfold.py
+  - backend/tests/test_vcard_escaping.py
+  - tests/e2e/tests/e2e/contacts.spec.ts
 ---
 
 # Contactes
 
-## Reversió
+## Responsabilitat
 
-Contactes proveeix d' una llibreta d' adreces normalitzada local sobre registres manuals i connectats a Google, CardDAV i fonts compatibles. Proporciona cerca i destinatari/ attegene autocompletat amb el correu i el calendari.
+Contactes ofereix una llibreta d'adreces local normalitzada a partir de registres
+manuals i fonts connectades de Google, CardDAV i altres compatibles. Proporciona
+cerca i autocompleció de destinataris i assistents a Correu i Calendari.
+
+El frontend amb tipatge estricte `features/contacts/` gestiona la pàgina de
+contactes, el catàleg d'integracions i els components de llista, detall i
+formulari. La composició de l'aplicació utilitza la seva entrada pública diferida;
+els adaptadors API compartits són independents de la pantalla. El trasllat
+preserva la identitat de les fonts, els camps i el comportament de sincronització
+sense deixar components duplicats als camins anteriors.
 
 Les rutes HTTP i la frontera dels proveïdors de sincronització estan tipades
 estrictament. Les credencials d'integració es validen abans de construir un
@@ -31,38 +41,57 @@ sincronització mantenen un contracte explícit sense canviar el payload públic
 
 ## Model de dades
 
-Un contacte té una identitat local estable, espai de treball, tipus, nom de pantalla, correus electrònic primari, camps d' organització, notes, correus electrònics estructurats, telèfons i adreces, identificadors del proveïdor, font, foto, etiquetes, marques de temps i estat de sincronització.
+Un contacte té identitat local estable, espai de treball, tipus, nom visible,
+correu i telèfon principals, camps d'organització, notes, múltiples correus,
+telèfons i adreces estructurats, identificadors del proveïdor, font, foto,
+etiquetes, marques temporals i estat de sincronització.
+El model SQLAlchemy utilitza declaracions `Mapped[]` per a totes les columnes
+i la relació amb l'espai de treball. Així, les assignacions dels serveis, rutes
+i sincronitzacions es comproven contra l'esquema persistent. Els models
+Pydantic de petició i resposta conserven els valors predeterminats històrics
+i la representació OpenAPI idèntica byte a byte.
 
-Els carregadors específics del proveïdor es normalitzen abans de fusionar. El processament de vCard es fa realitat, els valors descodificats i escapar dels separadors sense canviar les dades de l' usuari.
+Els payloads específics de proveïdor es normalitzen abans de fusionar-los.
+El processament de vCard uneix les línies de continuació, descodifica valors
+i escapa separadors sense canviar les dades de l'usuari.
 
 ## Sincronització i fusió
 
 ```mermaid
 flowchart LR
-    Remote["Contactes del proveïdorComment"] --> Normalize["Normalitza els noms i valors"]
-    Local["Contactes locals"] --> Match["ID id del proveïdor i normalitzat"]
+    Remote["Contactes del proveïdor"] --> Normalize["Normalització de noms i valors"]
+    Local["Contactes locals"] --> Match["ID estable del proveïdor o identitat normalitzada"]
     Normalize --> Match
-    Match --> Merge["Fusió conscient del camp"]
-    Merge --> Persist["Files locals de treballcopades"]
-    Persist --> Status["Sincronitza els comptadors i errors"]
+    Match --> Merge["Fusió segons el camp"]
+    Merge --> Persist["Files locals acotades a l'espai de treball"]
+    Persist --> Status["Recomptes i errors de sincronització"]
 ```
 
-La regla crítica de fusió és la preservació de nomésriment local. Una sincronització remota pot actualitzar els valors propietat del proveïdor però no ha de posar- se en blanc, notes, valors afegits manualment, o la identitat d' un altre proveïdor simplement perquè la càrrega actual els exploqui. La política d' esborrat és específica del proveïdor i no és referenciada a una llista parcial.
+La regla crítica de fusió és preservar l'enriquiment exclusivament local.
+Una sincronització remota pot actualitzar valors del proveïdor, però no ha de
+buidar etiquetes, notes, valors afegits manualment ni la identitat d'un altre
+proveïdor només perquè el payload actual els ometi. La política d'eliminació
+depèn del proveïdor i no s'infereix d'una llista parcial.
 
-## Ús del domini creuat
+## Ús entre dominis
 
-Cerca contactes de correu per als destinataris i els enllaços a les cerques d' entitats. Els contactes del calendari pels assistents. Aquests consumidors reben dades normals de pantalla i no accedeixen a les credencials del proveïdor o a la sincronització en brut paguen carregadors.
+Correu cerca contactes per triar destinataris i enllaçar entitats. Calendari
+en cerca per als assistents. Aquests consumidors reben dades de visualització
+normalitzades i no accedeixen a credencials ni als payloads bruts de sincronització.
 
 ## Invariants
 
-- Totes les consultes i mutacions estan entrellaçades.
-- Els identificadors remots són espais de nom per proveïdor/ font.
-- Els sincronitzadors repetits no creen duplicats per al mateix registre del proveïdor.
-- La inversió local sobreviu al proveïdor.
-- Camps multivalors conservant etiquetes de tipus i valors preferits.
-- L' esborrat i l' esborrat de contactes són efectes separats a menys que un explícit
-S' ha seleccionat una política bidireccional.
+- Totes les consultes i mutacions queden acotades a l'espai de treball.
+- Els identificadors remots tenen un espai de noms per proveïdor o font.
+- Repetir sincronitzacions no crea duplicats del mateix registre del proveïdor.
+- L'enriquiment local sobreviu a l'actualització del proveïdor.
+- Els camps multivalor conserven les etiquetes de tipus i els valors preferits.
+- L'eliminació del contacte i l'eliminació remota són efectes separats, tret
+  que s'hagi seleccionat explícitament una política bidireccional.
 
-## Concentrat de verificació
+## Aspectes que cal verificar
 
-Executeu fusió, vCardGim/Grop, proveïdor normalització, correu sensible a caixa, i proves de l' espai de treball. Llista d' rollrightsifica, detall, crea/edit, cerca i navegació creuades sense funció d' un compte de proveïdors de veritat.
+Executeu proves de fusió, continuacions i escapament vCard, normalització de
+proveïdors, correu insensible a majúscules i espais de treball. Playwright
+verifica la llista, el detall, la creació i edició, la cerca i la navegació
+entre pantalles sense dependre d'un compte real de proveïdor.

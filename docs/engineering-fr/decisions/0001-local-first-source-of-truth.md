@@ -10,39 +10,33 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
 ---
 
-# ADR 0001: La valle de la marque comme source de connaissance de la vérité
+# ADR 0001 : le vault Markdown comme source de vérité des connaissances
 
-- État d ' avancement: accepté
-- Date de la décision : 2026-08-02 (formalisé à partir de l'architecture existante)
+- Statut : accepté
+- Date de la décision : 2026-08-02 (formalisée à partir de l'architecture existante)
 
 ## Contexte
 
-Gnosi a besoin d'un montage structuré, de recherche, de traversée graphique, de collaboration et d'automatisation tout en préservant la propriété et l'interopérabilité des utilisateurs. Faire une base de données d'applications la seule représentation créerait lock-in et ferait la sauvegarde de fichiers ordinaire, synchronisation, et l'édition externe secondaire.
+Gnosi a besoin d'édition structurée, de recherche, de parcours de graphe, de collaboration et d'automatisation, tout en préservant la maîtrise des données par l'utilisateur et l'interopérabilité. Faire d'une base applicative l'unique représentation créerait une dépendance à l'application et reléguerait au second plan la sauvegarde ordinaire des fichiers, leur synchronisation et leur édition externe.
 
 ## Décision
 
-Les connaissances de l'utilisateur sont stockées sous forme de matière de marque, de matière de couverture YAML et d'actifs dans une valle contrôlée par l'utilisateur. Les bases de données relatives stockent l'état de l'application qui n'est pas la représentation de la connaissance auteure.
+Les connaissances de l'utilisateur sont stockées sous forme de Markdown, de frontmatter YAML et de ressources dans un vault qu'il contrôle. Les bases relationnelles stockent l'état applicatif distinct des connaissances rédigées. Les index et caches dérivés du vault peuvent être reconstruits.
 
 ## Conséquences
 
 - Les fichiers restent inspectables et portables sans Gnosi.
-- Les écrits exigent l'atomicité, les ETags, la normalisation de l'identité et la mise à jour de l'index.
-- Les éditeurs externes et les fournisseurs de cloud présentent la concurrence et la disponibilité
-Les problèmes que doivent tolérer les services.
-- Les vues de type base de données sont des projections sur les fichiers, donc l'évaluation dactylographiée et
-La cohérence des registres est une responsabilité d'application.
-- SQLite et secrets restent local-seulement parce qu'ils ont une durabilité différente
-et synchronisation sémantique.
+- Les écritures exigent atomicité, ETags, normalisation des identités et actualisation des index.
+- Les éditeurs externes et fournisseurs cloud introduisent des problèmes de concurrence et de disponibilité que les services doivent tolérer.
+- Les vues de type base de données sont des projections sur les fichiers ; l'évaluation typée et la cohérence des registres relèvent donc de l'application.
+- SQLite et les secrets restent strictement locaux, car leur durabilité et leur synchronisation ont des sémantiques différentes.
 
-## Autres solutions de remplacement rejetées
+## Alternatives rejetées
 
-- SQL comme seul magasin de connaissances : plus fortes transactions mais perte de portable
-la propriété du fichier.
-- Cloud SaaS comme source obligatoire : une collaboration centralisée plus facile mais
-incompatible avec la souveraineté locale et première.
-- Traitement de SQLite synchronisé comme stockage portable: dangereux parce que la synchronisation de fichier
-ne fournit pas de verrouillage de la base de données ou de réplication atomique.
+- SQL comme unique stockage des connaissances : transactions plus fortes, mais perte de la maîtrise de fichiers portables.
+- SaaS cloud comme source obligatoire : collaboration centralisée plus simple, mais incompatible avec une souveraineté fondée sur le stockage local.
+- SQLite synchronisé comme stockage portable : dangereux, car la synchronisation de fichiers ne fournit ni verrouillage de base de données ni réplication atomique.
 
 ## Impact de la vérification
 
-Les tests couvrent les voyages aller-retour Markdown, les écrits atomiques, les conflits ETag, le comportement d'identification et de lien, les reconstructions d'index, le confinement de chemin, les défaillances du fournisseur et l'isolement local des données.
+Les tests couvrent les allers-retours Markdown, les écritures atomiques, les conflits ETag, le comportement des identifiants et des liens, la reconstruction des index, le confinement des chemins, les défaillances des fournisseurs et l'isolation des données locales.

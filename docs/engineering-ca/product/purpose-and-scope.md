@@ -7,58 +7,85 @@ source_paths:
 tests: []
 ---
 
-# Prima i àmbit
+# Objectiu i abast
 
 ## Objectiu del producte
 
-El Gnosi converteix una carpeta controlada per l' usuari de Markdown en un espai de treball connectat sense fer una base de dades organitzada opaca el propietari del coneixement de l' usuari. Combina la portbilitat de fitxers amb el comportament de les aplicacions d' alt nivell: vistes estructurades, edició, cerca, gràfica, gràfica, referències, comunicació, automatització, publicació i ajuda a l' IA.
+Gnosi converteix una carpeta de Markdown controlada per l'usuari en un espai de
+treball connectat, sense deixar el seu coneixement en mans d'una base de dades
+allotjada opaca. Combina la portabilitat dels fitxers amb funcions d'aplicació
+de nivell superior: vistes estructurades, edició, cerca, recorregut del graf,
+referències, comunicació, automatització, publicació i assistència d'IA.
 
-L' objectiu principal d'enginyeria és la sobirania de dades amb col·laboració útil i automatització. Els usuaris han de ser capaços d' inspeccionar, recuperar, sincronitzar i recuperar el seu coneixement independentment del Gnosi.
+L'objectiu principal d'enginyeria és la sobirania de les dades amb col·laboració
+útil i automatització. Els usuaris han de poder inspeccionar, fer còpies de
+seguretat, sincronitzar i recuperar el seu coneixement independentment de Gnosi.
 
-## Dissenya els principis
+## Principis de disseny
 
-### Persisteix la primera vegada local
+### Persistència local-first
 
-Markdown i YAML són la representació primària del coneixement. Els índexs i la memòria cau han de ser força avançats. Les bases de dades de magatzems de bases de dades que no pertanyen naturalment en una nota, com ara les identitats, les seves identitats, els índexs de missatge i la història d' execució.
+Markdown i el frontmatter YAML són la representació principal del coneixement.
+Els índexs i les memòries cau acceleren l'accés, però s'han de poder reconstruir.
+Les bases de dades relacionals desen l'estat de l'aplicació que no encaixa
+naturalment en una nota, com ara identitats, pertinences, índexs de missatges i
+historial d'execució.
 
-### Mode personal sense compte per sobre
+### Mode personal sense la càrrega de gestionar comptes
 
-El valor per omissió `personal` El mode pot executar- se com una aplicació d' un sol usuari local sense una pantalla d' accés. `org` El mode habilita el comportament d' usuari autenticat, espais de treball, rols i comprovacions d' accés. Els desplegaments sensibles a la seguretat poden forçar l' autenticació fins i tot mentre es conservaran les semàntices del mode personal.
+El mode predeterminat `personal` pot funcionar com una aplicació local d'un sol
+usuari sense pantalla d'inici de sessió. El mode `org` habilita el funcionament
+multiusuari autenticat, els espais de treball, els rols i les comprovacions
+d'accés. Els desplegaments sensibles a la seguretat poden exigir autenticació
+tot mantenint la semàntica del mode personal.
 
-### PortablePista
+### Desplegament portable
 
-El codi principal ha d' operar natiument i en Darraker. La detecció de desplegament pot seleccionar els valors apropiats per omissió, però el codi de domini no ha d' assumir noms de màquina de només Docker o rutes absoluts.
+El codi principal ha de funcionar de manera nativa i amb Docker. La detecció
+del desplegament pot seleccionar valors predeterminats adequats, però el codi
+de domini no ha de pressuposar noms de host exclusius de Docker ni rutes
+absolutes exclusives de l'entorn natiu.
 
-### Efectes externs explicants
+### Efectes externs explícits
 
-Obrir fitxers, enviar missatges, publicar continguts, esborrar dades, invocar eines generades i cridant als serveis remots creuant límits de confiança. Aquestes operacions usen serveis localitzats i, a on s' aplica, comprovacions de rol o polítiques de confirmació explícites.
+Obrir fitxers, enviar missatges, publicar contingut, eliminar dades, invocar
+eines generades i cridar serveis remots travessa límits de confiança. Aquestes
+operacions utilitzen serveis amb un àmbit delimitat i, quan correspon,
+comprovacions de rol o polítiques de confirmació explícites.
 
-### degradació Graceda
+### Degradació controlada
 
-Els proveïdors opcionals i la integració han de fallar localment. Un proveïdor d' IA no existeix, un port de traducció, compte de correu o servei de la hidratació del fitxer en núvol no ha de fer operacions no relacionades amb la volta no disponibles.
+Les fallades de proveïdors i integracions opcionals han de quedar aïllades.
+L'absència d'un proveïdor d'IA, un servei auxiliar de traducció, un compte de
+correu o un servei d'hidratació de fitxers del núvol no ha d'impedir les
+operacions del vault que no en depenen.
 
-## Superfície de producte
+## Àrees del producte
 
-- Coneixement: markdown Pages, edició de blocs, adjunts, vistes, cerca, gràfica.
-- Referència: referències, citacions CSL, lectura PDF/EPUB, anotacions, fonts.
-- Comunicació: mail, calendaris, reunions, contactes.
-- Intel·ligència: registre de models, agents, eines MCP, habilitats en temps d' execució, fonts de context.
-- Automatització: Tasques planificades, fórmules, flexions, recordatoris, publicació.
-- Integració: Google, Microsoft, Noció, Drupal, xarxes socials, oficina afegeix-his.
-- Distribució: temps d' execució de web nativa, aplicació d' escriptori electrònica,
-I navegador i companys de companys de treball.
+- Coneixement: pàgines Markdown, edició de blocs, adjunts, vistes, cerca i graf.
+- Recerca: referències, citacions CSL, lectura PDF/EPUB, anotacions i canals.
+- Comunicació: correu, calendaris, reunions i contactes.
+- Intel·ligència: registre de models, agents, eines MCP, habilitats d'execució i fonts de context.
+- Automatització: tasques programades, fórmules, rollups, recordatoris i publicació.
+- Integració: Google, Microsoft, Notion, Drupal, xarxes socials i complements ofimàtics.
+- Distribució: execució web nativa, autoallotjament Docker, aplicació d'escriptori
+  Electron i clients complementaris de navegador i ofimàtica.
 
-## No-goals i límits
+## Objectius exclosos i límits
 
-- El Gnosi no requereix una base de dades de núvol propietari com a font de veritat.
-- Els índexs derivats no són substituts per a la volta.
-- La col·laboració en temps real actualment proveeix una base de renom/presència; és
-No està documentat com a edició completa del CRDT fins que aquest comportament s' implementa.
-- El codi de lector Zotero no és propietat de la lògica de l' aplicació Gnosi. El Gnosi propietari del programa.
-El pas, el límit d'integració, els canvis locals i les dades flueix al voltant.
-- Una proposta de funcionalitat en una directiva no és enviada al comportament fins que es verifica
-Font i proves.
+- Gnosi no requereix una base de dades propietària al núvol com a font de veritat.
+- Els índexs derivats no són substituts persistents del vault.
+- La col·laboració en temps real ofereix actualment una base de retransmissió
+  i presència; no es documenta com a edició CRDT completa fins que s'implementi.
+- El codi del lector Zotero inclòs com a dependència no és lògica pròpia de
+  Gnosi. Gnosi és responsable de la compilació, el límit d'integració, els
+  canvis locals i els fluxos de dades que l'envolten.
+- Una proposta de funcionalitat en una directiva no és comportament lliurat
+  fins que es verifica al codi i a les proves.
 
-## conseqüència de la llicència
+## Conseqüències de la llicència
 
-El Gnosi és AGPL- o- altter. Les versions modificades ofertes per una xarxa han de fer que la seva font corresponent estigui disponible sota la mateixa llicència. Els col· laboradors han de mantenir la font, documentació tècnica i instruccions operatives adequades per a la revisió de tercers.
+Gnosi utilitza la llicència AGPL-3.0-or-later. Les versions modificades ofertes
+per xarxa han de posar a disposició el codi font corresponent sota la mateixa
+llicència. Els col·laboradors han de mantenir el codi, la documentació tècnica
+i les instruccions operatives en condicions de ser revisats per tercers.

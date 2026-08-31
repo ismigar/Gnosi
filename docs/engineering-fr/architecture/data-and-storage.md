@@ -104,7 +104,7 @@ le créateur, le vault, les permissions, l'expiration et l'état de révocation.
 répertoires de cache, système, points de contrôle, journaux, audio, sorties,
 sauvegardes et secrets. Docker utilise `/data` ; les valeurs natives suivent la
 convention de données d'application du système. `GNOSI_LOCAL_DATA` reste un alias
-obsolète accepté pendant toute la série 3.x.
+obsolète de la série 3.x.
 
 Les fichiers SQLite ne doivent pas être placés sur OneDrive, iCloud Drive, Dropbox
 ou une autre couche de synchronisation. Celle-ci ne fournit pas les verrouillages
@@ -118,7 +118,7 @@ erreurs transitoires par fichier et continuent lorsqu'une réponse partielle est
 utile. Une analyse partielle est signalée et ne remplace jamais un cache complet.
 Sur macOS, le téléchargement à la demande utilise une action de la session
 graphique, car un LaunchAgent peut recevoir `EDEADLK` pour du contenu uniquement en ligne.
-OneDrive, iCloud Drive, Google Drive, Nextcloud et Dropbox disposent d'adaptateurs
+Le runtime d'hydratation est indépendant du fournisseur. OneDrive, iCloud Drive, Google Drive, Nextcloud et Dropbox disposent d'adaptateurs
 et de préfixes de configuration distincts. Un service inconnu monté sous
 `~/Library/CloudStorage` utilise l'adaptateur générique `fileprovider`. Les dossiers
 montés ordinaires ou entièrement synchronisés utilisent le système de fichiers local.

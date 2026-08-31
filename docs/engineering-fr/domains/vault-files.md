@@ -190,7 +190,7 @@ des fournisseurs historiques. Elle ne prouve pas le typage complet de la façade
 ni du modèle de requête historique partagé. Les résultats ne sont pas normalisés
 pour satisfaire le typage : les appels directs gardent les données originales et
 les modèles HTTP imposent le contrat existant. Sauvegardes, récupération,
-permissions, résolution des callbacks, métadonnées et ordre des routes sont préservés.
+permissions, moment d'appel des callbacks, valeurs des métadonnées et ordre des routes sont préservés.
 
 La composition des aperçus et des sauvegardes de pages partage également un
 routeur dont le type a été précisé, pour la résolution des titres et
@@ -375,10 +375,12 @@ comportement.
 La recherche bibliographique importe directement les services et déclare sous
 `TYPE_CHECKING` des alias vérifiés des propriétaires réels des callbacks, sans
 conversion de modules ni de résultats. Leur remplacement tardif reste possible.
-Les tests couvrent les deux ordres d'importation, les schémas HTTP exacts et
-l'identité des métadonnées inconnues. `citations/title_regex.py` conserve les
-erreurs natives de Python : son unique exception documentée de vérification
-valide les entrées incorrectes, jamais les données renvoyées. Les anciens types
+Les tests couvrent les deux ordres d'importation, les schémas HTTP exacts,
+le remplacement d'un callback pendant une recherche et la préservation des
+métadonnées inconnues. Le repli sur le titre des citations conserve les
+erreurs natives de Python via `citations/title_regex.py` : son unique exception
+documentée au contrôle de types concerne uniquement la validation native des
+entrées incorrectes, jamais les données applicatives renvoyées. Les anciens types
 des fournisseurs de registre et de pages restent une dette distincte.
 
 L'import Markdown, les commentaires en ligne, les blocs synchronisés, la
@@ -392,7 +394,7 @@ dépendances d'autorisation et de persistance. Des payloads `TypedDict` nommés
 décrivent les dictionnaires renvoyés aux appelants Python, sans conversion de
 type ni `Any`. Les rectangles stockés conservent le décodage JSON d'origine ;
 les modèles HTTP valident toujours leur forme. Les identités des schémas, le
-filtrage par URI, l'ordre par page et date de création, les permissions, les mises
+filtrage par URI source, l'ordre par page et date de création, les permissions d'édition, les mises
 à jour avec champs nuls ou omis et le schéma SQLite restent inchangés. Les tests
 SQLite et HTTP isolés couvrent les deux ordres d'importation : façade d'abord
 ou domaine d'abord.

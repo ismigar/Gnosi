@@ -21,17 +21,19 @@ tests:
   - frontend/src/features/graph/public-entry.test.ts
 ---
 
-# Gràfic coneixement
+# Graf de coneixement
 
-## Reversió
+## Responsabilitat
 
 `backend/domains/graph/` gestiona l'escaneig, els nodes, les arestes, la projecció,
 els adaptadors i l'orquestració. `graph_service.py` és la façana estable que fan
 servir l'API, l'agent i el planificador.
 
-El gràfic projectes de relacions explícites del coneixement i suggeriments opcionals semàntics en una xarxa interactiva. Permet la navegació i el descobriment; es deriva de la Vaulta i no és una font de veritat separada.
+El graf projecta relacions explícites de coneixement i suggeriments semàntics
+opcionals en una xarxa interactiva. Permet navegar i descobrir contingut;
+deriva del vault i no és una font de veritat separada.
 
-La feature tipada `features/graph/` gestiona l'estat de ruta, els filtres i la
+La feature amb tipatge estricte `features/graph/` gestiona l'estat de ruta, els filtres i la
 composició de pàgina mitjançant una entrada pública de càrrega diferida.
 Els panells i models interns són privats. `shared/graph/` gestiona el renderer,
 el minimapa, la geometria, el teclat, les arestes i la capa semàntica
@@ -43,41 +45,59 @@ El codi compartit no depèn de features ni d'app, tampoc mitjançant imports de
 tipus. Les projeccions, la configuració, la navegació, els controls de càmera
 i els estils es conserven; el trasllat requereix verificació d'integració.
 
-## Disseny de graf
+## Construcció del graf
 
-Nodes originares de pàgines indexades. Els límits s'originen de wikilinks, relacions, etiquetes o altres resultats de metadades configurades, i opcionals de la semblança. El servei gràfic prefereix l' accés a les metadades índex i l' accés directe al fitxer de manera que un directori no disponible produeix un gràfic parcial en comptes d' un fracàs total.
+Els nodes provenen de pàgines indexades. Les arestes provenen de wikilinks,
+relacions, etiquetes o altres metadades configurades i, opcionalment, de
+resultats de similitud. Les lectures del servei de graf prioritzen les
+metadades de l'índex i protegeixen l'accés directe a fitxers perquè un directori
+no disponible produeixi un graf parcial en lloc d'una fallada total.
 
-Els objectius sense resoldre de wikilinks es poden representar com a nodes diferents. No són en silenci descartes o fusionats per etiqueta de visualització perquè ho fan, per tant, s' amagarien les relacions de coneixement trencades.
+Les destinacions no resoltes dels wikilinks es poden representar com a nodes
+diferents. No es descarten ni es fusionen silenciosament per l'etiqueta visible,
+perquè això amagaria relacions de coneixement trencades.
 
-## El recobriment semàntic
+## Capa semàntica
 
-Els suggeriments semàntics que comparen les representacions dels documents i produeixen candidats puntosos. Els suggeriments són un recobriment: acceptar o materialitzar una relació ha d' usar un flux d' escriptura explícit. Model no transparent deshabilita el recobriment sense canviar el gràfic explícit.
+Els suggeriments semàntics comparen representacions de documents i produeixen
+candidats amb puntuació. Són una capa superposada: acceptar o materialitzar una
+relació requereix un flux explícit d'escriptura de contingut. Si el model no
+està disponible, es desactiva aquesta capa sense canviar el graf explícit.
 
-## Representació per a la interfície
+## Renderització al frontend
 
-`GraphViewer` Mapa de dades de gràfics en Graphologia i Sigma. Les opcions de control de la disposició de la simulació de força, la repulsió, l' atracció, la gravetat, la prevenció, els llindar de l' etiqueta, la gruix, els colors del cúmul, i el lloc de nodes aïllats.
+`GraphViewer` transforma les dades del graf per a Graphology i Sigma. La
+configuració de disposició controla la simulació de forces, la repulsió,
+l'atracció, la gravetat, la prevenció de col·lisions, els llindars d'etiquetes,
+el gruix d'arestes, els colors dels grups i la posició dels nodes aïllats.
 
-L' èmfasi en el ratolí està limitada intencionadament a un salt. Multi- ho èmfasi en els gràfics illegibles i obscurs el barri seleccionat. Els nodes isolats reben prou farciment i la posició estable per a romandre visibles.
+El ressaltat en passar el punter es limita intencionadament a un salt.
+Ressaltar diversos salts fa il·legibles els grafs densos i amaga el veïnat
+seleccionat. Els nodes aïllats tenen prou marge i una posició estable per
+continuar sent visibles.
 
 ```mermaid
 flowchart LR
-    Index["Índex de la pàgina"] --> Explicit["Wikilink i vores de relació"]
-    Index --> Semantic["suggeriment opcional de similitud"]
+    Index["Índex de pàgines"] --> Explicit["Arestes de wikilinks i relacions"]
+    Index --> Semantic["Suggeriments opcionals de similitud"]
     Explicit --> API["API del graf"]
     Semantic --> API
-    API --> Sigma["Grafologia + Sigma"]
-    Sigma --> Interaction["Al passar per sobre, seleccioneu el filtre, navegueu"]
+    API --> Sigma["Graphology + Sigma"]
+    Sigma --> Interaction["Passar el punter, filtrar, seleccionar i navegar"]
 ```
 
 ## Invariants
 
 - La identitat del node utilitza la identitat de pàgina estable, no només el títol.
-- Mostra les etiquetes pot col· lir; els identificadors no poden.
-- Les vores semàntices derivades són indistingibles de les relacions explícites.
-- L' estat de la disposició no pot modificar el contingut de laulta.
-- Es poden etiquetar escàners parcialment i no es desen la memòria cau com a complet.
-- Nivell de directori `EDEADLK` i `EAGAIN` Els errors estan aïllats.
+- Les etiquetes visibles poden coincidir; els identificadors no.
+- Les arestes semàntiques derivades es distingeixen de les relacions explícites.
+- L'estat de disposició no pot modificar el contingut del vault.
+- Els escanejos parcials s'etiqueten i no es desen com a memòria cau completa.
+- Les fallades `EDEADLK` i `EAGAIN` a nivell de directori s'aïllen.
 
-## Concentrat de verificació
+## Aspectes que cal verificar
 
-Prova els nodes no resolts, nodes aïllats, llegenda del clúster, alternativa frontal-matter, llindars semàntics, errors de subdirectori en núvol, comportament d' una banda per passar, i navegació gràfica de nou a la pàgina correcta.
+Proveu els nodes no resolts i aïllats, la coherència de la llegenda dels grups,
+la lectura alternativa del frontmatter, els llindars de suggeriments semàntics,
+les fallades de directoris al núvol, el ressaltat d'un sol salt i la navegació
+del graf cap a la pàgina correcta.

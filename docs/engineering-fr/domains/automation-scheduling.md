@@ -33,7 +33,7 @@ tests:
 
 ## Responsabilité
 
-Le planificateur exécute les tâches configurées, conserve leur historique et
+Le planificateur exécute les tâches récurrentes ou ponctuelles configurées, conserve leur historique et
 expose l'état opérationnel de la synchronisation, publication, ingestion,
 maintenance et mise à jour de la planification.
 
@@ -44,7 +44,7 @@ chargées à la demande ; les adaptateurs partagés préservent identifiants, un
 permissions et payloads. Déplacer un écran n'active aucune tâche ni aucun travail.
 
 Les métadonnées, l'état persistant et la frontière de notification facultative
-ont des contrats typés. Le gestionnaire valide les définitions héritées avant de
+ont des contrats strictement typés dans des modules dédiés. Le gestionnaire valide les définitions héritées avant de
 construire les tâches et respecte la limite de taille du code.
 
 ## Modèle de tâche
@@ -83,11 +83,12 @@ d'intégrations en attente. Ce réglage ne modifie pas la configuration enregist
 
 Le gestionnaire conserve cycle de vie, persistance, contrôle des chevauchements
 et historique. `task_handlers.py` contient la répartition et les opérations
-importantes, dont la maintenance, sans les coupler au fil du planificateur.
+importantes, dont la maintenance bornée, sans les coupler au cycle de vie du
+thread du planificateur. L'exécution des tâches reste réutilisable et strictement typée.
 
 Les notifications passent par une frontière de plateforme indépendante du
 fournisseur. La persistance en base de données et Markdown fonctionne sur tous
-les hôtes ; les alertes natives macOS sont facultatives. Les journaux Markdown
+les hôtes ; les alertes natives macOS sont tentées sans garantie de réussite. Les journaux Markdown
 résident sous `GNOSI_DATA_DIR`, jamais dans un Vault OneDrive, Google Drive,
 Nextcloud, Dropbox ou d'un autre fournisseur. L'échec d'un canal ne bloque pas les
 autres. L'ancien chemin de la compétence de notification est une façade compatible.
@@ -112,10 +113,12 @@ synchronisation des contacts transmet explicitement base de données, workspace
 et intégration pour ne pas confondre les arguments.
 
 Les travaux académiques résolvent le Vault actif avant d'accéder à la littérature.
-Sans Vault, ils enregistrent une omission structurée avec zéro travail au lieu
+Sans vault configuré au premier lancement, ils enregistrent une opération
+ignorée structurée avec un statut de réussite et zéro tâche mise en file au lieu
 de construire `Path(None)`. La récupération de la file du Reader vérifie
-l'existence du document associé ; les entrées orphelines ne créent pas de fils
-voués à échouer répétitivement.
+l'existence du document géré par le fournisseur avant de prendre une tâche ;
+les entrées orphelines sont rejetées une seule fois et ne créent jamais de
+threads voués à échouer.
 
 ## Automatisations du Vault
 
@@ -151,7 +154,7 @@ opération distincte et revue du workspace, pas une tâche de l'application.
 Le service de podcast du Reader utilise des contrats typés pour choisir modèle
 et langue, limite les travailleurs TTS par phrase et remplace le MP3 atomiquement.
 Il capture le Vault sélectionné avant de commencer et refuse de démarrer sans
-Vault actif.
+Vault actif, afin que la sortie ne puisse pas aboutir à un chemin local ambigu.
 
 ## Invariants
 
@@ -167,7 +170,8 @@ Vault actif.
 
 ## Vérification
 
-Vérifiez configuration, connexions, intervalles, historique, chevauchements,
+Vérifiez la robustesse de la configuration, l'alignement des connexions,
+les planifications de projets, l'historique, les chevauchements,
 fuseaux horaires, nouvelles tentatives, reprise et annulation OAI, marqueurs de
 suppression, détection des nouveaux résultats et confinement de la maintenance.
 Exécutez aussi les tests Playwright d'automatisation et une intégration

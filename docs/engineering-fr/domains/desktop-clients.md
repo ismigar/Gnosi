@@ -272,7 +272,7 @@ La politique de ressources lit le code source sans importer l’application.
 Elle préserve les ressources Alembic, les instructions de l’agent, les skills
 de traduction dynamique, les plugins d’exemple et les styles bibliographiques.
 Elle rejette les ressources manquantes, modifiées, non examinées ou dangereuses
-au lieu d’inclure récursivement les coffres, bases de données, configurations,
+au lieu d’inclure récursivement les vaults, bases de données, configurations,
 secrets ou outils générés. Le hook `afterPack` vérifie l’ASAR réel et les
 ressources Python avant la signature. Les ressources graphiques se trouvent
 dans `desktop/assets/` ; les paquets générés, dans `desktop/dist/` et
@@ -381,7 +381,7 @@ pas la publication de 3.0.0.
 
 L’extension de capture web envoie `POST /api/public/clip` avec un jeton d’accès
 personnel et lit la configuration des champs demandés et de la destination depuis
-`GET /api/public/clip/config`. Le backend choisit le coffre de destination ;
+`GET /api/public/clip/config`. Le backend choisit le vault de destination ;
 l’extension n’obtient pas d’accès arbitraire au système de fichiers. Son jeton
 et l’URL du backend sont conservés dans le stockage local de l’extension.
 L’empaquetage pour les navigateurs et l’acceptation dans leurs boutiques sont
@@ -401,7 +401,7 @@ Le client LibreOffice est un gestionnaire de protocole Python/UNO qui utilise
 `urllib` de la bibliothèque standard. Il lit `api_token` dans sa propre
 configuration ou dans `GNOSI_API_TOKEN` ; ne supposez pas qu’il partage la
 session du navigateur. Les deux clients utilisent les points d’accès de mise
-en forme des citations du coffre et le traitement Pandoc/CSL du backend.
+en forme des citations du vault et le traitement Pandoc/CSL du backend.
 La mise en forme sensible au contexte exige les clés du document dans l’ordre,
 y compris les citations répétées. L’actualisation de Writer parcourt les
 tableaux imbriqués ; les en-têtes et pieds de page contribuent aux clés
@@ -415,7 +415,7 @@ sur des données synthétiques.
 Le test de bon fonctionnement du backend empaqueté exige une réponse de santé
 HTTP 200 de taille limitée avec `status: ok`, `mode: FastAPI` et sa nouvelle
 identité de test dans `gnosi_mode`. Il utilise des chemins de données et de
-coffres jetables, désactive l’automatisation opérationnelle et récupère son
+vaults jetables, désactive l’automatisation opérationnelle et récupère son
 processus enfant en cas de réussite comme d’échec. `GNOSI_VALIDATION_ROOT`
 valide tous les sélecteurs et bloque les fichiers d’environnement locaux et
 partagés ainsi que l’accès au magasin d’identifiants. La génération OpenAPI

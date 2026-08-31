@@ -8,6 +8,8 @@ source_paths:
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
   - backend/api/vault_routes.py
+  - backend/domains/vault/pages/runtime.py
+  - backend/domains/vault/registry/state.py
   - backend/domains/notion
   - backend/domains/configuration/api/plugin_lifecycle.py
   - backend/domains/configuration/api/plugin_models.py
@@ -151,10 +153,12 @@ deterministic OpenAPI document remain byte-stable.
 legacy imports. It injects path, persistence, runtime, model-selection, and
 mutation-lock collaborators and re-exports the historical models and handlers.
 The load, save, lifecycle, summary-model, and mutation-lock seams remain
-dynamically replaceable for plugins and tests. Domain modules never import the
-facade. Route order, paths, methods, status codes, payload schemas, operation
-identifiers, and the generated OpenAPI contract remain frozen during this
-structural migration.
+dynamically replaceable for plugins and tests. Some extracted page modules still
+import that facade dynamically, and the page and registry boundaries retain
+typing escapes. Removing these legacy dependencies remains unfinished; a passing
+strict type-check does not prove complete typed separation. Route order, paths,
+methods, status codes, payload schemas, operation identifiers, and the generated
+OpenAPI contract remain frozen during this structural migration.
 
 The plugin domain and dispatcher share a typed two-argument host-handler
 contract: bounded arguments plus the calling plugin id. The historical sandbox
