@@ -142,6 +142,17 @@ describe('MediaCenter complete behavior', () => {
         expect(container.textContent).toContain('1 / 2');
         await run(() => {button('media.close_esc').click();});
     });
+    it('uses the high-contrast action background only for the selected root', async () => {
+        await run(() => {root.render(<MediaCenter/>);});
+        const images = button('media.root_images');
+        const assets = button('media.root_assets');
+        expect(images.classList.contains('bg-[var(--gnosi-action-bg)]')).toBe(true);
+        expect(images.classList.contains('text-white')).toBe(true);
+        expect(assets.classList.contains('bg-[var(--gnosi-action-bg)]')).toBe(false);
+        await run(() => {assets.click();});
+        expect(assets.classList.contains('bg-[var(--gnosi-action-bg)]')).toBe(true);
+        expect(images.classList.contains('bg-[var(--gnosi-action-bg)]')).toBe(false);
+    });
     it('routes gallery uploads by root without applying an implicit timeout', async () => {
         await run(() => {root.render(<MediaCenter/>);});
         const file = new File(['synthetic'], 'fixture.txt', {type: 'text/plain'});

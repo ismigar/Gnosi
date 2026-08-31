@@ -145,6 +145,18 @@ none is available. Discovery uses the configured workspace/vault selectors.
 Mail fixtures cover legacy and vault-scoped APIs; integrations matching excludes
 Vite source-module paths so the mock cannot replace application code with JSON.
 
+## Accessibility
+
+The separate `accessibility` project checks twelve routes in light and dark
+themes, then skip navigation, dialog focus, mobile navigation and notebook
+tabs. Each route must reach its canonical URL and actual feature surface;
+disabled-plugin pages and loading shells cannot pass as the requested screen.
+Startup failures are not retried by reloading. Run it with one worker and
+`--retries=0` for acceptance; inspect the media/control-center screenshots and
+keyboard behavior as well as the axe result. Optional modules use an explicit
+fixture, so this is not acceptance of configured external providers or every
+possible content state.
+
 ## Offline worker validation
 
 The root `pnpm test:e2e:contracts` command runs offline authentication, JSON and

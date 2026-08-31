@@ -29,6 +29,23 @@ const ENABLED_BUILTIN_PLUGINS = [
   'social-publishing',
 ];
 
+// Actual feature surfaces, not the common shell or a disabled-plugin fallback.
+const ROUTE_SURFACES: Record<string, { suffix: string; selector: string }> = {
+  '/': { suffix: '/', selector: '[data-testid="home-settings-card"]' },
+  '/vault': { suffix: '/knowledge', selector: '.vault-shell__main' },
+  '/graph': { suffix: '/graph', selector: '#sigma-container' },
+  '/contacts': { suffix: '/contacts', selector: '.contacts-split' },
+  '/mail': { suffix: '/mail', selector: '.mail-workspace' },
+  '/calendar': { suffix: '/calendar', selector: '.fc' },
+  '/reader': { suffix: '/reader', selector: 'h1' },
+  '/notebooks': { suffix: '/notebooks', selector: '.notebook-library' },
+  '/social-dashboard': { suffix: '/social', selector: '.social-header-tabs' },
+  '/media': { suffix: '/media', selector: '.media-library__sidebar' },
+  '/planning': { suffix: '/planning', selector: 'table' },
+  '/dashboard': { suffix: '/dashboard', selector: '.settings-section-tabs' },
+  '/notebooks/pw-a11y': { suffix: '/notebooks/pw-a11y', selector: '.notebook-detail' },
+};
+
 async function prepareTheme(page: Page, theme: typeof THEMES[number]) {
   await page.addInitScript((selectedTheme) => {
     localStorage.setItem('db-theme', selectedTheme);
@@ -45,7 +62,7 @@ async function closeReleaseNotesIfPresent(page: Page) {
 }
 
 async function openStableRoute(page: Page, route: string) {
-  await page.route('**/api/vault/plugins', (request) => request.fulfill({
+  await page.route(url => url.pathname === '/api/vault/plugins', (request) => request.fulfill({
     json: {
       disabled: [],
       enabled_builtin: ENABLED_BUILTIN_PLUGINS,
@@ -54,16 +71,20 @@ async function openStableRoute(page: Page, route: string) {
     },
   }));
   const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
-  expect(response, `Navigation response missing for ${route}`).not.toBeNull();
-  expect(response!.status(), `${route} should load successfully`).toBeLessThan(400);
+  expect(response?.status(), `${route} should load successfully`).toBe(200);
   const appShell = page.locator('#page-content-scroll');
-  await appShell.waitFor({ state: 'visible', timeout: 30_000 }).catch(async () => {
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(appShell).toBeVisible({ timeout: 30_000 });
+  await expect(appShell).toBeVisible({ timeout: 30_000 });
+  const surface = ROUTE_SURFACES[route];
+  if (!surface) throw new Error(`Missing accessibility readiness contract: ${route}`);
+  await expect(page).toHaveURL(url => {
+    const prefix = route === '/' || route === '/dashboard' ? '' : url.pathname.match(/^\/@[^/]+/)?.[0];
+    return prefix !== undefined && url.pathname === `${prefix}${surface.suffix}`;
   });
+  await expect(appShell.locator(surface.selector)).toBeVisible({ timeout: 30_000 });
+  await expect(appShell.locator('#disabled-plugin-title')).toHaveCount(0);
   await expect(page.locator('.gnosi-route-skeleton')).toHaveCount(0, { timeout: 60_000 });
+  await expect(page.locator('.notebook-library__loading')).toHaveCount(0);
   await closeReleaseNotesIfPresent(page);
-  await page.waitForTimeout(250);
 }
 
 function axeFailureMessage(route: string, theme: string, violations: Awaited<ReturnType<AxeBuilder['analyze']>>['violations']) {
@@ -86,7 +107,7 @@ test.describe('WCAG 2.2 AA product-route gate', () => {
   test.describe.configure({ timeout: 90_000 });
   for (const theme of THEMES) {
     for (const route of PRODUCT_ROUTES) {
-      test(`${route} has no axe violations in ${theme} mode`, async ({ page }) => {
+      test(`${route} has no axe violations in ${theme} mode`, async ({ page }, testInfo) => {
         const pageErrors = collectPageErrors(page);
         await prepareTheme(page, theme);
         await openStableRoute(page, route);
@@ -101,6 +122,9 @@ test.describe('WCAG 2.2 AA product-route gate', () => {
           axeFailureMessage(route, theme, results.violations),
         ).toEqual([]);
         expect(pageErrors, `Unhandled page errors on ${route} (${theme})`).toEqual([]);
+        if (route === '/media' || route === '/dashboard') {
+          await page.screenshot({ path: testInfo.outputPath(`${route.slice(1)}-${theme}.png`) });
+        }
       });
     }
   }
@@ -118,10 +142,18 @@ test.describe('keyboard, focus, names, and live-region contracts', () => {
     await expect(skipLink).toBeVisible();
     const focusStyle = await skipLink.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth };
+      return {
+        borderStyle: style.borderTopStyle,
+        borderWidth: style.borderTopWidth,
+        decoration: style.textDecorationLine,
+        thickness: style.textDecorationThickness,
+      };
     });
-    expect(focusStyle.outlineStyle).not.toBe('none');
-    expect(Number.parseFloat(focusStyle.outlineWidth)).toBeGreaterThanOrEqual(2);
+    await expect(skipLink).toBeInViewport();
+    expect(focusStyle.borderStyle).toBe('solid');
+    expect(Number.parseFloat(focusStyle.borderWidth)).toBeGreaterThanOrEqual(2);
+    expect(focusStyle.decoration).toContain('underline');
+    expect(Number.parseFloat(focusStyle.thickness)).toBeGreaterThanOrEqual(2);
 
     await page.keyboard.press('Enter');
     await expect(page.locator('#page-content-scroll')).toBeFocused();
@@ -134,7 +166,9 @@ test.describe('keyboard, focus, names, and live-region contracts', () => {
 
     const announcer = page.getByTestId('route-announcer');
     await expect(announcer).not.toHaveText('');
-    await page.locator('#gnosi-global-navigation a[href="/graph"]').click();
+    const graphLink = page.locator('#gnosi-global-navigation').getByRole('link', { name: /^(graph|graf|grafo|graphe)$/i });
+    await expect(graphLink).toHaveAttribute('href', /^\/@[^/]+\/graph$/);
+    await graphLink.click();
     await expect(page).toHaveURL(/\/graph$/);
     await expect(announcer).toContainText(/graph|graf/i);
   });

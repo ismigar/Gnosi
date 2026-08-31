@@ -124,12 +124,20 @@ menus use the registered z-index system and do not trap interaction.
 ## Accessibility gate
 
 The Playwright `accessibility` project is a blocking WCAG 2.2 AA gate. It runs
-axe against a representative route from every top-level product domain in
+axe against twelve selected product routes in
 light and dark themes, including color contrast, labels, landmarks, and ARIA
 relationships. The suite keeps application-owned markup in scope and does not
 maintain a permanent violation allowlist. Its deterministic fixture enables
 the optional modules represented by the route matrix, and every route also
 fails on unhandled browser page errors so a crashed surface cannot pass axe.
+
+Before scanning, each case requires the expected canonical URL and a visible
+feature-specific surface, with no route skeleton or disabled-plugin fallback.
+It does not reload the page to retry failed startup. The skip-link check verifies
+its visible two-pixel border and keyboard underline; graph navigation follows
+the vault-scoped link. Media and control-center screenshots preserve light/dark
+contrast evidence. A green run covers these fixtures and states, not every
+interaction, assistive technology, user dataset or complete WCAG conformance.
 
 Interaction assertions complement axe for behavior that static analysis cannot
 prove: skip navigation, visible focus, logical focus order, complete keyboard

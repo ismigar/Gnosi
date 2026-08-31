@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 24 | 80 |
-| Vitest | 482 | 1970 |
+| Vitest | 482 | 1971 |
 | pytest | 367 | 2505 |
 
 ## Fitxers
@@ -158,7 +158,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/mail/hooks/useMailViews.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/hooks/useMailViews.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/page/mailPageModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/mailPageModel.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/public-entry.test.ts) | 1 | call-pattern estimate |
-| Vitest | [`frontend/src/features/media/browser/MediaCenter.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaCenter.test.tsx) | 9 | call-pattern estimate |
+| Vitest | [`frontend/src/features/media/browser/MediaCenter.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaCenter.test.tsx) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/media/browser/MediaPrimitives.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaPrimitives.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/media/browser/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/model.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/media/picker/MediaPicker.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/picker/MediaPicker.test.tsx) | 5 | call-pattern estimate |

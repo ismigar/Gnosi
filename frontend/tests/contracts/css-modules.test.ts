@@ -62,11 +62,30 @@ function expand(path: string, visited = new Set<string>()): Root {
   return root;
 }
 
+function extractionTree(entry: string): Root {
+  const root = expand(resolve(frontend, entry));
+  if (entry === 'src/features/settings/AI/AIResourcesSettings.css') {
+    // The only post-extraction change: axe found 3.67:1 active-tab text.
+    // Assert the exact accessible replacement before comparing everything else
+    // against the immutable original hash; never regenerate that baseline.
+    let replacements = 0;
+    root.walkRules('.ai-settings-sections button.is-active', rule => {
+      rule.walkDecls('color', declaration => {
+        expect(declaration.value).toBe('var(--sidebar-item-active-text)');
+        declaration.value = 'var(--gnosi-blue)';
+        replacements += 1;
+      });
+    });
+    expect(replacements).toBe(1);
+  }
+  return root;
+}
+
 describe('semantic CSS extraction contracts', () => {
   for (const contract of cssContracts) {
     describe(contract.entry, () => {
-      it('preserves the complete ordered AST from the authorized base', () => {
-        const expanded = expand(resolve(frontend, contract.entry));
+      it('preserves the ordered AST apart from the asserted accessible tab color', () => {
+        const expanded = extractionTree(contract.entry);
         expect(digest(expanded)).toBe(contract.astSha256);
         expect(expanded.nodes.filter(node => node.type !== 'comment'))
           .toHaveLength(contract.topLevelNodes);
@@ -102,7 +121,7 @@ describe('semantic CSS extraction contracts', () => {
       });
 
       it('detects cascade-order, token and priority drift', () => {
-        const root = expand(resolve(frontend, contract.entry));
+        const root = extractionTree(contract.entry);
         const reordered = root.clone();
         reordered.nodes.reverse();
         expect(digest(reordered)).not.toBe(contract.astSha256);

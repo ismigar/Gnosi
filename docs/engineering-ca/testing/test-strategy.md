@@ -107,12 +107,22 @@ Les instantànies de cobertura visual cobreix el representant d' escriptori i p�
 ## Porta d’accessibilitat
 
 El projecte `accessibility` de Playwright és una porta bloquejant de WCAG 2.2
-AA. Executa axe sobre una ruta representativa de cada domini principal en els
+AA. Executa axe sobre dotze rutes seleccionades del producte en els
 temes clar i fosc, incloent-hi contrast de color, etiquetes, regions i relacions
 ARIA. El marcatge propi de l’aplicació sempre queda dins l’auditoria. La dada
 de prova determinista activa els mòduls opcionals de la matriu de rutes, i cada
 ruta també falla si el navegador genera un error de pàgina no gestionat; una
 superfície trencada no pot superar axe.
+
+Abans de l’anàlisi, cada cas exigeix l’URL canònic esperat i una superfície
+visible pròpia de la funcionalitat, sense esquelet de càrrega ni avís de
+complement desactivat. No recarrega la pàgina per reintentar una arrencada
+fallida. La prova de l’enllaç de salt verifica la vora visible de dos píxels
+i el subratllat de teclat; la navegació al graf segueix l’enllaç del vault.
+Les captures de multimèdia i del centre de control conserven evidència del
+contrast en clar i fosc. Un resultat verd cobreix aquests casos i estats, no
+totes les interaccions, tecnologies d’assistència, dades personals ni la
+conformitat completa amb WCAG.
 
 Les proves d’interacció complementen axe amb navegació de salt, focus visible i
 ordenat, teclat complet, focus roving de les pestanyes mòbils, Escape als

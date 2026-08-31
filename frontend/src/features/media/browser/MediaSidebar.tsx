@@ -24,7 +24,7 @@ return <><aside className={`media-library__sidebar ${sidebarOpen ? 'is-open' : '
                       title={metaLabel}
                       className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                         active
-                          ? 'bg-[var(--gnosi-primary)] text-white border-[var(--gnosi-primary)] shadow-sm'
+                          ? 'bg-[var(--gnosi-action-bg)] text-white border-[var(--gnosi-action-bg)] shadow-sm'
                           : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]'
                       }`}
                     >

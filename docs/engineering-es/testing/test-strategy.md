@@ -108,13 +108,23 @@ Las instantáneas visuales cubren páginas de escritorio y móviles representati
 ## Puerta de accesibilidad
 
 El proyecto `accessibility` de Playwright es una puerta bloqueante de WCAG 2.2
-AA. Ejecuta axe sobre una ruta representativa de cada dominio principal en los
+AA. Ejecuta axe sobre doce rutas seleccionadas del producto en los
 temas claro y oscuro, incluidos el contraste de color, las etiquetas, las
 regiones y las relaciones ARIA. El marcado propio de la aplicación siempre
 permanece dentro de la auditoría. Los datos de prueba deterministas activan los
 módulos opcionales de la matriz de rutas, y cada ruta también falla si el
 navegador genera un error de página no controlado; una superficie rota no
 puede superar axe.
+
+Antes del análisis, cada caso exige la URL canónica esperada y una superficie
+visible propia de la funcionalidad, sin esqueleto de carga ni aviso de
+complemento desactivado. No recarga la página para reintentar un arranque
+fallido. La prueba del enlace de salto verifica el borde visible de dos píxeles
+y el subrayado de teclado; la navegación al grafo sigue el enlace del vault.
+Las capturas de multimedia y del centro de control conservan evidencia del
+contraste en claro y oscuro. Un resultado verde cubre estos casos y estados,
+no todas las interacciones, tecnologías de asistencia, datos personales ni la
+conformidad completa con WCAG.
 
 Las pruebas de interacción complementan axe con navegación de salto, foco
 visible y ordenado, teclado completo, foco roving de las pestañas móviles,
