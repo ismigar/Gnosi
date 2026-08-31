@@ -18,7 +18,7 @@
     "build:icons": "python3 scripts/generate-icons.py",
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "pnpm run build:python && electron-builder",
+    "build": "pnpm run build:python && electron-builder --publish never",
     "build:python": "bash build-python.sh",
     "build:mac": "pnpm run build:python && electron-builder --mac --publish never",
     "build:linux": "pnpm run build:python && electron-builder --linux --publish never",

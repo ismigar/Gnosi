@@ -2,6 +2,14 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - desktop/README.md
+  - desktop/profile-startup.js
+  - desktop/profile-preservation.js
+  - desktop/cookie-migration.js
+  - desktop/cookie-rollback.js
+  - desktop/scripts/sync-release-version.cjs
+  - frontend/vite.config.js
+  - frontend/public/word-addin
   - desktop/scripts/release-source-identity.cjs
   - scripts/generate_openapi.py
   - backend/app/desktop_instance.py
@@ -65,332 +73,290 @@ tests:
 
 # Desktop and companion clients
 
-## Candidate-only distribution
+## Responsibilities and development modes
 
-`Build Release Candidate` does not create a GitHub draft, publish a release or
-modify existing release assets. Its repository token has read-only contents
-permission. Tag identity must pass before the workflow calls the existing CI
-at the same commit; architecture builds wait for that CI to succeed. No secrets
-are inherited by the reusable CI.
+Electron packages the React frontend and Python backend as one desktop
+application. Its main process owns the backend child, windows, application
+protocol, update state and privileged actions. The renderer uses a bounded
+preload API, never unrestricted Node.js or filesystem access.
 
-Candidate CI includes documentation, frontend, backend, native smoke and Docker
-image builds. Documentation still uses the exact base for PRs; for candidates
-it checks current catalogs and all strict locale portals at the candidate SHA,
-without claiming a new PR impact review. These existing checks do not prove
-container startup/persistence, full authenticated browser flows, clean platform
-installation, signing or a real 2.x upgrade.
+Native browser development and Electron development are different entry points:
 
-After all platform builds and artifact validation succeed, the run uploads an
-Actions artifact named `candidate-<tag>-<sha>-<attempt>`, retained for five days.
-It contains installers, update manifests, generated indexes and release notes.
-Only the four named architecture artifacts are downloaded, so reruns cannot
-ingest a previous collected candidate. Actions artifacts are not confidential
-storage and must never contain credentials or user data.
+| Mode | Frontend | Backend owner |
+| --- | --- | --- |
+| Native browser | Vite at `http://localhost:5173` | Root `pnpm dev` starts Vite and uvicorn |
+| Electron development | An independently started Vite at `http://localhost:5173` | `pnpm desktop:dev` starts its own uvicorn child on 5002 |
+| Packaged Electron | Bundled frontend at `app://gnosi/index.html` | Bundled `python/cervell_backend`, or `cervell_backend.exe` on Windows |
 
-Public distribution remains disabled pending the complete native, Docker,
-installer and 2.x upgrade acceptance matrix and a separately reviewed publication
-path. A successful candidate is not permission to publish 3.0.0. Existing public
-releases and updater channels are not changed by this workflow.
+Do not run the native backend alongside Electron development: the desktop
+supervisor will not adopt another process on port 5002. Electron development
+does not start Vite and does not request uvicorn reload. Launch it through
+`uv run --frozen --no-sync pnpm desktop:dev` after synchronizing the Python
+environment, so its `python3` or Windows `python` resolves inside that environment.
+The trusted development origin is HTTP localhost:5173; set
+`VITE_DEV_HTTPS=false` for that Vite session. A Word add-in HTTPS session is a
+separate configuration, not an interchangeable desktop origin.
 
-## Release source identity
+The [desktop README](https://github.com/ismigar/Gnosi/blob/main/desktop/README.md)
+contains setup and recovery instructions. React menu bindings and the update
+notice belong to `frontend/src/app/desktop/`; release-note presentation belongs
+to the control-center feature. Changing internal ownership must not change IPC
+names, update actions or download destinations.
 
-After the pinned Node setup, release preflight verifies that the requested tag
-exists locally and resolves to the exact `github.sha` commit also checked out
-as HEAD. The full tag refs are fetched without switching the source checkout.
-The same check covers annotated and lightweight tags, tag pushes and manual
-dispatch. Missing tags, non-commit targets, malformed input and any mismatch
-stop preflight before project dependency installation and packaging.
+## Startup, windows and IPC
 
-`desktop/scripts/release-source-identity.cjs` uses local Git only and never
-moves refs, checks out a tag or fetches on its own. This gate does not certify
-Docker, installers or 2.x upgrades, and does not prevent later remote tag
-movement. Those acceptance checks and tag protection remain separate release
-requirements; local fixtures are not evidence of a successful GitHub run.
+Before opening Chromium or starting services, `profile-startup.js` obtains
+the single-instance lock and prepares the existing profile. A conflict or
+ambiguous recovery state stops startup; it is not permission to erase files.
 
-## Electron desktop
+Each backend launch supplies a fresh `GNOSI_DESKTOP_INSTANCE`. The supervisor
+requires a live owned child and a complete, bounded successful health response
+with the matching `x-gnosi-desktop-instance` header. That header correlates the
+process; it does not authenticate a user or change the public health JSON.
+Timeouts, redirects, malformed responses, early exit and unrelated HTTP 200
+responses fail startup and clean up the owned child. A missing packaged
+executable never falls back to system Python.
 
-Electron packages Gnosi as a desktop application. The main process owns backend
-startup, process cleanup, window lifecycle, packaged-resource paths, update
-checks, installer delivery, installation, and privileged desktop actions. The renderer
-receives a narrow preload API rather than direct Node.js access.
+New Window, Settings, Dock activation and delayed window display cannot bypass
+backend readiness or shutdown. Closing the last macOS window does not quit the
+application; quitting stops its backend. On other platforms, closing all windows
+quits the app. Startup failure messages are available in English, Catalan,
+Spanish and French before React loads; technical details stay in logs.
 
-Renderer-side menu installation and the update notice belong to `app/desktop/`.
-Release-note presentation belongs to the control-center feature and consumes the
-same release JSON. These boundaries preserve preload method names, events, update
-actions, version identifiers, and download destinations.
+Main windows use `contextIsolation: true`, `sandbox: true` and
+`nodeIntegration: false`. Only the current top-level frame of a registered
+window at the trusted development or packaged origin can invoke privileged IPC.
+Navigation and redirects cannot retain that bridge on another origin.
+HTTP(S) links requested in a new window are opened externally.
 
-The bundled Python backend must be ready before the renderer treats the app as
-usable. Startup failures are surfaced with diagnostics and cleanup prevents
-orphaned backend processes after the window exits.
+The packaged protocol serves frontend assets and proxies `/api/` to the local
+backend. It validates the application authority, prevents filesystem traversal
+and uses the session cookie jar instead of forwarding raw renderer cookie
+headers. Preserve this behavior when changing routing or streaming adapters.
 
-## Owned startup and reviewed backend resources
+Seven extracted handlers have checked request/response contracts. The eighth,
+form filling, remains in `main.js` and validates its IPC sender before opening
+a separate window without a preload bridge. Do not infer that all of the main
+process is strictly typed or that arbitrary form destinations are approved.
+Preload subscriptions return idempotent disposers; compatibility removal methods
+remain available to older renderers.
 
-The production launcher waits for the child it actually spawned, not just any
-listener on port 5002. Each launch replaces `GNOSI_DESKTOP_INSTANCE` with a fresh
-process marker. `/api/health` returns it in `x-gnosi-desktop-instance` only on a
-successful response; the existing JSON and public API remain unchanged. This is
-process correlation, not authentication. Readiness requires a live child and a
-complete, bounded matching response. Redirects, unrelated HTTP 200 responses,
-malformed JSON, timeouts and early exits fail startup and trigger owned-child
-cleanup. Packaged mode never falls back to system Python if its executable is
-missing.
+## Local data and profile recovery
 
-Activation, New Window, Settings and update checks cannot bypass readiness or
-shutdown. Quitting during startup cannot open a late window. The pre-render
-failure dialog has English, Catalan, Spanish and French recovery messages using
-the OS locale; React and its translation provider are not available at this
-point. Diagnostic details remain in the application log.
+The packaged backend selects the first nonempty value in this order:
+`GNOSI_DATA_DIR`, `GNOSI_LOCAL_DATA`, `LOCAL_DATA_DIR`, then Electron's
+existing `userData` directory. It sets the canonical variable and preserves an
+existing compatibility alias. The desktop fallback is not necessarily the
+native Python platform default, and does not relocate an old installation.
+Use absolute overrides and preserve both the Electron profile and any separate
+backend data directory before an update.
 
-Seven IPC handlers use checked request/response contracts and validate the
-trusted sender before decoding arguments or invoking privileged dependencies.
-The form-filler handler remains in `main.js`; the extracted handler set does
-not imply complete main-process type coverage.
+The scoped package name `@gnosi/desktop` is mapped back to the legacy runtime
+name `gnosi`; explicit profile/session locations remain in use. The bundle ID
+remains `com.gnosi.cervell-digital`.
 
-`backend_resources.py` selects individual reviewed runtime files and discovers
-Python modules without importing the application. It preserves Alembic scripts
-and templates, agent instructions, dynamic translation skills, example plugins
-and citation styles. Source configuration, vaults, local databases, secrets and
-generated tools are not recursively copied into the bundle. Missing or changed
-resources, unreviewed files in selected resource trees, unsafe paths and
-prohibited content stop packaging rather than being silently filtered.
+Profile protection preserves obsolete `databases` directories as opaque bytes
+under `.<profile-name>.gnosi-electron-recovery/databases.saved`, beside each
+profile. Atomic no-replace moves and journals prevent an existing destination
+from being overwritten. Separate user-data and session-data profiles are checked.
+Unsupported filesystem primitives, missing native modules, overlapping data
+paths or ambiguous journals stop startup. This preserves bytes, not the removed
+WebSQL feature. Do not restore that tree under the old name while running newer
+Electron, or delete journals to force startup.
 
-The policy checks PyInstaller's actual analysis before collection, the frozen
-output before and after copying, and the final Electron `python/` resources
-before signing. Paths containing spaces remain separate process arguments.
-These source and fixture checks do not certify an installer: real frozen
-startup, installation and 2.x upgrade tests on every supported target, plus
-the native and Docker acceptance matrix, remain required for release.
+For known cookie schemas 19–22, the migration stages only the cookie database,
+validates integrity, schema, row count and a byte-aware projected digest, then
+activates schema 23 before Chromium opens it. The exact original is retained at
+`.Cookies.gnosi-cookie-recovery/original.sqlite`, beside `Cookies`.
+Unknown, corrupt, conflicting or custom encrypted stores fail closed.
+There is no whole-profile copy, guessed decryption key or plaintext fallback.
 
-OpenAPI generation also activates `GNOSI_VALIDATION_ROOT` before importing
-application configuration. The same validated temporary selectors disable
-environment-file, repository-configuration and credential-store reads during
-this build step; deterministic schema generation must not consult user data.
+Explicit cookie rollback requires stopped clients and a completed forward
+migration. It preserves newer cookies as `rollback.current.sqlite`, restores a
+verified original through its own journal and prevents automatic remigration.
+Keep all recovery files until acceptance; never stamp schema versions or delete
+cookie databases. The README describes interrupted recovery and isolated
+old → target → target probes. Fixture success does not prove real profile,
+OS-secret-store or application-database migration on another machine.
 
-## Update state machine
+## Updates and user actions
+
+`update-policy.js` selects manual installation on macOS and the automatic
+download/install path on other platforms. Development disables update checks.
+Production checks after successful startup, but both `autoDownload` and
+`autoInstallOnAppQuit` are false: a release becoming available or the app
+quitting does not start an unsolicited installation.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Checking: renderer ready
+    Idle --> Checking: backend ready
     Checking --> Available
     Checking --> Current
     Checking --> Error
-    Available --> ManualDownload: macOS user opens DMG download
-    Available --> Downloading: automatic installation is supported
-    ManualDownload --> [*]: browser downloads official DMG
+    Available --> ManualDownload: user opens macOS DMG
+    Available --> Downloading: user requests supported download
+    ManualDownload --> [*]: external browser
     Downloading --> Ready
     Downloading --> Error
     Ready --> Installing: user confirms restart
 ```
 
-Checks are disabled in development. Downloads never begin merely because a
-release exists. The compact renderer notice does not open the release history,
-and version changes do not open that history during application startup. Users
-can still open release notes explicitly from the Control Center.
-On macOS, current ad-hoc signatures do not provide the stable designated
-requirement required by Squirrel.Mac, so the explicit action opens the official
-architecture-specific DMG directly. Windows and Linux retain the automatic
-download and installation state machine. The main process stores the latest
-updater state so a renderer that subscribes late can recover it through IPC.
+On macOS the explicit action opens the official architecture-specific DMG URL.
+Current packaging uses ad-hoc signing; automatic restart-and-install remains
+disabled pending a reviewed stable Developer ID and notarization setup.
+Successful `codesign` verification alone is not updater acceptance.
+The Windows/Linux policy likewise does not prove installation works for every
+artifact format; test the actual installed target.
 
-Seamless macOS restart-and-install must remain disabled until releases use a
-stable Apple Developer ID signature and notarization. This policy prevents an
-installer that passes standalone `codesign` verification from being offered as
-automatically installable when its per-build ad-hoc code-directory hash cannot
-match the currently installed application.
+The main process retains the latest update state for renderers that subscribe
+late. Background checks do not open release history. Users open it explicitly
+from the Control Center; version changes do not open it during startup.
 
-Release artifacts include installers and updater metadata for macOS, Windows,
-and Linux. Version preparation keeps frontend and Electron manifests aligned;
-tags are created only from reviewed `main` commits.
+## Toolchain and packaging boundaries
 
-The canonical release workflow packages macOS Intel and Apple Silicon in separate
-matrix jobs. Each job runs on the matching macOS 15 architecture and builds one
-native PyInstaller backend before invoking electron-builder for that same
-target. This prevents a host-native Python executable from being copied into
-the other architecture's application.
-The macOS matrix is architecture-closed: each local runner passes exactly one
-CLI architecture, and the shared electron-builder macOS targets must not
-declare an architecture list. This prevents a host-native frozen Python backend
-from being packaged into an Electron application for the opposite architecture.
-Manual releases check out the workflow run commit (`github.sha`), and the
-requested tag must resolve to that same commit. Packaging fixes added after
-an existing tag require a new reviewed release tag; do not publish different
-source under the old tag. The Windows job exposes the standard
-`Program Files\\Git\\cmd` installation before checkout when the runner service
-does not inherit it through `PATH`, preventing the REST ZIP fallback.
-Its generated run scripts use a job-scoped PowerShell execution-policy bypass,
-so restrictive service defaults cannot reject the ephemeral `.ps1` files
-without weakening the VM-wide policy. Release steps must not call
-`Set-ExecutionPolicy -Scope LocalMachine`: a more specific Windows policy can
-override that setting and make the pre-check fail with
-`ExecutionPolicyOverride`, even though the job-scoped bypass is already active.
-The Linux release is architecture-closed as well: the local runner and its
-PyInstaller backend are ARM64, and electron-builder receives `--arm64`
-explicitly. An x64-labelled package must never be emitted from this runner,
-because it would contain a backend executable for the opposite architecture.
-Release runners are pinned instead of using `macos-latest`, whose migration to
-macOS 26 changed DMG creation to APFS
-and broke electron-builder's mount-and-customize phase.
-Every release job also passes the Python command provisioned by
-`actions/setup-python` explicitly to the backend builder. This keeps binary
-extensions and their collected OpenSSL libraries on one interpreter ABI instead
-of allowing a newer runner-level Python to override the release environment.
-The final publication job provisions the same pinned Node.js runtime before
-rendering public release notes; self-hosted Linux runners do not guarantee a
-global `node` command.
-Each backend build creates a uniquely named virtual environment under the host
-temporary directory. Packaging attempts never reuse a repository-local virtual
-environment, because Windows can retain handles from a terminated PyInstaller
-process and reject removal of that directory. Final temporary-environment
-cleanup is best-effort; a retained handle cannot block the next invocation.
-Because `cryptography` 49 and later no longer publish macOS x86_64 wheels, the
-Intel package uses the final compatible universal2 line (`48.0.1`) while other
-platforms retain the current dependency floor. The frozen-backend installer
-requires a binary `cryptography` distribution; it must fail rather than compile
-against a runner OpenSSL that can collide with PyInstaller's collected library.
+The workspace pins Node 22.22.2 and pnpm 11.19.0. Desktop dependencies currently
+pin Electron 43.4.1, electron-builder 26.15.3 and ASAR 4.3.0. Electron's embedded
+Node runtime is separate from the workspace build runtime. The explicit
+`install:runtime` command installs its binary; do not enable every dependency
+install script to repair an absent runtime.
 
-Electron's builder file list is an explicit runtime boundary. The cross-platform
-`afterPack` hook inspects the final `app.asar` and rejects a package that omits
-the main process, preload, native-menu, backend-launch, or update-policy module. This installed-
-artifact check complements source tests and prevents a valid source tree from
-producing an application that fails before its first window opens.
+Build the frontend before desktop packaging. `build-python.sh` requires
+Python 3.11 exactly, accepts `GNOSI_PYTHON_CMD` when explicitly configured,
+and creates a unique temporary environment using the frozen root `uv.lock`
+and `desktop` dependency group. It generates a PyInstaller spec, validates the
+analysis and bundle, copies the verified output into `desktop/dist-python/`
+and runs the isolated packaged-backend smoke. It does not consume a separate
+requirements file or the developer's existing environment.
 
-The packaged backend path resolves to the PyInstaller executable itself on
-macOS and Linux, and to its `.exe` counterpart on Windows. The main process
-spawns that resolved file directly; it never treats the executable as another
-directory level. The clean build installs runtime dependencies and the desktop
-dependency group from the frozen `uv.lock`, then starts the frozen
-executable as a cross-platform smoke test before the desktop package can
-proceed.
+The resource policy reads source without importing the app. It preserves
+Alembic resources, agent instructions, dynamic translation skills, example
+plugins and citation styles. It rejects missing, changed, unreviewed or unsafe
+resources rather than recursively bundling vaults, databases, configuration,
+secrets or generated tools. The `afterPack` hook checks the actual ASAR and
+Python resources before signing. Assets belong under `desktop/assets/`;
+generated bundles belong under `desktop/dist/` and `desktop/dist-python/`.
 
-The installed desktop process supplies `GNOSI_DATA_DIR` under Electron's
-per-user application-data directory and exports `GNOSI_LOCAL_DATA` only as a
-3.x compatibility alias. This keeps native packages away from Docker-only
-`/data`. Readiness polling uses
-the unauthenticated `/api/health` endpoint so startup does not wait on a
-protected application endpoint. Frozen backends disable Uvicorn's filesystem
-reload watcher; native source development retains reload behavior.
+| Configured target | Runner architecture | Installer and update artifacts |
+| --- | --- | --- |
+| macOS arm64 | Self-hosted macOS ARM64 | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml` |
+| macOS x64 | Self-hosted macOS X64 | `Gnosi-<version>-x64.dmg`, ZIP, `latest-mac.yml` |
+| Linux arm64 | Self-hosted Linux ARM64 | AppImage, DEB, `latest-linux-arm64.yml` |
+| Windows x64 | Self-hosted Windows X64 | `Gnosi-<version>-Setup.exe`, `latest.yml` |
 
-The release catalog, localized notes, generated changelog, root, desktop and
-frontend manifests, Python project metadata, and the pnpm/uv locks form one
-versioned unit. The deterministic synchronizer updates version fields only
-after the catalog and changelog validate.
+Match the frozen backend to the target architecture. macOS targets must not
+silently package both architectures using one host-native backend. Linux passes
+`--arm64`; Windows uses x64 NSIS. These jobs do not pin a macOS OS version and
+do not cover Linux x64 or Windows arm64. Both macOS jobs are serialized; Windows
+waits for macOS while Linux can run alongside it. Concurrency is per Git ref,
+not a global lock proving host capacity.
 
-## Application mark
+Windows receives a job-scoped PowerShell execution-policy bypass and provisions
+Git before checkout when necessary; do not weaken machine-wide policy.
+The backend build uses quoted interpreter arguments, platform-specific temporary
+venv layouts and best-effort cleanup. The Python manifest currently constrains
+macOS x86_64 `cryptography` to the 48.x line; the current uv invocation does not
+enforce binary-only installation. Verify wheel/ABI provenance on the actual
+runner instead of assuming that constraint or substituting its Python/OpenSSL.
 
-`frontend/public/favicon.svg` defines the Gnosi application mark: a centered
-white G with clear blue margin inside a rounded blue gradient. The Electron
-icon generator produces the PNG, ICNS, and ICO variants from the same visual
-proportions so the browser, macOS, Windows, and Linux clients do not present a
-different or edge-to-edge glyph. Regenerate these derived resources whenever
-the canonical mark changes; do not edit a packaged application bundle.
+All desktop build scripts, including root `package:desktop` and
+`build:desktop` aliases, disable builder publication with `--publish never`.
+They prepare local artifacts; they do not certify or publish a release.
 
-## Release preparation
+## Version preparation and candidate-only distribution
 
-`frontend/src/features/control-center/releases/releases.json` is the canonical bundled release history.
-The version synchronizer keeps the root, frontend, desktop and Python versions
-identical. A stable entry
-prepared before publication deliberately omits `downloadUrl`; that field is
-added only after the immutable tag and its platform artifacts exist.
-Because the frontend manifest version is a high-impact desktop boundary, every
-release-preparation pull request also refreshes this reviewed contract and its
-localized mirrors, even when the patch does not change runtime behavior.
-Before preparing the next stable patch, the preceding stable entry must already
-link to its published release so the bundled history remains complete across
-sequential upgrades. Patch notes include only fixes merged after that preceding
-tag; they do not repeat already published changes.
-Changelog validation normalizes line endings before comparison so an equivalent
-Windows CRLF checkout does not fail the cross-platform packaging gate.
+The bundled history is
+`frontend/src/features/control-center/releases/releases.json`.
+Root, frontend and desktop manifests, Python metadata, locks, localized notes
+and the changelog must agree before release. `sync-release-version.cjs`
+only writes version fields: it is not an atomic transaction or a substitute for
+catalog/changelog validation. Review its diff and the refreshed locks.
 
-Before tagging, the release PR must pass frontend validation, backend tests,
-native browser QA, and the engineering-documentation gate. After merge, the
-canonical candidate workflow builds the reviewed commit and collects
-cross-platform artifacts, signed catalogs and release notes. It does not create
-tags or GitHub drafts. Public distribution remains disabled as described above.
+`desktop/release.sh` prepares versions and local artifacts. It neither creates
+a tag nor publishes a release. Use an explicit preparation branch and keep
+unrelated changes out of it. New packaging fixes require a new reviewed tag,
+not different source published under an old tag. Add platform download links
+only once the corresponding immutable public artifacts actually exist.
 
-The v2.0.0 preparation follows this boundary: its localized bundled notes and
-generated changelog ship with the synchronized manifests, while the immutable
-tag and platform download link are added only after the reviewed main commit
-has passed the official release workflow.
+`Build Release Candidate` verifies that the requested tag exists and peels to
+the exact checked-out `github.sha`, for both tag pushes and manual dispatch.
+Malformed input, missing tags, non-commit targets or mismatches stop before
+dependency installation. The identity helper uses local Git and does not move
+refs or fetch by itself. Remote tag protection remains a separate requirement.
 
-The v2.0.1 patch also keeps the frozen backend's canonical runtime requirements
-complete and sends official tags through the configured self-hosted runner
-matrix. This makes the release workflow validate the same local environments
-that produce the platform artifacts.
+The workflow then calls the existing CI at the same commit without inheriting
+secrets. Architecture builds require its success. CI includes documentation,
+frontend, backend, native smoke and Docker image builds. PR documentation is
+checked against the exact PR base; candidates check current catalogs and all
+strict locale portals at their own SHA, not a fictional PR impact review.
 
-The v2.0.5 preparation adds a mandatory metadata preflight before platform
-packaging. Gnosi 3 extends that contract to the root, desktop, frontend and
-Python manifests plus the single pnpm and uv locks.
+Collection downloads only the four named architecture artifacts, excluding
+previous candidates on reruns. It installs frozen collector dependencies with
+lifecycle scripts disabled, checks version, references and SHA-512 hashes,
+rejects missing/colliding files and merges both macOS update manifests.
+Index generation, release-note rendering and candidate upload follow validation.
 
-Current candidate jobs use Node 22.22.2 and frozen lockfile installs. Shared CI
-follows source-identity preflight. The two macOS architectures are serialized;
-Windows also waits for macOS, while Linux can run alongside macOS. Concurrency
-is scoped to the Git ref, not a global host lock. Do not infer host capacity or
-runner idleness from this workflow.
+The final Actions artifact is `candidate-<tag>-<sha>-<attempt>`, retained for
+five days. It contains installers, update metadata, indexes and release notes.
+It is not confidential storage and must never contain user data or secrets.
+The workflow has read-only repository permissions and does not create GitHub
+drafts, publish releases or modify existing public assets or updater channels.
 
-## Web clipper
+Public distribution stays disabled pending full native, Docker, installer and
+2.x upgrade acceptance and a separately reviewed publication path. A successful
+candidate is not permission to publish 3.0.0.
 
-The browser extension extracts the current page's title, URL, selected or
-readable content, and supported metadata, then sends a bounded request to the
-Gnosi API. The backend performs authentication, sanitization, deduplication,
-and Vault writes. The extension does not receive arbitrary Vault filesystem
-access.
+## Web and office clients
 
-## LibreOffice and Word citation clients
+The web clipper sends `POST /api/public/clip` with a Personal Access Token and
+reads prompting/destination configuration from `GET /api/public/clip/config`.
+The backend chooses the vault destination; the extension does not obtain
+arbitrary filesystem access. Its token and backend URL are stored in extension
+local storage. Browser packaging and store acceptance are separate from desktop
+installer acceptance.
 
-The LibreOffice extension registers a protocol handler and calls Gnosi's
-citation endpoints from the office process. The Word helper maintains the
-task-pane/add-in state required to access the same local service. Both clients
-treat citation insertion and bibliography refresh as explicit document
-mutations.
+The Word task pane lives in `frontend/public/word-addin/` and uses Office.js.
+Its API calls use the pane's origin and an explicitly configured bearer token;
+a healthy public endpoint does not prove authorized citation access.
+The manifest's HTTPS origin and trusted certificate must match its deployment.
+Tools in `extensions/office/word-cite/` modify document/package references or
+the user's Word template for optional pane persistence. Those are explicit
+document/configuration mutations, not a normal Gnosi startup action.
 
-Office-specific APIs are isolated behind traversal and insertion helpers so
-tests can fake the UNO or add-in boundary without requiring the full office
-application for every unit test.
+The LibreOffice client is a Python/UNO protocol handler using standard-library
+`urllib`. It reads `api_token` from its own configuration or
+`GNOSI_API_TOKEN`; do not assume it shares the browser session.
+Both clients use the vault citation-formatting endpoints and the backend's
+Pandoc/CSL pipeline. Context-sensitive formatting needs document keys in order,
+including repeated citations. Writer refresh traverses nested tables; headers
+and footers contribute bibliography keys but are not rewritten by ordered refresh.
+Office host behavior must be tested in the actual supported host, not inferred
+from traversal fixtures.
 
-## Invariants
+## Acceptance and troubleshooting
 
-- Renderer code has no unrestricted Node.js or filesystem capability.
-- IPC exposes named operations with validated inputs.
-- Update download, installer opening, and installation require explicit user actions.
-- Packaged resource paths differ from development paths and are resolved at
-  runtime.
-- Companion clients authenticate to the backend and remain within their narrow
-  capture or citation scope.
-- Candidate artifacts never publish or modify a public release automatically.
+The packaged-backend smoke requires bounded HTTP 200 health with
+`status: ok`, `mode: FastAPI` and its fresh `gnosi_mode` probe identity.
+It uses disposable data and vault paths, disables operational automation,
+and reaps its child on success or failure. `GNOSI_VALIDATION_ROOT` validates
+all selectors and blocks local/shared environment files and credential-store
+access. OpenAPI generation uses the same isolation. Never set this flag for
+normal development or installed applications.
 
-## Local release acceptance
+Source contracts, fake hosts and a source FastAPI run do not prove a frozen
+installer or actual upgrade. Before public distribution, verify each real
+target's installation, first launch, IPC, cookie/profile preservation,
+database integrity, update path and recovery, plus authenticated browser flows
+and Docker startup/persistence. Local macOS success cannot certify another target.
 
-The packaged-backend smoke now requires an HTTP 200 response from `/api/health`
-with `status: ok`, `mode: FastAPI` and the fresh probe identity in `gnosi_mode`.
-A live process, an occupied port, a redirect or another running Gnosi instance
-cannot satisfy this check. The probe uses a disposable vault/data directory,
-loopback port and a sanitized environment, disables scheduled work, then stops
-and reaps its child on success or failure. `GNOSI_VALIDATION_ROOT` is only for
-these disposable probes: all data selectors must remain inside that root;
-local/shared environment files and every credential-store operation are disabled.
-Do not set it for normal development or installed applications.
+| Symptom | Inspect next | Do not do |
+| --- | --- | --- |
+| Electron development stays blank | Vite HTTP origin, frozen Python PATH, owned backend startup log | Start a second backend on 5002 |
+| Profile protection stops startup | Exact error, both original/recovery paths, stopped clients | Delete journals, cookies or old data |
+| Packaged backend is missing | PyInstaller output and final resource policy | Fall back to system Python |
+| macOS offers a DMG | Current manual-install policy and architecture | Treat signing verification as automatic-update acceptance |
+| Office can reach health but citations fail | Bearer token, API origin and actual protected response | Disable authentication to hide a client failure |
 
-Synthetic subprocess tests and a source FastAPI run validate this readiness
-contract; they do not certify a frozen executable or its installer. Every target
-platform still needs its actual packaged backend and update acceptance checks.
-
-The PR documentation job runs the frozen documentation toolchain in check-only
-mode against the exact PR base commit, with read-only repository permissions.
-It cannot repair stale catalogs or deploy documentation; publication remains a
-separate main-branch workflow.
-
-## Verification focus
-
-Before candidate upload, the collection job installs the locked desktop production
-dependencies with lifecycle scripts disabled, downloads each architecture into
-its own directory, and runs `release-artifacts.cjs collect`. Collection checks
-the tag against the checked-out desktop version, verifies manifest references
-and SHA-512 hashes, rejects missing or colliding assets, and combines both Mac
-architectures into one `latest-mac.yml`. Index generation and candidate upload
-run only after this check succeeds. Local fixture tests verify this wiring but
-do not replace the real platform build and update matrix.
-
-Run Electron syntax/build checks, packaged backend smoke tests, updater state
-tests, extension build validation, citation traversal tests, and platform CI.
-Local macOS packaging cannot prove Windows or Linux artifacts.
+Run the repository's desktop contracts, strict IPC check, documentation gate
+and relevant isolated smoke commands. Inspect browser/desktop output and logs,
+not just exit codes. Keep target-platform evidence separate from synthetic tests.

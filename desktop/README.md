@@ -1,141 +1,138 @@
-# Gnosi Desktop App
+# Gnosi Desktop
 
-This folder contains the Electron wrapper for the Cervell Digital application, enabling cross-platform distribution for macOS, Linux, and Windows with a bundled Python backend.
+Electron wraps the React frontend and a bundled FastAPI backend. The canonical
+source is this repository; commands below run from its root, not from
+`desktop/`. Native browser development remains available without Electron.
 
-## Requirements
+## Toolchain
 
-- **Node.js** 22.22.2
-- **pnpm** 11.19.0
-- **Python** 3.11 and **uv**
-
-The desktop toolchain pins Electron **43.4.1**, electron-builder **26.15.3**
-and ASAR **4.3.0**. Electron's bundled Node runtime is independent of the
-Node 22.22.2 used to install and build the workspace.
-
-## Quick Start
+Use Node **22.22.2**, pnpm **11.19.0**, Python **3.11** and uv. The desktop pins
+Electron **43.4.1**, electron-builder **26.15.3** and ASAR **4.3.0**.
+Electron's embedded Node is separate from the workspace Node used for builds.
+Windows packaging also requires Bash (for example from Git for Windows) on
+the build process PATH, because the Python bundle script is a shell script.
 
 ```bash
-# Install dependencies
 pnpm install --frozen-lockfile
-
-# Download the pinned Electron binary explicitly, with its bundled checksums
+uv sync --frozen
 pnpm --filter @gnosi/desktop install:runtime
-
-# Run in development mode (uses local Python and dev servers)
-pnpm desktop:dev
 ```
 
-In dev mode:
-- Frontend runs at `http://localhost:5173`
-- Backend runs at `http://localhost:5002`
-- Electron window opens connected to dev servers
+The explicit last command installs the pinned Electron binary. Do not enable
+all dependency install scripts to repair a missing binary. Normal Electron CLI
+startup can also download a missing runtime; the isolated smoke launchers
+instead stop with installation guidance. These setup commands may download
+dependencies, but do not constitute platform acceptance.
 
-Electron 43 no longer downloads its binary in an install hook. The workspace
-keeps that hook disabled, alongside the unused Squirrel.Windows hook and Koffi's
-source-build hook. Do not approve all dependency scripts to fix an installation.
-The explicit runtime command is safe to repeat when the correct binary is
-already present. Normal Electron CLI startup can download a missing binary;
-the profile smoke runner deliberately does not and reports how to install it.
+## Development: choose one backend owner
 
-## Building
+For native browser development, `pnpm dev` starts both FastAPI on 5002 and Vite
+on 5173. Electron development is different: it starts its own FastAPI child and
+expects Vite to be running independently.
 
-### Prerequisites
+For Electron development on macOS/Linux, use two terminals after setup:
 
-1. Build the frontend:
+```bash
+# Terminal 1: the HTTP origin accepted by Electron's development sender guard
+VITE_DEV_HTTPS=false pnpm dev:frontend
+```
+
+```bash
+# Terminal 2: supply the synchronized Python environment to the Electron child
+uv run --frozen --no-sync pnpm desktop:dev
+```
+
+In PowerShell, set `$env:VITE_DEV_HTTPS = 'false'` before `pnpm dev:frontend`
+instead of using the POSIX environment prefix. The second command is unchanged.
+
+Do not also run `pnpm dev` or `pnpm dev:backend`: Electron does not adopt an
+existing backend on 5002. Its development uvicorn child does not use reload.
+Vite must serve `http://localhost:5173`; an HTTPS Word add-in session is a
+different configuration and is not accepted as that trusted desktop origin.
+
+Normal desktop startup uses the real existing profile. Close older Gnosi
+instances and retain verified backups before an upgrade. Use the isolated
+smoke commands below for synthetic QA, not the production entry point.
+
+## Build local artifacts
+
+Build the renderer first, then package on the actual target platform:
+
 ```bash
 pnpm build:frontend
-```
-
-2. Ensure Python 3.11 is installed:
-```bash
-python3.11 --version
-```
-
-### Build Python Bundle
-
-```bash
-pnpm --filter @gnosi/desktop build:python
-```
-
-This creates a self-contained Python environment in `dist-python/`.
-
-### Build Electron App
-
-```bash
-# Build for current platform only
 pnpm package:desktop
+```
 
-# Or build for specific platforms
+For explicit platform builds, use one matching command:
+
+```bash
 pnpm --filter @gnosi/desktop build:mac
 pnpm --filter @gnosi/desktop build:linux
 pnpm --filter @gnosi/desktop build:win
 ```
 
-### Cross-Platform Build Notes
+These commands each build Python once, then invoke electron-builder with
+`--publish never`. The root `build:desktop` alias uses the same nonpublishing
+generic build. They do not create a tag, upload a release or prove an update.
 
-For production releases, build on each target platform:
+`desktop/build-python.sh` requires Python 3.11 exactly, selected through
+`GNOSI_PYTHON_CMD` or `python3.11`. It consumes the frozen `uv.lock` and the
+`desktop` dependency group in a unique temporary environment, validates
+PyInstaller resources and the result, then runs the isolated packaged-backend
+smoke. Do not install a second requirements tree or substitute global PyInstaller.
 
-| Platform | Machine | Python Version |
-|----------|---------|----------------|
-| macOS x64 | Intel Mac | Python 3.11+ |
-| macOS ARM64 | Apple Silicon | Python 3.11+ |
-| Linux ARM64 | Linux ARM64 | Python 3.11+ |
-| Windows x64 | Windows | Python 3.11+ |
+Generated outputs are `desktop/python-build/`, `desktop/dist-python/`
+and `desktop/dist/`. Packaging replaces regenerable build outputs; keep
+user data and recovery archives outside those paths.
 
-Python 3.9 from Xcode Command Line Tools bundles incorrectly on Apple Silicon. Use Python 3.11+ from homebrew or python.org.
+| Configured target | Required host architecture | Artifacts |
+| --- | --- | --- |
+| macOS arm64 | macOS ARM64 | `Gnosi-<version>-arm64.dmg` and ZIP |
+| macOS x64 | macOS X64 | `Gnosi-<version>-x64.dmg` and ZIP |
+| Linux arm64 | Linux ARM64 | `Gnosi-<version>-arm64.AppImage` and DEB |
+| Windows x64 | Windows X64 | `Gnosi-<version>-Setup.exe` |
 
-## Release Process
+Use a native backend for each target; a cross-architecture Electron shell does
+not make the frozen Python executable portable. The workflow also preserves
+blockmaps and `latest-mac.yml`, `latest-linux-arm64.yml` or `latest.yml`.
+Configured targets are not evidence of successful installation or upgrade.
 
-1. Create a version tag:
-```bash
-./release.sh 1.0.0
-```
+## Release preparation is not publication
 
-2. This will:
-   - Update version in package.json
-   - Build frontend
-   - Build Python bundle
-   - Build Electron app for current platform
-   - List artifacts in `dist/`
+`desktop/release.sh <version>` updates root/frontend/desktop/Python versions,
+refreshes locks, builds the frontend and packages the current platform. It does
+not create a version tag or a GitHub draft. Use it only on an explicit release
+preparation branch with the corresponding catalog/notes reviewed; the version
+synchronizer itself does not validate their content or make an atomic transaction.
+Review all changed manifests and locks before integration.
 
-3. Upload artifacts to GitHub Release
+The current **Build Release Candidate** workflow checks tag/commit identity,
+runs the shared CI and then builds the four target groups. Its collector verifies
+versions, manifest references and SHA-512 hashes before combining macOS update
+metadata and generating indexes and notes. The final Actions artifact is named
+`candidate-<tag>-<sha>-<attempt>` and retained for five days.
 
-## Auto-Updates
+The workflow has read-only repository permissions. It does not publish or modify
+GitHub releases or public updater channels. Candidate artifacts must not contain
+credentials or user data and are not confidential storage.
 
-The app uses `electron-updater` with the public `ismigar/Gnosi` GitHub Releases.
+Public distribution remains disabled until the complete native, Docker,
+installer and real 2.x upgrade matrix is accepted and a separate publication
+path is reviewed. A green build or a candidate artifact is not permission to
+publish Gnosi 3.0.0. Existing public releases remain untouched.
 
-When a new version is published to GitHub:
-1. Create a GitHub Release with the tag `v{x.y.z}`
-2. Upload the installers, `latest*.yml`, blockmaps, and the macOS ZIP target
-3. The app detects the release and offers a download action
-4. After download, the user selects **Restart and install**
+## Updates
 
-Draft releases are not visible to update clients. Downloads never start without
-the user's action.
+Production queries the existing public releases after successful startup.
+Development disables update checks. Downloads and installation require user
+actions: `autoDownload` and `autoInstallOnAppQuit` are both false.
 
-## Distribution
-
-### GitHub Releases Workflow
-
-1. Update version and build:
-```bash
-./release.sh 1.0.0
-```
-
-2. Create GitHub Release:
-```bash
-gh release create v1.0.0 \
-  --title "Cervell Digital 1.0.0" \
-  --notes "Release notes here" \
-  dist/*.dmg dist/*.AppImage dist/*.deb dist/*Setup.exe
-```
-
-### Artifacts
-
-After build, artifacts are in `dist/`:
-- **macOS**: `Cervell Digital-{version}-{arch}.dmg`
-- **Linux**: `Cervell Digital-{version}-{arch}.AppImage`, `.deb`
-- **Windows**: `Cervell Digital-{version}-Setup.exe`
+macOS currently offers the official architecture-specific DMG in the external
+browser. It does not offer automatic restart-and-install with the current ad-hoc
+signatures. Windows/Linux retain the configured download/install flow; verify
+the actual installed package format before claiming updater compatibility.
+Background checks and version changes do not open release history automatically.
+Users can open release notes explicitly from the Control Center.
 
 ## Architecture
 
@@ -169,6 +166,10 @@ outside that origin; HTTP(S) links opened in a new window use the external
 browser. The application protocol also rejects other authorities before touching
 the backend or bundled assets. Form windows have no preload bridge and cannot
 request privileged IPC actions.
+
+Seven handlers are extracted into the checked contract module; the form-filler
+handler remains in main.js. Sender validation across all eight does not mean
+that the entire main process is strictly typed.
 
 ### Isolated native IPC smoke test
 
@@ -279,61 +280,49 @@ HttpOnly/Secure/SameSite flags and expiration across both target starts. A failu
 at the safety gate is not a successful migration. Passing this fixture does not
 replace the native installer, real data or four-platform release matrix.
 
-```
-desktop/
-├── main.js           # Main process (Electron)
-├── preload.js        # Context bridge (secure IPC)
-├── package.json      # Dependencies and build config
-├── electron-builder.yml  # Build configuration
-├── build.sh          # Simple build script
-├── build-python.sh   # Python bundling with PyInstaller
-├── build-all.sh      # Cross-platform build helper
-├── release.sh        # Release automation
-└── README.md         # This file
-```
 
-## Bundle Contents
+## Source and generated resources
 
-The Python bundle (`dist-python/`) includes:
-- FastAPI + Uvicorn
-- LangChain + LangGraph
-- ChromaDB
-- Notion connector and Google APIs
-- All backend dependencies
+- `desktop/main.js`: main process, protocol and remaining form-filler handler.
+- `desktop/preload.js`, `ipc-contract.d.ts`, `ipc-security.js` and
+  `ipc-handlers.js`: renderer bridge, contracts and sender validation.
+- `desktop/backend-process.js` and `backend-launch.js`: owned startup/readiness
+  and packaged executable/data selection.
+- `desktop/profile-startup.js`, profile/cookie helpers: preservation and recovery.
+- `desktop/electron-builder.yml`, `build-python.sh` and `scripts/`:
+  packaging configuration and resource/acceptance checks.
+- `desktop/assets/`: reviewed distribution resources; generated installers do
+  not belong here.
+- `frontend/public/favicon.svg`: canonical application mark. The icon generator
+  derives desktop resources; do not edit a packaged app to change branding.
 
-This makes the app fully standalone - no Python installation required on user machines.
+The frozen backend bundles its locked runtime dependencies and reviewed
+resources. End users do not need system Python, but provider credentials,
+data access and platform-specific facilities still require their own setup.
+Bundling dependencies is not a guarantee that every integration works offline.
 
-## Troubleshooting
+## Troubleshooting and acceptance
 
-### Backend doesn't start
+| Symptom | Check | Preserve |
+| --- | --- | --- |
+| Blank development window | Vite HTTP localhost:5173, Python environment, backend startup diagnostics | Existing profile and data; do not start a competing backend |
+| Startup protection error | Reported profile/recovery paths and journal state with all clients stopped | Original and recovery files; never delete journals to force startup |
+| Missing packaged backend | PyInstaller output and final resource validation | Previous installer and verified backup; no system-Python fallback |
+| Update failure | Actual release tag, architecture, manifest hashes and installation policy | Current installation/profile until recovery is verified |
+| Python build fails | Python 3.11, uv lock, interpreter ABI and build logs | Existing good package; do not use Python 3.10 or an arbitrary newer version |
 
-Check logs in:
-- **macOS**: `~/Library/Logs/Cervell Digital/`
-- **Linux**: `~/.config/Cervell Digital/logs/`
-- **Windows**: `%APPDATA%/Cervell Digital/logs/`
+Main-process diagnostics use the launching process output; packaged-backend
+output is forwarded there. Updater diagnostics use electron-log. Locate the
+actual log for the running profile rather than assuming historical
+`Cervell Digital` log directories.
 
-### Update fails
+From the repository root, run `pnpm test:desktop` and
+`pnpm --filter @gnosi/desktop typecheck:ipc`, plus the isolated probes above
+in a supported graphical environment. Review their reports/screenshots and
+exit status. Do not confuse mock-host/source checks with a tested installer.
 
-Ensure GitHub release has:
-- Tag format: `v{version}` (e.g., `v1.0.0`)
-- Assets uploaded to the release
-
-### PyInstaller build fails
-
-Ensure Python 3.10+ is installed:
-```bash
-python3 --version
-# If < 3.10, install newer version:
-# macOS: brew install python@3.11
-# Linux: sudo apt install python3.11
-# Windows: Download from python.org
-```
-
-### macOS ARM64 build issues
-
-Python 3.9 from Xcode Command Line Tools has compatibility issues with ARM64.
-Use Python 3.11+ from homebrew:
-```bash
-brew install python@3.11
-/opt/homebrew/bin/python3.11 --version
-```
+The [engineering desktop guide](https://gnosi.temenosismael.org/engineering/domains/desktop-clients/)
+documents runtime boundaries, companion clients and the acceptance matrix.
+Every supported platform still requires actual installation, first launch,
+profile/data preservation, update and recovery evidence. Docker runtime and
+authenticated browser acceptance are separate requirements.

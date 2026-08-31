@@ -115,12 +115,32 @@ function assertCandidateUpload(workflow) {
 }
 
 function assertNonPublishingBuilds(scripts) {
+  assert.equal(scripts.build, 'pnpm run build:python && electron-builder --publish never',
+    'the generic desktop build must not use implicit publication defaults');
   for (const platform of ['mac', 'linux', 'win']) {
     assert.equal(scripts[`build:${platform}`],
       `pnpm run build:python && electron-builder --${platform} --publish never`,
       `the indirect ${platform} build must not enable builder publication`);
   }
 }
+
+test('root packaging aliases both use the nonpublishing generic build', () => {
+  const scripts = JSON.parse(fs.readFileSync(
+    path.join(__dirname, '../package.json'), 'utf8',
+  )).scripts;
+  assert.equal(scripts['package:desktop'], 'pnpm --filter @gnosi/desktop build');
+  assert.equal(scripts['build:desktop'], 'pnpm --filter @gnosi/desktop build');
+  assertNonPublishingBuilds(desktopScripts);
+});
+
+test('generic build rejects explicit or implicit publication', () => {
+  assertNonPublishingBuilds(desktopScripts);
+  for (const replacement of ['--publish always', '']) {
+    const changed = { ...desktopScripts,
+      build: desktopScripts.build.replace('--publish never', replacement) };
+    assert.throws(() => assertNonPublishingBuilds(changed), assert.AssertionError);
+  }
+});
 
 test('indirect platform build scripts explicitly disable builder publication', () => {
   assertNonPublishingBuilds(desktopScripts);

@@ -2,6 +2,14 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - desktop/README.md
+  - desktop/profile-startup.js
+  - desktop/profile-preservation.js
+  - desktop/cookie-migration.js
+  - desktop/cookie-rollback.js
+  - desktop/scripts/sync-release-version.cjs
+  - frontend/vite.config.js
+  - frontend/public/word-addin
   - desktop/scripts/release-source-identity.cjs
   - scripts/generate_openapi.py
   - backend/app/desktop_instance.py
@@ -53,256 +61,377 @@ tests:
   - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
   - backend/tests/test_validation_runtime.py
+  - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
+  - frontend/src/app/desktop/desktopMenu.test.ts
   - backend/tests/test_env_config_runtime.py
   - desktop/application-menu.test.js
   - desktop/backend-launch.test.js
   - desktop/packaging-contract.test.js
   - desktop/update-policy.test.js
   - extensions/office/libreoffice-cite/tests
-  - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
-  - frontend/src/app/desktop/desktopMenu.test.ts
 ---
 
-# Application de bureau et clients complémentaires
+# Clients de bureau et clients complémentaires
 
-## Distribution de candidats uniquement
+## Responsabilités et modes de développement
 
-`Build Release Candidate` ne crée aucun brouillon GitHub, ne publie aucune
-release et ne modifie pas leurs fichiers. Son jeton ne peut que lire le contenu
-du dépôt. Il vérifie d'abord l'identité du tag, puis appelle la CI existante au
-même commit. Chaque construction d'architecture attend la réussite de cette CI.
-La CI réutilisable n'hérite d'aucun secret.
+Electron regroupe le frontend React et le backend Python dans une seule
+application de bureau. Son processus principal gère le processus enfant du
+backend, les fenêtres, le protocole de l’application, l’état des mises à jour
+et les actions privilégiées. Le processus de rendu utilise une API de
+préchargement limitée, jamais un accès sans restriction à Node.js ou au système
+de fichiers.
 
-La CI du candidat comprend documentation, frontend, backend, test natif de base
-et construction des images Docker. Les PR sont comparées à leur base exacte ;
-les candidats valident les catalogues actuels et tous les portails linguistiques
-stricts à leur SHA, sans prétendre refaire une revue d'impact de PR.
-Ces contrôles ne prouvent ni démarrage et persistance des conteneurs, ni tous
-les parcours authentifiés, ni installation propre, signature ou mise à niveau 2.x réelle.
+Le développement natif dans le navigateur et le développement avec Electron
+ont des points d’entrée distincts :
 
-Après construction de toutes les plateformes et validation des fichiers, le run
-dépose un artefact Actions `candidate-<tag>-<sha>-<attempt>`, conservé cinq jours.
-Il contient installateurs, manifestes de mise à jour, index et notes. Seuls les
-quatre artefacts d'architecture désignés par leur nom sont téléchargés, afin
-d'exclure un candidat précédent lors d'une nouvelle tentative. Les artefacts
-Actions ne sont pas un stockage confidentiel et ne doivent jamais contenir de
-secrets ou de données personnelles.
+| Mode | Frontend | Responsable du backend |
+| --- | --- | --- |
+| Navigateur natif | Vite sur `http://localhost:5173` | `pnpm dev` depuis la racine démarre Vite et uvicorn |
+| Développement avec Electron | Vite démarré séparément sur `http://localhost:5173` | `pnpm desktop:dev` démarre son propre processus enfant uvicorn sur le port 5002 |
+| Electron empaqueté | Frontend intégré à `app://gnosi/index.html` | `python/cervell_backend` inclus dans le paquet, ou `cervell_backend.exe` sous Windows |
 
-La distribution publique reste désactivée jusqu'à l'acceptation complète de
-la matrice native, Docker, installateurs et mises à niveau 2.x, puis la revue
-d'un processus de publication distinct. Un candidat réussi n'autorise pas la
-publication de 3.0.0. Ce workflow ne modifie ni les releases publiques existantes
-ni les canaux de mise à jour.
+Ne lancez pas le backend natif en parallèle du développement avec Electron :
+le superviseur de bureau n’adoptera pas un autre processus sur le port 5002.
+Le mode de développement d’Electron ne démarre pas Vite et ne demande pas le
+rechargement d’uvicorn. Lancez-le avec
+`uv run --frozen --no-sync pnpm desktop:dev` après avoir synchronisé
+l’environnement Python, afin que `python3`, ou `python` sous Windows, soit
+résolu dans cet environnement. L’origine de confiance en développement est
+HTTP localhost:5173 ; définissez `VITE_DEV_HTTPS=false` pour cette session
+Vite. Une session HTTPS du complément Word relève d’une configuration distincte
+et ne constitue pas une origine interchangeable pour le client de bureau.
 
-## Identité du code de release
+Le [README de l’application de bureau](https://github.com/ismigar/Gnosi/blob/main/desktop/README.md)
+contient les instructions de configuration et de récupération. Les liaisons
+des menus avec React et l’avis de mise à jour relèvent de
+`frontend/src/app/desktop/` ; la présentation des notes de version relève de
+la fonctionnalité du centre de contrôle. Une réorganisation de ces
+responsabilités internes ne doit modifier ni les noms IPC, ni les actions de
+mise à jour, ni les destinations de téléchargement.
 
-Après la préparation de la version fixée de Node, le contrôle préalable exige
-que la balise demandée existe localement et désigne exactement le commit
-`github.sha`, également extrait comme HEAD. Les refs des balises sont récupérés
-sans changer le checkout. Le contrôle couvre les balises annotées et légères,
-les envois de balises et les exécutions manuelles. Une balise absente, une cible
-qui n'est pas un commit, une entrée incorrecte ou toute divergence interrompt
-le processus avant l'installation des dépendances du projet et l'empaquetage.
+## Démarrage, fenêtres et IPC
 
-`desktop/scripts/release-source-identity.cjs` utilise uniquement Git local :
-il ne déplace pas de refs, ne change pas de checkout et ne récupère rien
-lui-même. Ce contrôle ne valide ni Docker, ni les installateurs, ni les mises
-à jour depuis 2.x, et n'empêche pas un déplacement ultérieur de la balise
-distante. Ces validations et la protection des balises restent des exigences
-distinctes ; les tests locaux ne prouvent pas la réussite d'une exécution GitHub.
+Avant d’ouvrir Chromium ou de démarrer les services, `profile-startup.js`
+obtient le verrou d’instance unique et prépare le profil existant. Un conflit
+ou un état de récupération ambigu interrompt le démarrage ; cela n’autorise
+pas la suppression de fichiers.
 
-## Application de bureau Electron
+Chaque lancement du backend fournit une nouvelle valeur de
+`GNOSI_DESKTOP_INSTANCE`. Le superviseur exige que son propre processus enfant
+soit actif et que la réponse de santé soit complète, de taille limitée et
+réussie, avec l’en-tête `x-gnosi-desktop-instance` correspondant. Cet en-tête
+permet de relier la réponse au processus ; il n’authentifie pas l’utilisateur
+et ne modifie pas le JSON public de santé. Les délais dépassés, redirections,
+réponses mal formées, arrêts prématurés et réponses HTTP 200 d’un autre processus
+font échouer le démarrage et entraînent l’arrêt et la récupération du processus
+enfant géré par le superviseur. Si l’exécutable empaqueté manque, le Python du
+système n’est jamais utilisé comme solution de repli.
 
-Electron distribue Gnosi sous forme d’application de bureau. Le processus principal gère le démarrage et l’arrêt du backend, les fenêtres, les ressources du paquet, les mises à jour et les actions privilégiées. L’interface utilise une API de preload limitée, sans accès direct à Node.js.
+Nouvelle fenêtre, Paramètres, l’activation depuis le Dock et l’affichage différé
+des fenêtres ne peuvent contourner l’attente du backend ni l’arrêt de
+l’application. Fermer la dernière fenêtre macOS ne quitte pas l’application ;
+quitter l’application arrête son backend. Sur les autres plateformes, fermer
+toutes les fenêtres quitte l’application. Les messages d’échec au démarrage
+sont disponibles en anglais, catalan, espagnol et français avant le chargement
+de React ; les détails techniques restent dans les journaux.
 
-Les menus et l’avis de mise à jour de l’interface appartiennent à `app/desktop/`. Les notes de version relèvent de la fonctionnalité du centre de contrôle et utilisent le même JSON de releases. Les méthodes de preload, les événements et les destinations de téléchargement sont conservés.
+Les fenêtres principales utilisent `contextIsolation: true`, `sandbox: true`
+et `nodeIntegration: false`. Seul le cadre principal actuel d’une fenêtre
+enregistrée, sur l’origine de confiance du développement ou du paquet, peut
+invoquer des opérations IPC privilégiées. La navigation et les redirections ne
+peuvent conserver ce pont sur une autre origine. Les liens HTTP(S) demandés
+dans une nouvelle fenêtre s’ouvrent à l’extérieur de l’application.
 
-## Démarrage du processus dédié et ressources vérifiées
+Le protocole du paquet sert les ressources du frontend et relaie `/api/` vers
+le backend local. Il valide le composant d’autorité de l’URL de l’application,
+empêche de sortir des répertoires autorisés et utilise le magasin de cookies de
+la session au lieu de transmettre les en-têtes bruts de cookies du processus
+de rendu. Préservez ce comportement lors de la modification du routage ou des
+adaptateurs de diffusion en continu.
 
-Le lanceur attend le processus qu’il a créé, pas un service quelconque sur le
-port 5002. Chaque démarrage remplace `GNOSI_DESKTOP_INSTANCE` par un nouveau
-marqueur. `/api/health` le renvoie dans `x-gnosi-desktop-instance` uniquement si
-la réponse réussit ; le JSON et l’API publique restent inchangés. Ce marqueur
-identifie le processus, sans authentifier l’utilisateur. Un processus actif
-et une réponse complète, limitée et correspondante sont exigés. Redirections,
-réponses HTTP 200 étrangères, JSON incorrect, délais dépassés ou sorties
-prématurées font échouer le démarrage et arrêter le processus dédié. Si
-l’exécutable du paquet manque, le Python du système n’est pas utilisé.
+Sept gestionnaires extraits disposent de contrats de requête et de réponse
+vérifiés. Le huitième, consacré au remplissage de formulaires, reste dans
+`main.js` et valide son émetteur IPC avant d’ouvrir une fenêtre distincte sans
+pont de préchargement. N’en déduisez pas que tout le processus principal
+bénéficie d’un typage strict ni que des destinations arbitraires sont
+autorisées pour les formulaires. Les abonnements de préchargement renvoient des
+fonctions de désinscription idempotentes ; les méthodes de suppression
+compatibles restent disponibles pour les anciens processus de rendu.
 
-L’activation, Nouvelle fenêtre, Paramètres et les recherches de mises à jour ne
-peuvent contourner cette attente ou l’arrêt. Quitter pendant le démarrage ne
-peut ouvrir une fenêtre tardive. Le dialogue précédant React fournit les
-instructions en anglais, catalan, espagnol et français selon la langue du
-système ; les détails techniques restent dans le journal de l’application.
+## Données locales et récupération du profil
 
-Sept gestionnaires IPC disposent de contrats de requête et de réponse vérifiés
-et valident l’émetteur avant de lire les arguments ou d’effectuer une action
-privilégiée. Le gestionnaire de remplissage de formulaires reste dans
-`main.js` : cette extraction ne garantit pas le typage du processus principal
-dans son ensemble.
+Le backend empaqueté sélectionne la première valeur non vide dans cet ordre :
+`GNOSI_DATA_DIR`, `GNOSI_LOCAL_DATA`, `LOCAL_DATA_DIR`, puis le répertoire
+`userData` existant d’Electron. Il définit la variable canonique et préserve
+tout alias de compatibilité existant. La solution de repli de l’application de
+bureau ne correspond pas nécessairement au chemin par défaut de Python natif
+sur la plateforme et ne déplace pas une ancienne installation. Utilisez des
+chemins absolus pour les réglages explicites et préservez à la fois le profil
+Electron et tout répertoire de données distinct du backend avant une mise à jour.
 
-`backend_resources.py` sélectionne les fichiers de runtime vérifiés et découvre
-les modules Python sans importer l’application. Il conserve les migrations et
-modèles Alembic, instructions de l’agent, outils de traduction dynamiques,
-extensions d’exemple et styles bibliographiques. Il ne copie pas récursivement
-la configuration locale, les vaults, bases de données, secrets ou outils
-générés. Les ressources manquantes ou modifiées, fichiers non examinés dans les
-arbres sélectionnés, chemins dangereux ou contenus interdits bloquent le paquet.
+Le nom de paquet avec espace de noms `@gnosi/desktop` est de nouveau associé
+au nom historique d’exécution `gnosi` ; les emplacements explicites du profil
+et de la session restent utilisés. L’identifiant du paquet reste
+`com.gnosi.cervell-digital`.
 
-La politique vérifie l’analyse réelle de PyInstaller avant la collecte, le
-résultat avant et après copie et les ressources `python/` finales d’Electron
-avant signature. Les chemins contenant des espaces restent des arguments
-distincts. Ces contrôles ne certifient pas les installateurs : le démarrage
-gelé, l’installation et la mise à niveau depuis 2.x doivent être testés sur
-chaque plateforme, ainsi que la matrice native et Docker, avant publication.
+La protection des profils préserve les répertoires obsolètes `databases` sous
+forme d’octets opaques dans
+`.<profile-name>.gnosi-electron-recovery/databases.saved`, à côté de chaque
+profil. Les déplacements atomiques sans remplacement et les journaux
+d’opérations empêchent l’écrasement d’une destination existante. Les profils
+distincts de données utilisateur et de session sont vérifiés. Des primitives
+du système de fichiers non prises en charge, des modules natifs manquants,
+des chemins de données qui se chevauchent ou des journaux ambigus interrompent
+le démarrage. Cela préserve les octets, pas la fonctionnalité WebSQL supprimée.
+Ne restaurez pas cette arborescence sous son ancien nom pendant l’exécution
+d’une version plus récente d’Electron et ne supprimez pas les journaux pour
+forcer le démarrage.
 
-Le générateur OpenAPI active également `GNOSI_VALIDATION_ROOT` avant d’importer
-la configuration de l’application. Les mêmes chemins temporaires validés
-empêchent la lecture des fichiers d’environnement, de la configuration locale
-du dépôt et des identifiants pendant cette étape du build ; la génération du
-schéma ne doit pas consulter de données personnelles.
+Pour les schémas de cookies connus 19–22, la migration prépare uniquement la
+base de cookies, vérifie son intégrité, son schéma, son nombre de lignes et une
+empreinte des données projetées qui respecte leur représentation en octets,
+puis active le schéma 23 avant que Chromium ne l’ouvre. L’original exact est
+conservé dans `.Cookies.gnosi-cookie-recovery/original.sqlite`, à côté de
+`Cookies`. Si le magasin est inconnu, corrompu, conflictuel ou doté d’un
+chiffrement personnalisé, l’opération est bloquée par sécurité. Aucun profil
+complet n’est copié, aucune clé de déchiffrement n’est devinée et aucun repli
+en texte clair n’est utilisé.
 
-## Machine à états des mises à jour
+Le retour arrière explicite des cookies exige que les clients soient arrêtés
+et que la migration initiale soit terminée. Il préserve les cookies les plus
+récents dans `rollback.current.sqlite`, restaure un original vérifié à l’aide
+de son propre journal d’opérations et empêche une nouvelle migration
+automatique. Conservez tous les fichiers de récupération jusqu’à l’acceptation ;
+ne forcez jamais les numéros de version du schéma et ne supprimez jamais les
+bases de cookies. Le README décrit la récupération après interruption et les
+tests isolés de la séquence ancienne → cible → cible. La réussite de tests sur
+des données synthétiques ne prouve pas la migration réelle du profil, du
+magasin de secrets du système d’exploitation ou de la base de données de
+l’application sur une autre machine.
+
+## Mises à jour et actions de l’utilisateur
+
+`update-policy.js` sélectionne l’installation manuelle sur macOS et la voie de
+téléchargement et d’installation automatiques sur les autres plateformes. En
+développement, la recherche de mises à jour est désactivée. En production,
+elle a lieu après un démarrage réussi, mais `autoDownload` et
+`autoInstallOnAppQuit` sont tous deux à faux : la disponibilité d’une version
+ou la fermeture de l’application ne déclenche pas d’installation non sollicitée.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Checking: renderer ready
+    Idle --> Checking: backend prêt
     Checking --> Available
     Checking --> Current
     Checking --> Error
-    Available --> ManualDownload: macOS user opens DMG download
-    Available --> Downloading: automatic installation is supported
-    ManualDownload --> [*]: browser downloads official DMG
+    Available --> ManualDownload: l’utilisateur ouvre le DMG macOS
+    Available --> Downloading: l’utilisateur demande un téléchargement pris en charge
+    ManualDownload --> [*]: navigateur externe
     Downloading --> Ready
     Downloading --> Error
-    Ready --> Installing: user confirms restart
+    Ready --> Installing: l’utilisateur confirme le redémarrage
 ```
 
-Les fichiers sont désactivés dans le développement. Les téléchargements ne commencent jamais simplement parce qu'une version existe. L'avis de rendu compact n'ouvre pas l'historique de version et les modifications de version n'ouvrent pas cet historique lors du démarrage de l'application. Les utilisateurs peuvent toujours ouvrir les notes de version explicitement depuis le Centre de contrôle. Sur macOS, les signatures ad-hoc actuelles ne fournissent pas l'exigence désignée stable requise par Squirrel.Mac, donc l'action explicite ouvre directement le DMG officiel spécifique à l'architecture. Windows et Linux conservent la machine automatique de téléchargement et d'installation. Le processus principal stocke l'état de dernier updater afin qu'un render qui s'abonne tard peut le récupérer via IPC.
+Sur macOS, l’action explicite ouvre l’URL du DMG officiel correspondant à
+l’architecture. L’empaquetage actuel utilise une signature ad hoc ; le
+redémarrage avec installation automatique reste désactivé dans l’attente d’une
+configuration stable et revue de Developer ID et de notarisation. La réussite
+de la vérification `codesign` ne suffit pas à valider le système de mise à jour.
+De même, la politique Windows/Linux ne prouve pas que l’installation fonctionne
+pour tous les formats d’artefacts ; testez la cible réellement installée.
 
-Le redémarrage et l'installation de macOS sans soudure doivent rester désactivés jusqu'à ce que les versions utilisent une signature et une notarisation stables d'Apple Developer ID. Cette politique empêche un installateur qui passe autonome `codesign` la vérification d'être offert comme automatiquement instable lorsque son hash de répertoire de code ad-hoc par-build ne peut pas correspondre à l'application actuellement installée.
+Le processus principal conserve le dernier état de mise à jour pour les
+processus de rendu qui s’abonnent tardivement. Les vérifications en arrière-plan
+n’ouvrent pas l’historique des versions. L’utilisateur l’ouvre explicitement
+depuis le Centre de contrôle ; les changements de version ne l’ouvrent pas au
+démarrage.
 
-Les objets de sortie incluent les installateurs et les métadonnées de mise à jour pour macOS, Windows et Linux. La préparation de la version maintient les manifestes de frontend et d'Électron alignés; les balises sont créées uniquement à partir de revues `main` s'engage.
+## Chaîne d’outils et limites de l’empaquetage
 
-Les paquets de flux de travail de relâchement privé macOS Intel et Apple Silicon dans des tâches matricielles séparées. Chaque travail fonctionne sur l'architecture macOS 15 correspondante et construit un backend natif PyInstaller avant d'invoquer le constructeur d'électrons pour cette même cible. Cela empêche un exécutable natif de Python d'être copié dans l'application de l'autre architecture. Les corners de relâchement sont épinglés au lieu d'utiliser un exécutable hôte-natif Python. `macos-latest`, dont la migration vers macOS 26 a changé la création DMG en APFS et a brisé la phase de montage et de personnalisation du constructeur d'électrons. Chaque travail de relâchement passe également la commande Python fournie par `actions/setup-python` explicitement au constructeur de backend. Cela garde les extensions binaires et leurs bibliothèques OpenSSL collectées sur un interprète ABI au lieu de permettre à un nouveau niveau de coureur Python de surpasser l'environnement de sortie. `cryptography` 49 et plus tard ne plus publier macOS x86_64 roues, le paquet Intel utilise la ligne universelle2 compatible finale (`48.0.1`) tandis que les autres plates-formes conservent le plancher de dépendance actuel. L'installateur de flool-backend nécessite un `cryptography` distribution; il doit échouer plutôt que de compiler contre un coureur OpenSSL qui peut s'entrer en collision avec la bibliothèque collectée de PyInstaller.
+L’espace de travail fixe Node 22.22.2 et pnpm 11.19.0. Les dépendances de
+l’application de bureau fixent actuellement Electron 43.4.1,
+electron-builder 26.15.3 et ASAR 4.3.0. L’environnement Node intégré à Electron
+est distinct de celui utilisé pour la compilation de l’espace de travail.
+La commande explicite `install:runtime` installe son binaire ; n’activez pas
+tous les scripts d’installation des dépendances pour remédier à l’absence de
+cet environnement d’exécution.
 
-La matrice macOS est fermée par architecture : chaque runner local transmet une
-seule architecture en ligne de commande et les cibles macOS partagées
-d'electron-builder ne doivent pas déclarer de liste d'architectures. Cela évite
-d'intégrer un backend Python gelé natif de l'hôte dans une application Electron
-destinée à l'architecture opposée.
+Compilez le frontend avant d’empaqueter l’application de bureau.
+`build-python.sh` exige exactement Python 3.11, accepte `GNOSI_PYTHON_CMD`
+lorsqu’il est configuré explicitement et crée un environnement temporaire unique
+à partir du `uv.lock` figé de la racine et du groupe de dépendances `desktop`.
+Il génère une spécification PyInstaller, valide l’analyse et le paquet, copie
+le résultat vérifié dans `desktop/dist-python/` et exécute le test de bon
+fonctionnement isolé du backend empaqueté. Il n’utilise ni fichier de
+dépendances distinct ni environnement existant du développeur.
 
-Les releases manuelles extraient le commit de l'exécution (`github.sha`), et
-la balise demandée doit désigner ce même commit. Les correctifs d'empaquetage
-postérieurs à une balise exigent une nouvelle balise de release révisée ;
-ne pas publier un code différent sous l'ancienne balise.
-Le job Windows expose l'installation standard `Program Files\\Git\\cmd` avant
-le checkout lorsque le service du runner ne l'hérite pas via `PATH`, ce qui
-évite le fallback vers l'archive ZIP REST.
-Les scripts générés du job utilisent une dérogation à la stratégie d'exécution
-PowerShell limitée au job. Les paramètres restrictifs du service ne peuvent
-donc pas refuser les fichiers `.ps1` éphémères, sans affaiblir la stratégie
-globale de la VM.
+La politique de ressources lit le code source sans importer l’application.
+Elle préserve les ressources Alembic, les instructions de l’agent, les skills
+de traduction dynamique, les plugins d’exemple et les styles bibliographiques.
+Elle rejette les ressources manquantes, modifiées, non examinées ou dangereuses
+au lieu d’inclure récursivement les coffres, bases de données, configurations,
+secrets ou outils générés. Le hook `afterPack` vérifie l’ASAR réel et les
+ressources Python avant la signature. Les ressources graphiques se trouvent
+dans `desktop/assets/` ; les paquets générés, dans `desktop/dist/` et
+`desktop/dist-python/`.
 
-La release Linux est également limitée à une seule architecture : le runner
-local et son backend PyInstaller sont ARM64, et electron-builder reçoit
-explicitement `--arm64`. Ce runner ne doit jamais produire un paquet étiqueté
-x64, car il contiendrait un exécutable backend de l'architecture opposée.
+| Cible configurée | Architecture de l’exécuteur | Installateurs et artefacts de mise à jour |
+| --- | --- | --- |
+| macOS arm64 | macOS ARM64 sur infrastructure propre | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml` |
+| macOS x64 | macOS X64 sur infrastructure propre | `Gnosi-<version>-x64.dmg`, ZIP, `latest-mac.yml` |
+| Linux arm64 | Linux ARM64 sur infrastructure propre | AppImage, DEB, `latest-linux-arm64.yml` |
+| Windows x64 | Windows X64 sur infrastructure propre | `Gnosi-<version>-Setup.exe`, `latest.yml` |
 
-La liste des fichiers constructeurs d'Electron est une limite explicite de temps d'exécution. `afterPack` crochet inspecte la finale `app.asar` et rejette un paquet qui omet le processus principal, précharge, native-menu, backend-launch ou module update-policy. Cette vérification d'artefact installé complète les tests de source et empêche un arbre source valide de produire une application qui échoue avant l'ouverture de sa première fenêtre.
+L’architecture du backend gelé doit correspondre à celle de la cible. Les
+cibles macOS ne doivent pas empaqueter silencieusement les deux architectures
+avec un seul backend natif de la machine de compilation. Linux passe
+`--arm64` ; Windows utilise NSIS x64. Ces jobs ne fixent pas de version de
+macOS et ne couvrent ni Linux x64 ni Windows arm64. Les deux jobs macOS
+s’exécutent en série ; Windows attend macOS, tandis que Linux peut s’exécuter
+en parallèle. La concurrence est limitée par référence Git, et non par un
+verrou global garantissant la capacité de la machine hôte.
 
-Le chemin de l'arrière-paquet se résolve à l'exécutable PyInstaller lui-même sur macOS et Linux, et à son `.exe` Le processus principal est le résultat de la résolution directe du fichier; il ne traite jamais l'exécutable comme un autre niveau de répertoire. La construction propre installe les exigences canoniques d'exécution E2E, y compris les dépendances du fournisseur et de l'API, puis démarre l'exécutable congelé comme un test de fumée multiplateforme avant que le paquet de bureau puisse continuer.
+Windows bénéficie d’une dérogation à la politique d’exécution de PowerShell
+limitée au job et prépare Git avant l’extraction du code si nécessaire ;
+n’affaiblissez pas la politique de l’ensemble de la machine. La compilation du
+backend passe les arguments de l’interpréteur entre guillemets, utilise des
+structures d’environnements virtuels temporaires propres à chaque plateforme
+et tente de les nettoyer dans la mesure du possible. Le manifeste Python
+limite actuellement `cryptography` à la série 48.x sur macOS x86_64 ;
+l’invocation actuelle d’uv n’impose pas une installation exclusivement binaire.
+Vérifiez la provenance des paquets wheel et leur ABI sur l’exécuteur réel,
+sans supposer que cette restriction est appliquée ni remplacer son Python/OpenSSL.
 
-L’application de bureau utilise `GNOSI_DATA_DIR` dans le dossier de données de l’utilisateur d’Electron par défaut ; `GNOSI_LOCAL_DATA` reste un alias compatible pendant la série 3.x. Les réglages explicites sont conservés. Le chemin Docker `/data` n’est pas le défaut des paquets natifs. La disponibilité est vérifiée via `/api/health`, sans authentification. Le backend gelé désactive le rechargement de fichiers d’Uvicorn ; le développement natif conserve la prise en charge du rechargement.
+Tous les scripts de compilation de l’application de bureau, y compris les
+alias racine `package:desktop` et `build:desktop`, désactivent la publication
+par electron-builder avec `--publish never`. Ils préparent des artefacts
+locaux ; ils ne certifient ni ne publient une version.
 
-Le catalogue des releases, les notes traduites, le changelog, les manifestes racine, frontend et desktop, les métadonnées Python et les locks pnpm/uv forment une unité versionnée. L’outil déterministe ne modifie les versions qu’après validation du catalogue et du changelog.
+## Préparation des versions et distribution limitée aux candidats
 
-## Marque de demande
+L’historique intégré à l’application se trouve dans
+`frontend/src/features/control-center/releases/releases.json`.
+Les manifestes de la racine, du frontend et de l’application de bureau, les
+métadonnées Python, les fichiers de verrouillage, les notes localisées et le
+journal des modifications doivent concorder avant la sortie.
+`sync-release-version.cjs` n’écrit que les champs de version : ce n’est ni
+une transaction atomique ni un substitut à la validation du catalogue et du
+journal des modifications. Examinez ses différences et les fichiers de
+verrouillage actualisés.
 
-`frontend/public/favicon.svg` définit la marque d'application Gnosi : un G blanc centré avec une marge bleue claire à l'intérieur d'un dégradé bleu arrondi. Le générateur d'icônes Electron produit les variantes PNG, ICNS et ICO des mêmes proportions visuelles, de sorte que le navigateur, macOS, Windows et Linux clients ne présentent pas un glyphe différent ou bord à bord. Régénérer ces ressources dérivées chaque fois que la marque canonique change; ne pas éditer un paquet d'applications emballés.
+`desktop/release.sh` prépare les versions et les artefacts locaux. Il ne crée
+pas de tag et ne publie pas de version. Utilisez une branche de préparation
+explicite et excluez-en les modifications sans rapport. De nouvelles corrections
+d’empaquetage exigent un nouveau tag revu, et non la publication d’un code
+différent sous un ancien tag. N’ajoutez les liens de téléchargement par
+plateforme qu’une fois les artefacts publics immuables correspondants
+effectivement disponibles.
 
-## Préparation de la libération
+`Build Release Candidate` vérifie que le tag demandé existe et que sa
+résolution jusqu’au commit correspond exactement au `github.sha` extrait,
+aussi bien pour les envois de tags que pour les déclenchements manuels.
+Une entrée mal formée, un tag manquant, une cible qui n’est pas un commit ou
+une divergence interrompt le processus avant l’installation des dépendances.
+L’outil de vérification d’identité utilise Git local et ne déplace pas de
+références ni n’en récupère de lui-même. La protection des tags distants reste
+une exigence distincte.
 
-`frontend/src/features/control-center/releases/releases.json` est l'historique de libérations groupées canonique. Le synchroniseur de version maintient le manifeste frontal, le manifeste Electron et l'entrée d'espace de travail frontal dans le fichier de verrouillage monorepo identique. `downloadUrl`; ce champ n'est ajouté qu'après l'existence de la balise immuable et de ses objets de plateforme. Comme la version frontale manifeste est une limite de bureau à impact élevé, chaque requête de tirage de la version préparée rafraîchit également ce contrat révisé et ses miroirs localisés, même lorsque le patch ne change pas le comportement d'exécution. Avant de préparer le patch stable suivant, l'entrée stable précédente doit déjà lier à sa version publiée de sorte que l'historique groupé reste complet sur les mises à jour séquentielles. Les notes de patch ne comprennent que les corrections fusionnées après cette balise précédente; elles ne répètent pas les modifications déjà publiées.
+Le workflow appelle ensuite la CI existante sur le même commit sans hériter
+des secrets. Les compilations par architecture exigent sa réussite. La CI
+comprend la documentation, le frontend, le backend, les tests de bon
+fonctionnement natifs et les compilations d’images Docker. La documentation
+des PR est vérifiée par rapport à leur base exacte ; les candidats vérifient
+les catalogues actuels et tous les portails linguistiques en mode strict à
+leur propre SHA, et non au moyen d’une revue fictive de l’impact d’une PR.
 
-Avant de créer le tag, la PR de release doit réussir les validations du frontend, les tests backend, les contrôles natifs dans le navigateur et la validation documentaire. Après intégration, le workflow canonique construit le commit examiné et rassemble artefacts multiplateformes, catalogues signés et notes. Il ne crée ni tags ni brouillons GitHub ; la distribution publique reste désactivée selon la limite décrite plus haut.
+La collecte ne télécharge que les quatre artefacts d’architecture nommément
+désignés, en excluant les candidats précédents lors des nouvelles tentatives.
+Elle installe les dépendances verrouillées du collecteur avec les scripts de
+cycle de vie désactivés, vérifie la version, les références et les empreintes
+SHA-512, rejette les fichiers manquants ou en conflit et fusionne les deux
+manifestes de mise à jour macOS. La génération des index, le rendu des notes
+de version et le dépôt du candidat suivent la validation.
 
-La préparation de la v2.0.0 respecte cette limite : les notes localisées
-incluses et le changelog généré sont livrés avec les manifestes synchronisés,
-tandis que le tag immuable et le lien de téléchargement de chaque plateforme
-ne sont ajoutés qu’après la réussite du workflow officiel de release pour le
-commit révisé de main.
+L’artefact Actions final est `candidate-<tag>-<sha>-<attempt>`, conservé pendant
+cinq jours. Il contient les installateurs, les métadonnées de mise à jour, les
+index et les notes de version. Ce n’est pas un stockage confidentiel et il ne
+doit jamais contenir de données utilisateur ni de secrets. Le workflow dispose
+de permissions en lecture seule sur le dépôt et ne crée pas de brouillons
+GitHub, ne publie pas de versions et ne modifie ni les artefacts publics
+existants ni les canaux de mise à jour.
 
-Le correctif v2.0.1 conserve des dépendances canoniques complètes pour le
-backend gelé et envoie les tags officiels vers la matrice de runners locaux
-configurée. Le workflow valide ainsi les environnements qui produisent les
-artefacts.
+La distribution publique reste désactivée jusqu’à l’acceptation complète du
+mode natif, de Docker, des installateurs et des mises à niveau depuis 2.x, ainsi
+qu’à l’examen distinct d’une voie de publication. Un candidat réussi n’autorise
+pas la publication de 3.0.0.
 
-La préparation de la v2.0.5 ajoute un contrôle obligatoire des métadonnées
-avant l'empaquetage par plateforme. Un tag est refusé si les manifestes
-Electron et frontend, le fichier de verrouillage du monorepo, les quatre
-catalogues de version localisés et le journal généré ne décrivent pas la même
-version.
+## Clients web et bureautiques
 
-Les jobs actuels utilisent Node 22.22.2 et des dépendances verrouillées. La CI
-partagée suit la vérification d'identité. Les deux architectures macOS sont
-sérialisées ; Windows attend macOS, tandis que Linux peut s'exécuter en parallèle.
-La concurrence est limitée par ref Git, pas par un verrou global de l'hôte ;
-cela ne prouve ni la capacité disponible ni l'absence d'autres travaux sur les runners.
+L’extension de capture web envoie `POST /api/public/clip` avec un jeton d’accès
+personnel et lit la configuration des champs demandés et de la destination depuis
+`GET /api/public/clip/config`. Le backend choisit le coffre de destination ;
+l’extension n’obtient pas d’accès arbitraire au système de fichiers. Son jeton
+et l’URL du backend sont conservés dans le stockage local de l’extension.
+L’empaquetage pour les navigateurs et l’acceptation dans leurs boutiques sont
+distincts de l’acceptation de l’installateur de bureau.
 
-## Récupérateur Web
+Le volet de tâches Word se trouve dans `frontend/public/word-addin/` et utilise
+Office.js. Ses appels API utilisent l’origine du volet et un jeton bearer
+configuré explicitement ; une réponse correcte d’un point d’accès public ne
+prouve pas que l’accès aux citations est autorisé. L’origine HTTPS du manifeste
+et le certificat de confiance doivent correspondre au déploiement. Les outils
+dans `extensions/office/word-cite/` modifient des références du document ou du
+paquet, ou le modèle Word de l’utilisateur, pour permettre la persistance
+facultative du volet. Ce sont des modifications explicites de documents ou de
+configuration, pas une action normale du démarrage de Gnosi.
 
-L'extension du navigateur extrait le titre de la page actuelle, l'URL, le contenu sélectionné ou lisible, et les métadonnées supportées, puis envoie une requête limitée à l'API de Gnosi. Le moteur d'accès effectue l'authentification, la désinfectation, la déduplication et les écrits de Vault. L'extension ne reçoit pas un accès arbitraire au système de fichiers de Vault.
+Le client LibreOffice est un gestionnaire de protocole Python/UNO qui utilise
+`urllib` de la bibliothèque standard. Il lit `api_token` dans sa propre
+configuration ou dans `GNOSI_API_TOKEN` ; ne supposez pas qu’il partage la
+session du navigateur. Les deux clients utilisent les points d’accès de mise
+en forme des citations du coffre et le traitement Pandoc/CSL du backend.
+La mise en forme sensible au contexte exige les clés du document dans l’ordre,
+y compris les citations répétées. L’actualisation de Writer parcourt les
+tableaux imbriqués ; les en-têtes et pieds de page contribuent aux clés
+bibliographiques, mais ne sont pas réécrits par l’actualisation ordonnée.
+Le comportement de l’application bureautique hôte doit être testé dans
+l’application réellement prise en charge, et non déduit de tests de parcours
+sur des données synthétiques.
 
-## LibreOffice et les clients de citation Word
+## Acceptation et dépannage
 
-L'extension LibreOffice enregistre un gestionnaire de protocole et appelle les paramètres de citation de Gnosi du processus de bureau. L'aide Word maintient l'état task-pane/add-in requis pour accéder au même service local. Les deux clients traitent l'insertion de citation et la bibliographie rafraîchissante comme des mutations explicites de documents.
+Le test de bon fonctionnement du backend empaqueté exige une réponse de santé
+HTTP 200 de taille limitée avec `status: ok`, `mode: FastAPI` et sa nouvelle
+identité de test dans `gnosi_mode`. Il utilise des chemins de données et de
+coffres jetables, désactive l’automatisation opérationnelle et récupère son
+processus enfant en cas de réussite comme d’échec. `GNOSI_VALIDATION_ROOT`
+valide tous les sélecteurs et bloque les fichiers d’environnement locaux et
+partagés ainsi que l’accès au magasin d’identifiants. La génération OpenAPI
+utilise le même isolement. Ne définissez jamais cette option pour le
+développement normal ou les applications installées.
 
-Les API spécifiques à un bureau sont isolées derrière les aides à la traversée et à l'insertion afin que les tests puissent falsifier la limite de l'UNO ou de l'ajout sans exiger l'application complète du bureau pour chaque test d'unité.
+Les contrats vérifiés dans le code source, les environnements hôtes simulés
+et une exécution de FastAPI depuis les sources ne prouvent pas le bon
+fonctionnement d’un installateur intégrant le backend gelé ni d’une mise à
+niveau réelle. Avant toute distribution publique, vérifiez sur chaque cible
+réelle l’installation, le premier lancement, les IPC, la préservation des
+cookies et du profil, l’intégrité de la base de données, la voie de mise à jour
+et la récupération, ainsi que les parcours authentifiés dans le navigateur et
+le démarrage et la persistance de Docker. Une réussite locale sur macOS ne
+peut pas certifier une autre cible.
 
-## Invariants
+| Symptôme | Points à examiner ensuite | À ne pas faire |
+| --- | --- | --- |
+| Electron reste vide en développement | Origine HTTP de Vite, PATH de l’environnement Python figé et journal de démarrage du backend propre à Electron | Démarrer un second backend sur le port 5002 |
+| La protection du profil interrompt le démarrage | Erreur exacte, chemins d’origine et de récupération, clients arrêtés | Supprimer les journaux d’opérations, les cookies ou les anciennes données |
+| Le backend empaqueté manque | Résultat de PyInstaller et politique des ressources finales | Se rabattre sur le Python du système |
+| macOS propose un DMG | Politique actuelle d’installation manuelle et architecture | Considérer la vérification de signature comme une validation de la mise à jour automatique |
+| Office accède au point de santé, mais les citations échouent | Jeton bearer, origine de l’API et réponse réelle de la ressource protégée | Désactiver l’authentification pour masquer un échec du client |
 
-- Le code de render n'a pas de capacité de système de fichiers sans restriction.js.
-- IPC expose les opérations nommées avec des entrées validées.
-- Mise à jour du téléchargement, ouverture de l'installateur et installation nécessitent des actions explicites de l'utilisateur.
-- Les chemins de ressources combinés diffèrent des chemins de développement et sont résolus à
-C'est l'heure de la course.
-- Les clients de l'entreprise se font authentifier sur le moteur et restent dans leur étroite
-la portée de la capture ou de la citation.
-- Les candidats ne publient ni ne modifient automatiquement aucune release publique.
-
-## Validation locale de la distribution
-
-Le test du backend empaqueté exige une réponse HTTP 200 de `/api/health`
-avec `status: ok`, `mode: FastAPI` et l'identité unique du test dans `gnosi_mode`.
-Un processus vivant, un port occupé, une redirection ou une autre instance de
-Gnosi ne suffisent pas. Le test utilise des répertoires temporaires, un port
-local et un environnement filtré ; il désactive les tâches planifiées, puis
-arrête et attend le processus enfant, même en cas d'échec. `GNOSI_VALIDATION_ROOT`
-est réservé à ces tests : tous les chemins de données doivent rester sous cette
-racine ; les fichiers d'environnement et tout accès aux gestionnaires de secrets
-sont désactivés. Ne pas le définir pour une installation ou un développement normal.
-
-Les tests synthétiques et l'exécution de FastAPI depuis les sources valident ce
-contrat, mais ne certifient ni le binaire empaqueté ni son installateur. Chaque
-plateforme doit encore réussir ses propres contrôles réels.
-
-Le contrôle documentaire des PR utilise les dépendances verrouillées, vérifie
-sans régénération les catalogues par rapport au commit de base exact et conserve
-des permissions de lecture seule. Il ne déploie rien ; la publication reste
-séparée sur main.
-
-## Aspects de vérification
-
-Avant le dépôt du candidat, le workflow installe les dépendances de production de desktop
-selon le verrou, sans scripts d'installation, télécharge chaque architecture
-dans un répertoire distinct, puis exécute `release-artifacts.cjs collect`.
-Cette étape vérifie la correspondance du tag avec la version du code, les
-références et empreintes SHA-512, rejette les fichiers manquants ou en collision
-et rassemble les deux architectures Mac dans un seul `latest-mac.yml`.
-La génération des index et le dépôt du candidat suivent cette validation. Les tests
-locaux synthétiques ne remplacent pas les constructions et mises à jour réelles
-de la matrice des plateformes.
-
-Exécutez des contrôles de syntaxe/construction d'Electron, des tests de fumée de backend, des tests d'état de mise à jour, une validation de construction d'extension, des tests de citation transversale et des tests de plate-forme CI.
+Exécutez les tests de contrats de bureau du dépôt, la vérification stricte des
+IPC, la validation documentaire et les commandes pertinentes de tests de bon
+fonctionnement isolés. Examinez le résultat dans le navigateur et l’application
+de bureau, ainsi que les journaux, et pas seulement les codes de sortie.
+Distinguez les preuves obtenues sur les plateformes cibles des tests synthétiques.
