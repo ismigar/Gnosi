@@ -10,7 +10,7 @@ const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy'
 
 const CHANNELS = [
   'get-app-version', 'set-application-menu', 'get-update-status', 'get-backend-url',
-  'download-update', 'get-backend-status', 'install-update',
+  'download-update', 'get-backend-status', 'install-update', 'open-form-filler',
 ];
 
 function fixture({ isDev = false, platform = 'darwin', arch = 'arm64', overrides = {} } = {}) {
@@ -44,6 +44,16 @@ function fixture({ isDev = false, platform = 'darwin', arch = 'arm64', overrides
     openExternal: url => { effects.push({ external: url }); return Promise.resolve(); },
     downloadUpdate: () => { effects.push('download'); return Promise.resolve(['/fixture/update']); },
     quitAndInstall: () => { effects.push('install'); },
+    createFormFillerWindow: options => {
+      const window = {
+        webContents: Object.assign(new EventEmitter(), {
+          executeJavaScript: script => { effects.push({ script }); return Promise.resolve(); },
+        }),
+        loadURL: url => { effects.push({ formUrl: url }); return Promise.resolve(); },
+      };
+      effects.push({ formWindow: window, options });
+      return window;
+    },
     log: (...messages) => { effects.push({ log: messages }); },
     ...overrides,
   };
@@ -67,6 +77,8 @@ for (const isDev of [false, true]) {
     assert.equal(await f.invoke('download-update'), f.state());
     assert.equal(await f.invoke('install-update'), f.state());
     assert.equal(await f.invoke('set-application-menu', { labels: { settings: 'Configuració' } }), true);
+    assert.equal(await f.invoke('open-form-filler', { url: 'https://example.invalid/form', profile: {} }), undefined);
+    assert.equal(f.effects.filter(effect => effect.formWindow).length, 1);
     assert.equal(f.effects.includes('download'), false);
     assert.equal(f.effects.includes('install'), false);
   });
@@ -96,7 +108,7 @@ for (const [name, corrupt] of [
   });
 }
 
-for (const channel of CHANNELS.filter(channel => channel !== 'set-application-menu')) {
+for (const channel of CHANNELS.filter(channel => !['set-application-menu', 'open-form-filler'].includes(channel))) {
   test(`${channel} rejects extra arguments before reading state or acting`, async () => {
     const f = fixture();
     for (const args of [[undefined], [null], [{}], ['bad'], [0, false]]) {
@@ -269,4 +281,9 @@ test('the unchanged preload invokes the extracted channels with their actual wir
   assert.equal(await api.installUpdate(), f.state());
   assert.equal(await api.setApplicationMenu({ settings: 'Configuració' }), true);
   assert.deepEqual(f.effects.at(-1), { labels: { settings: 'Configuració' } });
+  assert.equal(await api.openFormFiller('https://example.invalid/form', { email: 'synthetic@example.invalid' }), undefined);
+  const formWindow = f.effects.find(effect => effect.formWindow).formWindow;
+  assert.equal(f.mainWindows.has(formWindow), false);
+  formWindow.webContents.emit('did-finish-load');
+  assert.ok(f.effects.at(-1).script.includes('"email":"synthetic@example.invalid"'));
 });

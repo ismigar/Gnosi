@@ -8,6 +8,7 @@ from typing import Any, Iterable, cast
 
 from fastapi import BackgroundTasks, HTTPException
 
+from backend.domains.vault.registry.records import RecordReader
 from backend.services.context_vars import active_vault_path, get_primary_vault_path
 from backend.services.literature_models import (
     canonical_work,
@@ -156,7 +157,7 @@ def work_to_resources(work: dict[str, Any]) -> dict[str, Any]:
     return cast(dict[str, Any], normalized)
 
 
-def _resource_key(metadata: dict[str, Any]) -> str:
+def _resource_key(metadata: RecordReader) -> str:
     if normalize_doi(metadata.get("DOI")):
         return f"doi:{normalize_doi(metadata.get('DOI'))}"
     if normalize_pmid(metadata.get("PMID")):

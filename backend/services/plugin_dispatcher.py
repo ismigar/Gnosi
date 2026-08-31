@@ -19,10 +19,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict, cast
 
 from backend.domains.plugins.sandbox import HostHandler
+from backend.domains.vault.registry.state import RegistryData
 
 from backend.config.logger_config import get_logger
 from backend.services import plugin_events, plugin_sandbox
 from backend.services import plugin_system as ps
+from backend.utils.open_values import get_value, iterable_values, length_value
 
 logger = get_logger(__name__)
 
@@ -126,7 +128,7 @@ def _handle_create_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
             raise ValueError("folder is outside the vault")
     target_dir.mkdir(parents=True, exist_ok=True)
     page_id = str(uuid.uuid4())
-    metadata = {"id": page_id, "title": title}
+    metadata: RegistryData = {"id": page_id, "title": title}
     fp = _get_unique_filepath(target_dir, title)
     save_page_md(fp, metadata, content)
     register_page_in_index(fp)
@@ -192,12 +194,12 @@ def _handle_list_tables(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
 
     reg = load_registry() or {}
     tables = []
-    for t in reg.get("tables", []) or []:
+    for t in iterable_values(reg.get("tables", []) or []):
         tables.append(
             {
-                "id": t.get("id"),
-                "name": t.get("name") or t.get("id"),
-                "fields": len(t.get("properties") or []),
+                "id": get_value(t, "id"),
+                "name": get_value(t, "name") or get_value(t, "id"),
+                "fields": length_value(get_value(t, "properties") or []),
             }
         )
     return {"tables": tables}

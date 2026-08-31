@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from backend.domains.vault.registry.records import RecordReader
+
 
 class JsonWriter(Protocol):
     def __call__(
@@ -42,11 +44,11 @@ class SearchDependencies:
     """Late-bound storage and facade collaborators for cache rebuilding."""
 
     brain_pages: Callable[[str], list[Any]]
-    metadata: Callable[[Any], dict[str, Any]]
+    metadata: Callable[[object], RecordReader]
     note_kind: Callable[[Any], str]
     page_id: Callable[[Any], str]
     page_path: Callable[[Any], Path | None]
-    read_page: Callable[[Path | None], tuple[dict[str, Any], str]]
+    read_page: Callable[[Path | None], tuple[RecordReader, str]]
     safe_token: Callable[[Any], str]
     title: Callable[[Any], str]
     vector: Callable[[str], list[float]]

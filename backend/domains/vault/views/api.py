@@ -12,8 +12,10 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from backend.domains.vault.registry.names import normalize_registry_table_view_names
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
+from backend.utils.open_values import iterable_values
 
 
 @dataclass(frozen=True)
@@ -28,15 +30,15 @@ class ViewDependencies:
 
 def _registry_views(registry: RegistryData) -> list[RegistryData]:
     raw_views = registry.get("views", [])
-    return [view for view in raw_views if isinstance(view, dict)]
+    return [view for view in iterable_values(raw_views) if is_record(view)]
 
 
 def _involves_table(view: RegistryData, table_id: str) -> bool:
     if view.get("table_id") == table_id:
         return True
     raw_joins = view.get("joins") or []
-    joins = raw_joins if isinstance(raw_joins, list) else []
-    return any(isinstance(join, dict) and join.get("tableId") == table_id for join in joins)
+    joins = raw_joins if is_object_list(raw_joins) else []
+    return any(is_record(join) and join.get("tableId") == table_id for join in joins)
 
 
 async def list_views(
@@ -87,7 +89,7 @@ async def reorder_views(
 ) -> RegistryData:
     table_id = str(body.get("table_id") or "").strip()
     ordered_ids = body.get("ordered_ids") or []
-    if not table_id or not isinstance(ordered_ids, list):
+    if not table_id or not is_object_list(ordered_ids):
         raise HTTPException(
             status_code=422,
             detail="table_id and ordered_ids (list) are required.",

@@ -14,6 +14,8 @@ from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import index_rendering as llm_wiki_index_rendering
 from backend.domains.llm_wiki import legacy_ports as llm_wiki_legacy_ports
 from backend.domains.llm_wiki import search_index as llm_wiki_search_index
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_record
 from backend.services import llm_wiki_config, llm_wiki_storage
 from backend.utils.safe_io import safe_write_json
 
@@ -585,7 +587,7 @@ def _upsert_managed_page(
     selector: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     page = _find_managed_page(brain_table_id, role, selector=selector)
-    metadata = {
+    metadata: object = {
         "title": title,
         "table_id": brain_table_id,
         "note_type": "index"
@@ -596,6 +598,8 @@ def _upsert_managed_page(
         **(selector or {}),
         **(extra_metadata or {}),
     }
+    # The literal owns this dictionary; keep its unpacking protocol and identity.
+    assert is_record(metadata)
     if page:
         path = _path(page)
         old_meta, body = _read_page(path)
@@ -663,7 +667,7 @@ def _managed_content(body: str, key: str) -> str:
     return match.group(1).strip() if match else ""
 
 
-def _save_existing_page(path: Path, metadata: dict[str, Any], body: str) -> None:
+def _save_existing_page(path: Path, metadata: PageMetadata, body: str) -> None:
     llm_wiki_legacy_ports.save_page(
         path,
         llm_wiki_storage.prepare_managed_markdown(metadata),
@@ -672,7 +676,7 @@ def _save_existing_page(path: Path, metadata: dict[str, Any], body: str) -> None
     llm_wiki_legacy_ports.register_page(path)
 
 
-def _read_page(path: Optional[Path]) -> tuple[dict[str, Any], str]:
+def _read_page(path: Optional[Path]) -> tuple[PageMetadata, str]:
     if not path or not path.exists():
         return {}, ""
     return llm_wiki_legacy_ports.parse_frontmatter(
@@ -688,7 +692,7 @@ def _table(table_id: str) -> Optional[dict[str, Any]]:
     return llm_wiki_legacy_ports.table_by_id(table_id)
 
 
-def _meta(page: Any) -> dict[str, Any]:
+def _meta(page: object) -> PageMetadata:
     return llm_wiki_storage.page_metadata(page)
 
 

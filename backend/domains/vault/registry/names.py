@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Any
 
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import integer_value, iterable_values
 
 
 _TABLE_VIEW_EMOJI_RE = re.compile(
@@ -35,8 +36,8 @@ def table_name_from_registry(registry: RegistryData, table_id: object) -> str:
     table = next(
         (
             item
-            for item in registry.get("tables", []) or []
-            if isinstance(item, dict) and str(item.get("id") or "") == str(table_id or "")
+            for item in iterable_values(registry.get("tables", []) or [])
+            if is_record(item) and str(item.get("id") or "") == str(table_id or "")
         ),
         None,
     )
@@ -51,14 +52,14 @@ def main_view_fields(registry: RegistryData, table_id: object) -> list[str]:
     table = next(
         (
             item
-            for item in registry.get("tables", []) or []
-            if isinstance(item, dict) and str(item.get("id") or "") == str(table_id or "")
+            for item in iterable_values(registry.get("tables", []) or [])
+            if is_record(item) and str(item.get("id") or "") == str(table_id or "")
         ),
         None,
     )
     fields = ["title"]
-    for prop in (table or {}).get("properties", []) or []:
-        name = prop.get("name") if isinstance(prop, dict) else None
+    for prop in iterable_values((table or {}).get("properties", []) or []):
+        name = prop.get("name") if is_record(prop) else None
         if isinstance(name, str) and name and name not in fields:
             fields.append(name)
     return fields
@@ -116,8 +117,8 @@ def normalize_registry_table_view_names(registry: RegistryData) -> bool:
     """Normalize persisted table/view labels and canonicalize main views."""
     raw_tables = registry.setdefault("tables", [])
     raw_views = registry.setdefault("views", [])
-    tables = raw_tables if isinstance(raw_tables, list) else []
-    views = raw_views if isinstance(raw_views, list) else []
+    tables = raw_tables if is_object_list(raw_tables) else []
+    views = raw_views if is_object_list(raw_views) else []
     changed, table_names = _normalize_table_names(tables)
     return _normalize_view_names(registry, views, table_names) or changed
 
@@ -128,7 +129,7 @@ def _normalize_table_names(
     changed = False
     table_names: dict[str, str] = {}
     for table in tables:
-        if not isinstance(table, dict):
+        if not is_record(table):
             continue
         table_id = str(table.get("id") or "")
         old_name = table.get("name")
@@ -148,7 +149,7 @@ def _normalize_view_names(
 ) -> bool:
     changed = False
     for view in views:
-        if not isinstance(view, dict):
+        if not is_record(view):
             continue
         table_id = str(view.get("table_id") or "")
         table_name = table_names.get(table_id) or table_name_from_registry(registry, table_id)
@@ -172,7 +173,7 @@ def sort_key_name(item: RegistryData) -> tuple[int, str]:
     order = item.get("order")
     if order is not None:
         try:
-            order_value = int(order)
+            order_value = integer_value(order)
         except (ValueError, TypeError):
             order_value = 999999
     else:

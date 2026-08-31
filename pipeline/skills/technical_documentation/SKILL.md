@@ -147,6 +147,12 @@ requires documentation evidence.
 
 ## Restrictions and edge cases
 
+- Note: Do not classify source using absolute ancestor names, because a checkout
+  below `tests`, `e2e`, `vendor` or a scratch directory changes public catalogs.
+  Instead, classify paths relative to the explicit scan/application root, while
+  retaining all exclusions inside it. Verify identical catalog bytes across
+  differently named parent directories and preserve the immutable goldens.
+
 - Note: Do not count or parse local `sandbox`, `private_skills`, `.tmp`, `.vite`
   or `.ruff_cache` trees in public catalogs, because ignored migration helpers
   make local output differ from a clean CI checkout and may expose private

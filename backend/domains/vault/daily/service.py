@@ -9,8 +9,10 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.registry.state import RegistryData
 
-Metadata = dict[str, object]
+Metadata = RegistryData
 DailySource = tuple[Metadata | None, Metadata | None]
 DailyNote = dict[str, object]
 
@@ -41,7 +43,7 @@ class DailyNotesDependencies:
 
 def _metadata(page: object) -> Metadata:
     raw_metadata = getattr(page, "metadata", None)
-    return raw_metadata if isinstance(raw_metadata, dict) else {}
+    return raw_metadata if is_record(raw_metadata) else {}
 
 
 def _page_id(page: object) -> object:

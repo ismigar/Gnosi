@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import contains_value, iterable_values
 
 
 class AssetSegmentSanitizer(Protocol):
@@ -52,7 +54,7 @@ def _deps() -> TableAssetPathDependencies:
 
 def _registry_items(registry: RegistryData, key: str) -> list[RegistryData]:
     raw_items = registry.get(key, [])
-    return [item for item in raw_items if isinstance(item, dict)]
+    return [item for item in iterable_values(raw_items) if is_record(item)]
 
 
 def _resolve_table_and_database_for_assets(
@@ -109,7 +111,7 @@ def _find_table_property(
     for prop in _registry_items(table, "properties"):
         if str(prop.get("name") or "").strip() == name:
             return prop
-        if name in (prop.get("aliases") or []):
+        if contains_value(prop.get("aliases") or [], name):
             return prop
     return None
 
@@ -122,7 +124,7 @@ def _property_config_value(prop: RegistryData | None, key: str) -> object | None
     if value is not None:
         return value
     config: object = prop.get("config")
-    if isinstance(config, dict):
+    if is_record(config):
         nested: object = config.get(key)
         return nested
     return None

@@ -84,7 +84,9 @@ def multi_key_sort(rows: Rows, sorts: Sorts | None) -> Rows:
         )
     result = list(rows)
     for sort in reversed(list(sorts)):
-        field = sort.get("field") if isinstance(sort, dict) else None
+        if not isinstance(sort, dict):
+            continue
+        field = sort.get("field")
         if not field:
             continue
         field_name = str(field)

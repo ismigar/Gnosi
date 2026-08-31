@@ -8,7 +8,9 @@ from dataclasses import dataclass
 
 from fastapi import HTTPException
 
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import iterable_values
 
 
 @dataclass(frozen=True)
@@ -28,18 +30,18 @@ async def get_registry(dependencies: RegistryApiDependencies) -> RegistryData:
         tables = registry.get("tables", [])
         views = registry.get("views", [])
         response["databases"] = sorted(
-            [item for item in databases if isinstance(item, dict)],
+            [item for item in iterable_values(databases) if is_record(item)],
             key=dependencies.sort_key,
         )
         response["tables"] = sorted(
             [
                 item
-                for item in tables
-                if isinstance(item, dict) and str(item.get("id") or "").strip().lower() != "wiki"
+                for item in iterable_values(tables)
+                if is_record(item) and str(item.get("id") or "").strip().lower() != "wiki"
             ],
             key=dependencies.sort_key,
         )
-        response["views"] = [item for item in views if isinstance(item, dict)]
+        response["views"] = [item for item in iterable_values(views) if is_record(item)]
         return response
     except Exception as error:
         dependencies.logger.exception("ERROR in get_registry: %s", error)
@@ -58,7 +60,7 @@ async def update_registry(
 
 
 def table_by_id(
-    table_id: str,
+    table_id: str | None,
     dependencies: RegistryApiDependencies,
 ) -> RegistryData | None:
     """Return one registry table by immutable ID."""
@@ -68,7 +70,7 @@ def table_by_id(
         registry = dependencies.load_registry()
         tables = registry.get("tables", [])
         return next(
-            (table for table in tables if isinstance(table, dict) and table.get("id") == table_id),
+            (table for table in iterable_values(tables) if is_record(table) and table.get("id") == table_id),
             None,
         )
     except Exception:

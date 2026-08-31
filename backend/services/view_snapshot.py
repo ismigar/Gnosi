@@ -18,6 +18,7 @@ from typing import Dict as Dict
 from typing import List as List
 from typing import Optional as Optional
 from typing import Sequence as Sequence
+from typing import overload
 
 from backend.domains.vault.views.filters import COMMA_DECIMAL_RE as _COMMA_DECIMAL_RE
 from backend.domains.vault.views.filters import FULL_NUMERIC_RE as _FULL_NUMERIC_RE
@@ -98,11 +99,35 @@ from backend.domains.vault.views.sorting import sort_key as sort_key
 from backend.services.relation_links import _decorate_item as _decorate_item
 
 
+@overload
+def inject_view_snapshots(
+    body: str,
+    resolve_ids: ResolveIds,
+    id_to_title: ResolveTitle | None = None,
+    host_page_id: object = None,
+    max_items: int = DEFAULT_MAX_ITEMS,
+    config_for: SnapshotConfig | None = None,
+    resolve_table: ResolveTable | None = None,
+) -> str: ...
+
+
+@overload
 def inject_view_snapshots(
     body: object,
     resolve_ids: ResolveIds,
     id_to_title: ResolveTitle | None = None,
-    host_page_id: str | None = None,
+    host_page_id: object = None,
+    max_items: int = DEFAULT_MAX_ITEMS,
+    config_for: SnapshotConfig | None = None,
+    resolve_table: ResolveTable | None = None,
+) -> object: ...
+
+
+def inject_view_snapshots(
+    body: object,
+    resolve_ids: ResolveIds,
+    id_to_title: ResolveTitle | None = None,
+    host_page_id: object = None,
     max_items: int = DEFAULT_MAX_ITEMS,
     config_for: SnapshotConfig | None = None,
     resolve_table: ResolveTable | None = None,
@@ -120,9 +145,31 @@ def inject_view_snapshots(
     )
 
 
+@overload
+def rematerialize_md(
+    raw: str,
+    host_page_id: object,
+    resolve_ids: ResolveIds,
+    id_to_title: ResolveTitle | None = None,
+    config_for: SnapshotConfig | None = None,
+    resolve_table: ResolveTable | None = None,
+) -> str: ...
+
+
+@overload
 def rematerialize_md(
     raw: object,
-    host_page_id: str | None,
+    host_page_id: object,
+    resolve_ids: ResolveIds,
+    id_to_title: ResolveTitle | None = None,
+    config_for: SnapshotConfig | None = None,
+    resolve_table: ResolveTable | None = None,
+) -> object: ...
+
+
+def rematerialize_md(
+    raw: object,
+    host_page_id: object,
     resolve_ids: ResolveIds,
     id_to_title: ResolveTitle | None = None,
     config_for: SnapshotConfig | None = None,

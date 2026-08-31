@@ -9,10 +9,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
+from backend.domains.vault.pages.index_entries import PageCacheEntry
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
+from backend.utils.open_values import float_value, integer_value, iterable_values
 
 
 @dataclass(frozen=True)
@@ -20,7 +22,7 @@ class TableRowQueryDependencies:
     vault_cache_key: Callable[[], str]
     cache_get: Callable[[str], list[PageInfo] | None]
     cache_set: Callable[[str, list[PageInfo]], None]
-    cached_entries: Callable[[], list[RegistryData]]
+    cached_entries: Callable[[], list[PageCacheEntry]]
     load_registry: Callable[[], RegistryData]
     hidden_event_ids: Callable[[], set[str]]
     humanize_title: Callable[[object, RegistryData], str]
@@ -30,7 +32,7 @@ class TableRowQueryDependencies:
         [RegistryData | None, list[PageInfo], Callable[[str], list[PageInfo]]],
         object,
     ]
-    response_names: Callable[[RegistryData, RegistryData], RegistryData]
+    response_names: Callable[[object, RegistryData], RegistryData]
     vault_root: Callable[[], Path]
     logger: logging.Logger
 
@@ -64,7 +66,7 @@ def normalize_table_context(metadata: RegistryData) -> RegistryData:
     return metadata
 
 
-def normalize_relative_folder(folder: str | None) -> str:
+def normalize_relative_folder(folder: object) -> str:
     """Normalize host and container paths to a vault-relative folder."""
     if not folder:
         return ""
@@ -83,15 +85,15 @@ def build_table_folder_index(registry: RegistryData) -> dict[str, str]:
     database_folders = _database_folder_index(registry)
     output: dict[str, str] = {}
     raw_tables = registry.get("tables", [])
-    for table in raw_tables:
-        if isinstance(table, dict):
+    for table in iterable_values(raw_tables):
+        if is_record(table):
             _add_table_folders(output, table, database_folders)
     return output
 
 
 def _database_folder_index(registry: RegistryData) -> dict[str, str]:
     raw_databases = registry.get("databases", [])
-    databases = [item for item in raw_databases if isinstance(item, dict)]
+    databases = [item for item in iterable_values(raw_databases) if is_record(item)]
     return {
         str(database["id"]): normalize_relative_folder(str(database.get("folder") or ""))
         for database in databases
@@ -150,7 +152,11 @@ def resolve_table_folder_from_metadata(
     registry = dependencies.load_registry()
     raw_tables = registry.get("tables", [])
     table = next(
-        (item for item in raw_tables if isinstance(item, dict) and item.get("id") == table_id),
+        (
+            item
+            for item in iterable_values(raw_tables)
+            if is_record(item) and item.get("id") == table_id
+        ),
         None,
     )
     if not table:
@@ -161,8 +167,8 @@ def resolve_table_folder_from_metadata(
     database_id = table.get("database_id")
     database_folder = "BD"
     raw_databases = registry.get("databases", [])
-    for database in raw_databases:
-        if not isinstance(database, dict) or database.get("id") != database_id:
+    for database in iterable_values(raw_databases):
+        if not is_record(database) or database.get("id") != database_id:
             continue
         database_folder = (
             normalize_relative_folder(str(database.get("folder") or ""))
@@ -248,7 +254,7 @@ def canonical_visible_table_pages(
 
 
 def _matches_table(
-    entry: RegistryData,
+    entry: PageCacheEntry,
     table_id: str,
     folder_to_table: dict[str, str],
     all_prefixes: list[str],
@@ -264,33 +270,35 @@ def _matches_table(
                 break
     if not belongs and not resolved_elsewhere:
         raw_metadata = entry.get("metadata") or {}
-        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+        metadata = raw_metadata if is_record(raw_metadata) else {}
         metadata_table_id = metadata.get("table_id") or metadata.get("database_table_id")
         belongs = metadata_table_id == table_id and str(metadata_table_id).strip().lower() != "wiki"
     return belongs
 
 
 def _page_from_entry(
-    entry: RegistryData,
+    entry: PageCacheEntry,
     table_id: str,
     dependencies: TableRowQueryDependencies,
 ) -> PageInfo:
     raw_metadata = entry.get("metadata") or {}
-    metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
-    modified = float(entry["mtime"])
-    created = float(entry.get("created_mtime") or modified)
-    return PageInfo.model_construct(
-        id=str(entry["id"]),
-        title=dependencies.humanize_title(entry["title"], metadata),
-        parent_id=entry.get("parent_id"),
-        is_database=bool(entry.get("is_database", False)),
-        metadata=metadata,
-        last_modified=datetime.fromtimestamp(modified).isoformat(),
-        created_time=datetime.fromtimestamp(created).isoformat(),
-        size=int(entry["size"]),
-        folder=str(entry.get("folder") or ""),
-        path=entry.get("path"),
-        resolved_table_id=table_id,
+    metadata = raw_metadata if is_record(raw_metadata) else {}
+    modified = float_value(entry["mtime"])
+    created = float_value(entry.get("created_mtime") or modified)
+    return PageInfo.model_validate(
+        {
+            "id": str(entry["id"]),
+            "title": dependencies.humanize_title(entry["title"], metadata),
+            "parent_id": entry.get("parent_id"),
+            "is_database": bool(entry.get("is_database", False)),
+            "metadata": metadata,
+            "last_modified": datetime.fromtimestamp(modified).isoformat(),
+            "created_time": datetime.fromtimestamp(created).isoformat(),
+            "size": integer_value(entry["size"]),
+            "folder": str(entry.get("folder") or ""),
+            "path": entry.get("path"),
+            "resolved_table_id": table_id,
+        }
     )
 
 
@@ -353,7 +361,10 @@ def enrich_table_query_pages(
     )
     if table:
         for page in pages:
-            page.metadata = dependencies.response_names(page.metadata or {}, table)
+            response_metadata = dependencies.response_names(page.metadata or {}, table)
+            page.metadata = PageInfo.model_validate(
+                {**page.model_dump(), "metadata": response_metadata}
+            ).metadata
 
 
 def virtual_page_loader(
@@ -370,7 +381,10 @@ def virtual_page_loader(
     if table:
         for page in pages:
             try:
-                page.metadata = dependencies.response_names(page.metadata or {}, table)
+                response_metadata = dependencies.response_names(page.metadata or {}, table)
+                page.metadata = PageInfo.model_validate(
+                    {**page.model_dump(), "metadata": response_metadata}
+                ).metadata
             except Exception:
                 pass
     return pages
@@ -388,8 +402,8 @@ def prepare_create_table_metadata(
     metadata, _ = dependencies.storage_names(metadata, table)
     dependencies.stamp_system_dates(metadata, table, is_create=True)
     raw_properties = table.get("properties") or []
-    for prop in raw_properties:
-        if not isinstance(prop, dict) or prop.get("type") not in dependencies.option_types:
+    for prop in iterable_values(raw_properties):
+        if not is_record(prop) or prop.get("type") not in dependencies.option_types:
             continue
         default = str(dependencies.prop_config(prop).get("default_option") or "").strip()
         if not default or dependencies.read_prop_value(metadata, prop) not in (

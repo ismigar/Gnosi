@@ -18,6 +18,9 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, cast
 
+from backend.domains.vault.registry.records import RecordReader, is_record
+from backend.utils.open_values import get_value, iterable_values
+
 cfg_lock = threading.RLock()
 
 CONFIG_FILENAME = "llm_wiki.json"
@@ -98,24 +101,24 @@ def _semantic_token(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", ascii_text)
 
 
-def _property_options(prop: Optional[dict[str, Any]]) -> list[str]:
+def _property_options(prop: object) -> list[str]:
     raw_options = (
-        (prop or {}).get("options")
-        or ((prop or {}).get("config") or {}).get("options")
-        or ((prop or {}).get("select") or {}).get("options")
+        get_value(prop or {}, "options")
+        or get_value(get_value(prop or {}, "config") or {}, "options")
+        or get_value(get_value(prop or {}, "select") or {}, "options")
         or []
     )
     return [
         str(option.get("name") if isinstance(option, dict) else option).strip()
-        for option in raw_options
+        for option in iterable_values(raw_options)
         if str(option.get("name") if isinstance(option, dict) else option).strip()
     ]
 
 
 def note_type_value(
     kind: str,
-    config: dict[str, Any],
-    prop: Optional[dict[str, Any]],
+    config: RecordReader,
+    prop: object,
 ) -> str:
     """Return the existing visible option for one semantic note kind."""
     resolved_kind = note_type_kind(kind)
@@ -149,9 +152,9 @@ def note_type_kind(value: Any) -> str:
     return ""
 
 
-def metadata_note_type(metadata: Optional[dict[str, Any]]) -> str:
+def metadata_note_type(metadata: object) -> str:
     """Resolve a Brain note kind from technical or visible schema metadata."""
-    source = metadata if isinstance(metadata, dict) else {}
+    source = metadata if is_record(metadata) else {}
     direct = note_type_kind(source.get("note_type"))
     if direct:
         return direct

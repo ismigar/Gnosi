@@ -7,10 +7,12 @@ from _thread import LockType
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TypedDict
+
+from backend.domains.vault.registry.state import RegistryData
 
 
-Metadata = dict[str, Any]
+Metadata = RegistryData
 
 
 class RecalculationState(TypedDict):

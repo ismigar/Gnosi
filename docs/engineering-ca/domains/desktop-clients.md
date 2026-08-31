@@ -146,11 +146,17 @@ de la sessió en lloc de reenviar les capçaleres de galetes en brut del rendere
 Conserva aquest comportament quan canviïs l’encaminament o els adaptadors de
 transmissió en continu.
 
-Set gestors extrets tenen contractes de petició i resposta comprovats. El vuitè,
-el d’emplenament de formularis, continua a `main.js` i valida l’emissor IPC abans
-d’obrir una finestra separada sense pont de preload. No en dedueixis que tot el
-procés principal tingui tipatge estricte ni que s’aprovin destinacions arbitràries
-per als formularis. Les subscripcions de preload retornen funcions de cancel·lació
+Els vuit gestors extrets tenen contractes de petició i resposta comprovats.
+L'emplenament de formularis és a `ipc-handlers.js`, que ja s'empaquetava; el procés
+principal aporta la fàbrica nativa de finestres i el registre de missatges.
+La validació de l'emissor continua precedint l'accés al payload i l'obertura d'una
+finestra separada i aïllada sense pont de preload. La validació d'URL, l'ordre dels
+esdeveniments, la serialització del perfil i el programa injectat no canvien i
+tenen proves diferencials sintètiques. El programa dins la cadena no es comprova
+estàticament. Això no acredita el comportament en webs reals, el tipatge complet
+del procés principal, l'acceptació d'instal·ladors ni l'autorització de destinacions
+arbitràries de formularis.
+Les subscripcions de preload retornen funcions de cancel·lació
 idempotents; els mètodes de cancel·lació per compatibilitat continuen disponibles
 per als renderers antics.
 

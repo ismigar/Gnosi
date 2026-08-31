@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from typing import cast
+from backend.domains.vault.registry.records import RecordReader, is_record
+from backend.utils.open_values import set_value
 
 from backend.domains.vault.tables.catalogs.core import (
     OPTION_TYPES,
@@ -29,19 +30,19 @@ ROLE_ALLOWED_TYPES = {
 SOCIAL_COLUMN_RE = re.compile(r"xxss|social", re.IGNORECASE)
 
 
-def _properties(table: Metadata) -> list[Metadata]:
+def _properties(table: RecordReader) -> list[Metadata]:
     raw_properties = table.get("properties") or []
     if not isinstance(raw_properties, list):
         return []
-    return [cast(Metadata, prop) for prop in raw_properties if isinstance(prop, dict)]
+    return [prop for prop in raw_properties if is_record(prop)]
 
 
-def prop_role(prop: Metadata) -> str:
+def prop_role(prop: RecordReader) -> str:
     role = str(get_prop_config(prop).get("role") or "").strip().lower()
     return role if role in (ROLE_LANGUAGE, ROLE_STATUS, ROLE_TAGS) else ""
 
 
-def find_role_prop(table: Metadata, role: str) -> Metadata | None:
+def find_role_prop(table: RecordReader, role: str) -> Metadata | None:
     """Find a property by explicit semantic role or legacy name heuristic."""
     properties = _properties(table)
     for prop in properties:
@@ -90,7 +91,7 @@ def assign_roles(table: Metadata) -> bool:
             if name not in names or role in taken or not _role_allowed_for_property(role, prop):
                 continue
             config = prop.setdefault("config", {})
-            cast(Metadata, config)["role"] = role
+            set_value(config, "role", role)
             taken.add(role)
             changed = True
             break

@@ -12,11 +12,13 @@ import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Protocol
 
 from fastapi import UploadFile
 
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import iterable_values
 
 
 class AssetSegmentSanitizer(Protocol):
@@ -42,7 +44,7 @@ class TableAssetPersistenceDependencies:
     resolve_table: TableResolver
     get_table_id: Callable[[RegistryData], str | None]
     property_config_value: Callable[[RegistryData | None, str], object | None]
-    normalize_schema_key: Callable[[str], str]
+    normalize_schema_key: Callable[[object], str]
     property_assets_dir: Callable[[RegistryData, RegistryData | None, str], Path]
     copy_local_file: Callable[[Path, Path], str]
     save_data_url: Callable[[str, Path], str | None]
@@ -69,7 +71,7 @@ def _deps() -> TableAssetPersistenceDependencies:
 
 def _registry_items(registry: RegistryData, key: str) -> list[RegistryData]:
     raw_items = registry.get(key, [])
-    return [item for item in raw_items if isinstance(item, dict)]
+    return [item for item in iterable_values(raw_items) if is_record(item)]
 
 
 def _database_for_table(
@@ -90,7 +92,7 @@ def _database_for_table(
 def _referenced_asset_paths(
     value: object,
 ) -> Iterable[str]:
-    values = value if isinstance(value, list) else [value]
+    values = value if is_object_list(value) else [value]
     for raw_path in values:
         if isinstance(raw_path, str):
             yield raw_path
@@ -268,11 +270,10 @@ def _persist_asset_string(value: str, target_dir: Path) -> object:
 def _persist_asset_value(value: object, target_dir: Path) -> object:
     if value is None:
         return value
-    if isinstance(value, list):
+    if is_object_list(value):
         return [_deps().persist_value(item, target_dir) for item in value]
-    if isinstance(value, dict):
-        mapping = cast(dict[object, object], value)
-        return _persist_asset_mapping(mapping, target_dir)
+    if is_record(value):
+        return _persist_asset_mapping(value, target_dir)
     if isinstance(value, str):
         return _persist_asset_string(value, target_dir)
     return value
@@ -281,7 +282,7 @@ def _persist_asset_value(value: object, target_dir: Path) -> object:
 def _metadata_asset_key(
     metadata: RegistryData,
     property_name: str,
-) -> str | None:
+) -> object:
     normalized_property = _deps().normalize_schema_key(property_name)
     return next(
         (key for key in metadata if _deps().normalize_schema_key(key) == normalized_property),

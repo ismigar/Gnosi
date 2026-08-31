@@ -197,6 +197,47 @@ def check_option_cli_dry_run_backup_and_idempotence(
 
 
 @pytest.mark.usefixtures("isolated_runtime")
+def check_registry_json_boundary_rejects_nontext_keys_without_copying() -> None:
+    from pipeline.scripts import migrate_option_catalogs as options
+    from pipeline.scripts import migrate_table_system_dates as dates
+
+    extension = {7: [None, {"opaque": True}]}
+    record: dict[str, object] = {"id": "valid", "extensions": extension}
+    assert options._record(record, "Property") is record
+    assert dates._record(record, "Table") is record
+    assert record["extensions"] is extension
+    for invalid in ({7: "invalid"}, [record], None):
+        with pytest.raises(ValueError, match="must be an object with text keys"):
+            options._record(invalid, "Property")
+        with pytest.raises(ValueError, match="must be an object with text keys"):
+            dates._record(invalid, "Table")
+
+
+@pytest.mark.usefixtures("isolated_runtime")
+def check_role_consumers_use_readonly_table_access() -> None:
+    from backend.domains.vault.registry.state import RegistryData
+    from backend.services import option_catalogs as catalogs
+    from pipeline.scripts.migrate_option_catalogs import promote_status_type
+
+    calls: list[str] = []
+    prop: RegistryData = {"type": "select", "config": {"role": "status"}}
+
+    class Reader:
+        def get(self, key: str, /) -> object:
+            calls.append(key)
+            return {"properties": [prop], "config": prop["config"]}.get(key)
+
+    reader = Reader()
+    assert catalogs.prop_role(reader) == "status"
+    assert calls == ["config"]
+    calls.clear()
+    assert promote_status_type(reader)
+    assert calls == ["properties"]
+    assert prop["type"] == "status"
+    assert not promote_status_type(reader)
+
+
+@pytest.mark.usefixtures("isolated_runtime")
 def check_sidecar_migration_preserves_public_metadata_and_is_idempotent(tmp_path: Path) -> None:
     from pipeline.scripts import migrate_sidecar_metadata as migration
 

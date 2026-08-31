@@ -7,8 +7,8 @@ import logging
 import re
 from collections import deque
 from datetime import datetime
-from typing import Any
 
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.tables.rules.types import Definition, Metadata
 
 RESERVED_FORMULA_NAMES = {
@@ -40,7 +40,7 @@ RESERVED_FORMULA_NAMES = {
 }
 
 
-def canonical_for_compare(value: Any) -> Any:
+def canonical_for_compare(value: object) -> object:
     """Normalize YAML temporal values to their request-side ISO spelling."""
     if isinstance(
         value,
@@ -57,7 +57,7 @@ def expression_has_cross_record_calls(expression: str) -> bool:
 
 def _property_config(prop: Metadata, key: str) -> Metadata:
     value = prop.get(key)
-    return value if isinstance(value, dict) else {}
+    return value if is_record(value) else {}
 
 
 def _formula_definition(prop: Metadata) -> Definition | None:
@@ -81,11 +81,11 @@ def _formula_definition(prop: Metadata) -> Definition | None:
 
 def extract_formula_definitions(table: Metadata) -> list[Definition]:
     properties = table.get("properties") or []
-    if not isinstance(properties, list):
+    if not is_object_list(properties):
         return []
     definitions: list[Definition] = []
     for raw_prop in properties:
-        definition = _formula_definition(raw_prop) if isinstance(raw_prop, dict) else None
+        definition = _formula_definition(raw_prop) if is_record(raw_prop) else None
         if definition:
             definitions.append(definition)
     return definitions
@@ -131,11 +131,11 @@ def _rollup_definition(prop: Metadata) -> Definition | None:
 
 def extract_rollup_definitions(table: Metadata) -> list[Definition]:
     properties = table.get("properties") or []
-    if not isinstance(properties, list):
+    if not is_object_list(properties):
         return []
     definitions: list[Definition] = []
     for raw_prop in properties:
-        definition = _rollup_definition(raw_prop) if isinstance(raw_prop, dict) else None
+        definition = _rollup_definition(raw_prop) if is_record(raw_prop) else None
         if definition:
             definitions.append(definition)
     return definitions
@@ -216,7 +216,7 @@ def order_definitions(
 def normalize_record_ids(record_ids: object) -> list[str]:
     if record_ids is None or record_ids == "":
         return []
-    if isinstance(record_ids, list):
+    if is_object_list(record_ids):
         return [str(record_id).strip() for record_id in record_ids if str(record_id).strip()]
     if isinstance(record_ids, str) and "," in record_ids:
         return [record_id.strip() for record_id in record_ids.split(",") if record_id.strip()]

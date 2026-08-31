@@ -16,14 +16,16 @@ from pathlib import Path
 from typing import Protocol, TypedDict, cast
 
 from backend.domains.vault.daily.service import DailySource
+from backend.domains.vault.pages.index_entries import PageCacheEntry
+from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageSaveRequest
 from backend.domains.vault.tables.rows import TableMetadataDependencies
 
-Metadata = dict[str, object]
+Metadata = RegistryData
 
 
 class VirtualFieldsPayload(TypedDict):
-    computers: list[Metadata]
+    computers: list[dict[str, object]]
 
 
 class RuleEnginePort(Protocol):
@@ -48,17 +50,17 @@ class CoreVaultPort(Protocol):
     path_resolver: PathIndexPort
     action_rules_service: ActionRulesPort
     _page_index_lock: AbstractContextManager[object]
-    _page_index_entries: dict[str, dict[str, Metadata]]
+    _page_index_entries: dict[str, dict[str, PageCacheEntry]]
     _page_id_to_path: dict[str, dict[str, str]]
     _daily_note_lock: asyncio.Lock
 
-    def _vf_list_specs(self) -> list[Metadata]: ...
+    def _vf_list_specs(self) -> list[dict[str, object]]: ...
 
     def _safe_filename(self, name: str, directory: Path) -> str: ...
 
     def get_active_vault_path(self) -> Path | None: ...
 
-    def _build_page_cache_entry(self, path: Path, stat: os.stat_result) -> Metadata: ...
+    def _build_page_cache_entry(self, path: Path, stat: os.stat_result) -> PageCacheEntry: ...
 
     def _bump_page_index_version(self, vault_key: str) -> None: ...
 

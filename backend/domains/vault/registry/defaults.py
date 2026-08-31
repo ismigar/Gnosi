@@ -8,7 +8,9 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData, RegistryState
+from backend.utils.open_values import append_value, iterable_values
 
 
 @dataclass(frozen=True)
@@ -43,13 +45,13 @@ def _ensure_default_database(registry: RegistryData) -> bool:
     database = next(
         (
             item
-            for item in databases
-            if isinstance(item, dict) and item.get("id") == "gnosi_vault_db"
+            for item in iterable_values(databases)
+            if is_record(item) and item.get("id") == "gnosi_vault_db"
         ),
         None,
     )
     if database is None:
-        databases.append(
+        append_value(databases,
             {
                 "id": "gnosi_vault_db",
                 "name": "Gnosi Vault",

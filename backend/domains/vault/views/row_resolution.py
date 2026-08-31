@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, cast
+from backend.domains.vault.registry.records import is_record, is_object_list
 
 from backend.domains.vault.views.filters import apply_filter_node, is_filter_group
 from backend.domains.vault.views.runtime_types import Metadata, Row, Rows, View
@@ -12,7 +12,7 @@ from backend.domains.vault.views.sorting import multi_key_sort
 
 def _metadata(row: Row) -> Metadata:
     value = row.get("metadata") or {}
-    return cast(Metadata, value) if isinstance(value, dict) else {}
+    return value if is_record(value) else {}
 
 
 def _row_field_value(row: Row, field: str) -> object:
@@ -46,24 +46,24 @@ def row_lookup_by_field(rows: Rows, field: str) -> dict[str, Rows]:
     return index
 
 
-def resolve_rows(rows: Rows, view: View, host_page_id: str | None) -> Rows:
+def resolve_rows(rows: Rows, view: View, host_page_id: object) -> Rows:
     """Filter and sort candidate rows according to one saved view."""
     tree = view.get("filterTree")
     if not is_filter_group(tree):
         raw_filters = view.get("filters")
-        filters = raw_filters if isinstance(raw_filters, list) else []
+        filters = raw_filters if is_object_list(raw_filters) else []
         if not filters and view.get("filter"):
             filters = [view["filter"]]
         tree = {"conjunction": "and", "rules": filters}
     filtered = [row for row in rows if apply_filter_node(_metadata(row), host_page_id, tree)]
     raw_sorts = view.get("sorts")
-    sorts = raw_sorts if isinstance(raw_sorts, list) else []
+    sorts = raw_sorts if is_object_list(raw_sorts) else []
     if not sorts and view.get("sort"):
         sorts = [view["sort"]]
     return multi_key_sort(filtered, sorts)
 
 
-def resolve_row_ids(rows: Rows, view: View, host_page_id: str | None) -> list[str]:
+def resolve_row_ids(rows: Rows, view: View, host_page_id: object) -> list[str]:
     return [str(row.get("id")) for row in resolve_rows(rows, view, host_page_id) if row.get("id")]
 
 
@@ -153,7 +153,7 @@ def _load_right_rows(loader: Callable[[str], Rows], table_id: str) -> Rows:
 
 def apply_joins(
     base_rows: Rows,
-    joins: list[dict[str, Any]],
+    joins: list[object],
     loader: Callable[[str], Rows],
 ) -> Rows:
     """Apply ordered inner, left or right joins with deterministic fan-out."""

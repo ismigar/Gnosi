@@ -7,21 +7,23 @@ import logging
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, cast
 
 import yaml
 
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.tables.rules.types import (
     FunctionMap,
     Metadata,
     RuleEngineDependencies,
 )
+from backend.utils.open_values import float_value
 
 ParseMetadata = Callable[[Path], Metadata]
 FindRecordPath = Callable[[str], Path | None]
 
 
-def load_registry(vault_path: Path, logger: logging.Logger) -> Metadata:
+def load_registry(vault_path: Path, logger: logging.Logger) -> RegistryData:
     """Load the canonical or legacy Vault registry with an empty fallback."""
     registry_path = vault_path / "BD" / "vault_db_registry.json"
     if not registry_path.exists():
@@ -29,27 +31,27 @@ def load_registry(vault_path: Path, logger: logging.Logger) -> Metadata:
     if not registry_path.exists():
         return {"databases": [], "tables": [], "views": []}
     try:
-        raw_registry = json.loads(registry_path.read_text(encoding="utf-8"))
-        return cast(Metadata, raw_registry) if isinstance(raw_registry, dict) else {}
+        raw_registry: object = json.loads(registry_path.read_text(encoding="utf-8"))
+        return raw_registry if is_record(raw_registry) else {}
     except Exception as error:
         logger.error("Error loading registry in RuleEngine: %s", error)
         return {"databases": [], "tables": [], "views": []}
 
 
-def registry_tables(registry: Metadata) -> list[Metadata]:
+def registry_tables(registry: RegistryData) -> list[RegistryData]:
     raw_tables = registry.get("tables") or []
-    if not isinstance(raw_tables, list):
+    if not is_object_list(raw_tables):
         return []
-    return [cast(Metadata, table) for table in raw_tables if isinstance(table, dict)]
+    return [table for table in raw_tables if is_record(table)]
 
 
-def resolve_table_by_id(registry: Metadata, table_id: object) -> Metadata | None:
+def resolve_table_by_id(registry: RegistryData, table_id: object) -> RegistryData | None:
     if not table_id:
         return None
     return next((table for table in registry_tables(registry) if table.get("id") == table_id), None)
 
 
-def resolve_table(registry: Metadata, metadata: Metadata) -> Metadata | None:
+def resolve_table(registry: RegistryData, metadata: Metadata) -> RegistryData | None:
     return resolve_table_by_id(
         registry,
         metadata.get("database_table_id") or metadata.get("table_id"),
@@ -79,10 +81,10 @@ def parse_metadata(
     if not match:
         return {}
     try:
-        raw_metadata = yaml.safe_load(match.group(1)) or {}
-        if not isinstance(raw_metadata, dict):
+        raw_metadata: object = yaml.safe_load(match.group(1)) or {}
+        if not is_record(raw_metadata):
             return {}
-        metadata = cast(Metadata, raw_metadata)
+        metadata = raw_metadata
         table_id = metadata.get("table_id") or metadata.get("database_table_id")
         relation_keys = (
             dependencies.relation_keys_from_table(resolve_table_callback(str(table_id)))
@@ -94,19 +96,19 @@ def parse_metadata(
         return {}
 
 
-def _extend_result(results: list[Any], value: Any) -> None:
+def _extend_result(results: list[object], value: object) -> None:
     if value is None:
         return
-    results.extend(value if isinstance(value, list) else [value])
+    results.extend(value if is_object_list(value) else [value])
 
 
-def _deduplicate(values: list[Any]) -> list[Any]:
+def _deduplicate(values: list[object]) -> list[object]:
     if values and isinstance(values[0], dict):
         return list(values)
     try:
         return list(dict.fromkeys(values))
     except TypeError:
-        unique: list[Any] = []
+        unique: list[object] = []
         for value in values:
             if value not in unique:
                 unique.append(value)
@@ -117,16 +119,16 @@ def lookup(
     table_id: str,
     record_ids: object,
     property_name: str,
-    cache: dict[tuple[str, str, str], Any],
+    cache: dict[tuple[str, str, str], object],
     find_path: FindRecordPath,
     parse: ParseMetadata,
     logger: logging.Logger,
-) -> Any:
+) -> object:
     """Look up one field across one or more related record identifiers."""
     if not record_ids:
         return None
-    identifiers = record_ids if isinstance(record_ids, list) else [record_ids]
-    results: list[Any] = []
+    identifiers = record_ids if is_object_list(record_ids) else [record_ids]
+    results: list[object] = []
     for raw_identifier in identifiers:
         identifier = str(raw_identifier)
         cache_key = (table_id or "", identifier, property_name)
@@ -155,16 +157,16 @@ def query(
     table_id: str,
     filter_expression: str,
     property_name: str | None,
-    cache: dict[tuple[str, str, str | None], Any],
+    cache: dict[tuple[str, str, str | None], object],
     parse: ParseMetadata,
     functions: FunctionMap,
     dependencies: RuleEngineDependencies,
-) -> Any:
+) -> object:
     """Evaluate a filter expression over all cached rows in one table."""
     cache_key = (table_id, filter_expression, property_name)
     if cache_key in cache:
         return cache[cache_key]
-    results: list[Any] = []
+    results: list[object] = []
     for path in dependencies.path_resolver().list_all_files(vault_path):
         try:
             metadata = parse(path)
@@ -185,14 +187,14 @@ def query(
     return results
 
 
-def normalize_column_values(values: list[Any]) -> list[float]:
+def normalize_column_values(values: list[object]) -> list[float]:
     normalized: list[float] = []
     flattened = [
-        item for value in values for item in (value if isinstance(value, list) else [value])
+        item for value in values for item in (value if is_object_list(value) else [value])
     ]
     for value in flattened:
         try:
-            normalized.append(float(value))
+            normalized.append(float_value(value))
         except Exception:
             continue
     return normalized
@@ -216,15 +218,15 @@ def _filter_matches(
 
 def _disk_column_values(
     vault_path: Path,
-    table_id: str,
+    table_id: object,
     property_name: str,
     filter_expression: str | None,
     current_note_id: str | None,
     parse: ParseMetadata,
     functions: FunctionMap,
     dependencies: RuleEngineDependencies,
-) -> list[Any]:
-    values: list[Any] = []
+) -> list[object]:
+    values: list[object] = []
     for path in dependencies.path_resolver().list_all_files(vault_path):
         try:
             metadata = parse(path)
@@ -245,7 +247,7 @@ def _disk_column_values(
 
 def _current_column_value(
     current_metadata: Metadata,
-    table_id: str,
+    table_id: object,
     property_name: str,
     filter_expression: str | None,
     functions: FunctionMap,
@@ -265,7 +267,7 @@ def _current_column_value(
 
 def collect_column_values(
     vault_path: Path,
-    table_id: str,
+    table_id: object,
     property_name: str,
     filter_expression: str | None,
     current_note_id: str | None,
@@ -273,7 +275,7 @@ def collect_column_values(
     parse: ParseMetadata,
     functions: FunctionMap,
     dependencies: RuleEngineDependencies,
-) -> list[Any]:
+) -> list[object]:
     values = _disk_column_values(
         vault_path,
         table_id,

@@ -19,6 +19,8 @@ from backend.domains.agent.context_refs import (
     dashboard_view_ids,
     normalize_refs,
 )
+from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import get_value
 
 log = logging.getLogger(__name__)
 
@@ -101,7 +103,7 @@ def _tables_of_database(database_id: str) -> List[Dict[str, Any]]:
     return [t for t in _registry().get("tables", []) if t.get("database_id") == database_id]
 
 
-def _table_view(table_id: str, scope: Any) -> Optional[Dict[str, Any]]:
+def _table_view(table_id: str, scope: Any) -> Optional[RegistryData]:
     """Resolve an attached active view only inside its declared table."""
     scope = scope if isinstance(scope, dict) else {}
     view_id = str(scope.get("view_id") or "").strip()
@@ -117,7 +119,7 @@ def _table_view(table_id: str, scope: Any) -> Optional[Dict[str, Any]]:
     )
 
 
-def _page_row(page: Any) -> Dict[str, Any]:
+def _page_row(page: Any) -> RegistryData:
     metadata = (
         page.get("metadata") if isinstance(page, dict) else getattr(page, "metadata", None)
     ) or {}
@@ -131,11 +133,11 @@ def _page_row(page: Any) -> Dict[str, Any]:
 
 def _table_rows(
     table_id: str, scope: Any = None
-) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+) -> Tuple[List[RegistryData], Optional[RegistryData]]:
     rows = []
     for page in _table_pages(table_id):
         row = _page_row(page)
-        if not (row.get("metadata") or {}).get("is_template"):
+        if not get_value(row.get("metadata") or {}, "is_template"):
             rows.append(row)
     view = _table_view(table_id, scope)
     if view:
@@ -371,7 +373,7 @@ def _searchable_page_records(
             table_pages = [page for page in table_pages if _page_row(page)["id"] in allowed_ids]
         for page in table_pages:
             row = _page_row(page)
-            if (row.get("metadata") or {}).get("is_template"):
+            if get_value(row.get("metadata") or {}, "is_template"):
                 continue
             path = getattr(page, "path", None) or (
                 page.get("path") if isinstance(page, dict) else None

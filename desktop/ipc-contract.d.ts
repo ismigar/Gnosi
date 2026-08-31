@@ -54,8 +54,22 @@ export type DesktopRequestHandlers = {
   readonly [K in DesktopRequestChannel]: DesktopRequestHandler<K>;
 };
 
+/** Only the native window capabilities used by the isolated form handler. */
+export interface FormFillerWindow {
+  readonly loadURL: (url: string) => Promise<void>;
+  readonly webContents: {
+    readonly on: (event: 'did-finish-load', listener: () => void) => unknown;
+    readonly executeJavaScript: (script: string) => Promise<unknown>;
+  };
+}
+
+export interface FormFillerDependencies {
+  readonly createFormFillerWindow: (options: Electron.BrowserWindowConstructorOptions) => FormFillerWindow;
+  readonly log: (...messages: string[]) => void;
+}
+
 /** Main owns mutable state, menu construction, backend IO and native actions. */
-export interface DesktopIpcDependencies {
+export interface DesktopIpcDependencies extends FormFillerDependencies {
   readonly ipcMain: Pick<Electron.IpcMain, 'handle'>;
   readonly mainWindows: ReadonlySet<Pick<Electron.BrowserWindow, 'isDestroyed' | 'webContents'>>;
   readonly isDev: boolean;
@@ -69,7 +83,6 @@ export interface DesktopIpcDependencies {
   readonly openExternal: (url: string) => Promise<void>;
   readonly downloadUpdate: () => Promise<unknown>;
   readonly quitAndInstall: () => void;
-  readonly log: (...messages: string[]) => void;
 }
 
 export interface GnosiElectronApi {

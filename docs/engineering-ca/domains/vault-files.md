@@ -130,6 +130,25 @@ noms històrics de funcions auxiliars privades es mantenen com a façanes mínim
 de compatibilitat, i cada col·laborador substituïble o memòria cau mutable es
 resol mitjançant un port tipat amb vinculació tardana.
 
+## Metadades obertes i HTTP validat
+
+Els documents interns del registre i de les pàgines utilitzen `dict[object, object]`:
+el YAML històric pot contenir claus no textuals i valors d'extensions sense un
+esquema declarat. Les comprovacions de diccionari preserven la identitat; les
+fusions de fitxers auxiliars i el mapatge de noms conserven els camps desconeguts.
+Això és diferent de la validació HTTP pública. `PageInfo` manté la validació
+original de claus textuals i l'esquema OpenAPI, mentre que la construcció i
+l'assignació de l'índex preserven el document obert. Les memòries cau de resposta
+guarden els objectes de pàgina existents sense clonar metadades ni bloquejos.
+
+`backend/utils/open_values.py` aïlla les operacions natives sobre entrades opaques.
+Les excepcions de tipatge, només a l'entrada, preserven els protocols d'iteració,
+conversió numèrica, longitud i mapatge de Python i els seus errors; mai afirmen
+la forma d'un registre retornat. Les proves comparen el moment de les crides,
+les seqüències antigues, els valors malformats i la identitat dels objectes
+compartits. Això elimina espais de noms dinàmics amplis de la composició del
+registre i dels fonaments de pàgines, no tots els tipus heretats del backend.
+
 ## Límits del backend
 
 La lectura i escriptura de pàgines, les previsualitzacions, la duplicació,
@@ -330,8 +349,8 @@ deduplicació per pàgina. L'encaminador de compatibilitat injecta els ports de
 vault actiu, registre, calendari i memòria cau, de manera que cap d'aquests
 serveis importa la façana HTTP.
 
-El mòdul d'execució del registre concreta una sola vegada el tipus del seu
-encaminador amb vinculació tardana, utilitza el decorador estàndard tipat de
+El mòdul d'execució del registre referencia els propietaris tipats reals dels
+callbacks i de l'estat, utilitza el decorador estàndard de
 gestor de context per als cicles de mutació i tracta l'absència d'un Vault
 actiu com l'absència d'una arrel d'adjunts del núvol. L'ordre de les rutes de
 registre i taules, els bloquejos, les memòries cau i els candidats d'adjunts

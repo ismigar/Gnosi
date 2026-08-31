@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date
-from typing import Any
 
-from backend.domains.vault.tables.rules.types import Definition, Metadata
+from backend.domains.vault.tables.rules.types import Definition, EvaluatorNames, Metadata
+from backend.utils.open_values import float_value
 
 
 def _empty(value: object) -> bool:
@@ -44,7 +44,7 @@ def automation_triggered(
     return True
 
 
-def _set_value(metadata: Metadata, names: Metadata, target: str, value: Any) -> None:
+def _set_value(metadata: Metadata, names: EvaluatorNames, target: str, value: object) -> None:
     metadata[target] = value
     names[target] = value
 
@@ -52,9 +52,9 @@ def _set_value(metadata: Metadata, names: Metadata, target: str, value: Any) -> 
 def _append_text(
     action: Definition,
     metadata: Metadata,
-    names: Metadata,
+    names: EvaluatorNames,
     target: str,
-    evaluate_expression: Callable[[str], Any],
+    evaluate_expression: Callable[[str], object],
 ) -> None:
     text: object = action.get("value", "")
     expression = action.get("expression")
@@ -72,12 +72,12 @@ def _append_text(
 def _increment(
     action: Definition,
     metadata: Metadata,
-    names: Metadata,
+    names: EvaluatorNames,
     target: str,
 ) -> None:
     try:
-        increment = float(action.get("by", 1))
-        current = float(metadata.get(target) or 0)
+        increment = float_value(action.get("by", 1))
+        current = float_value(metadata.get(target) or 0)
         value = current + increment
         _set_value(metadata, names, target, int(value) if value == int(value) else value)
     except (ValueError, TypeError):
@@ -87,8 +87,8 @@ def _increment(
 def apply_automation_action(
     action: Definition,
     metadata: Metadata,
-    names: Metadata,
-    evaluate_expression: Callable[[str], Any],
+    names: EvaluatorNames,
+    evaluate_expression: Callable[[str], object],
 ) -> None:
     """Apply one automation action in place while respecting manual flags."""
     action_type = action.get("type", "update_property")

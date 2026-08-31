@@ -46,15 +46,106 @@ function errorMessage(error) {
 }
 
 /**
- * Register the seven extracted handlers once during setupIPC. The existing
- * open-form-filler handler remains in main.
+ * Form-filler's owner stays in this already packaged module so extraction does
+ * not introduce an undeclared runtime asset or require packaging changes.
+ * Preserve native URL/JSON failures: this expected wire shape is a declaration,
+ * not a new validator. Destructuring stays async and after the sender guard.
+ * @param {import('./ipc-contract').DesktopRequestArgs<'open-form-filler'>[0]} payload
+ * @param {import('./ipc-contract').FormFillerDependencies} dependencies
+ * @returns {Promise<void>}
+ */
+async function openFormFiller({ url, profile }, { createFormFillerWindow, log }) {
+  const target = new URL(url);
+  if (!['https:', 'http:'].includes(target.protocol) || target.username || target.password) {
+    throw new Error('Unsupported form URL');
+  }
+  log('Opening form filler');
+
+  const fillerWin = createFormFillerWindow({
+    width: 1000,
+    height: 800,
+    title: 'Gnosi Form Filler',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+    }
+  });
+
+  // Neither native promise was awaited in main. Register after loadURL, and
+  // retain the persistent listener plus serialization on every completed load.
+  fillerWin.loadURL(url);
+
+  fillerWin.webContents.on('did-finish-load', () => {
+    log('Form loaded, injecting script...');
+    const script = buildFormFillerScript(profile);
+    fillerWin.webContents.executeJavaScript(script);
+  });
+}
+
+/**
+ * This renderer program remains byte-identical to main's original template.
+ * JSON serialization is the only profile conversion; malformed profiles retain
+ * their existing serialization/renderer errors. Synthetic DOM tests execute
+ * the generated program: checkJs checks this builder, not code inside strings.
+ * @param {unknown} profile
+ * @returns {string}
+ */
+function buildFormFillerScript(profile) {
+  return `
+        (function() {
+          const profile = ${JSON.stringify(profile)};
+          ${''}
+          const fields = {
+            email: ['email', 'mail', 'correu', 'correo'],
+            first_name: ['first_name', 'nombre', 'nom', 'given-name'],
+            last_name: ['last_name', 'cognom', 'apellido', 'family-name'],
+            full_name: ['full_name', 'name', 'nombre_completo', 'nom_complet'],
+            phone: ['phone', 'tel', 'mobil', 'móvil', 'telefon'],
+            address: ['address', 'adreça', 'direccion', 'dirección', 'street'],
+            city: ['city', 'ciutat', 'poblacio', 'población'],
+            zip_code: ['zip', 'postal', 'codi_postal', 'cp'],
+            dni_nie: ['dni', 'nif', 'nie', 'document']
+          };
+
+          function fill() {
+            const inputs = document.querySelectorAll('input, textarea, select');
+            inputs.forEach(input => {
+              const name = (input.name || '').toLowerCase();
+              const id = (input.id || '').toLowerCase();
+              const placeholder = (input.placeholder || '').toLowerCase();
+              const label = input.labels && input.labels.length > 0 ? input.labels[0].innerText.toLowerCase() : '';
+              ${''}
+              for (const [key, patterns] of Object.entries(fields)) {
+                if (profile[key] && patterns.some(p => name.includes(p) || id.includes(p) || placeholder.includes(p) || label.includes(p))) {
+                  console.log('Gnosi: Filling field', key, 'into', name || id);
+                  input.value = profile[key];
+                  input.dispatchEvent(new Event('input', { bubbles: true }));
+                  input.dispatchEvent(new Event('change', { bubbles: true }));
+                  break;
+                }
+              }
+            });
+          }
+
+          // Run once and also observe for dynamic forms (like Google Forms sections)
+          fill();
+          setTimeout(fill, 1000);
+          setTimeout(fill, 3000);
+        })();
+      `;
+}
+
+/**
+ * Register all eight extracted handlers once during setupIPC.
  * Every implementation is linked to its exact channel arguments and result.
  * All mutable state and native capabilities remain owned by the caller.
  * @param {import('./ipc-contract').DesktopIpcDependencies} dependencies
  * @returns {void}
  */
 function registerIpcHandlers(dependencies) {
-  /** @type {Omit<import('./ipc-contract').DesktopRequestHandlers, 'open-form-filler'>} */
+  /** @type {import('./ipc-contract').DesktopRequestHandlers} */
   const handlers = {
     'get-app-version': () => dependencies.getAppVersion(),
     'set-application-menu': (payload = {}) => {
@@ -95,20 +186,23 @@ function registerIpcHandlers(dependencies) {
       }
       return dependencies.getUpdateState();
     },
+    'open-form-filler': payload => openFormFiller(payload, dependencies),
   };
 
   /**
-   * Guard before decoding (even before payload getters), then pass a validated
-   * tuple to the checked implementation. Electron's broad types stop here.
+   * Guard before decoding (even before payload getters). The listener declares
+   * the expected wire tuple; each channel retains its existing decoder policy.
+   * Form-filler deliberately passes its tuple unchanged: adding validation
+   * would change native errors, promise timing and ignored extra arguments.
    * @template {keyof typeof handlers} K
    * @param {K} channel
-   * @param {(...args: unknown[]) => import('./ipc-contract').DesktopRequestArgs<K>} decode
+   * @param {(...args: import('./ipc-contract').DesktopRequestArgs<K>) => import('./ipc-contract').DesktopRequestArgs<K>} decode
    * @returns {void}
    */
   function handle(channel, decode) {
     /**
      * @param {Electron.IpcMainInvokeEvent} event
-     * @param {unknown[]} args
+     * @param {import('./ipc-contract').DesktopRequestArgs<K>} args
      */
     function listener(event, ...args) {
       assertTrustedIpcSender(event, dependencies.mainWindows, dependencies.isDev);
@@ -124,6 +218,7 @@ function registerIpcHandlers(dependencies) {
   handle('download-update', readEmptyArgs);
   handle('get-backend-status', readEmptyArgs);
   handle('install-update', readEmptyArgs);
+  handle('open-form-filler', (...args) => args);
 }
 
 module.exports = { registerIpcHandlers };

@@ -134,6 +134,27 @@ Les huit noms historiques des fonctions auxiliaires privées restent de fines
 façades de compatibilité, et chaque dépendance remplaçable ou cache mutable est
 résolu par un port typé à liaison tardive.
 
+## Métadonnées ouvertes et HTTP validé
+
+Les documents internes du registre et des pages utilisent `dict[object, object]` :
+le YAML historique peut contenir des clés non textuelles et des valeurs
+d'extensions sans schéma déclaré. Les vérifications de dictionnaire préservent
+l'identité ; les fusions de fichiers annexes et la correspondance des noms
+conservent les champs inconnus. Cela se distingue de la validation HTTP publique.
+`PageInfo` conserve sa validation initiale des clés textuelles et son schéma
+OpenAPI, tandis que la construction et l'affectation de l'index préservent le
+document ouvert. Les caches de réponse gardent les objets de page existants
+sans cloner leurs métadonnées ni leurs verrous.
+
+`backend/utils/open_values.py` isole les opérations natives sur des entrées opaques.
+Ses exceptions de typage, limitées aux entrées, préservent les protocoles Python
+d'itération, de conversion numérique, de longueur et de correspondance ainsi
+que leurs erreurs ; elles n'affirment jamais la structure d'un enregistrement
+retourné. Les tests comparent le moment des appels, les séquences historiques,
+les valeurs mal formées et l'identité des objets partagés. Cela élimine les
+espaces de noms dynamiques larges de la composition du registre et des fondations
+des pages, pas tous les types historiques du backend.
+
 ## Frontière du backend
 
 La lecture et l'écriture des pages, les aperçus, la duplication, l'historique
@@ -333,8 +354,8 @@ déduplication par page. Le routeur de compatibilité injecte les ports du Vault
 actif, du registre, du calendrier et des caches ; aucun de ces services
 n'importe donc la façade HTTP.
 
-Le module d'exécution du registre précise une seule fois le type de son routeur
-à liaison tardive, utilise le décorateur standard typé de gestionnaire de
+Le module d'exécution du registre référence les propriétaires typés réels des
+callbacks et de l'état, utilise le décorateur standard de gestionnaire de
 contexte pour les cycles de mutation et traite l'absence de Vault actif comme
 une absence de racine des pièces jointes cloud. L'ordre des routes de registre
 et de tables, le verrouillage, les caches et les candidats de pièces jointes

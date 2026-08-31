@@ -122,6 +122,23 @@ document caches. The eight historical private helper names remain thin
 compatibility facades, and every replaceable collaborator or mutable cache is
 resolved through a late-bound typed port.
 
+## Open metadata and validated HTTP
+
+Internal registry and page documents use `dict[object, object]`: historic YAML
+can contain non-text keys and extension values without a declared schema.
+Dictionary guards preserve identity; sidecar merges and storage-name mapping
+retain unknown fields. This is distinct from public HTTP validation.
+`PageInfo` retains its original string-key validation and OpenAPI schema while
+index construction and assignment preserve the open document. Page-response
+caches store the existing page objects without cloning their metadata or locks.
+
+`backend/utils/open_values.py` isolates native operations on opaque inputs.
+Its input-only typing exceptions preserve Python's iteration, numeric, length
+and mapping protocols and their errors; they never assert a returned record
+shape. Tests compare callback timing, legacy sequences, malformed values and
+shared-object identity. This removes broad dynamic namespaces from registry
+and page-foundation composition, not every remaining legacy type in the backend.
+
 ## Backend boundary
 
 Page reads and writes, previews, duplication, history, and trash are implemented
@@ -281,8 +298,8 @@ semantic table tags, including per-page deduplication. The
 compatibility router injects the active-vault, registry, calendar and cache
 ports, so none of these services imports the HTTP facade.
 
-The registry runtime narrows its late-bound router once, uses the typed standard
-context-manager decorator for mutation cycles and treats a missing active Vault
+The registry runtime references the actual typed callback and state owners,
+uses the standard context-manager decorator for mutation cycles and treats a missing active Vault
 as an absent cloud attachment root. Registry/table route order, locking, caches
 and provider-specific attachment candidates remain unchanged.
 

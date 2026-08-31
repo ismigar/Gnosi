@@ -15,7 +15,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Protocol, cast
 from urllib.parse import urlencode
 
 from backend.config.logger_config import get_logger
@@ -24,6 +24,9 @@ from backend.domains.llm_wiki import ingestion as llm_wiki_ingestion
 from backend.domains.llm_wiki import legacy_ports
 from backend.domains.llm_wiki import planning as llm_wiki_planning
 from backend.domains.llm_wiki import writing as llm_wiki_writing
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import RecordReader
+from backend.domains.vault.registry.state import RegistryData
 from backend.services import (
     llm_wiki_config as llm_wiki_config,
     llm_wiki_extractors as llm_wiki_extractors,
@@ -116,7 +119,13 @@ def _first_value(metadata: dict[str, Any], keys: tuple[str, ...]) -> Any:
     return None
 
 
-def _fonts_ids(meta: dict[str, Any]) -> List[str]:
+class _MetadataItems(Protocol):
+    """Read-only metadata entries consumed by source-relation matching."""
+
+    def items(self) -> Iterable[tuple[object, object]]: ...
+
+
+def _fonts_ids(meta: _MetadataItems) -> List[str]:
     """Extract linked page ids from any known source relation metadata."""
     values: list[Any] = []
     for key, raw in (meta or {}).items():
@@ -268,14 +277,14 @@ def _base_note_metadata(
     source_title: str,
     source_id: str,
     position: Optional[int] = None,
-) -> dict[str, Any]:
+) -> PageMetadata:
     """Build metadata shared by every generated reading note."""
     note_type = str(note.get("type") or "").strip().lower()
     if note_type not in NOTE_TYPES:
         note_type = "concepte"
     tags = note.get("tags")
     tags = [str(tag).strip() for tag in tags if str(tag).strip()] if isinstance(tags, list) else []
-    metadata: dict[str, Any] = {
+    metadata: PageMetadata = {
         "title": str(note.get("title") or "").strip(),
         "note_type": GENERATED_NOTE_TYPE,
         "Tipus": note_type,
@@ -361,9 +370,9 @@ def _replace_note_block(body: str, managed_key: str, content: str) -> str:
 
 
 def _apply_dimensions_to_metadata(
-    metadata: dict[str, Any],
+    metadata: PageMetadata,
     dimensions: dict[str, Any],
-    props_by_id: dict[str, dict[str, Any]],
+    props_by_id: dict[str, RegistryData],
 ) -> None:
     for field_id, value in dimensions.items():
         prop = props_by_id.get(str(field_id))
@@ -578,7 +587,7 @@ def _dimension_context(
     config: dict[str, Any],
     source_table: dict[str, Any],
     source_config: dict[str, Any],
-    metadata: dict[str, Any],
+    metadata: RecordReader,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     from backend.api.vault_routes import _get_pages_for_table, _table_by_id
 
@@ -615,9 +624,9 @@ def _dimension_options(
 
 
 def _metadata_property_value(
-    metadata: dict[str, Any],
+    metadata: RecordReader,
     prop: dict[str, Any],
-) -> Any:
+) -> object:
     return llm_wiki_dimensions.metadata_property_value(metadata, prop)
 
 

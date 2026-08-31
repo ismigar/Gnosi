@@ -10,9 +10,11 @@ from pathlib import Path
 
 from fastapi import BackgroundTasks, HTTPException
 
+from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageSaveRequest
 
-Metadata = dict[str, object]
+Metadata = RegistryData
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +60,11 @@ async def _prepare_metadata(
     user_id: str | None,
     dependencies: CreatePageDependencies,
 ) -> Metadata:
-    metadata: Metadata = request.metadata.copy()
+    copied_metadata: object = request.metadata.copy()
+    # The public model validates a dictionary. Keep its original copy operation
+    # before exposing the document to callbacks that preserve open YAML keys.
+    assert is_record(copied_metadata)
+    metadata = copied_metadata
     metadata["id"] = page_id
     metadata = dependencies.normalize_metadata(metadata)
     metadata, table = dependencies.prepare_table_metadata(metadata)

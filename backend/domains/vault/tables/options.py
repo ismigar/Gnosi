@@ -8,12 +8,15 @@ from collections.abc import Awaitable, Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import HTTPException
 
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
+from backend.domains.vault.tables.catalogs.types import Option
+from backend.utils.open_values import iterable_values
 
 
 class PageFinder(Protocol):
@@ -37,11 +40,11 @@ class OptionDependencies:
     save_page: Callable[[Path, RegistryData, str], object]
     refresh_page_cache: Callable[[Path, RegistryData, str, PageInfo], None]
     invalidate_page_responses: Callable[[], None]
-    read_prop_value: Callable[[RegistryData, RegistryData], object]
+    read_prop_value: Callable[[object, RegistryData], object]
     get_prop_config: Callable[[RegistryData], RegistryData]
-    get_prop_options: Callable[[RegistryData, RegistryData | None], list[RegistryData]]
-    set_prop_options: Callable[[RegistryData, list[RegistryData]], None]
-    normalize_options: Callable[[object], list[RegistryData]]
+    get_prop_options: Callable[[RegistryData, object], list[Option]]
+    set_prop_options: Callable[[RegistryData, list[Option]], None]
+    normalize_options: Callable[[object], list[Option]]
     auto_color: Callable[[str], str]
     is_global_status_prop: Callable[[RegistryData], bool]
     status_catalog_ref: str
@@ -50,7 +53,7 @@ class OptionDependencies:
 
 def _registry_items(registry: RegistryData, key: str) -> list[RegistryData]:
     raw_items = registry.get(key, [])
-    return [item for item in raw_items if isinstance(item, dict)]
+    return [item for item in iterable_values(raw_items) if is_record(item)]
 
 
 def find_table_and_property(
@@ -90,7 +93,7 @@ def option_value_keys(prop: RegistryData) -> list[str]:
     if prop.get("name"):
         keys.append(str(prop["name"]))
     raw_aliases = prop.get("aliases") or []
-    if isinstance(raw_aliases, list):
+    if is_object_list(raw_aliases):
         keys.extend(str(alias) for alias in raw_aliases if alias)
     return keys
 
@@ -109,7 +112,7 @@ def global_status_members(
 
 
 def _rewrite_multi_value(value: object, old: str, new: str | None) -> list[str] | None:
-    if isinstance(value, list):
+    if is_object_list(value):
         values = [str(item) for item in value]
     elif value:
         values = [item.strip() for item in str(value).split(",") if item.strip()]
@@ -223,7 +226,7 @@ async def table_option_usage(
                 continue
             values = (
                 [str(item).strip() for item in value]
-                if isinstance(value, list)
+                if is_object_list(value)
                 else [str(value).strip()]
             )
             for item in values:
@@ -239,7 +242,7 @@ async def table_option_usage(
 def _status_options(
     registry: RegistryData,
     dependencies: OptionDependencies,
-) -> list[RegistryData]:
+) -> list[Option]:
     return dependencies.get_prop_options(
         {"config": {"catalog_ref": dependencies.status_catalog_ref}},
         registry.get("option_catalogs"),
@@ -254,7 +257,7 @@ def _rename_global_option(
 ) -> list[tuple[RegistryData, RegistryData]]:
     options = _status_options(registry, dependencies)
     names = {str(option["name"]) for option in options}
-    renamed: list[RegistryData] = []
+    renamed: list[Option] = []
     for option in options:
         if option["name"] == old:
             if new in names:
@@ -262,7 +265,7 @@ def _rename_global_option(
             option = {**option, "name": new}
         renamed.append(option)
     catalogs = registry.setdefault("option_catalogs", {})
-    if not isinstance(catalogs, dict):
+    if not is_record(catalogs):
         catalogs = {}
         registry["option_catalogs"] = catalogs
     catalogs[dependencies.status_catalog_ref] = renamed
@@ -285,7 +288,7 @@ def _rename_local_option(
 ) -> list[tuple[RegistryData, RegistryData]]:
     options = dependencies.get_prop_options(prop, None)
     names = {str(option["name"]) for option in options}
-    renamed: list[RegistryData] = []
+    renamed: list[Option] = []
     for option in options:
         if option["name"] == old:
             if new in names:
@@ -346,7 +349,7 @@ async def rename_table_option(
     catalogs = registry.get("option_catalogs", {})
     response_options = (
         catalogs.get(dependencies.status_catalog_ref)
-        if dependencies.is_global_status_prop(prop) and isinstance(catalogs, dict)
+        if dependencies.is_global_status_prop(prop) and is_record(catalogs)
         else None
     )
     return {
@@ -365,7 +368,7 @@ def _remove_global_option(
         option for option in _status_options(registry, dependencies) if option["name"] != value
     ]
     catalogs = registry.setdefault("option_catalogs", {})
-    if not isinstance(catalogs, dict):
+    if not is_record(catalogs):
         catalogs = {}
         registry["option_catalogs"] = catalogs
     catalogs[dependencies.status_catalog_ref] = options
@@ -444,7 +447,7 @@ async def remove_table_option(
     catalogs = registry.get("option_catalogs", {})
     response_options = (
         catalogs.get(dependencies.status_catalog_ref)
-        if dependencies.is_global_status_prop(prop) and isinstance(catalogs, dict)
+        if dependencies.is_global_status_prop(prop) and is_record(catalogs)
         else None
     )
     return {
@@ -465,7 +468,7 @@ async def _recover_status_values(
         rows = await asyncio.to_thread(dependencies.pages_for_table, table_id)
         for row in rows:
             value = dependencies.read_prop_value(row.metadata or {}, prop)
-            values = value if isinstance(value, list) else [value]
+            values = value if is_object_list(value) else [value]
             for item in values:
                 clean = str(item or "").strip()
                 if clean and clean not in known_names:
@@ -475,13 +478,13 @@ async def _recover_status_values(
 
 
 def _persist_recovered_status_values(
-    status_options: list[RegistryData],
+    status_options: list[Option],
     dependencies: OptionDependencies,
 ) -> RegistryData:
     with dependencies.registry_mutation():
         registry = dependencies.load_registry()
         catalogs = registry.setdefault("option_catalogs", {})
-        if not isinstance(catalogs, dict):
+        if not is_record(catalogs):
             catalogs = {}
             registry["option_catalogs"] = catalogs
         catalogs[dependencies.status_catalog_ref] = status_options
@@ -494,7 +497,7 @@ async def list_option_catalogs(
 ) -> RegistryData:
     registry = dependencies.load_registry()
     raw_catalogs = registry.get("option_catalogs") or {}
-    catalogs = raw_catalogs if isinstance(raw_catalogs, dict) else {}
+    catalogs = raw_catalogs if is_record(raw_catalogs) else {}
     status_options = dependencies.normalize_options(catalogs.get(dependencies.status_catalog_ref))
     status_names = {str(option["name"]) for option in status_options}
     status_members = global_status_members(registry, dependencies)
@@ -516,7 +519,7 @@ async def list_option_catalogs(
         "catalogs": {
             str(name): dependencies.normalize_options(options)
             for name, options in catalogs.items()
-            if isinstance(options, list)
+            if is_object_list(options)
         }
     }
 
@@ -533,7 +536,7 @@ async def put_option_catalog(
     with dependencies.registry_mutation():
         registry = dependencies.load_registry()
         catalogs = registry.setdefault("option_catalogs", {})
-        if not isinstance(catalogs, dict):
+        if not is_record(catalogs):
             catalogs = {}
             registry["option_catalogs"] = catalogs
         catalogs[clean] = options
@@ -548,7 +551,7 @@ async def delete_option_catalog(
     with dependencies.registry_mutation():
         registry = dependencies.load_registry()
         raw_catalogs = registry.get("option_catalogs") or {}
-        catalogs = raw_catalogs if isinstance(raw_catalogs, dict) else {}
+        catalogs = raw_catalogs if is_record(raw_catalogs) else {}
         if name not in catalogs:
             raise HTTPException(status_code=404, detail="Catalog not found")
         referenced_by = [

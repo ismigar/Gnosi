@@ -37,7 +37,7 @@ def build_test_catalog(app_root: Path) -> str:
     python_tests = [
         path
         for path in python_files(app_root)
-        if "tests" in path.parts or TEST_NAME_RE.match(path.name)
+        if "tests" in path.relative_to(app_root).parts or TEST_NAME_RE.match(path.name)
     ]
     frontend_tests = [
         path
@@ -51,7 +51,7 @@ def build_test_catalog(app_root: Path) -> str:
     for path in frontend_tests:
         text = read_text(path)
         cases = len(re.findall(r"\b(?:it|test)\s*\(", text))
-        runner = "Playwright" if "e2e" in path.parts else "Vitest"
+        runner = "Playwright" if "e2e" in path.relative_to(app_root).parts else "Vitest"
         rows.append((runner, path, cases, "call-pattern estimate"))
     rows.sort(key=lambda item: (item[0], relative_posix(item[1], app_root)))
 
@@ -104,7 +104,7 @@ def build_skill_catalog(app_root: Path) -> str:
             sorted(
                 path
                 for path in (skill_dir / "scripts").glob("**/*")
-                if path.is_file() and "__pycache__" not in path.parts
+                if path.is_file() and "__pycache__" not in path.relative_to(skill_dir).parts
             )
             if (skill_dir / "scripts").exists()
             else []
@@ -144,7 +144,8 @@ def build_repository_inventory(app_root: Path, project_root: Path) -> str:
     """Generate high-level owned-source and documentation counts."""
     backend_all = python_files(app_root / "backend")
     backend_tests = [
-        path for path in backend_all if "tests" in path.parts or TEST_NAME_RE.match(path.name)
+        path for path in backend_all
+        if "tests" in path.relative_to(app_root).parts or TEST_NAME_RE.match(path.name)
     ]
     frontend_all = frontend_files(app_root / "frontend" / "src")
     frontend_tests = [path for path in frontend_all if TEST_NAME_RE.match(path.name)]
@@ -201,7 +202,7 @@ def build_repository_inventory(app_root: Path, project_root: Path) -> str:
     for source_root in owned_roots:
         root = app_root / source_root
         count = (
-            sum(1 for path in root.rglob("*") if is_owned_inventory_file(path))
+            sum(1 for path in root.rglob("*") if is_owned_inventory_file(path, root=app_root))
             if root.exists()
             else 0
         )

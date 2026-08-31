@@ -32,6 +32,7 @@ if str(_ROOT) not in sys.path:
 
 from backend.services.notion_clone import clone_page_id, clone_table_id  # noqa: E402
 from backend.config.data_dir import resolve_data_dir  # noqa: E402
+from backend.domains.vault.registry.records import is_record  # noqa: E402
 from backend.services.table_system_dates import (  # noqa: E402
     ensure_system_date_properties,
     property_role,
@@ -310,6 +311,8 @@ def migrate_registry(registry: Record, locale: str) -> tuple[Record, dict[str, i
     replacements_by_table: dict[str, dict[str, str]] = {}
     for table in _records(migrated.get("tables", []) or [], "Registry tables"):
         before = deepcopy(_records(table.get("properties") or [], "Table properties"))
+        # _records has already validated this dictionary's text keys.
+        assert is_record(table)
         details = _record(ensure_system_date_properties(table, locale), "System date changes")
         replacements: dict[str, str] = {}
         for role, raw_detail in details.items():

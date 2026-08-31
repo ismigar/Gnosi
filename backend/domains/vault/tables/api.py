@@ -7,7 +7,9 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import iterable_values
 
 
 @dataclass(frozen=True)
@@ -23,7 +25,7 @@ async def list_databases(
 ) -> list[RegistryData]:
     registry = dependencies.load_registry()
     raw_databases = registry.get("databases", [])
-    databases = [item for item in raw_databases if isinstance(item, dict)]
+    databases = [item for item in iterable_values(raw_databases) if is_record(item)]
     return sorted(databases, key=dependencies.sort_key)
 
 
@@ -36,12 +38,12 @@ async def create_database(
         if "id" not in database:
             database["id"] = str(uuid.uuid4())
         raw_databases = registry.setdefault("databases", [])
-        databases = raw_databases if isinstance(raw_databases, list) else []
+        databases = raw_databases if is_object_list(raw_databases) else []
         existing_index = next(
             (
                 index
                 for index, item in enumerate(databases)
-                if isinstance(item, dict) and item["id"] == database["id"]
+                if is_record(item) and item["id"] == database["id"]
             ),
             None,
         )
@@ -63,9 +65,9 @@ async def delete_database(
         raw_databases = registry.get("databases", [])
         raw_tables = registry.get("tables", [])
         raw_views = registry.get("views", [])
-        databases = [item for item in raw_databases if isinstance(item, dict)]
-        tables = [item for item in raw_tables if isinstance(item, dict)]
-        views = [item for item in raw_views if isinstance(item, dict)]
+        databases = [item for item in iterable_values(raw_databases) if is_record(item)]
+        tables = [item for item in iterable_values(raw_tables) if is_record(item)]
+        views = [item for item in iterable_values(raw_views) if is_record(item)]
         _remove_database_children(
             registry,
             database_id,
@@ -98,8 +100,8 @@ async def list_tables(
     raw_tables = registry.get("tables", [])
     tables = [
         item
-        for item in raw_tables
-        if isinstance(item, dict) and str(item.get("id") or "").strip().lower() != "wiki"
+        for item in iterable_values(raw_tables)
+        if is_record(item) and str(item.get("id") or "").strip().lower() != "wiki"
     ]
     if database_id:
         tables = [item for item in tables if item.get("database_id") == database_id]

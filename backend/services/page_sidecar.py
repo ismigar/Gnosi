@@ -16,9 +16,11 @@ import json
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from backend.config.logger_config import get_logger
+from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.registry.state import RegistryData
 from backend.utils.safe_io import safe_write_json
 
 log = get_logger(__name__)
@@ -28,10 +30,10 @@ SIDECAR_STATIC_KEYS = frozenset({"is_template", "is_default_template"})
 
 # Subfolder inside `.gnosi/` for the sidecars.
 SIDECAR_SUBDIR = "page_meta"
-Metadata = dict[str, Any]
+Metadata = RegistryData
 
 
-def is_sidecar_key(key: str) -> bool:
+def is_sidecar_key(key: object) -> bool:
     """Indicates whether a metadata key is internal and must go to the sidecar."""
     if not isinstance(key, str):
         return False
@@ -41,14 +43,14 @@ def is_sidecar_key(key: str) -> bool:
     return key.endswith("_manual")
 
 
-def split_metadata(metadata: Metadata) -> tuple[Metadata, Metadata]:
+def split_metadata(metadata: object) -> tuple[Metadata, Metadata]:
     """Splits the dict into (frontmatter_meta, sidecar_meta).
 
     The frontmatter contains everything semantic for the user; the sidecar
     only the internal flags. The original dict is not modified.
 
     """
-    if not isinstance(metadata, dict):
+    if not is_record(metadata):
         return {}, {}
     fm: Metadata = {}
     sc: Metadata = {}
@@ -133,8 +135,8 @@ def read_sidecar(vault_root: Path, page_id: str) -> Metadata:
         return {}
     try:
         with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, dict):
+            data: object = json.load(f)
+        if is_record(data):
             return data
         log.warning(f"Sidecar at {path} is not a dictionary; ignoring it")
         return {}
@@ -178,7 +180,7 @@ def delete_sidecar(vault_root: Path, page_id: str) -> None:
             log.warning(f"Could not delete sidecar {path}: {e}")
 
 
-def apply_sidecar_to(metadata: Metadata, file_path: Optional[Path]) -> Metadata:
+def apply_sidecar_to(metadata: object, file_path: Optional[Path]) -> Metadata:
     """Given metadata just parsed from the frontmatter, merges in the
     corresponding sidecar if the vault root can be derived and the page has an id.
 
@@ -186,8 +188,8 @@ def apply_sidecar_to(metadata: Metadata, file_path: Optional[Path]) -> Metadata:
     merged). Does not modify the input in place.
 
     """
-    if not isinstance(metadata, dict) or not metadata:
-        return metadata if isinstance(metadata, dict) else {}
+    if not is_record(metadata) or not metadata:
+        return metadata if is_record(metadata) else {}
     page_id = metadata.get("id")
     if not page_id:
         return metadata
@@ -206,7 +208,7 @@ def apply_sidecar_to(metadata: Metadata, file_path: Optional[Path]) -> Metadata:
     return merged
 
 
-def persist_sidecar_from(metadata: Metadata, file_path: Optional[Path]) -> Metadata:
+def persist_sidecar_from(metadata: object, file_path: Optional[Path]) -> Metadata:
     """Given the full metadata of a page, writes the sidecar and returns the
     clean metadata (without the sidecar keys) to persist in the frontmatter.
 
@@ -216,11 +218,11 @@ def persist_sidecar_from(metadata: Metadata, file_path: Optional[Path]) -> Metad
 
     """
     fm, sc = split_metadata(metadata)
-    page_id = metadata.get("id") if isinstance(metadata, dict) else None
+    page_id = metadata.get("id") if is_record(metadata) else None
     vault_root = vault_root_for(file_path) if file_path else None
     if not page_id or not vault_root:
         # Without a stable identifier or without a vault we can't persist the sidecar.
         # We return the full metadata so the write doesn't lose flags.
-        return dict(metadata) if isinstance(metadata, dict) else {}
+        return dict(metadata) if is_record(metadata) else {}
     write_sidecar(vault_root, str(page_id), sc)
     return fm

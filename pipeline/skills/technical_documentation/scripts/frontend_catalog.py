@@ -64,7 +64,7 @@ def resolve_frontend_import(
         if (
             choice.resolve().is_relative_to(source_root)
             and choice.suffix in SOURCE_SUFFIXES
-            and is_owned_inventory_file(choice)
+            and is_owned_inventory_file(choice, root=source_root)
         ):
             return relative_posix(choice, app_root)
     return source

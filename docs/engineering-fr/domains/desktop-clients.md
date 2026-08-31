@@ -151,12 +151,18 @@ la session au lieu de transmettre les en-têtes bruts de cookies du processus
 de rendu. Préservez ce comportement lors de la modification du routage ou des
 adaptateurs de diffusion en continu.
 
-Sept gestionnaires extraits disposent de contrats de requête et de réponse
-vérifiés. Le huitième, consacré au remplissage de formulaires, reste dans
-`main.js` et valide son émetteur IPC avant d’ouvrir une fenêtre distincte sans
-pont de préchargement. N’en déduisez pas que tout le processus principal
-bénéficie d’un typage strict ni que des destinations arbitraires sont
-autorisées pour les formulaires. Les abonnements de préchargement renvoient des
+Les huit gestionnaires extraits disposent de contrats de requête et de réponse
+vérifiés. Le remplissage de formulaires réside dans `ipc-handlers.js`, déjà inclus
+dans le paquet ; le processus principal fournit la fabrique native de fenêtres
+et le journal. La validation de l'émetteur précède toujours l'accès au payload
+et l'ouverture d'une fenêtre distincte isolée sans pont de préchargement.
+La validation des URL, l'ordre des événements, la sérialisation du profil et le
+programme injecté restent inchangés et sont couverts par des tests différentiels
+synthétiques. Le programme contenu dans la chaîne n'est pas vérifié statiquement.
+Cela ne prouve ni le comportement sur des sites réels, ni le typage complet du
+processus principal, ni l'acceptation des installateurs, ni l'autorisation de
+destinations arbitraires de formulaires.
+Les abonnements de préchargement renvoient des
 fonctions de désinscription idempotentes ; les méthodes de suppression
 compatibles restent disponibles pour les anciens processus de rendu.
 

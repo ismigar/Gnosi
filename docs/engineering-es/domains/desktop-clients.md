@@ -147,11 +147,17 @@ cookies de la sesión en lugar de reenviar las cabeceras de cookies sin procesar
 del proceso de renderizado. Conserva este comportamiento al modificar el
 enrutamiento o los adaptadores de transmisión en continuo.
 
-Siete gestores extraídos tienen contratos de solicitud y respuesta comprobados.
-El octavo, el de rellenado de formularios, permanece en `main.js` y valida su
-emisor IPC antes de abrir una ventana independiente sin puente de precarga.
-No deduzcas de ello que todo el proceso principal tiene tipado estricto ni que
-se autorizan destinos arbitrarios para los formularios. Las suscripciones de
+Los ocho gestores extraídos tienen contratos de solicitud y respuesta comprobados.
+El rellenado de formularios reside en `ipc-handlers.js`, ya incluido en el paquete;
+el proceso principal aporta la fábrica nativa de ventanas y el registro de mensajes.
+La validación del emisor sigue precediendo al acceso al payload y a la apertura
+de una ventana independiente y aislada sin puente de precarga. La validación de
+URL, el orden de eventos, la serialización del perfil y el programa inyectado
+no cambian y cuentan con pruebas diferenciales sintéticas. El programa dentro de
+la cadena no se comprueba estáticamente. Esto no acredita el comportamiento en
+webs reales, el tipado completo del proceso principal, la aceptación de
+instaladores ni la autorización de destinos arbitrarios para formularios.
+Las suscripciones de
 precarga devuelven funciones de cancelación idempotentes; los métodos de
 eliminación compatibles siguen disponibles para procesos de renderizado antiguos.
 

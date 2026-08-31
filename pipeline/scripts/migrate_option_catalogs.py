@@ -58,6 +58,7 @@ if str(_ROOT) not in sys.path:
 
 from backend.services import action_rules  # noqa: E402
 from backend.services import option_catalogs as oc  # noqa: E402
+from backend.domains.vault.registry.records import RecordReader, is_record  # noqa: E402
 
 # Frontmatter regex (same form as parse_frontmatter, without depending on the
 # full backend).
@@ -203,6 +204,8 @@ def merge_values_into_catalogs(
         missing = [name for name, _n in counts.most_common() if name not in have]
         if not missing:
             continue
+        # The strict JSON check above remains authoritative; retain its object.
+        assert is_record(prop)
         oc.set_prop_options(
             prop, oc.normalize_options([*existing, *missing])
         )
@@ -210,7 +213,7 @@ def merge_values_into_catalogs(
     return merged
 
 
-def promote_status_type(table: dict[str, object]) -> bool:
+def promote_status_type(table: RecordReader) -> bool:
     """Step 4b: the field with the status role (select) becomes `type: status`."""
     prop = oc.find_role_prop(table, oc.ROLE_STATUS)
     if not prop or prop.get("type") == "status":
@@ -236,6 +239,8 @@ def _migrate_tables(registry: dict[str, object], vault_root: Path) -> int:
                 f"existing values added to the '{field_name}' catalog ({len(missing)}): {shown}"
             )
 
+        # _records has validated text keys; setters mutate that same dictionary.
+        assert is_record(table)
         if oc.normalize_table_options(table):
             report.append("catalogs normalized to the rich format")
         if oc.assign_roles(table):

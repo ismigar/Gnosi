@@ -16,13 +16,18 @@ new automations trigger (directive §6).
 Pure module: no I/O or backend imports. Whoever applies the effects (writing
 metadata, saving the registry if an option had to be created) is the caller.
 """
+
 import copy
-from typing import Any, TypeAlias, cast
+from collections.abc import Sequence
+from typing import TypeAlias
 
+from backend.domains.vault.registry.records import RecordReader, is_record
+from backend.domains.vault.registry.state import RegistryData
 from backend.services import option_catalogs as oc
+from backend.utils.open_values import contains_value, get_value, iterable_values, set_value
 
-JsonMap: TypeAlias = dict[str, Any]
-Property: TypeAlias = dict[str, Any]
+JsonMap: TypeAlias = RegistryData
+Property: TypeAlias = RegistryData
 
 ACTION_TRANSLATE = "translate_row"
 ACTION_SYNC_DRUPAL = "sync_drupal"
@@ -44,9 +49,7 @@ DEFAULT_ACTION_RULES: dict[str, JsonMap] = {
             "source": [{"role": "status", "set": oc.STATUS_TRANSLATED}],
             "created": [{"role": "status", "set": oc.STATUS_DRAFT}],
         },
-        "on_stale": [
-            {"target": "translations", "role": "status", "set": oc.STATUS_DRAFT}
-        ],
+        "on_stale": [{"target": "translations", "role": "status", "set": oc.STATUS_DRAFT}],
     },
     ACTION_SYNC_DRUPAL: {
         "requires": [
@@ -85,13 +88,13 @@ def _action_enabled(table: JsonMap, action: str) -> bool:
     return False
 
 
-def get_action_rules(table: JsonMap, action: str) -> JsonMap | None:
+def get_action_rules(table: JsonMap, action: str) -> object:
     """Rules block for an action: the registry's if present; otherwise, the default
     when the feature is active (tables not yet re-saved with the seed).
     None if the action doesn't apply to the table."""
     rules = table.get("action_rules")
-    if isinstance(rules, dict) and isinstance(rules.get(action), dict):
-        return cast(JsonMap, rules[action])
+    if is_record(rules) and is_record(rules.get(action)):
+        return rules[action]
     if _action_enabled(table, action):
         return DEFAULT_ACTION_RULES.get(action)
     return None
@@ -106,15 +109,15 @@ def ensure_action_rules(table: JsonMap) -> bool:
         if not _action_enabled(table, action):
             continue
         rules = table.setdefault("action_rules", {})
-        if not isinstance(rules.get(action), dict):
+        if not is_record(get_value(rules, action)):
             # Deep copy: the registry block is hand-editable and must not
             # share references with the module's default.
-            rules[action] = copy.deepcopy(DEFAULT_ACTION_RULES[action])
+            set_value(rules, action, copy.deepcopy(DEFAULT_ACTION_RULES[action]))
             changed = True
     return changed
 
 
-def read_prop_value(metadata: JsonMap, prop: Property) -> Any:
+def read_prop_value(metadata: object, prop: Property) -> object:
     """Value of a property in the frontmatter (priority id → name → alias),
     same convention as the rest of the backend."""
     keys: list[str] = []
@@ -124,16 +127,16 @@ def read_prop_value(metadata: JsonMap, prop: Property) -> Any:
         keys.append(field_id)
     if isinstance(name, str) and name:
         keys.append(name)
-    keys.extend(a for a in (prop.get("aliases") or []) if isinstance(a, str) and a)
+    keys.extend(a for a in iterable_values(prop.get("aliases") or []) if isinstance(a, str) and a)
     for k in keys:
-        if k in (metadata or {}):
-            v = metadata.get(k)
+        if contains_value(metadata or {}, k):
+            v = get_value(metadata, k)
             if v not in (None, "", [], {}):
                 return v
     return None
 
 
-def _values_of(raw: Any) -> list[str]:
+def _values_of(raw: object) -> list[str]:
     if isinstance(raw, list):
         return [str(v).strip() for v in raw if str(v).strip()]
     if raw is None:
@@ -142,28 +145,26 @@ def _values_of(raw: Any) -> list[str]:
     return [s] if s else []
 
 
-def _group_of(option_name: str, options: list[JsonMap]) -> str:
+def _group_of(option_name: str, options: Sequence[RecordReader]) -> str:
     for o in options:
         if o.get("name") == option_name:
             return str(o.get("group") or "")
     return ""
 
 
-def check_requires(
-    table: JsonMap, action: str, metadata: JsonMap
-) -> tuple[bool, str | None]:
+def check_requires(table: JsonMap, action: str, metadata: object) -> tuple[bool, str | None]:
     """Evaluates an action's `requires` conditions against a record.
 
     Returns `(ok, reason)`. If the table has no rules for the action, or a
     condition can't be evaluated (role field missing, empty value), it passes:
     the rules restrict declared states, not the absence of data.
-    
+
     """
     rules = get_action_rules(table, action)
     if not rules:
         return True, None
-    for cond in rules.get("requires") or []:
-        if not isinstance(cond, dict):
+    for cond in iterable_values(get_value(rules, "requires") or []):
+        if not is_record(cond):
             continue
         role = str(cond.get("role") or "").strip()
         prop = oc.find_role_prop(table, role) if role else None
@@ -193,7 +194,7 @@ def check_requires(
     return True, None
 
 
-def effect_write_key(metadata: JsonMap, prop: Property) -> str | None:
+def effect_write_key(metadata: object, prop: Property) -> str | None:
     """Key where an effect's value is written: the one the frontmatter ALREADY uses for
     that field (id, name, or alias), so as not to create duplicate keys; if the row
     has none, the stable-id→name convention."""
@@ -206,11 +207,11 @@ def effect_write_key(metadata: JsonMap, prop: Property) -> str | None:
         candidates.append(name)
     candidates.extend(
         alias
-        for alias in (prop.get("aliases") or [])
+        for alias in iterable_values(prop.get("aliases") or [])
         if isinstance(alias, str) and alias
     )
     for k in candidates:
-        if k in (metadata or {}):
+        if contains_value(metadata or {}, k):
             return k
     fallback = field_id or name
     return fallback if isinstance(fallback, str) else None
@@ -225,13 +226,13 @@ def status_effect(
     `effect_write_key`. If the option to write isn't in the field's catalog, it gets
     ADDED to it (directive §4.1.5: a rule never fails due to an incomplete catalog) —
     `catalog_changed=True` tells the caller it must persist the registry.
-    
+
     """
     rules = get_action_rules(table, action)
     if not rules:
         return None, None, False
-    for eff in (rules.get("effects") or {}).get(target) or []:
-        if not isinstance(eff, dict):
+    for eff in iterable_values(get_value(get_value(rules, "effects") or {}, target) or []):
+        if not is_record(eff):
             continue
         role = str(eff.get("role") or "").strip()
         value = str(eff.get("set") or "").strip()
@@ -245,12 +246,12 @@ def status_effect(
             # route persists the same value in the root catalog. The loader
             # removes this compatibility copy on the next registry read.
             cfg = prop.setdefault("config", {})
-            local_options = oc.normalize_options(cfg.get("options"))
+            local_options = oc.normalize_options(get_value(cfg, "options"))
             if value in {option["name"] for option in local_options}:
                 catalog_changed = False
             else:
                 local_options.append({"name": value, "color": oc.auto_color(value)})
-                cfg["options"] = local_options
+                set_value(cfg, "options", local_options)
                 catalog_changed = True
         else:
             catalog_changed = oc.ensure_options_exist(prop, [(value, "")])
@@ -264,8 +265,8 @@ def on_stale_effect(table: JsonMap) -> tuple[Property | None, str | None, bool]:
     rules = get_action_rules(table, ACTION_TRANSLATE)
     if not rules:
         return None, None, False
-    for eff in rules.get("on_stale") or []:
-        if not isinstance(eff, dict):
+    for eff in iterable_values(get_value(rules, "on_stale") or []):
+        if not is_record(eff):
             continue
         if str(eff.get("target") or "translations") != "translations":
             continue
@@ -278,12 +279,12 @@ def on_stale_effect(table: JsonMap) -> tuple[Property | None, str | None, bool]:
             continue
         if oc.is_global_status_prop(prop):
             cfg = prop.setdefault("config", {})
-            local_options = oc.normalize_options(cfg.get("options"))
+            local_options = oc.normalize_options(get_value(cfg, "options"))
             if value in {option["name"] for option in local_options}:
                 catalog_changed = False
             else:
                 local_options.append({"name": value, "color": oc.auto_color(value)})
-                cfg["options"] = local_options
+                set_value(cfg, "options", local_options)
                 catalog_changed = True
         else:
             catalog_changed = oc.ensure_options_exist(prop, [(value, "")])

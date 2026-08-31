@@ -11,6 +11,8 @@ from typing import Literal, TypedDict, cast
 
 from fastapi import HTTPException
 
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
 
 
@@ -30,39 +32,39 @@ class MetadataMutationDependencies:
     """Registry, page I/O, locking, and cache ports used by mutations."""
 
     registry_mutation: Callable[[], AbstractContextManager[None]]
-    load_registry: Callable[[], Metadata]
-    save_registry: Callable[[Metadata], None]
+    load_registry: Callable[[], RegistryData]
+    save_registry: Callable[[RegistryData], None]
     new_id: Callable[[], str]
     page_snapshot: Callable[[], list[PageInfo]]
     find_page: Callable[[str], Path | None]
-    parse_frontmatter: Callable[[str, Path], tuple[Metadata, str]]
-    save_page: Callable[[Path, Metadata, str], None]
+    parse_frontmatter: Callable[[str, Path], tuple[RegistryData, str]]
+    save_page: Callable[[Path, RegistryData, str], None]
     file_etag: Callable[[Path], str | None]
-    refresh_page_index: Callable[[Path, Metadata, str], None]
+    refresh_page_index: Callable[[Path, RegistryData, str], None]
     invalidate_citation_index: Callable[[], None]
     invalidate_page_cache: Callable[[], None]
-    table_id: Callable[[Metadata], str | None]
-    table_by_id: Callable[[str], Metadata | None]
+    table_id: Callable[[RegistryData], str | None]
+    table_by_id: Callable[[str], RegistryData | None]
     page_write_lock: Callable[[str], Awaitable[asyncio.Lock]]
 
 
-def _mapping(value: object) -> Metadata:
-    return cast(Metadata, value) if isinstance(value, dict) else {}
+def _mapping(value: object) -> RegistryData:
+    return value if is_record(value) else {}
 
 
 def _string(value: object) -> str:
     return cast(str, value or "").strip()
 
 
-def _etag_map(payload: Metadata) -> Metadata:
+def _etag_map(payload: Metadata) -> RegistryData:
     return _mapping(payload.get("expected_etags") or {})
 
 
 def _result_collections() -> tuple[
     list[EtagResult],
     list[str],
-    list[Metadata],
-    list[Metadata],
+    list[RegistryData],
+    list[RegistryData],
 ]:
     return [], [], [], []
 
@@ -72,8 +74,8 @@ def _record_result(
     result: MutationResult,
     changed: list[EtagResult],
     skipped: list[str],
-    conflicts: list[Metadata],
-    errors: list[Metadata],
+    conflicts: list[RegistryData],
+    errors: list[RegistryData],
 ) -> None:
     status, info = result
     if status == "ok":
@@ -89,7 +91,7 @@ def _record_result(
 def _etag_conflict(
     page_id: str,
     page_path: Path,
-    expected_etags: Metadata,
+    expected_etags: RegistryData,
     dependencies: MetadataMutationDependencies,
 ) -> MutationResult | None:
     expected = expected_etags.get(page_id)
@@ -104,7 +106,7 @@ def _etag_conflict(
     return None
 
 
-def _find_table(registry: Metadata, table_id: str) -> Metadata | None:
+def _find_table(registry: RegistryData, table_id: str) -> RegistryData | None:
     tables = registry.get("tables")
     if not isinstance(tables, list):
         return None
@@ -120,14 +122,14 @@ def _ensure_column(
     column_name: str,
     column_type: str,
     dependencies: MetadataMutationDependencies,
-) -> tuple[Metadata, bool]:
+) -> tuple[RegistryData, bool]:
     with dependencies.registry_mutation():
         registry = dependencies.load_registry()
         table = _find_table(registry, table_id)
         if table is None:
             raise HTTPException(status_code=404, detail=f"Table {table_id} no trobada")
         raw_properties = table.setdefault("properties", [])
-        properties = cast(list[object], raw_properties) if isinstance(raw_properties, list) else []
+        properties = raw_properties if is_object_list(raw_properties) else []
         existing = next(
             (
                 prop
@@ -138,7 +140,7 @@ def _ensure_column(
         )
         if existing is not None:
             return existing, False
-        new_property: Metadata = {
+        new_property: RegistryData = {
             "id": dependencies.new_id(),
             "name": column_name,
             "type": column_type,
@@ -181,7 +183,7 @@ def _promote_one_extra(
     page_id: str,
     zotero_field: str,
     column_name: str,
-    expected_etags: Metadata,
+    expected_etags: RegistryData,
     dependencies: MetadataMutationDependencies,
 ) -> MutationResult:
     page_path = dependencies.find_page(page_id)
@@ -263,10 +265,10 @@ async def promote_zotero_extra(
 
 
 def apply_metadata_patch(
-    metadata: Metadata,
-    updates: Metadata,
+    metadata: RegistryData,
+    updates: RegistryData,
     remove_keys: list[str],
-) -> Metadata:
+) -> RegistryData:
     """Apply update/remove semantics without mutating the input mapping."""
     next_metadata = dict(metadata)
     for update_key, value in updates.items():
@@ -281,9 +283,9 @@ def apply_metadata_patch(
 
 def _bulk_update_one(
     page_id: str,
-    updates: Metadata,
+    updates: RegistryData,
     remove_keys: list[str],
-    expected_etags: Metadata,
+    expected_etags: RegistryData,
     dependencies: MetadataMutationDependencies,
 ) -> MutationResult:
     page_path = dependencies.find_page(page_id)
@@ -318,12 +320,12 @@ async def bulk_update_metadata(
     if not isinstance(page_ids, list) or not page_ids:
         raise HTTPException(status_code=400, detail="page_ids ha de ser una llista no buida")
     if (
-        not isinstance(updates, dict)
+        not is_record(updates)
         or not isinstance(remove_keys, list)
         or (not updates and not remove_keys)
     ):
         raise HTTPException(status_code=400, detail="updates o remove són obligatoris")
-    typed_updates = cast(Metadata, updates)
+    typed_updates = updates
     typed_remove = [str(key) for key in remove_keys]
     expected_etags = _etag_map(payload)
     updated, skipped, conflicts, errors = _result_collections()
@@ -354,7 +356,7 @@ async def bulk_update_metadata(
 def _read_template(
     template_id: str,
     dependencies: MetadataMutationDependencies,
-) -> tuple[Metadata, str] | None:
+) -> tuple[RegistryData, str] | None:
     template_path = dependencies.find_page(template_id)
     if not template_path or not template_path.exists():
         return None
@@ -365,7 +367,9 @@ def _read_template(
     return metadata, body or ""
 
 
-def _template_property_keys(table: Metadata, template_metadata: Metadata) -> list[PropertyKeys]:
+def _template_property_keys(
+    table: RegistryData, template_metadata: RegistryData
+) -> list[PropertyKeys]:
     result: list[PropertyKeys] = []
     properties = table.get("properties")
     for raw_property in properties if isinstance(properties, list) else []:
@@ -384,10 +388,10 @@ def _template_property_keys(table: Metadata, template_metadata: Metadata) -> lis
 def _apply_template_one(
     page_id: str,
     table_id: str,
-    template_metadata: Metadata,
+    template_metadata: RegistryData,
     template_body: str,
     property_keys: list[PropertyKeys],
-    expected_etags: Metadata,
+    expected_etags: RegistryData,
     dependencies: MetadataMutationDependencies,
 ) -> MutationResult:
     page_path = dependencies.find_page(page_id)

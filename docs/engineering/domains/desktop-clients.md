@@ -135,10 +135,15 @@ backend. It validates the application authority, prevents filesystem traversal
 and uses the session cookie jar instead of forwarding raw renderer cookie
 headers. Preserve this behavior when changing routing or streaming adapters.
 
-Seven extracted handlers have checked request/response contracts. The eighth,
-form filling, remains in `main.js` and validates its IPC sender before opening
-a separate window without a preload bridge. Do not infer that all of the main
-process is strictly typed or that arbitrary form destinations are approved.
+All eight extracted handlers have checked request/response contracts.
+Form filling lives in the already packaged `ipc-handlers.js`; the main process
+provides its native window factory and logger. Sender validation still precedes
+payload access and opening a separate sandboxed window without a preload bridge.
+URL validation, event ordering, profile serialization and the injected script
+remain unchanged and are covered by synthetic differential tests. The script
+inside the string is not type-checked. This does not prove real website behavior,
+complete main-process typing, installer acceptance or approval of arbitrary
+form destinations.
 Preload subscriptions return idempotent disposers; compatibility removal methods
 remain available to older renderers.
 

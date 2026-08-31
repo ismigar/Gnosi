@@ -9,11 +9,15 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TextIO
+from typing import TextIO
+
+from backend.domains.vault.registry.records import is_object_list
+from backend.domains.vault.registry.state import RegistryData
 
 
-Metadata = dict[str, Any]
-PageCacheEntry = dict[str, Any]
+Metadata = RegistryData
+# The cache envelope has string field names; nested page metadata stays open.
+PageCacheEntry = dict[str, object]
 ParseFrontmatter = Callable[[str, Path], tuple[Metadata, str]]
 
 
@@ -203,7 +207,7 @@ def humanize_relation_index_title(title: object, metadata: Metadata) -> str:
 
     target_id = match.group(1)
     for raw_value in (metadata or {}).values():
-        values = raw_value if isinstance(raw_value, list) else [raw_value]
+        values = raw_value if is_object_list(raw_value) else [raw_value]
         for value in values:
             relation_match = re.search(
                 r"\[\[([^]|]+)\|\s*" + re.escape(target_id) + r"\s*\]\]",

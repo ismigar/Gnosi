@@ -24,6 +24,7 @@ from backend.services import (
     llm_wiki_agent,
     plugin_ai_contributions,
     plugin_dispatcher,
+    reference_table_config,
     vault_file_index,
 )
 
@@ -69,6 +70,11 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         record("migrations")
         return []
 
+    monkeypatch.setattr(
+        reference_table_config,
+        "assert_reference_config_ready",
+        lambda: record("references.ready"),
+    )
     monkeypatch.setattr(data_dir, "resolve_data_dir", resolve_data_dir)
     monkeypatch.setattr(
         coordinator,
@@ -182,6 +188,7 @@ def test_lifespan_preserves_startup_and_shutdown_order(
     asyncio.run(exercise())
 
     assert events == [
+        "references.ready",
         "data.resolve",
         "migrations",
         "auth.secret",

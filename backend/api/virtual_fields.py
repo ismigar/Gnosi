@@ -21,9 +21,36 @@ import logging
 import threading
 import time
 from collections import defaultdict
+from operator import call, itemgetter, methodcaller
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, cast
 
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import get_value, iterable_values, set_value
+
 log = logging.getLogger(__name__)
+
+
+def _get_with_default(container: object, key: object, default: object) -> object:
+    """Keep native get lookup, its explicit default, and opaque return values."""
+    result: object = methodcaller("get", key, default)(container)
+    return result
+
+
+def _call_opaque(callback: object, *args: object) -> object:
+    """Use the native call slot without asserting the callback's input/output shape.
+
+    Calling the builtin, rather than looking up callback.__call__, retains native
+    errors for malformed descriptors and the behavior of opaque callable objects.
+    """
+    result: object = methodcaller("__call__", callback, *args)(call)
+    return result
+
+
+def _item_value(container: object, key: object) -> object:
+    """Native subscription, including missing keys and opaque descriptors."""
+    result: object = methodcaller("__call__", container)(itemgetter(key))
+    return result
 
 
 def _structural_page_ids(graph: Dict[str, Any]) -> set[str]:
@@ -255,7 +282,7 @@ def _compute_is_orphan(page_id: str, ctx: Dict[str, Any]) -> bool:
 # and its INVERSE relation to this record. The index is built in
 # `inject_for_*` (which has the `page_loader`) and left in the ctx; the computer is O(1).
 
-def _clean_relation_id(token: Any) -> str:
+def _clean_relation_id(token: object) -> str:
     """Normalizes a relation value to a clean id. The backend already strips
     wikilinks (clean ids), but we guard against the manual Obsidian case `[[Title|uuid]]`.
     
@@ -271,10 +298,10 @@ def _clean_relation_id(token: Any) -> str:
 
 
 def build_task_progress_index(
-    task_pages: Iterable[Any],
-    relation_field: str,
-    status_field: str,
-    done_value: str,
+    task_pages: Iterable[object],
+    relation_field: object,
+    status_field: object,
+    done_value: object,
     id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> Dict[str, Optional[int]]:
     """Index {project_id: pct 0-100 | None} built from the Tasks pages.
@@ -289,15 +316,15 @@ def build_task_progress_index(
     done_norm = str(done_value).strip().casefold()
 
     for page in task_pages:
-        md = getattr(page, "metadata", None)
-        if md is None and isinstance(page, dict):
+        md: object = getattr(page, "metadata", None)
+        if md is None and is_record(page):
             md = page.get("metadata") or page
-        if not isinstance(md, dict):
+        if not is_record(md):
             continue
         rel = md.get(relation_field)
         if not rel:
             continue
-        ids = rel if isinstance(rel, list) else [rel]
+        ids = rel if is_object_list(rel) else [rel]
         is_done = str(md.get(status_field) or "").strip().casefold() == done_norm
         for tok in ids:
             key = _clean_relation_id(tok)
@@ -323,26 +350,26 @@ def _compute_task_progress(page_id: str, ctx: Dict[str, Any]) -> Optional[int]:
 # TTL cache of the index per source_table_id: the `page_loader` is already cached,
 # but `refresh_view_snapshots` calls `inject_for_single_page` per page; without
 # this cache the index would be rebuilt N times within the same burst.
-_task_progress_cache: Dict[str, "tuple[float, Dict[str, Optional[int]]]"] = {}
+_task_progress_cache: Dict[object, "tuple[float, Dict[str, Optional[int]]]"] = {}
 _TASK_PROGRESS_TTL_SECONDS = 2.0
 _task_progress_lock = threading.Lock()
 
 
 def _task_progress_index_for(
-    prop: Dict[str, Any],
-    page_loader: Optional[Callable[[str], List[Any]]],
+    prop: object,
+    page_loader: Optional[Callable[[str], Iterable[object]]],
     id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> Dict[str, Optional[int]]:
     """Builds (or retrieves from the TTL cache) the progress index for a
     `task_progress` vprop, reading the field config and loading Tasks via
     `page_loader`. Without a provider or `source_table_id` → empty index."""
-    cfg = prop.get("config") or {}
-    src = cfg.get("source_table_id")
+    cfg = get_value(prop, "config") or {}
+    src = get_value(cfg, "source_table_id")
     if not src or page_loader is None:
         return {}
-    rel = cfg.get("relation_field") or "Projecte"
-    status_field = cfg.get("status_field") or "Estat"
-    done_value = cfg.get("done_value") or "Fet"
+    rel = get_value(cfg, "relation_field") or "Projecte"
+    status_field = get_value(cfg, "status_field") or "Estat"
+    done_value = get_value(cfg, "done_value") or "Fet"
 
     now = time.monotonic()
     with _task_progress_lock:
@@ -350,11 +377,13 @@ def _task_progress_index_for(
         if cached and (now - cached[0]) < _TASK_PROGRESS_TTL_SECONDS:
             return cached[1]
     try:
-        task_pages = page_loader(src) or []
+        task_pages = _call_opaque(page_loader, src) or []
     except Exception as e:
         log.debug(f"task_progress page_loader failed for {src}: {e}")
         return {}
-    idx = build_task_progress_index(task_pages, rel, status_field, done_value, id_resolver)
+    idx = build_task_progress_index(
+        iterable_values(task_pages), rel, status_field, done_value, id_resolver
+    )
     with _task_progress_lock:
         _task_progress_cache[src] = (now, idx)
     return idx
@@ -504,7 +533,7 @@ def list_virtual_field_specs() -> List[Dict[str, Any]]:
 
 # ── Context building & injection ─────────────────────────────────────────────
 
-def _build_ctx(needs: Iterable[str]) -> Dict[str, Any]:
+def _build_ctx(needs: Iterable[object]) -> Dict[str, Any]:
     """Builds the shared computation context based on which indexes are needed.
 
     Each index is computed at most once per request and shared across all pages
@@ -548,12 +577,16 @@ def _build_ctx(needs: Iterable[str]) -> Dict[str, Any]:
     return ctx
 
 
-def _virtual_props_of(table: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _virtual_props_of(table: RegistryData) -> list[object]:
     """Returns the list of virtual property dicts declared on a table."""
-    return [p for p in (table.get("properties") or []) if p.get("type") == "virtual"]
+    return [
+        p
+        for p in iterable_values(table.get("properties") or [])
+        if get_value(p, "type") == "virtual"
+    ]
 
 
-def _frontmatter_key(prop_name: str) -> str:
+def _frontmatter_key(prop_name: object) -> str:
     """Identity: the frontmatter key IS the canonical property `name` from the
     registry. No slug, no transformation.
 
@@ -568,9 +601,9 @@ def _frontmatter_key(prop_name: str) -> str:
 
 
 def inject_for_table(
-    table: Optional[Dict[str, Any]],
-    pages: List[Any],
-    page_loader: Optional[Callable[[str], List[Any]]] = None,
+    table: RegistryData | None,
+    pages: Iterable[object],
+    page_loader: Optional[Callable[[str], Iterable[object]]] = None,
     id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> None:
     """In-place inject virtual fields into each page's metadata.
@@ -589,12 +622,13 @@ def inject_for_table(
     if not vprops:
         return
 
-    needs: set[str] = set()
+    needs: set[object] = set()
     for p in vprops:
-        comp_key = p.get("compute") or ""
-        meta = VIRTUAL_COMPUTERS.get(comp_key)
+        comp_key = get_value(p, "compute") or ""
+        meta = get_value(VIRTUAL_COMPUTERS, comp_key)
         if meta:
-            needs.update(meta.get("needs", []))
+            # set.update has native fast paths; wrapping its input changes them.
+            _call_opaque(needs.update, _get_with_default(meta, "needs", []))
             # Add the compute key itself so _build_ctx can decide which NX
             # metric to run (avoids computing all when only one is requested).
             needs.add(comp_key)
@@ -603,20 +637,20 @@ def inject_for_table(
 
     for page in pages:
         try:
-            pid = getattr(page, "id", None) or (page.get("id") if isinstance(page, dict) else None)
-            md = getattr(page, "metadata", None)
-            if md is None and isinstance(page, dict):
+            pid: object = getattr(page, "id", None) or (page.get("id") if is_record(page) else None)
+            md: object = getattr(page, "metadata", None)
+            if md is None and is_record(page):
                 md = page.setdefault("metadata", {})
             if not pid or md is None:
                 continue
             for prop in vprops:
-                comp_key = prop.get("compute") or ""
-                comp = VIRTUAL_COMPUTERS.get(comp_key)
+                comp_key = get_value(prop, "compute") or ""
+                comp = get_value(VIRTUAL_COMPUTERS, comp_key)
                 if not comp:
                     continue
-                fm_key = _frontmatter_key(prop.get("name", comp_key))
+                fm_key = _frontmatter_key(_get_with_default(prop, "name", comp_key))
                 try:
-                    md[fm_key] = comp["fn"](pid, ctx)
+                    set_value(md, fm_key, _call_opaque(_item_value(comp, "fn"), pid, ctx))
                 except Exception as e:
                     log.debug(f"virtual_fields compute {comp_key} failed for {pid}: {e}")
         except Exception as e:
@@ -625,24 +659,24 @@ def inject_for_table(
 
 def _inject_task_progress_into_ctx(
     ctx: Dict[str, Any],
-    vprops: List[Dict[str, Any]],
-    page_loader: Optional[Callable[[str], List[Any]]],
+    vprops: list[object],
+    page_loader: Optional[Callable[[str], Iterable[object]]],
     id_resolver: Optional[Callable[[str], Optional[str]]],
 ) -> None:
     """If there is a `task_progress` vprop, build its index (cached by
     source_table_id) and store it in `ctx["task_progress"]`. Assumes a single field
     of this type per table (current case: «Progress»)."""
     for prop in vprops:
-        if (prop.get("compute") or "") == "task_progress":
+        if (get_value(prop, "compute") or "") == "task_progress":
             ctx["task_progress"] = _task_progress_index_for(prop, page_loader, id_resolver)
             return
 
 
 def inject_for_single_page(
-    table: Optional[Dict[str, Any]],
+    table: RegistryData | None,
     page_id: str,
-    metadata: Dict[str, Any],
-    page_loader: Optional[Callable[[str], List[Any]]] = None,
+    metadata: RegistryData,
+    page_loader: Optional[Callable[[str], Iterable[object]]] = None,
     id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> None:
     """In-place inject virtual fields for a single page metadata dict."""
@@ -652,12 +686,13 @@ def inject_for_single_page(
     if not vprops:
         return
 
-    needs: set[str] = set()
+    needs: set[object] = set()
     for p in vprops:
-        comp_key = p.get("compute") or ""
-        meta = VIRTUAL_COMPUTERS.get(comp_key)
+        comp_key = get_value(p, "compute") or ""
+        meta = get_value(VIRTUAL_COMPUTERS, comp_key)
         if meta:
-            needs.update(meta.get("needs", []))
+            # Preserve the same native fast paths as the bulk injection above.
+            _call_opaque(needs.update, _get_with_default(meta, "needs", []))
             # Add the compute key itself so _build_ctx can decide which NX
             # metric to run (avoids computing all when only one is requested).
             needs.add(comp_key)
@@ -665,12 +700,12 @@ def inject_for_single_page(
     _inject_task_progress_into_ctx(ctx, vprops, page_loader, id_resolver)
 
     for prop in vprops:
-        comp_key = prop.get("compute") or ""
-        comp = VIRTUAL_COMPUTERS.get(comp_key)
+        comp_key = get_value(prop, "compute") or ""
+        comp = get_value(VIRTUAL_COMPUTERS, comp_key)
         if not comp:
             continue
-        fm_key = _frontmatter_key(prop.get("name", comp_key))
+        fm_key = _frontmatter_key(_get_with_default(prop, "name", comp_key))
         try:
-            metadata[fm_key] = comp["fn"](page_id, ctx)
+            metadata[fm_key] = _call_opaque(_item_value(comp, "fn"), page_id, ctx)
         except Exception as e:
             log.debug(f"virtual_fields compute {comp_key} failed for {page_id}: {e}")

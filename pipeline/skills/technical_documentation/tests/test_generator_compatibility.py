@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+import pytest
+
 from pipeline.skills.technical_documentation.scripts.generate import build_outputs
 
 
@@ -59,9 +61,11 @@ EXPECTED_DIGESTS = {
 }
 
 
-def test_all_catalog_bytes_match_pre_extraction_baseline(tmp_path: Path) -> None:
-    domains = write_catalog_fixture(tmp_path)
-    outputs = build_outputs(tmp_path, tmp_path, domains)
+@pytest.mark.parametrize("ancestor", ["", "tests", "e2e", "vendor", "sandbox", ".tmp"])
+def test_all_catalog_bytes_match_pre_extraction_baseline(tmp_path: Path, ancestor: str) -> None:
+    root = tmp_path / ancestor / "app" if ancestor else tmp_path
+    domains = write_catalog_fixture(root)
+    outputs = build_outputs(root, root, domains)
     actual = {
         name: hashlib.sha256(content.encode("utf-8")).hexdigest()
         for name, content in outputs.items()

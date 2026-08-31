@@ -140,8 +140,15 @@ def check_checked_facade_aliases_match_runtime_owners(isolated_backend: None) ->
         and isinstance(statement.test, ast.Name)
         and statement.test.id == "TYPE_CHECKING"
     )
-    modules: dict[str, object] = {}
+    symbols: dict[str, object] = {}
     declared: set[str] = set()
+
+    def resolve_alias(value: ast.expr) -> object:
+        if isinstance(value, ast.Name):
+            return symbols[value.id]
+        assert isinstance(value, ast.Attribute)
+        return getattr(resolve_alias(value.value), value.attr)
+
     for statement in block.body:
         if isinstance(statement, ast.ImportFrom):
             assert statement.module is not None
@@ -149,19 +156,22 @@ def check_checked_facade_aliases_match_runtime_owners(isolated_backend: None) ->
             for alias in statement.names:
                 name = alias.asname or alias.name
                 value = getattr(owner, alias.name)
-                if name.startswith("_typed_"):
-                    modules[name] = value
-                else:
+                symbols[name] = value
+                if not name.startswith("_typed_"):
                     assert getattr(facade, name) is value, name
                     declared.add(name)
-        elif isinstance(statement, ast.Assign):
-            assert len(statement.targets) == 1
-            target = statement.targets[0]
+        elif isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            if isinstance(statement, ast.Assign):
+                assert len(statement.targets) == 1
+                target = statement.targets[0]
+            else:
+                target = statement.target
             value = statement.value
             assert isinstance(target, ast.Name)
-            assert isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name)
-            expected = getattr(modules[value.value.id], value.attr)
+            assert value is not None
+            expected = resolve_alias(value)
             assert getattr(facade, target.id) is expected, target.id
+            symbols[target.id] = expected
             declared.add(target.id)
     lookup = ast.parse((ROOT / "backend/domains/vault/citations/lookup_routes.py").read_text())
     used = {

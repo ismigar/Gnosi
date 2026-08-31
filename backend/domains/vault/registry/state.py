@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TypeAlias
 
 
-RegistryData = dict[str, Any]
+RegistryData: TypeAlias = dict[object, object]
 
 
 @dataclass

@@ -24,6 +24,7 @@ import requests
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import documents as document_domain
 from backend.domains.llm_wiki import origins as origin_domain
+from backend.domains.vault.registry.records import RecordReader
 from backend.services import llm_wiki_config
 
 logger = get_logger(__name__)
@@ -170,7 +171,7 @@ def chunk_origins(
 
 
 def _values_for_property(
-    metadata: dict[str, Any], prop: Optional[dict[str, Any]]
+    metadata: RecordReader, prop: RecordReader | None
 ) -> list[str]:
     if not prop:
         return []

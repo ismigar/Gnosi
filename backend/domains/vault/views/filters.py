@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import date
-from typing import Any
 
 from backend.domains.vault.views.runtime_types import Filter, Metadata
 
@@ -226,7 +225,7 @@ def _comparison_result(
     return True
 
 
-def apply_filter(meta: Metadata, page_id: str | None, filter_rule: Filter) -> bool:
+def apply_filter(meta: Metadata, page_id: object, filter_rule: Filter) -> bool:
     """Evaluate one legacy leaf filter exactly as the frontend does."""
     field = filter_rule.get("field") if isinstance(filter_rule, dict) else None
     if not field:
@@ -256,7 +255,7 @@ def is_filter_group(node: object) -> bool:
     return isinstance(node, dict) and isinstance(node.get("rules"), list)
 
 
-def apply_filter_node(meta: Metadata, page_id: str | None, node: object) -> bool:
+def apply_filter_node(meta: Metadata, page_id: object, node: object) -> bool:
     """Recursively evaluate a leaf filter or nested conjunction group."""
     if node is None:
         return True

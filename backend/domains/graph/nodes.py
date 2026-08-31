@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, cast
 
 from backend.domains.graph.adapters import Graph
+from backend.domains.vault.registry.records import RecordReader
 from backend.domains.graph.scanning import (
     COLOR_PALETTE,
     _KIND_PATTERNS,
@@ -60,10 +61,10 @@ def load_page_data(
         return cached
 
     raw_content = file_path.read_text(encoding="utf-8")
-    metadata, body = parse_frontmatter(raw_content, file_path)
+    raw_metadata, body = parse_frontmatter(raw_content, file_path)
     file_id = file_path.stem
-    node_id = metadata.get("id") or file_id
-    metadata, managed_kind = _managed_metadata(metadata, node_id)
+    node_id = raw_metadata.get("id") or file_id
+    metadata, managed_kind = _managed_metadata(raw_metadata, node_id)
     title = metadata.get("title") or file_id
     kind = _classify_kind(metadata, managed_kind, path_str, cfg)
     color = _node_color(metadata, kind, cfg)
@@ -84,7 +85,7 @@ def load_page_data(
     return data
 
 
-def _managed_metadata(metadata: Dict[str, Any], node_id: Any) -> Tuple[Dict[str, Any], str]:
+def _managed_metadata(metadata: RecordReader, node_id: object) -> tuple[RecordReader, str]:
     try:
         from backend.services import llm_wiki_config, llm_wiki_storage
 
@@ -94,7 +95,7 @@ def _managed_metadata(metadata: Dict[str, Any], node_id: Any) -> Tuple[Dict[str,
         return metadata, ""
 
 
-def _classify_kind(metadata: Dict[str, Any], managed_kind: str, path_str: str, cfg: Any) -> str:
+def _classify_kind(metadata: RecordReader, managed_kind: str, path_str: str, cfg: Any) -> str:
     app_cfg = cast(Dict[str, Any], cfg.get("app", {}))
     type_property = str(app_cfg.get("type_property", "note_type"))
     raw_kind = (
@@ -116,7 +117,7 @@ def _classify_kind(metadata: Dict[str, Any], managed_kind: str, path_str: str, c
     return kind
 
 
-def _node_color(metadata: Dict[str, Any], kind: str, cfg: Any) -> str:
+def _node_color(metadata: RecordReader, kind: str, cfg: Any) -> str:
     node_colors = cast(Dict[str, Dict[str, Any]], cfg.colors.get("node_types", {}))
     color_cfg = node_colors.get(kind, node_colors.get("default", {}))
     color = str(color_cfg.get("bg", COLOR_PALETTE.get(kind, COLOR_PALETTE["page"])))
@@ -155,10 +156,7 @@ def relation_metadata(
     )
     relation_keys = relation_keys_from_table(table)
     if relation_keys:
-        return cast(
-            Dict[str, Any],
-            strip_relation_wikilinks(dict(metadata), relation_keys),
-        )
+        return strip_relation_wikilinks(dict(metadata), relation_keys)
     return metadata
 
 

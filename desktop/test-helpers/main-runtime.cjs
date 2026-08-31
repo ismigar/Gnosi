@@ -10,6 +10,7 @@ function loadMainRuntime({
   launchBackend = () => assert.fail('Backend must not start in this fixture'),
   stopBackend = async () => {},
   locale = 'en', resourcesPath = '/fixture/resources',
+  onWindowCreated = () => {},
 } = {}) {
   const desktopRoot = path.dirname(__dirname);
   const calls = [];
@@ -36,6 +37,7 @@ function loadMainRuntime({
       });
       windows.push(this);
       calls.push('window-created');
+      onWindowCreated(this, calls);
     }
     isDestroyed() { return this.destroyed; }
     loadURL(url) {

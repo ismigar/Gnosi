@@ -229,7 +229,9 @@ async def _create_daily_page(
     background_tasks: object,
     context: _WorkspaceContext | None,
 ) -> object:
-    request = _PageSaveRequest(title=title, content=content, metadata=metadata)
+    request = _PageSaveRequest.model_validate(
+        {"title": title, "content": content, "metadata": metadata}
+    )
     handler = _vault.create_page
     if handler is not create_page or context is None:
         # Preserve the historical plugin hook, including late replacement and

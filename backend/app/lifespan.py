@@ -18,6 +18,7 @@ from backend.config.app_config import load_params
 from backend.config.mcp_config import MCP_SERVERS
 from backend.mcp.client import MultiServerMCPClient
 from backend.scheduler.manager import scheduler_manager
+from backend.utils.open_values import get_value, iterable_values
 
 
 log = logging.getLogger(__name__)
@@ -213,12 +214,12 @@ def _repair_main_views() -> None:
         with registry_mutation():
             registry = load_registry()
             repaired: list[str] = []
-            for table in registry.get("tables", []):
-                table_id = table.get("id")
+            for table in iterable_values(registry.get("tables", [])):
+                table_id = get_value(table, "id")
                 if not table_id:
                     continue
                 if _ensure_main_view(registry, table_id):
-                    repaired.append(str(table.get("name") or table_id))
+                    repaired.append(str(get_value(table, "name") or table_id))
             if repaired:
                 save_registry(registry)
                 log.info(

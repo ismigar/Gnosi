@@ -7,6 +7,7 @@ import time
 from typing import Any, cast
 
 from backend.domains.vault.pages.state import page_state
+from backend.domains.vault.schemas.pages import PageInfo
 
 PAGES_RESPONSE_CACHE_TTL = 1.5
 PREVIEW_CACHE_MAX = 1000
@@ -24,7 +25,7 @@ async def get_page_write_lock(page_id: str) -> asyncio.Lock:
         return lock
 
 
-def get_cached_page_response(key: str) -> list[Any] | None:
+def get_cached_page_response(key: str) -> list[PageInfo] | None:
     """Return one non-expired page-response cache entry."""
     now = time.monotonic()
     with page_state.response_cache_lock:
@@ -38,7 +39,7 @@ def get_cached_page_response(key: str) -> list[Any] | None:
         return value
 
 
-def set_cached_page_response(key: str, value: list[Any]) -> None:
+def set_cached_page_response(key: str, value: list[PageInfo]) -> None:
     """Store one page-response cache entry."""
     with page_state.response_cache_lock:
         page_state.response_cache[key] = (time.monotonic(), value)

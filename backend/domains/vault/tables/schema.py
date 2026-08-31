@@ -7,7 +7,6 @@ import uuid
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import Any
 
 from fastapi import HTTPException
 
@@ -15,7 +14,10 @@ from backend.domains.vault.registry.names import (
     normalize_main_view_configuration,
     table_name_from_registry,
 )
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.domains.vault.tables.catalogs.types import Option
+from backend.utils.open_values import iterable_values
 
 
 _VIEW_REF_LIST_KEYS = ("visibleProperties", "visible_properties", "columns")
@@ -30,19 +32,17 @@ class PropertyDependencies:
     load_registry: Callable[[], RegistryData]
     save_registry: Callable[[RegistryData], None]
     registry_mutation: Callable[[], AbstractContextManager[None]]
-    get_prop_options: Callable[[RegistryData], list[RegistryData]]
-    set_prop_options: Callable[[RegistryData, list[RegistryData]], None]
-    normalize_options: Callable[[object], list[RegistryData]]
+    get_prop_options: Callable[[RegistryData], list[Option]]
+    set_prop_options: Callable[[RegistryData, list[Option]], None]
+    normalize_options: Callable[[object], list[Option]]
     option_types: frozenset[str] | set[str]
 
 
 def ensure_main_view(registry: RegistryData, table_id: str) -> RegistryData | None:
     """Guarantee that a table owns at least one canonical main view."""
     raw_views = registry.setdefault("views", [])
-    views = raw_views if isinstance(raw_views, list) else []
-    table_views = [
-        view for view in views if isinstance(view, dict) and view.get("table_id") == table_id
-    ]
+    views = raw_views if is_object_list(raw_views) else []
+    table_views = [view for view in views if is_record(view) and view.get("table_id") == table_id]
     table_name = table_name_from_registry(registry, table_id)
     existing_main = next((view for view in table_views if view.get("is_main")), None)
     if existing_main is not None:
@@ -117,7 +117,7 @@ def reconcile_table_schema_revision(
 
 def rename_field_in_filter_tree(node: object, old: str, new: str) -> bool:
     """Recursively rewrite a field reference inside a filter tree."""
-    if not isinstance(node, dict):
+    if not is_record(node):
         return False
     changed = False
     if node.get("field") == old:
@@ -125,7 +125,7 @@ def rename_field_in_filter_tree(node: object, old: str, new: str) -> bool:
         changed = True
     for child_key in _FILTER_TREE_CHILD_KEYS:
         children = node.get(child_key)
-        if isinstance(children, list):
+        if is_object_list(children):
             for child in children:
                 if rename_field_in_filter_tree(child, old, new):
                     changed = True
@@ -134,7 +134,7 @@ def rename_field_in_filter_tree(node: object, old: str, new: str) -> bool:
 
 def rename_field_refs_in_view_like(container: object, old: str, new: str) -> bool:
     """Rewrite all field-name references in one view or embedded section."""
-    if not isinstance(container, dict) or not old or old == new:
+    if not is_record(container) or not old or old == new:
         return False
     changed = _rename_list_references(container, old, new)
     changed = _rename_scalar_references(container, old, new) or changed
@@ -142,22 +142,22 @@ def rename_field_refs_in_view_like(container: object, old: str, new: str) -> boo
     changed = _rename_field_list_references(container, old, new) or changed
     changed = _rename_dictionary_references(container, old, new) or changed
     tree = container.get("filterTree")
-    if isinstance(tree, dict) and rename_field_in_filter_tree(tree, old, new):
+    if is_record(tree) and rename_field_in_filter_tree(tree, old, new):
         changed = True
     return changed
 
 
-def _rename_list_references(container: dict[str, Any], old: str, new: str) -> bool:
+def _rename_list_references(container: RegistryData, old: str, new: str) -> bool:
     changed = False
     for key in _VIEW_REF_LIST_KEYS:
         value = container.get(key)
-        if isinstance(value, list) and old in value:
+        if is_object_list(value) and old in value:
             container[key] = [new if item == old else item for item in value]
             changed = True
     return changed
 
 
-def _rename_scalar_references(container: dict[str, Any], old: str, new: str) -> bool:
+def _rename_scalar_references(container: RegistryData, old: str, new: str) -> bool:
     changed = False
     for key in _VIEW_REF_SCALAR_KEYS:
         if container.get(key) == old:
@@ -166,38 +166,38 @@ def _rename_scalar_references(container: dict[str, Any], old: str, new: str) -> 
     return changed
 
 
-def _rename_sort_references(container: dict[str, Any], old: str, new: str) -> bool:
+def _rename_sort_references(container: RegistryData, old: str, new: str) -> bool:
     changed = False
     sort_value = container.get("sort")
-    if isinstance(sort_value, dict):
+    if is_record(sort_value):
         if sort_value.get("field") == old:
             sort_value["field"] = new
             changed = True
-    elif isinstance(sort_value, list):
+    elif is_object_list(sort_value):
         for item in sort_value:
-            if isinstance(item, dict) and item.get("field") == old:
+            if is_record(item) and item.get("field") == old:
                 item["field"] = new
                 changed = True
     return changed
 
 
-def _rename_field_list_references(container: dict[str, Any], old: str, new: str) -> bool:
+def _rename_field_list_references(container: RegistryData, old: str, new: str) -> bool:
     changed = False
     for key in _VIEW_REF_FIELD_LIST_KEYS:
         value = container.get(key)
-        if isinstance(value, list):
+        if is_object_list(value):
             for item in value:
-                if isinstance(item, dict) and item.get("field") == old:
+                if is_record(item) and item.get("field") == old:
                     item["field"] = new
                     changed = True
     return changed
 
 
-def _rename_dictionary_references(container: dict[str, Any], old: str, new: str) -> bool:
+def _rename_dictionary_references(container: RegistryData, old: str, new: str) -> bool:
     changed = False
     for key in _VIEW_REF_DICT_KEYS:
         value = container.get(key)
-        if isinstance(value, dict) and old in value:
+        if is_record(value) and old in value:
             value[new] = value.pop(old)
             changed = True
     return changed
@@ -225,8 +225,8 @@ def _propagate_view_property_rename(
 ) -> int:
     changed = 0
     raw_views = registry.get("views", [])
-    for view in raw_views if isinstance(raw_views, list) else []:
-        if not isinstance(view, dict) or view.get("table_id") != table_id:
+    for view in raw_views if is_object_list(raw_views) else []:
+        if not is_record(view) or view.get("table_id") != table_id:
             continue
         if rename_field_refs_in_view_like(view, old_name, new_name):
             changed += 1
@@ -241,13 +241,13 @@ def _propagate_section_property_rename(
 ) -> int:
     changed = 0
     pages = registry.get("pages")
-    page_iterable = pages.values() if isinstance(pages, dict) else (pages or [])
-    for page in page_iterable:
-        if not isinstance(page, dict):
+    page_iterable = pages.values() if is_record(pages) else (pages or [])
+    for page in iterable_values(page_iterable):
+        if not is_record(page):
             continue
         sections = page.get("sections") or []
-        for section in sections if isinstance(sections, list) else []:
-            if not isinstance(section, dict):
+        for section in sections if is_object_list(sections) else []:
+            if not is_record(section):
                 continue
             section_table = (
                 section.get("source_table_id") or section.get("table_id") or section.get("tableId")
@@ -265,12 +265,12 @@ def _find_target_property(
     field_id: str,
 ) -> tuple[RegistryData, RegistryData, list[RegistryData]]:
     raw_tables = registry.get("tables", [])
-    tables = [item for item in raw_tables if isinstance(item, dict)]
+    tables = [item for item in iterable_values(raw_tables) if is_record(item)]
     table = next((item for item in tables if item.get("id") == table_id), None)
     if not table:
         raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
     raw_properties = table.get("properties", []) or []
-    properties = [item for item in raw_properties if isinstance(item, dict)]
+    properties = [item for item in iterable_values(raw_properties) if is_record(item)]
     prop = next((item for item in properties if item.get("id") == field_id), None)
     if not prop:
         raise HTTPException(
@@ -318,7 +318,7 @@ def _record_property_aliases(
     new_name: str,
 ) -> None:
     raw_aliases = target.get("aliases") or []
-    aliases = list(raw_aliases) if isinstance(raw_aliases, list) else []
+    aliases = list(raw_aliases) if is_object_list(raw_aliases) else []
     if old_name not in aliases:
         aliases.append(old_name)
     target["aliases"] = [alias for alias in aliases if alias != new_name]
@@ -326,7 +326,7 @@ def _record_property_aliases(
         if prop is target:
             continue
         prop_aliases = prop.get("aliases") or []
-        if isinstance(prop_aliases, list) and new_name in prop_aliases:
+        if is_object_list(prop_aliases) and new_name in prop_aliases:
             prop["aliases"] = [alias for alias in prop_aliases if alias != new_name]
 
 
@@ -335,10 +335,10 @@ def _apply_property_config(
     requested_config: object,
     dependencies: PropertyDependencies,
 ) -> None:
-    if not isinstance(requested_config, dict):
+    if not is_record(requested_config):
         return
     raw_existing = target.get("config") or {}
-    existing = dict(raw_existing) if isinstance(raw_existing, dict) else {}
+    existing = dict(raw_existing) if is_record(raw_existing) else {}
     prior_options = dependencies.get_prop_options(target)
     existing.update(requested_config)
     target["config"] = existing
@@ -346,7 +346,7 @@ def _apply_property_config(
         return
     prior_by_name = {str(option["name"]): option for option in prior_options}
     raw_options = existing.get("options") or []
-    options = raw_options if isinstance(raw_options, list) else []
+    options = raw_options if is_object_list(raw_options) else []
     merged = [prior_by_name.get(item, item) if isinstance(item, str) else item for item in options]
     dependencies.set_prop_options(target, dependencies.normalize_options(merged))
 

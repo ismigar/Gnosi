@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
-from typing import TypeVar, cast
+from collections.abc import Sequence
+from typing import TypeVar, overload
 
+from backend.domains.vault.registry.records import is_object_list
 from backend.domains.vault.views.runtime_types import (
     DecorateItem,
     ResolveIds,
@@ -59,7 +61,7 @@ def _truncate(values: list[Item], limit: object) -> tuple[list[Item], int]:
 
 def _table_snapshot(
     view_id: str,
-    host_page_id: str | None,
+    host_page_id: object,
     limit: object,
     resolve_table: ResolveTable | None,
 ) -> str | None:
@@ -73,19 +75,19 @@ def _table_snapshot(
         return None
     raw_rows = table["rows"]
     raw_headers = table["headers"]
-    if not isinstance(raw_rows, list) or not isinstance(raw_headers, list):
+    if not is_object_list(raw_rows) or not is_object_list(raw_headers):
         return None
     rows, truncated = _truncate(raw_rows, limit)
     if not rows:
         return None
     headers = [str(header) for header in raw_headers]
-    typed_rows = [row for row in rows if isinstance(row, (list, tuple))]
+    typed_rows: list[Sequence[object]] = [row for row in rows if isinstance(row, (list, tuple))]
     return build_table_block(view_id, headers, typed_rows, truncated) if typed_rows else None
 
 
 def _list_snapshot(
     view_id: str,
-    host_page_id: str | None,
+    host_page_id: object,
     limit: object,
     resolve_ids: ResolveIds,
     id_to_title: ResolveTitle | None,
@@ -98,16 +100,44 @@ def _list_snapshot(
     if not identifiers:
         return None
     identifiers, truncated = _truncate(identifiers, limit)
-    items = [decorate_item(identifier, id_to_title, None) for identifier in identifiers]
-    items = [item for item in items if isinstance(item, str) and item.strip()]
+    decorated = [decorate_item(identifier, id_to_title, None) for identifier in identifiers]
+    items = [item for item in decorated if isinstance(item, str) and item.strip()]
     return build_list_block(view_id, items, truncated) if items else None
+
+
+@overload
+def inject_view_snapshots(
+    body: str,
+    resolve_ids: ResolveIds,
+    id_to_title: ResolveTitle | None = None,
+    host_page_id: object = None,
+    max_items: int = DEFAULT_MAX_ITEMS,
+    config_for: SnapshotConfig | None = None,
+    resolve_table: ResolveTable | None = None,
+    *,
+    decorate_item: DecorateItem,
+) -> str: ...
+
+
+@overload
+def inject_view_snapshots(
+    body: object,
+    resolve_ids: ResolveIds,
+    id_to_title: ResolveTitle | None = None,
+    host_page_id: object = None,
+    max_items: int = DEFAULT_MAX_ITEMS,
+    config_for: SnapshotConfig | None = None,
+    resolve_table: ResolveTable | None = None,
+    *,
+    decorate_item: DecorateItem,
+) -> object: ...
 
 
 def inject_view_snapshots(
     body: object,
     resolve_ids: ResolveIds,
     id_to_title: ResolveTitle | None = None,
-    host_page_id: str | None = None,
+    host_page_id: object = None,
     max_items: int = DEFAULT_MAX_ITEMS,
     config_for: SnapshotConfig | None = None,
     resolve_table: ResolveTable | None = None,
@@ -118,8 +148,7 @@ def inject_view_snapshots(
     if not isinstance(body, str) or "```gnosi-view" not in body:
         return body
     try:
-        clean_value = strip_view_snapshots(body)
-        clean = cast(str, clean_value)
+        clean = strip_view_snapshots(body)
         output: list[str] = []
         last = 0
         for match in FENCE_RE.finditer(clean):
@@ -149,9 +178,35 @@ def inject_view_snapshots(
         return body
 
 
+@overload
+def rematerialize_md(
+    raw: str,
+    host_page_id: object,
+    resolve_ids: ResolveIds,
+    id_to_title: ResolveTitle | None = None,
+    config_for: SnapshotConfig | None = None,
+    resolve_table: ResolveTable | None = None,
+    *,
+    decorate_item: DecorateItem,
+) -> str: ...
+
+
+@overload
 def rematerialize_md(
     raw: object,
-    host_page_id: str | None,
+    host_page_id: object,
+    resolve_ids: ResolveIds,
+    id_to_title: ResolveTitle | None = None,
+    config_for: SnapshotConfig | None = None,
+    resolve_table: ResolveTable | None = None,
+    *,
+    decorate_item: DecorateItem,
+) -> object: ...
+
+
+def rematerialize_md(
+    raw: object,
+    host_page_id: object,
     resolve_ids: ResolveIds,
     id_to_title: ResolveTitle | None = None,
     config_for: SnapshotConfig | None = None,
@@ -165,7 +220,7 @@ def rematerialize_md(
     match = FRONTMATTER_RE.match(raw)
     boundary = match.end() if match else 0
     prefix = raw[:boundary]
-    body: object = raw[boundary:]
+    body = raw[boundary:]
     body = restore_view_fences(body)
     body = strip_view_snapshots(body)
     body = inject_view_snapshots(
@@ -178,7 +233,7 @@ def rematerialize_md(
         decorate_item=decorate_item,
     )
     body = compact_view_fences(body)
-    return prefix + cast(str, body)
+    return prefix + body
 
 
 __all__ = ["inject_view_snapshots", "rematerialize_md"]

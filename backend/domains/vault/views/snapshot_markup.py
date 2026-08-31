@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Sequence
-from typing import Any, Match
+from typing import Match, overload
 
 SNAPSHOT_OPEN_PREFIX = "<!-- gnosi-view:result"
 SNAPSHOT_BLOCK_RE = re.compile(
@@ -30,6 +30,14 @@ RESULT_TRUNC_RE = re.compile(r"\n?[ \t]*<!--\s*gnosi-view:result-truncated\s+\d+
 SNAPSHOT_WIKILINK_RE = re.compile(r"\[\[([^\[\]|\\]+)\\?\|[^\[\]]+\]\]")
 
 
+@overload
+def compact_view_fences(body: str) -> str: ...
+
+
+@overload
+def compact_view_fences(body: object) -> object: ...
+
+
 def compact_view_fences(body: object) -> object:
     """Convert visible ``gnosi-view`` fences to compact hidden definitions."""
     if not isinstance(body, str) or "```gnosi-view" not in body:
@@ -44,6 +52,14 @@ def compact_view_fences(body: object) -> object:
         return f"<!-- gnosi-view:def {compact} -->"
 
     return FENCE_RE.sub(replace, body)
+
+
+@overload
+def restore_view_fences(body: str) -> str: ...
+
+
+@overload
+def restore_view_fences(body: object) -> object: ...
 
 
 def restore_view_fences(body: object) -> object:
@@ -62,12 +78,28 @@ def restore_view_fences(body: object) -> object:
     return DEF_COMMENT_RE.sub(replace, body)
 
 
+@overload
+def strip_view_snapshots(body: str) -> str: ...
+
+
+@overload
+def strip_view_snapshots(body: object) -> object: ...
+
+
 def strip_view_snapshots(body: object) -> object:
     """Remove every derived snapshot block from an editor-facing body."""
     if not isinstance(body, str) or SNAPSHOT_OPEN_PREFIX not in body:
         return body
     cleaned = re.sub(r"\n?\n" + SNAPSHOT_BLOCK_RE.pattern, "", body, flags=re.DOTALL)
     return SNAPSHOT_BLOCK_RE.sub("", cleaned)
+
+
+@overload
+def render_view_snapshots(body: str) -> str: ...
+
+
+@overload
+def render_view_snapshots(body: object) -> object: ...
 
 
 def render_view_snapshots(body: object) -> object:
@@ -82,6 +114,14 @@ def render_view_snapshots(body: object) -> object:
 
     rendered = RESULT_RENDER_RE.sub(show, body)
     return DEF_COMMENT_RE.sub("", rendered)
+
+
+@overload
+def flatten_view_columns(body: str) -> str: ...
+
+
+@overload
+def flatten_view_columns(body: object) -> object: ...
 
 
 def flatten_view_columns(body: object) -> object:
@@ -132,7 +172,7 @@ def markdown_cell(value: object) -> str:
 def build_table_block(
     view_id: str,
     headers: Sequence[str],
-    rows: Sequence[Sequence[Any]],
+    rows: Sequence[Sequence[object]],
     truncated: int = 0,
 ) -> str:
     open_tag = (

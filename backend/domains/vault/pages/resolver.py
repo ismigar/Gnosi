@@ -8,11 +8,12 @@ from _thread import LockType
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+
+from backend.domains.vault.pages.index_entries import PageCacheEntry as PageCacheEntry
+from backend.domains.vault.registry.state import RegistryData
 
 
-Metadata = dict[str, Any]
-PageCacheEntry = dict[str, Any]
+Metadata = RegistryData
 
 
 @dataclass(frozen=True)

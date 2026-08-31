@@ -5,7 +5,11 @@ from __future__ import annotations
 import asyncio
 import threading
 from collections import OrderedDict
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from backend.domains.vault.pages.index_entries import PageCacheEntry
+    from backend.domains.vault.schemas.pages import PageInfo
 
 
 PreviewDocument = tuple[dict[str, Any], dict[str, Any], float]
@@ -16,14 +20,14 @@ class PageState:
 
     def __init__(self) -> None:
         self.index_lock = threading.Lock()
-        self.index_entries: dict[str, dict[str, dict[str, Any]]] = {}
+        self.index_entries: dict[str, dict[str, PageCacheEntry]] = {}
         self.index_initialized: dict[str, bool] = {}
         self.id_to_path: dict[str, dict[str, str]] = {}
         self.index_version: dict[str, int] = {}
         self.last_vault_sync_time = 0.0
 
         self.response_cache_lock = threading.Lock()
-        self.response_cache: dict[str, tuple[float, list[Any]]] = {}
+        self.response_cache: dict[str, tuple[float, list[PageInfo]]] = {}
 
         self.write_locks: dict[str, asyncio.Lock] = {}
         self.write_locks_guard: asyncio.Lock | None = None
@@ -40,6 +44,6 @@ class PageState:
         self.user_label_cache: dict[str, str] = {}
 
 
-page_state = PageState()
+page_state: PageState = PageState()
 
 __all__ = ["PageState", "PreviewDocument", "page_state"]

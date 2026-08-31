@@ -7,7 +7,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import iterable_values
 
 
 @dataclass(frozen=True)
@@ -15,7 +17,7 @@ class TableFolderDependencies:
     """Narrow platform ports supplied by the Vault composition facade."""
 
     get_path: Callable[[str], Path]
-    normalize_folder: Callable[[str | None], str]
+    normalize_folder: Callable[[object], str]
     move: Callable[[str, str], object]
     logger: logging.Logger
 
@@ -39,8 +41,8 @@ def _deps() -> TableFolderDependencies:
 
 def _database_folder(table: RegistryData, registry: RegistryData) -> str:
     database_id = table.get("database_id")
-    for database in registry.get("databases", []) or []:
-        if not isinstance(database, dict) or database.get("id") != database_id:
+    for database in iterable_values(registry.get("databases", []) or []):
+        if not is_record(database) or database.get("id") != database_id:
             continue
         normalized = _deps().normalize_folder(database.get("folder"))
         return normalized or f"BD/{database.get('name', 'General')}"

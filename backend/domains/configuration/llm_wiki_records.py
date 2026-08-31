@@ -7,12 +7,13 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.schemas.pages import PageInfo
 
 
-Metadata = dict[str, object]
+Metadata = PageMetadata
 SourceTitles = dict[tuple[str, str], str]
 
 
@@ -34,11 +35,11 @@ class BrainRecordDependencies:
 
 
 def _mapping(value: object) -> Metadata:
-    return cast(Metadata, value) if isinstance(value, dict) else {}
+    return value if is_record(value) else {}
 
 
 def _items(value: object) -> list[object]:
-    return cast(list[object], value) if isinstance(value, list) else []
+    return value if is_object_list(value) else []
 
 
 def _serialized(metadata: Metadata) -> str:
@@ -178,7 +179,7 @@ def _source_titles(
         for page in dependencies.pages_for_table(source_table_id) or []:
             resource_id = str(page.id or "")
             path = Path(page.path) if page.path else None
-            metadata = cast(Metadata, page.metadata or {})
+            metadata = page.metadata or {}
             if path and path.exists() and not metadata:
                 try:
                     metadata, _body = dependencies.parse_frontmatter(

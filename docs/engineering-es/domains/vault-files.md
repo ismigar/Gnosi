@@ -130,6 +130,27 @@ documentos analizados. Los ocho nombres históricos de funciones auxiliares
 privadas siguen siendo fachadas ligeras de compatibilidad, y cada colaborador
 sustituible o caché mutable se resuelve mediante un puerto tipado en el momento de uso.
 
+## Metadatos abiertos y HTTP validado
+
+Los documentos internos del registro y de las páginas usan `dict[object, object]`:
+el YAML histórico puede contener claves no textuales y valores de extensiones
+sin un esquema declarado. Las comprobaciones de diccionario preservan la
+identidad; las fusiones de archivos auxiliares y el mapeo de nombres conservan
+los campos desconocidos. Esto es distinto de la validación HTTP pública.
+`PageInfo` mantiene su validación original de claves textuales y el esquema
+OpenAPI, mientras la construcción y asignación del índice preservan el documento
+abierto. Las cachés de respuesta guardan los objetos de página existentes sin
+clonar sus metadatos ni bloqueos.
+
+`backend/utils/open_values.py` aísla las operaciones nativas sobre entradas opacas.
+Sus excepciones de tipado, solo en la entrada, preservan los protocolos de
+iteración, conversión numérica, longitud y mapeo de Python y sus errores; nunca
+afirman la forma de un registro devuelto. Las pruebas comparan el momento de
+las llamadas, las secuencias antiguas, los valores mal formados y la identidad
+de objetos compartidos. Esto elimina espacios de nombres dinámicos amplios de
+la composición del registro y de la base de páginas, no todos los tipos heredados
+del backend.
+
 ## Límites del backend
 
 Las lecturas y escrituras de páginas, las vistas previas, la duplicación, el
@@ -327,9 +348,9 @@ la deduplicación por página. El router de compatibilidad inyecta los puertos d
 Vault activo, el registro de configuración, el calendario y las cachés, de modo
 que ninguno de estos servicios importa la fachada HTTP.
 
-El entorno de ejecución del registro de configuración acota una sola vez el
-tipo de su router resuelto en el momento de uso, utiliza el decorador estándar
-tipado de gestores de contexto para los ciclos de modificación y trata la
+El entorno de ejecución del registro referencia los propietarios tipados reales
+de los callbacks y del estado, utiliza el decorador estándar
+de gestores de contexto para los ciclos de modificación y trata la
 falta de un Vault activo como ausencia de una raíz de adjuntos en la nube.
 El orden de las rutas de registro y tablas, los bloqueos, las cachés y los
 candidatos a adjuntos específicos de cada proveedor permanecen sin cambios.

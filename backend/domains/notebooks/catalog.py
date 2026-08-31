@@ -17,6 +17,8 @@ from backend.domains.notebooks.state import (
     _RESOURCE_AUTHOR_FIELD_NAMES,
     _RESOURCE_TYPE_FIELD_NAMES,
 )
+from backend.domains.vault.registry.records import RecordReader, is_record
+from backend.domains.vault.registry.state import RegistryData
 from backend.services import llm_wiki_config, llm_wiki_extractors, option_catalogs
 from backend.services.workspace_service import WorkspaceContext
 
@@ -53,10 +55,10 @@ def _field_name_key(value: Any) -> str:
     return "".join(char for char in _alphabetical_key(value) if char.isalnum())
 
 
-def _resource_filter_properties(table: dict[str, Any]) -> dict[str, Optional[dict[str, Any]]]:
-    properties = [prop for prop in table.get("properties") or [] if isinstance(prop, dict)]
+def _resource_filter_properties(table: dict[str, Any]) -> dict[str, RegistryData | None]:
+    properties = [prop for prop in table.get("properties") or [] if is_record(prop)]
 
-    def explicit_role(prop: dict[str, Any]) -> str:
+    def explicit_role(prop: RecordReader) -> str:
         config = prop.get("config")
         return str(config.get("role") or "").strip().casefold() if isinstance(config, dict) else ""
 
@@ -105,7 +107,7 @@ def _resource_filter_properties(table: dict[str, Any]) -> dict[str, Optional[dic
     }
 
 
-def _raw_property_value(metadata: dict[str, Any], prop: Optional[dict[str, Any]]) -> Any:
+def _raw_property_value(metadata: dict[str, Any], prop: RecordReader | None) -> Any:
     if not prop:
         return None
     for key in (str(prop.get("name") or ""), str(prop.get("id") or "")):
@@ -116,7 +118,7 @@ def _raw_property_value(metadata: dict[str, Any], prop: Optional[dict[str, Any]]
 
 def _resource_filter_values(
     metadata: dict[str, Any],
-    prop: Optional[dict[str, Any]],
+    prop: RecordReader | None,
     *,
     author: bool = False,
 ) -> list[str]:

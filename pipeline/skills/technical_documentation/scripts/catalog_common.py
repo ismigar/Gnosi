@@ -171,7 +171,7 @@ def python_files(root: Path, *, include_tests: bool = True) -> list[Path]:
     """Return owned Python files with generated and cache trees excluded."""
     files: list[Path] = []
     for path in root.rglob("*.py"):
-        parts = set(path.parts)
+        parts = set(path.relative_to(root).parts)
         if parts.intersection(EXCLUDED_FILE_PARTS):
             continue
         if not include_tests and ("tests" in parts or TEST_NAME_RE.match(path.name)):
@@ -186,7 +186,7 @@ def frontend_files(root: Path, *, include_tests: bool = True) -> list[Path]:
     for path in root.rglob("*"):
         if not path.is_file() or path.suffix not in SOURCE_SUFFIXES:
             continue
-        parts = set(path.parts)
+        parts = set(path.relative_to(root).parts)
         if parts.intersection(EXCLUDED_FILE_PARTS):
             continue
         if not include_tests and TEST_NAME_RE.match(path.name):
@@ -195,10 +195,11 @@ def frontend_files(root: Path, *, include_tests: bool = True) -> list[Path]:
     return sorted(files)
 
 
-def is_owned_inventory_file(path: Path) -> bool:
-    """Return whether a file belongs in high-level owned-source counts."""
+def is_owned_inventory_file(path: Path, *, root: Path | None = None) -> bool:
+    """Classify a file within an explicit scan root, or a legacy supplied path."""
     if not path.is_file() or path.name.startswith(".") or path.name in EXCLUDED_FILE_NAMES:
         return False
-    if set(path.parts).intersection(EXCLUDED_FILE_PARTS):
+    relative = path.relative_to(root) if root is not None else path
+    if set(relative.parts).intersection(EXCLUDED_FILE_PARTS):
         return False
     return path.suffix not in {".oxt", ".pyc", ".pyo"}
