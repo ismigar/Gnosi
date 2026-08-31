@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - desktop/scripts/release-source-identity.cjs
   - scripts/generate_openapi.py
   - backend/app/desktop_instance.py
   - desktop/backend-process.js
@@ -37,6 +38,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
@@ -59,6 +61,23 @@ tests:
 ---
 
 # Aplicación de escritorio y clientes complementarios
+
+## Identidad del código de release
+
+Después de preparar la versión fijada de Node, la comprobación previa exige
+que la etiqueta solicitada exista localmente y se resuelva exactamente al
+commit `github.sha`, que también debe ser HEAD. Se recuperan los refs de las
+etiquetas sin cambiar el checkout. La comprobación cubre etiquetas anotadas
+y ligeras, envíos de etiquetas y ejecuciones manuales. Una etiqueta ausente,
+un destino que no sea un commit, una entrada incorrecta o cualquier discrepancia
+detiene el proceso antes de instalar dependencias del proyecto y empaquetar.
+
+`desktop/scripts/release-source-identity.cjs` solo usa Git local y no mueve refs,
+no cambia a la etiqueta ni recupera datos por su cuenta. Esta comprobación no
+valida Docker, instaladores ni actualizaciones desde 2.x, ni impide movimientos
+posteriores de una etiqueta remota. Esas validaciones y la protección de
+etiquetas siguen siendo requisitos separados; las pruebas locales no
+acreditan una ejecución satisfactoria en GitHub.
 
 ## Aplicación de escritorio Electron
 
@@ -140,10 +159,10 @@ La matriz de macOS está cerrada por arquitectura: cada runner local pasa una
 electron-builder no pueden declarar una lista de arquitecturas. Esto evita
 empaquetar un backend Python congelado nativo del host dentro de una aplicación
 Electron para la arquitectura contraria.
-Las releases manuales hacen checkout del commit de la ejecución (`github.sha`);
-la etiqueta solicitada solo aporta la versión semántica y el destino de la
-release pública. Así los binarios incorporan las correcciones de empaquetado
-fusionadas después de preparar la versión sin mover una etiqueta inmutable. El
+Las releases manuales hacen checkout del commit de la ejecución (`github.sha`),
+y la etiqueta solicitada debe resolverse al mismo commit. Las correcciones
+de empaquetado posteriores a una etiqueta requieren una nueva etiqueta de
+release revisada; no publique código distinto bajo la etiqueta antigua. El
 job de Windows expone la instalación estándar `Program Files\\Git\\cmd` antes
 del checkout si el servicio del runner no la hereda mediante `PATH`, evitando
 el fallback al ZIP REST.

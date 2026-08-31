@@ -6,7 +6,7 @@ Environment names and source-written defaults discovered through static inspecti
 
 Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **102 variables** across **193 source references**.
+Discovered **103 variables** across **195 source references**.
 
 | Variable | Entorno de ejecución | Valor predeterminado en el código | Consumidores |
 | --- | --- | --- | --- |
@@ -94,8 +94,9 @@ Discovered **102 variables** across **193 source references**.
 | `OPENAI_API_KEY` | Python | redacted | [`backend/agent/graph.py:27`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/graph.py#L27)<br>[`backend/agent/memory.py:68`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py#L68) |
 | `OPUS_IDLE_TIMEOUT_S` | Python | '300' | [`pipeline/skills/translate_row/scripts/translate_text.py:84`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L84) |
 | `PANDOC_PATH` | Python | '' | [`backend/domains/vault/citations/formatting.py:133`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/formatting.py#L133) |
-| `PATH` | Node.js, Python | '', runtime-provided | [`backend/agent/generated_tools/sandbox_runner.py:94`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/sandbox_runner.py#L94)<br>[`desktop/backend-process.test.js:77`](https://github.com/ismigar/Gnosi/blob/main/desktop/backend-process.test.js#L77)<br>[`desktop/release-workflow-collection.test.js:75`](https://github.com/ismigar/Gnosi/blob/main/desktop/release-workflow-collection.test.js#L75) |
+| `PATH` | Node.js, Python | '', runtime-provided | [`backend/agent/generated_tools/sandbox_runner.py:94`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/sandbox_runner.py#L94)<br>[`desktop/backend-process.test.js:77`](https://github.com/ismigar/Gnosi/blob/main/desktop/backend-process.test.js#L77)<br>[`desktop/release-source-identity.test.js:65`](https://github.com/ismigar/Gnosi/blob/main/desktop/release-source-identity.test.js#L65)<br>[`desktop/release-workflow-collection.test.js:75`](https://github.com/ismigar/Gnosi/blob/main/desktop/release-workflow-collection.test.js#L75) |
 | `SOFTCATALA_API_URL` | Python | unset | [`pipeline/skills/translate_row/scripts/translate_text.py:336`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L336)<br>[`pipeline/skills/translate_row/scripts/translate_text.py:347`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/scripts/translate_text.py#L347) |
+| `SystemRoot` | Node.js | runtime-provided | [`desktop/release-source-identity.test.js:66`](https://github.com/ismigar/Gnosi/blob/main/desktop/release-source-identity.test.js#L66) |
 | `TELEGRAM_BOT_TOKEN` | Python | redacted | [`backend/services/social_clients.py:544`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L544) |
 | `TELEGRAM_CHAT_ID` | Python | '' | [`backend/services/social_clients.py:548`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L548) |
 | `TEMENOS_BLUESKY_APP_PASSWORD` | Python | redacted | [`backend/services/social_clients.py:278`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py#L278) |

@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - desktop/scripts/release-source-identity.cjs
   - scripts/generate_openapi.py
   - backend/app/desktop_instance.py
   - desktop/backend-process.js
@@ -39,6 +40,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
@@ -61,6 +63,23 @@ tests:
 ---
 
 # Application de bureau et clients complémentaires
+
+## Identité du code de release
+
+Après la préparation de la version fixée de Node, le contrôle préalable exige
+que la balise demandée existe localement et désigne exactement le commit
+`github.sha`, également extrait comme HEAD. Les refs des balises sont récupérés
+sans changer le checkout. Le contrôle couvre les balises annotées et légères,
+les envois de balises et les exécutions manuelles. Une balise absente, une cible
+qui n'est pas un commit, une entrée incorrecte ou toute divergence interrompt
+le processus avant l'installation des dépendances du projet et l'empaquetage.
+
+`desktop/scripts/release-source-identity.cjs` utilise uniquement Git local :
+il ne déplace pas de refs, ne change pas de checkout et ne récupère rien
+lui-même. Ce contrôle ne valide ni Docker, ni les installateurs, ni les mises
+à jour depuis 2.x, et n'empêche pas un déplacement ultérieur de la balise
+distante. Ces validations et la protection des balises restent des exigences
+distinctes ; les tests locaux ne prouvent pas la réussite d'une exécution GitHub.
 
 ## Application de bureau Electron
 
@@ -144,10 +163,10 @@ d'electron-builder ne doivent pas déclarer de liste d'architectures. Cela évit
 d'intégrer un backend Python gelé natif de l'hôte dans une application Electron
 destinée à l'architecture opposée.
 
-Les releases manuelles extraient le commit de l'exécution (`github.sha`) ; la
-balise demandée fournit uniquement la version sémantique et la destination de
-la release publique. Les binaires incluent ainsi les correctifs d'empaquetage
-fusionnés après la préparation de la version sans déplacer une balise immuable.
+Les releases manuelles extraient le commit de l'exécution (`github.sha`), et
+la balise demandée doit désigner ce même commit. Les correctifs d'empaquetage
+postérieurs à une balise exigent une nouvelle balise de release révisée ;
+ne pas publier un code différent sous l'ancienne balise.
 Le job Windows expose l'installation standard `Program Files\\Git\\cmd` avant
 le checkout lorsque le service du runner ne l'hérite pas via `PATH`, ce qui
 évite le fallback vers l'archive ZIP REST.

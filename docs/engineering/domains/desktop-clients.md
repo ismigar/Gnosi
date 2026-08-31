@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - desktop/scripts/release-source-identity.cjs
   - scripts/generate_openapi.py
   - backend/app/desktop_instance.py
   - desktop/backend-process.js
@@ -39,6 +40,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
@@ -61,6 +63,21 @@ tests:
 ---
 
 # Desktop and companion clients
+
+## Release source identity
+
+After the pinned Node setup, release preflight verifies that the requested tag
+exists locally and resolves to the exact `github.sha` commit also checked out
+as HEAD. The full tag refs are fetched without switching the source checkout.
+The same check covers annotated and lightweight tags, tag pushes and manual
+dispatch. Missing tags, non-commit targets, malformed input and any mismatch
+stop preflight before project dependency installation and packaging.
+
+`desktop/scripts/release-source-identity.cjs` uses local Git only and never
+moves refs, checks out a tag or fetches on its own. This gate does not certify
+Docker, installers or 2.x upgrades, and does not prevent later remote tag
+movement. Those acceptance checks and tag protection remain separate release
+requirements; local fixtures are not evidence of a successful GitHub run.
 
 ## Electron desktop
 
@@ -167,10 +184,10 @@ The macOS matrix is architecture-closed: each local runner passes exactly one
 CLI architecture, and the shared electron-builder macOS targets must not
 declare an architecture list. This prevents a host-native frozen Python backend
 from being packaged into an Electron application for the opposite architecture.
-Manual releases checkout the workflow run commit (`github.sha`); the requested
-tag supplies the semantic version and public release destination only. This
-keeps packaging fixes merged after version preparation in the binaries without
-moving an immutable tag. The Windows job exposes the standard
+Manual releases check out the workflow run commit (`github.sha`), and the
+requested tag must resolve to that same commit. Packaging fixes added after
+an existing tag require a new reviewed release tag; do not publish different
+source under the old tag. The Windows job exposes the standard
 `Program Files\\Git\\cmd` installation before checkout when the runner service
 does not inherit it through `PATH`, preventing the REST ZIP fallback.
 Its generated run scripts use a job-scoped PowerShell execution-policy bypass,

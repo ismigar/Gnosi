@@ -60,6 +60,19 @@ export function useContentCreation(context: Context) {
         // Normal view: opens the PageViewModal to create the view directly.
         handleConfigureView({ type: type || 'table', name: '' });
     };
+    const handleOpenCreateDatabaseGroup = () => {
+        setPromptModal({
+            isOpen: true,
+            defaultTitle: t('common.new_app'),
+            parentId: null,
+            isDatabase: false,
+            isApp: true,
+            isDrawing: false,
+            isView: false,
+            inputValue: t('common.new_app'),
+            isLoading: false
+        });
+    };
     const handleOpenCreatePrompt = (parentId: string | null = null, isDatabase = false, isDrawing = false, isDashboard = false) => {
         let defaultTitle = isDatabase ? t('common.new_database') : t('common.new_page');
         if (isDrawing)
@@ -188,5 +201,5 @@ export function useContentCreation(context: Context) {
             setPromptModal(prev => ({ ...prev, isLoading: false }));
         }
     };
-    return { closePromptModal, handleConfigureView, handleAddView, handleOpenCreatePrompt, executeCreateContent };
+    return { closePromptModal, handleConfigureView, handleAddView, handleOpenCreateDatabaseGroup, handleOpenCreatePrompt, executeCreateContent };
 }

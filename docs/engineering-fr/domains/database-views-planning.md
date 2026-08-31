@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
+  - frontend/src/features/vault/dashboard/useContentCreation.ts
+  - frontend/src/features/vault/dashboard/DashboardWelcome.tsx
+  - frontend/src/features/vault/dashboard/DashboardSidebar.tsx
   - backend/data/db.py
   - backend/api/vault_routes.py
   - backend/domains/vault/tables/catalogs
@@ -33,6 +36,7 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
   - frontend/src/features/planning/public-entry.test.ts
   - backend/tests/test_action_rules.py
@@ -77,6 +81,20 @@ synchronisé dans le cloud.
 La présence d'au moins une vue principale est un invariant. Les mécanismes de
 réparation au démarrage et à la lecture la restaurent lorsque des écritures
 anciennes ou interrompues laissent une table sans vue valide.
+
+## Création de groupes de bases de données
+
+Le bouton de création d'une base de données de l'accueil et le contrôle
+correspondant de la barre latérale partagent une seule action. Tous deux créent
+un groupe dans le registre via `/api/vault/databases`, actualisent le registre
+et laissent les documents de page intacts. Les espaces superflus du nom sont
+supprimés ; annuler ou laisser le nom vide n'écrit rien, et un échec conserve
+le dialogue du groupe pour permettre une nouvelle tentative.
+
+Une table est un objet distinct, créé dans un groupe sélectionné avec sa vue
+principale. L'API des pages prend toujours en charge les anciennes pages
+marquées `is_database: true` ; l'action d'accueil ne les convertit, ne les
+supprime et ne les réinterprète pas automatiquement.
 
 ## Dates d'audit système
 

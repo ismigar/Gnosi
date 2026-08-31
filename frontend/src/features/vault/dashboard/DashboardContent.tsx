@@ -1,6 +1,5 @@
 import React from 'react';
 import { Suspense, lazy } from 'react';
-import { FileText } from 'lucide-react';
 import { VaultDocumentTabs } from '../navigation/VaultDocumentTabs';
 import VaultDrawings from '../drawings/VaultDrawings';
 import { VaultTrashView } from '../navigation/VaultTrashView';
@@ -8,6 +7,7 @@ import { VaultTagsView } from '../navigation/VaultTagsView';
 import { reorderTabs } from './tab-model';
 import { TablePane } from './TablePane';
 import { EditorPane } from './EditorPane';
+import { DashboardWelcome } from './DashboardWelcome';
 import type { DashboardController } from './useDashboardController';
 const TldrawEditor = lazy(() => import('../drawings/TldrawEditor'));
 export function DashboardContent(dashboard: DashboardController) {
@@ -18,6 +18,7 @@ export function DashboardContent(dashboard: DashboardController) {
     fetchPages,
     fetchPagesByTable,
     handleDividerMouseDown,
+    handleOpenCreateDatabaseGroup,
     handleOpenCreatePrompt,
     handleOpenParallel,
     handleOpenTableAsTab,
@@ -134,29 +135,11 @@ export function DashboardContent(dashboard: DashboardController) {
         dashboard={dashboard}
         tableId={activeTableId}
         mode="inline"
-      />) : (<div className="flex flex-col items-center justify-center w-full h-[80vh] text-[var(--text-tertiary)] px-4">
-        <FileText
-          size={64}
-          className="mb-4 text-[var(--bg-tertiary)]"
-          strokeWidth={1}
-        />
-        <h2 className="text-xl font-medium text-[var(--text-secondary)]">{t('vault_welcome_title', "Welcome")}</h2>
-        <p className="mt-2 max-w-md text-center">{t('vault_welcome_subtitle', "Select a knowledge page or")}</p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <button
-            onClick={() => { handleOpenCreatePrompt(null, false); }}
-            className="btn btn-gnosi-primary"
-          >
-            {t('vault_welcome_create_page', "Create a page")}
-          </button>
-          <button
-            onClick={() => { handleOpenCreatePrompt(null, true); }}
-            className="btn btn-gnosi-primary"
-          >
-            {t('vault_welcome_create_db', "Create a DB")}
-          </button>
-        </div>
-      </div>)}
+      />) : <DashboardWelcome
+        t={t}
+        onCreatePage={() => { handleOpenCreatePrompt(null, false); }}
+        onCreateDatabase={handleOpenCreateDatabaseGroup}
+      />}
     </div>
   </div>);
 }

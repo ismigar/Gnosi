@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
+  - frontend/src/features/vault/dashboard/useContentCreation.ts
+  - frontend/src/features/vault/dashboard/DashboardWelcome.tsx
+  - frontend/src/features/vault/dashboard/DashboardSidebar.tsx
   - backend/data/db.py
   - backend/api/vault_routes.py
   - backend/domains/vault/tables/catalogs
@@ -33,6 +36,7 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
   - frontend/src/features/planning/public-entry.test.ts
   - backend/tests/test_action_rules.py
@@ -77,6 +81,20 @@ Vault sincronitzat amb el núvol.
 L'existència d'almenys una vista principal és un invariant. Els mecanismes de
 reparació en arrencar i en llegir la restauren quan les escriptures heretades
 o interrompudes deixen una taula sense cap vista vàlida.
+
+## Creació de grups de bases de dades
+
+El botó Crea una DB de la pantalla de benvinguda i el control Afegir base de dades
+de la barra lateral comparteixen una única acció. Tots dos creen un grup al
+registre mitjançant `/api/vault/databases`, actualitzen el registre i deixen
+intactes els documents de pàgina. S'eliminen els espais sobrants del nom;
+cancel·lar o deixar-lo buit no escriu res, i una petició fallida conserva el
+diàleg de grup per poder tornar-ho a provar.
+
+Una taula és un objecte diferent, creat dins d'un grup seleccionat amb la seva
+vista principal. L'API de pàgines continua admetent les pàgines antigues marcades
+amb `is_database: true`; l'acció de benvinguda no les converteix, elimina ni
+reinterpreta automàticament.
 
 ## Dates d'auditoria del sistema
 

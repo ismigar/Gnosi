@@ -17,6 +17,7 @@ export function DashboardSidebar(dashboard: DashboardController) {
     handleDeletePage,
     handleDuplicatePage,
     handleMovePage,
+    handleOpenCreateDatabaseGroup,
     handleOpenCreatePrompt,
     handleOpenDailyNote,
     handleOpenParallel,
@@ -133,19 +134,7 @@ export function DashboardSidebar(dashboard: DashboardController) {
         toast.error(t('errors.delete_table'));
       }
     }}
-    onCreateDatabaseGroup={() => {
-      setPromptModal({
-        isOpen: true,
-        defaultTitle: t('common.new_app'),
-        parentId: null,
-        isDatabase: false,
-        isApp: true,
-        isDrawing: false,
-        isView: false,
-        inputValue: t('common.new_app'),
-        isLoading: false
-      });
-    }}
+    onCreateDatabaseGroup={handleOpenCreateDatabaseGroup}
     onCreateTable={(databaseId) => {
       setPromptModal({
         isOpen: true,

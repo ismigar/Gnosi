@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
+  - frontend/src/features/vault/dashboard/useContentCreation.ts
+  - frontend/src/features/vault/dashboard/DashboardWelcome.tsx
+  - frontend/src/features/vault/dashboard/DashboardSidebar.tsx
   - backend/data/db.py
   - backend/api/vault_routes.py
   - backend/domains/vault/tables/catalogs
@@ -33,6 +36,7 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
   - frontend/src/features/planning/public-entry.test.ts
   - backend/tests/test_action_rules.py
@@ -75,6 +79,18 @@ Vault storage.
 At least one main view is an invariant. Startup and read-time repair paths
 restore it when legacy or interrupted writes leave a table without a valid
 view.
+
+## Creating database groups
+
+The welcome screen's Create a DB button and the sidebar's Add database control
+share one creation action. Both create a registry database group through
+`/api/vault/databases`, refresh the registry and leave page documents unchanged.
+The name is trimmed; cancel and blank names do not write, and a failed request
+keeps the group prompt available for retry.
+
+A table is a separate object created inside a selected group, with its main
+view. Legacy pages marked `is_database: true` remain supported by the page API;
+they are not silently converted, deleted or reinterpreted by the welcome action.
 
 ## System audit dates
 

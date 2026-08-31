@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict
 
-
 log = logging.getLogger(__name__)
 
 GENERATED_NOTICE = (
@@ -67,7 +66,7 @@ EXCLUDED_FILE_PARTS = {
 EXCLUDED_FILE_NAMES = {
     "zotero_db_config.json",
 }
-FRONTEND_ENV_RE = re.compile(r"\b(?:import\.meta|process)\.env\.([A-Z][A-Z0-9_]*)")
+FRONTEND_ENV_RE = re.compile(r"\b(?:import\.meta|process)\.env\.([A-Za-z_$][A-Za-z0-9_$]*)")
 FRONTEND_API_RE = re.compile(r"['\"](/api/[A-Za-z0-9_?&=./:{}*+%-]+)['\"]")
 ROUTE_RE = re.compile(
     r'<Route\s+path\s*=\s*["\']([^"\']+)["\']\s+element\s*=\s*\{\s*<([A-Za-z_$][\w$]*)'
@@ -761,7 +760,8 @@ def build_api_catalog(app_root: Path) -> str:
     if unregistered:
         lines.append(
             "These files contain an `APIRouter` or route-oriented module name but are not "
-            "mounted by the FastAPI composition registry. They may be obsolete, imported indirectly, or "
+            "mounted by the FastAPI composition registry. They may be obsolete, "
+            "imported indirectly, or "
             "under development and require human review."
         )
         lines.append("")
@@ -838,7 +838,8 @@ def build_backend_catalog(app_root: Path) -> str:
             [
                 f"## {group}",
                 "",
-                "| Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |",
+                "| Module | Lines | Classes | Functions | Async | "
+                "Documented declarations | Purpose signal |",
                 "| --- | ---: | ---: | ---: | ---: | ---: | --- |",
             ]
         )
@@ -1033,7 +1034,8 @@ def build_data_model_catalog(app_root: Path) -> str:
                 "",
                 f"## `{table_name}` — `{model_name}`",
                 "",
-                "| Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |",
+                "| Column | Type | Primary key | Nullable | Unique | Index | "
+                "Foreign key | Source default | Source |",
                 "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
             ]
         )
@@ -1364,11 +1366,13 @@ def build_configuration_catalog(app_root: Path) -> str:
     lines = generated_header(
         "Configuration catalog",
         "Environment names and source-written defaults discovered through static inspection. "
-        "Secret-bearing defaults are always redacted, and the generator never reads the process environment.",
+        "Secret-bearing defaults are always redacted, "
+        "and the generator never reads the process environment.",
     )
     lines.extend(
         [
-            f"Discovered **{len(grouped)} variables** across **{len(references)} source references**.",
+            f"Discovered **{len(grouped)} variables** "
+            f"across **{len(references)} source references**.",
             "",
             "| Variable | Runtime | Source default | Consumers |",
             "| --- | --- | --- | --- |",
@@ -1508,7 +1512,8 @@ def build_skill_catalog(app_root: Path) -> str:
     )
     for name, title, doc_lines, script_count, source in rows:
         lines.append(
-            f"| `{name}` | {markdown_cell(title)} | {doc_lines} | {script_count} | {source_link(source)} |"
+            f"| `{name}` | {markdown_cell(title)} | {doc_lines} | "
+            f"{script_count} | {source_link(source)} |"
         )
     lines.append("")
     return "\n".join(lines)
@@ -1577,7 +1582,8 @@ def build_coverage_catalog(app_root: Path, project_root: Path, domains_path: Pat
     lines = generated_header(
         "Documentation coverage",
         "Curated traceability matrix connecting product domains to reviewed guides, source, "
-        "tests, and development-memory directives. File presence proves traceability, not behavior.",
+        "tests, and development-memory directives. "
+        "File presence proves traceability, not behavior.",
     )
     lines.extend(
         [
@@ -1614,7 +1620,8 @@ def build_coverage_catalog(app_root: Path, project_root: Path, domains_path: Pat
             else f"`{guide_source}`"
         )
         lines.append(
-            f"| `{domain_id}` | **{status}** | {guide_link} | {len(sources)} | {len(tests)} | {len(directives)} |"
+            f"| `{domain_id}` | **{status}** | {guide_link} | "
+            f"{len(sources)} | {len(tests)} | {len(directives)} |"
         )
         details.extend(
             [
@@ -1709,7 +1716,8 @@ def build_repository_inventory(app_root: Path, project_root: Path) -> str:
             "",
             "Catalogs exclude or avoid interpreting `.venv`, `node_modules`, `dist`, cache "
             "directories, Playwright reports, `local_data`, local SQLite files, and "
-            "`frontend/vendor`. Vendored reader code is documented only at its integration boundary.",
+            "`frontend/vendor`. Vendored reader code is documented "
+            "only at its integration boundary.",
             "",
         ]
     )

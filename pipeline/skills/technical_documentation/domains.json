@@ -56,6 +56,7 @@
       "backend/domains/vault/tables/catalogs/**/*.py",
       "backend/domains/vault/tables/rules/**/*.py",
       "backend/domains/vault/views/**/*.py",
+      "frontend/src/features/vault/dashboard/**/*",
       "frontend/src/features/vault/views/**/*",
       "frontend/src/features/vault/view-config/**/*",
       "frontend/src/features/vault/schema/**/*",
@@ -67,7 +68,7 @@
       "frontend/src/shared/schema/**/*",
       "frontend/src/shared/dates/**/*"
     ],
-    "test_globs": ["backend/tests/test_*view*.py", "backend/tests/test_planning*.py", "backend/tests/test_*rule*.py", "backend/tests/test_*rollup*.py", "backend/tests/test_*option_catalogs.py", "backend/tests/test_snapshot_sort*.py", "backend/tests/test_database_rules_views_domain_contract.py", "frontend/src/features/vault/views/**/*.test.*", "frontend/src/features/vault/view-config/**/*.test.*", "frontend/src/features/vault/schema/**/*.test.*", "frontend/src/features/vault/properties/**/*.test.*", "frontend/src/features/planning/**/*.test.*", "frontend/src/shared/records/**/*.test.*", "frontend/src/shared/record-views/**/*.test.*", "frontend/src/shared/filtering/**/*.test.*", "frontend/src/shared/schema/**/*.test.*", "frontend/src/shared/dates/**/*.test.*", "tests/e2e/tests/e2e/dashboards.spec.ts"],
+    "test_globs": ["backend/tests/test_*view*.py", "backend/tests/test_planning*.py", "backend/tests/test_*rule*.py", "backend/tests/test_*rollup*.py", "backend/tests/test_*option_catalogs.py", "backend/tests/test_snapshot_sort*.py", "backend/tests/test_database_rules_views_domain_contract.py", "frontend/src/features/vault/dashboard/**/*.test.*", "frontend/src/features/vault/views/**/*.test.*", "frontend/src/features/vault/view-config/**/*.test.*", "frontend/src/features/vault/schema/**/*.test.*", "frontend/src/features/vault/properties/**/*.test.*", "frontend/src/features/planning/**/*.test.*", "frontend/src/shared/records/**/*.test.*", "frontend/src/shared/record-views/**/*.test.*", "frontend/src/shared/filtering/**/*.test.*", "frontend/src/shared/schema/**/*.test.*", "frontend/src/shared/dates/**/*.test.*", "tests/e2e/tests/e2e/dashboards.spec.ts"],
     "directives": [
       "automations_and_formulas.md",
       "project_planning_authoritative_engine.md",

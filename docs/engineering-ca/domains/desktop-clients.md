@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - desktop/scripts/release-source-identity.cjs
   - scripts/generate_openapi.py
   - backend/app/desktop_instance.py
   - desktop/backend-process.js
@@ -37,6 +38,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
@@ -59,6 +61,23 @@ tests:
 ---
 
 # Aplicació d’escriptori i clients complementaris
+
+## Identitat del codi de release
+
+Després de preparar la versió fixada de Node, la comprovació prèvia exigeix que
+el tag sol·licitat existeixi localment i es resolgui exactament al commit
+`github.sha`, que també ha de ser HEAD. Es recuperen els refs dels tags sense
+canviar el checkout. La comprovació cobreix tags anotats i lleugers, enviaments
+de tags i execucions manuals. Un tag absent, un destí que no sigui un commit,
+una entrada incorrecta o qualsevol discrepància atura el procés abans
+d'instal·lar dependències del projecte i empaquetar.
+
+`desktop/scripts/release-source-identity.cjs` només usa Git local i no mou refs,
+no canvia al tag ni recupera dades pel seu compte. Aquesta comprovació no
+valida Docker, instal·ladors ni actualitzacions des de 2.x, ni impedeix que
+després es mogui un tag remot. Aquestes validacions i la protecció de tags
+continuen sent requisits separats; les proves locals no acrediten una
+execució reeixida a GitHub.
 
 ## Aplicació d’escriptori Electron
 
@@ -139,10 +158,10 @@ La matriu de macOS està tancada per arquitectura: cada runner local passa una
 d'electron-builder no poden declarar cap llista d'arquitectures. Això evita
 empaquetar un backend Python congelat natiu del host dins una aplicació Electron
 de l'arquitectura contrària.
-Les releases manuals fan checkout del commit de l'execució (`github.sha`); el
-tag sol·licitat només aporta la versió semàntica i la destinació de la release
-pública. Això incorpora als binaris les correccions d'empaquetatge fusionades
-després de preparar la versió sense moure un tag immutable. El job de Windows
+Les releases manuals fan checkout del commit de l'execució (`github.sha`), i
+el tag sol·licitat s'ha de resoldre al mateix commit. Les correccions
+d'empaquetatge posteriors a un tag requereixen un nou tag de release revisat;
+no publiqueu codi diferent sota el tag antic. El job de Windows
 exposa la instal·lació estàndard `Program Files\\Git\\cmd` abans del checkout si
 el servei del runner no l'hereta mitjançant `PATH`, i evita el fallback al ZIP
 REST.

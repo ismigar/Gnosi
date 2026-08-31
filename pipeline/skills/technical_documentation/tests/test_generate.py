@@ -12,6 +12,7 @@ from pipeline.skills.technical_documentation.scripts.generate import (
     RouterRegistration,
     build_api_catalog,
     build_data_model_catalog,
+    collect_environment_references,
     declares_router,
     format_environment_default,
     frontend_files,
@@ -23,7 +24,6 @@ from pipeline.skills.technical_documentation.scripts.generate import (
     python_files,
     safe_unparse,
 )
-
 
 APP_ROOT = Path(__file__).resolve().parents[4]
 
@@ -46,6 +46,29 @@ def test_safe_unparse_normalizes_lambda_without_arguments() -> None:
     expression = ast.parse("lambda: value", mode="eval").body
 
     assert safe_unparse(expression) == "lambda: value"
+
+
+def test_javascript_environment_names_are_not_truncated(tmp_path: Path) -> None:
+    """Mixed-case and dollar-bearing property names retain their full spelling."""
+    desktop = tmp_path / "desktop"
+    desktop.mkdir()
+    (desktop / "fixture.js").write_text(
+        "process.env.SystemRoot;\n"
+        "process.env.GNOSI_DATA_DIR;\n"
+        "process.env.lowercase;\n"
+        "process.env.UPPER$Suffix;\n"
+        "import.meta.env.VITE_mixedCase;\n",
+        encoding="utf-8",
+    )
+    references = collect_environment_references(tmp_path)
+    assert {(item.name, item.line, item.runtime) for item in references} == {
+        ("SystemRoot", 1, "Node.js"),
+        ("GNOSI_DATA_DIR", 2, "Node.js"),
+        ("lowercase", 3, "Node.js"),
+        ("UPPER$Suffix", 4, "Node.js"),
+        ("VITE_mixedCase", 5, "Vite"),
+    }
+    assert all(item.default == "runtime-provided" for item in references)
 
 
 def test_route_module_combines_all_prefixes(tmp_path: Path) -> None:

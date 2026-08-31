@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 18 | 2471 | 0 |
-| `features` | 1042 | 120564 | 33 |
+| `features` | 1043 | 120577 | 33 |
 | `generated` | 2 | 40991 | 444 |
 | `shared` | 225 | 29108 | 383 |
 
@@ -604,8 +604,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx) | 150 | `ConfigurationDialogs` | — |
 | [`frontend/src/features/vault/dashboard/ConfirmationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/ConfirmationDialogs.tsx) | 108 | `ConfirmationDialogs` | — |
 | [`frontend/src/features/vault/dashboard/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/Dashboard.tsx) | 31 | `Dashboard`, `function` | — |
-| [`frontend/src/features/vault/dashboard/DashboardContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardContent.tsx) | 162 | `DashboardContent` | — |
-| [`frontend/src/features/vault/dashboard/DashboardSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardSidebar.tsx) | 165 | `DashboardSidebar` | — |
+| [`frontend/src/features/vault/dashboard/DashboardContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardContent.tsx) | 145 | `DashboardContent` | — |
+| [`frontend/src/features/vault/dashboard/DashboardSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardSidebar.tsx) | 154 | `DashboardSidebar` | — |
+| [`frontend/src/features/vault/dashboard/DashboardWelcome.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardWelcome.tsx) | 28 | `DashboardWelcome` | — |
 | [`frontend/src/features/vault/dashboard/EditorPane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/EditorPane.tsx) | 156 | `EditorPane` | — |
 | [`frontend/src/features/vault/dashboard/TablePane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TablePane.tsx) | 131 | `TablePane` | — |
 | [`frontend/src/features/vault/dashboard/__tests__/controller-support.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/__tests__/controller-support.tsx) | 42 | `renderController` | — |
@@ -621,7 +622,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/vault/dashboard/useAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useAgentContext.ts) | 36 | `useAgentContext` | — |
 | [`frontend/src/features/vault/dashboard/useBreadcrumbs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useBreadcrumbs.ts) | 94 | `useBreadcrumbs` | — |
 | [`frontend/src/features/vault/dashboard/useBrowserHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useBrowserHistory.ts) | 30 | `browserHistoryIndex`, `historyMaximum`, `useBrowserHistory` | — |
-| [`frontend/src/features/vault/dashboard/useContentCreation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useContentCreation.ts) | 192 | `useContentCreation` | — |
+| [`frontend/src/features/vault/dashboard/useContentCreation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useContentCreation.ts) | 205 | `useContentCreation` | — |
 | [`frontend/src/features/vault/dashboard/useDashboardActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardActions.ts) | 41 | `useDashboardActions` | — |
 | [`frontend/src/features/vault/dashboard/useDashboardController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardController.ts) | 22 | `useDashboardController` | — |
 | [`frontend/src/features/vault/dashboard/useDashboardEvents.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardEvents.tsx) | 146 | `useDashboardEvents` | — |

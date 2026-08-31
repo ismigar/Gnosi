@@ -9,8 +9,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 584 | 187 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 972 | 230 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 380 | 93 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 974 | 231 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 435 | 100 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 59 | 26 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 126 | 45 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 199 | 70 | 0 |
@@ -22,7 +22,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 130 | 34 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 40 | 23 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 16 | 8 | 0 |
-| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 93 | 24 | 0 |
+| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 95 | 25 | 0 |
 
 ## Platform foundation and runtime
 
@@ -41,8 +41,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Database views and project planning
 
 - Guide: [`Database views and project planning`](../domains/database-views-planning.md)
-- Source patterns: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `backend/services/option_catalogs.py`, `backend/services/rule_engine.py`, `backend/services/view_snapshot.py`, `backend/domains/vault/tables/catalogs/**/*.py`, `backend/domains/vault/tables/rules/**/*.py`, `backend/domains/vault/views/**/*.py`, `frontend/src/features/vault/views/**/*`, `frontend/src/features/vault/view-config/**/*`, `frontend/src/features/vault/schema/**/*`, `frontend/src/features/vault/properties/**/*`, `frontend/src/features/planning/**/*`, `frontend/src/shared/records/**/*`, `frontend/src/shared/record-views/**/*`, `frontend/src/shared/filtering/**/*`, `frontend/src/shared/schema/**/*`, `frontend/src/shared/dates/**/*`
-- Test patterns: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `backend/tests/test_*rule*.py`, `backend/tests/test_*rollup*.py`, `backend/tests/test_*option_catalogs.py`, `backend/tests/test_snapshot_sort*.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `frontend/src/features/vault/views/**/*.test.*`, `frontend/src/features/vault/view-config/**/*.test.*`, `frontend/src/features/vault/schema/**/*.test.*`, `frontend/src/features/vault/properties/**/*.test.*`, `frontend/src/features/planning/**/*.test.*`, `frontend/src/shared/records/**/*.test.*`, `frontend/src/shared/record-views/**/*.test.*`, `frontend/src/shared/filtering/**/*.test.*`, `frontend/src/shared/schema/**/*.test.*`, `frontend/src/shared/dates/**/*.test.*`, `tests/e2e/tests/e2e/dashboards.spec.ts`
+- Source patterns: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `backend/services/option_catalogs.py`, `backend/services/rule_engine.py`, `backend/services/view_snapshot.py`, `backend/domains/vault/tables/catalogs/**/*.py`, `backend/domains/vault/tables/rules/**/*.py`, `backend/domains/vault/views/**/*.py`, `frontend/src/features/vault/dashboard/**/*`, `frontend/src/features/vault/views/**/*`, `frontend/src/features/vault/view-config/**/*`, `frontend/src/features/vault/schema/**/*`, `frontend/src/features/vault/properties/**/*`, `frontend/src/features/planning/**/*`, `frontend/src/shared/records/**/*`, `frontend/src/shared/record-views/**/*`, `frontend/src/shared/filtering/**/*`, `frontend/src/shared/schema/**/*`, `frontend/src/shared/dates/**/*`
+- Test patterns: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `backend/tests/test_*rule*.py`, `backend/tests/test_*rollup*.py`, `backend/tests/test_*option_catalogs.py`, `backend/tests/test_snapshot_sort*.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `frontend/src/features/vault/dashboard/**/*.test.*`, `frontend/src/features/vault/views/**/*.test.*`, `frontend/src/features/vault/view-config/**/*.test.*`, `frontend/src/features/vault/schema/**/*.test.*`, `frontend/src/features/vault/properties/**/*.test.*`, `frontend/src/features/planning/**/*.test.*`, `frontend/src/shared/records/**/*.test.*`, `frontend/src/shared/record-views/**/*.test.*`, `frontend/src/shared/filtering/**/*.test.*`, `frontend/src/shared/schema/**/*.test.*`, `frontend/src/shared/dates/**/*.test.*`, `tests/e2e/tests/e2e/dashboards.spec.ts`
 - Directives: none found
 
 ## Knowledge graph
