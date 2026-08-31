@@ -11,12 +11,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 46 | 8542 |
-| `api` | 38 | 12516 |
+| `api` | 38 | 12519 |
 | `app` | 8 | 711 |
 | `application root` | 2 | 41 |
 | `config` | 9 | 1049 |
 | `data` | 2 | 214 |
-| `domains` | 413 | 88847 |
+| `domains` | 413 | 88888 |
 | `mcp` | 3 | 429 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1208 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 450 |
 
-Total: **746 modules** and **154578 source lines**.
+Total: **746 modules** and **154622 source lines**.
 
 ## agent
 
@@ -117,7 +117,7 @@ Total: **746 modules** and **154578 source lines**.
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 695 | 1 | 23 | 9 | 23 | HTTP routes for system notifications, status and filesystem access. |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py) | 185 | 4 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_graph_routes.py) | 32 | 0 | 1 | 1 | 1 | No module docstring |
-| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 330 | 0 | 2 | 0 | 0 | No module docstring |
+| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 333 | 0 | 2 | 0 | 0 | No module docstring |
 | [`backend/api/vault_templates_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_templates_routes.py) | 321 | 7 | 10 | 0 | 8 | Vault template catalog, creation, export, and moderated submission routes. |
 | [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_views_routes.py) | 407 | 4 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
 | [`backend/api/vaults_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py) | 383 | 6 | 10 | 0 | 9 | Vaults API (personal multi-vault mode): list, create and choose vaults. |
@@ -499,7 +499,7 @@ Total: **746 modules** and **154578 source lines**.
 | [`backend/domains/vault/pages/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/__init__.py) | 5 | 0 | 0 | 0 | 0 | Page catalog, persistence, preview and indexing boundaries. |
 | [`backend/domains/vault/pages/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/cache.py) | 140 | 0 | 9 | 1 | 9 | Concurrency and short-lived caches for vault page operations. |
 | [`backend/domains/vault/pages/create_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/create_service.py) | 199 | 1 | 4 | 2 | 2 | Application service for creating one vault page. |
-| [`backend/domains/vault/pages/foundation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/foundation.py) | 713 | 0 | 42 | 0 | 26 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/pages/foundation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/foundation.py) | 754 | 0 | 43 | 0 | 27 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/identifiers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/identifiers.py) | 32 | 0 | 2 | 0 | 2 | Validation for page and history identifiers used in filesystem paths. |
 | [`backend/domains/vault/pages/index_entries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_entries.py) | 334 | 2 | 12 | 0 | 9 | Typed page-index entry construction. |
 | [`backend/domains/vault/pages/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_service.py) | 632 | 1 | 28 | 0 | 8 | Vault page-index discovery, refresh and snapshot services. |

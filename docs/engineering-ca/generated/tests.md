@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 21 | 71 |
 | Vitest | 479 | 1961 |
-| pytest | 359 | 2440 |
+| pytest | 360 | 2441 |
 
 ## Fitxers
 
@@ -810,6 +810,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_vault_metadata_lookup_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_metadata_lookup_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_vault_metadata_mutations_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_metadata_mutations_domain_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_modal_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_modal_response_contract.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_vault_page_foundation_typed_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_page_foundation_typed_composition.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_vault_page_index_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_page_index_domain_contract.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_vault_page_special_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_page_special_response_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_page_state_singleton.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_page_state_singleton.py) | 2 | Python AST |

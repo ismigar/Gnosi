@@ -24,6 +24,7 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -232,6 +233,17 @@ sustitución dinámica mediante monkeypatch resueltos en el momento de uso. El
 router padre sigue exponiendo el mismo inventario plano de `APIRoute` y un
 OpenAPI determinista idéntico byte a byte. Por tanto, la fachada no necesita
 ninguna excepción en los controles del código fuente.
+
+`pages/foundation.py` declara sus funciones antes de cargar la fachada. El punto
+de entrada `initialize_foundation` vincula los proveedores existentes una sola
+vez en la posición original del arranque, incluso cuando se importa primero el
+módulo de páginas. Las llamadas repetidas conservan los mismos objetos de
+dependencias, callbacks capturados y orden de rutas; se rechaza vincular otra
+fachada. Las pruebas aisladas comparan ambos órdenes de importación, las
+anotaciones resueltas y el OpenAPI completo del Vault, y comprueban claves YAML
+antiguas, sidecars y traslados de archivos. Esto elimina un ciclo de
+inicialización; no acredita el tipado completo de los contratos de metadatos
+heredados que siguen pendientes.
 
 El comportamiento del ciclo de vida de las traducciones es responsabilidad de
 `backend/domains/vault/translation`: la carga opcional de proveedores, la

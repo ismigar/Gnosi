@@ -24,6 +24,7 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -233,6 +234,16 @@ i els punts de substitució per a monkeypatch amb vinculació tardana.
 L'encaminador pare continua exposant el mateix inventari pla d'`APIRoute`
 i un OpenAPI determinista idèntic byte a byte. Per tant, la façana no necessita
 cap excepció als controls del codi font.
+
+`pages/foundation.py` declara les funcions abans de carregar la façana. El punt
+d'entrada `initialize_foundation` vincula els proveïdors existents una sola vegada
+en la posició original de l'arrencada, també quan s'importa primer el mòdul de
+pàgines. Les crides repetides conserven els mateixos objectes de dependències,
+callbacks capturats i ordre de rutes; es rebutja vincular una altra façana. Les
+proves aïllades comparen els dos ordres d'importació, les anotacions resoltes i
+l'OpenAPI complet del Vault, i comproven claus YAML antigues, sidecars i trasllats
+de fitxers. Això elimina un cicle d'inicialització; no acredita el tipatge complet
+dels contractes de metadades heretats que encara queden.
 
 El comportament del cicle de vida de les traduccions pertany a
 `backend/domains/vault/translation`: la càrrega opcional de proveïdors,

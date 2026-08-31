@@ -219,6 +219,9 @@ from backend.domains.vault.pages import (
     foundation as _vault_foundation,
 )  # noqa: E402
 
+# Also initialize here when the foundation module initiated this import cycle.
+# Keep route registration and captured callbacks at the same bootstrap position.
+_vault_foundation.initialize_foundation(sys.modules[__name__])
 _vault_facade_bridge.register(_vault_foundation)
 
 from backend.domains.vault.api import (

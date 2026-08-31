@@ -24,6 +24,7 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -205,6 +206,15 @@ loads and registers those owners in historical source order, while
 monkeypatch seams. The parent router still exposes the same flat `APIRoute`
 inventory and byte-identical deterministic OpenAPI. The facade therefore needs
 no source-guardrail allowance.
+
+`pages/foundation.py` declares its functions before loading the facade. Its
+`initialize_foundation` entry point binds the existing providers once at the
+original bootstrap position, including when the page module is imported first.
+Repeated calls retain the same dependency records, captured callbacks and route
+order; binding another facade is rejected. Isolated tests compare both import
+orders, resolved annotations and complete Vault OpenAPI, and exercise legacy
+YAML keys, sidecars and file relocation. This removes an initialization cycle;
+it does not claim that the remaining legacy metadata contracts are fully typed.
 
 Translation lifecycle behavior is owned by `backend/domains/vault/translation`:
 optional provider loading, cloud-file recovery, row and whole-page translation,
