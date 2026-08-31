@@ -63,6 +63,13 @@ pnpm build:frontend
 pnpm package:desktop
 ```
 
+The frontend's default asset base is `/`, shared with web hosting. The standard
+`app://gnosi` protocol serves those root-relative assets and returns the SPA
+entry for nested application routes. Do not set `VITE_BASE_PATH=./` for desktop:
+that makes reloads resolve assets relative to the current route. Custom asset
+prefixes are not router basenames. The config and protocol regression tests do
+not replace actual platform installation and upgrade validation.
+
 For explicit platform builds, use one matching command:
 
 ```bash

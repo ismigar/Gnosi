@@ -24,6 +24,22 @@ Never target personal vaults or a maintainer's account. Feature tests can write
 application data or call providers. The principal provisions synthetic data and
 reviews provider isolation before running a real suite.
 
+## Default builds and nested entry regression
+
+Build from the root with `pnpm build:frontend`, leaving `VITE_BASE_PATH` unset.
+The default `/` asset base supports direct nested routes for both web and
+Electron's standard origin. An explicitly relative base can recreate a blank
+page after deep-link entry or reload; do not hide that failure by navigating
+from a warmed shell or increasing timeouts.
+
+`vault-entrypoints.spec.ts` enters a prepared table directly through both legacy
+and canonical URLs, then reloads and requires real visible rows, the canonical
+URL and no script/stylesheet HTTP errors or uncaught page errors. Supply
+`GNOSI_TEST_TABLE_ID`, `GNOSI_TEST_VAULT_ID` and `GNOSI_TEST_WORKSPACE_ID` for the
+same disposable account; without them these two tests explicitly skip. An
+invalid supplied target fails. These tests create no data and do not replace
+the broader feature, authentication, accessibility or platform suites.
+
 ## Authenticated setup
 
 The `setup` project logs into an **existing, pre-provisioned disposable account**.

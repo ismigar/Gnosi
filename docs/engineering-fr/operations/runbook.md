@@ -121,6 +121,24 @@ de dépendances nécessitent une synchronisation des fichiers de verrouillage
 et un redémarrage du processus concerné. Redémarrez le frontend pour actualiser
 les valeurs de version injectées au démarrage.
 
+## Build du frontend et liens directs
+
+Exécutez `corepack pnpm build:frontend` depuis la racine du dépôt. Les contrôles
+préalables incluent le contrat de la configuration réelle de Vite. Par défaut,
+les ressources utilisent `/` : les liens profonds et les rechargements résolvent
+JavaScript, styles et icônes depuis la racine de l’origine. Le même artefact
+convient au web HTTP et au protocole standard `app://gnosi` d’Electron ;
+Electron n’exige pas de base relative `./`.
+
+`VITE_BASE_PATH` reste une configuration explicite de la base des ressources.
+La valeur `./` réintroduit la résolution relative sur les routes imbriquées.
+Un préfixe de ressources ne configure pas la base du routeur et ne démontre pas
+la prise en charge de toute l’app sous un préfixe d’URL. Conservez la valeur par
+défaut pour les structures web et desktop standard. Le serveur HTTP doit
+renvoyer l’entrée SPA pour les routes de l’app, servir les ressources réelles
+et transmettre `/api` au backend. Vite preview inclut déjà ce proxy d’API ;
+c’est un serveur de validation, pas une acceptation du déploiement en production.
+
 ## Configuration et données persistantes
 
 Le chargement de l’environnement du backend suit cet ordre pour chaque

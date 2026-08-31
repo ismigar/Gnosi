@@ -114,6 +114,22 @@ requires certificates. Restart Vite after certificate changes. Source changes
 reload; dependency changes require synchronizing the locks and restarting the
 affected process. Restart the frontend for startup-injected version values.
 
+## Frontend build and direct links
+
+Run `corepack pnpm build:frontend` from the repository root. Its prebuild checks
+include the actual Vite configuration contract. By default, assets use `/`, so
+direct nested links and reloads resolve JavaScript, styles and icons from the
+origin root. The same artifact suits HTTP hosting and Electron's standard
+`app://gnosi` protocol; Electron does not require a relative `./` base.
+
+`VITE_BASE_PATH` remains an explicit asset-base override. Setting it to `./`
+reintroduces relative resolution on nested routes. An asset prefix does not
+configure a router basename or establish support for mounting the whole app
+below a URL prefix. Keep the default for the standard web and desktop layouts.
+The HTTP server must return the SPA entry for application routes while serving
+real assets and proxying `/api` to the backend. Vite preview already has that
+API proxy; it is a validation server, not production deployment acceptance.
+
 ## Configuration and persistent data
 
 Backend environment loading uses this order for each variable: process

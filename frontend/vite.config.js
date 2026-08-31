@@ -140,7 +140,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), httpToHttpsRedirectPlugin()],
-    base: env.VITE_BASE_PATH || "./",
+    // Web and packaged app://gnosi both serve from the origin root. Relative
+    // assets break direct BrowserRouter entries and reloads below nested paths.
+    base: env.VITE_BASE_PATH || "/",
     resolve: {
       alias: {
         "@": path.join(rootDir, "src"),

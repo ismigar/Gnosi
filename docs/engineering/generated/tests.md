@@ -10,8 +10,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
-| Playwright | 23 | 79 |
-| Vitest | 481 | 1968 |
+| Playwright | 24 | 80 |
+| Vitest | 482 | 1970 |
 | pytest | 367 | 2505 |
 
 ## Files
@@ -34,6 +34,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Playwright | [`tests/e2e/tests/e2e/mail-composer-paste.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/mail-composer-paste.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/notebooks.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/notebooks.spec.ts) | 1 | call-pattern estimate |
+| Playwright | [`tests/e2e/tests/e2e/vault-entrypoints.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/vault-entrypoints.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/vault-title-edit.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/vault-title-edit.spec.ts) | 3 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/vault.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/vault.spec.ts) | 3 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/legacy/account-management.spec.js`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/legacy/account-management.spec.js) | 1 | call-pattern estimate |
@@ -520,6 +521,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/tests/helpers/contracts.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/helpers/contracts.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/tests/interface-language.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/interface-language.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/tests/typescript-coverage.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/typescript-coverage.test.ts) | 3 | call-pattern estimate |
+| Vitest | [`frontend/tests/vite-config.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/vite-config.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/tests/web-clipper.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/web-clipper.test.ts) | 18 | call-pattern estimate |
 | Vitest | [`frontend/tests/word-addin.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/word-addin.test.ts) | 13 | call-pattern estimate |
 | pytest | [`backend/agent/generated_tools/test_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/test_sandbox.py) | 0 | Python AST |

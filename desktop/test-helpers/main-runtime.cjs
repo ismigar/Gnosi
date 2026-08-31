@@ -9,7 +9,7 @@ function loadMainRuntime({
   isDev = false, prepareProfile = () => true, initialize = true, bundleExists = false,
   launchBackend = () => assert.fail('Backend must not start in this fixture'),
   stopBackend = async () => {},
-  locale = 'en',
+  locale = 'en', resourcesPath = '/fixture/resources',
 } = {}) {
   const desktopRoot = path.dirname(__dirname);
   const calls = [];
@@ -114,7 +114,7 @@ function loadMainRuntime({
       }
       throw new Error(`Unexpected main-process dependency: ${name}`);
     },
-    process: { argv: isDev ? ['--dev'] : [], platform: 'darwin', resourcesPath: '/fixture/resources', env: {}, on() {} },
+    process: { argv: isDev ? ['--dev'] : [], platform: 'darwin', resourcesPath, env: {}, on() {} },
     __dirname: desktopRoot,
     console: { log: (...args) => calls.push({ log: args }) },
     URL, Headers, Response, setTimeout,

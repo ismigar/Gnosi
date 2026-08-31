@@ -9,7 +9,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 584 | 187 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 974 | 231 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 974 | 232 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 435 | 100 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 59 | 26 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 126 | 45 | 0 |
@@ -22,7 +22,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 130 | 34 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 40 | 23 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 16 | 8 | 0 |
-| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 97 | 27 | 0 |
+| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 98 | 28 | 0 |
 
 ## Platform foundation and runtime
 

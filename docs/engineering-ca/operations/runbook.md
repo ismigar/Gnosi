@@ -117,6 +117,24 @@ certificats. El codi es recarrega; els canvis de dependències requereixen
 sincronitzar els fitxers de bloqueig i reiniciar el procés afectat. Reinicieu el
 frontend per actualitzar els valors de versió injectats durant l’arrencada.
 
+## Build del frontend i enllaços directes
+
+Executeu `corepack pnpm build:frontend` des de l’arrel del repositori. Les
+comprovacions prèvies inclouen el contracte de la configuració real de Vite.
+Per defecte, els recursos utilitzen `/`: els enllaços profunds i les recàrregues
+resolen JavaScript, estils i icones des de l’arrel de l’origen. El mateix artefacte
+serveix per al web HTTP i el protocol estàndard `app://gnosi` d’Electron;
+Electron no necessita una base relativa `./`.
+
+`VITE_BASE_PATH` es manté com a configuració explícita de la base dels recursos.
+El valor `./` reintrodueix la resolució relativa a les rutes imbricades. Un prefix
+de recursos no configura la base de l’encaminador ni demostra suport per muntar
+tota l’app sota un prefix d’URL. Manteniu el valor per defecte per a les
+estructures web i desktop estàndard. El servidor HTTP ha de retornar l’entrada
+SPA per a les rutes de l’app, servir els recursos reals i enviar `/api` al backend.
+Vite preview ja inclou aquest proxy d’API; és un servidor de validació, no una
+prova d’acceptació del desplegament en producció.
+
 ## Configuració i dades persistents
 
 La càrrega de l’entorn del backend segueix aquest ordre per a cada variable:
