@@ -24,6 +24,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_translation_provider_contracts.py
+  - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
@@ -268,6 +270,23 @@ les docstrings des routes et les points de substitution Python à liaison
 tardive, tandis que le connecteur Drupal reste la frontière de transport
 externe. Ces déplacements ne modifient ni les chemins, ni les payloads, ni les
 codes d'état, ni les tâches d'arrière-plan, ni l'ordre des routes.
+
+Les fournisseurs de traduction sont chargés dans les blocs existants de gestion
+d'erreurs au moment de la requête, par import de leurs propriétaires typés réels,
+sans assertions de type sur les modules. Les fonctions retournées conservent
+leur identité, leurs arguments nommés natifs et leur remplacement tardif. Les
+protocoles de page décrivent le contrat positionnel commun du contenu et des
+langues, avec un argument d'identifiant secret uniquement nommé. Les modules ou
+membres absents gardent les mêmes erreurs HTTP ; les identifiants indisponibles
+gardent le retour de clé vide. Charger ces adaptateurs ne charge aucun modèle de
+traduction et ne lit aucun identifiant secret au démarrage de l'application.
+
+L'autorisation des tables utilise les types réels de `workspace_service`.
+La dépendance `get_workspace_context` capturée initialement et les résolutions
+ultérieures de `require_role` gardent leur identité et leur moment de résolution ;
+les contrôles renvoient la même instance de `WorkspaceContext` ou la même erreur
+de permission. Les seuils des rôles, les règles d'authentification et la sélection
+du workspace restent inchangés.
 
 ## Index et caches
 

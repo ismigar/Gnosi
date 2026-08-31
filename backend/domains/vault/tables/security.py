@@ -2,26 +2,15 @@
 
 from __future__ import annotations
 
-import importlib
 from collections.abc import Callable
-from typing import Protocol, cast
 
-
-class WorkspaceSecurityModule(Protocol):
-    get_workspace_context: Callable[..., object]
-
-    def require_role(self, role: str) -> Callable[..., object]: ...
-
-
-_workspace_security = cast(
-    WorkspaceSecurityModule,
-    importlib.import_module("backend.services.workspace_service"),
-)
+from backend.services import workspace_service as _workspace_security
+from backend.services.workspace_service import WorkspaceContext
 
 get_workspace_context = _workspace_security.get_workspace_context
 
 
-def require_role(role: str) -> Callable[..., object]:
+def require_role(role: str) -> Callable[[WorkspaceContext], WorkspaceContext]:
     """Return the canonical workspace role dependency without broad imports."""
     return _workspace_security.require_role(role)
 

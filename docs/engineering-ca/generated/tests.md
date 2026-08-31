@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 21 | 71 |
 | Vitest | 479 | 1961 |
-| pytest | 360 | 2441 |
+| pytest | 362 | 2443 |
 
 ## Fitxers
 
@@ -770,6 +770,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_table_schema_revision.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_table_schema_revision.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_table_system_dates.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_table_view_name_hygiene.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_table_view_name_hygiene.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_table_workspace_security_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_table_workspace_security_contract.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_transcription_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_transcription_service.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_translate_row_lang_field.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translate_row_lang_field.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_translate_row_recover.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translate_row_recover.py) | 3 | Python AST |
@@ -777,6 +778,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_translation_drupal_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_drupal_response_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_translation_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_helpers.py) | 38 | Python AST |
 | pytest | [`backend/tests/test_translation_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_index.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_translation_provider_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_provider_contracts.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_truthy_checkbox_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_truthy_checkbox_parity.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_typed_citation_pdf_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_citation_pdf_routes.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_typed_public_share_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_public_share_routes.py) | 5 | Python AST |

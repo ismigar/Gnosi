@@ -9,7 +9,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 584 | 187 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 972 | 228 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 972 | 230 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 380 | 93 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 59 | 26 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 126 | 45 | 0 |
@@ -35,7 +35,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 - Guide: [`Vault and files`](../domains/vault-files.md)
 - Motifs des sources: `backend/api/vault*.py`, `backend/domains/vault/**/*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/features/vault/**/*`, `frontend/src/features/vault-management/**/*`, `frontend/src/shared/editor/**/*`, `frontend/src/shared/page-search/**/*`, `frontend/src/shared/resources/**/*`
-- Motifs des tests: `backend/tests/test_vault*.py`, `frontend/src/features/vault/**/*.test.*`, `frontend/src/features/vault-management/**/*.test.*`, `frontend/src/shared/editor/**/*.test.*`, `frontend/src/shared/page-search/**/*.test.*`, `frontend/src/shared/resources/**/*.test.*`, `tests/e2e/tests/e2e/vault*.spec.ts`
+- Motifs des tests: `backend/tests/test_vault*.py`, `backend/tests/test_translation_provider_contracts.py`, `backend/tests/test_table_workspace_security_contract.py`, `frontend/src/features/vault/**/*.test.*`, `frontend/src/features/vault-management/**/*.test.*`, `frontend/src/shared/editor/**/*.test.*`, `frontend/src/shared/page-search/**/*.test.*`, `frontend/src/shared/resources/**/*.test.*`, `tests/e2e/tests/e2e/vault*.spec.ts`
 - Directives: none found
 
 ## Database views and project planning

@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 41 |
 | `config` | 9 | 1049 |
 | `data` | 2 | 214 |
-| `domains` | 413 | 88888 |
+| `domains` | 413 | 88854 |
 | `mcp` | 3 | 429 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1208 |
@@ -28,7 +28,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 4 | 450 |
 
-Total: **746 modules** and **154622 source lines**.
+Total: **746 modules** and **154588 source lines**.
 
 ## agent
 
@@ -553,10 +553,10 @@ Total: **746 modules** and **154622 source lines**.
 | [`backend/domains/vault/tables/rules/rollups.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/rollups.py) | 205 | 0 | 12 | 0 | 2 | Related-row collection and rollup aggregation. |
 | [`backend/domains/vault/tables/rules/types.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/types.py) | 48 | 3 | 0 | 0 | 1 | Ports and shared value types for database rule evaluation. |
 | [`backend/domains/vault/tables/schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/schema.py) | 403 | 1 | 20 | 1 | 7 | Table schema revisions and property mutation rules. |
-| [`backend/domains/vault/tables/security.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/security.py) | 29 | 1 | 1 | 0 | 1 | Narrow typed access to the workspace authorization composition boundary. |
+| [`backend/domains/vault/tables/security.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/security.py) | 18 | 0 | 1 | 0 | 1 | Narrow typed access to the workspace authorization composition boundary. |
 | [`backend/domains/vault/tables/status_options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/status_options.py) | 124 | 1 | 6 | 0 | 2 | Best-effort persistence of status values created by action rules. |
 | [`backend/domains/vault/translation/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/__init__.py) | 19 | 0 | 0 | 0 | 0 | Typed Vault translation workflows and compatibility-neutral services. |
-| [`backend/domains/vault/translation/adapters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/adapters.py) | 106 | 4 | 3 | 0 | 3 | Lazy optional-provider adapters for Vault translation workflows. |
+| [`backend/domains/vault/translation/adapters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/adapters.py) | 77 | 0 | 3 | 0 | 3 | Lazy optional-provider adapters for Vault translation workflows. |
 | [`backend/domains/vault/translation/lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/lifecycle.py) | 344 | 0 | 12 | 3 | 10 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/translation/lookup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/lookup.py) | 129 | 1 | 3 | 2 | 2 | Translation-child discovery with cloud-file recovery. |
 | [`backend/domains/vault/translation/metadata_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/metadata_io.py) | 124 | 1 | 4 | 0 | 2 | Minimal metadata writes used by translation lifecycle effects. |
@@ -564,7 +564,7 @@ Total: **746 modules** and **154622 source lines**.
 | [`backend/domains/vault/translation/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/routes.py) | 505 | 10 | 10 | 10 | 16 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/translation/row_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/row_service.py) | 590 | 2 | 12 | 5 | 1 | Typed, idempotent translation workflow for table rows. |
 | [`backend/domains/vault/translation/staleness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/staleness.py) | 158 | 1 | 5 | 0 | 1 | Propagation of translation staleness after source-page edits. |
-| [`backend/domains/vault/translation/types.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/types.py) | 70 | 4 | 0 | 0 | 1 | Shared strict contracts for Vault translation services. |
+| [`backend/domains/vault/translation/types.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/types.py) | 76 | 4 | 0 | 0 | 3 | Shared strict contracts for Vault translation services. |
 | [`backend/domains/vault/trash/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/trash/__init__.py) | 5 | 0 | 0 | 0 | 0 | Soft-delete persistence for vault pages. |
 | [`backend/domains/vault/trash/purge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/trash/purge.py) | 163 | 2 | 7 | 0 | 2 | Permanent trash purge and best-effort trace cleanup. |
 | [`backend/domains/vault/trash/repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/trash/repository.py) | 195 | 2 | 0 | 0 | 2 | Filesystem repository for soft-deleted vault pages. |

@@ -24,6 +24,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_translation_provider_contracts.py
+  - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
@@ -229,6 +231,21 @@ synchronization. The compatibility router retains the original FastAPI
 decorators, route docstrings and late-bound Python seams, while the Drupal
 connector remains the external transport boundary. These moves do not change
 paths, payloads, status codes, background tasks or route order.
+
+Translation providers are loaded inside their existing request-time error
+boundaries through imports of their actual typed owners, without module-shaped
+type assertions. The returned functions retain identity, native keyword APIs
+and late replacement behavior. The page-provider protocols describe the shared
+positional content/language contract and keyword-only credential argument.
+Missing modules or members retain the same HTTP errors; unavailable credentials
+retain the existing empty-key fallback. Loading these adapters does not load
+translation models or read credentials at application startup.
+
+Table authorization uses the real `workspace_service` types. The initially
+captured `get_workspace_context` dependency and later `require_role` lookups
+retain their original identity and timing; role checks return the same
+`WorkspaceContext` instance or the same permission error. No role thresholds,
+authentication rules or workspace-selection behavior are changed.
 
 ## Indexes and caches
 

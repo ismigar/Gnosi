@@ -24,6 +24,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_translation_provider_contracts.py
+  - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
@@ -263,6 +265,23 @@ substitució Python amb vinculació tardana, mentre que el connector de Drupal
 continua sent el límit de transport extern. Aquests trasllats no canvien les
 rutes, els payloads, els codis d'estat, les tasques en segon pla ni l'ordre
 de les rutes.
+
+Els proveïdors de traducció es carreguen dins dels blocs existents de gestió
+d'errors en fer la petició, amb imports dels propietaris tipats reals i sense
+afirmacions de tipus sobre mòduls. Les funcions retornades conserven la identitat,
+els arguments per nom originals i la substitució tardana. Els protocols de
+pàgina descriuen el contracte posicional compartit de contingut i idiomes i
+l'argument de credencial només per nom. Els mòduls o membres absents mantenen
+els mateixos errors HTTP; les credencials no disponibles mantenen el retorn de
+clau buida. Carregar aquests adaptadors no carrega models de traducció ni llegeix
+credencials durant l'arrencada de l'aplicació.
+
+L'autorització de les taules utilitza els tipus reals de `workspace_service`.
+La dependència `get_workspace_context` capturada inicialment i les consultes
+posteriors de `require_role` mantenen la identitat i el moment de resolució
+originals; les comprovacions retornen la mateixa instància de `WorkspaceContext`
+o el mateix error de permisos. No canvien els llindars dels rols, les regles
+d'autenticació ni la selecció del workspace.
 
 ## Índexs i memòries cau
 

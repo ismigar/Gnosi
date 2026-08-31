@@ -24,6 +24,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_translation_provider_contracts.py
+  - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
@@ -264,6 +266,23 @@ sustitución Python resueltos en el momento de uso, mientras que el conector de
 Drupal sigue siendo la capa de transporte externo. Estos cambios de ubicación
 no alteran rutas, datos intercambiados, códigos de estado, tareas en segundo
 plano ni el orden de las rutas.
+
+Los proveedores de traducción se cargan dentro de los bloques existentes de
+gestión de errores durante la petición, con imports de sus propietarios tipados
+reales y sin afirmaciones de tipos sobre módulos. Las funciones devueltas
+conservan su identidad, argumentos por nombre originales y sustitución tardía.
+Los protocolos de página describen el contrato posicional compartido de contenido
+e idiomas y el argumento de credencial solo por nombre. Los módulos o miembros
+ausentes conservan los mismos errores HTTP; las credenciales no disponibles
+conservan el retorno de clave vacía. Cargar estos adaptadores no carga modelos de
+traducción ni lee credenciales durante el arranque de la aplicación.
+
+La autorización de tablas utiliza los tipos reales de `workspace_service`.
+La dependencia `get_workspace_context` capturada inicialmente y las consultas
+posteriores de `require_role` conservan su identidad y momento de resolución;
+las comprobaciones devuelven la misma instancia de `WorkspaceContext` o el mismo
+error de permisos. No cambian los umbrales de los roles, las reglas de
+autenticación ni la selección del workspace.
 
 ## Índices y cachés
 

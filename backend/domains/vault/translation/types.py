@@ -33,22 +33,28 @@ class TranslateText(Protocol):
 
 
 class TranslateMarkdown(Protocol):
+    """Page providers accept content and language arguments positionally."""
+
     def __call__(
         self,
         text: str,
         source_lang: str,
         target_lang: str,
+        /,
         *,
         deepl_api_key: str,
     ) -> tuple[str, set[str]]: ...
 
 
 class TranslateTitle(Protocol):
+    """Keep the shared positional contract independent of provider names."""
+
     def __call__(
         self,
         text: str,
         source_lang: str,
         target_lang: str,
+        /,
         *,
         deepl_api_key: str,
     ) -> tuple[str, str]: ...

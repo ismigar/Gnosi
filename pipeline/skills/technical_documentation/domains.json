@@ -34,7 +34,7 @@
       "frontend/src/shared/page-search/**/*",
       "frontend/src/shared/resources/**/*"
     ],
-    "test_globs": ["backend/tests/test_vault*.py", "frontend/src/features/vault/**/*.test.*", "frontend/src/features/vault-management/**/*.test.*", "frontend/src/shared/editor/**/*.test.*", "frontend/src/shared/page-search/**/*.test.*", "frontend/src/shared/resources/**/*.test.*", "tests/e2e/tests/e2e/vault*.spec.ts"],
+    "test_globs": ["backend/tests/test_vault*.py", "backend/tests/test_translation_provider_contracts.py", "backend/tests/test_table_workspace_security_contract.py", "frontend/src/features/vault/**/*.test.*", "frontend/src/features/vault-management/**/*.test.*", "frontend/src/shared/editor/**/*.test.*", "frontend/src/shared/page-search/**/*.test.*", "frontend/src/shared/resources/**/*.test.*", "tests/e2e/tests/e2e/vault*.spec.ts"],
     "directives": [
       "vault_database_architecture.md",
       "files_provider_abstraction.md",
