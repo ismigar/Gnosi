@@ -48,6 +48,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-version-sync.test.js
   - desktop/release-candidate-policy.test.js
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
@@ -316,10 +317,19 @@ L’historique intégré à l’application se trouve dans
 Les manifestes de la racine, du frontend et de l’application de bureau, les
 métadonnées Python, les fichiers de verrouillage, les notes localisées et le
 journal des modifications doivent concorder avant la sortie.
-`sync-release-version.cjs` n’écrit que les champs de version : ce n’est ni
-une transaction atomique ni un substitut à la validation du catalogue et du
-journal des modifications. Examinez ses différences et les fichiers de
-verrouillage actualisés.
+`sync-release-version.cjs` prépare les quatre entrées avant de modifier
+uniquement leurs champs de version. Les entrées illisibles, les affectations
+non prises en charge et les doublons ambigus échouent avant toute écriture.
+Les versions imbriquées dans les objets JSON, les commentaires et les fins
+de ligne sont conservés ; une version identique ne réécrit aucun fichier.
+Le localisateur TOML accepte `[project].version` entre guillemets sur une seule
+ligne, mais ne valide pas l’ensemble du TOML. L’actualisation du fichier de
+verrouillage doit encore valider le projet Python. Les écritures séparées ne
+forment pas une transaction résistante aux interruptions : une erreur
+d’entrée/sortie ou une interruption peut laisser des modifications partielles.
+Examinez les différences avec la base enregistrée de la branche de préparation
+avant de réessayer. La validation du catalogue et du journal des modifications
+ainsi que la révision des fichiers de verrouillage actualisés restent requises.
 
 `desktop/release.sh` prépare les versions et les artefacts locaux. Il ne crée
 pas de tag et ne publie pas de version. Utilisez une branche de préparation

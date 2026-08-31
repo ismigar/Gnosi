@@ -103,8 +103,16 @@ Configured targets are not evidence of successful installation or upgrade.
 refreshes locks, builds the frontend and packages the current platform. It does
 not create a version tag or a GitHub draft. Use it only on an explicit release
 preparation branch with the corresponding catalog/notes reviewed; the version
-synchronizer itself does not validate their content or make an atomic transaction.
-Review all changed manifests and locks before integration.
+synchronizer itself does not validate catalog content or make an atomic transaction.
+It reads and prepares all four inputs before writing: an unreadable input or
+unsupported version field leaves every file unchanged. Only the top-level JSON
+version and the single-line quoted `[project].version` are replaced; nested
+versions, comments and line endings are preserved. An identical version is a
+no-op. Ambiguous duplicate fields are rejected. The TOML locator is not a full
+TOML validator; lock refresh still validates the Python project. An I/O failure
+or interruption during separate writes can leave partial changes. Review and
+recover from the preparation branch's recorded baseline before retrying, and
+review all changed manifests and locks before integration.
 
 The current **Build Release Candidate** workflow checks tag/commit identity,
 runs the shared CI and then builds the four target groups. Its collector verifies

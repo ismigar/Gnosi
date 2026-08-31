@@ -48,6 +48,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-version-sync.test.js
   - desktop/release-candidate-policy.test.js
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
@@ -307,10 +308,19 @@ El historial incluido en la aplicación está en
 `frontend/src/features/control-center/releases/releases.json`.
 Los manifiestos de la raíz, del frontend y del escritorio, los metadatos de
 Python, los archivos de bloqueo, las notas localizadas y el registro de cambios
-deben coincidir antes del lanzamiento. `sync-release-version.cjs` solo escribe
-campos de versión: no es una transacción atómica ni sustituye la validación del
-catálogo y del registro de cambios. Revisa sus diferencias y los archivos de
-bloqueo actualizados.
+deben coincidir antes del lanzamiento. `sync-release-version.cjs` prepara las
+cuatro entradas antes de escribir únicamente sus campos de versión. Las
+entradas ilegibles, las asignaciones no compatibles y los duplicados ambiguos
+fallan antes de cualquier escritura. Conserva las versiones dentro de objetos
+JSON, los comentarios y los finales de línea; una versión idéntica no reescribe
+ningún archivo. El localizador TOML admite `[project].version` entre comillas
+en una sola línea, pero no valida todo el TOML. La actualización del archivo
+de bloqueo todavía debe validar el proyecto Python. Las escrituras separadas
+no son una transacción resistente a interrupciones: un fallo de entrada/salida
+o una interrupción puede dejar cambios parciales. Revisa las diferencias con
+la base registrada de la rama de preparación antes de reintentar. Siguen siendo
+necesarias la validación del catálogo y del registro de cambios y la revisión
+de los archivos de bloqueo actualizados.
 
 `desktop/release.sh` prepara versiones y artefactos locales. No crea etiquetas
 ni publica versiones. Usa una rama explícita de preparación y excluye los

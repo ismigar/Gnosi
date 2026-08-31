@@ -48,6 +48,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-version-sync.test.js
   - desktop/release-candidate-policy.test.js
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
@@ -269,8 +270,15 @@ The bundled history is
 `frontend/src/features/control-center/releases/releases.json`.
 Root, frontend and desktop manifests, Python metadata, locks, localized notes
 and the changelog must agree before release. `sync-release-version.cjs`
-only writes version fields: it is not an atomic transaction or a substitute for
-catalog/changelog validation. Review its diff and the refreshed locks.
+prepares all four inputs before writing only their version fields. Unreadable
+inputs, unsupported version assignments or ambiguous duplicates fail before
+any write. Nested JSON versions, comments and line endings are preserved;
+an identical version does not rewrite files. The TOML locator supports a
+single-line quoted `[project].version`, not full TOML validation. Lock refresh
+still validates the Python project. Separate writes are not a crash-safe
+transaction: an I/O failure or interruption can leave partial changes. Review
+the diff against the preparation branch's recorded baseline before retrying.
+Catalog/changelog validation and review of refreshed locks remain required.
 
 `desktop/release.sh` prepares versions and local artifacts. It neither creates
 a tag nor publishes a release. Use an explicit preparation branch and keep

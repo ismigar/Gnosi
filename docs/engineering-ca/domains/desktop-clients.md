@@ -48,6 +48,7 @@ source_paths:
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-version-sync.test.js
   - desktop/release-candidate-policy.test.js
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
@@ -300,10 +301,18 @@ L’historial inclòs al paquet és
 `frontend/src/features/control-center/releases/releases.json`.
 Els manifests de l’arrel, del frontend i de l’escriptori, les metadades Python,
 els fitxers de bloqueig, les notes localitzades i el registre de canvis han de
-coincidir abans de publicar una versió. `sync-release-version.cjs` només escriu
-els camps de versió: no és una transacció atòmica ni substitueix la validació
-del catàleg i del registre de canvis. Revisa’n les diferències i els fitxers de
-bloqueig actualitzats.
+coincidir abans de publicar una versió. `sync-release-version.cjs` prepara les
+quatre entrades abans d’escriure només els camps de versió. Les entrades
+il·legibles, les assignacions no compatibles i els duplicats ambigus provoquen
+un error abans de qualsevol escriptura. Es conserven les versions dins d’objectes
+JSON, els comentaris i els finals de línia; una versió idèntica no reescriu cap
+fitxer. El localitzador TOML admet `[project].version` entre cometes en una sola
+línia, però no valida tot el TOML. L’actualització del fitxer de bloqueig encara
+ha de validar el projecte Python. Les escriptures separades no són una
+transacció resistent a interrupcions: un error d’entrada/sortida o un tall pot
+deixar canvis parcials. Revisa les diferències respecte de la base registrada
+de la branca de preparació abans de reintentar-ho. Encara cal validar el catàleg
+i el registre de canvis i revisar els fitxers de bloqueig actualitzats.
 
 `desktop/release.sh` prepara les versions i els artefactes locals. No crea cap
 etiqueta ni publica cap versió. Utilitza una branca de preparació explícita i
