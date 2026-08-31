@@ -34,6 +34,11 @@ dades, fitxers d'entorn i enllaços a codi extern. Cal preparar les eliminacions
 revisades a l'índex abans de validar-lo. No executa habilitats ni llegeix secrets;
 no substitueix una auditoria completa de secrets o portabilitat.
 
+Després de preparar l'índex, `pnpm typecheck:pipeline` executa mypy estricte sobre
+tots els fitxers Python públics del pipeline, inclosos tests i directoris ignorats.
+No exclou directoris; si no hi ha fonts o falta un fitxer, falla. CI l'executa
+a més de la comprovació del backend. No executa proveïdors ni migracions.
+
 La traducció, les notificacions, l'ajudant d'obertura de fitxers, la publicació
 social i la planificació del backend mantenen els contractes existents. L'antic
 orquestrador de desenvolupament no era una dependència d'aquests serveis.

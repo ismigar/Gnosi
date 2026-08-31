@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import subprocess
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -23,7 +24,23 @@ PRIVATE_PREFIXES = (
     "pipeline/skills/release_preflight/",
     "pipeline/skills/vault_ai_assistant/",
 )
-PRIVATE_FILES = frozenset({"pipeline/scripts/migrate_progres_to_virtual.py"})
+PRIVATE_FILES = frozenset({
+    "pipeline/scripts/migrate_progres_to_virtual.py",
+    "pipeline/skills/host_open_helper/com.gnosi.host-open-helper.plist",
+})
+RETIRED_FILES = frozenset({
+    "pipeline/parses/__init__.py",
+    "pipeline/parses/robust_ai_parser.py",
+    "pipeline/utils/ai_analysis_cache.py",
+    "pipeline/utils/json_sanitizer.py",
+    "pipeline/utils/tag_normalization.py",
+    "pipeline/utils/vault_loader.py",
+    "pipeline/utils/vault_writer.py",
+    "pipeline/scripts/index_vault.py",
+    "pipeline/legacy/import/notion/notion_to_gnosi_full_import.py",
+    "pipeline/skills/calendar_sync/scripts/ics_to_md.py",
+    "pipeline/skills/mail_sync/scripts/imap_to_md.py",
+})
 GENERATED_DIRECTORIES = frozenset(
     {
         "sandbox",
@@ -76,6 +93,10 @@ def violations(entries: Iterable[IndexedFile]) -> list[str]:
             issues.append(f"{entry.path}: external source link or unsupported file mode")
         if entry.path.startswith(PRIVATE_PREFIXES) or entry.path in PRIVATE_FILES:
             issues.append(f"{entry.path}: private operation belongs outside public Gnosi")
+        if entry.path in RETIRED_FILES:
+            issues.append(
+                f"{entry.path}: retired implementation must remain in historical archives"
+            )
         if any(part in GENERATED_DIRECTORIES or part.endswith(".egg-info") for part in path.parts):
             issues.append(f"{entry.path}: generated or local runtime state")
         if path.name.startswith(".env") and not path.name.endswith((".example", ".template")):
@@ -85,13 +106,43 @@ def violations(entries: Iterable[IndexedFile]) -> list[str]:
     return sorted(issues)
 
 
+def typecheck_pipeline(root: Path, entries: list[IndexedFile]) -> int:
+    """Check every indexed Python source, including tests and ignored directories."""
+    if violations(entries):
+        raise ValueError("Resolve public source boundary violations before type-checking")
+    sources = sorted(entry.path for entry in entries if entry.path.endswith(".py"))
+    if not sources:
+        raise ValueError("Public pipeline Python source set is empty")
+    root = root.resolve(strict=True)
+    for source in sources:
+        target = root / source
+        if (
+            not target.is_file()
+            or target.is_symlink()
+            or not target.resolve(strict=True).is_relative_to(root)
+        ):
+            raise ValueError(f"Missing or external pipeline source: {source}")
+    LOG.info("Strict type-check of all %s indexed pipeline Python files", len(sources))
+    result = subprocess.run(
+        [sys.executable, "-m", "mypy", "--strict", "--explicit-package-bases", *sources],
+        cwd=root,
+        check=False,
+    )
+    return result.returncode
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", type=Path, default=ROOT)
+    parser.add_argument(
+        "--typecheck", action="store_true", help="Strictly check all indexed Python"
+    )
     args = parser.parse_args()
     try:
         entries = indexed_files(args.repository)
         issues = violations(entries)
+        if not issues and args.typecheck:
+            return typecheck_pipeline(args.repository, entries)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         LOG.error("Public pipeline check failed: %s", error)
         return 1

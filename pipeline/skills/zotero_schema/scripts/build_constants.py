@@ -32,8 +32,11 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Dict, List
+from typing import TypeAlias
+
+ConstantValue: TypeAlias = "str | list[str] | Mapping[str, ConstantValue]"
 
 # Locales that Gnosi exposes (must exist in schema.locales). They must cover all
 # the UI languages (frontend/src/i18n.js: ca/es/en/fr) so components that show
@@ -52,13 +55,33 @@ WARN_HEADER = (
 )
 
 
-def load_schema() -> tuple[dict, str]:
+def _mapping(value: object, location: str) -> Mapping[object, object]:
+    """Validate only a traversed container; leave unrelated metadata opaque."""
+    if not isinstance(value, dict):
+        raise ValueError(f"{location}: expected an object")
+    return value
+
+
+def _list(value: object, location: str) -> list[object]:
+    if not isinstance(value, list):
+        raise ValueError(f"{location}: expected an array")
+    return value
+
+
+def _string(value: object, location: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{location}: expected a string")
+    return value
+
+
+def load_schema() -> tuple[Mapping[object, object], str]:
     raw = SCHEMA_PATH.read_text(encoding="utf-8")
     sha16 = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
-    return json.loads(raw), sha16
+    schema: object = json.loads(raw)
+    return _mapping(schema, "schema"), sha16
 
 
-def derive_zotero_to_csl(csl_types: Dict[str, List[str]]) -> Dict[str, str]:
+def derive_zotero_to_csl(csl_types: object) -> dict[str, str]:
     """csl.types in the schema is CSL→[Zotero]. We invert it to Zotero→CSL.
 
     Each Zotero key appears under a single CSL type. We validate this
@@ -66,10 +89,13 @@ def derive_zotero_to_csl(csl_types: Dict[str, List[str]]) -> Dict[str, str]:
     alphabetically first CSL and emit a warning to stderr.
     
     """
-    inverse: Dict[str, str] = {}
-    multi: Dict[str, List[str]] = {}
-    for csl in sorted(csl_types):
-        for zot in csl_types[csl]:
+    types = _mapping(csl_types, "csl.types")
+    keys = [_string(key, "csl.types key") for key in types]
+    inverse: dict[str, str] = {}
+    multi: dict[str, list[str]] = {}
+    for csl in sorted(keys):
+        for value in _list(types[csl], f"csl.types.{csl}"):
+            zot = _string(value, f"csl.types.{csl} entry")
             if zot in inverse:
                 multi.setdefault(zot, [inverse[zot]]).append(csl)
             else:
@@ -81,35 +107,48 @@ def derive_zotero_to_csl(csl_types: Dict[str, List[str]]) -> Dict[str, str]:
     return inverse
 
 
-def derive_item_type_fields(schema: dict) -> Dict[str, List[str]]:
+def derive_item_type_fields(schema: object) -> dict[str, list[str]]:
     """{zoteroType: [zoteroField, ...]} with the official fields of each type.
 
     The fields are presented in the schema's order (which is Zotero's
     canonical order — most-used fields first, according to its own UI heuristics).
     
     """
-    out: Dict[str, List[str]] = {}
-    for it in schema["itemTypes"]:
-        fields = [f["field"] for f in it.get("fields", []) if "field" in f]
-        out[it["itemType"]] = fields
+    out: dict[str, list[str]] = {}
+    source = _mapping(schema, "schema")
+    for value in _list(source["itemTypes"], "itemTypes"):
+        it = _mapping(value, "itemTypes entry")
+        fields: list[str] = []
+        for value in _list(it.get("fields", []), "itemTypes.fields"):
+            field = _mapping(value, "itemTypes.fields entry")
+            # Fieldless descriptors were intentionally omitted by the original
+            # generator. A present but malformed field must never be dropped.
+            if "field" in field:
+                fields.append(_string(field["field"], "itemTypes.fields.field"))
+        out[_string(it["itemType"], "itemTypes.itemType")] = fields
     return out
 
 
-def derive_labels(schema: dict, all_types: List[str]) -> Dict[str, Dict[str, str]]:
+def derive_labels(schema: object, all_types: list[str]) -> dict[str, dict[str, str]]:
     """{locale: {zoteroType: label}}. Falls back to the original key if missing."""
-    out: Dict[str, Dict[str, str]] = {}
+    out: dict[str, dict[str, str]] = {}
+    source = _mapping(schema, "schema")
+    locales = _mapping(source.get("locales", {}), "locales")
     for loc in LOCALES:
-        it = schema.get("locales", {}).get(loc, {}).get("itemTypes", {})
-        out[loc] = {t: it.get(t, t) for t in all_types}
+        locale = _mapping(locales.get(loc, {}), f"locales.{loc}")
+        it = _mapping(locale.get("itemTypes", {}), f"locales.{loc}.itemTypes")
+        out[loc] = {
+            t: _string(it.get(t, t), f"locales.{loc}.itemTypes.{t}") for t in all_types
+        }
     return out
 
 
-def invert_labels(labels: Dict[str, Dict[str, str]]) -> Dict[str, Dict[str, str]]:
+def invert_labels(labels: dict[str, dict[str, str]]) -> dict[str, dict[str, str]]:
     """{locale: {label: zoteroType}}. If the same label points to multiple
     types in the same locale, we keep the alphabetically first one (stable)."""
-    out: Dict[str, Dict[str, str]] = {}
+    out: dict[str, dict[str, str]] = {}
     for loc, pairs in labels.items():
-        inv: Dict[str, str] = {}
+        inv: dict[str, str] = {}
         for zot in sorted(pairs):  # stable order
             label = pairs[zot]
             inv.setdefault(label, zot)
@@ -119,13 +158,13 @@ def invert_labels(labels: Dict[str, Dict[str, str]]) -> Dict[str, Dict[str, str]
 
 # ---------- Emissors Python / TypeScript ----------
 
-def _py_dict(d: dict, indent: int = 4) -> str:
+def _py_dict(d: Mapping[str, ConstantValue], indent: int = 4) -> str:
     """Emits a Python dict with sorted keys, string values, fixed indent."""
     pad = " " * indent
     lines = ["{"]
     for k in sorted(d):
         v = d[k]
-        if isinstance(v, dict):
+        if isinstance(v, Mapping):
             inner = _py_dict(v, indent + 4)
             lines.append(f"{pad}{k!r}: {inner},")
         elif isinstance(v, list):
@@ -137,10 +176,10 @@ def _py_dict(d: dict, indent: int = 4) -> str:
     return "\n".join(lines)
 
 
-def emit_python(schema_ver: int, sha16: str, all_types: List[str],
-                z2csl: Dict[str, str], labels: Dict[str, Dict[str, str]],
-                inv_labels: Dict[str, Dict[str, str]],
-                fields: Dict[str, List[str]]) -> str:
+def emit_python(schema_ver: int, sha16: str, all_types: list[str],
+                z2csl: dict[str, str], labels: dict[str, dict[str, str]],
+                inv_labels: dict[str, dict[str, str]],
+                fields: dict[str, list[str]]) -> str:
     body = [
         f'"""{WARN_HEADER}"""',
         "",
@@ -163,8 +202,8 @@ def emit_python(schema_ver: int, sha16: str, all_types: List[str],
     return "\n".join(body)
 
 
-def _ts_value(v: object) -> str:
-    if isinstance(v, dict):
+def _ts_value(v: ConstantValue) -> str:
+    if isinstance(v, Mapping):
         parts = [
             f"    {json.dumps(k)}: {_ts_value(val)}"
             for k, val in sorted(v.items())
@@ -175,14 +214,14 @@ def _ts_value(v: object) -> str:
     return json.dumps(v)
 
 
-def _ts_export(name: str, annotation: str, value: object) -> str:
+def _ts_export(name: str, annotation: str, value: ConstantValue) -> str:
     return f"export const {name}: {annotation} = {_ts_value(value)};"
 
 
-def emit_typescript(schema_ver: int, sha16: str, all_types: List[str],
-                    z2csl: Dict[str, str], labels: Dict[str, Dict[str, str]],
-                    inv_labels: Dict[str, Dict[str, str]],
-                    fields: Dict[str, List[str]]) -> str:
+def emit_typescript(schema_ver: int, sha16: str, all_types: list[str],
+                    z2csl: dict[str, str], labels: dict[str, dict[str, str]],
+                    inv_labels: dict[str, dict[str, str]],
+                    fields: dict[str, list[str]]) -> str:
     string_map = "Readonly<Record<string, string>>"
     localized_map = f"Readonly<Record<string, {string_map}>>"
     body = [
@@ -212,14 +251,20 @@ def emit_typescript(schema_ver: int, sha16: str, all_types: List[str],
 def main() -> int:
     schema, sha16 = load_schema()
     schema_ver = schema["version"]
-    all_types = sorted(it["itemType"] for it in schema["itemTypes"])
+    if not isinstance(schema_ver, int) or isinstance(schema_ver, bool):
+        raise ValueError("version: expected an integer")
+    all_types = sorted(
+        _string(_mapping(it, "itemTypes entry")["itemType"], "itemTypes.itemType")
+        for it in _list(schema["itemTypes"], "itemTypes")
+    )
 
-    missing = [loc for loc in LOCALES if loc not in schema.get("locales", {})]
+    locales = _mapping(schema.get("locales", {}), "locales")
+    missing = [loc for loc in LOCALES if loc not in locales]
     if missing:
         print(f"ERROR: locales esperats no trobats al schema: {missing}", file=sys.stderr)
         return 1
 
-    z2csl = derive_zotero_to_csl(schema["csl"]["types"])
+    z2csl = derive_zotero_to_csl(_mapping(schema["csl"], "csl")["types"])
     labels = derive_labels(schema, all_types)
     inv_labels = invert_labels(labels)
     fields = derive_item_type_fields(schema)

@@ -35,6 +35,12 @@ las eliminaciones revisadas en el índice antes de comprobarlo. No ejecuta
 habilidades ni lee secretos; no sustituye una auditoría completa de secretos o
 portabilidad.
 
+Tras preparar el índice, `pnpm typecheck:pipeline` ejecuta mypy estricto sobre
+todos los archivos Python públicos del pipeline, incluidos tests y directorios
+ignorados. No excluye directorios; si no hay fuentes o falta un archivo, falla.
+CI lo ejecuta además de la comprobación del backend. No ejecuta proveedores ni
+migraciones.
+
 La traducción, las notificaciones, el asistente de apertura de archivos, la
 publicación social y la planificación del backend mantienen sus contratos.
 El antiguo orquestador de desarrollo no era una dependencia de esos servicios.

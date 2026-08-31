@@ -1,5 +1,5 @@
 ---
-name: host_open_helper
+name: host-open-helper
 description: Host service that opens local files and directories and searches by name through Spotlight for Gnosi runtimes that cannot access those operating-system capabilities directly.
 ---
 
@@ -12,7 +12,7 @@ This small HTTP service listens on `127.0.0.1:5099` and opens local paths with
 it when a user selects a `file://` link in the editor.
 
 It also exposes `/search`, a filename search backed by Spotlight `mdfind` on
-macOS. This avoids slow recursive `os.walk` scans over OneDrive.
+macOS. This avoids slow recursive `os.walk` scans over cloud-synchronized folders.
 
 Native Gnosi connects to `127.0.0.1:5099`. Docker deployments use
 `host.docker.internal:5099`. The backend selects the correct default through
@@ -51,11 +51,12 @@ Use the portable, idempotent installer. It derives paths from the current
 sh pipeline/skills/host_open_helper/scripts/install_launchagent.sh
 ```
 
-> Do not install the repository's example
-> `com.gnosi.host-open-helper.plist` directly. It can contain machine-specific
-> paths and is only a reference. On another account, `launchctl` cannot locate
-> the script and `file://` links fail. See
-> `docs/dev_memory/directives/attachment_link_portability.md`.
+The former machine-specific example plist was preserved privately and retired.
+Do not copy another user's plist: its absolute paths can prevent startup.
+Maintainer provisioning belongs in the private workspace tools repository; the
+generic helper and portable installer remain public. Installing or restarting a
+LaunchAgent changes the host session and is a separate requested operation, not
+a unit-test or documentation step.
 
 Manual installation is acceptable only after verifying every plist path:
 

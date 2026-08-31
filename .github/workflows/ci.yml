@@ -89,6 +89,8 @@ jobs:
       - run: uv run python scripts/check-source-guardrails.py --require-pruned
       - name: Strict type-check of the complete backend
         run: uv run mypy --strict --exclude '^backend/tests/' backend
+      - name: Strict type-check of every public pipeline Python file
+        run: uv run python scripts/check_public_pipeline.py --typecheck
       - name: Validate frozen backend resource policy
         run: |
           uv run ruff check --select E,F,I desktop/scripts/backend_resources.py desktop/tests/test_backend_resources.py

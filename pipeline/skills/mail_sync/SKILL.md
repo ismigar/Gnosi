@@ -1,14 +1,33 @@
+---
+name: mail-sync
+description: Maintain Gnosi's Gmail and IMAP synchronization into vault notes, preserving message identity, metadata and HTML companions. Use for mail sync or persistence regressions, not real account operations without authorization.
+---
+
 # SKILL: Mail Sync
 
 This skill is responsible for synchronizing emails (via IMAP or API) to the Gnosi Vault, converting them into Markdown notes with structured metadata.
 
 > ID: MAIL-SYNC-20260408
-> Associated Script: `pipeline/skills/mail_sync/scripts/sync_mail.py`
+> Entry point: `backend/domains/mail/routes/messages.py`
 > Status: ACTIVE
 
 ---
 
-## 1. Metadata Requirements (Crucial)
+## 1. Current entry points
+
+`POST /api/mail/sync` dispatches configured accounts through the integration
+manager. IMAP accounts use `backend/services/imap_mail_sync_service.py`; other
+supported accounts use the Gmail service in
+`backend/services/vault_mail_sync_service.py`. Blocking provider I/O runs outside
+the async event loop. Preserve the distinction between an empty sync and a
+failed IMAP connection, including the existing failure response.
+
+There is no standalone `sync_mail.py`. The old `imap_to_md.py` was retired after
+consumer review and private historical preservation; it is not a current sync
+entry point. Do not execute it against real accounts or migrate its duplicate
+files as an incidental test. The source cleanup does not delete existing mail.
+
+## 2. Metadata Requirements (Crucial)
 For a mail note to appear correctly in the Vault UI tables, it **MUST CONTAIN** the `database_table_id` field in the frontmatter.
 
 - **Table ID**: `mail` (check `vault_db_registry.json` if it changes).
@@ -16,7 +35,7 @@ For a mail note to appear correctly in the Vault UI tables, it **MUST CONTAIN** 
 
 ---
 
-## 2. File Generation (Technical Protocol)
+## 3. File Generation (Technical Protocol)
 
 ### Robust YAML Frontmatter
 Emails contain special characters (quotes, emojis, symbols) that invalidate YAML if generated manually with strings.
@@ -35,20 +54,26 @@ Emails contain special characters (quotes, emojis, symbols) that invalidate YAML
   ```
 
 ### Configuration Management
-- Avoid import collisions with `config`. Always use absolute monorepo imports or relative imports within the skill package.
+- Use explicit `backend.*` imports or relative package imports, not a generic `config` module or parent-directory discovery.
+- Resolve the active vault and credentials through existing backend services. Process variables precede local Gnosi configuration and an explicitly selected shared environment file. Never write shared credentials from this tool.
 
 ---
 
-## 3. Workflow (Algorithm)
-1. **Fetch**: Connect to the mail server and download new messages based on the saved `since_id`.
-2. **Parsing**: Extract title, body (HTML to Markdown), and metadata.
-3. **Escaping**: Process metadata via `yaml.dump`.
-4. **Persistence**: Write to the corresponding Vault folder (defined in `paths_config.py`).
-5. **Verification**: Validate that the note is visible via the backend data engine.
+## 4. Verification
+
+Do not assume a universal `since_id`: Gmail message IDs and IMAP folder/UID
+identity have different persistence rules. Preserve each adapter's existing
+deduplication, folders, read/starred state, metadata and HTML companion behavior.
+
+Use fake provider responses and a disposable vault. Test repeated syncs,
+malformed MIME/encoding, quotes and Unicode in YAML, empty mailboxes and failed
+connections. Verify the resulting notes through the backend data engine and the
+mail UI. Actual account access is a separate user-authorized operation, never
+part of documentation generation or ordinary unit tests.
 
 ---
 
-## 4. History and Learning (Learning Cycle)
+## 5. History and Learning (Learning Cycle)
 
 | Date | Error / Learning | Root Cause | Solution / Refinement |
 | --- | --- | --- | --- |
@@ -56,4 +81,5 @@ Emails contain special characters (quotes, emojis, symbols) that invalidate YAML
 | 2026-04-08 | Invalid YAML | Failed manual escaping | Mandatory use of `yaml.dump`. |
 
 ---
-*Maintenance: If new mail providers are added (Gmail API), the `MailConnector` class in the synchronization script must be updated.*
+*Maintenance: Provider support belongs in the backend adapters and integration
+manager. Do not create a second mail pipeline or revive the removed script.*

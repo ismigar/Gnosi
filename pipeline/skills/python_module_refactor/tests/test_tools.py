@@ -36,7 +36,15 @@ def test_symbol_graph_is_deterministic_and_reports_routes(tmp_path: Path) -> Non
     assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
     assert first["format"] == "gnosi-python-symbol-graph-v1"
     assert first["edge_count"] == 2
-    symbols = {row["name"]: row for row in first["symbols"]}
+    rows = first["symbols"]
+    assert isinstance(rows, list)
+    symbols: dict[str, dict[str, object]] = {}
+    for row in rows:
+        assert isinstance(row, dict)
+        assert all(isinstance(key, str) for key in row)
+        name = row["name"]
+        assert isinstance(name, str)
+        symbols[name] = row
     assert symbols["handler"]["dependencies"] == ["helper", "router"]
     assert symbols["handler"]["routes"] == ["router.get('/items')"]
 

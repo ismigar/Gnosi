@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Protocol
 
 import yaml
 
@@ -34,55 +36,107 @@ from backend.services.notion_importer import (  # noqa: E402
 )
 
 
-def _frontmatter(path: Path) -> dict[str, Any]:
-    try:
-        text = path.read_text(encoding="utf-8")
-        if not text.startswith("---"):
-            return {}
-        parts = text.split("---", 2)
-        if len(parts) < 3:
-            return {}
-        metadata = yaml.safe_load(parts[1]) or {}
-        return metadata if isinstance(metadata, dict) else {}
-    except (OSError, UnicodeError, yaml.YAMLError):
+class VerificationClient(Protocol):
+    def list_users(self) -> dict[str, str]: ...
+
+    def query_database(self, database_id: str) -> Iterable[Mapping[str, object]]: ...
+
+
+def _object(value: object, context: str) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{context} must be an object")
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise ValueError(f"{context} keys must be strings")
+        result[key] = item
+    return result
+
+
+def _objects(value: object, context: str) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise ValueError(f"{context} must be a list")
+    return [_object(item, context) for item in value]
+
+
+def _string(value: object, context: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{context} must be a nonempty string")
+    return value
+
+
+def _properties(table: Mapping[str, object]) -> list[dict[str, object]]:
+    value = table.get("properties")
+    properties = _objects([] if value is None else value, "Table properties")
+    for prop in properties:
+        _string(prop.get("name"), "Property name")
+    return properties
+
+
+def _frontmatter(path: Path) -> dict[object, object]:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
         return {}
+    match = re.match(r"^---\n(.*?)\n---(?:\n|$)", text, re.DOTALL)
+    if match is None:
+        raise ValueError(f"Unterminated frontmatter: {path}")
+    metadata: object = yaml.safe_load(match.group(1))
+    if metadata is None:
+        return {}
+    if not isinstance(metadata, dict):
+        raise ValueError(f"Frontmatter must be a mapping: {path}")
+    return dict(metadata)
 
 
-def _load_registry(vault: Path) -> dict[str, Any]:
+def _load_registry(vault: Path) -> dict[str, object]:
     path = vault / "BD" / "vault_db_registry.json"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise RuntimeError(f"Invalid registry: {path}")
+    data = _object(json.loads(path.read_text(encoding="utf-8")), "Registry")
+    for field in ("tables", "databases"):
+        _objects(data.get(field, []), f"Registry {field}")
     return data
 
 
-def _table_folder(vault: Path, table: dict[str, Any], registry: dict[str, Any]) -> Path:
+def _table_folder(
+    vault: Path, table: Mapping[str, object], registry: Mapping[str, object]
+) -> Path:
     database_id = table.get("database_id")
     database = next(
-        (item for item in registry.get("databases", []) if item.get("id") == database_id),
+        (item for item in _objects(registry.get("databases", []), "Databases")
+         if item.get("id") == database_id),
         None,
     )
-    root = str((database or {}).get("folder") or "BD").strip("/")
-    folder = str(table.get("folder") or table.get("name") or "").strip("/")
+    root = _string((database or {}).get("folder") or "BD", "Database folder").strip("/")
+    folder_value = table.get("folder") or table.get("name") or ""
+    if not isinstance(folder_value, str):
+        raise ValueError("Table folder must be a string")
+    folder = folder_value.strip("/")
     return vault / root / folder
 
 
 def _expected_rows(
-    client: NotionClient,
+    client: VerificationClient,
     database_id: str,
-    table: dict[str, Any],
-) -> dict[str, dict[str, Any]]:
+    table: Mapping[str, object],
+) -> dict[str, dict[str, object]]:
     users = client.list_users()
     rows = list(client.query_database(database_id))
     titles: dict[str, str] = {}
-    raw_values: dict[str, dict[str, Any]] = {}
+    raw_values: dict[str, dict[str, object]] = {}
+    properties = _properties(table)
     title_field = next(
-        (prop.get("name") for prop in table.get("properties", []) if prop.get("type") == "title"),
+        (_string(prop.get("name"), "Title property")
+         for prop in properties if prop.get("type") == "title"),
         "title",
     )
     for row in rows:
-        page_id = clone_page_id(row.get("id"))
-        values = clone_values(page_to_values(row, users), table.get("properties", []))
+        row = _object(row, "Notion row")
+        page_id = clone_page_id(_string(row.get("id"), "Notion row ID"))
+        if page_id in raw_values:
+            raise ValueError(f"Duplicate Notion row ID: {page_id}")
+        row_properties = _object(row.get("properties"), "Notion row properties")
+        for prop in row_properties.values():
+            _object(prop, "Notion property")
+        values = _object(clone_values(page_to_values(dict(row), users), properties), "Clone values")
         raw_values[page_id] = values
         titles[page_id] = str(values.get(title_field) or "Untitled")
 
@@ -97,15 +151,16 @@ def _expected_rows(
     return expected
 
 
-def _clone_rows(folder: Path, table_id: str) -> dict[str, dict[str, Any]]:
-    rows = {}
+def _clone_rows(folder: Path, table_id: str) -> dict[str, dict[str, object]]:
+    rows: dict[str, dict[str, object]] = {}
     for path in sorted(folder.glob("*.md")):
         metadata = _frontmatter(path)
         if str(metadata.get("table_id") or "") != table_id:
             continue
-        page_id = str(metadata.get("id") or "")
-        if page_id:
-            rows[page_id] = metadata
+        page_id = _string(metadata.get("id"), "Clone row ID")
+        if page_id in rows:
+            raise ValueError(f"Duplicate clone row ID: {page_id}")
+        rows[page_id] = _object(metadata, "Clone row metadata")
     return rows
 
 
@@ -123,7 +178,8 @@ def main() -> int:
 
     client = NotionClient(token)
     notion_database = client.get_database(args.database_id)
-    expected_table = clone_table_schema(notion_database)
+    expected_table = _object(clone_table_schema(notion_database), "Expected table")
+    _properties(expected_table)
     table_id = args.table_id or clone_table_id(args.database_id)
     if expected_table.get("id") != table_id:
         raise RuntimeError(
@@ -132,29 +188,34 @@ def main() -> int:
 
     registry = _load_registry(args.vault)
     clone_table = next(
-        (table for table in registry.get("tables", []) if table.get("id") == table_id),
+        (table for table in _objects(registry.get("tables", []), "Tables")
+         if table.get("id") == table_id),
         None,
     )
     if clone_table is None:
         raise RuntimeError(f"Clone table not found in registry: {table_id}")
+    _properties(clone_table)
 
     folder = _table_folder(args.vault, clone_table, registry)
-    report = verify_exact_table(
+    report = _object(verify_exact_table(
         expected_table,
         _expected_rows(client, args.database_id, expected_table),
         clone_table,
         _clone_rows(folder, table_id),
-    )
+    ), "Verification report")
     report["source_database_id"] = args.database_id
     report["clone_table_id"] = table_id
     report["clone_folder"] = str(folder)
 
+    exact = _object(report.get("summary"), "Report summary").get("exact")
+    if not isinstance(exact, bool):
+        raise ValueError("Report exact result must be a boolean")
     rendered = json.dumps(report, ensure_ascii=False, indent=2)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(rendered + "\n", encoding="utf-8")
     print(rendered)
-    return 0 if report["summary"]["exact"] else 1
+    return 0 if exact else 1
 
 
 if __name__ == "__main__":

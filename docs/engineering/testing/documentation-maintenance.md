@@ -35,6 +35,11 @@ unstaged deletion is still public in the index. The checker reads metadata only;
 it does not execute skills or inspect secrets. Passing it is not a complete
 secret audit or proof that every public tool has completed its portability review.
 
+After staging, `pnpm typecheck:pipeline` runs strict mypy on every indexed Python
+file in the public pipeline, including tests and ignored directories. There are
+no directory exclusions; an empty source set or missing file fails. CI runs this
+in addition to the backend check. It does not execute providers or migrations.
+
 Public translation, notifications, host-helper support, social publishing and
 backend scheduling keep their existing application contracts. The retired
 development orchestrator and personal publishing instructions are not runtime

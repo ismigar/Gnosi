@@ -47,12 +47,44 @@ import os
 import subprocess
 import sys
 import urllib.parse
+from collections.abc import Iterable, Mapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Literal, TypedDict
 
 LOG = logging.getLogger("host_open_helper")
 PORT = int(os.environ.get("GNOSI_HOST_OPEN_PORT", "5099"))
 HOME = Path.home().resolve()
+
+
+class PickEntry(TypedDict):
+    path: str
+    is_dir: bool
+
+
+class PickCancelled(TypedDict):
+    status: Literal["cancelled"]
+
+
+class PickSelection(TypedDict):
+    status: Literal["ok"]
+    path: str
+    paths: list[str]
+    entries: list[PickEntry]
+    is_dir: bool
+
+
+class SearchEntry(TypedDict):
+    name: str
+    path: str
+    is_dir: bool
+
+
+class SearchOutcome(TypedDict):
+    results: list[SearchEntry]
+    truncated: bool
+    had_error: bool
+    errors: list[str]
 
 
 def _allowed_roots() -> list[Path]:
@@ -105,7 +137,11 @@ def _open_with_system(path: Path) -> None:
         subprocess.Popen(["open", str(path)])
         return
     if os.name == "nt":
-        os.startfile(str(path))  # type: ignore[attr-defined]
+        # The Windows-only stdlib function is absent on other host platforms.
+        startfile: object = getattr(os, "startfile")
+        if not callable(startfile):
+            raise TypeError("os.startfile is not callable")
+        startfile(str(path))
         return
     subprocess.Popen(["xdg-open", str(path)])
 
@@ -179,7 +215,9 @@ function run(argv) {
 """
 
 
-def _native_choose(mode: str, prompt: str, multiple: bool = False) -> dict:
+def _native_choose(
+    mode: str, prompt: str, multiple: bool = False,
+) -> PickCancelled | PickSelection:
     """Show the native macOS open panel and return the chosen POSIX path(s).
 
     `mode` is "file", "folder" or "any" — "any" accepts both in a single dialog,
@@ -214,7 +252,7 @@ def _native_choose(mode: str, prompt: str, multiple: bool = False) -> dict:
     # A single "any" pick can mix folders and files, so each entry carries its
     # own is_dir: the caller links a folder but registers a file, and a shared
     # top-level flag could only describe the first one.
-    entries = [{"path": p, "is_dir": Path(p).is_dir()} for p in paths]
+    entries: list[PickEntry] = [{"path": p, "is_dir": Path(p).is_dir()} for p in paths]
     first = entries[0]
     return {
         "status": "ok",
@@ -269,7 +307,7 @@ def _collapse_roots(roots: list[Path]) -> list[Path]:
     return uniq
 
 
-def _run_spotlight_search(query: str, limit: int, roots: list[Path]) -> dict:
+def _run_spotlight_search(query: str, limit: int, roots: list[Path]) -> SearchOutcome:
     """Searches by name with Spotlight (`mdfind -name`) within the given roots.
 
     Spotlight keeps a live index of the disk, so this returns in
@@ -280,7 +318,7 @@ def _run_spotlight_search(query: str, limit: int, roots: list[Path]) -> dict:
     
     """
     seen: set[str] = set()
-    results: list[dict] = []
+    results: list[SearchEntry] = []
     truncated = False
     had_error = False
     errors: list[str] = []
@@ -335,7 +373,7 @@ def _run_spotlight_search(query: str, limit: int, roots: list[Path]) -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _send(self, code: int, payload: dict) -> None:
+    def _send(self, code: int, payload: Mapping[str, object]) -> None:
         body = json.dumps(payload).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
@@ -343,7 +381,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, fmt: str, *args) -> None:
+    def log_message(self, fmt: str, *args: object) -> None:
         LOG.info("%s - %s", self.address_string(), fmt % args)
 
     def do_GET(self) -> None:
@@ -352,14 +390,23 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(404, {"detail": "not found"})
 
-    def _read_json_body(self) -> dict | None:
+    def _read_json_body(self) -> Mapping[object, object] | None:
         """Reads and parses the JSON body. Returns None (and responds 400) if it fails."""
         length = int(self.headers.get("Content-Length", "0"))
         try:
-            return json.loads(self.rfile.read(length) or b"{}")
+            payload: object = json.loads(self.rfile.read(length) or b"{}")
         except json.JSONDecodeError:
             self._send(400, {"detail": "invalid JSON"})
             return None
+        if payload is None:
+            return None
+        # Preserve legacy falsey bodies and the failure of truthy non-objects
+        # at .get(); do not introduce a new HTTP status or coerce field values.
+        if not payload:
+            return {}
+        if not isinstance(payload, dict):
+            raise AttributeError(f"'{type(payload).__name__}' object has no attribute 'get'")
+        return payload
 
     def do_POST(self) -> None:
         if self.path == "/open":
@@ -458,7 +505,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"detail": "query too short (min 2 chars)"})
             return
         try:
-            limit = int((payload or {}).get("limit") or 100)
+            raw_limit = (payload or {}).get("limit") or 100
+            limit = int(raw_limit) if isinstance(raw_limit, (str, int, float)) else 100
         except (TypeError, ValueError):
             limit = 100
         limit = max(1, min(500, limit))
@@ -467,7 +515,13 @@ class Handler(BaseHTTPRequestHandler):
         # within the allowed roots (same allowlist as /open); if none
         # remain valid, we use HOME.
         roots: list[Path] = []
-        for raw in (payload or {}).get("roots") or []:
+        raw_roots = (payload or {}).get("roots") or []
+        # JSON arrays, strings and object keys were all iterable here. Preserve
+        # those inputs and the TypeError for a truthy non-iterable scalar.
+        if not isinstance(raw_roots, (list, str, dict)):
+            raise TypeError(f"'{type(raw_roots).__name__}' object is not iterable")
+        root_values: Iterable[object] = raw_roots
+        for raw in root_values:
             try:
                 p = Path(str(raw)).expanduser().resolve()
             except Exception:

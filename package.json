@@ -28,6 +28,7 @@
     "check:api-client": "pnpm check:openapi && pnpm --filter @gnosi/frontend check:api && pnpm check:api-boundary",
     "check:api-boundary": "uv run python scripts/check_frontend_api_boundary.py",
     "check:pipeline": "uv run python scripts/check_public_pipeline.py",
+    "typecheck:pipeline": "uv run python scripts/check_public_pipeline.py --typecheck",
     "audit:backend": "uv run python scripts/audit-backend-architecture.py",
     "audit:frontend": "uv run python scripts/check_frontend_guardrails.py --report .tmp/frontend-guardrails.json",
     "guardrails:backend": "uv run python scripts/check-source-guardrails.py --require-pruned",

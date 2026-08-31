@@ -4,11 +4,18 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from scripts.check_public_pipeline import IndexedFile, indexed_files, violations
+from scripts.check_public_pipeline import (
+    RETIRED_FILES,
+    IndexedFile,
+    indexed_files,
+    typecheck_pipeline,
+    violations,
+)
 
 
 @pytest.mark.parametrize(
@@ -25,6 +32,7 @@ from scripts.check_public_pipeline import IndexedFile, indexed_files, violations
         "pipeline/skills/release_preflight/scripts/release_preflight.py",
         "pipeline/skills/vault_ai_assistant/SKILL.md",
         "pipeline/scripts/migrate_progres_to_virtual.py",
+        "pipeline/skills/host_open_helper/com.gnosi.host-open-helper.plist",
         "pipeline/sandbox/scratch.py",
         "pipeline/.tmp/output.json",
         "pipeline/utils/__pycache__/cache.pyc",
@@ -88,6 +96,56 @@ def test_other_repository_trees_are_not_silently_audited() -> None:
         violations([IndexedFile("100644", "private-project/tool.py")])
 
 
+@pytest.mark.parametrize("name", sorted(RETIRED_FILES))
+def test_retired_implementations_cannot_return_to_public_source(name: str) -> None:
+    assert violations([IndexedFile("100644", name)])
+
+
+def test_typecheck_passes_every_indexed_python_source_and_propagates_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    names = [
+        "pipeline/legacy/new_portable.py",
+        "pipeline/skills/portable/scripts/tool.py",
+        "pipeline/tests/test_portable.py",
+    ]
+    for name in names:
+        source = tmp_path / name
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("value: int = 1\n", encoding="utf-8")
+    calls: list[list[str]] = []
+
+    def run(args: list[str], *, cwd: Path, check: bool) -> subprocess.CompletedProcess[str]:
+        assert cwd == tmp_path.resolve()
+        assert check is False
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 1)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    entries = [IndexedFile("100644", name) for name in reversed(names)]
+    entries.append(IndexedFile("100644", "pipeline/README.md"))
+    assert typecheck_pipeline(tmp_path, entries) == 1
+    assert calls == [[
+        sys.executable, "-m", "mypy", "--strict", "--explicit-package-bases", *sorted(names),
+    ]]
+
+
+def test_typecheck_rejects_empty_missing_and_external_sources(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="empty"):
+        typecheck_pipeline(tmp_path, [IndexedFile("100644", "pipeline/README.md")])
+    entry = IndexedFile("100644", "pipeline/tool.py")
+    with pytest.raises(ValueError, match="Missing or external"):
+        typecheck_pipeline(tmp_path, [entry])
+    external = tmp_path / "external.py"
+    external.write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / "pipeline").mkdir()
+    (tmp_path / entry.path).symlink_to(external)
+    with pytest.raises(ValueError, match="Missing or external"):
+        typecheck_pipeline(tmp_path, [entry])
+    with pytest.raises(ValueError, match="boundary violations"):
+        typecheck_pipeline(tmp_path, [IndexedFile("100644", "pipeline/sandbox/scratch.py")])
+
+
 def test_boundary_is_wired_into_ci_and_root_command() -> None:
     root = Path(__file__).resolve().parents[2]
     workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
@@ -96,3 +154,5 @@ def test_boundary_is_wired_into_ci_and_root_command() -> None:
     assert backend_job.index(command) < backend_job.index("uv run ruff check")
     manifest = json.loads((root / "package.json").read_text(encoding="utf-8"))
     assert manifest["scripts"]["check:pipeline"] == command
+    assert manifest["scripts"]["typecheck:pipeline"] == command + " --typecheck"
+    assert command + " --typecheck" in backend_job

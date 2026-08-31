@@ -23,26 +23,48 @@ How it works (efficient, without downloading block trees):
 Idempotent and metadata-ONLY: no file is moved between folders (the by-table grid's
 folder membership must not be touched — cf. directive).
 """
+
+from __future__ import annotations
+
 import argparse
 import os
-import importlib.util
-import json
 import sys
 import time
 import uuid
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import httpx
 
-APP = Path(__file__).resolve().parents[2]   # …/Gnosi
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
 
 # clone_page_id without importing the backend package (notion_clone pulls in heavy imports):
 # same namespace as backend/services/notion_clone.py (_CLONE_NS).
 _CLONE_NS = uuid.UUID("6f0c9b2e-1a4d-5e6f-8a9b-000000000003")
 
 
+class _Arguments(argparse.Namespace):
+    vault_id: str
+    backend: str
+    apply: bool
 
-def _auth_headers() -> dict:
+
+def _record(value: object) -> Mapping[object, object]:
+    """Validate only traversed containers, preserving all opaque metadata."""
+    if not isinstance(value, Mapping):
+        raise TypeError("Notion/vault page data must be a mapping")
+    return value
+
+
+def _text(value: object) -> str:
+    if not isinstance(value, str):
+        raise TypeError("Notion/vault identifiers and tokens must be strings")
+    return value
+
+
+def _auth_headers() -> dict[str, str]:
     """`Authorization: Bearer` from GNOSI_API_TOKEN, when one is configured.
 
     Unauthenticated calls work only while the backend still falls back to the
@@ -53,40 +75,45 @@ def _auth_headers() -> dict:
     token = os.environ.get("GNOSI_API_TOKEN", "").strip()
     return {"Authorization": f"Bearer {token}"} if token else {}
 
+
 def clone_page_id(notion_page_id: str) -> str:
     return str(uuid.uuid5(_CLONE_NS, "page:" + str(notion_page_id or "").replace("-", "")))
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--vault-id", required=True, help="clone vault id (GET /api/vaults)")
     ap.add_argument("--backend", default="http://localhost:5002")
-    ap.add_argument("--apply", action="store_true", help="apply the PATCH requests (dry-run by default)")
-    args = ap.parse_args()
+    ap.add_argument(
+        "--apply", action="store_true", help="apply the PATCH requests (dry-run by default)"
+    )
+    args = ap.parse_args(argv, namespace=_Arguments())
 
-    spec = importlib.util.spec_from_file_location(
-        "notion_importer", APP / "backend/services/notion_importer.py")
-    ni = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(ni)
+    # Same credential contract as backend/api/notion_routes.py: get_raw resolves
+    # secure-store references, using canonical configured data paths. Import
+    # lazily so CLI help and pure ID helpers do not initialize credentials/data.
+    from backend.services.integration_manager import integration_manager
+    from backend.services.notion_importer import NotionClient
 
-    token = json.load(open(APP / "local_data/secrets/integrations.json"))["notion"]["token"]
-    client = ni.NotionClient(token)
+    raw_integration: object = integration_manager.get_raw("notion")
+    token = _text(_record(raw_integration)["token"])
+    client = NotionClient(token)
 
     print("1) Searching for pages in Notion...", flush=True)
     pages = client.search_pages()
     print(f"   {len(pages)} pages", flush=True)
 
-    block_owner_cache: dict = {}
+    block_owner_cache: dict[str, Mapping[object, object]] = {}
 
-    def parent_page_of(p):
+    def parent_page_of(p: Mapping[object, object]) -> str | None:
         """Id of the parent page (or None if it hangs off a DB/workspace or can't be resolved)."""
-        parent = p.get("parent") or {}
+        parent = _record(p.get("parent") or {})
         while True:
             t = parent.get("type")
             if t == "page_id":
-                return parent["page_id"]
+                return _text(parent["page_id"])
             if t == "block_id":
-                bid = parent["block_id"]
+                bid = _text(parent["block_id"])
                 if bid in block_owner_cache:
                     parent = block_owner_cache[bid]
                 else:
@@ -95,34 +122,39 @@ def main() -> int:
                     except Exception as e:  # noqa: BLE001
                         print(f"   ! could not resolve block {bid}: {e}", flush=True)
                         return None
-                    parent = blk.get("parent") or {}
+                    parent = _record(blk.get("parent") or {})
                     block_owner_cache[bid] = parent
                 continue
-            return None   # database_id, workspace, unknown
+            return None  # database_id, workspace, unknown
 
     print("2) Resolving child → parent pairs...", flush=True)
-    pairs = {}
-    for p in pages:
+    pairs: dict[str, str] = {}
+    for raw_page in pages:
+        p = _record(raw_page)
         pp = parent_page_of(p)
         if pp:
-            pairs[p["id"]] = pp
+            pairs[_text(p["id"])] = pp
     print(f"   {len(pairs)} pages with a parent page in Notion", flush=True)
 
     print("3) Reading the clone vault...", flush=True)
     H = {"X-Vault-Id": args.vault_id, **_auth_headers()}
     r = httpx.get(f"{args.backend}/api/vault/pages", headers=H, timeout=180)
     r.raise_for_status()
-    vault_pages = r.json()
-    if isinstance(vault_pages, dict):
-        vault_pages = vault_pages.get("pages", [])
-    vp_by_id = {p["id"]: p for p in vault_pages}
+    payload: object = r.json()
+    if isinstance(payload, dict):
+        payload = payload.get("pages", [])
+    if not isinstance(payload, list):
+        raise TypeError("Vault pages response must be a list or an object containing pages")
+    vault_pages = [_record(page) for page in payload]
+    vp_by_id = {_text(page["id"]): page for page in vault_pages}
     print(f"   {len(vault_pages)} pages in the clone vault", flush=True)
     if not vault_pages:
         print("   EMPTY OR UNREADABLE VAULT — stopping (is OneDrive still hydrating it?).")
         return 2
 
     print("4) Calculating PATCH requests...", flush=True)
-    todo, ja_be, sense_fill, sense_pare = [], 0, 0, 0
+    todo: list[tuple[str, str, object, object]] = []
+    ja_be, sense_fill, sense_pare = 0, 0, 0
     for nchild, nparent in pairs.items():
         cid, pid = clone_page_id(nchild), clone_page_id(nparent)
         child = vp_by_id.get(cid)
@@ -137,8 +169,11 @@ def main() -> int:
             continue
         todo.append((cid, pid, child.get("title") or "?", vp_by_id[pid].get("title") or "?"))
 
-    print(f"   to repair: {len(todo)} | already correct: {ja_be} | "
-          f"child not cloned: {sense_fill} | parent not cloned: {sense_pare}", flush=True)
+    print(
+        f"   to repair: {len(todo)} | already correct: {ja_be} | "
+        f"child not cloned: {sense_fill} | parent not cloned: {sense_pare}",
+        flush=True,
+    )
     for cid, pid, ct, pt in todo[:15]:
         print(f"   · '{ct}' → will be attached to '{pt}'")
     if len(todo) > 15:
@@ -152,9 +187,12 @@ def main() -> int:
     ok = err = 0
     for i, (cid, pid, ct, pt) in enumerate(todo):
         try:
-            rr = httpx.patch(f"{args.backend}/api/vault/pages/{cid}",
-                             headers={**H, "Content-Type": "application/json"},
-                             json={"parent_id": pid}, timeout=60)
+            rr = httpx.patch(
+                f"{args.backend}/api/vault/pages/{cid}",
+                headers={**H, "Content-Type": "application/json"},
+                json={"parent_id": pid},
+                timeout=60,
+            )
             if rr.status_code == 200:
                 ok += 1
             else:

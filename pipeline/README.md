@@ -30,6 +30,18 @@ files; it does not open credentials, databases, or symlink targets. It rejects
 known private packages, generated state, non-template environment files and links
 to external code. An unstaged deletion still exists in the index and must fail.
 
+Run `pnpm typecheck:pipeline` after staging as well. It checks every indexed Python
+file, including tests and files inside ignored directories, with strict mypy and
+no directory exclusions. It fails on missing sources or an empty source set.
+The public CI runs both checks; checking only the backend does not cover these
+tools.
+
+Obsolete parser/cache, Wiki/BD helpers, the personal full Notion importer and
+standalone mail/calendar synchronizers were preserved privately before source
+retirement. Current backend routes and public compatibility adapters remain.
+The calendar and mail skill instructions identify the maintained entry points;
+the source cleanup neither runs a sync nor removes existing vault content.
+
 This is a source-boundary check, not a complete secret scanner or proof that every
 remaining tool is portable. New tools still require consumer review, typed code,
 tests, explicit configuration and a documented failure/recovery procedure.

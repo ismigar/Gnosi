@@ -4,9 +4,8 @@
 # del helper de la ubicació d'aquest mateix script i usa $HOME per a logs i
 # WorkingDirectory. NO hardcoda cap nom d'usuari.
 #
-# Per què cal: el plist committejat al repo (com.gnosi.host-open-helper.plist)
-# porta un usuari concret incrustat i només serveix a la màquina d'aquell
-# usuari. En una segona Mac amb un altre usuari, instal·lar-lo tal qual fa que
+# Per què cal: l'antic plist específic de màquina s'ha preservat privadament
+# i retirat del repositori públic. Copiar un plist d'un altre usuari fa que
 # launchd no trobi l'script → el helper no arrenca → els enllaços file:// del
 # vault no s'obren (el backend, dins Docker, no pot cridar el Finder del host).
 #

@@ -35,6 +35,12 @@ Les suppressions examinées doivent être préparées dans l'index avant le cont
 Il n'exécute aucune compétence et ne lit aucun secret ; il ne remplace pas un
 audit complet des secrets ou de la portabilité.
 
+Après préparation de l'index, `pnpm typecheck:pipeline` lance mypy strict sur tous
+les fichiers Python publics du pipeline, tests et répertoires ignorés compris.
+Aucun répertoire n'est exclu ; l'absence de sources ou d'un fichier fait échouer
+le contrôle. CI l'exécute en plus du contrôle du backend, sans exécuter de
+fournisseurs ni de migrations.
+
 La traduction, les notifications, l'assistant d'ouverture des fichiers, la
 publication sociale et la planification du backend conservent leurs contrats.
 L'ancien orchestrateur de développement n'était pas une dépendance de ces services.
