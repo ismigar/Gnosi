@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 41 |
 | `config` | 9 | 1049 |
 | `data` | 2 | 214 |
-| `domains` | 421 | 89655 |
+| `domains` | 421 | 89659 |
 | `mcp` | 3 | 429 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1208 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **755 modules** and **156103 source lines**.
+Total: **755 modules** and **156107 source lines**.
 
 ## agent
 
@@ -491,7 +491,7 @@ Total: **755 modules** and **156103 source lines**.
 | [`backend/domains/vault/links/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/index_service.py) | 565 | 2 | 16 | 0 | 0 | Reverse-link index services and persistence. |
 | [`backend/domains/vault/links/parsing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/parsing.py) | 213 | 0 | 12 | 0 | 0 | Pure parsing operations for wikilinks and unlinked mentions. |
 | [`backend/domains/vault/links/relation_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/relation_sync.py) | 188 | 1 | 4 | 0 | 4 | Filesystem orchestration for bidirectional Vault relation synchronization. |
-| [`backend/domains/vault/links/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/runtime.py) | 555 | 0 | 43 | 0 | 22 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/links/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/runtime.py) | 556 | 0 | 43 | 0 | 22 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/links/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/schemas.py) | 77 | 10 | 0 | 0 | 2 | Public request contracts for vault links. |
 | [`backend/domains/vault/links/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/state.py) | 93 | 4 | 0 | 0 | 1 | Single process-wide owner for the reverse-link index. |
 | [`backend/domains/vault/media/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault domain package. |
@@ -528,7 +528,7 @@ Total: **755 modules** and **156103 source lines**.
 | [`backend/domains/vault/registry/names.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/names.py) | 198 | 0 | 9 | 0 | 7 | Canonical table and view naming rules stored in the registry. |
 | [`backend/domains/vault/registry/records.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/records.py) | 23 | 1 | 2 | 0 | 3 | Identity-preserving guards for open registry and extension records. |
 | [`backend/domains/vault/registry/repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/repository.py) | 306 | 3 | 0 | 0 | 1 | Resilient persistence for the per-vault registry. |
-| [`backend/domains/vault/registry/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/runtime.py) | 627 | 0 | 37 | 4 | 25 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/registry/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/runtime.py) | 630 | 0 | 37 | 4 | 25 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/registry/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/state.py) | 28 | 1 | 0 | 0 | 1 | Single process-wide owner for registry caches and synchronization. |
 | [`backend/domains/vault/schemas/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/__init__.py) | 17 | 0 | 0 | 0 | 0 | Typed request and response schemas for the vault domain. |
 | [`backend/domains/vault/schemas/history.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/history.py) | 33 | 3 | 0 | 0 | 0 | Public contracts for immutable vault page history. |
