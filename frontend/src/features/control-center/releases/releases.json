@@ -1,5 +1,24 @@
 [
   {
+    "version": "3.0.0-rc.1",
+    "date": "2026-09-01",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v3_0_0_rc_1.highlights.canonical_architecture",
+        "release_notes.entries.v3_0_0_rc_1.highlights.typed_experience"
+      ],
+      "improvements": [
+        "release_notes.entries.v3_0_0_rc_1.improvements.portable_data",
+        "release_notes.entries.v3_0_0_rc_1.improvements.desktop_runtime"
+      ],
+      "fixes": [
+        "release_notes.entries.v3_0_0_rc_1.fixes.reproducible_toolchain",
+        "release_notes.entries.v3_0_0_rc_1.fixes.release_safety"
+      ]
+    }
+  },
+  {
     "version": "2.0.6",
     "date": "2026-08-26",
     "channel": "stable",

@@ -61,10 +61,10 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            local_runner: [self-hosted, macOS, ARM64]
+            runner: macos-15
           - arch: x64
-            local_runner: [self-hosted, macOS, X64]
-    runs-on: ${{ matrix.local_runner }}
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -126,7 +126,7 @@ jobs:
 
   build-linux:
     needs: [preflight, quality]
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -175,7 +175,7 @@ jobs:
 
   build-windows:
     needs: [preflight, quality, build-macos]
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: windows-2025
     defaults:
       run:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}

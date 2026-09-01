@@ -182,9 +182,9 @@ test('macOS release jobs match each frozen backend to its target architecture', 
   const macConfig = builderConfig.match(/^mac:\n([\s\S]*?)^linux:/m)?.[1];
 
   assert.doesNotMatch(workflow, /^\s+runs-on: macos-latest$/m);
-  assert.match(workflow, /- arch: arm64\n\s+local_runner: \[self-hosted, macOS, ARM64\]/);
-  assert.match(workflow, /- arch: x64\n\s+local_runner: \[self-hosted, macOS, X64\]/);
-  assert.match(workflow, /runs-on: \$\{\{ matrix\.local_runner \}\}/);
+  assert.match(workflow, /- arch: arm64\n\s+runner: macos-15/);
+  assert.match(workflow, /- arch: x64\n\s+runner: macos-15-intel/);
+  assert.match(workflow, /runs-on: \$\{\{ matrix\.runner \}\}/);
   assert.doesNotMatch(workflow, /local_only:/);
   assert.match(workflow, /pnpm --filter @gnosi\/desktop build:mac -- --\$\{\{ matrix\.arch \}\}/);
   assert.match(workflow, /name: build-macos-\$\{\{ matrix\.arch \}\}/);
@@ -205,14 +205,15 @@ test('macOS release jobs match each frozen backend to its target architecture', 
   );
 });
 
-test('Linux release matches the frozen backend to the ARM64 runner', () => {
+test('Linux and Windows releases use hosted architecture-matched runners', () => {
   const workflow = fs.readFileSync(releaseWorkflowPath, 'utf8');
   const builderConfig = fs.readFileSync(path.join(electronRoot, 'electron-builder.yml'), 'utf8');
   const linuxConfig = builderConfig.match(/^linux:\n([\s\S]*?)^win:/m)?.[1];
   const linuxJob = workflow.match(/  build-linux:\n([\s\S]*?)\n  build-windows:/)?.[1];
 
   assert.ok(linuxJob, 'the release workflow must define a Linux build job');
-  assert.match(linuxJob, /runs-on: \[self-hosted, Linux, ARM64\]/);
+  assert.match(linuxJob, /runs-on: ubuntu-24\.04-arm/);
+  assert.match(workflow, /build-windows:[\s\S]*?runs-on: windows-2025/);
   assert.match(linuxJob, /pnpm --filter @gnosi\/desktop exec electron-builder --linux --arm64 --publish never/);
   assert.doesNotMatch(linuxJob, /npm run build:linux/);
   assert.ok(linuxConfig, 'electron-builder.yml must define a Linux build block');

@@ -5789,6 +5789,20 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v3_0_0_rc_1": {
+        "highlights": {
+          "canonical_architecture": "Gnosi dispose désormais d'un dépôt canonique unique, avec un backend FastAPI modulaire et une interface React organisée par fonctionnalités.",
+          "typed_experience": "Toute l'interface de production utilise TypeScript et des contrats OpenAPI générés pour sécuriser l'accès aux données du serveur."
+        },
+        "improvements": {
+          "portable_data": "Les répertoires de données portables, la configuration explicite de l'environnement partagé et les migrations vérifiées maintiennent les Vaults locaux récupérables dans les installations natives, Docker et desktop.",
+          "desktop_runtime": "Electron 43 ajoute un contrat IPC isolé, un démarrage contrôlé du backend et un empaquetage propre à chaque architecture pour macOS, Linux et Windows."
+        },
+        "fixes": {
+          "reproducible_toolchain": "Node 22.22.2, pnpm et uv fournissent désormais des graphes de dépendances figés et reproductibles, sans environnements npm ou Python dupliqués.",
+          "release_safety": "La validation des versions vérifie désormais l'identité du code, la documentation, les clients générés, les installateurs et les artefacts séparés par architecture avant publication."
+        }
+      },
       "v2_0_6": {
         "highlights": {
           "vault_scoped_routes": "La navigation web et les routes API respectent désormais le Vault actif afin de maintenir chaque contexte isolé."
