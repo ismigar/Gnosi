@@ -56,6 +56,7 @@ def repository(tmp_path: Path) -> Path:
     for name in (
         "backend/domains/mail/routes/messages.py",
         "backend/domains/configuration/api/credentials.py",
+        "backend/security/plugin_trust_root.py",
         "pipeline/skills/translate_row/scripts/translate_text.py",
         "pipeline/skills/translate_page/scripts/markdown_segmenter.py",
     ):
@@ -95,6 +96,8 @@ def test_plan_keeps_required_runtime_without_importing_application(repository: P
     assert "pipeline.skills.translate_row.scripts.translate_text" in first.modules
     assert "pipeline.skills.translate_page.scripts.markdown_segmenter" in first.modules
     assert "backend.server" in first.modules
+    assert "backend.security.plugin_trust_root" in first.modules
+    assert "extensions.marketplace.signing_policy" not in first.modules
     assert "backend/migrations/alembic/versions/management_0005.py" in first.resources
     assert "backend/migrations/alembic/script.py.mako" in first.resources
     assert "backend/agent/instructions/gnosy.md" in first.resources

@@ -33,7 +33,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 
 from backend.config.logger_config import get_logger
-from extensions.marketplace.signing_policy import OFFICIAL_PUBLIC_KEY_B64
+from backend.security.plugin_trust_root import OFFICIAL_PLUGIN_PUBLIC_KEY_B64
 
 logger = get_logger(__name__)
 
@@ -45,7 +45,7 @@ _trust_lock = threading.Lock()
 # 600 permissions) and is used with `extensions/examples/sign_plugin.py`. The user can
 # add more trusted publishers to their store (`.gnosi/plugins_trust.json`).
 BUNDLED_TRUSTED_KEYS: Dict[str, str] = {
-    "gnosi-official": OFFICIAL_PUBLIC_KEY_B64,
+    "gnosi-official": OFFICIAL_PLUGIN_PUBLIC_KEY_B64,
 }
 
 

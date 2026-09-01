@@ -307,6 +307,12 @@ tierces. Un espace de noms inconnu sous les racines propres `backend`, `pipeline
 qu’un espace de noms de dépendance tel que `jaraco` n’est pas classé à tort
 comme code du dépôt.
 
+Le vérificateur de plugins empaqueté importe la racine publique de confiance
+immuable depuis `backend/security/plugin_trust_root.py`. Les outils de release de
+la marketplace réutilisent cette constante, mais le chargeur de clé privée reste
+hors du plan de ressources desktop. L’analyse PyInstaller doit échouer si le module
+de signature de la marketplace entre dans le paquet d’exécution.
+
 | Cible configurée | Architecture de l’exécuteur | Installateurs et artefacts de mise à jour |
 | --- | --- | --- |
 | macOS arm64 | macOS ARM64 sur infrastructure propre | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml` |

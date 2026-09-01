@@ -6,7 +6,11 @@ import json
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from extensions.marketplace.signing_policy import load_official_private_key
+from backend.security.plugin_trust_root import OFFICIAL_PLUGIN_PUBLIC_KEY_B64
+from extensions.marketplace.signing_policy import (
+    OFFICIAL_PUBLIC_KEY_B64,
+    load_official_private_key,
+)
 
 
 def _keypair() -> tuple[str, str]:
@@ -15,6 +19,10 @@ def _keypair() -> tuple[str, str]:
         base64.b64encode(private_key.private_bytes_raw()).decode("ascii"),
         base64.b64encode(private_key.public_key().public_bytes_raw()).decode("ascii"),
     )
+
+
+def test_release_tooling_reuses_runtime_public_trust_root() -> None:
+    assert OFFICIAL_PUBLIC_KEY_B64 == OFFICIAL_PLUGIN_PUBLIC_KEY_B64
 
 
 def test_release_signing_key_is_required(monkeypatch: pytest.MonkeyPatch) -> None:

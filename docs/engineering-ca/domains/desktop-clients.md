@@ -293,6 +293,12 @@ espai de noms desconegut sota les arrels pròpies `backend`, `pipeline`, `config
 de noms d’una dependència com `jaraco` no es classifica erròniament com a codi
 del repositori.
 
+El verificador de plugins empaquetat importa l’arrel pública de confiança immutable
+des de `backend/security/plugin_trust_root.py`. Les eines de release del marketplace
+reutilitzen aquesta constant, però el carregador de la clau privada queda fora del
+pla de recursos desktop. L’anàlisi de PyInstaller ha de fallar si el mòdul de
+signatura del marketplace entra al paquet de runtime.
+
 | Destinació configurada | Arquitectura del runner | Instal·lador i artefactes d’actualització |
 | --- | --- | --- |
 | macOS arm64 | macOS ARM64 autoallotjat | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml` |

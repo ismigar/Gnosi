@@ -23,12 +23,12 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `platform` | 12 | 1224 |
 | `scheduler` | 6 | 1187 |
 | `scripts` | 2 | 69 |
-| `security` | 5 | 838 |
+| `security` | 6 | 844 |
 | `services` | 150 | 35484 |
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **755 modules** and **156107 source lines**.
+Total: **756 modules** and **156113 source lines**.
 
 ## agent
 
@@ -697,6 +697,7 @@ Total: **755 modules** and **156107 source lines**.
 | [`backend/security/ai_credentials.py`](https://github.com/ismigar/Gnosi/blob/main/backend/security/ai_credentials.py) | 344 | 0 | 11 | 0 | 3 | No module docstring |
 | [`backend/security/egress_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/security/egress_policy.py) | 31 | 0 | 1 | 0 | 0 | Conservative URL egress checks for generated/connector tools. |
 | [`backend/security/keychain_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/security/keychain_manager.py) | 440 | 1 | 2 | 0 | 3 | Keychain Manager - Secure credentials storage using macOS Keychain. |
+| [`backend/security/plugin_trust_root.py`](https://github.com/ismigar/Gnosi/blob/main/backend/security/plugin_trust_root.py) | 6 | 0 | 0 | 0 | 0 | Public trust root shared by plugin runtime and official release tooling. |
 | [`backend/security/secret_redaction.py`](https://github.com/ismigar/Gnosi/blob/main/backend/security/secret_redaction.py) | 19 | 0 | 1 | 0 | 0 | Redact common credentials before errors, spans or tool output are persisted. |
 
 ## services

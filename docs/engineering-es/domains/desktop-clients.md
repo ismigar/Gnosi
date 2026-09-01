@@ -299,6 +299,12 @@ Un espacio de nombres desconocido bajo las raíces propias `backend`, `pipeline`
 un espacio de nombres de una dependencia como `jaraco` no se clasifica por error
 como código del repositorio.
 
+El verificador de plugins empaquetado importa la raíz pública de confianza inmutable
+desde `backend/security/plugin_trust_root.py`. Las herramientas de release del
+marketplace reutilizan esa constante, pero el cargador de la clave privada queda
+fuera del plan de recursos de escritorio. El análisis de PyInstaller debe fallar si
+el módulo de firma del marketplace entra en el paquete de runtime.
+
 | Destino configurado | Arquitectura del ejecutor | Instaladores y artefactos de actualización |
 | --- | --- | --- |
 | macOS arm64 | macOS ARM64 en infraestructura propia | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml` |

@@ -263,6 +263,12 @@ under the owned `backend`, `pipeline`, `config`, `frontend` or `extensions`
 roots still fails closed, while a dependency namespace such as `jaraco` is not
 misclassified as repository source.
 
+The packaged plugin verifier imports its immutable public trust root from
+`backend/security/plugin_trust_root.py`. Marketplace release tooling reuses that
+constant, but its private-key environment loader remains outside the desktop
+resource plan. PyInstaller analysis must fail if the marketplace signing module
+enters the runtime bundle.
+
 | Configured target | Runner architecture | Installer and update artifacts |
 | --- | --- | --- |
 | macOS arm64 | Self-hosted macOS ARM64 | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml` |
