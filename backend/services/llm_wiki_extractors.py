@@ -422,7 +422,7 @@ def probe_streaming_url(url: str, *, fingerprint: str = "") -> dict[str, Any]:
     if not ok:
         raise ExtractionError(f"Unsafe URL blocked: {reason}")
     try:
-        import yt_dlp
+        import yt_dlp  # type: ignore[import-untyped]
     except Exception as exc:
         raise ExtractionError("yt-dlp is not installed") from exc
     options = {

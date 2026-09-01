@@ -86,7 +86,7 @@ def _model_size() -> str:
 
 def is_available() -> bool:
     try:
-        import faster_whisper  # noqa: F401
+        import faster_whisper  # type: ignore[import-untyped]  # noqa: F401
 
         return True
     except Exception:

@@ -20,7 +20,7 @@ from typing import Tuple as Tuple
 from typing import cast
 
 import yaml as yaml
-from simpleeval import (
+from simpleeval import (  # type: ignore[import-untyped]  # Historical public seam.
     NameNotDefined as NameNotDefined,
 )
 from simpleeval import SimpleEval as SimpleEval

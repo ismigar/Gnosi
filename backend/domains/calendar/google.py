@@ -11,7 +11,7 @@ def get_google_calendar_service(email: str) -> Any:
     """Helper to get a Google Calendar service for a given email."""
     try:
         from google.oauth2.credentials import Credentials
-        from googleapiclient.discovery import build
+        from googleapiclient.discovery import build  # type: ignore[import-untyped]
     except ImportError:
         log.error("Falten dependències: google-api-python-client, google-auth-oauthlib")
         return None

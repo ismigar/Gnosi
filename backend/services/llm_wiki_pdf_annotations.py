@@ -24,7 +24,7 @@ _ZOTERO_BLOB_PREFIX = "__ZOTERO_JSON__"
 
 def _load_pdfium() -> Any:
     """Load the optional PDF adapter at the one untyped vendor boundary."""
-    import pypdfium2
+    import pypdfium2  # type: ignore[import-untyped]
 
     return pypdfium2
 

@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import feedparser
+import feedparser  # type: ignore[import-untyped]
 import requests
 from sqlalchemy.orm import Session
 

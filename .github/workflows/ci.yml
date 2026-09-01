@@ -51,7 +51,7 @@ jobs:
         run: >-
           uv run mypy --strict
           --allow-untyped-decorators --allow-subclassing-any
-          --ignore-missing-imports backend/app backend/domains backend/platform
+          backend/app backend/domains backend/platform
           backend/services/files_provider
       - run: uv run python -m compileall -q backend pipeline scripts extensions
       - run: uv run pytest
