@@ -16,7 +16,7 @@ def get_google_contacts_service(email: str) -> tuple[Any | None, Any | None]:
     try:
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
-        from googleapiclient.discovery import build  # type: ignore[import-untyped]
+        from googleapiclient.discovery import build
     except ImportError:
         log.error("Missing dependencies: google-api-python-client, google-auth-oauthlib")
         return None, None

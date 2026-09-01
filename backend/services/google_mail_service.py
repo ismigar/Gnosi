@@ -6,7 +6,7 @@ import logging
 import base64
 from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build  # type: ignore[import-untyped]
+from googleapiclient.discovery import build
 
 from backend.services.mail_inline_images import InlineImage, MimeAsset, build_mail_content
 

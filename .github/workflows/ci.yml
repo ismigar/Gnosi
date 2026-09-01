@@ -49,7 +49,7 @@ jobs:
       - run: uv run python scripts/check-source-guardrails.py --require-pruned
       - name: Strict type-check of extracted backend boundaries
         run: >-
-          uv run mypy --strict --follow-imports=skip
+          uv run mypy --strict
           --allow-untyped-decorators --allow-subclassing-any
           --ignore-missing-imports backend/app backend/domains backend/platform
           backend/services/files_provider

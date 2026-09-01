@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
-from google_auth_oauthlib.flow import Flow  # type: ignore[import-untyped]
+from google_auth_oauthlib.flow import Flow
 
 from backend.config.env_config import get_env
 from backend.services.integration_manager import integration_manager
@@ -243,7 +243,7 @@ async def callback(request: Request) -> RedirectResponse:
         credentials = flow.credentials
 
         # Get user info to identify the account
-        from googleapiclient.discovery import build  # type: ignore[import-untyped]
+        from googleapiclient.discovery import build
 
         service = build("oauth2", "v2", credentials=credentials)
         user_info = cast(dict[str, Any], service.userinfo().get().execute())

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TypedDict
 
-from gtts import gTTS  # type: ignore[import-untyped]
+from gtts import gTTS
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from sqlalchemy.orm import Session
