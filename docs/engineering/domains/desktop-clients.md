@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-01
 source_paths:
+  - pyproject.toml
+  - uv.lock
   - desktop/README.md
   - desktop/profile-startup.js
   - desktop/profile-preservation.js
@@ -248,6 +250,18 @@ resources rather than recursively bundling vaults, databases, configuration,
 secrets or generated tools. The `afterPack` hook checks the actual ASAR and
 Python resources before signing. Assets belong under `desktop/assets/`;
 generated bundles belong under `desktop/dist/` and `desktop/dist-python/`.
+
+The root project declares uv `required-environments` for macOS arm64 and x64,
+Linux arm64 and Windows x64. Regenerate `uv.lock` with uv so its resolution
+markers may select different wheel-compatible dependency versions per target;
+never edit the lock manually. Every selected binary dependency must publish a
+wheel for its target before packaging starts.
+
+PyInstaller reports implicit namespace packages with source `-`. The resource
+policy accepts that sentinel only for third-party roots. An unknown namespace
+under the owned `backend`, `pipeline`, `config`, `frontend` or `extensions`
+roots still fails closed, while a dependency namespace such as `jaraco` is not
+misclassified as repository source.
 
 | Configured target | Runner architecture | Installer and update artifacts |
 | --- | --- | --- |

@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-01
 source_paths:
+  - pyproject.toml
+  - uv.lock
   - desktop/README.md
   - desktop/profile-startup.js
   - desktop/profile-preservation.js
@@ -282,6 +284,20 @@ herramientas generadas. El hook `afterPack` comprueba el ASAR real y los recurso
 de Python antes de la firma. Los recursos gráficos pertenecen a
 `desktop/assets/`; los paquetes generados, a `desktop/dist/` y
 `desktop/dist-python/`.
+
+El proyecto raíz declara los `required-environments` de uv para macOS arm64 y
+x64, Linux arm64 y Windows x64. Regenera `uv.lock` con uv para que los marcadores
+de resolución puedan seleccionar distintas versiones de dependencias compatibles
+con los wheels de cada destino; nunca edites el lock manualmente. Cada dependencia
+binaria seleccionada debe publicar un wheel para su destino antes de iniciar el
+empaquetado.
+
+PyInstaller informa de los paquetes de espacio de nombres implícitos con origen
+`-`. La política de recursos solo acepta ese centinela para raíces de terceros.
+Un espacio de nombres desconocido bajo las raíces propias `backend`, `pipeline`,
+`config`, `frontend` o `extensions` sigue fallando de forma cerrada, mientras que
+un espacio de nombres de una dependencia como `jaraco` no se clasifica por error
+como código del repositorio.
 
 | Destino configurado | Arquitectura del ejecutor | Instaladores y artefactos de actualización |
 | --- | --- | --- |

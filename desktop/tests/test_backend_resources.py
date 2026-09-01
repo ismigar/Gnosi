@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -20,6 +21,19 @@ from desktop.scripts import backend_resources as policy
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = ROOT / "desktop/scripts/backend_resources.py"
 BUILD = ROOT / "desktop/build-python.sh"
+
+RELEASE_ENVIRONMENTS = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+LOCK_RELEASE_MARKERS = [
+    "platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "platform_machine == 'AMD64' and sys_platform == 'win32'",
+]
 
 
 def write(root: Path, name: str, text: str = "synthetic runtime resource\n") -> Path:
@@ -91,6 +105,30 @@ def test_plan_keeps_required_runtime_without_importing_application(repository: P
     assert all(Path(source).is_file() for source, _ in first.datas)
     assert (str(repository / "backend"), "backend") not in first.datas
     assert first.resources == tuple(sorted(first.resources))
+
+
+def test_universal_lock_covers_every_release_environment() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    required = cast(list[str], project["tool"]["uv"]["required-environments"])
+    assert required == RELEASE_ENVIRONMENTS
+
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    assert cast(list[str], lock["required-markers"]) == LOCK_RELEASE_MARKERS
+    packages = cast(list[dict[str, object]], lock["package"])
+    intel_marker = ["platform_machine == 'x86_64' and sys_platform == 'darwin'"]
+
+    for package_name in ("onnxruntime", "torch"):
+        candidates = [
+            package
+            for package in packages
+            if package.get("name") == package_name
+            and package.get("resolution-markers") == intel_marker
+        ]
+        assert len(candidates) == 1
+        wheels = cast(list[dict[str, object]], candidates[0].get("wheels"))
+        assert wheels
+        assert all("macosx" in str(wheel.get("url")) for wheel in wheels)
+        assert all("x86_64" in str(wheel.get("url")) for wheel in wheels)
 
 
 def test_unselected_local_state_is_never_read_or_collected(
@@ -235,11 +273,20 @@ def test_selected_symlink_or_ancestor_cannot_escape(
 def test_analysis_supports_namespace_packages_and_dependency_resources(repository: Path) -> None:
     plan = policy.build_plan(repository)
     data, modules = toc(plan)
+    modules.append(("jaraco", "-", "PYMODULE"))
     data.append(("certifi/cacert.pem", "/synthetic-environment/certifi/cacert.pem", "DATA"))
     data.append(("base_library.zip", "/synthetic-work/base_library.zip", "DATA"))
     policy.validate_analysis(data, modules, [], plan)
     windows_destinations = [(name.replace("/", "\\"), source, kind) for name, source, kind in data]
     policy.validate_analysis(windows_destinations, modules, [], plan)
+
+
+def test_analysis_rejects_unknown_owned_namespace_without_source(repository: Path) -> None:
+    plan = policy.build_plan(repository)
+    data, modules = toc(plan)
+    modules.append(("backend.unreviewed_namespace", "-", "PYMODULE"))
+    with pytest.raises(policy.ResourcePolicyError, match="Unreviewed owned Analysis module"):
+        policy.validate_analysis(data, modules, [], plan)
 
 
 def test_analysis_keeps_relative_library_and_framework_links(repository: Path) -> None:
