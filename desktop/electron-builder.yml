@@ -37,6 +37,7 @@ files:
   - exclusive-rename.js
   - application-menu.js
   - backend-launch.js
+  - release-version.js
   - update-policy.js
   # Runtime dependencies used by main.js (electron-log drives the auto-updater
   # logger; electron-updater is the updater itself). electron-builder follows

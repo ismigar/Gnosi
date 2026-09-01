@@ -139,6 +139,13 @@ IPC privilegiat. La navegació i les redireccions no poden conservar aquest pont
 en un altre origen. Els enllaços HTTP(S) que se sol·liciten en una finestra nova
 s’obren externament.
 
+L’emplenament de formularis només accepta una URL inicial HTTPS sense
+credencials i en fixa l’origen exacte abans de carregar-la. Els controls de
+navegació i redirecció s’instal·len abans d’iniciar la càrrega; es bloquegen les
+destinacions sense xifrar i les d’un altre origen. La URL final de `webContents`
+es torna a comprovar immediatament abans de cada injecció del perfil sintètic,
+de manera que el contingut redirigit no rep cap byte del perfil.
+
 El protocol del paquet serveix els recursos del frontend i fa de proxy de
 `/api/` cap al backend local. Valida l’autoritat de l’aplicació, impedeix recórrer
 el sistema de fitxers fora de les rutes permeses i utilitza el magatzem de galetes
@@ -326,6 +333,12 @@ mantén-ne fora els canvis que no hi estiguin relacionats. Les noves correccions
 d’empaquetatge exigeixen una etiqueta nova revisada, no codi font diferent
 publicat sota una etiqueta antiga. Afegeix enllaços de descàrrega per plataforma
 només quan els artefactes públics immutables corresponents existeixin realment.
+
+`desktop/release-version.js` és la frontera compartida de versió de release per
+a l’actualitzador i el col·lector d’artefactes. Utilitza la implementació SemVer
+fixada amb `electron-updater`, accepta metadades de build canòniques i rebutja
+espais adjacents, prefixos `v` i versions invàlides o no canòniques. La política
+d’actualització i l’empaquetatge no han d’introduir un segon parser.
 
 `Build Release Candidate` verifica que l’etiqueta sol·licitada existeixi i es
 resolgui al commit exacte del checkout, `github.sha`, tant en enviaments

@@ -113,6 +113,7 @@ for (const [url, name, message] of [
   ['javascript:throw 1', 'Error', 'Unsupported form URL'],
   ['data:text/html,synthetic', 'Error', 'Unsupported form URL'],
   ['app://gnosi/form', 'Error', 'Unsupported form URL'],
+  ['http://example.invalid/form', 'Error', 'Unsupported form URL'],
   ['https://user:password@example.invalid', 'Error', 'Unsupported form URL'],
 ]) {
   test(`form retains URL failure ${String(url)}`, async () => {
@@ -122,7 +123,7 @@ for (const [url, name, message] of [
   });
 }
 
-for (const url of ['http://example.invalid/form', URL_FIXTURE, ' HTTPS://EXAMPLE.INVALID/form ', 'https://@example.invalid/form']) {
+for (const url of [URL_FIXTURE, ' HTTPS://EXAMPLE.INVALID/form ', 'https://@example.invalid/form']) {
   test(`form passes supported spelling unchanged to loadURL: ${url}`, async () => {
     const f = fixture();
     await f.invoke({ url, profile: PROFILE });
@@ -130,14 +131,16 @@ for (const url of ['http://example.invalid/form', URL_FIXTURE, ' HTTPS://EXAMPLE
   });
 }
 
-test('window isolation, log/create/load/listener order and non-awaited load are unchanged', async () => {
+test('window isolation and navigation guards are registered before the non-awaited load', async () => {
   const order = [];
   const f = fixture({ onWindowCreated(window) {
     if (window.options.title !== 'Gnosi Form Filler') return;
     order.push('create');
     window.loadURL = url => {
       order.push(['load', url]);
-      assert.equal(window.webContents.listenerCount('did-finish-load'), 0);
+      assert.equal(window.webContents.listenerCount('did-finish-load'), 1);
+      assert.equal(window.webContents.listenerCount('will-navigate'), 1);
+      assert.equal(window.webContents.listenerCount('will-redirect'), 1);
       window.webContents.emit('did-finish-load');
       return new Promise(() => {});
     };
@@ -148,7 +151,10 @@ test('window isolation, log/create/load/listener order and non-awaited load are 
     };
   } });
   assert.equal(await f.invoke({ url: URL_FIXTURE, profile: PROFILE }), undefined);
-  assert.deepEqual(order, ['create', ['load', URL_FIXTURE], ['listen', 'did-finish-load']]);
+  assert.deepEqual(order, [
+    'create', ['listen', 'will-navigate'], ['listen', 'will-redirect'],
+    ['listen', 'did-finish-load'], ['load', URL_FIXTURE],
+  ]);
   assert.equal(f.calls[0].log.at(-1), 'Opening form filler');
   assert.deepEqual(structuredClone(f.windows[1].options), {
     width: 1000, height: 800, title: 'Gnosi Form Filler',
@@ -158,13 +164,45 @@ test('window isolation, log/create/load/listener order and non-awaited load are 
   assert.deepEqual(f.scripts(), []);
 });
 
-test('load exceptions reject before listener registration without cleanup or replacement windows', async () => {
+test('cross-origin navigation and redirects are blocked and never receive profile bytes', async () => {
+  const f = fixture();
+  await f.invoke({ url: URL_FIXTURE, profile: PROFILE });
+  const filler = f.windows[1];
+  const prevented = [];
+  for (const [eventName, url] of [
+    ['will-navigate', 'https://redirected.invalid/form'],
+    ['will-redirect', 'https://example.invalid.evil/form'],
+    ['will-redirect', 'http://example.invalid/form'],
+  ]) {
+    filler.webContents.emit(eventName, {
+      preventDefault() { prevented.push([eventName, url]); },
+    }, url);
+  }
+  assert.deepEqual(prevented, [
+    ['will-navigate', 'https://redirected.invalid/form'],
+    ['will-redirect', 'https://example.invalid.evil/form'],
+    ['will-redirect', 'http://example.invalid/form'],
+  ]);
+
+  filler.webContents.mainFrame.url = 'https://redirected.invalid/form';
+  filler.webContents.emit('did-finish-load');
+  assert.deepEqual(f.scripts(), []);
+  assert.equal(JSON.stringify(f.calls).includes(PROFILE.email), false);
+
+  filler.webContents.mainFrame.url = 'https://example.invalid/second-step';
+  filler.webContents.emit('did-finish-load');
+  assert.equal(f.scripts().length, 1);
+});
+
+test('load exceptions reject after guard registration without cleanup or replacement windows', async () => {
   const failure = new Error('synthetic load error');
   const f = fixture({ onWindowCreated(window) {
     if (window.options.title === 'Gnosi Form Filler') window.loadURL = () => { throw failure; };
   } });
   await assert.rejects(f.invoke({ url: URL_FIXTURE, profile: PROFILE }), error => error === failure);
-  assert.equal(f.windows[1].webContents.listenerCount('did-finish-load'), 0);
+  assert.equal(f.windows[1].webContents.listenerCount('did-finish-load'), 1);
+  assert.equal(f.windows[1].webContents.listenerCount('will-navigate'), 1);
+  assert.equal(f.windows[1].webContents.listenerCount('will-redirect'), 1);
   assert.equal(f.windows.length, 2);
 });
 

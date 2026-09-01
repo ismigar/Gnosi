@@ -144,6 +144,13 @@ invoquer des opérations IPC privilégiées. La navigation et les redirections n
 peuvent conserver ce pont sur une autre origine. Les liens HTTP(S) demandés
 dans une nouvelle fenêtre s’ouvrent à l’extérieur de l’application.
 
+Le remplissage de formulaire n’accepte qu’une URL initiale HTTPS sans
+identifiants et fixe son origine exacte avant le chargement. Les contrôles de
+navigation et de redirection sont installés avant le début du chargement ; les
+destinations en clair ou d’une autre origine sont bloquées. L’URL finale de
+`webContents` est vérifiée à nouveau juste avant chaque injection du profil
+synthétique, afin qu’un contenu redirigé ne reçoive aucun octet du profil.
+
 Le protocole du paquet sert les ressources du frontend et relaie `/api/` vers
 le backend local. Il valide le composant d’autorité de l’URL de l’application,
 empêche de sortir des répertoires autorisés et utilise le magasin de cookies de
@@ -344,6 +351,13 @@ d’empaquetage exigent un nouveau tag revu, et non la publication d’un code
 différent sous un ancien tag. N’ajoutez les liens de téléchargement par
 plateforme qu’une fois les artefacts publics immuables correspondants
 effectivement disponibles.
+
+`desktop/release-version.js` constitue la frontière partagée de version de
+publication pour le programme de mise à jour et le collecteur d’artefacts. Il
+utilise l’implémentation SemVer figée avec `electron-updater`, accepte les
+métadonnées de build canoniques et rejette les espaces adjacents, les préfixes
+`v` ainsi que les versions invalides ou non canoniques. La politique de mise à
+jour et l’empaquetage ne doivent pas introduire un second analyseur.
 
 `Build Release Candidate` vérifie que le tag demandé existe et que sa
 résolution jusqu’au commit correspond exactement au `github.sha` extrait,

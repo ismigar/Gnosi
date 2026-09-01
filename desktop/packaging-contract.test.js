@@ -108,6 +108,7 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\exclusive-rename.js',
     '\\application-menu.js',
     '\\backend-launch.js',
+    '\\release-version.js',
     '\\update-policy.js',
   ]));
 });

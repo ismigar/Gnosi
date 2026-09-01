@@ -121,6 +121,12 @@ or interruption during separate writes can leave partial changes. Review and
 recover from the preparation branch's recorded baseline before retrying, and
 review all changed manifests and locks before integration.
 
+`release-version.js` is the shared release-version boundary for updater policy
+and artifact validation. It uses the SemVer implementation locked with
+`electron-updater`, accepts canonical build metadata, and rejects surrounding
+whitespace, `v` prefixes and invalid or non-canonical versions. Do not add a
+second parser in packaging or update code.
+
 The current **Build Release Candidate** workflow checks tag/commit identity,
 runs the shared CI and then builds the four target groups. Its collector verifies
 versions, manifest references and SHA-512 hashes before combining macOS update
@@ -181,6 +187,12 @@ outside that origin; HTTP(S) links opened in a new window use the external
 browser. The application protocol also rejects other authorities before touching
 the backend or bundled assets. Form windows have no preload bridge and cannot
 request privileged IPC actions.
+
+The form filler accepts only a credential-free HTTPS start URL and pins its
+exact origin before loading. Navigation and redirect guards are installed
+before `loadURL`; any cleartext or cross-origin destination is blocked. The
+actual final `webContents` URL is checked again immediately before each
+synthetic profile injection, so a redirect cannot receive profile bytes.
 
 Seven handlers are extracted into the checked contract module; the form-filler
 handler remains in main.js. Sender validation across all eight does not mean

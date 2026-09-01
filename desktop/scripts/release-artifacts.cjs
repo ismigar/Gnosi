@@ -6,12 +6,12 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { createRequire } = require('node:module');
 const { isDeepStrictEqual } = require('node:util');
+const { isCanonicalReleaseVersion } = require('../release-version');
 
 // Reuse the updater's locked parser without relying on pnpm hoisting or loading
 // Electron. Collection requires the existing desktop dependencies to be present.
 const updaterRequire = createRequire(require.resolve('electron-updater/package.json'));
 const yaml = updaterRequire('js-yaml');
-const semver = updaterRequire('semver');
 
 // With the checked-in GitHub publish config, builder 26.15.3 uses latest even
 // for RC versions: getResolvedPublishConfig does not assign the inferred channel
@@ -42,7 +42,7 @@ function safeName(name) {
 }
 
 function checkVersion(version) {
-  check(typeof version === 'string' && semver.valid(version) === version,
+  check(isCanonicalReleaseVersion(version),
     `Invalid release version: ${String(version)}`);
   return version;
 }

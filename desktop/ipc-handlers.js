@@ -56,9 +56,10 @@ function errorMessage(error) {
  */
 async function openFormFiller({ url, profile }, { createFormFillerWindow, log }) {
   const target = new URL(url);
-  if (!['https:', 'http:'].includes(target.protocol) || target.username || target.password) {
+  if (target.protocol !== 'https:' || target.username || target.password) {
     throw new Error('Unsupported form URL');
   }
+  const trustedOrigin = target.origin;
   log('Opening form filler');
 
   const fillerWin = createFormFillerWindow({
@@ -73,15 +74,45 @@ async function openFormFiller({ url, profile }, { createFormFillerWindow, log })
     }
   });
 
-  // Neither native promise was awaited in main. Register after loadURL, and
-  // retain the persistent listener plus serialization on every completed load.
-  fillerWin.loadURL(url);
+  /**
+   * @param {Pick<Electron.Event, 'preventDefault'>} event
+   * @param {string} navigationUrl
+   */
+  const preventCrossOriginNavigation = (event, navigationUrl) => {
+    if (!isTrustedFormLocation(navigationUrl, trustedOrigin)) event.preventDefault();
+  };
+  fillerWin.webContents.on('will-navigate', preventCrossOriginNavigation);
+  fillerWin.webContents.on('will-redirect', preventCrossOriginNavigation);
 
   fillerWin.webContents.on('did-finish-load', () => {
+    if (!isTrustedFormLocation(fillerWin.webContents.getURL(), trustedOrigin)) {
+      log('Skipped form filler injection after an untrusted navigation');
+      return;
+    }
     log('Form loaded, injecting script...');
     const script = buildFormFillerScript(profile);
     fillerWin.webContents.executeJavaScript(script);
   });
+
+  // Preserve the existing non-awaited result, but install every guard first.
+  fillerWin.loadURL(url);
+}
+
+/**
+ * @param {string} value
+ * @param {string} trustedOrigin
+ * @returns {boolean}
+ */
+function isTrustedFormLocation(value, trustedOrigin) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:'
+      && !parsed.username
+      && !parsed.password
+      && parsed.origin === trustedOrigin;
+  } catch {
+    return false;
+  }
 }
 
 /**

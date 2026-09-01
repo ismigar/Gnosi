@@ -28,6 +28,7 @@ function loadMainRuntime({
       this.destroyed = false;
       this.webContents = Object.assign(new EventEmitter(), {
         mainFrame: { url: '', detached: false },
+        getURL: () => this.webContents.mainFrame.url,
         isDestroyed: () => this.destroyed,
         setWindowOpenHandler: (handler) => { this.openHandler = handler; },
         openDevTools: () => calls.push('devtools'),

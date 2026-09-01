@@ -45,11 +45,17 @@ function fixture({ isDev = false, platform = 'darwin', arch = 'arm64', overrides
     downloadUpdate: () => { effects.push('download'); return Promise.resolve(['/fixture/update']); },
     quitAndInstall: () => { effects.push('install'); },
     createFormFillerWindow: options => {
+      let currentUrl = '';
       const window = {
         webContents: Object.assign(new EventEmitter(), {
+          getURL: () => currentUrl,
           executeJavaScript: script => { effects.push({ script }); return Promise.resolve(); },
         }),
-        loadURL: url => { effects.push({ formUrl: url }); return Promise.resolve(); },
+        loadURL: url => {
+          currentUrl = String(url);
+          effects.push({ formUrl: url });
+          return Promise.resolve();
+        },
       };
       effects.push({ formWindow: window, options });
       return window;

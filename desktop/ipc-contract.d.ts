@@ -58,7 +58,14 @@ export type DesktopRequestHandlers = {
 export interface FormFillerWindow {
   readonly loadURL: (url: string) => Promise<void>;
   readonly webContents: {
-    readonly on: (event: 'did-finish-load', listener: () => void) => unknown;
+    readonly getURL: () => string;
+    readonly on: {
+      (event: 'did-finish-load', listener: () => void): unknown;
+      (
+        event: 'will-navigate' | 'will-redirect',
+        listener: (event: Pick<Electron.Event, 'preventDefault'>, url: string) => void,
+      ): unknown;
+    };
     readonly executeJavaScript: (script: string) => Promise<unknown>;
   };
 }

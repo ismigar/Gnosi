@@ -130,6 +130,12 @@ window at the trusted development or packaged origin can invoke privileged IPC.
 Navigation and redirects cannot retain that bridge on another origin.
 HTTP(S) links requested in a new window are opened externally.
 
+Form filling accepts only a credential-free HTTPS start URL and pins its exact
+origin before loading. Navigation and redirect guards are installed before the
+load starts; cleartext and cross-origin destinations are blocked. The final
+`webContents` URL is checked again immediately before each synthetic profile
+injection, so redirected content receives no profile bytes.
+
 The packaged protocol serves frontend assets and proxies `/api/` to the local
 backend. It validates the application authority, prevents filesystem traversal
 and uses the session cookie jar instead of forwarding raw renderer cookie
@@ -290,6 +296,12 @@ a tag nor publishes a release. Use an explicit preparation branch and keep
 unrelated changes out of it. New packaging fixes require a new reviewed tag,
 not different source published under an old tag. Add platform download links
 only once the corresponding immutable public artifacts actually exist.
+
+`desktop/release-version.js` is the shared release-version boundary for the
+updater and artifact collector. It uses the SemVer implementation locked with
+`electron-updater`, accepts canonical build metadata, and rejects surrounding
+whitespace, `v` prefixes and invalid or non-canonical versions. Packaging and
+update policy must not introduce a second parser.
 
 `Build Release Candidate` verifies that the requested tag exists and peels to
 the exact checked-out `github.sha`, for both tag pushes and manual dispatch.

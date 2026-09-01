@@ -140,6 +140,13 @@ puede invocar IPC privilegiado. La navegación y las redirecciones no pueden
 conservar ese puente en otro origen. Los enlaces HTTP(S) solicitados en una
 ventana nueva se abren externamente.
 
+El rellenado de formularios solo acepta una URL inicial HTTPS sin credenciales
+y fija su origen exacto antes de cargarla. Los controles de navegación y
+redirección se instalan antes de iniciar la carga; se bloquean los destinos sin
+cifrar y los de otro origen. La URL final de `webContents` se comprueba de nuevo
+inmediatamente antes de cada inyección del perfil sintético, de modo que el
+contenido redirigido no recibe ningún byte del perfil.
+
 El protocolo del paquete sirve los recursos del frontend y actúa como proxy de
 `/api/` hacia el backend local. Valida el componente de autoridad de la URL de
 la aplicación, impide salir de los directorios permitidos y usa el almacén de
@@ -334,6 +341,13 @@ cambios ajenos a ella. Las nuevas correcciones de empaquetado requieren una
 nueva etiqueta revisada, no publicar código distinto bajo una etiqueta antigua.
 Añade enlaces de descarga por plataforma solo cuando existan realmente los
 artefactos públicos inmutables correspondientes.
+
+`desktop/release-version.js` es el límite compartido de versión de lanzamiento
+para el actualizador y el recopilador de artefactos. Usa la implementación
+SemVer fijada con `electron-updater`, acepta metadatos de compilación canónicos
+y rechaza espacios adyacentes, prefijos `v` y versiones no válidas o no
+canónicas. La política de actualización y el empaquetado no deben introducir
+un segundo analizador.
 
 `Build Release Candidate` comprueba que la etiqueta solicitada existe y que,
 al resolverla hasta su commit, coincide exactamente con el `github.sha` extraído,
