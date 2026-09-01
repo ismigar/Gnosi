@@ -25,6 +25,12 @@ import { useConfigChanged } from '../lib/configEvents';
 import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
 import { GraphLoadingState } from '../components/GraphLoadingState';
 import '../viewer/style.css';
+import {
+    fetchConfiguration,
+    updateConfiguration,
+} from '../shared/api/configuration';
+import { fetchVaultGraph } from '../shared/api/graph';
+import { fetchVaultGlobalIndex, fetchVaultTables } from '../shared/api/vaults';
 
 const MINIMUM_LOADING_DURATION_MS = 900;
 
@@ -158,10 +164,7 @@ function GraphPage() {
             setLoading(true);
         }
 
-        fetch('/api/graph').then(res => {
-            if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
-            return res.json();
-        }).then(graph => {
+        fetchVaultGraph().then(graph => {
             // /api/graph is the single source for structural and proposal edges.
             if (!isBackground) setLoadingProgress(70);
             setGraphData(graph);
@@ -210,8 +213,7 @@ function GraphPage() {
     }, [graphData]);
 
     const fetchConfigData = () => {
-        fetch('/api/config')
-            .then(res => res.json())
+        fetchConfiguration()
             .then(data => setConfig(data))
             .catch(err => console.error("Error loading config:", err));
     };
@@ -224,15 +226,13 @@ function GraphPage() {
         fetchConfigData();
 
         // Fetch table metadata for filter UI
-        fetch('/api/vault/tables')
-            .then(r => r.json())
+        fetchVaultTables()
             .then(data => setAvailableTables(data))
             .catch(e => console.error("Error fetching tables for filters:", e));
 
         // Global id→title map to resolve the values of reference-type
         // fields in filters (show the page title, not the id).
-        fetch('/api/vault/global-index')
-            .then(r => (r.ok ? r.json() : {}))
+        fetchVaultGlobalIndex()
             .then(data => setIdTitleMap(data && typeof data === 'object' ? data : {}))
             .catch(e => console.error("Error fetching global index for filters:", e));
 
@@ -364,16 +364,12 @@ function GraphPage() {
         setVisibleTables(seededTables);
         setSourcesInitialized(true);
 
-        fetch('/api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                graph: {
-                    sources_initialized: true,
-                    visible_databases: seededDbs,
-                    visible_tables: seededTables,
-                },
-            }),
+        updateConfiguration({
+            graph: {
+                sources_initialized: true,
+                visible_databases: seededDbs,
+                visible_tables: seededTables,
+            },
         })
             .then(() => setConfig(c => (c ? { ...c, graph: { ...c.graph, sources_initialized: true, visible_databases: seededDbs, visible_tables: seededTables } } : c)))
             .catch(e => console.error('Error seeding the graph sources:', e));

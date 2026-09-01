@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { BrainCircuit, Loader2, Trash2, X } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import {
+    dismissBrainSuggestion,
+    fetchBrainSuggestions,
+} from '../../shared/api/brain';
 import { WikilinkInline } from './WikilinkInline';
 
 /**
@@ -27,8 +30,8 @@ export function BrainInbox({ onAccepted }) {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await axios.get('/api/vault/llm-wiki/suggestions');
-            setItems(response.data?.suggestions || []);
+            const response = await fetchBrainSuggestions();
+            setItems(response.suggestions || []);
         } catch (error) {
             console.error('Could not load Brain connection proposals:', error);
         } finally {
@@ -54,16 +57,15 @@ export function BrainInbox({ onAccepted }) {
     const dismiss = async (suggestion) => {
         setBusy(suggestion.id);
         try {
-            await axios.post(
-                `/api/vault/llm-wiki/suggestions/${encodeURIComponent(suggestion.id)}/dismiss`,
-            );
+            await dismissBrainSuggestion(suggestion.id);
             setItems((current) => current.filter((item) => item.id !== suggestion.id));
             onAccepted?.();
             toast.success(tb('dismissed', "Connection dismissed"));
         } catch (error) {
             toast.error(
-                error.response?.data?.detail
-                || tb('dismiss_error', "The connection could not be dismissed"),
+                error instanceof Error && error.message
+                    ? error.message
+                    : tb('dismiss_error', "The connection could not be dismissed"),
             );
         } finally {
             setBusy('');

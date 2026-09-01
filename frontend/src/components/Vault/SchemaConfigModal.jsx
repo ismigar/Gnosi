@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe, Loader2, Link2, Send, AlertTriangle, Sparkles } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -21,6 +20,21 @@ import PromptModal from '../PromptModal';
 import { useTranslation } from 'react-i18next';
 import { usePlugins } from '../../plugins/usePlugins';
 import { normalizeTableFunctionalities } from './tableFunctionalityUtils';
+import { fetchVaultTables } from '../../shared/api/vaults';
+import {
+    fetchAvailableAgentSkills,
+    fetchDrupalContentTypes,
+    fetchDrupalFields,
+    fetchOptionCatalogs,
+    fetchTableOptionUsage,
+    fetchVirtualFields,
+    generateButtonAction,
+    matchDrupalRows,
+    removeTableOption,
+    renameTableOption,
+    saveVaultFolderSchema,
+    updateOptionCatalog,
+} from '../../shared/api/vault-schema';
 
 // Immutable ID for properties: 'fld_' + 8 hex chars. It is persisted in the
 // table schema and is preserved across field name renames.
@@ -35,6 +49,10 @@ const generateFieldId = () => {
 };
 
 const generateFunctionalityId = () => generateFieldId().replace('fld_', 'fn_');
+
+const apiErrorDetail = (error, fallback) => (
+    error?.payload?.detail || error?.response?.data?.detail || fallback
+);
 
 const ROLLUP_AGGREGATIONS = [
     { value: 'count_all', label: 'Count all' },
@@ -1639,8 +1657,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
 
     useEffect(() => {
         if (isOpen) {
-            axios.get('/api/skills').then(res => {
-                setAvailableSkills(res.data?.skills || res.data || []);
+            fetchAvailableAgentSkills().then(data => {
+                setAvailableSkills(data.skills || []);
             }).catch(() => {});
         }
     }, [isOpen]);
@@ -1649,11 +1667,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         if (!aiActionPrompt.trim() || aiActionModalFieldIndex === null) return;
         setAiActionLoading(true);
         try {
-            const res = await axios.post('/api/vault/skills/generate-button-action', {
+            const data = await generateButtonAction({
                 prompt: aiActionPrompt,
                 fields: fields.map(f => ({ name: f.name, type: f.type }))
             });
-            const result = res.data?.result || {};
+            const result = data.result || {};
             const idx = aiActionModalFieldIndex;
             setFunctionalities((current) => current.map((functionality, functionalityIndex) => functionalityIndex === idx ? {
                 ...functionality,
@@ -1665,7 +1683,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             setAiActionModalFieldIndex(null);
             setAiActionPrompt('');
         } catch (err) {
-            toast.error(err.response?.data?.detail || "Could not generate AI action");
+            toast.error(apiErrorDetail(err, "Could not generate AI action"));
         } finally {
             setAiActionLoading(false);
         }
@@ -1785,8 +1803,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             } else {
                 const fetchTables = async () => {
                     try {
-                        const response = await axios.get('/api/vault/tables');
-                        const tables = response.data?.tables || response.data || [];
+                        const tables = await fetchVaultTables();
                         setAllTables(tables);
                     } catch (err) {
                         console.error('Error loading tables for the modal:', err);
@@ -1798,8 +1815,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             // Shared option catalogs (root registry `option_catalogs`).
             const fetchSharedCatalogs = async () => {
                 try {
-                    const response = await axios.get('/api/vault/option-catalogs');
-                    setSharedCatalogs(response.data?.catalogs || {});
+                    const data = await fetchOptionCatalogs();
+                    setSharedCatalogs(data.catalogs || {});
                 } catch (err) {
                     console.error('Error loading shared catalogs:', err);
                 }
@@ -1809,8 +1826,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             // Load virtual computers catalogue for "type: virtual" properties
             const fetchVirtualComputers = async () => {
                 try {
-                    const response = await axios.get('/api/vault/virtual-fields');
-                    setVirtualComputers(response.data?.computers || []);
+                    const data = await fetchVirtualFields();
+                    setVirtualComputers(data.computers || []);
                 } catch (err) {
                     console.error('Error loading virtual computers catalog:', err);
                 }
@@ -1838,43 +1855,43 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     const optionTools = {
         sharedCatalogs,
         fetchUsage: tableId ? async (fieldId) => {
-            const res = await axios.get(`/api/vault/tables/${tableId}/options/usage`, { params: { field_id: fieldId } });
-            return res.data?.counts || {};
+            const data = await fetchTableOptionUsage(tableId, fieldId);
+            return data.counts || {};
         } : null,
         renameEverywhere: tableId ? async (fieldId, oldVal, newVal) => {
             if (!fieldId) return;
             try {
-                const res = await axios.post(`/api/vault/tables/${tableId}/options/rename`, { field_id: fieldId, old: oldVal, new: newVal });
-                const n = res.data?.files_changed ?? 0;
-                if (Array.isArray(res.data?.options)) {
-                    setSharedCatalogs((prev) => ({ ...prev, [STATUS_CATALOG_REF]: res.data.options }));
+                const data = await renameTableOption(tableId, fieldId, oldVal, newVal);
+                const n = data.files_changed ?? 0;
+                if (Array.isArray(data.options)) {
+                    setSharedCatalogs((prev) => ({ ...prev, [STATUS_CATALOG_REF]: data.options }));
                 }
                 if (n > 0) toast.success(t('schema.option_renamed', { count: n, defaultValue: "{{count}} records updated" }));
-                return res.data;
+                return data;
             } catch (err) {
-                toast.error(err.response?.data?.detail || t('schema.option_rename_error', "Could not rename the option in the records"));
+                toast.error(apiErrorDetail(err, t('schema.option_rename_error', "Could not rename the option in the records")));
             }
         } : null,
         removeEverywhere: tableId ? async (fieldId, value, reassignTo) => {
             if (!fieldId) return;
             try {
-                const res = await axios.post(`/api/vault/tables/${tableId}/options/remove`, { field_id: fieldId, value, reassign_to: reassignTo || undefined });
-                const n = res.data?.files_changed ?? 0;
-                if (Array.isArray(res.data?.options)) {
-                    setSharedCatalogs((prev) => ({ ...prev, [STATUS_CATALOG_REF]: res.data.options }));
+                const data = await removeTableOption(tableId, fieldId, value, reassignTo || undefined);
+                const n = data.files_changed ?? 0;
+                if (Array.isArray(data.options)) {
+                    setSharedCatalogs((prev) => ({ ...prev, [STATUS_CATALOG_REF]: data.options }));
                 }
                 if (n > 0) toast.success(t('schema.option_removed_rows', { count: n, defaultValue: "{{count}} records updated" }));
-                return res.data;
+                return data;
             } catch (err) {
-                toast.error(err.response?.data?.detail || t('schema.option_remove_error', "Could not remove the option from the records"));
+                toast.error(apiErrorDetail(err, t('schema.option_remove_error', "Could not remove the option from the records")));
             }
         } : null,
         updateSharedCatalog: async (name, options) => {
             try {
-                const res = await axios.put(`/api/vault/option-catalogs/${encodeURIComponent(name)}`, { options });
-                setSharedCatalogs((prev) => ({ ...prev, [name]: res.data?.options || options }));
+                const data = await updateOptionCatalog(name, options);
+                setSharedCatalogs((prev) => ({ ...prev, [name]: data.options || options }));
             } catch (err) {
-                toast.error(err.response?.data?.detail || t('schema.shared_catalog_save_error', "Could not save the shared catalog"));
+                toast.error(apiErrorDetail(err, t('schema.shared_catalog_save_error', "Could not save the shared catalog")));
             }
         },
     };
@@ -2058,11 +2075,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         if (!tableId || !drupalBundle) return;
         setMatching(true);
         try {
-            const res = await axios.post('/api/vault/skills/match-drupal-rows', { table_id: tableId, dry_run: false });
-            const c = res.data?.counts || {};
+            const data = await matchDrupalRows(tableId);
+            const c = data.counts || {};
             toast.success(t('schema.drupal_match_done', { matched: c.matched || 0, unmatched: c.unmatched || 0, defaultValue: "{{matched}} linked · {{unmatched}} unmatched." }));
         } catch (err) {
-            toast.error(err.response?.data?.detail || t('schema.drupal_match_error', "Error linking with Drupal."));
+            toast.error(apiErrorDetail(err, t('schema.drupal_match_error', "Error linking with Drupal.")));
         } finally {
             setMatching(false);
         }
@@ -2074,9 +2091,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         let cancelled = false;
         setDrupalLoading(true);
         setDrupalError('');
-        axios.get('/api/vault/drupal/content-types')
-            .then((res) => { if (!cancelled) setDrupalContentTypes(res.data?.content_types || []); })
-            .catch((err) => { if (!cancelled) setDrupalError(err.response?.data?.detail || t('schema.drupal_load_error', "Could not connect to Drupal.")); })
+        fetchDrupalContentTypes()
+            .then((data) => { if (!cancelled) setDrupalContentTypes(data.content_types || []); })
+            .catch((err) => { if (!cancelled) setDrupalError(apiErrorDetail(err, t('schema.drupal_load_error', "Could not connect to Drupal."))); })
             .finally(() => { if (!cancelled) setDrupalLoading(false); });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2088,9 +2105,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         let cancelled = false;
         setDrupalLoading(true);
         setDrupalError('');
-        axios.get(`/api/vault/drupal/content-types/${encodeURIComponent(drupalBundle)}/fields`)
-            .then((res) => { if (!cancelled) setDrupalFields(res.data?.fields || []); })
-            .catch((err) => { if (!cancelled) setDrupalError(err.response?.data?.detail || t('schema.drupal_fields_error', "Could not load the fields.")); })
+        fetchDrupalFields(drupalBundle)
+            .then((data) => { if (!cancelled) setDrupalFields(data.fields || []); })
+            .catch((err) => { if (!cancelled) setDrupalError(apiErrorDetail(err, t('schema.drupal_fields_error', "Could not load the fields."))); })
             .finally(() => { if (!cancelled) setDrupalLoading(false); });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2403,7 +2420,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                 if (onSave) {
                     await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping, functionalities });
                 } else {
-                    await axios.post(`/api/vault/schema?folder=${encodeURIComponent(folder)}`, newSchemaObj);
+                    await saveVaultFolderSchema(folder, newSchemaObj);
                 }
                 onSchemaUpdated?.(newSchemaObj);
             } catch (err) {

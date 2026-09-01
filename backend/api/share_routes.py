@@ -116,7 +116,7 @@ def _is_active(link: ShareLink) -> bool:
 @router.post(
     "/vault/pages/{page_id}/share",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("share-links"))],
-    response_model=None,
+    response_model=ShareLinkResponse,
 )
 async def create_share_link(
     page_id: str,
@@ -156,7 +156,7 @@ async def create_share_link(
 @router.get(
     "/vault/pages/{page_id}/shares",
     dependencies=[Depends(require_role("viewer")), Depends(require_plugins("share-links"))],
-    response_model=None,
+    response_model=ShareListResponse,
 )
 async def list_share_links(page_id: str, db: Session = Depends(get_mgmt_db)) -> dict[str, Any]:
     """Lists the active (non-revoked, non-expired) share links for a page."""
@@ -171,7 +171,7 @@ async def list_share_links(page_id: str, db: Session = Depends(get_mgmt_db)) -> 
 @router.delete(
     "/vault/share/{token}",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("share-links"))],
-    response_model=None,
+    response_model=RevokedShareResponse,
 )
 async def revoke_share_link(token: str, db: Session = Depends(get_mgmt_db)) -> dict[str, Any]:
     """Revokes a share link (soft-delete: keeps the row for audit)."""
@@ -183,7 +183,7 @@ async def revoke_share_link(token: str, db: Session = Depends(get_mgmt_db)) -> d
     return RevokedShareResponse(status="revoked", token=token).model_dump()
 
 
-@router.get("/share/{token}", response_model=None)
+@router.get("/share/{token}", response_model=SharedPageResponse)
 async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)) -> dict[str, Any]:
     """Anonymous read of a shared page. The ONLY unauthenticated endpoint.
 

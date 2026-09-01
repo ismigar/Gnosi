@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, Loader2, X, RefreshCw, Check } from 'lucide-react';
-import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { generateAiContent } from '../../shared/api/ai';
 
 /**
  * AI content-generation modal for the Vault editor (Notion style).
@@ -84,11 +84,11 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
         setLoading(true);
         setResult('');
         try {
-            const { data } = await axios.post('/api/ai/generate', {
-                prompt: prompt.trim(),
-                context: request?.context || '',
+            const data = await generateAiContent({
+                prompt: prompt.trim() || null,
+                context: request?.context || null,
                 mode,
-                language: mode === 'translate' ? language : undefined,
+                language: mode === 'translate' ? language : null,
             });
             const content = (data?.content || '').trim();
             if (!content) {
@@ -97,7 +97,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                 setResult(content);
             }
         } catch (err) {
-            const detail = err?.response?.data?.detail || err?.message || tr('common.error', 'Error');
+            const detail = err instanceof Error ? err.message : tr('common.error', 'Error');
             toast.error(`${tr('editor.ai_error', 'Could not generate content')}: ${detail}`);
         } finally {
             setLoading(false);

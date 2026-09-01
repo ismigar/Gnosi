@@ -10,12 +10,12 @@
  * only for tables with a `Citation Key` column).
  */
 import React, { useCallback, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Download, Loader2, ChevronDown, LibraryBig } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { vaultPath } from '../../lib/vaultRouting';
+import { exportReferences, importReferences } from '../../shared/api/citation-io';
 
 export function ReferenceImportExport({ tableId, onImported }) {
     const { t } = useTranslation();
@@ -30,14 +30,7 @@ export function ReferenceImportExport({ tableId, onImported }) {
         if (!file || !tableId) return;
         setBusy(true);
         try {
-            const fd = new FormData();
-            fd.append('file', file);
-            const r = await axios.post(
-                `/api/vault/import-references?table_id=${encodeURIComponent(tableId)}&fmt=auto`,
-                fd,
-                { headers: { 'Content-Type': 'multipart/form-data' } },
-            );
-            const d = r.data || {};
+            const d = await importReferences(file, { tableId, format: 'auto' });
             // Main toast — net count of additions vs detected duplicates.
             toast.success(t('references_io.imported', {
                 defaultValue: `${d.created || 0} referències importades · ${d.skipped || 0} ja existien`,
@@ -79,12 +72,9 @@ export function ReferenceImportExport({ tableId, onImported }) {
         if (!tableId) return;
         setBusy(true);
         try {
-            const r = await axios.get(
-                `/api/vault/export-references?table_id=${encodeURIComponent(tableId)}&fmt=${fmt}`,
-                { responseType: 'blob' },
-            );
+            const blob = await exportReferences({ tableId, format: fmt });
             const ext = fmt === 'bibtex' ? 'bib' : 'ris';
-            const url = URL.createObjectURL(r.data);
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `recursos.${ext}`;

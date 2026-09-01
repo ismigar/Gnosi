@@ -1,16 +1,44 @@
-# React + Vite
+# Gnosi frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Gnosi's frontend is a React 19 application built with Vite. It is one package
+inside the repository's single pnpm workspace and runs natively on port 5173,
+proxying `/api` to FastAPI on port 5002.
 
-Currently, two official plugins are available:
+## Data access
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- `src/generated/openapi.ts` is generated from `../openapi/openapi.json`.
+- `src/shared/api/client.ts` owns the typed `openapi-fetch` client.
+- `src/shared/api/ApiProvider.tsx` owns TanStack Query's application boundary.
+- `src/shared/api/transports.ts` is the only ordinary browser-fetch boundary.
+- `src/shared/api/specialized-transports.ts` owns SSE, WebSocket, streaming and
+  download boundaries.
+- `src/shared/api/legacy-http.ts` temporarily preserves the established response
+  and interceptor contract while feature modules move to generated operations.
 
-## React Compiler
+Production code must not import Axios or call `fetch` directly. The deterministic
+guard and its reviewed exceptions are defined by `../scripts/check_frontend_api_boundary.py`
+and `api-boundaries.json`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Commands
 
-## Expanding the ESLint configuration
+Run commands from the repository root:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+pnpm dev:frontend
+pnpm check:api-client
+pnpm --filter @gnosi/frontend typecheck
+pnpm test:frontend
+pnpm lint:frontend
+pnpm build:frontend
+```
+
+When a backend contract changes intentionally, regenerate and review both
+artifacts:
+
+```bash
+pnpm generate:api-client
+git diff -- openapi/openapi.json frontend/src/generated/openapi.ts
+```
+
+Do not hand-edit generated files. Fix the FastAPI response model or generator,
+regenerate, and keep the source-boundary guard green.

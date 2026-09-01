@@ -1,8 +1,9 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import { WikilinkHoverPreview } from './WikilinkHoverPreview';
 import { VaultEditorContext } from './VaultEditorContext';
 import { recursosPageToCsl, renderInlineCitation } from './cslEngine';
+import { resolveCitationKey as resolveCitationKeyApi } from '../../shared/api/citations';
+import { fetchVaultPage } from '../../shared/api/vaults';
 
 // Cache local citation key → { id, page, cslItem } (5 min TTL).
 const KEY_CACHE = new Map();
@@ -33,8 +34,8 @@ async function resolveCitationKey(key) {
     const cached = readCache(key);
     if (cached !== undefined) return cached;
     try {
-        const r = await axios.get('/api/vault/resolve-by-citation-key', { params: { key } });
-        const id = r?.data?.id;
+        const resolved = await resolveCitationKeyApi(key);
+        const id = resolved?.id;
         if (!id) {
             writeCache(key, null);
             return null;
@@ -42,9 +43,9 @@ async function resolveCitationKey(key) {
         // We need the complete metadata for the CSL render. A single call
         // more (the page). Cached for 5 min in the same map for efficiency.
         try {
-            const page = await axios.get(`/api/vault/pages/${id}`);
-            const cslItem = recursosPageToCsl(page.data);
-            const value = { id, page: page.data, cslItem };
+            const page = await fetchVaultPage(id);
+            const cslItem = recursosPageToCsl(page);
+            const value = { id, page, cslItem };
             writeCache(key, value);
             return value;
         } catch {

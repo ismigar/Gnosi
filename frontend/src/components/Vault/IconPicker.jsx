@@ -3,13 +3,18 @@ import { createPortal } from 'react-dom';
 import EmojiPicker from 'emoji-picker-react';
 import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
 import { Search, Upload, Link2, X, Loader2, Smile } from 'lucide-react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { toast } from '../../lib/toast';
 import { logError } from '../../lib/notifyError';
 import { withActiveVault } from '../../lib/fileResource';
+import {
+    fetchCustomIcons,
+    importVaultIconUrl,
+    saveCustomIcons as persistCustomIcons,
+    uploadVaultIcon,
+} from '../../shared/api/vault-icons';
 
 export const VAULT_COLORS = [
     { name: 'default', color: '#37352f', label: 'Default' },
@@ -103,7 +108,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
         }
 
         try {
-            await axios.put('/api/vault/custom-icons', { icons: normalized });
+            await persistCustomIcons(normalized);
         } catch (_error) {
             // Keep local fallback if backend persistence fails.
         }
@@ -116,9 +121,9 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
         const loadRemoteCustomIcons = async () => {
             try {
-                const response = await axios.get('/api/vault/custom-icons');
+                const response = await fetchCustomIcons();
                 if (cancelled) return;
-                const remoteIcons = normalizeCustomIcons(response?.data?.icons || []);
+                const remoteIcons = normalizeCustomIcons(response.icons || []);
                 setCustomIcons(remoteIcons);
                 if (typeof window !== 'undefined') {
                     window.localStorage.setItem(CUSTOM_ICON_STORAGE_KEY, JSON.stringify(remoteIcons));
@@ -156,7 +161,6 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
         const iconNamesPascal = [...new Set(iconNames.map(toPascalCase))].sort();
 
         if (iconNamesPascal.length === 0) {
-            console.warn('IconPicker: lucide icon registry is empty, using fallback list.');
             return FALLBACK_LUCIDE_ICONS;
         }
 
@@ -183,12 +187,10 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const formData = new FormData();
-        formData.append('file', file);
         setIsUploading(true);
         try {
-            const res = await axios.post('/api/vault/upload-icon', formData, { timeout: 30000 });
-            const uploadedUrl = res.data?.url;
+            const response = await uploadVaultIcon(file);
+            const uploadedUrl = response.url;
             if (typeof uploadedUrl !== 'string' || !uploadedUrl.trim()) {
                 throw new Error('Upload did not return a valid URL');
             }
@@ -198,7 +200,9 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
             toast.success(t('icon_picker.toast.upload_success'));
         } catch (error) {
             logError('icon-picker', error);
-            const errorMessage = error.code === 'ECONNABORTED' ? t('icon_picker.toast.upload_timeout', "Timeout exceeded") : t('icon_picker.toast.upload_error');
+            const errorMessage = error instanceof Error && error.name === 'TimeoutError'
+                ? t('icon_picker.toast.upload_timeout', "Timeout exceeded")
+                : t('icon_picker.toast.upload_error');
             toast.error(errorMessage);
         } finally {
             setIsUploading(false);
@@ -212,8 +216,8 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
         setIsImportingLink(true);
         try {
-            const res = await axios.post('/api/vault/import-icon-url', { url });
-            const importedUrl = res.data?.url;
+            const response = await importVaultIconUrl(url);
+            const importedUrl = response.url;
             if (typeof importedUrl !== 'string' || !importedUrl.trim()) {
                 throw new Error('Import did not return a valid URL');
             }

@@ -19,6 +19,10 @@ from backend.domains.agent.routes import (
     sessions,
     workflow,
 )
+from backend.domains.agent.routes.contracts import (
+    ExternalContextSourceResponse,
+    InternalContextSourceResponse,
+)
 from backend.domains.agent.routes.router import router
 
 EXPECTED_AGENT_ROUTES = [
@@ -56,6 +60,22 @@ def _route_contracts() -> list[tuple[str, str]]:
 def test_agent_route_facade_preserves_router_identity_and_order() -> None:
     assert getattr(agent_routes, "router") is router
     assert _route_contracts() == EXPECTED_AGENT_ROUTES
+
+
+def test_context_source_catalogues_publish_typed_safe_contracts() -> None:
+    routes = {
+        route.endpoint.__name__: route
+        for route in router.routes
+        if isinstance(route, APIRoute)
+        and route.endpoint.__name__
+        in {"list_context_sources", "list_internal_context_sources"}
+    }
+    assert routes["list_context_sources"].response_model == list[
+        ExternalContextSourceResponse
+    ]
+    assert routes["list_internal_context_sources"].response_model == list[
+        InternalContextSourceResponse
+    ]
 
 
 def test_turn_contract_preserves_citation_exports() -> None:

@@ -10,8 +10,20 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from backend.domains.vault.links.api.dependencies import LinkApiDependencies
+
+
+class LinkPreviewResponse(BaseModel):
+    """Public metadata returned for an external-link preview."""
+
+    url: str
+    title: str
+    description: str
+    image: str
+    site_name: str
+    favicon: str
 
 
 async def _fetch_preview_response(
@@ -73,7 +85,7 @@ def _html_preview_payload(
     host: str,
     text: str,
     final_url: str,
-) -> dict[str, str]:
+) -> LinkPreviewResponse:
     title = _metadata_value(text, "og:title", "twitter:title")
     if not title:
         title_match = re.search(
@@ -92,21 +104,21 @@ def _html_preview_payload(
     site_name = _metadata_value(text, "og:site_name") or host
     if image:
         image = urljoin(final_url, image)
-    return {
-        "url": raw,
-        "title": title[:300],
-        "description": description[:500],
-        "image": image,
-        "site_name": site_name[:120],
-        "favicon": urljoin(final_url, "/favicon.ico"),
-    }
+    return LinkPreviewResponse(
+        url=raw,
+        title=title[:300],
+        description=description[:500],
+        image=image,
+        site_name=site_name[:120],
+        favicon=urljoin(final_url, "/favicon.ico"),
+    )
 
 
 def register_route(
     router: APIRouter,
     dependencies: LinkApiDependencies,
 ) -> Callable[..., object]:
-    async def get_link_preview(url: str) -> dict[str, str]:
+    async def get_link_preview(url: str) -> LinkPreviewResponse:
         """Extracts Open Graph metadata from a URL for a preview card.
 
         Returns `{url, title, description, image, site_name, favicon}`. Intended for
@@ -130,14 +142,14 @@ def register_route(
             ) from exc
         content_type = response.headers.get("content-type", "")
         if "html" not in content_type and "xml" not in content_type:
-            return {
-                "url": raw,
-                "title": parsed.path.rsplit("/", 1)[-1] or host,
-                "description": "",
-                "image": "",
-                "site_name": host,
-                "favicon": "",
-            }
+            return LinkPreviewResponse(
+                url=raw,
+                title=parsed.path.rsplit("/", 1)[-1] or host,
+                description="",
+                image="",
+                site_name=host,
+                favicon="",
+            )
         return _html_preview_payload(
             raw,
             host,
@@ -149,9 +161,9 @@ def register_route(
         "/link-preview",
         get_link_preview,
         methods=["GET"],
-        response_model=None,
+        response_model=LinkPreviewResponse,
     )
     return get_link_preview
 
 
-__all__ = ["register_route"]
+__all__ = ["LinkPreviewResponse", "register_route"]

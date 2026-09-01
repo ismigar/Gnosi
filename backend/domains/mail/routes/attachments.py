@@ -6,7 +6,9 @@ import logging
 from typing import Any, Optional
 
 from fastapi import HTTPException, Query
+from fastapi.responses import Response
 
+from backend.domains.mail import schemas as mail_schemas
 from backend.domains.mail.routing import router
 from backend.domains.mail.services.attachments import (
     _collect_original_inline_parts,
@@ -18,7 +20,11 @@ from backend.utils.errors import safe_error_detail
 log = logging.getLogger(__name__)
 
 
-@router.get("/messages/{message_id}/attachments/{att_id:path}")
+@router.get(
+    "/messages/{message_id}/attachments/{att_id:path}",
+    response_class=Response,
+    response_model=None,
+)
 async def get_attachment(
     message_id: str,
     att_id: str,
@@ -29,8 +35,6 @@ async def get_attachment(
     filename_hint: Optional[str] = Query(None, alias="filename"),
 ) -> Any:
     "Downloads an attachment — works for Gmail (att_id=attachmentId) and IMAP (att_id=part_index)."
-    from fastapi.responses import Response
-
     from backend.services.integration_manager import integration_manager
 
     disposition = "inline" if inline else "attachment"
@@ -96,7 +100,11 @@ async def get_attachment(
         _imap_pool_release(email)
 
 
-@router.get("/messages/{message_id}/cid/{cid:path}")
+@router.get(
+    "/messages/{message_id}/cid/{cid:path}",
+    response_class=Response,
+    response_model=None,
+)
 async def get_cid_image(
     message_id: str,
     cid: str,
@@ -104,8 +112,6 @@ async def get_cid_image(
     folder: str = Query("INBOX"),
 ) -> Any:
     """Serves an inline CID image — works for Gmail, IMAP and Microsoft."""
-    from fastapi.responses import Response
-
     try:
         parts = await _collect_original_inline_parts(email, message_id, {cid}, folder)
     except Exception as e:
@@ -121,9 +127,15 @@ async def get_cid_image(
     return Response(content=part["data"], media_type=part.get("content_type") or "image/png")
 
 
-@router.patch("/accounts/{email:path}/enabled")
-async def set_account_enabled(email: str, body: dict[str, Any]) -> Any:
-    enabled = body.get("enabled", True)
+@router.patch(
+    "/accounts/{email:path}/enabled",
+    response_model=mail_schemas.MailAccountEnabledResponse,
+)
+async def set_account_enabled(
+    email: str,
+    body: mail_schemas.MailAccountEnabledRequest,
+) -> Any:
+    enabled = body.enabled
     from backend.services.integration_manager import integration_manager
 
     found = integration_manager.set_mail_account_enabled(email, bool(enabled))

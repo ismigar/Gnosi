@@ -15,16 +15,13 @@ afterEach(() => {
 describe('openCitation', () => {
     it('opens notebook evidence from its pinned revision and exact attachment', async () => {
         const fetchMock = vi.fn()
-            .mockResolvedValueOnce({
-                ok: true,
-                json: async () => ({
+            .mockResolvedValueOnce(Response.json({
                     source_kind: 'pdf',
                     source_url: 'file:///tmp/notebook-source.pdf',
                     text: 'Exact notebook evidence.',
                     locator: { page: 9, paragraph: 3 },
-                }),
-            })
-            .mockResolvedValueOnce({ ok: true, json: async () => ({ metadata: {} }) });
+            }))
+            .mockResolvedValueOnce(Response.json({ metadata: {} }));
         vi.stubGlobal('fetch', fetchMock);
         let opened;
         const listener = (event) => {
@@ -41,9 +38,12 @@ describe('openCitation', () => {
             },
         });
 
-        expect(fetchMock.mock.calls[0][0]).toBe(
-            '/api/notebooks/notebook-1/evidence/chunk-1?revision=4',
+        const evidenceRequest = fetchMock.mock.calls[0][0];
+        expect(evidenceRequest).toBeInstanceOf(Request);
+        expect(new URL(evidenceRequest.url).pathname).toBe(
+            '/api/notebooks/notebook-1/evidence/chunk-1',
         );
+        expect(new URL(evidenceRequest.url).searchParams.get('revision')).toBe('4');
         expect(opened).toMatchObject({
             src: 'file:///tmp/notebook-source.pdf',
             kind: 'pdf',

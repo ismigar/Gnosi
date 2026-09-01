@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
     CheckCircle2, CircleAlert, Database, Eye, EyeOff, KeyRound, Loader2, Pencil, Plus,
@@ -7,6 +6,24 @@ import {
 } from 'lucide-react';
 
 import ConfirmModal from './ConfirmModal';
+import { deleteCredential, fetchCredentials, saveCredential } from '../shared/api/credentials';
+import { apiErrorDetail } from '../shared/api/errors';
+import {
+    cancelLiteratureSynchronization,
+    clearReferenceTable,
+    createLiteratureRepository,
+    createReferenceTable,
+    deleteLiteratureRepository,
+    fetchLiteratureConfiguration,
+    fetchReferenceTable,
+    resumeLiteratureSynchronization,
+    setReferenceTable as saveReferenceTableDesignation,
+    startLiteratureSynchronization,
+    testLiteratureRepository,
+    updateLiteratureConfiguration,
+    updateLiteratureRepository,
+} from '../shared/api/literature-resources';
+import { fetchVaultTables } from '../shared/api/vaults';
 import './ResourcesPluginConfig.css';
 
 const ACADEMIC_SERVICES = [
@@ -122,9 +139,9 @@ export default function ResourcesPluginConfig() {
 
     const loadCredentialsStatuses = useCallback(async () => {
         try {
-            const response = await axios.get('/api/credentials/');
+            const statuses = await fetchCredentials();
             const map = {};
-            for (const item of response.data || []) {
+            for (const item of statuses || []) {
                 map[item.key] = item.has_value;
             }
             setCredentialsStatus(map);
@@ -142,22 +159,21 @@ export default function ResourcesPluginConfig() {
     const reload = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const [configResponse, tablesResponse, referenceResponse] = await Promise.all([
-                axios.get('/api/vault/literature/configuration'),
-                axios.get('/api/vault/tables'),
-                axios.get('/api/vault/reference-table'),
+            const [nextConfig, nextTables, nextReference] = await Promise.all([
+                fetchLiteratureConfiguration(),
+                fetchVaultTables(),
+                fetchReferenceTable(),
             ]);
-            const nextConfig = configResponse.data || {};
             setConfiguration(nextConfig);
             if (!isEditingEmailRef.current) {
                 setContactEmailInput(nextConfig.contact_email || '');
             }
-            setTables(Array.isArray(tablesResponse.data) ? tablesResponse.data : []);
-            setReferenceTable(referenceResponse.data || { table_id: '', configured: false });
+            setTables(Array.isArray(nextTables) ? nextTables : []);
+            setReferenceTable(nextReference || { table_id: '', configured: false });
             setError('');
         } catch (requestError) {
             console.error('Could not load Resources plugin configuration:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.load_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.load_error')));
         } finally { if (!silent) setLoading(false); }
     }, [t]);
 
@@ -167,7 +183,7 @@ export default function ResourcesPluginConfig() {
         setSavingCredentialKey(serviceKey);
         setCredentialFeedback({ key: '', message: '', isError: false });
         try {
-            await axios.post('/api/credentials/', { key: serviceKey, value: val });
+            await saveCredential({ key: serviceKey, value: val });
             setCredentialsInputs((prev) => ({ ...prev, [serviceKey]: '' }));
             setCredentialFeedback({
                 key: serviceKey,
@@ -180,7 +196,7 @@ export default function ResourcesPluginConfig() {
             console.error(`Could not save credential for ${serviceKey}:`, err);
             setCredentialFeedback({
                 key: serviceKey,
-                message: err?.response?.data?.detail || t('literature.settings.save_error', 'Error'),
+                message: apiErrorDetail(err, t('literature.settings.save_error', 'Error')),
                 isError: true,
             });
         } finally {
@@ -192,7 +208,7 @@ export default function ResourcesPluginConfig() {
         setSavingCredentialKey(serviceKey);
         setCredentialFeedback({ key: '', message: '', isError: false });
         try {
-            await axios.delete(`/api/credentials/${serviceKey}`);
+            await deleteCredential(serviceKey);
             setCredentialsInputs((prev) => ({ ...prev, [serviceKey]: '' }));
             setCredentialFeedback({
                 key: serviceKey,
@@ -205,7 +221,7 @@ export default function ResourcesPluginConfig() {
             console.error(`Could not delete credential for ${serviceKey}:`, err);
             setCredentialFeedback({
                 key: serviceKey,
-                message: err?.response?.data?.detail || t('literature.settings.save_error', 'Error'),
+                message: apiErrorDetail(err, t('literature.settings.save_error', 'Error')),
                 isError: true,
             });
         } finally {
@@ -228,8 +244,7 @@ export default function ResourcesPluginConfig() {
         setBusy('configuration');
         setNotice('');
         try {
-            const response = await axios.put('/api/vault/literature/configuration', patch);
-            const nextConfig = response.data || {};
+            const nextConfig = await updateLiteratureConfiguration(patch);
             setConfiguration(nextConfig);
             if (patch.contact_email !== undefined) {
                 setContactEmailInput(nextConfig.contact_email || '');
@@ -239,7 +254,7 @@ export default function ResourcesPluginConfig() {
             return true;
         } catch (requestError) {
             console.error('Could not save Resources plugin configuration:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.save_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.save_error')));
             return false;
         } finally {
             setBusy('');
@@ -249,27 +264,27 @@ export default function ResourcesPluginConfig() {
     const setReference = async (tableId) => {
         setBusy('reference');
         try {
-            const response = tableId
-                ? await axios.post('/api/vault/reference-table', { table_id: tableId })
-                : await axios.delete('/api/vault/reference-table');
-            setReferenceTable(response.data || { table_id: '', configured: false });
+            const nextReference = tableId
+                ? await saveReferenceTableDesignation(tableId)
+                : await clearReferenceTable();
+            setReferenceTable(nextReference || { table_id: '', configured: false });
             setNotice(t('literature.settings.reference_saved'));
         } catch (requestError) {
             console.error('Could not update the Resources table:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.reference_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.reference_error')));
         } finally { setBusy(''); }
     };
 
     const createReference = async () => {
         setBusy('reference');
         try {
-            const response = await axios.post('/api/vault/reference-table/create', {});
-            setReferenceTable(response.data || {});
+            const nextReference = await createReferenceTable();
+            setReferenceTable(nextReference || {});
             await reload(true);
             setNotice(t('literature.settings.reference_created'));
         } catch (requestError) {
             console.error('Could not create the Resources table:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.reference_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.reference_error')));
         } finally { setBusy(''); }
     };
 
@@ -305,9 +320,9 @@ export default function ResourcesPluginConfig() {
             const payload = { ...repository, static_filters: parseStaticFilters(repositoryStaticFilters) };
             delete payload.id;
             if (repository.id) {
-                await axios.put(`/api/vault/literature/repositories/${encodeURIComponent(repository.id)}`, payload);
+                await updateLiteratureRepository(repository.id, payload);
             } else {
-                await axios.post('/api/vault/literature/repositories', payload);
+                await createLiteratureRepository(payload);
             }
             setRepository(EMPTY_REPOSITORY);
             setRepositoryStaticFilters('');
@@ -316,19 +331,19 @@ export default function ResourcesPluginConfig() {
             await reload(true);
         } catch (requestError) {
             console.error('Could not save the academic repository:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.repository_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.repository_error')));
         } finally { setBusy(''); }
     };
 
     const testRepository = async () => {
         setBusy('test');
         try {
-            const response = await axios.post('/api/vault/literature/repositories/test', { ...repository, static_filters: parseStaticFilters(repositoryStaticFilters), query: 'open science' });
-            setNotice(t('literature.settings.test_ok', { count: response.data?.count || 0, latency: response.data?.latency_ms || 0 }));
+            const result = await testLiteratureRepository({ ...repository, static_filters: parseStaticFilters(repositoryStaticFilters), query: 'open science' });
+            setNotice(t('literature.settings.test_ok', { count: result.count || 0, latency: result.latency_ms || 0 }));
             setError('');
         } catch (requestError) {
             console.error('Academic repository test failed:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.test_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.test_error')));
         } finally { setBusy(''); }
     };
 
@@ -336,52 +351,50 @@ export default function ResourcesPluginConfig() {
         if (!deleteTarget) return;
         setBusy(`delete:${deleteTarget.id}`);
         try {
-            await axios.delete(`/api/vault/literature/repositories/${encodeURIComponent(deleteTarget.id)}`, {
-                params: { confirm: true, delete_index: deleteIndex },
-            });
+            await deleteLiteratureRepository(deleteTarget.id, deleteIndex);
             setDeleteTarget(null);
             setDeleteIndex(false);
             setNotice(t('literature.settings.repository_deleted'));
             await reload(true);
         } catch (requestError) {
             console.error('Could not delete the academic repository:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.repository_delete_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.repository_delete_error')));
         } finally { setBusy(''); }
     };
 
     const synchronize = async (source, full = false) => {
         setBusy(`sync:${source.id}`);
         try {
-            await axios.post(`/api/vault/literature/synchronizations/${encodeURIComponent(source.id)}`, { full });
+            await startLiteratureSynchronization(source.id, full);
             setNotice(t('literature.settings.sync_started'));
             await reload(true);
         } catch (requestError) {
             console.error('Could not start academic repository synchronization:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.sync_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.sync_error')));
         } finally { setBusy(''); }
     };
 
     const cancelSynchronization = async (source) => {
         setBusy(`sync:${source.id}`);
         try {
-            await axios.delete(`/api/vault/literature/synchronizations/${encodeURIComponent(source.id)}`);
+            await cancelLiteratureSynchronization(source.id);
             setNotice(t('literature.settings.sync_cancel_requested'));
             await reload(true);
         } catch (requestError) {
             console.error('Could not cancel academic repository synchronization:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.sync_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.sync_error')));
         } finally { setBusy(''); }
     };
 
     const resumeSynchronization = async (source) => {
         setBusy(`sync:${source.id}`);
         try {
-            await axios.post(`/api/vault/literature/synchronizations/${encodeURIComponent(source.id)}/resume`);
+            await resumeLiteratureSynchronization(source.id);
             setNotice(t('literature.settings.sync_resumed'));
             await reload(true);
         } catch (requestError) {
             console.error('Could not resume academic repository synchronization:', requestError);
-            setError(requestError?.response?.data?.detail || t('literature.settings.sync_error'));
+            setError(apiErrorDetail(requestError, t('literature.settings.sync_error')));
         } finally { setBusy(''); }
     };
 

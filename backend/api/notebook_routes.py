@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, Field
 
-from backend.services import notebook_service
 from backend.domains.agent.routes.checkpoints import (
     chat_thread_id,
     checkpoint_key,
@@ -16,44 +14,32 @@ from backend.domains.agent.routes.checkpoints import (
     thread_lock,
 )
 from backend.domains.agent.routes.shared import vault_scope
+from backend.domains.notebooks.schemas import (
+    NotebookChatSourcesResponse,
+    NotebookConversationResponse,
+    NotebookCreateRequest,
+    NotebookDetailResponse,
+    NotebookEvidenceResponse,
+    NotebookPageResponse,
+    NotebookPatchRequest,
+    NotebookRefreshRequest,
+    NotebookRefreshResponse,
+    NotebookSearchResponse,
+    NotebookSourcesPageResponse,
+    NotebookSourcesRequest,
+    ReferenceResourcePageResponse,
+)
+from backend.services import notebook_service
 from backend.services.workspace_service import WorkspaceContext, require_role
 
 router = APIRouter(prefix="/api/notebooks", tags=["Notebooks"])
-_LEGACY_JSON_200: dict[int | str, dict[str, Any]] = {
-    200: {"content": {"application/json": {"schema": {}}}}
-}
-_LEGACY_JSON_201: dict[int | str, dict[str, Any]] = {
-    201: {"content": {"application/json": {"schema": {}}}},
-}
-_LEGACY_JSON_202: dict[int | str, dict[str, Any]] = {
-    202: {"content": {"application/json": {"schema": {}}}},
-}
 
 
-class NotebookCreateRequest(BaseModel):
-    title: str = Field(default="Untitled notebook", max_length=160)
-    visibility: Literal["private", "workspace"] = "private"
-    conversation_mode: Literal["shared", "private_member"] = "private_member"
-    resource_ids: list[str] = Field(min_length=1, max_length=1_000)
-
-
-class NotebookPatchRequest(BaseModel):
-    title: str | None = Field(default=None, max_length=160)
-    visibility: Literal["private", "workspace"] | None = None
-    conversation_mode: Literal["shared", "private_member"] | None = None
-    groups: list[dict[str, Any]] | None = None
-
-
-class NotebookSourcesRequest(BaseModel):
-    resource_ids: list[str] = Field(min_length=1, max_length=1_000)
-
-
-class NotebookRefreshRequest(BaseModel):
-    force: bool = True
-    reason: str = Field(default="manual", max_length=80)
-
-
-@router.get("", response_model=None, responses=_LEGACY_JSON_200)
+@router.get(
+    "",
+    response_model=NotebookPageResponse,
+    response_model_exclude_unset=True,
+)
 def list_notebooks(
     q: str = Query(default="", max_length=200),
     page: int = Query(default=1, ge=1),
@@ -63,7 +49,12 @@ def list_notebooks(
     return notebook_service.list_notebooks(context, query=q, page=page, page_size=page_size)
 
 
-@router.post("", status_code=201, response_model=None, responses=_LEGACY_JSON_201)
+@router.post(
+    "",
+    status_code=201,
+    response_model=NotebookDetailResponse,
+    response_model_exclude_unset=True,
+)
 def create_notebook(
     payload: NotebookCreateRequest,
     context: WorkspaceContext = Depends(require_role("editor")),
@@ -77,7 +68,11 @@ def create_notebook(
     )
 
 
-@router.get("/resources", response_model=None, responses=_LEGACY_JSON_200)
+@router.get(
+    "/resources",
+    response_model=ReferenceResourcePageResponse,
+    response_model_exclude_unset=True,
+)
 def list_reference_resources(
     q: str = Query(default="", max_length=200),
     page: int = Query(default=1, ge=1),
@@ -100,7 +95,11 @@ def list_reference_resources(
     )
 
 
-@router.get("/{notebook_id}", response_model=None, responses=_LEGACY_JSON_200)
+@router.get(
+    "/{notebook_id}",
+    response_model=NotebookDetailResponse,
+    response_model_exclude_unset=True,
+)
 def get_notebook(
     notebook_id: str,
     refresh: bool = Query(default=True),
@@ -109,7 +108,11 @@ def get_notebook(
     return notebook_service.get_notebook(notebook_id, context, schedule_refresh=refresh)
 
 
-@router.patch("/{notebook_id}", response_model=None, responses=_LEGACY_JSON_200)
+@router.patch(
+    "/{notebook_id}",
+    response_model=NotebookDetailResponse,
+    response_model_exclude_unset=True,
+)
 def update_notebook(
     notebook_id: str,
     payload: NotebookPatchRequest,
@@ -165,7 +168,11 @@ async def delete_notebook(
     return Response(status_code=204)
 
 
-@router.get("/{notebook_id}/sources", response_model=None, responses=_LEGACY_JSON_200)
+@router.get(
+    "/{notebook_id}/sources",
+    response_model=NotebookSourcesPageResponse,
+    response_model_exclude_unset=True,
+)
 def list_sources(
     notebook_id: str,
     page: int = Query(default=1, ge=1),
@@ -179,8 +186,8 @@ def list_sources(
 
 @router.get(
     "/{notebook_id}/chat-sources",
-    response_model=None,
-    responses=_LEGACY_JSON_200,
+    response_model=NotebookChatSourcesResponse,
+    response_model_exclude_unset=True,
 )
 def list_chat_sources(
     notebook_id: str,
@@ -189,7 +196,11 @@ def list_chat_sources(
     return notebook_service.list_chat_source_options(notebook_id, context)
 
 
-@router.post("/{notebook_id}/sources", response_model=None, responses=_LEGACY_JSON_200)
+@router.post(
+    "/{notebook_id}/sources",
+    response_model=NotebookDetailResponse,
+    response_model_exclude_unset=True,
+)
 def add_sources(
     notebook_id: str,
     payload: NotebookSourcesRequest,
@@ -200,8 +211,8 @@ def add_sources(
 
 @router.delete(
     "/{notebook_id}/sources/{resource_id}",
-    response_model=None,
-    responses=_LEGACY_JSON_200,
+    response_model=NotebookDetailResponse,
+    response_model_exclude_unset=True,
 )
 def remove_source(
     notebook_id: str,
@@ -214,8 +225,8 @@ def remove_source(
 @router.post(
     "/{notebook_id}/sources/{resource_id}/refresh",
     status_code=202,
-    response_model=None,
-    responses=_LEGACY_JSON_202,
+    response_model=NotebookRefreshResponse,
+    response_model_exclude_unset=True,
 )
 def refresh_resource(
     notebook_id: str,
@@ -235,8 +246,8 @@ def refresh_resource(
 @router.post(
     "/{notebook_id}/refresh",
     status_code=202,
-    response_model=None,
-    responses=_LEGACY_JSON_202,
+    response_model=NotebookRefreshResponse,
+    response_model_exclude_unset=True,
 )
 def refresh_notebook(
     notebook_id: str,
@@ -254,8 +265,8 @@ def refresh_notebook(
 
 @router.post(
     "/{notebook_id}/refresh/cancel",
-    response_model=None,
-    responses=_LEGACY_JSON_200,
+    response_model=NotebookDetailResponse,
+    response_model_exclude_unset=True,
 )
 def cancel_notebook_refresh(
     notebook_id: str,
@@ -264,7 +275,11 @@ def cancel_notebook_refresh(
     return notebook_service.cancel_refresh(notebook_id, context)
 
 
-@router.get("/{notebook_id}/search", response_model=None, responses=_LEGACY_JSON_200)
+@router.get(
+    "/{notebook_id}/search",
+    response_model=NotebookSearchResponse,
+    response_model_exclude_unset=True,
+)
 def search_notebook(
     notebook_id: str,
     q: str = Query(min_length=1, max_length=2_000),
@@ -279,8 +294,8 @@ def search_notebook(
 
 @router.get(
     "/{notebook_id}/evidence/{chunk_id}",
-    response_model=None,
-    responses=_LEGACY_JSON_200,
+    response_model=NotebookEvidenceResponse,
+    response_model_exclude_unset=True,
 )
 def read_evidence(
     notebook_id: str,
@@ -301,8 +316,8 @@ def read_evidence(
 
 @router.get(
     "/{notebook_id}/conversation",
-    response_model=None,
-    responses=_LEGACY_JSON_200,
+    response_model=NotebookConversationResponse,
+    response_model_exclude_unset=True,
 )
 async def get_conversation(
     notebook_id: str,

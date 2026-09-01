@@ -5,12 +5,36 @@ from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
 from fastapi import APIRouter
+from pydantic import BaseModel, ConfigDict
+
+from backend.domains.vault.daily.contracts import (
+    DailyNoteDocumentResponse,
+    DailyNoteSummaryResponse,
+)
+from backend.domains.vault.schemas.tags import VaultTagsResponse
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 
 
-@router.get("/virtual-fields", response_model=None)
+class VirtualFieldComputerResponse(BaseModel):
+    """One read-only virtual-field computer exposed to schema configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    compute: str
+    label: str
+    description: str
+    value_type: str
+
+
+class VirtualFieldsResponse(BaseModel):
+    """Virtual-field catalog envelope."""
+
+    computers: list[VirtualFieldComputerResponse]
+
+
+@router.get("/virtual-fields", response_model=VirtualFieldsResponse)
 async def list_virtual_fields() -> _LegacyAny:
     """Catalogue of virtual field computers available for the schema config UI."""
     return {"computers": _legacy._vf_list_specs()}
@@ -308,7 +332,7 @@ def _find_daily_note_in_table(
     )
 
 
-@router.get("/daily", response_model=None)
+@router.get("/daily", response_model=list[DailyNoteSummaryResponse])
 async def list_daily_notes() -> _LegacyAny:
     """Lists existing daily notes (one per day), newest first.
 
@@ -328,7 +352,7 @@ async def list_daily_notes() -> _LegacyAny:
         _legacy.Depends(_legacy.require_role("editor")),
         _legacy.Depends(_legacy.require_plugins("daily-notes")),
     ],
-    response_model=None,
+    response_model=DailyNoteDocumentResponse,
 )
 async def get_or_create_daily_note(
     request: _legacy.DailyNoteRequest, background_tasks: _legacy.BackgroundTasks
@@ -356,7 +380,7 @@ def _extract_tags(raw: _LegacyAny) -> list[_LegacyAny]:
     return _strict_cast(list[_LegacyAny], _legacy.tags_query.extract_tags(raw))
 
 
-@router.get("/tags", response_model=None)
+@router.get("/tags", response_model=VaultTagsResponse)
 async def list_vault_tags() -> _LegacyAny:
     """Aggregates all `tags` across the vault with their page counts.
 

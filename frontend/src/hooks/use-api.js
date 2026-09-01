@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { transportFetch } from '../shared/api/transports';
 
 export function useApi() {
     const getWorkspaceId = useCallback(() => {
@@ -31,7 +32,7 @@ export function useApi() {
             delete headers['Content-Type'];
         }
 
-        const response = await fetch(url, {
+        const response = await transportFetch(url, {
             // Sends the `gnosi_session` session cookie. Same-origin would already do this
             // by default (Vite proxy in dev, reverse-proxy in prod); explicit
             // for robustness and to support cross-origin dev with CORS_ORIGINS.

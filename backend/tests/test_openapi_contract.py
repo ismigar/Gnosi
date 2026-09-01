@@ -21,3 +21,10 @@ def test_openapi_is_byte_stable_during_backend_modularization() -> None:
         "The public OpenAPI contract changed during a structural backend move. "
         "Generate both documents and review their exact diff before updating the hash."
     )
+
+
+def test_cross_domain_response_models_keep_stable_component_names() -> None:
+    schemas = app.openapi()["components"]["schemas"]
+
+    assert "ScheduledTaskResponse" in schemas
+    assert "PlanningScheduledTaskResponse" in schemas

@@ -1,3 +1,5 @@
+import { transportFetch } from '../shared/api/transports';
+
 // Lightweight in-flight + short-TTL JSON cache for idempotent GETs.
 //
 // Why: several pages mount multiple components that each fetch the same
@@ -29,7 +31,7 @@ export async function cachedJson(url, { ttl = DEFAULT_TTL, fetchOpts } = {}) {
         const data = await inflight.get(url);
         return clone(data);
     }
-    const p = fetch(url, fetchOpts).then(async (r) => {
+    const p = transportFetch(url, fetchOpts).then(async (r) => {
         if (!r.ok) throw new Error(`${url}: ${r.status}`);
         const data = await r.json();
         cache.set(url, { t: Date.now(), data });

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Search, X, Quote } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { searchCitations } from '../../shared/api/citations';
 
 /**
  * Modal-portal picker for inserting citations in the BlockEditor.
@@ -18,14 +18,6 @@ import { useModalKeyboard } from '../../hooks/useModalKeyboard';
  * ProseMirror from stealing focus during the opening animation. When it
  * closes, it returns focus to the editor.
  */
-const fetchCitations = async (query, signal) => {
-    const r = await axios.get('/api/vault/search-citations', {
-        params: { q: query || '', limit: 30 },
-        signal,
-    });
-    return Array.isArray(r?.data) ? r.data : [];
-};
-
 export const CitePicker = ({ isOpen, onClose, onSelect }) => {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
@@ -57,7 +49,7 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
             abortRef.current = controller;
             setLoading(true);
             try {
-                const data = await fetchCitations(query, controller.signal);
+                const data = await searchCitations(query, 30, controller.signal);
                 if (controller.signal.aborted) return;
                 setItems(data);
                 setActiveIdx(0);

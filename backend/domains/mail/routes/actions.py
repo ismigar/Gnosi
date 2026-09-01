@@ -5,11 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from fastapi import Body, Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 
 from backend.domains.mail.cache import (
     _invalidate_mail_cache,
 )
+from backend.domains.mail import schemas as mail_schemas
 from backend.domains.mail.routing import router
 from backend.domains.mail.services.accounts import (
     _is_imap_account as _is_imap_account,
@@ -30,7 +31,11 @@ from backend.utils.errors import safe_error_detail
 log = logging.getLogger(__name__)
 
 
-@router.post("/messages/{message_id}/trash", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/messages/{message_id}/trash",
+    response_model=mail_schemas.MailStatusResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def trash_msg(
     message_id: str, email: str = Query(...), folder: Optional[str] = Query(None)
 ) -> Any:
@@ -53,7 +58,11 @@ async def trash_msg(
     raise HTTPException(status_code=500, detail="Error trashing message")
 
 
-@router.post("/messages/{message_id}/archive", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/messages/{message_id}/archive",
+    response_model=mail_schemas.MailStatusResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def archive_msg(
     message_id: str, email: str = Query(...), folder: Optional[str] = Query(None)
 ) -> Any:
@@ -70,10 +79,17 @@ async def archive_msg(
     raise HTTPException(status_code=500, detail="Error archiving message")
 
 
-@router.post("/messages/{message_id}/star", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/messages/{message_id}/star",
+    response_model=mail_schemas.MailStatusResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def star_msg(
-    message_id: str, email: str = Query(...), starred: bool = Body(..., embed=True)
+    message_id: str,
+    payload: mail_schemas.MailStarRequest,
+    email: str = Query(...),
 ) -> Any:
+    starred = payload.starred
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_star_message
 
@@ -97,11 +113,18 @@ async def star_msg(
     raise HTTPException(status_code=500, detail="Error updating star")
 
 
-@router.post("/messages/{message_id}/spam", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/messages/{message_id}/spam",
+    response_model=mail_schemas.MailStatusResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def spam_msg(
-    message_id: str, email: str = Query(...), spam: bool = Body(..., embed=True)
+    message_id: str,
+    payload: mail_schemas.MailSpamRequest,
+    email: str = Query(...),
 ) -> Any:
     """Marks or unmarks a message as spam (junk mail)."""
+    spam = payload.spam
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
 
@@ -218,7 +241,11 @@ def _empty_gmail_folder(email: str, folder: str) -> dict[str, str] | None:
         raise HTTPException(status_code=500, detail=safe_error_detail(exc, "Gmail empty folder"))
 
 
-@router.post("/empty_folder", dependencies=[Depends(require_role("admin"))])
+@router.post(
+    "/empty_folder",
+    response_model=mail_schemas.MailStatusResponse,
+    dependencies=[Depends(require_role("admin"))],
+)
 async def empty_folder(email: str = Query(...), folder: str = Query(...)) -> Any:
     """Empty a folder (Trash or Spam)."""
     log.info(f"[Mail] Folder-empty request for {folder} from {email}")

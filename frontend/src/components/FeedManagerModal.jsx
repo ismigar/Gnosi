@@ -4,8 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '../lib/toast';
 import { ConfirmModal } from './ConfirmModal';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
-
-const API_BASE = '/api';
+import {
+    fetchScheduledTasks,
+    runScheduledTask,
+    updateScheduledTask,
+} from '../shared/api/scheduler';
+import {
+    createReaderSource,
+    deleteReaderSource,
+    fetchReaderSources,
+    importReaderOpml,
+} from '../shared/api/reader';
 
 export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     const { t } = useTranslation();
@@ -45,8 +54,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     async function fetchSources() {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/reader/sources`);
-            if (res.ok) setSources(await res.json());
+            setSources(await fetchReaderSources());
         } catch (e) {
             console.error('Error fetching sources:', e);
         } finally {
@@ -56,14 +64,11 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
 
     async function fetchScheduler() {
         try {
-            const res = await fetch(`${API_BASE}/schedulers`);
-            if (res.ok) {
-                const all = await res.json();
-                // Only show reader-related tasks
-                setSchedulerTasks(all.filter(t =>
-                    ['fetch_feeds', 'fetch_newsletters', 'generate_podcast'].includes(t.name)
-                ));
-            }
+            const all = await fetchScheduledTasks();
+            // Only show reader-related tasks
+            setSchedulerTasks(all.filter(t =>
+                ['fetch_feeds', 'fetch_newsletters', 'generate_podcast'].includes(t.name)
+            ));
         } catch (e) {
             console.error('Error fetching scheduler:', e);
         }
@@ -74,27 +79,20 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
         if (!newUrl.trim()) return;
         setAddLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/reader/sources`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: newName.trim() || newUrl.trim(),
-                    url: newUrl.trim(),
-                    category: newCategory.trim() || 'Uncategorized',
-                    type: 'rss',
-                }),
+            await createReaderSource({
+                name: newName.trim() || newUrl.trim(),
+                url: newUrl.trim(),
+                category: newCategory.trim() || 'Uncategorized',
+                type: 'rss',
             });
-            if (res.ok) {
-                setNewName('');
-                setNewUrl('');
-                setNewCategory('');
-                fetchSources();
-            } else {
-                const err = await res.json();
-                toast.error(err.detail || t('feed_manager.error_add_feed', "Error adding feed"));
-            }
-        } catch {
-            toast.error(t('feed_manager.error_connect', "Could not connect"));
+            setNewName('');
+            setNewUrl('');
+            setNewCategory('');
+            fetchSources();
+        } catch (error) {
+            toast.error(error instanceof Error
+                ? error.message
+                : t('feed_manager.error_connect', "Could not connect"));
         } finally {
             setAddLoading(false);
         }
@@ -103,12 +101,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     async function executeDeleteSource() {
         if (!confirmModal.id) return;
         try {
-            const res = await fetch(`${API_BASE}/reader/sources/${confirmModal.id}`, { method: 'DELETE' });
-            if (!res.ok) {
-                // Without this branch, a 4xx/5xx response caused the
-                // source to remain in the list even though the user had already confirmed.
-                throw new Error(`HTTP ${res.status}`);
-            }
+            await deleteReaderSource(confirmModal.id);
             fetchSources();
         } catch (e) {
             console.error('Error deleting source:', e);
@@ -123,30 +116,21 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
 
     async function handleOpmlUpload(file) {
         if (!file) return;
-        const formData = new FormData();
-        formData.append('file', file);
         try {
-            const res = await fetch(`${API_BASE}/reader/sources/opml`, {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await res.json();
-            if (res.ok) {
-                fetchSources();
-            } else {
-                toast.error(data.detail || t('feed_manager.error_opml', "Error processing OPML"));
-            }
-        } catch {
-            toast.error(t('feed_manager.error_upload_file', "Error uploading the file"));
+            await importReaderOpml(file);
+            fetchSources();
+        } catch (error) {
+            toast.error(error instanceof Error
+                ? error.message
+                : t('feed_manager.error_upload_file', "Error uploading the file"));
         }
     }
 
     async function handleToggleTask(name, enabled, interval) {
         try {
-            await fetch(`${API_BASE}/schedulers/${name}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interval_minutes: interval, enabled: !enabled }),
+            await updateScheduledTask({
+                name,
+                update: { interval_minutes: interval, enabled: !enabled },
             });
             fetchScheduler();
         } catch (e) {
@@ -157,16 +141,10 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     async function handleRunTask(name) {
         setRunningTask(name);
         try {
-            const res = await fetch(`${API_BASE}/schedulers/${name}/run`, { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                fetchSources();
-                fetchScheduler();
-                if (onRefresh) onRefresh();
-            } else {
-                toast.error(data.error || t('errors.unknown'));
-                fetchScheduler();
-            }
+            await runScheduledTask(name);
+            fetchSources();
+            fetchScheduler();
+            if (onRefresh) onRefresh();
         } catch (e) {
             toast.error(t('feed_manager.error_run_task', "Could not run"));
             console.error('Error running task:', e);

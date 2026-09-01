@@ -12,6 +12,35 @@ from typing import Any, Callable, cast
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from backend.domains.planning.schemas import (
+    AllocationResponse,
+    AssignmentMutationResponse,
+    AssignmentPayload as AssignmentPayload,
+    BaselineCreateResponse,
+    BaselineListResponse,
+    BaselinePayload as BaselinePayload,
+    BaselineVarianceResponse,
+    CalendarMutationResponse,
+    CalendarPayload as CalendarPayload,
+    LevelingApplyResponse,
+    LevelingProposalResponse,
+    PlanningDeletionResponse,
+    PlanningStateResponse,
+    ProposalApplyPayload as ProposalApplyPayload,
+    ProjectScheduleResponse,
+    RecalculatePayload as RecalculatePayload,
+    RecurrenceMaterializationResponse,
+    RecurrenceMutationResponse,
+    RecurrencePayload as RecurrencePayload,
+    ResourceMutationResponse,
+    ResourcePayload as ResourcePayload,
+    StoredLevelingProposalResponse,
+    TaskFactPayload as TaskFactPayload,
+    WorklogCreateResponse,
+    WorklogListJsonResponse,
+    WorklogListResponse,
+    WorklogPayload as WorklogPayload,
+)
 from backend.services.project_planning import (
     DEFAULT_CALENDAR_ID,
     PlanningStore,
@@ -29,80 +58,7 @@ from backend.services.workspace_service import get_workspace_context, require_ro
 
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
 _mutation_lock = asyncio.Lock()
-
-
-class CalendarPayload(BaseModel):
-    name: str | None = None
-    working_weekdays: list[int] | None = None
-    holidays: list[str] | None = None
-    hours_per_day: float | None = None
-    workday_start: str | None = None
-
-
-class ResourcePayload(BaseModel):
-    name: str | None = None
-    type: str | None = None
-    calendar_id: str | None = None
-    availability_units: float | None = None
-    standard_rate: float | None = None
-    overtime_rate: float | None = None
-    cost_per_use: float | None = None
-    active: bool | None = None
-    rate_history: list[dict[str, Any]] | None = None
-
-
-class AssignmentPayload(BaseModel):
-    project_id: str | None = None
-    task_id: str | None = None
-    resource_id: str | None = None
-    units: float | None = None
-    planned_work_hours: float | None = None
-    remaining_work_hours: float | None = None
-    actual_work_hours: float | None = None
-    rate_override: float | None = None
-    start: str | None = None
-    end: str | None = None
-    task_type: str | None = None
-    effort_driven: bool | None = None
-    overtime_work_hours: float | None = None
-    material_quantity: float | None = None
-    fixed_cost: float | None = None
-
-
-class TaskFactPayload(BaseModel):
-    id: str
-    title: str | None = None
-    period: dict[str, Any] = {}
-    etag: str | None = None
-
-
-class RecalculatePayload(BaseModel):
-    tasks: list[TaskFactPayload] = []
-    status_date: str | None = None
-
-
-class BaselinePayload(BaseModel):
-    name: str
-    schedule_revision: int | None = None
-
-
-class WorklogPayload(BaseModel):
-    task_id: str
-    resource_id: str | None = None
-    date: str
-    hours: float
-    correction_of: str | None = None
-
-
-class RecurrencePayload(BaseModel):
-    task_id: str
-    rrule: str
-    exdates: list[str] = []
-
-
-class ProposalApplyPayload(BaseModel):
-    schedule_revision: int
-    etags: dict[str, str] = {}
+JsonResponse = dict[str, object]
 
 
 def _payload(value: BaseModel) -> dict[str, Any]:
@@ -133,29 +89,45 @@ def _validation_error(error: PlanningValidationError) -> HTTPException:
     return HTTPException(status_code=422, detail=str(error))
 
 
-@router.get("/planning/state", response_model=None)
-async def get_planning_state() -> Any:
+@router.get(
+    "/planning/state",
+    response_model=PlanningStateResponse,
+    response_model_exclude_unset=True,
+)
+async def get_planning_state() -> JsonResponse:
     """Returns source entities plus a derived allocation snapshot."""
     state = await asyncio.to_thread(_store().load)
     return {**state, "allocation": calculate_allocation(state)}
 
 
-@router.get("/planning/allocation", response_model=None)
-async def get_allocation() -> Any:
+@router.get(
+    "/planning/allocation",
+    response_model=AllocationResponse,
+    response_model_exclude_unset=True,
+)
+async def get_allocation() -> JsonResponse:
     """Returns a rebuildable allocation/cost report without writing task data."""
     state = await asyncio.to_thread(_store().load)
     return calculate_allocation(state)
 
 
-@router.get("/planning/leveling/proposal", response_model=None)
-async def get_leveling_proposal() -> Any:
+@router.get(
+    "/planning/leveling/proposal",
+    response_model=LevelingProposalResponse,
+    response_model_exclude_unset=True,
+)
+async def get_leveling_proposal() -> JsonResponse:
     """Returns review-only delay suggestions; it never changes task dates."""
     state = await asyncio.to_thread(_store().load)
     return propose_leveling(state)
 
 
-@router.get("/planning/projects/{project_id}/schedule", response_model=None)
-async def get_project_schedule(project_id: str) -> Any:
+@router.get(
+    "/planning/projects/{project_id}/schedule",
+    response_model=ProjectScheduleResponse,
+    response_model_exclude_unset=True,
+)
+async def get_project_schedule(project_id: str) -> JsonResponse:
     """Returns the cached, reconstructible schedule for one project."""
     schedule = await asyncio.to_thread(_index().load)
     return ((schedule or {}).get("projects") or {}).get(project_id) or {
@@ -170,9 +142,10 @@ async def get_project_schedule(project_id: str) -> Any:
 @router.post(
     "/planning/projects/{project_id}/recalculate",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ProjectScheduleResponse,
+    response_model_exclude_unset=True,
 )
-async def recalculate_project(project_id: str, payload: RecalculatePayload) -> Any:
+async def recalculate_project(project_id: str, payload: RecalculatePayload) -> JsonResponse:
     """Rebuilds a project schedule from caller-provided Markdown task facts.
 
     Persisting automatic boundaries is deliberately handled by the page writer,
@@ -197,9 +170,10 @@ async def recalculate_project(project_id: str, payload: RecalculatePayload) -> A
 @router.post(
     "/planning/projects/{project_id}/baselines",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=BaselineCreateResponse,
+    response_model_exclude_unset=True,
 )
-async def create_baseline(project_id: str, payload: BaselinePayload) -> Any:
+async def create_baseline(project_id: str, payload: BaselinePayload) -> JsonResponse:
     """Captures an immutable named schedule snapshot in append-only history."""
     name = payload.name.strip()
     if not name:
@@ -234,8 +208,12 @@ async def create_baseline(project_id: str, payload: BaselinePayload) -> Any:
     return {"baseline": baseline}
 
 
-@router.get("/planning/projects/{project_id}/baselines", response_model=None)
-async def list_baselines(project_id: str) -> Any:
+@router.get(
+    "/planning/projects/{project_id}/baselines",
+    response_model=BaselineListResponse,
+    response_model_exclude_unset=True,
+)
+async def list_baselines(project_id: str) -> JsonResponse:
     return {
         "baselines": [
             item
@@ -247,9 +225,10 @@ async def list_baselines(project_id: str) -> Any:
 
 @router.get(
     "/planning/projects/{project_id}/baselines/{baseline_id}/variance",
-    response_model=None,
+    response_model=BaselineVarianceResponse,
+    response_model_exclude_unset=True,
 )
-async def get_baseline_variance(project_id: str, baseline_id: str) -> Any:
+async def get_baseline_variance(project_id: str, baseline_id: str) -> JsonResponse:
     """Compares the current derived schedule with an immutable baseline."""
     baselines = await asyncio.to_thread(_store().history, "baseline")
     baseline = next(
@@ -321,9 +300,10 @@ async def get_baseline_variance(project_id: str, baseline_id: str) -> Any:
 @router.post(
     "/planning/worklogs",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=WorklogCreateResponse,
+    response_model_exclude_unset=True,
 )
-async def create_worklog(payload: WorklogPayload) -> Any:
+async def create_worklog(payload: WorklogPayload) -> JsonResponse:
     if payload.hours == 0:
         raise HTTPException(status_code=422, detail="worklog hours cannot be zero")
     entry = {
@@ -340,8 +320,12 @@ async def create_worklog(payload: WorklogPayload) -> Any:
     return {"worklog": entry}
 
 
-@router.get("/planning/worklogs", response_model=None)
-async def list_worklogs(task_id: str | None = None) -> Any:
+@router.get(
+    "/planning/worklogs",
+    response_model=WorklogListResponse,
+    response_model_exclude_unset=True,
+)
+async def list_worklogs(task_id: str | None = None) -> WorklogListJsonResponse:
     entries = await asyncio.to_thread(_store().history, "worklog")
     if task_id:
         entries = [entry for entry in entries if entry.get("taskId") == task_id]
@@ -351,8 +335,12 @@ async def list_worklogs(task_id: str | None = None) -> Any:
     return {"worklogs": entries, "actualHoursByTask": totals}
 
 
-@router.post("/planning/projects/{project_id}/leveling/proposals", response_model=None)
-async def create_leveling_proposal(project_id: str) -> Any:
+@router.post(
+    "/planning/projects/{project_id}/leveling/proposals",
+    response_model=StoredLevelingProposalResponse,
+    response_model_exclude_unset=True,
+)
+async def create_leveling_proposal(project_id: str) -> JsonResponse:
     state = await asyncio.to_thread(_store().load)
     schedule = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(
         project_id
@@ -380,9 +368,10 @@ async def create_leveling_proposal(project_id: str) -> Any:
 @router.post(
     "/planning/leveling/proposals/{proposal_id}/apply",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=LevelingApplyResponse,
+    response_model_exclude_unset=True,
 )
-async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayload) -> Any:
+async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayload) -> JsonResponse:
     """Accepts a current proposal only after revision and ETag validation."""
     store = _store()
     proposals = await asyncio.to_thread(store.history, "leveling_proposal")
@@ -453,9 +442,10 @@ async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayloa
 @router.post(
     "/planning/recurrences",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RecurrenceMutationResponse,
+    response_model_exclude_unset=True,
 )
-async def create_recurrence(payload: RecurrencePayload) -> Any:
+async def create_recurrence(payload: RecurrencePayload) -> JsonResponse:
     """Stores an RRULE declaration; materialization always creates stable tasks."""
     recurrence = {"id": str(uuid.uuid4()), **_payload(payload)}
     async with _mutation_lock:
@@ -469,9 +459,10 @@ async def create_recurrence(payload: RecurrencePayload) -> Any:
 @router.post(
     "/planning/recurrences/{recurrence_id}/materialize",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RecurrenceMaterializationResponse,
+    response_model_exclude_unset=True,
 )
-async def materialize_recurrence(recurrence_id: str, limit: int = 50) -> Any:
+async def materialize_recurrence(recurrence_id: str, limit: int = 50) -> JsonResponse:
     """Materializes bounded RRULE occurrences as stable Markdown task pages."""
     if limit < 1 or limit > 200:
         raise HTTPException(status_code=422, detail="limit must be between 1 and 200")
@@ -543,9 +534,10 @@ async def materialize_recurrence(recurrence_id: str, limit: int = 50) -> Any:
 @router.post(
     "/planning/calendars",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=CalendarMutationResponse,
+    response_model_exclude_unset=True,
 )
-async def create_calendar(payload: CalendarPayload) -> Any:
+async def create_calendar(payload: CalendarPayload) -> JsonResponse:
     data = _payload(payload)
     try:
         calendar = normalize_calendar(data)
@@ -562,9 +554,10 @@ async def create_calendar(payload: CalendarPayload) -> Any:
 @router.patch(
     "/planning/calendars/{calendar_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=CalendarMutationResponse,
+    response_model_exclude_unset=True,
 )
-async def update_calendar(calendar_id: str, payload: CalendarPayload) -> Any:
+async def update_calendar(calendar_id: str, payload: CalendarPayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
         state = await asyncio.to_thread(store.load)
@@ -585,9 +578,10 @@ async def update_calendar(calendar_id: str, payload: CalendarPayload) -> Any:
 @router.delete(
     "/planning/calendars/{calendar_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=PlanningDeletionResponse,
+    response_model_exclude_unset=True,
 )
-async def delete_calendar(calendar_id: str) -> Any:
+async def delete_calendar(calendar_id: str) -> JsonResponse:
     if calendar_id == DEFAULT_CALENDAR_ID:
         raise HTTPException(
             status_code=409, detail="The project default calendar cannot be deleted"
@@ -607,9 +601,10 @@ async def delete_calendar(calendar_id: str) -> Any:
 @router.post(
     "/planning/resources",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ResourceMutationResponse,
+    response_model_exclude_unset=True,
 )
-async def create_resource(payload: ResourcePayload) -> Any:
+async def create_resource(payload: ResourcePayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
         state = await asyncio.to_thread(store.load)
@@ -627,9 +622,10 @@ async def create_resource(payload: ResourcePayload) -> Any:
 @router.patch(
     "/planning/resources/{resource_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ResourceMutationResponse,
+    response_model_exclude_unset=True,
 )
-async def update_resource(resource_id: str, payload: ResourcePayload) -> Any:
+async def update_resource(resource_id: str, payload: ResourcePayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
         state = await asyncio.to_thread(store.load)
@@ -654,9 +650,10 @@ async def update_resource(resource_id: str, payload: ResourcePayload) -> Any:
 @router.delete(
     "/planning/resources/{resource_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=PlanningDeletionResponse,
+    response_model_exclude_unset=True,
 )
-async def delete_resource(resource_id: str) -> Any:
+async def delete_resource(resource_id: str) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
         state = await asyncio.to_thread(store.load)
@@ -674,9 +671,10 @@ async def delete_resource(resource_id: str) -> Any:
 @router.post(
     "/planning/assignments",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=AssignmentMutationResponse,
+    response_model_exclude_unset=True,
 )
-async def create_assignment(payload: AssignmentPayload) -> Any:
+async def create_assignment(payload: AssignmentPayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
         state = await asyncio.to_thread(store.load)
@@ -694,9 +692,10 @@ async def create_assignment(payload: AssignmentPayload) -> Any:
 @router.patch(
     "/planning/assignments/{assignment_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=AssignmentMutationResponse,
+    response_model_exclude_unset=True,
 )
-async def update_assignment(assignment_id: str, payload: AssignmentPayload) -> Any:
+async def update_assignment(assignment_id: str, payload: AssignmentPayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
         state = await asyncio.to_thread(store.load)
@@ -721,9 +720,10 @@ async def update_assignment(assignment_id: str, payload: AssignmentPayload) -> A
 @router.delete(
     "/planning/assignments/{assignment_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=PlanningDeletionResponse,
+    response_model_exclude_unset=True,
 )
-async def delete_assignment(assignment_id: str) -> Any:
+async def delete_assignment(assignment_id: str) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
         state = await asyncio.to_thread(store.load)

@@ -10,11 +10,24 @@ source_paths:
   - frontend/src/context/AuthContext.jsx
   - frontend/src/hooks/useModalKeyboard.js
   - frontend/src/index.css
+  - frontend/src/lib/vaultRouting.js
+  - frontend/src/shared/api/client.ts
+  - frontend/src/shared/api/request-context.ts
+  - frontend/src/shared/api/transports.ts
+  - frontend/src/shared/api/specialized-transports.ts
+  - frontend/api-boundaries.json
+  - openapi/openapi.json
+  - scripts/generate_openapi.py
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - tests/e2e/tests/accessibility/accessibility.spec.ts
+  - frontend/src/lib/vaultRouting.test.js
+  - frontend/src/shared/api/client.test.ts
+  - frontend/src/shared/api/transports.test.ts
+  - backend/tests/test_openapi_generation.py
+  - pipeline/tests/test_frontend_api_boundary.py
 ---
 
 # Flux transversaux
@@ -47,6 +60,19 @@ Les variables de contexte transportent la voûte active à travers les appels de
 `ActiveVaultMiddleware` résout d'abord la route canonique puis applique la
 priorité en-tête → requête → cookie. Des helpers typés partagent cette résolution
 entre HTTP et WebSocket, et le contexte est toujours restauré à la fin.
+
+Le frontend sépare la construction des routes du transport réseau. Le HTTP
+ordinaire passe par le client typé `openapi-fetch` ou par l’adaptateur de
+compatibilité ; tous deux délèguent à `transportFetch`, qui ajoute le contexte
+workspace, utilisateur et Vault sans remplacer `window.fetch`. TanStack Query
+gère le cache serveur. SSE, streaming, téléchargements et WebSockets utilisent
+des adaptateurs spécialisés explicites.
+
+OpenAPI et les types TypeScript sont générés de façon déterministe dans un
+runtime éphémère. Un garde interdit Axios, `fetch` direct, les monkeypatches
+globaux et les transports spéciaux non révisés ; l’allowlist minimale documente
+uniquement les limites du navigateur qui ne peuvent pas importer le client de
+l’application.
 
 ## Flux de configuration
 

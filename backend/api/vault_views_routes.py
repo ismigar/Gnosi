@@ -180,7 +180,7 @@ def _sync_page(page_id: str, registry: dict[str, Any], vault_path: Path) -> bool
 # ---------------------------------------------------------------------------
 
 
-@router.get("/pages/{page_id}/views", response_model=None)
+@router.get("/pages/{page_id}/views", response_model=PageViewsResponse)
 async def get_page_views(page_id: str) -> dict[str, Any]:
     """Returns the views configured for a page."""
     try:
@@ -239,7 +239,8 @@ def _find_section_upsert_index(
 @router.post(
     "/pages/{page_id}/views",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=PageViewMutationResponse,
+    response_model_exclude_none=True,
 )
 async def upsert_page_view(
     page_id: str,

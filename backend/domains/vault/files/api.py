@@ -12,6 +12,11 @@ from fastapi.params import Depends as DependsParameter
 from fastapi.responses import FileResponse, Response
 
 from backend.domains.vault.files import host_trash, local_service, property_service
+from backend.domains.vault.files.contracts import (
+    LinkedExistingFileResponse,
+    LocalFileRegistrationResponse,
+    PropertyFileUploadResponse,
+)
 from backend.domains.vault.files.serving import serve_file_with_containment
 from backend.domains.vault.files.state import FileServingState, LocalLinkStore
 from backend.domains.vault.files.thumbnails import (
@@ -324,7 +329,7 @@ def register_serving_routes(
         register_local_file,
         methods=["POST"],
         dependencies=protected,
-        response_model=None,
+        response_model=LocalFileRegistrationResponse,
     )
     # Decorators were historically applied bottom-up: named route first.
     router.add_api_route(
@@ -353,14 +358,14 @@ def register_property_routes(
         upload_property_file,
         methods=["POST"],
         dependencies=protected,
-        response_model=None,
+        response_model=PropertyFileUploadResponse,
     )
     router.add_api_route(
         "/link-existing-file",
         link_existing_file,
         methods=["POST"],
         dependencies=protected,
-        response_model=None,
+        response_model=LinkedExistingFileResponse,
     )
     router.add_api_route(
         "/delete-physical-file",

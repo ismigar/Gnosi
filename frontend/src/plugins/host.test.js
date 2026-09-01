@@ -1,15 +1,31 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { axiosGet, axiosPut } = vi.hoisted(() => ({
-    axiosGet: vi.fn(),
-    axiosPut: vi.fn(),
+const {
+    fetchInstalledPlugins,
+    fetchPluginAssetText,
+    fetchPluginSettings,
+    updatePluginSettings,
+} = vi.hoisted(() => ({
+    fetchInstalledPlugins: vi.fn(),
+    fetchPluginAssetText: vi.fn(),
+    fetchPluginSettings: vi.fn(),
+    updatePluginSettings: vi.fn(),
 }));
 
-vi.mock('axios', () => ({
-    default: {
-        get: axiosGet,
-        put: axiosPut,
-    },
+vi.mock('../shared/api/page-etag', () => ({ getCachedPageEtag: vi.fn() }));
+vi.mock('../shared/api/plugin-runtime', () => ({
+    createPluginHostPage: vi.fn(),
+    fetchForUiPlugin: vi.fn(),
+    fetchPluginAssetText,
+    fetchPluginHostPage: vi.fn(),
+    fetchPluginSettings,
+    patchPluginHostPage: vi.fn(),
+    updatePluginSettings,
+}));
+vi.mock('../shared/api/plugins', () => ({ fetchInstalledPlugins }));
+vi.mock('../shared/api/vaults', () => ({
+    fetchVaultPagesByTable: vi.fn(),
+    fetchVaultTables: vi.fn(),
 }));
 
 import {
@@ -35,21 +51,14 @@ describe('third-party Settings panels', () => {
 
     it('sandboxes registered panels, bridges settings, and removes them when disabled', async () => {
         let enabled = true;
-        axiosGet.mockImplementation(async (url) => {
-            if (url.endsWith('/installed')) {
-                return {
-                    data: {
-                        plugins: enabled
-                            ? [{ manifest, enabled: true, granted: ['settings', 'ui:settings'] }]
-                            : [{ manifest, enabled: false, granted: ['settings', 'ui:settings'] }],
-                    },
-                };
-            }
-            if (url.endsWith('/asset/main.js')) return { data: '/* plugin */' };
-            if (url.endsWith('/settings')) return { data: { settings: { accent: 'violet' } } };
-            throw new Error(`Unexpected GET ${url}`);
-        });
-        axiosPut.mockResolvedValue({ data: { settings: { accent: 'blue' } } });
+        fetchInstalledPlugins.mockImplementation(() => Promise.resolve({
+            plugins: enabled
+                ? [{ manifest, enabled: true, granted: ['settings', 'ui:settings'] }]
+                : [{ manifest, enabled: false, granted: ['settings', 'ui:settings'] }],
+        }));
+        fetchPluginAssetText.mockResolvedValue('/* plugin */');
+        fetchPluginSettings.mockResolvedValue({ settings: { accent: 'violet' } });
+        updatePluginSettings.mockResolvedValue({ settings: { accent: 'blue' } });
 
         await loadPlugins();
         const iframe = document.querySelector('iframe[title="plugin:settings-example"]');
@@ -93,7 +102,7 @@ describe('third-party Settings panels', () => {
             },
         }));
         await vi.waitFor(() => {
-            expect(axiosGet).toHaveBeenCalledWith('/api/vault/plugins/settings-example/settings');
+            expect(fetchPluginSettings).toHaveBeenCalledWith('settings-example');
             expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
                 type: 'host-result',
                 id: 'settings-read',
@@ -112,9 +121,8 @@ describe('third-party Settings panels', () => {
             },
         }));
         await vi.waitFor(() => {
-            expect(axiosPut).toHaveBeenCalledWith(
-                '/api/vault/plugins/settings-example/settings',
-                { settings: { accent: 'blue' } },
+            expect(updatePluginSettings).toHaveBeenCalledWith(
+                'settings-example', { accent: 'blue' },
             );
             expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
                 type: 'host-result',

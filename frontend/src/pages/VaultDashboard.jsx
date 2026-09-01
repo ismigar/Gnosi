@@ -1,6 +1,40 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
-import axios from 'axios';
+import { fetchBrainTableStatus, fetchLlmWikiConfig } from '../shared/api/brain';
+import { openDailyNote } from '../shared/api/daily-notes';
+import { saveDrawing } from '../shared/api/drawings';
+import { fetchReferenceTable } from '../shared/api/literature-resources';
+import { fetchResourceProcessingStatus } from '../shared/api/resource-processing';
+import {
+    bulkApplyVaultTemplate,
+    createVaultPage,
+    createVaultDatabase,
+    createVaultTable,
+    deleteVaultDatabase,
+    deleteVaultPage,
+    deleteVaultTable,
+    duplicateVaultPage,
+    fetchVaultAliasIndex,
+    fetchVaultGlobalIndex,
+    fetchVaultPage,
+    fetchVaultPages,
+    fetchVaultPagesByTable,
+    fetchVaultRegistry,
+    fetchVaultTablePagesSnapshot,
+    patchVaultPage,
+    patchVaultTableProperty,
+    resolveVaultTitle,
+    renameVaultTable,
+    restoreVaultPage,
+    saveVaultPage,
+} from '../shared/api/vaults';
+import {
+    createVaultView,
+    deleteVaultView,
+    fetchVaultViewUsage,
+    reorderVaultViews,
+    updateVaultView,
+} from '../shared/api/vault-views';
 import { toast } from '../lib/toast';
 import { v4 as uuidv4 } from 'uuid';
 import { logError, notifyError } from '../lib/notifyError';
@@ -251,16 +285,16 @@ export default function VaultDashboard() {
             setLlmWikiJobs({});
             return () => { alive = false; };
         }
-        axios.get('/api/vault/llm-wiki/config')
+        fetchLlmWikiConfig()
             .then((response) => {
                 if (!alive) return;
-                setLlmWikiConfig(response.data?.config
+                setLlmWikiConfig(response?.config
                     ? {
-                        ...response.data.config,
-                        processed_resources: response.data.processed_resources || {},
+                        ...response.config,
+                        processed_resources: response.processed_resources || {},
                     }
                     : null);
-                setLlmWikiJobs(response.data?.resource_statuses || {});
+                setLlmWikiJobs(response?.resource_statuses || {});
             })
             .catch((error) => {
                 if (alive) {
@@ -350,7 +384,6 @@ export default function VaultDashboard() {
 
     const isAbortLikeError = useCallback((err) => {
         if (!err) return false;
-        if (axios.isCancel?.(err)) return true;
 
         const code = String(err.code || '').toUpperCase();
         const name = String(err.name || '').toLowerCase();
@@ -391,8 +424,8 @@ export default function VaultDashboard() {
             let lastErr = null;
             for (let attempt = 0; attempt <= maxAbortRetries; attempt += 1) {
                 try {
-                    const res = await axios.get(`/api/vault/pages/${pageId}`, { signal: controller.signal });
-                    return res;
+                    const page = await fetchVaultPage(pageId, controller.signal);
+                    return { data: page };
                 } catch (err) {
                     lastErr = err;
                     // If the external caller aborted, propagate immediately.
@@ -648,8 +681,8 @@ export default function VaultDashboard() {
     }, []);
     const refreshReferenceTable = useCallback(async () => {
         try {
-            const { data } = await axios.get('/api/vault/reference-table');
-            setRefTableId(data?.table_id || null);
+            const status = await fetchReferenceTable();
+            setRefTableId(status?.table_id || null);
         } catch { /* no designation or backend busy → gating disabled */ }
     }, []);
     useEffect(() => { refreshReferenceTable(); }, [refreshReferenceTable]);
@@ -658,8 +691,8 @@ export default function VaultDashboard() {
     // (pending permanent-note suggestions) in that table's header.
     const [brainTableId, setBrainTableId] = useState(null);
     useEffect(() => {
-        axios.get('/api/vault/brain-table')
-            .then(({ data }) => setBrainTableId(data?.table_id || null))
+        fetchBrainTableStatus()
+            .then(status => setBrainTableId(status?.table_id || null))
             .catch(() => { /* no designation → gating disabled */ });
     }, []);
 
@@ -733,8 +766,8 @@ export default function VaultDashboard() {
     const fetchPages = useCallback(async (attempt = 0) => {
         try {
             setLoading(true);
-            const res = await axios.get('/api/vault/pages');
-            if (res.data.length === 0 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
+            const nextPages = await fetchVaultPages();
+            if (nextPages.length === 0 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
                 // Backend cache may still be warming up — retry with backoff
                 if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
                 fetchPagesRetryTimerRef.current = setTimeout(
@@ -743,9 +776,9 @@ export default function VaultDashboard() {
                 );
                 return [];
             }
-            syncPagesState(res.data);
+            syncPagesState(nextPages);
             setLoading(false);
-            return res.data;
+            return nextPages;
         } catch (err) {
             if (isAbortLikeError(err) && attempt < 2) {
                 if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
@@ -758,7 +791,7 @@ export default function VaultDashboard() {
             // 503 with Retry-After: the backend tells us the index is still
             // warming up. We retry honoring the header (fallback 2s).
             if (err?.response?.status === 503 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
-                const retryAfter = Number(err.response.headers?.['retry-after']) || 2;
+                const retryAfter = Number(err.response.headers.get('retry-after')) || 2;
                 if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
                 fetchPagesRetryTimerRef.current = setTimeout(
                     () => fetchPages(attempt + 1),
@@ -780,12 +813,11 @@ export default function VaultDashboard() {
         const pollBackgroundJobs = async () => {
             await Promise.all(jobs.map(async (job) => {
                 try {
-                    const response = await axios.get(
-                        `/api/vault/llm-wiki/status/${encodeURIComponent(job.job_id)}`,
-                        { params: { source_table_id: job.source_table_id } },
+                    const nextJob = await fetchResourceProcessingStatus(
+                        job.job_id,
+                        job.source_table_id,
                     );
                     if (!alive) return;
-                    const nextJob = response.data || {};
                     setLlmWikiJobs((current) => ({
                         ...current,
                         [job.source_table_id]: {
@@ -824,8 +856,8 @@ export default function VaultDashboard() {
             setIsRegistryLoading(true);
         }
         try {
-            const res = await axios.get('/api/vault/registry');
-            setRegistry(res.data);
+            const nextRegistry = await fetchVaultRegistry();
+            setRegistry(nextRegistry);
             setIsRegistryLoading(false);
         } catch (err) {
             // Log every retry attempt; only toast on the final failure to avoid
@@ -845,8 +877,7 @@ export default function VaultDashboard() {
     const fetchPagesByTable = useCallback(async (tableId) => {
         if (!tableId) return [];
         try {
-            const res = await axios.get(`/api/vault/pages/by-table/${tableId}`);
-            const tablePages = res.data || [];
+            const tablePages = await fetchVaultPagesByTable(tableId);
             const templates = tablePages.filter(p => p.metadata?.is_template);
             setTableTemplates(templates);
 
@@ -863,8 +894,7 @@ export default function VaultDashboard() {
             fetchGlobalIndex();
 
             try {
-                const snapshotRes = await axios.get(`/api/vault/pages/by-table/${tableId}/snapshot`);
-                const snapshot = snapshotRes.data || {};
+                const snapshot = await fetchVaultTablePagesSnapshot(tableId);
                 const visiblePages = snapshot.pages || [];
                 setVisibleTableRecordsById(prev => ({ ...prev, [tableId]: visiblePages }));
                 setTableCountsById(prev => ({
@@ -955,8 +985,8 @@ export default function VaultDashboard() {
             // 3) Backend (/resolve-by-title) — tolerant a moves recents.
             if (!resolved) {
                 try {
-                    const r = await axios.get('/api/vault/resolve-by-title', { params: { title: pageId } });
-                    if (r?.data?.id) resolved = r.data.id;
+                    const match = await resolveVaultTitle(pageId);
+                    if (match?.id) resolved = match.id;
                 } catch { /* ignore — we'll fall back to the standard 404 */ }
             }
             if (resolved && resolved !== pageId) {
@@ -1085,7 +1115,7 @@ export default function VaultDashboard() {
 
     const handleUpdateNote = useCallback(async (id, data) => {
         try {
-            await axios.patch(`/api/vault/pages/${id}`, data);
+            await patchVaultPage(id, data);
             await fetchPages();
             const page = pages.find(p => p.id === id);
             const tableIdOfPage = resolvePageTableId(page);
@@ -1112,7 +1142,7 @@ export default function VaultDashboard() {
             : p
         ));
         try {
-            await axios.patch(`/api/vault/pages/${pageId}`, {
+            await patchVaultPage(pageId, {
                 parent_id: newParentId,
                 metadata: { parent_id: newParentId },
             });
@@ -1198,7 +1228,7 @@ export default function VaultDashboard() {
         if (!needsMigration) return;
         if (viewCreationInProgressRef.current.has(`migrate-${tableId}`)) return;
         viewCreationInProgressRef.current.add(`migrate-${tableId}`);
-        axios.put(`/api/vault/views/${mainView.id}`, {
+        updateVaultView(mainView.id, {
             ...mainView,
             ...canonical,
             id: mainView.id,
@@ -1245,16 +1275,16 @@ export default function VaultDashboard() {
 
     const fetchGlobalIndex = async () => {
         try {
-            const res = await axios.get('/api/vault/global-index');
-            setGlobalIndex(res.data);
+            const index = await fetchVaultGlobalIndex();
+            setGlobalIndex(index);
         } catch (err) {
             console.error("Error loading global index:", err);
         }
         // The alias index is secondary: if it fails, title-based wikilinks
         // keep working (and `[[alias]]` still resolves via /resolve-by-title).
         try {
-            const aliasRes = await axios.get('/api/vault/alias-index');
-            setAliasIndex(aliasRes.data || {});
+            const index = await fetchVaultAliasIndex();
+            setAliasIndex(index || {});
         } catch (err) {
             console.warn("Error loading alias index:", err?.message || err);
         }
@@ -1296,7 +1326,7 @@ export default function VaultDashboard() {
                     is_main: false,
                 };
 
-            await axios.put(`/api/vault/views/${updatedView.id}`, normalizedView);
+            await updateVaultView(updatedView.id, normalizedView);
             await fetchRegistry();
             // Refresh current table pages to show possible new quick-entry records
             if (activeTableId) {
@@ -1328,7 +1358,7 @@ export default function VaultDashboard() {
             embedded: false,
         };
         try {
-            await axios.post('/api/vault/views', newView);
+            await createVaultView(newView);
             await fetchRegistry();
             setActiveViewId(newView.id);
             toast.success(t('success.view_duplicated'));
@@ -1348,9 +1378,9 @@ export default function VaultDashboard() {
         }
         setViewToDelete(view);
         setViewToDeleteUsage(null);
-        axios.get(`/api/vault/views/${encodeURIComponent(view.id)}/usage`)
-            .then(res => {
-                if (res.data) setViewToDeleteUsage(res.data);
+        fetchVaultViewUsage(view.id)
+            .then(usage => {
+                if (usage) setViewToDeleteUsage(usage);
             })
             .catch(() => {});
     };
@@ -1358,7 +1388,7 @@ export default function VaultDashboard() {
     const executeDeleteView = async () => {
         if (!viewToDelete) return;
         try {
-            await axios.delete(`/api/vault/views/${viewToDelete.id}`);
+            await deleteVaultView(viewToDelete.id);
             await fetchRegistry();
             if (activeViewId === viewToDelete.id) {
                 const remaining = (registry.views || [])
@@ -1386,7 +1416,7 @@ export default function VaultDashboard() {
         // Optimistic UI: updates local state before the round-trip.
         setViews(reorderedViews);
         try {
-            await axios.put('/api/vault/views/order', {
+            await reorderVaultViews({
                 table_id: tableId,
                 ordered_ids: orderedIds,
             });
@@ -1417,7 +1447,7 @@ export default function VaultDashboard() {
             if (fallback) setActiveViewId(fallback.id);
         }
         try {
-            await axios.put(`/api/vault/views/${viewId}`, { ...view, hidden });
+            await updateVaultView(viewId, { ...view, hidden });
             await fetchRegistry();
         } catch (err) {
             console.error("Error changing view visibility:", err);
@@ -1455,8 +1485,7 @@ export default function VaultDashboard() {
             let title = "Nou";
 
             if (normalizedTemplateId) {
-                const getRes = await axios.get(`/api/vault/pages/${normalizedTemplateId}`);
-                const templateData = getRes.data;
+                const templateData = await fetchVaultPage(normalizedTemplateId);
                 initialContent = templateData.content || "";
                 title = templateData.title || "Nou";
                 initialMeta = {
@@ -1470,8 +1499,7 @@ export default function VaultDashboard() {
                 // Use default template if available and no specific templateId is provided
                 const defaultTemplate = tableTemplates.find(t => t.metadata?.is_default_template);
                 if (defaultTemplate) {
-                    const getRes = await axios.get(`/api/vault/pages/${defaultTemplate.id}`);
-                    const templateData = getRes.data;
+                    const templateData = await fetchVaultPage(defaultTemplate.id);
                     initialContent = templateData.content || "";
                     title = templateData.title || t('common.new');
                     initialMeta = {
@@ -1486,14 +1514,14 @@ export default function VaultDashboard() {
 
             initialMeta = applySchemaDefaults(tableId, initialMeta, title);
 
-            const res = await axios.post(`/api/vault/pages`, {
+            const created = await createVaultPage({
                 title: title,
                 content: initialContent,
                 is_database: false,
                 metadata: initialMeta
             });
 
-            const newId = res.data?.id;
+            const newId = created?.id;
             if (newId) {
                 const newPageObj = {
                     id: newId,
@@ -1538,7 +1566,7 @@ export default function VaultDashboard() {
                 id: undefined,
             };
             if (template) {
-                const { data: templateData } = await axios.get(`/api/vault/pages/${template.id}`);
+                const templateData = await fetchVaultPage(template.id);
                 initialContent = templateData.content || '';
                 initialMeta = {
                     ...templateData.metadata,
@@ -1550,7 +1578,7 @@ export default function VaultDashboard() {
                 };
             }
             initialMeta = applySchemaDefaults(tableId, initialMeta, title);
-            const res = await axios.post(`/api/vault/pages`, {
+            const created = await createVaultPage({
                 title,
                 content: initialContent,
                 is_database: false,
@@ -1558,7 +1586,7 @@ export default function VaultDashboard() {
             });
             await fetchPages();
             toast.success(t('success.record_created'));
-            loadPage(res.data.id);
+            loadPage(created.id);
         } catch (err) {
             console.error("Error creating the record from a source:", err);
             toast.error(t('errors.record_create', { defaultValue: "Error creating the record" }));
@@ -1576,23 +1604,14 @@ export default function VaultDashboard() {
                 const now = new Date();
                 date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             }
-            const res = await axios.post('/api/vault/daily', { date });
+            const note = await openDailyNote({ date });
             await fetchPages();
-            loadPage(res.data.id);
+            loadPage(note.id);
         } catch (err) {
             console.error('Error opening the daily note:', err);
             toast.error(t('errors.daily_note', { defaultValue: "Error opening the daily note" }));
         }
     }, [fetchPages, loadPage, t]);
-
-    // `fetch`-style adapter over axios for PageViewModal (which expects
-    // `apiFetch(url, {method, headers, body}) -> JSON`).
-    const viewModalApiFetch = useCallback(async (url, opts = {}) => {
-        const method = (opts.method || 'GET').toUpperCase();
-        const data = opts.body ? JSON.parse(opts.body) : undefined;
-        const res = await axios({ url, method, data });
-        return res.data;
-    }, []);
 
     const onViewConfigSavedRef = useRef(null);
 
@@ -2023,7 +2042,7 @@ export default function VaultDashboard() {
         ) {
             const defaultId = uuidv4();
             viewCreationInProgressRef.current.add(tableId);
-            axios.post(`/api/vault/views`, {
+            createVaultView({
                 id: defaultId,
                 table_id: tableId,
                 ...buildMainViewBody(tableId),
@@ -2334,7 +2353,7 @@ export default function VaultDashboard() {
 
     const handleDuplicateTemplate = async (template) => {
         try {
-            await axios.post(`/api/vault/pages`, {
+            await createVaultPage({
                 title: `${template.title} (${t('common.copy')})`,
                 content: template.content || "",
                 is_database: false,
@@ -2359,13 +2378,13 @@ export default function VaultDashboard() {
             const otherTemplates = pages.filter(p => resolvePageTableId(p) === targetTableId && p.metadata?.is_template && p.id !== template.id && p.metadata?.is_default_template);
             
             for (const t of otherTemplates) {
-                await axios.patch(`/api/vault/pages/${t.id}`, {
+                await patchVaultPage(t.id, {
                     ...t,
                     metadata: { ...t.metadata, is_default_template: false }
                 });
             }
 
-            await axios.patch(`/api/vault/pages/${template.id}`, {
+            await patchVaultPage(template.id, {
                 ...template,
                 metadata: { ...template.metadata, is_default_template: true }
             });
@@ -2394,8 +2413,7 @@ export default function VaultDashboard() {
             let title = "Nou";
 
             if (normalizedTemplateId) {
-                const getRes = await axios.get(`/api/vault/pages/${normalizedTemplateId}`);
-                const templateData = getRes.data;
+                const templateData = await fetchVaultPage(normalizedTemplateId);
                 initialContent = templateData.content || "";
                 title = templateData.title || "Nou";
                 initialMeta = {
@@ -2410,14 +2428,14 @@ export default function VaultDashboard() {
 
             initialMeta = applySchemaDefaults(targetTableId, initialMeta, title);
 
-            const res = await axios.post(`/api/vault/pages`, {
+            const created = await createVaultPage({
                 title: title,
                 content: initialContent,
                 is_database: false,
                 metadata: initialMeta
             });
             await fetchPagesByTable(targetTableId);
-            loadPage(res.data.id);
+            loadPage(created.id);
         } catch {
             toast.error(t('errors.record_create'));
         }
@@ -2486,7 +2504,7 @@ export default function VaultDashboard() {
             ) {
                 const defaultId = uuidv4();
                 viewCreationInProgressRef.current.add(tableId);
-                axios.post(`/api/vault/views`, {
+                createVaultView({
                     id: defaultId,
                     table_id: tableId,
                     ...buildMainViewBody(tableId),
@@ -2575,7 +2593,7 @@ export default function VaultDashboard() {
             setPromptModal(prev => ({ ...prev, isLoading: true }));
 
             if (isTemplate) {
-                const res = await axios.post(`/api/vault/pages`, {
+                const created = await createVaultPage({
                     title: title,
                     content: ``,
                     is_database: false,
@@ -2587,9 +2605,9 @@ export default function VaultDashboard() {
                 });
                 await fetchPages();
                 toast.success(t('success.template_created')); // Add success.template_created
-                loadPage(res.data.id);
+                loadPage(created.id);
             } else if (isApp) {
-                await axios.post('/api/vault/databases', { name: title });
+                await createVaultDatabase({ name: title });
                 await fetchRegistry();
                 toast.success(t('success.app_created', { name: title }));
             } else if (isRename) {
@@ -2609,16 +2627,16 @@ export default function VaultDashboard() {
                         name: title,
                         order: 0,
                     };
-                    await axios.post('/api/vault/views', newView);
+                    await createVaultView(newView);
                     setActiveViewId(newView.id);
                 } else {
-                    await axios.put(`/api/vault/views/${viewId}`, updated);
+                    await updateVaultView(viewId, updated);
                 }
                 await fetchRegistry();
                 toast.success(t('success.view_renamed'));
             } else if (isDrawing) {
                 const drawingId = uuidv4();
-                await axios.put(`/api/vault/drawings/${drawingId}`, {
+                await saveDrawing(drawingId, {
                     title: title,
                     data: {},
                     metadata: {}
@@ -2629,21 +2647,21 @@ export default function VaultDashboard() {
                 pushToHistory({ type: 'drawing', id: drawingId });
             } else if (isDatabase && databaseId) {
                 // Table inside a Database (App)
-                const tableRes = await axios.post('/api/vault/tables', {
+                const table = await createVaultTable({
                     name: title,
                     database_id: databaseId,
                     locale: i18n.resolvedLanguage || i18n.language,
                     properties: [{ name: "Status", type: "select" }]
                 });
-                await axios.post(`/api/vault/views`, {
+                await createVaultView({
                     id: uuidv4(),
-                    table_id: tableRes.data.id,
-                    ...buildMainViewBody(tableRes.data.id),
+                    table_id: table.id,
+                    ...buildMainViewBody(table.id),
                 });
                 await fetchRegistry();
                 toast.success(t('success.table_created', { name: title }));
             } else {
-                const res = await axios.post(`/api/vault/pages`, {
+                const created = await createVaultPage({
                     title: title,
                     content: isDashboard ? '{\n  \n}' : ``,
                     parent_id: parentId,
@@ -2656,7 +2674,7 @@ export default function VaultDashboard() {
                         : undefined,
                 });
                 await fetchPages();
-                loadPage(res.data.id);
+                loadPage(created.id);
             }
             closePromptModal();
         } catch {
@@ -2718,7 +2736,7 @@ export default function VaultDashboard() {
         };
         const restorePage = async () => {
             try {
-                await axios.post(`/api/vault/pages/${id}/restore`);
+                await restoreVaultPage(id);
                 refreshAfterDelete();
                 toast.success(t('success.page_restored'));
             } catch (err) {
@@ -2728,7 +2746,7 @@ export default function VaultDashboard() {
         };
 
         try {
-            await axios.delete(`/api/vault/pages/${id}`);
+            await deleteVaultPage(id);
             removeFromState();
             refreshAfterDelete();
             toast((tObj) => (
@@ -2776,7 +2794,7 @@ export default function VaultDashboard() {
         // Restore with partial error reporting. Returns {succeeded, failed}.
         const restoreMany = async (ids) => {
             const results = await Promise.allSettled(
-                ids.map(id => axios.post(`/api/vault/pages/${id}/restore`))
+                ids.map(id => restoreVaultPage(id))
             );
             const succeeded = [];
             const failed = [];
@@ -2798,7 +2816,7 @@ export default function VaultDashboard() {
         // DELETE: 404 → treated as success (it's no longer on disk; it still needs to be removed from
         // local state anyway); 200/2xx → success; anything else → failed.
         const deleteResults = await Promise.allSettled(
-            idArray.map(id => axios.delete(`/api/vault/pages/${id}`))
+            idArray.map(id => deleteVaultPage(id))
         );
         const deletedIds = [];
         const failedDeletes = [];
@@ -2863,12 +2881,12 @@ export default function VaultDashboard() {
         const pageIds = [...selectedIds];
         if (pageIds.length === 0 || !templateId) return;
         try {
-            const response = await axios.post('/api/vault/bulk-apply-template', {
+            const response = await bulkApplyVaultTemplate({
                 page_ids: pageIds,
                 template_id: templateId,
             });
-            const updated = response.data?.updated || 0;
-            const failed = (response.data?.errors?.length || 0) + (response.data?.conflicts?.length || 0);
+            const updated = response?.updated || 0;
+            const failed = (response?.errors?.length || 0) + (response?.conflicts?.length || 0);
             if (updated > 0) {
                 toast.success(t('bulk_actions.template_applied', { count: updated }));
                 await fetchPagesByTable(tableId);
@@ -2921,7 +2939,7 @@ export default function VaultDashboard() {
         applyLocalValue(value);
 
         try {
-            await axios.patch(`/api/vault/pages/${encodeURIComponent(operation.pageId)}`, {
+            await patchVaultPage(operation.pageId, {
                 metadata: { [operation.metadataKey]: value },
             });
 
@@ -2961,7 +2979,7 @@ export default function VaultDashboard() {
 
         if (operation.type === 'delete' && Array.isArray(operation.ids)) {
             const results = await Promise.allSettled(
-                operation.ids.map(id => axios.post(`/api/vault/pages/${id}/restore`))
+                operation.ids.map(id => restoreVaultPage(id))
             );
             const succeeded = [];
             const failed = [];
@@ -3008,7 +3026,7 @@ export default function VaultDashboard() {
 
         if (operation.type === 'delete' && Array.isArray(operation.ids)) {
             const results = await Promise.allSettled(
-                operation.ids.map(id => axios.delete(`/api/vault/pages/${id}`))
+                operation.ids.map(id => deleteVaultPage(id))
             );
             const succeeded = [];
             const failed = [];
@@ -3064,10 +3082,10 @@ export default function VaultDashboard() {
 
     const handleDuplicatePage = useCallback(async (pageId) => {
         try {
-            const res = await axios.post(`/api/vault/pages/${pageId}/duplicate`);
+            const duplicate = await duplicateVaultPage(pageId);
             toast.success(t('success.page_duplicated'));
             await fetchPages();
-            loadPage(res.data.id);
+            loadPage(duplicate.id);
         } catch {
             toast.error(t('errors.duplicate_page'));
         }
@@ -3075,11 +3093,11 @@ export default function VaultDashboard() {
 
     const handleRenamePage = useCallback(async (pageId, newTitle) => {
         try {
-            const getRes = await axios.get(`/api/vault/pages/${pageId}`);
-            const { content, metadata } = getRes.data;
+            const page = await fetchVaultPage(pageId);
+            const { content, metadata } = page;
             const updatedMeta = { ...metadata, title: newTitle };
 
-            await axios.put(`/api/vault/pages/${pageId}`, {
+            await saveVaultPage(pageId, {
                 title: newTitle,
                 content: content,
                 is_database: updatedMeta.is_database || false,
@@ -3132,10 +3150,10 @@ export default function VaultDashboard() {
         // PUT (not lose the note body); if the GET or the PUT fail,
         // we revert the optimistic update so as not to mislead the user.
         try {
-            const getRes = await axios.get(`/api/vault/pages/${pageId}`);
-            const { content, metadata, title } = getRes.data;
+            const page = await fetchVaultPage(pageId);
+            const { content, metadata, title } = page;
             const updatedMeta = { ...metadata, favorite: nextFav };
-            await axios.put(`/api/vault/pages/${pageId}`, {
+            await saveVaultPage(pageId, {
                 title: title,
                 content: content,
                 is_database: updatedMeta.is_database || false,
@@ -3181,10 +3199,9 @@ export default function VaultDashboard() {
     const handleAddSchemaOption = useCallback(async (tableId, fieldId, nextOptions) => {
         if (!tableId || !fieldId || !Array.isArray(nextOptions)) return;
         try {
-            await axios.patch(
-                `/api/vault/tables/${tableId}/properties/${fieldId}`,
-                { config: { options: nextOptions } }
-            );
+            await patchVaultTableProperty(tableId, fieldId, {
+                config: { options: nextOptions },
+            });
             await fetchRegistry();
         } catch (err) {
             notifyError('add-schema-option', err, t('errors.add_schema_option'));
@@ -3316,15 +3333,13 @@ export default function VaultDashboard() {
         }
         // The configuration snapshot can predate a failed job. Load the durable
         // status for the open resource so interrupted work can always be resumed.
-        axios.get(`/api/vault/llm-wiki/status/${encodeURIComponent(currentOpenPage.id)}`, {
-            params: { source_table_id: openPageTableId },
-        }).then((response) => {
-            if (!alive || response.data?.phase === 'idle') return;
+        fetchResourceProcessingStatus(currentOpenPage.id, openPageTableId).then((job) => {
+            if (!alive || job?.phase === 'idle') return;
             setLlmWikiJobs((current) => ({
                 ...current,
                 [openPageTableId]: {
                     ...(current[openPageTableId] || {}),
-                    [currentOpenPage.id]: response.data,
+                    [currentOpenPage.id]: job,
                 },
             }));
         }).catch((error) => {
@@ -3560,7 +3575,7 @@ export default function VaultDashboard() {
                 try {
                     const db = registry.databases.find(d => d.id === dbId);
                     if (db) {
-                        await axios.post('/api/vault/databases', { ...db, name: newName });
+                        await createVaultDatabase({ ...db, name: newName });
                         fetchRegistry();
                         toast.success(t('success.db_updated'));
                     }
@@ -3570,7 +3585,7 @@ export default function VaultDashboard() {
             }}
             onDeleteDatabase={async (dbId) => {
                 try {
-                    await axios.delete(`/api/vault/databases/${dbId}`);
+                    await deleteVaultDatabase(dbId);
                     fetchRegistry();
                     if (activeTabId === dbId || activeTableId === dbId) {
                         setActiveTabId(null);
@@ -3585,7 +3600,7 @@ export default function VaultDashboard() {
             }}
             onRenameTable={async (tableId, newName) => {
                 try {
-                    await axios.put(`/api/vault/tables/${tableId}`, { name: newName });
+                    await renameVaultTable(tableId, { name: newName });
                     fetchRegistry();
                     toast.success(t('success.table_updated'));
                 } catch {
@@ -3594,7 +3609,7 @@ export default function VaultDashboard() {
             }}
             onDeleteTable={async (tableId) => {
                 try {
-                    await axios.delete(`/api/vault/tables/${tableId}`);
+                    await deleteVaultTable(tableId);
                     setSplitTableIds(prev => prev.filter(id => id !== tableId));
                     fetchRegistry();
                     if (activeTableId === tableId) {
@@ -4580,7 +4595,7 @@ export default function VaultDashboard() {
                                     // `translation_enabled` is metadata of the table
                                     // (not of the view) because it defines what can be
                                     // translated, not how it's displayed.
-                                    await axios.post(`/api/vault/tables`, {
+                                    await createVaultTable({
                                         ...activeTable,
                                         properties: newProperties,
                                         translation_enabled: !!viewConfig.enableTranslation,
@@ -4634,7 +4649,6 @@ export default function VaultDashboard() {
                         mode="table"
                         pageId={null}
                         allTables={registry.tables}
-                        apiFetch={viewModalApiFetch}
                         preselectedTableId={activeTableId}
                         editingView={viewToConfigure}
                         initialTab={viewConfigTab}

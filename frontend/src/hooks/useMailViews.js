@@ -1,6 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
+import {
+    createMailView,
+    deleteMailView,
+    fetchMailViews,
+    updateMailView,
+} from '../shared/api/mail';
+import { GnosiApiError } from '../shared/api/errors';
 
-const API = '/api/mail/views';
+function legacyHttpError(error, message) {
+    return error instanceof GnosiApiError ? new Error(message, { cause: error }) : error;
+}
+
+function rethrowLegacyHttpError(error, message) {
+    throw legacyHttpError(error, message);
+}
 
 export function useMailViews() {
     const [views, setViews] = useState([]);
@@ -11,11 +24,9 @@ export function useMailViews() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(API);
-            if (!res.ok) throw new Error('Error loading views');
-            setViews(await res.json());
+            setViews(await fetchMailViews());
         } catch (e) {
-            setError(e.message);
+            setError(legacyHttpError(e, 'Error loading views').message);
         } finally {
             setLoading(false);
         }
@@ -24,32 +35,33 @@ export function useMailViews() {
     useEffect(() => { fetchViews(); }, [fetchViews]);
 
     const createView = useCallback(async (data) => {
-        const res = await fetch(API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Error creant vista');
-        const created = await res.json();
+        let created;
+        try {
+            created = await createMailView(data);
+        } catch (error) {
+            rethrowLegacyHttpError(error, 'Error creant vista');
+        }
         setViews(prev => [...prev, created]);
         return created;
     }, []);
 
     const updateView = useCallback(async (id, data) => {
-        const res = await fetch(`${API}/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Error actualitzant vista');
-        const updated = await res.json();
+        let updated;
+        try {
+            updated = await updateMailView(id, data);
+        } catch (error) {
+            rethrowLegacyHttpError(error, 'Error actualitzant vista');
+        }
         setViews(prev => prev.map(v => v.id === id ? updated : v));
         return updated;
     }, []);
 
     const deleteView = useCallback(async (id) => {
-        const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Error eliminant vista');
+        try {
+            await deleteMailView(id);
+        } catch (error) {
+            rethrowLegacyHttpError(error, 'Error eliminant vista');
+        }
         setViews(prev => prev.filter(v => v.id !== id));
     }, []);
 

@@ -1,6 +1,10 @@
 /** Shared, versioned plugin activation and configuration state. */
 import { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
+import {
+    fetchPluginState,
+    setPluginLifecycle,
+} from '../shared/api/plugins';
+import { updatePluginSettings } from '../shared/api/plugin-runtime';
 
 import { BUILTIN_PLUGINS } from './registry';
 
@@ -43,8 +47,8 @@ function _apply(payload) {
 async function _load(force = false) {
     if (_state.loaded && !force) return _state;
     if (!_loading) {
-        _loading = axios.get('/api/vault/plugins')
-            .then((response) => _apply(response.data || {}))
+        _loading = fetchPluginState()
+            .then((payload) => _apply(payload || {}))
             .catch(() => {
                 _state = { ...EMPTY_STATE, loaded: true };
                 _notify();
@@ -82,16 +86,13 @@ export function usePlugins() {
     ), [state.enabledBuiltin, state.enabledThirdParty]);
 
     const setPluginEnabled = useCallback(async (id, enabled, options = {}) => {
-        const response = await axios.post(
-            `/api/vault/plugins/${encodeURIComponent(id)}/lifecycle`,
-            {
-                enabled,
-                confirm_dependencies: options.confirmDependencies === true,
-                confirm_disable: options.confirmDisable === true,
-            },
-        );
-        _apply(response.data || {});
-        return response.data;
+        const payload = await setPluginLifecycle(id, {
+            enabled,
+            confirm_dependencies: options.confirmDependencies === true,
+            confirm_disable: options.confirmDisable === true,
+        });
+        _apply(payload || {});
+        return payload;
     }, []);
 
     const getPluginSettings = useCallback(
@@ -108,15 +109,12 @@ export function usePlugins() {
         };
         _notify();
         try {
-            const response = await axios.put(
-                `/api/vault/plugins/${encodeURIComponent(id)}/settings`,
-                { settings: patch || {} },
-            );
+            const response = await updatePluginSettings(id, patch || {});
             _state = {
                 ..._state,
                 settings: {
                     ..._state.settings,
-                    [id]: response.data?.settings || merged,
+                    [id]: response.settings || merged,
                 },
             };
             _notify();

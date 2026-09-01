@@ -1,23 +1,44 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, BackgroundTasks
-from pydantic import BaseModel
-from pathlib import Path
-from typing import Any, Callable, cast
-from datetime import datetime
-import logging
-import html
-import re
-import json
 import asyncio
 import copy
+import html
+import json
+import logging
+import re
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, cast
 
-from backend.services.social_clients import (
-    mastodon_client,
-    bluesky_client,
-    SOCIAL_PUBLISHERS,
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+
+from backend.domains.social.schemas import (
+    CancelScheduledPostResponse,
+    ComposeRequest,
+    ComposeResponse,
+    CreatePostRequest,
+    InteractionRequest,
+    InteractionResponse,
+    NetworkPost,
+    PostHistoryResponse,
+    ProcessScheduledResponse,
+    PublicationResponse,
+    PublishRequest,
+    ScheduledPostResponse,
+    ScheduledPublicationResponse,
+    SchedulePublishRequest,
+    SocialNetwork,
+    SocialPost,
+    SocialSettingsUpdateResponse,
+    Stream,
 )
 from backend.services import social_store
-from backend.services.social_compose import compose_one, detect_lang
 from backend.services.integration_manager import integration_manager
+from backend.services.social_compose import compose_one, detect_lang
+
+from backend.services.social_clients import (
+    SOCIAL_PUBLISHERS,
+    bluesky_client,
+    mastodon_client,
+)
 from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
 
@@ -38,78 +59,6 @@ DEFAULT_NETWORKS = [
 ]
 
 router = APIRouter()
-
-
-# --- Models ---
-class SocialPost(BaseModel):
-    id: str
-    network: str
-    author: str
-    handle: str
-    content: str
-    timestamp: str
-    avatar: str | None = None
-    is_reblog: bool = False
-    reblog_by: str | None = None
-    favourited: bool = False
-    reblogged: bool = False
-    favourites_count: int = 0
-    reblogs_count: int = 0
-    replies_count: int = 0
-    url: str | None = None
-    cid: str | None = None  # For Bluesky
-
-
-class CreatePostRequest(BaseModel):
-    content: str
-    networks: list[str]
-
-
-class NetworkPost(BaseModel):
-    text: str
-    # List of local paths or (path, alt_text) to attach media.
-    media: list[Any] | None = None
-
-
-class ComposeRequest(BaseModel):
-    networks: list[str]
-    content: str = ""
-    title: str = ""
-    url: str = ""
-    source_page_id: str | None = None
-    hint: str = ""
-    # If passed, only these networks are regenerated (subset of `networks`).
-    regenerate_only: list[str] | None = None
-    # Increment to force a different proposal (bypasses the AI cache keyed by hash).
-    variation: int = 0
-
-
-class PublishRequest(BaseModel):
-    posts: dict[str, NetworkPost]
-    source_page_id: str | None = None
-    source_title: str = ""
-    save_record: bool = True
-
-
-class SchedulePublishRequest(BaseModel):
-    posts: dict[str, NetworkPost]
-    scheduled_time: datetime
-    source_page_id: str | None = None
-    source_title: str = ""
-
-
-class Stream(BaseModel):
-    id: str
-    title: str
-    icon: str
-    network: str
-
-
-class InteractionRequest(BaseModel):
-    post_id: str
-    network: str
-    action: str  # like, unlike, reblog, unreblog
-    cid: str | None = None  # For Bluesky
 
 
 # --- Helper Functions ---
@@ -136,21 +85,30 @@ def _network_settings(network: str) -> dict[str, Any]:
 
 
 @router.get("/streams", response_model=list[Stream])
-async def get_streams() -> Any:
+async def get_streams() -> list[Stream]:
     """Returns the user-configured streams/columns."""
     config = integration_manager._load()
-    return config.get("social_streams", DEFAULT_STREAMS)
+    return [
+        Stream.model_validate(stream)
+        for stream in config.get("social_streams", DEFAULT_STREAMS)
+    ]
 
 
-@router.put("/streams", dependencies=[Depends(require_role("editor"))], response_model=None)
-async def update_streams(payload: list[dict[str, Any]] = Body(...)) -> Any:
+@router.put(
+    "/streams",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=SocialSettingsUpdateResponse,
+)
+async def update_streams(payload: list[Stream]) -> SocialSettingsUpdateResponse:
     """Saves the user's stream configuration."""
-    integration_manager.replace_key("social_streams", payload)
-    return {"status": "ok"}
+    integration_manager.replace_key(
+        "social_streams", [stream.model_dump() for stream in payload]
+    )
+    return SocialSettingsUpdateResponse(status="ok")
 
 
-@router.get("/networks", response_model=None)
-async def get_networks() -> Any:
+@router.get("/networks", response_model=list[SocialNetwork])
+async def get_networks() -> list[SocialNetwork]:
     """Returns the user-configured social networks, with live config status."""
     config = integration_manager._load()
     # deepcopy: `_load()` caches and returns the shared object (and DEFAULT_NETWORKS is
@@ -166,7 +124,7 @@ async def get_networks() -> Any:
                 n["configured"] = False
             n["char_limit"] = getattr(client, "char_limit", 280)
             n["implemented"] = not isinstance(client, social_store_unconfigured_types())
-    return networks
+    return [SocialNetwork.model_validate(network) for network in networks]
 
 
 def social_store_unconfigured_types() -> tuple[type[Any], ...]:
@@ -176,15 +134,26 @@ def social_store_unconfigured_types() -> tuple[type[Any], ...]:
     return (UnconfiguredPublisher,)
 
 
-@router.put("/networks", dependencies=[Depends(require_role("editor"))], response_model=None)
-async def update_networks(payload: list[dict[str, Any]] = Body(...)) -> Any:
+@router.put(
+    "/networks",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=SocialSettingsUpdateResponse,
+)
+async def update_networks(payload: list[SocialNetwork]) -> SocialSettingsUpdateResponse:
     """Saves the enabled/disabled state and per-network settings."""
-    integration_manager.replace_key("social_networks", payload)
-    return {"status": "ok"}
+    integration_manager.replace_key(
+        "social_networks", [network.model_dump() for network in payload]
+    )
+    return SocialSettingsUpdateResponse(status="ok")
 
 
-@router.get("/feed/{stream_id}", response_model=None)
-async def get_feed(stream_id: str, limit: int = 20) -> Any:
+def _social_posts(items: list[dict[str, Any]]) -> list[SocialPost]:
+    """Validate feed records at the third-party adapter boundary."""
+    return [SocialPost.model_validate(item) for item in items]
+
+
+@router.get("/feed/{stream_id}", response_model=list[SocialPost])
+async def get_feed(stream_id: str, limit: int = 20) -> list[SocialPost]:
     """Returns posts for a specific stream."""
 
     if stream_id == "mastodon-home":
@@ -192,7 +161,7 @@ async def get_feed(stream_id: str, limit: int = 20) -> Any:
         for post in posts:
             post["content"] = strip_html(post.get("content", ""))
         if not posts and not mastodon_client.bearer:
-            return [
+            return _social_posts([
                 {
                     "id": "mastodon-setup",
                     "network": "mastodon",
@@ -209,13 +178,13 @@ async def get_feed(stream_id: str, limit: int = 20) -> Any:
                     "is_reblog": False,
                     "url": "https://mastodon.social/settings/applications",
                 }
-            ]
-        return posts
+            ])
+        return _social_posts(posts)
 
     elif stream_id == "bluesky-home":
         posts = await bluesky_client.get_timeline(limit=limit)
         if not posts and not bluesky_client.app_password:
-            return [
+            return _social_posts([
                 {
                     "id": "bluesky-setup",
                     "network": "bluesky",
@@ -232,8 +201,8 @@ async def get_feed(stream_id: str, limit: int = 20) -> Any:
                     "is_reblog": False,
                     "url": "https://bsky.app/settings/app-passwords",
                 }
-            ]
-        return posts
+            ])
+        return _social_posts(posts)
 
     elif stream_id == "scheduled":
         recs = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
@@ -262,7 +231,7 @@ async def get_feed(stream_id: str, limit: int = 20) -> Any:
                     "url": None,
                 }
             )
-        return items
+        return _social_posts(items)
 
     elif stream_id.startswith(("facebook", "linkedin", "telegram", "instagram", "x")):
         network = stream_id.split("-")[0]
@@ -274,7 +243,7 @@ async def get_feed(stream_id: str, limit: int = 20) -> Any:
         ]
         if not my_posts:
             network_name = network.capitalize()
-            return [
+            return _social_posts([
                 {
                     "id": f"system-{stream_id}-empty",
                     "network": network,
@@ -291,7 +260,7 @@ async def get_feed(stream_id: str, limit: int = 20) -> Any:
                     "is_reblog": False,
                     "url": None,
                 }
-            ]
+            ])
         feed_items = []
         for r in my_posts:
             feed_items.append(
@@ -314,7 +283,7 @@ async def get_feed(stream_id: str, limit: int = 20) -> Any:
                     "url": _messages_url(r, network),
                 }
             )
-        return feed_items
+        return _social_posts(feed_items)
 
     return []
 
@@ -352,8 +321,12 @@ _VALID_ACTIONS = {
 }
 
 
-@router.post("/interact", dependencies=[Depends(require_role("editor"))], response_model=None)
-async def interact_with_post(request: InteractionRequest) -> Any:
+@router.post(
+    "/interact",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=InteractionResponse,
+)
+async def interact_with_post(request: InteractionRequest) -> InteractionResponse:
     """Perform an interaction (like, reblog) on a post."""
 
     if request.network not in _VALID_NETWORKS:
@@ -398,11 +371,17 @@ async def interact_with_post(request: InteractionRequest) -> Any:
             status_code=502, detail=f"Failed to {request.action} post on {request.network}"
         )
 
-    return {"status": "success", "action": request.action, "post_id": request.post_id}
+    return InteractionResponse(
+        status="success", action=request.action, post_id=request.post_id
+    )
 
 
-@router.post("/compose", dependencies=[Depends(require_role("editor"))], response_model=None)
-async def compose_posts(request: ComposeRequest) -> Any:
+@router.post(
+    "/compose",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=ComposeResponse,
+)
+async def compose_posts(request: ComposeRequest) -> ComposeResponse:
     """Generate (with AI) a text proposal adapted for each network. Does NOT publish.
 
     The text is generated IN THE SAME LANGUAGE as the original content (detected
@@ -453,7 +432,9 @@ async def compose_posts(request: ComposeRequest) -> Any:
             status_code=502,
             detail="No proposal could be generated. Check the AI provider configuration.",
         )
-    return {"proposals": proposals, "source_lang": source_lang, "provider": provider}
+    return ComposeResponse.model_validate(
+        {"proposals": proposals, "source_lang": source_lang, "provider": provider}
+    )
 
 
 async def _load_source_row(
@@ -615,8 +596,14 @@ async def _do_publish(
     return rid, final, results
 
 
-@router.post("/publish", dependencies=[Depends(require_role("editor"))], response_model=None)
-async def publish_posts(request: PublishRequest, background_tasks: BackgroundTasks) -> Any:
+@router.post(
+    "/publish",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=PublicationResponse,
+)
+async def publish_posts(
+    request: PublishRequest, background_tasks: BackgroundTasks
+) -> PublicationResponse:
     """Publish a message (potentially different) per network and save the registry."""
     if not request.posts:
         raise HTTPException(status_code=400, detail="Cap publicació a enviar.")
@@ -629,11 +616,19 @@ async def publish_posts(request: PublishRequest, background_tasks: BackgroundTas
         save_record=request.save_record,
         background_tasks=background_tasks,
     )
-    return {"record_id": rid, "status": final, "results": results}
+    return PublicationResponse.model_validate(
+        {"record_id": rid, "status": final, "results": results}
+    )
 
 
-@router.post("/post", dependencies=[Depends(require_role("editor"))], response_model=None)
-async def create_post(request: CreatePostRequest, background_tasks: BackgroundTasks) -> Any:
+@router.post(
+    "/post",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=PublicationResponse,
+)
+async def create_post(
+    request: CreatePostRequest, background_tasks: BackgroundTasks
+) -> PublicationResponse:
     """Compat: publishes the SAME text to multiple networks. For a per-network message,
     use /publish. (Previously returned 501 because it depended on n8n; now it publishes via
     the direct clients.)"""
@@ -641,11 +636,19 @@ async def create_post(request: CreatePostRequest, background_tasks: BackgroundTa
     rid, final, results = await _do_publish(posts, background_tasks=background_tasks)
     if final == social_store.STATUS_ERROR:
         raise HTTPException(status_code=502, detail=f"Publishing failed: {results}")
-    return {"record_id": rid, "status": final, "results": results}
+    return PublicationResponse.model_validate(
+        {"record_id": rid, "status": final, "results": results}
+    )
 
 
-@router.post("/schedule", dependencies=[Depends(require_role("editor"))], response_model=None)
-async def schedule_post(request: SchedulePublishRequest, background_tasks: BackgroundTasks) -> Any:
+@router.post(
+    "/schedule",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=ScheduledPublicationResponse,
+)
+async def schedule_post(
+    request: SchedulePublishRequest, background_tasks: BackgroundTasks
+) -> ScheduledPublicationResponse:
     """Schedule a future publication (saved to the Vault table, not in memory)."""
     if request.scheduled_time <= datetime.now():
         raise HTTPException(status_code=400, detail="The scheduled time must be in the future.")
@@ -664,16 +667,16 @@ async def schedule_post(request: SchedulePublishRequest, background_tasks: Backg
         source_title=request.source_title,
         background_tasks=background_tasks,
     )
-    return {
-        "status": "scheduled",
-        "id": rid,
-        "scheduled_time": request.scheduled_time.isoformat(),
-        "networks": networks,
-    }
+    return ScheduledPublicationResponse(
+        status="scheduled",
+        id=rid,
+        scheduled_time=request.scheduled_time.isoformat(),
+        networks=networks,
+    )
 
 
-@router.get("/scheduled", response_model=None)
-async def get_scheduled_posts() -> Any:
+@router.get("/scheduled", response_model=list[ScheduledPostResponse])
+async def get_scheduled_posts() -> list[ScheduledPostResponse]:
     """Returns all pending scheduled posts."""
     recs = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
     out = []
@@ -691,15 +694,17 @@ async def get_scheduled_posts() -> Any:
                 "status": "pending",
             }
         )
-    return out
+    return [ScheduledPostResponse.model_validate(item) for item in out]
 
 
 @router.delete(
     "/scheduled/{post_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=CancelScheduledPostResponse,
 )
-async def cancel_scheduled_post(post_id: str, background_tasks: BackgroundTasks) -> Any:
+async def cancel_scheduled_post(
+    post_id: str, background_tasks: BackgroundTasks
+) -> CancelScheduledPostResponse:
     """Cancel a scheduled post (marks the status as cancelled)."""
     recs = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
     if not any(r.get("id") == post_id for r in recs):
@@ -709,15 +714,17 @@ async def cancel_scheduled_post(post_id: str, background_tasks: BackgroundTasks)
         status=social_store.STATUS_CANCELLED,
         background_tasks=background_tasks,
     )
-    return {"status": "cancelled", "id": post_id}
+    return CancelScheduledPostResponse(status="cancelled", id=post_id)
 
 
 @router.post(
     "/process-scheduled",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ProcessScheduledResponse,
 )
-async def process_scheduled_posts(background_tasks: BackgroundTasks) -> Any:
+async def process_scheduled_posts(
+    background_tasks: BackgroundTasks,
+) -> ProcessScheduledResponse:
     """Publish overdue scheduled posts. Called periodically by the scheduler."""
     now = datetime.now()
     pending = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
@@ -754,11 +761,13 @@ async def process_scheduled_posts(background_tasks: BackgroundTasks) -> Any:
             background_tasks=background_tasks,
         )
         processed.append({"id": rid, "status": final, "results": results})
-    return {"processed": len(processed), "details": processed}
+    return ProcessScheduledResponse.model_validate(
+        {"processed": len(processed), "details": processed}
+    )
 
 
-@router.get("/history", response_model=None)
-async def get_post_history() -> Any:
+@router.get("/history", response_model=list[PostHistoryResponse])
+async def get_post_history() -> list[PostHistoryResponse]:
     """Returns the history of published posts (most recent first)."""
     recs = await social_store.list_publications()
     done_states = {
@@ -783,4 +792,5 @@ async def get_post_history() -> Any:
                 "status": r.get(social_store.COL_STATUS),
             }
         )
-    return sorted(hist, key=lambda x: str(x["published_at"]), reverse=True)[:50]
+    ordered = sorted(hist, key=lambda x: str(x["published_at"]), reverse=True)[:50]
+    return [PostHistoryResponse.model_validate(item) for item in ordered]

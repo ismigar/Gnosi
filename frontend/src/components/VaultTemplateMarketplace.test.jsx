@@ -1,11 +1,21 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import axios from 'axios';
+import {
+    createVaultFromTemplate,
+    fetchVaultTemplateCatalog,
+    fetchVaultTemplateExportPreview,
+} from '../shared/api/vault-templates';
 
 import VaultTemplateMarketplace from './VaultTemplateMarketplace';
 
-vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('../shared/api/vault-templates', () => ({
+    createVaultFromTemplate: vi.fn(),
+    downloadVaultTemplate: vi.fn(),
+    fetchVaultTemplateCatalog: vi.fn(),
+    fetchVaultTemplateExportPreview: vi.fn(),
+    submitVaultTemplate: vi.fn(),
+}));
 const translate = vi.hoisted(() => (key, values = {}) => Object.entries(values || {}).reduce(
     (text, [name, value]) => text.replace(`{{${name}}}`, value),
     key,
@@ -44,13 +54,14 @@ async function renderMarketplace(props = {}) {
 
 describe('VaultTemplateMarketplace', () => {
     it('creates a Vault from a verified catalog selection', async () => {
-        axios.get.mockResolvedValueOnce({ data: {
+        fetchVaultTemplateCatalog.mockResolvedValueOnce({
             templates: [{
                 id: 'starter-vault', version: '1.0.0', name: 'Starter Vault',
                 description: 'Verified starter', verified: true,
             }],
-        } });
-        axios.post.mockResolvedValueOnce({ data: { id: 'created-vault' } });
+            submissionConfigured: false,
+        });
+        createVaultFromTemplate.mockResolvedValueOnce({ id: 'created-vault' });
         const onCreated = vi.fn();
 
         await renderMarketplace({ onCreated });
@@ -62,7 +73,7 @@ describe('VaultTemplateMarketplace', () => {
             .find((button) => button.textContent.includes('vault_templates.create'));
         await act(async () => createButton.click());
 
-        expect(axios.post).toHaveBeenCalledWith('/api/vaults/from-template', {
+        expect(createVaultFromTemplate).toHaveBeenCalledWith({
             name: 'Starter Vault',
             template_id: 'starter-vault',
             version: '1.0.0',
@@ -71,19 +82,21 @@ describe('VaultTemplateMarketplace', () => {
     });
 
     it('shows the privacy preview before publishing', async () => {
-        axios.get
-            .mockResolvedValueOnce({ data: { templates: [], submissionConfigured: false } })
-            .mockResolvedValueOnce({ data: {
-                included: [{ path: 'Wiki/Note.md', size: 12 }],
-                excluded: [{ path: '.gnosi/plugins.json', reason: 'private-root' }],
-                findings: [{ path: 'Wiki/Note.md', kind: 'credential-assignment' }],
-                totalSize: 12,
-            } });
+        fetchVaultTemplateCatalog.mockResolvedValueOnce({
+            templates: [],
+            submissionConfigured: false,
+        });
+        fetchVaultTemplateExportPreview.mockResolvedValueOnce({
+            included: [{ path: 'Wiki/Note.md', size: 12 }],
+            excluded: [{ path: '.gnosi/plugins.json', reason: 'private-root' }],
+            findings: [{ path: 'Wiki/Note.md', kind: 'credential-assignment' }],
+            totalSize: 12,
+        });
 
         await renderMarketplace({ initialSection: 'publish' });
         await act(async () => {});
 
-        expect(axios.get).toHaveBeenCalledWith('/api/vaults/vault-1/template-export/preview');
+        expect(fetchVaultTemplateExportPreview).toHaveBeenCalledWith('vault-1');
         expect(container.textContent).toContain('vault_templates.included_count');
         expect(container.textContent).toContain('vault_templates.findings_ack');
         const submit = [...container.querySelectorAll('button')]
@@ -92,9 +105,13 @@ describe('VaultTemplateMarketplace', () => {
     });
 
     it('keeps publishing actions disabled when the preview is rejected', async () => {
-        axios.get
-            .mockResolvedValueOnce({ data: { templates: [], submissionConfigured: true } })
-            .mockRejectedValueOnce({ response: { data: { detail: 'Vault export exceeds the template limits' } } });
+        fetchVaultTemplateCatalog.mockResolvedValueOnce({
+            templates: [],
+            submissionConfigured: true,
+        });
+        fetchVaultTemplateExportPreview.mockRejectedValueOnce(
+            new Error('Vault export exceeds the template limits'),
+        );
 
         await renderMarketplace({ initialSection: 'publish' });
         await act(async () => {});

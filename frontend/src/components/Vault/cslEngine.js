@@ -27,6 +27,8 @@
  */
 import CSL from 'citeproc';
 import { ZOTERO_TO_CSL_TYPE, LABEL_TO_ZOTERO_TYPE } from './zoteroSchema';
+import { fetchCslStyles } from '../../shared/api/citation-io';
+import { transportFetch } from '../../shared/api/transports';
 
 /**
  * Resolves the Vault's "Item Type" field (canonical Zotero key or
@@ -76,10 +78,8 @@ let _dynamicStylesCache = null;
 export async function fetchAvailableStyles({ force = false } = {}) {
     if (_dynamicStylesCache && !force) return _dynamicStylesCache;
     try {
-        const r = await fetch('/api/vault/csl/styles');
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        const styles = (data?.styles || []).map((s) => ({
+        const catalog = await fetchCslStyles();
+        const styles = catalog.map((s) => ({
             id: s.id,
             file: s.file,
             label: s.title || s.id,
@@ -89,8 +89,8 @@ export async function fetchAvailableStyles({ force = false } = {}) {
             _dynamicStylesCache = styles;
             return styles;
         }
-    } catch (err) {
-        console.warn('fetchAvailableStyles fallback to static list:', err?.message);
+    } catch {
+        // Keep the bundled styles available when the Vault catalog is offline.
     }
     _dynamicStylesCache = AVAILABLE_STYLES;
     return AVAILABLE_STYLES;
@@ -110,7 +110,7 @@ const _localeCache = new Map();  // langCode → XML string
 const _engineCache = new Map();  // `${styleId}|${locale}` → CSL.Engine (lazy)
 
 async function fetchText(url) {
-    const r = await fetch(url);
+    const r = await transportFetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}`);
     return r.text();
 }

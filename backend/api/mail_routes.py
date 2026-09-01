@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from backend.domains.mail import schemas as mail_schemas
 from backend.domains.mail.cache import (
     _COUNTS_CACHE as _COUNTS_CACHE,
 )
@@ -66,7 +67,7 @@ from backend.domains.mail.routes.actions import (
     spam_msg as spam_msg,
 )
 from backend.domains.mail.routes.actions import (
-    star_msg as star_msg,
+    star_msg as _star_msg_endpoint,
 )
 from backend.domains.mail.routes.actions import (
     trash_msg as trash_msg,
@@ -81,7 +82,7 @@ from backend.domains.mail.routes.attachments import (
     set_account_enabled as set_account_enabled,
 )
 from backend.domains.mail.routes.compose import (
-    batch_action as batch_action,
+    batch_action as _batch_action_endpoint,
 )
 from backend.domains.mail.routes.compose import (
     delete_draft as delete_draft,
@@ -99,19 +100,19 @@ from backend.domains.mail.routes.compose import (
     mark_as_read as mark_as_read,
 )
 from backend.domains.mail.routes.compose import (
-    move_message as move_message,
+    move_message as _move_message_endpoint,
 )
 from backend.domains.mail.routes.compose import (
     reply_message as reply_message,
 )
 from backend.domains.mail.routes.compose import (
-    save_draft as save_draft,
+    save_draft as _save_draft_endpoint,
 )
 from backend.domains.mail.routes.compose import (
     send_mail as send_mail,
 )
 from backend.domains.mail.routes.compose import (
-    snooze_message as snooze_message,
+    snooze_message as _snooze_message_endpoint,
 )
 from backend.domains.mail.routes.compose import (
     suggest_recipients as suggest_recipients,
@@ -135,7 +136,7 @@ from backend.domains.mail.routes.messages import (
     sync_mail_accounts as sync_mail_accounts,
 )
 from backend.domains.mail.routes.messages import (
-    update_message as update_message,
+    update_message as _update_message_endpoint,
 )
 from backend.domains.mail.routes.tags import (
     _tag_to_dict as _tag_to_dict,
@@ -200,21 +201,95 @@ from backend.domains.mail.services.attachments import (
 from backend.domains.mail.services.attachments import (
     _imap_fetch_raw as _imap_fetch_raw,
 )
-from backend.models.mail import (
+from backend.domains.mail.schemas import (
     MailMessageTagsSetSchema as MailMessageTagsSetSchema,
 )
-from backend.models.mail import (
+from backend.domains.mail.schemas import (
     MailTagCreateSchema as MailTagCreateSchema,
 )
-from backend.models.mail import (
+from backend.domains.mail.schemas import (
     MailTagUpdateSchema as MailTagUpdateSchema,
 )
-from backend.models.mail import (
+from backend.domains.mail.schemas import (
     MailViewCreateSchema as MailViewCreateSchema,
 )
-from backend.models.mail import (
+from backend.domains.mail.schemas import (
     MailViewUpdateSchema as MailViewUpdateSchema,
 )
+
+
+async def update_message(
+    message_id: str,
+    update: mail_schemas.MailMessageUpdateRequest | dict[str, Any],
+) -> Any:
+    """Keep the pre-contract direct-call signature outside HTTP dispatch."""
+    request = (
+        update
+        if isinstance(update, mail_schemas.MailMessageUpdateRequest)
+        else mail_schemas.MailMessageUpdateRequest.model_validate(update)
+    )
+    return await _update_message_endpoint(message_id, request)
+
+
+async def star_msg(message_id: str, email: str, starred: bool) -> Any:
+    """Adapt the legacy embedded boolean call to the typed request model."""
+    return await _star_msg_endpoint(
+        message_id,
+        mail_schemas.MailStarRequest(starred=starred),
+        email,
+    )
+
+
+async def snooze_message(
+    message_id: str,
+    payload: mail_schemas.MailSnoozeRequest | dict[str, Any],
+) -> Any:
+    """Adapt direct dictionary calls while keeping the HTTP body concrete."""
+    request = (
+        payload
+        if isinstance(payload, mail_schemas.MailSnoozeRequest)
+        else mail_schemas.MailSnoozeRequest.model_validate(payload)
+    )
+    return await _snooze_message_endpoint(message_id, request)
+
+
+async def batch_action(
+    email: str,
+    payload: mail_schemas.MailBatchRequest | dict[str, Any],
+) -> Any:
+    """Adapt direct batch calls to the canonical endpoint argument order."""
+    request = (
+        payload
+        if isinstance(payload, mail_schemas.MailBatchRequest)
+        else mail_schemas.MailBatchRequest.model_validate(payload)
+    )
+    return await _batch_action_endpoint(request, email)
+
+
+async def save_draft(
+    payload: mail_schemas.MailDraftSaveRequest | dict[str, Any],
+) -> Any:
+    """Adapt legacy direct draft dictionaries to the public request model."""
+    request = (
+        payload
+        if isinstance(payload, mail_schemas.MailDraftSaveRequest)
+        else mail_schemas.MailDraftSaveRequest.model_validate(payload)
+    )
+    return await _save_draft_endpoint(request)
+
+
+async def move_message(
+    message_id: str,
+    email: str,
+    payload: mail_schemas.MailMoveRequest | dict[str, Any],
+) -> Any:
+    """Preserve the legacy positional facade while HTTP stays model-first."""
+    request = (
+        payload
+        if isinstance(payload, mail_schemas.MailMoveRequest)
+        else mail_schemas.MailMoveRequest.model_validate(payload)
+    )
+    return await _move_message_endpoint(message_id, request, email)
 
 
 async def _embed_quoted_cid_images(

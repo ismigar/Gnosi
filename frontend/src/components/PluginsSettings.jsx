@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
 import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors, PackageCheck, Store, RefreshCw, Search, Send, BookOpen, Languages, Users, Inbox, Calendar, Database, Cpu, NotebookTabs, Clock3 } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
@@ -10,6 +9,41 @@ import ResourcesPluginConfig from './ResourcesPluginConfig';
 import { sortFieldItems } from '../utils/fieldOrdering';
 import { SettingsSectionTabs } from './SettingsSectionTabs';
 import { notifyError } from '../lib/notifyError';
+import {
+    createPlanningAssignment,
+    createPlanningCalendar,
+    createPlanningResource,
+    deletePlanningAssignment,
+    deletePlanningCalendar,
+    deletePlanningResource,
+    fetchPlanningLevelingPreview,
+    updatePlanningCalendar,
+} from '../shared/api/planning';
+import { fetchBrainSuggestions } from '../shared/api/brain';
+import {
+    exportPluginPackage,
+    uploadPluginZip,
+} from '../shared/api/plugin-runtime';
+import {
+    addPluginTrustedKey,
+    createPluginLlmWikiBrain,
+    fetchInstalledPlugins,
+    fetchPluginCatalog,
+    fetchPluginLlmWikiConfig,
+    fetchPluginPermissionsCatalog,
+    fetchPluginRegistryUrl,
+    fetchPluginTrustedKeys,
+    installPluginFromCatalog,
+    removePluginTrustedKey,
+    runPluginLlmWikiMaintenance,
+    savePluginLlmWikiConfig,
+    setPluginPermissions,
+    setPluginRegistryUrl,
+    submitPluginPackage,
+    uninstallPlugin,
+} from '../shared/api/plugins';
+import { usePlanningState } from '../shared/api/usePlanningData';
+import { fetchVaultPagesByTable, fetchVaultTables } from '../shared/api/vaults';
 
 const ICONS = {
     CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard,
@@ -40,6 +74,10 @@ const SELECT_STYLE = {
 };
 
 const LLM_WIKI_AUTOSAVE_DELAY_MS = 600;
+
+const apiErrorMessage = (error, fallback) => (
+    error instanceof Error && error.message ? error.message : fallback
+);
 
 const isNewerVersion = (candidate, current) => {
     const parse = (value) => String(value || '')
@@ -74,8 +112,8 @@ export function DailyNotesConfig() {
 
     useEffect(() => {
         let alive = true;
-        axios.get('/api/vault/tables')
-            .then((res) => { if (alive) setTables(Array.isArray(res.data) ? res.data : []); })
+        fetchVaultTables()
+            .then((tables) => { if (alive) setTables(Array.isArray(tables) ? tables : []); })
             .catch(() => { if (alive) setTables([]); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
@@ -172,8 +210,6 @@ export function ProjectPlanningConfig() {
         Number(config.holiday_year) || defaultHolidayYear,
     ));
     const [hoursPerDayInput, setHoursPerDayInput] = useState(String(config.hours_per_day ?? 8));
-    const [planningState, setPlanningState] = useState(null);
-    const [planningLoading, setPlanningLoading] = useState(true);
     const [planningError, setPlanningError] = useState('');
     const [projectPages, setProjectPages] = useState([]);
     const [taskPages, setTaskPages] = useState([]);
@@ -185,26 +221,29 @@ export function ProjectPlanningConfig() {
         project_id: '', task_id: '', resource_id: '', planned_work_hours: 0, start: '', end: '',
     });
     const [levelingProposal, setLevelingProposal] = useState(null);
+    const {
+        data: planningState,
+        error: planningStateError,
+        isFetching: planningLoading,
+        refetch: refetchPlanning,
+    } = usePlanningState();
 
     const refreshPlanning = useCallback(async () => {
-        setPlanningLoading(true);
         try {
-            const response = await axios.get('/api/planning/state');
-            setPlanningState(response.data);
+            const result = await refetchPlanning();
+            if (result.error) throw result.error;
             setPlanningError('');
         } catch (error) {
             console.error('Project planning: could not load resources:', error);
             setPlanningError(tp('planning_resources_load_error', { defaultValue: 'Could not load planning resources.' }));
-        } finally {
-            setPlanningLoading(false);
         }
-    }, [tp]);
+    }, [refetchPlanning, tp]);
 
     useEffect(() => {
         let alive = true;
-        axios.get('/api/vault/tables')
-            .then((response) => {
-                if (alive) setTables(Array.isArray(response.data) ? response.data : []);
+        fetchVaultTables()
+            .then((tables) => {
+                if (alive) setTables(Array.isArray(tables) ? tables : []);
             })
             .catch((error) => {
                 if (alive) {
@@ -217,18 +256,14 @@ export function ProjectPlanningConfig() {
     }, []);
 
     useEffect(() => {
-        void refreshPlanning();
-    }, [refreshPlanning]);
-
-    useEffect(() => {
         if (!config.task_table_id) {
             setTaskPages([]);
             return undefined;
         }
         let alive = true;
-        axios.get(`/api/vault/pages/by-table/${encodeURIComponent(config.task_table_id)}`, { params: { include_templates: false } })
-            .then((response) => {
-                if (alive) setTaskPages(Array.isArray(response.data) ? response.data : []);
+        fetchVaultPagesByTable(config.task_table_id, { include_templates: false })
+            .then((pages) => {
+                if (alive) setTaskPages(Array.isArray(pages) ? pages : []);
             })
             .catch((error) => {
                 console.error('Project planning: could not load task pages:', error);
@@ -244,9 +279,9 @@ export function ProjectPlanningConfig() {
             return undefined;
         }
         let alive = true;
-        axios.get(`/api/vault/pages/by-table/${encodeURIComponent(config.project_table_id)}`, { params: { include_templates: false } })
-            .then((response) => {
-                if (alive) setProjectPages(Array.isArray(response.data) ? response.data : []);
+        fetchVaultPagesByTable(config.project_table_id, { include_templates: false })
+            .then((pages) => {
+                if (alive) setProjectPages(Array.isArray(pages) ? pages : []);
             })
             .catch((error) => {
                 console.error('Project planning: could not load project pages:', error);
@@ -274,7 +309,7 @@ export function ProjectPlanningConfig() {
         if (Object.hasOwn(patch, 'hours_per_day')) calendarPatch.hours_per_day = patch.hours_per_day;
         if (Object.hasOwn(patch, 'workday_start')) calendarPatch.workday_start = patch.workday_start;
         if (Object.keys(calendarPatch).length) {
-            axios.patch('/api/planning/calendars/project-default', calendarPatch)
+            updatePlanningCalendar({ calendarId: 'project-default', calendar: calendarPatch })
                 .then(() => refreshPlanning())
                 .catch((error) => console.error('Project planning: could not sync default calendar:', error));
         }
@@ -371,17 +406,17 @@ export function ProjectPlanningConfig() {
 
     const createResource = async () => {
         try {
-            await axios.post('/api/planning/resources', resourceDraft);
+            await createPlanningResource(resourceDraft);
             setResourceDraft({ name: '', type: 'work', calendar_id: 'project-default', availability_units: 100, standard_rate: 0 });
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_resource_save_error', { defaultValue: 'Could not save the resource.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_resource_save_error', { defaultValue: 'Could not save the resource.' })));
         }
     };
 
     const createCalendar = async () => {
         try {
-            await axios.post('/api/planning/calendars', {
+            await createPlanningCalendar({
                 name: calendarDraft,
                 working_weekdays: workingWeekdays,
                 holidays: Array.isArray(config.holidays) ? config.holidays : [],
@@ -391,31 +426,31 @@ export function ProjectPlanningConfig() {
             setCalendarDraft('');
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_calendar_save_error', { defaultValue: 'Could not save the calendar.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_calendar_save_error', { defaultValue: 'Could not save the calendar.' })));
         }
     };
 
     const deleteCalendar = async (calendarId) => {
         try {
-            await axios.delete(`/api/planning/calendars/${encodeURIComponent(calendarId)}`);
+            await deletePlanningCalendar(calendarId);
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_calendar_delete_error', { defaultValue: 'Could not delete the calendar.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_calendar_delete_error', { defaultValue: 'Could not delete the calendar.' })));
         }
     };
 
     const deleteResource = async (resourceId) => {
         try {
-            await axios.delete(`/api/planning/resources/${encodeURIComponent(resourceId)}`);
+            await deletePlanningResource(resourceId);
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_resource_delete_error', { defaultValue: 'Could not delete the resource.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_resource_delete_error', { defaultValue: 'Could not delete the resource.' })));
         }
     };
 
     const createAssignment = async () => {
         try {
-            await axios.post('/api/planning/assignments', {
+            await createPlanningAssignment({
                 ...assignmentDraft,
                 project_id: assignmentDraft.project_id || null,
                 planned_work_hours: Number(assignmentDraft.planned_work_hours) || 0,
@@ -425,26 +460,25 @@ export function ProjectPlanningConfig() {
             setAssignmentDraft({ project_id: '', task_id: '', resource_id: '', planned_work_hours: 0, start: '', end: '' });
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_assignment_save_error', { defaultValue: 'Could not save the assignment.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_assignment_save_error', { defaultValue: 'Could not save the assignment.' })));
         }
     };
 
     const deleteAssignment = async (assignmentId) => {
         try {
-            await axios.delete(`/api/planning/assignments/${encodeURIComponent(assignmentId)}`);
+            await deletePlanningAssignment(assignmentId);
             await refreshPlanning();
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_assignment_delete_error', { defaultValue: 'Could not delete the assignment.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_assignment_delete_error', { defaultValue: 'Could not delete the assignment.' })));
         }
     };
 
     const previewLeveling = async () => {
         try {
-            const response = await axios.get('/api/planning/leveling/proposal');
-            setLevelingProposal(response.data);
+            setLevelingProposal(await fetchPlanningLevelingPreview());
             setPlanningError('');
         } catch (error) {
-            setPlanningError(error.response?.data?.detail || tp('planning_leveling_load_error', { defaultValue: 'Could not generate the leveling proposal.' }));
+            setPlanningError(apiErrorMessage(error, tp('planning_leveling_load_error', { defaultValue: 'Could not generate the leveling proposal.' })));
         }
     };
 
@@ -732,7 +766,7 @@ export function ProjectPlanningConfig() {
                 ))}
                 {levelingProposal && !(levelingProposal.proposals || []).length && <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_no_leveling_proposal', { defaultValue: 'No dated assignment can be safely proposed for leveling.' })}</div>}
                 {!planningLoading && planningState && <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_estimated_cost', { defaultValue: 'Estimated assignment cost: {{cost}}', cost: planningState.allocation?.total_estimated_cost ?? 0 })}</div>}
-                {planningError && <div style={{ fontSize: 12, color: '#dc2626' }}>{planningError}</div>}
+                {(planningError || planningStateError) && <div style={{ fontSize: 12, color: '#dc2626' }}>{planningError || tp('planning_resources_load_error', { defaultValue: 'Could not load planning resources.' })}</div>}
             </div>
         </div>
     );
@@ -765,8 +799,8 @@ export function WebClipperConfig() {
 
     useEffect(() => {
         let alive = true;
-        axios.get('/api/vault/tables')
-            .then((res) => { if (alive) setTables(Array.isArray(res.data) ? res.data : []); })
+        fetchVaultTables()
+            .then((tables) => { if (alive) setTables(Array.isArray(tables) ? tables : []); })
             .catch((err) => { if (alive) { console.error('Web clipper: could not load tables:', err); setTables([]); } })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
@@ -947,9 +981,9 @@ export function LlmWikiConfig() {
     }, [draft]);
 
     const reload = () => Promise.all([
-        axios.get('/api/vault/tables').then((r) => (Array.isArray(r.data) ? r.data : [])).catch(() => []),
-        axios.get('/api/vault/llm-wiki/config').then((r) => r.data || {}).catch(() => ({})),
-        axios.get('/api/vault/llm-wiki/suggestions').then((r) => (r.data?.suggestions || []).length).catch(() => 0),
+        fetchVaultTables().then((tables) => (Array.isArray(tables) ? tables : [])).catch(() => []),
+        fetchPluginLlmWikiConfig().catch(() => ({})),
+        fetchBrainSuggestions().then((response) => (response.suggestions || []).length).catch(() => 0),
     ]).then(([tbls, state, pending]) => {
         setTables(tbls);
         setServerState(state);
@@ -964,11 +998,11 @@ export function LlmWikiConfig() {
         setLintBusy(true);
         setError('');
         try {
-            const r = await axios.post('/api/vault/llm-wiki/maintenance?semantic=false');
-            setLint(r.data?.lint || null);
+            const response = await runPluginLlmWikiMaintenance(false);
+            setLint(response.lint || null);
         } catch (err) {
             console.error('LLM Wiki maintenance failed:', err);
-            setError(err.response?.data?.detail || tp('llm_wiki_error', { defaultValue: "The Brain could not be updated." }));
+            setError(apiErrorMessage(err, tp('llm_wiki_error', { defaultValue: "The Brain could not be updated." })));
         } finally { setLintBusy(false); }
     };
 
@@ -976,12 +1010,12 @@ export function LlmWikiConfig() {
         setSemanticBusy(true);
         setError('');
         try {
-            const response = await axios.post('/api/vault/llm-wiki/maintenance?semantic=true');
-            setLint(response.data?.lint || null);
-            setPendingSuggestions(response.data?.suggestions_pending || 0);
+            const response = await runPluginLlmWikiMaintenance(true);
+            setLint(response.lint || null);
+            setPendingSuggestions(response.suggestions_pending || 0);
         } catch (err) {
             console.error('LLM Wiki semantic audit failed:', err);
-            setError(err.response?.data?.detail || tp('llm_wiki_error', { defaultValue: "The Brain could not be updated." }));
+            setError(apiErrorMessage(err, tp('llm_wiki_error', { defaultValue: "The Brain could not be updated." })));
         } finally { setSemanticBusy(false); }
     };
 
@@ -1106,17 +1140,17 @@ export function LlmWikiConfig() {
         setBusy(true);
         setError('');
         try {
-            const response = await axios.put('/api/vault/llm-wiki/config', payload);
-            setServerState(response.data);
-            if (response.data?.config) {
-                persistedDraftRef.current = JSON.stringify(response.data.config);
+            const response = await savePluginLlmWikiConfig(payload);
+            setServerState(response);
+            if (response.config) {
+                persistedDraftRef.current = JSON.stringify(response.config);
                 if (JSON.stringify(latestDraftRef.current) === payloadSignature) {
-                    setDraft(response.data.config);
+                    setDraft(response.config);
                 }
             }
         } catch (err) {
             console.error('Could not save the LLM Wiki configuration:', err);
-            setError(err.response?.data?.detail || tp('llm_wiki_save_error', { defaultValue: "The configuration could not be saved." }));
+            setError(apiErrorMessage(err, tp('llm_wiki_save_error', { defaultValue: "The configuration could not be saved." })));
         } finally { setBusy(false); }
     };
 
@@ -1146,14 +1180,12 @@ export function LlmWikiConfig() {
         setBusy(true);
         setError('');
         try {
-            await axios.post('/api/vault/llm-wiki/brain/create', {
-                ui_locale: draft.ui_locale || 'en',
-            });
+            await createPluginLlmWikiBrain(draft.ui_locale || 'en');
             setConfirmCreate(false);
             await reload();
         } catch (err) {
             console.error('Could not create the standard Brain table:', err);
-            setError(err.response?.data?.detail || tp('llm_wiki_create_error', { defaultValue: "The Brain table could not be created." }));
+            setError(apiErrorMessage(err, tp('llm_wiki_create_error', { defaultValue: "The Brain table could not be created." })));
         } finally { setBusy(false); }
     };
 
@@ -1508,11 +1540,11 @@ function ThirdPartyPlugins({ section, installedFilter }) {
     // Doesn't do synchronous setState: `loading` already starts as true and is set to false at the end
     // (avoids cascading renders; cf. react-hooks/set-state-in-effect).
     const refresh = () => Promise.all([
-        axios.get('/api/vault/plugins/installed').then((r) => r.data?.plugins || []).catch(() => []),
-        axios.get('/api/vault/plugins/catalog').then((r) => r.data?.permissions || {}).catch(() => ({})),
-        axios.get('/api/vault/plugins/catalog/list').then((r) => r.data?.catalog || []).catch(() => []),
-        axios.get('/api/vault/plugins/trust').then((r) => r.data?.keys || []).catch(() => []),
-        axios.get('/api/vault/plugins/registry-url').then((r) => r.data?.url || '').catch(() => ''),
+        fetchInstalledPlugins().then((response) => response.plugins || []).catch(() => []),
+        fetchPluginPermissionsCatalog().then((response) => response.permissions || {}).catch(() => ({})),
+        fetchPluginCatalog().then((response) => response.catalog || []).catch(() => []),
+        fetchPluginTrustedKeys().then((response) => response.keys || []).catch(() => []),
+        fetchPluginRegistryUrl().then((response) => response.url || '').catch(() => ''),
     ]).then(([plugins, perms, gal, keys, regUrl]) => {
         setInstalled(plugins);
         setCatalog(perms);
@@ -1526,10 +1558,10 @@ function ThirdPartyPlugins({ section, installedFilter }) {
     const saveRegistryUrl = async () => {
         setError(''); setBusy('reg');
         try {
-            await axios.put('/api/vault/plugins/registry-url', { url: registryUrl });
+            await setPluginRegistryUrl(registryUrl);
             await refresh();
         } catch (err) {
-            setError(err?.response?.data?.detail || tp('error_save_url'));
+            setError(apiErrorMessage(err, tp('error_save_url')));
         } finally { setBusy(''); }
     };
 
@@ -1537,18 +1569,18 @@ function ThirdPartyPlugins({ section, installedFilter }) {
         if (!newKey.name.trim() || !newKey.public_key.trim()) return;
         setError(''); setBusy('key');
         try {
-            await axios.post('/api/vault/plugins/trust', newKey);
+            await addPluginTrustedKey(newKey);
             setNewKey({ name: '', public_key: '' });
             await refresh();
         } catch (err) {
-            setError(err?.response?.data?.detail || tp('error_invalid_key'));
+            setError(apiErrorMessage(err, tp('error_invalid_key')));
         } finally { setBusy(''); }
     };
 
     const removeTrustKey = async (name) => {
         setBusy(`key:${name}`);
         try {
-            await axios.delete(`/api/vault/plugins/trust/${encodeURIComponent(name)}`);
+            await removePluginTrustedKey(name);
             await refresh();
         } catch { /* noop */ } finally { setBusy(''); }
     };
@@ -1559,7 +1591,7 @@ function ThirdPartyPlugins({ section, installedFilter }) {
         // We only send permissions declared by the manifest (the backend also validates this).
         const clean = next.filter((p) => declared.includes(p));
         try {
-            await axios.post(`/api/vault/plugins/${encodeURIComponent(pid)}/permissions`, { permissions: clean });
+            await setPluginPermissions(pid, clean);
             refresh();
             reloadPlugins();
         } catch { /* noop */ }
@@ -1587,44 +1619,38 @@ function ThirdPartyPlugins({ section, installedFilter }) {
         if (!file) return;
         setError(''); setBusy('zip');
         try {
-            const fd = new FormData();
-            fd.append('file', file);
-            await axios.post('/api/vault/plugins/install', fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 0 });
+            await uploadPluginZip(file);
             await refresh(); await reloadPluginState(); reloadPlugins();
         } catch (err) {
-            setError(err?.response?.data?.detail || tp('error_install_plugin'));
+            setError(apiErrorMessage(err, tp('error_install_plugin')));
         } finally { setBusy(''); }
     };
 
     const onInstallFromCatalog = async (id) => {
         setError(''); setBusy(`cat:${id}`);
         try {
-            await axios.post('/api/vault/plugins/catalog/install', { id });
+            await installPluginFromCatalog(id);
             await refresh(); await reloadPluginState(); reloadPlugins();
         } catch (err) {
-            setError(err?.response?.data?.detail || tp('error_install'));
+            setError(apiErrorMessage(err, tp('error_install')));
         } finally { setBusy(''); }
     };
 
     const onUninstall = async (id) => {
         setError(''); setBusy(`del:${id}`);
         try {
-            await axios.delete(`/api/vault/plugins/${encodeURIComponent(id)}`);
+            await uninstallPlugin(id);
             await refresh(); await reloadPluginState(); reloadPlugins();
         } catch (err) {
-            setError(err?.response?.data?.detail || tp('error_uninstall'));
+            setError(apiErrorMessage(err, tp('error_uninstall')));
         } finally { setBusy(''); }
     };
 
     const onExport = async (id, version) => {
         setError(''); setNotice(''); setBusy(`export:${id}`);
         try {
-            const response = await axios.post(
-                `/api/vault/plugins/${encodeURIComponent(id)}/export`,
-                {},
-                { responseType: 'blob' },
-            );
-            const url = URL.createObjectURL(response.data);
+            const blob = await exportPluginPackage(id);
+            const url = URL.createObjectURL(blob);
             const anchor = document.createElement('a');
             anchor.href = url;
             anchor.download = `${id}-${version}.gnosi-plugin.zip`;
@@ -1633,17 +1659,17 @@ function ThirdPartyPlugins({ section, installedFilter }) {
             anchor.remove();
             URL.revokeObjectURL(url);
         } catch (err) {
-            setError(err?.response?.data?.detail || tp('error_export'));
+            setError(apiErrorMessage(err, tp('error_export')));
         } finally { setBusy(''); }
     };
 
     const onSubmit = async (id) => {
         setError(''); setNotice(''); setBusy(`submit:${id}`);
         try {
-            await axios.post(`/api/vault/plugins/${encodeURIComponent(id)}/submissions`);
+            await submitPluginPackage(id);
             setNotice(tp('submitted_for_review'));
         } catch (err) {
-            setError(err?.response?.data?.detail || tp('error_submit'));
+            setError(apiErrorMessage(err, tp('error_submit')));
         } finally { setBusy(''); }
     };
 

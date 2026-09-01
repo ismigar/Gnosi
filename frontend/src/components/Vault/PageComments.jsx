@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
 import { MessageSquare, X, Send, Trash2, Check, RotateCcw, Loader2, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
@@ -7,6 +6,12 @@ import { useApi } from '../../hooks/use-api';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { ConfirmModal } from '../ConfirmModal';
 import i18n from '../../i18n';
+import {
+    createVaultPageComment,
+    deleteVaultPageComment,
+    fetchVaultPageComments,
+    updateVaultPageComment,
+} from '../../shared/api/vault-comments';
 
 function fmtWhen(iso) {
     if (!iso) return '';
@@ -50,8 +55,8 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
         if (!pageId) return;
         setLoading(true);
         try {
-            const res = await axios.get(`/api/vault/pages/${pageId}/comments`);
-            setComments(res.data?.comments || []);
+            const thread = await fetchVaultPageComments(pageId);
+            setComments(thread.comments || []);
         } catch (err) {
             console.error('Error loading comments:', err);
             toast.error(t('errors.comments_load', { defaultValue: "Could not load comments" }));
@@ -66,7 +71,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
 
     // 403 (viewer role, PR #742) → permissions message; otherwise → generic key.
     const notifyMutationError = useCallback((err, key, fallback) => {
-        if (err?.response?.status === 403) {
+        if (err?.status === 403 || err?.response?.status === 403) {
             toast.error(t('errors.comment_forbidden', { defaultValue: "Your role does not allow modifying comments" }));
         } else {
             toast.error(t(key, { defaultValue: fallback }));
@@ -86,11 +91,11 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
         if (!body || submitting) return;
         setSubmitting(true);
         try {
-            const res = await axios.post(`/api/vault/pages/${pageId}/comments`, {
+            const comment = await createVaultPageComment(pageId, {
                 body,
                 author: currentAuthor(),
             });
-            setComments(prev => [...prev, res.data]);
+            setComments(prev => [...prev, comment]);
             setDraft('');
         } catch (err) {
             console.error('Error adding comment:', err);
@@ -104,8 +109,8 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
         const body = editDraft.trim();
         if (!body) return;
         try {
-            const res = await axios.patch(`/api/vault/pages/${pageId}/comments/${commentId}`, { body });
-            setComments(prev => prev.map(c => (c.id === commentId ? res.data : c)));
+            const comment = await updateVaultPageComment(pageId, commentId, { body });
+            setComments(prev => prev.map(c => (c.id === commentId ? comment : c)));
             setEditingId(null);
             setEditDraft('');
         } catch (err) {
@@ -116,10 +121,10 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
 
     const toggleResolved = async (comment) => {
         try {
-            const res = await axios.patch(`/api/vault/pages/${pageId}/comments/${comment.id}`, {
+            const updated = await updateVaultPageComment(pageId, comment.id, {
                 resolved: !comment.resolved,
             });
-            setComments(prev => prev.map(c => (c.id === comment.id ? res.data : c)));
+            setComments(prev => prev.map(c => (c.id === comment.id ? updated : c)));
         } catch (err) {
             console.error('Error changing comment status:', err);
             notifyMutationError(err, 'errors.comment_resolve', 'Error actualitzant el comentari');
@@ -130,7 +135,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
         const target = deleteTarget;
         if (!target) return;
         try {
-            await axios.delete(`/api/vault/pages/${pageId}/comments/${target.id}`);
+            await deleteVaultPageComment(pageId, target.id);
             setComments(prev => prev.filter(c => c.id !== target.id));
         } catch (err) {
             console.error('Error deleting comment:', err);

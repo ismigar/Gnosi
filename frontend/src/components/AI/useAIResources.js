@@ -7,6 +7,7 @@ import {
     normalizeTool,
     skillPayload,
 } from './aiSettingsUtils';
+import { transportFetch } from '../../shared/api/transports';
 
 class AIResourceRequestError extends Error {
     constructor(message, status, payload) {
@@ -18,7 +19,7 @@ class AIResourceRequestError extends Error {
 }
 
 const request = async (url, options = {}) => {
-    const response = await fetch(url, {
+    const response = await transportFetch(url, {
         ...options,
         headers: {
             Accept: 'application/json',

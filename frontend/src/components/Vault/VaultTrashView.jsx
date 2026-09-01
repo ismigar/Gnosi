@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import { Trash2, Undo2, Clock, Search, AlertTriangle } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { ConfirmModal } from '../ConfirmModal';
 import i18n from '../../i18n';
+import {
+    emptyVaultTrash,
+    fetchVaultTrash,
+    purgeVaultTrashPage,
+    restoreVaultPage,
+} from '../../shared/api/vaults';
 
 function fmtDate(iso) {
     if (!iso) return '—';
@@ -40,9 +45,9 @@ export function VaultTrashView({ onAfterChange }) {
     const fetchTrash = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await axios.get('/api/vault/trash');
-            setItems(res.data?.items || []);
-            setRetentionDays(res.data?.retention_days || 90);
+            const trash = await fetchVaultTrash();
+            setItems(trash.items || []);
+            setRetentionDays(trash.retention_days || 90);
         } catch (err) {
             console.error('Error loading trash:', err);
             toast.error(t('trash.load_error', "Could not load the trash"));
@@ -65,12 +70,12 @@ export function VaultTrashView({ onAfterChange }) {
 
     const handleRestore = async (id) => {
         try {
-            await axios.post(`/api/vault/pages/${id}/restore`);
+            await restoreVaultPage(id);
             toast.success(t('success.page_restored'));
             await fetchTrash();
             onAfterChange?.();
         } catch (err) {
-            if (err?.response?.status === 409) {
+            if (err?.status === 409 || err?.response?.status === 409) {
                 toast.error(t('trash.restore_conflict_error', "A file already exists at the original destination"));
             } else {
                 console.error('Error restoring:', err);
@@ -86,7 +91,7 @@ export function VaultTrashView({ onAfterChange }) {
         if (!purgeTarget) return;
         const { id } = purgeTarget;
         try {
-            await axios.delete(`/api/vault/trash/${id}`);
+            await purgeVaultTrashPage(id);
             toast.success(t('trash.purge_success', "Permanently deleted"));
             setPurgeTarget(null);
             await fetchTrash();
@@ -105,8 +110,7 @@ export function VaultTrashView({ onAfterChange }) {
     // `DELETE /api/vault/trash`.
     const handleEmptyAll = async () => {
         try {
-            const res = await axios.delete('/api/vault/trash');
-            const { purged_count = 0, failed_count = 0 } = res.data || {};
+            const { purged_count = 0, failed_count = 0 } = await emptyVaultTrash();
             if (failed_count > 0) {
                 toast.error(t('trash.empty_all_partial_error', "Trash partially emptied: {{purged}} deleted, {{failed}} failed", { purged: purged_count, failed: failed_count }));
             } else {

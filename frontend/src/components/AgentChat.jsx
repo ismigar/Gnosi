@@ -30,6 +30,15 @@ import {
 import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
 import { deriveAgentRuntimeStatus } from './agentRuntimeStatus';
 import { toast } from '../lib/toast';
+import { streamFetch } from '../shared/api/specialized-transports';
+import { transportFetch } from '../shared/api/transports';
+import { fetchNotebookConversation } from '../shared/api/notebooks';
+import { fetchConfiguration } from '../shared/api/configuration';
+import {
+    fetchVaultDatabases,
+    fetchVaultPages,
+    fetchVaultTables,
+} from '../shared/api/vaults';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -130,7 +139,7 @@ const deriveSessionTitle = (messages, fallback) => {
 
 const deleteSessionCheckpoint = async (session) => {
     if (!session?.agentId || !session?.id) return true;
-    const response = await fetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
+    const response = await transportFetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error(`Checkpoint deletion failed (${response.status})`);
@@ -379,8 +388,7 @@ const AgentChat = ({
         if (forcedAgentId) setSelectedAgentId(forcedAgentId);
         const hydrateConversation = () => {
             if (document.visibilityState !== 'visible' || isLoading) return;
-            void fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/conversation`)
-                .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Conversation load failed (${response.status})`)))
+            void fetchNotebookConversation(notebookId)
                 .then((canonical) => {
                     if (cancelled || historyHydrationRef.current !== hydrationId) return;
                     const canonicalMessages = Array.isArray(canonical.messages) ? canonical.messages : [];
@@ -503,30 +511,27 @@ const AgentChat = ({
 
     const loadConfig = useCallback(async () => {
         try {
-            const res = await fetch('/api/config');
-            if (res.ok) {
-                const data = await res.json();
-                const ai = data.ai || {};
-                const activeId = ai.active_agent_id;
-                // Disabled profiles stay editable in Settings but are not
-                // selectable for a conversation. This also keeps a newly
-                // created LLM Wiki profile with no model from falling back to
-                // an unrelated provider before the user configures it.
-                const agents = (ai.agents || []).filter((agent) => agent.enabled !== false);
-                setAgentList(agents);
-                const selection = resolveAgentRuntimeSelection(
-                    agents,
-                    forcedAgentId,
-                    selectedAgentId,
-                    activeId,
-                );
-                const agent = selection.agent;
-                if (agent) {
-                    setAgentConfig(agent);
-                }
-                if (selection.selectedAgentId) {
-                    setSelectedAgentId(selection.selectedAgentId);
-                }
+            const data = await fetchConfiguration();
+            const ai = data.ai || {};
+            const activeId = ai.active_agent_id;
+            // Disabled profiles stay editable in Settings but are not
+            // selectable for a conversation. This also keeps a newly
+            // created LLM Wiki profile with no model from falling back to
+            // an unrelated provider before the user configures it.
+            const agents = (ai.agents || []).filter((agent) => agent.enabled !== false);
+            setAgentList(agents);
+            const selection = resolveAgentRuntimeSelection(
+                agents,
+                forcedAgentId,
+                selectedAgentId,
+                activeId,
+            );
+            const agent = selection.agent;
+            if (agent) {
+                setAgentConfig(agent);
+            }
+            if (selection.selectedAgentId) {
+                setSelectedAgentId(selection.selectedAgentId);
             }
         } catch (e) {
             console.error("Error loading agent config", e);
@@ -555,16 +560,10 @@ const AgentChat = ({
 
     const loadMentionCatalog = useCallback(async () => {
         try {
-            const [pagesRes, tablesRes, dbsRes] = await Promise.all([
-                fetch('/api/vault/pages'),
-                fetch('/api/vault/tables'),
-                fetch('/api/vault/databases'),
-            ]);
-
             const [pages, tables, dbs] = await Promise.all([
-                pagesRes.ok ? pagesRes.json() : [],
-                tablesRes.ok ? tablesRes.json() : [],
-                dbsRes.ok ? dbsRes.json() : [],
+                fetchVaultPages(),
+                fetchVaultTables(),
+                fetchVaultDatabases(),
             ]);
 
             const pageItems = (Array.isArray(pages) ? pages : []).map((p) => {
@@ -623,7 +622,7 @@ const AgentChat = ({
         setMessages(target.messages || []);
         setShowSessionsView(false);
         try {
-            const response = await fetch(
+            const response = await transportFetch(
                 `/api/chat/sessions/${encodeURIComponent(target.agentId)}/${encodeURIComponent(target.id)}${notebookId ? `?notebook_id=${encodeURIComponent(notebookId)}` : ''}`,
             );
             if (response.ok) {
@@ -766,7 +765,7 @@ const AgentChat = ({
         formData.append('agent_id', selectedAgentId);
         formData.append('session_id', sessionId);
 
-        const res = await fetch('/api/chat/attachments', {
+        const res = await transportFetch('/api/chat/attachments', {
             method: 'POST',
             body: formData,
         });
@@ -815,7 +814,7 @@ const AgentChat = ({
             setAttachments((prev) => [...prev, ...uploaded]);
         } catch (error) {
             for (const item of uploaded) {
-                void fetch('/api/chat/attachments', {
+                void transportFetch('/api/chat/attachments', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ path: item.path, agent_id: selectedAgentId, session_id: sessionId }),
@@ -831,7 +830,7 @@ const AgentChat = ({
         const target = attachments.find((item) => item.id === attachmentId);
         setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
         if (target?.path) {
-            void fetch('/api/chat/attachments', {
+            void transportFetch('/api/chat/attachments', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path: target.path, agent_id: selectedAgentId, session_id: sessionId }),
@@ -963,7 +962,7 @@ const AgentChat = ({
         const refreshConfirmations = () => {
             if (inFlight || controller.signal.aborted) return;
             inFlight = true;
-            void fetch(`/api/chat/confirmations?${params.toString()}`, {
+            void transportFetch(`/api/chat/confirmations?${params.toString()}`, {
                 signal: controller.signal,
             })
                 .then(async response => {
@@ -1030,7 +1029,7 @@ const AgentChat = ({
             agent_id: agentId,
             session_id: chatSessionId,
         });
-        const response = await fetch(
+        const response = await transportFetch(
             `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}?${params.toString()}`,
         );
         if (!response.ok) return null;
@@ -1048,7 +1047,7 @@ const AgentChat = ({
         ) || `${browserStorageScope}:${agentId}:${chatSessionId}`;
         let response;
         try {
-            response = await fetch(
+            response = await transportFetch(
                 `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}/confirm`,
                 {
                     method: 'POST',
@@ -1187,7 +1186,7 @@ const AgentChat = ({
             browserStorageScope,
         ) || `${browserStorageScope}:${agentId}:${chatSessionId}`;
         try {
-            const response = await fetch(
+            const response = await transportFetch(
                 `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}/cancel`,
                 {
                     method: 'POST',
@@ -1281,7 +1280,7 @@ const AgentChat = ({
         const nextRating = rating === previousRating ? null : rating;
         markMessage(index, 'feedback', nextRating);
         try {
-            const response = await fetch('/api/chat/feedback', {
+            const response = await transportFetch('/api/chat/feedback', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1316,7 +1315,7 @@ const AgentChat = ({
         if (!job?.job_id) return;
         try {
             const suffix = action === 'status' ? '' : `/${action}`;
-            const response = await fetch(
+            const response = await transportFetch(
                 `/api/ai/jobs/${encodeURIComponent(job.job_id)}${suffix}`,
                 { method: action === 'status' ? 'GET' : 'POST' },
             );
@@ -1361,7 +1360,7 @@ const AgentChat = ({
 
         setIsRewinding(true);
         try {
-            const response = await fetch(
+            const response = await transportFetch(
                 `/api/chat/sessions/${encodeURIComponent(selectedAgentId)}/${encodeURIComponent(sessionId)}/rewind${notebookId ? `?notebook_id=${encodeURIComponent(notebookId)}` : ''}`,
                 {
                     method: 'POST',
@@ -1455,7 +1454,7 @@ const AgentChat = ({
             requestAbortRef.current?.abort();
             const controller = new AbortController();
             requestAbortRef.current = controller;
-            const response = await fetch('/api/chat', {
+            const response = await streamFetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1714,7 +1713,7 @@ const AgentChat = ({
                         resumeUrl.searchParams.set('agent_id', selectedAgentId);
                         resumeUrl.searchParams.set('session_id', sessionId);
                         resumeUrl.searchParams.set('after_sequence', String(lastStreamSequence));
-                        const resumed = await fetch(resumeUrl.pathname + resumeUrl.search);
+                        const resumed = await transportFetch(resumeUrl.pathname + resumeUrl.search);
                         if (!resumed.ok) break;
                         const events = (await resumed.text())
                             .split('\n')
@@ -2502,7 +2501,7 @@ const AgentChat = ({
                                                 agent_id: selectedAgentId,
                                                 session_id: sessionId,
                                             });
-                                            void fetch(
+                                            void transportFetch(
                                                 `/api/chat/streams/${encodeURIComponent(streamId)}/cancel?${params}`,
                                                 { method: 'POST' },
                                             ).catch(error => console.error('Could not cancel agent stream:', error));

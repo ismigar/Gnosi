@@ -14,7 +14,6 @@ import { useApi } from '../hooks/use-api';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import { IconRenderer } from './Vault/IconRenderer';
-import axios from 'axios';
 import { toast } from '../lib/toast';
 import { emitConfigChanged } from '../lib/configEvents';
 import { getEffectiveTableId, toValueStrings } from '../utils/graphFilters';
@@ -51,6 +50,55 @@ import { SettingsSectionTabs } from './SettingsSectionTabs';
 import { SocialNetworkIcon, isKnownSocialNetwork } from './social/SocialNetworkIcon';
 import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
+import { fetchGoogleOAuthStatus } from '../shared/api/google-auth';
+import {
+    bulkUpdateIntegrations,
+    fetchIntegrations,
+    testEmailIntegration,
+    updateDefaultCalendar,
+    updateDefaultContacts,
+    updateDefaultMail,
+} from '../shared/api/integrations';
+import {
+    deleteCredential,
+    fetchCredentialStatus,
+    saveCredential,
+} from '../shared/api/credentials';
+import {
+    fetchAiCatalog,
+    fetchAiModelComparison,
+    fetchAiModels,
+    fetchAiUsage,
+    updateAiModels,
+} from '../shared/api/ai';
+import { fetchVaultDatabases, fetchVaultTables } from '../shared/api/vaults';
+import { fetchCalendarList, syncCalendar } from '../shared/api/calendar';
+import { fetchVaultGraph } from '../shared/api/graph';
+import { syncContacts as requestContactsSync } from '../shared/api/contacts';
+import { fetchIdentity, saveIdentity } from '../shared/api/identity';
+import { fetchEnvironment, updateEnvironment } from '../shared/api/environment';
+import { fetchConfiguration, updateConfiguration } from '../shared/api/configuration';
+import {
+    fetchMailCounts,
+    setMailAccountEnabled,
+    syncMail,
+} from '../shared/api/mail';
+import {
+    fetchSocialNetworks,
+    fetchSocialStreams,
+    updateSocialNetworks,
+    updateSocialStreams,
+} from '../shared/api/social';
+import {
+    createReaderSource,
+    deleteReaderSource,
+    fetchNewsletterAccount,
+    fetchReaderSources,
+    importReaderOpml,
+    syncNewsletterAccount as requestNewsletterSync,
+    testNewsletterAccount as requestNewsletterTest,
+    updateNewsletterAccount,
+} from '../shared/api/reader';
 
 const formatCost = (value, symbol, decimals = 2) => {
     const num = Number(value);
@@ -734,8 +782,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         if (!isOpen || activeTab !== 'graph' || graphNodesFetchedRef.current) return;
         graphNodesFetchedRef.current = true;
         setGraphNodesLoading(true);
-        fetch('/api/graph')
-            .then(r => (r.ok ? r.json() : { nodes: [] }))
+        fetchVaultGraph()
             .then(g => setGraphNodes(Array.isArray(g?.nodes) ? g.nodes : []))
             .catch(() => setGraphNodes([]))
             .finally(() => setGraphNodesLoading(false));
@@ -941,12 +988,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadSocialSettings = async () => {
         try {
-            const [nRes, sRes] = await Promise.all([
-                fetch('/api/social/networks'),
-                fetch('/api/social/streams'),
+            const [networks, streams] = await Promise.all([
+                fetchSocialNetworks(),
+                fetchSocialStreams(),
             ]);
-            if (nRes.ok) setSocialNetworks(await nRes.json());
-            if (sRes.ok) setSocialStreams(await sRes.json());
+            setSocialNetworks(networks);
+            setSocialStreams(streams);
         } catch { /* silent */ }
     };
 
@@ -955,12 +1002,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         const previous = socialNetworks;
         setSocialNetworks(updated);
         try {
-            const res = await fetch('/api/social/networks', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updated),
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            await updateSocialNetworks(updated);
         } catch (err) {
             // Without this restoration, the UI showed the changes as if
             // would have been saved even though the backend had the old state.
@@ -974,12 +1016,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         const previous = socialStreams;
         setSocialStreams(updated);
         try {
-            const res = await fetch('/api/social/streams', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updated),
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            await updateSocialStreams(updated);
         } catch (err) {
             setSocialStreams(previous);
             toast.error(tn('social.save_streams_error'));
@@ -1062,7 +1099,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                 aliases: fields.aliases,
             });
             try {
-                await axios.post('/api/integrations/bulk', { ...integrationsRef.current, mail_accounts: newList });
+                await bulkUpdateIntegrations({ ...integrationsRef.current, mail_accounts: newList });
                 setIntegrations(prev => ({ ...prev, mail_accounts: newList }));
             } catch (err) {
                 console.error("Error saving pending mail identity:", err);
@@ -1130,9 +1167,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadIdentity = async (hydrationGeneration = null) => {
         try {
-            const res = await axios.get('/api/identity');
-            if (res.data) {
-                setDraft(prev => ({ ...prev, identity: { ...prev.identity, ...res.data } }));
+            const identity = await fetchIdentity();
+            if (identity) {
+                setDraft(prev => ({ ...prev, identity: { ...prev.identity, ...identity } }));
             }
         } catch (error) {
             console.error("Error loading identity:", error);
@@ -1148,18 +1185,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     useEffect(() => {
         if (activeTab === 'calendar' && isOpen) {
-            fetch('/api/calendar/calendars')
-                .then(r => {
-                    const authErr = r.headers.get('X-Calendar-Auth-Error') || '';
+            let cancelled = false;
+            fetchCalendarList()
+                .then(({ authError, items }) => {
+                    if (cancelled) return;
+                    const authErr = authError || '';
                     setGoogleCalAuthError(Boolean(authErr));
                     // Specific emails with an expired token → paint the ERROR badge
                     // ONLY for this tab (not inherited from the Mail state).
                     setCalendarAuthErrors(new Set(authErr.split(',').map(e => e.trim()).filter(Boolean)));
-                    return r.ok ? r.json() : [];
+                    setGoogleSubCalendars(items);
                 })
-                .then(setGoogleSubCalendars)
                 .catch(() => {});
+            return () => { cancelled = true; };
         }
+        return undefined;
     }, [activeTab, isOpen]);
 
     // Translate tab: loads the state of the DeepL key (Keychain) and the URL of
@@ -1170,8 +1210,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         let cancelled = false;
         setTranslateState(s => ({ ...s, loading: true }));
         Promise.all([
-            axios.get('/api/credentials/deepl_api_key').then(r => r.data).catch(() => ({ has_value: false })),
-            axios.get('/api/env').then(r => r.data || {}).catch(() => ({})),
+            fetchCredentialStatus('deepl_api_key').catch(() => ({ has_value: false })),
+            fetchEnvironment().catch(() => ({})),
         ]).then(([cred, env]) => {
             if (cancelled) return;
             // Baseline BEFORE state so the autosave effect triggered by this
@@ -1194,7 +1234,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
     const saveDeeplKey = useCallback(async (value) => {
         setTranslateState(s => ({ ...s, saving_deepl: true, saved_deepl: false }));
         try {
-            await axios.post('/api/credentials/', { key: 'deepl_api_key', value });
+            await saveCredential({ key: 'deepl_api_key', value });
             setTranslateState(s => (
                 s.deepl_input.trim() === value
                     ? { ...s, deepl_has_value: true, deepl_input: '', saving_deepl: false, saved_deepl: true }
@@ -1219,7 +1259,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
     const handleDeleteDeeplKey = async () => {
         setTranslateState(s => ({ ...s, saving_deepl: true }));
         try {
-            await axios.delete('/api/credentials/deepl_api_key');
+            await deleteCredential('deepl_api_key');
             setTranslateState(s => ({ ...s, deepl_has_value: false, deepl_input: '', saving_deepl: false }));
         } catch (error) {
             console.error('Error deleting DeepL API key:', error);
@@ -1236,7 +1276,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             // Empty string → reset to default. We send an empty string to
             // overwrite, and if the user wanted to remove it, the backend
             // persists as `SOFTCATALA_API_URL=` (the skill falls back to the default).
-            await axios.post('/api/env', { SOFTCATALA_API_URL: value });
+            await updateEnvironment({ SOFTCATALA_API_URL: value });
             softcatalaBaselineRef.current = value;
             setTranslateState(s => ({ ...s, saving_softcatala: false, saved_softcatala: true }));
         } catch (error) {
@@ -1261,7 +1301,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
     }, [syncErrorAccounts]);
 
     // When the Mail tab opens, perform a passive health check calling
-    // /api/mail/counts for each account. If it returns {} (authentication or
+    // the typed mail-count endpoint for each account. If it returns {} (authentication or
     // IMAP connection failed), marks the account as error; if it returns
     // data, removes it from the Set. This corrects the persisted ERROR state
     // to localStorage for accounts that are already working correctly.
@@ -1285,9 +1325,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         let cancelled = false;
         Promise.all(emails.map(async email => {
             try {
-                const r = await fetch(`/api/mail/counts?email=${encodeURIComponent(email)}`);
-                if (!r.ok) return { email, ok: false };
-                const data = await r.json();
+                const data = await fetchMailCounts(email);
                 return { email, ok: data && Object.keys(data).length > 0 };
             } catch {
                 return { email, ok: false };
@@ -1388,7 +1426,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                     // Save general config, integrations, and identity
                     if (hasConfigChanges || hasIdentityChanges) {
                         promises.push(
-                            axios.post('/api/config', {
+                            updateConfiguration({
                                 settings: draft.settings,
                                 paths: draft.paths,
                                 graph: draft.graph,
@@ -1398,8 +1436,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                     providers: draft.ai.providers
                                 }
                             }),
-                            axios.post('/api/integrations/bulk', updatedIntegrations),
-                            axios.post('/api/identity', draft.identity)
+                            bulkUpdateIntegrations(updatedIntegrations),
+                            saveIdentity(draft.identity)
                         );
                     }
 
@@ -1408,7 +1446,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                         const next = { ...newsletterAccount };
                         if (!newsletterPasswordDirty) delete next.password;
                         promises.push(
-                            axios.put('/api/reader/newsletter-account', next)
+                            updateNewsletterAccount(next)
                         );
                     }
 
@@ -1451,36 +1489,30 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const checkGoogleAuth = async () => {
         try {
-            const res = await fetch('/api/auth/google/status');
-            if (res.ok) {
-                const data = await res.json();
-                setGoogleAuthConfigured(data.configured);
-            }
+            const data = await fetchGoogleOAuthStatus();
+            setGoogleAuthConfigured(data.configured);
         } catch (err) { console.error("Error checking Google Auth:", err); }
     };
 
     const loadConfig = async (hydrationGeneration = null) => {
         try {
-            const res = await fetch('/api/config');
-            if (res.ok) {
-                const cfg = await res.json();
-                setDraft(prev => ({
-                    ...prev,
-                    settings: { ...prev.settings, ...(cfg.settings || {}) },
-                    paths: { ...prev.paths, ...(cfg.paths || {}) },
-                    graph: { ...prev.graph, ...(cfg.graph || {}) },
-                    ai: {
-                        ...prev.ai,
-                        agents: cfg.ai?.agents || [],
-                        active_agent_id: cfg.ai?.active_agent_id || ''
-                    }
-                }));
-                // Sync the backend-persisted theme into the localStorage channel the
-                // theme engine reads, so the saved preference survives a reload.
-                if (cfg.settings?.theme && cfg.settings.theme !== localStorage.getItem('db-theme')) {
-                    localStorage.setItem('db-theme', cfg.settings.theme);
-                    window.dispatchEvent(new Event('db-theme-changed'));
+            const cfg = await fetchConfiguration();
+            setDraft(prev => ({
+                ...prev,
+                settings: { ...prev.settings, ...(cfg.settings || {}) },
+                paths: { ...prev.paths, ...(cfg.paths || {}) },
+                graph: { ...prev.graph, ...(cfg.graph || {}) },
+                ai: {
+                    ...prev.ai,
+                    agents: cfg.ai?.agents || [],
+                    active_agent_id: cfg.ai?.active_agent_id || ''
                 }
+            }));
+            // Sync the backend-persisted theme into the localStorage channel the
+            // theme engine reads, so the saved preference survives a reload.
+            if (cfg.settings?.theme && cfg.settings.theme !== localStorage.getItem('db-theme')) {
+                localStorage.setItem('db-theme', cfg.settings.theme);
+                window.dispatchEvent(new Event('db-theme-changed'));
             }
         } catch (err) {
             console.error("Error loading config:", err);
@@ -1496,11 +1528,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadIntegrations = async (hydrationGeneration = null) => {
         try {
-            const res = await fetch(`/api/integrations?t=${Date.now()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setIntegrations(data);
-            }
+            const data = await fetchIntegrations();
+            setIntegrations(data);
         } catch (err) {
             console.error("Error loading integrations:", err);
         } finally {
@@ -1515,15 +1544,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadAiCatalog = async (hydrationGeneration = null) => {
         try {
-            const res = await fetch('/api/ai/catalog');
-            if (res.ok) {
-                const payload = await res.json();
-                if (payload?.config?.providers) {
-                    setDraft(prev => ({
-                        ...prev,
-                        ai: { ...prev.ai, providers: payload.config.providers }
-                    }));
-                }
+            const payload = await fetchAiCatalog();
+            if (payload?.config?.providers) {
+                setDraft(prev => ({
+                    ...prev,
+                    ai: { ...prev.ai, providers: payload.config.providers }
+                }));
             }
         } catch (err) {
             console.error("Error loading AI catalog:", err);
@@ -1541,97 +1567,80 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         // Feeds the agent-creation model dropdown. Only enabled rows: a disabled
         // model in the registry is not a valid target for a new agent.
         try {
-            const [modelsRes, comparisonRes, usageRes] = await Promise.all([
-                fetch('/api/ai/models'),
-                fetch('/api/ai/model-comparison'),
-                fetch('/api/ai/usage')
+            const [payload, comparisonPayload, usageData] = await Promise.all([
+                fetchAiModels(),
+                fetchAiModelComparison(),
+                fetchAiUsage()
             ]);
-            
-            if (modelsRes.ok) {
-                const payload = await modelsRes.json();
-                let comparisonModels = [];
-                if (comparisonRes.ok) {
-                    const comparisonPayload = await comparisonRes.json();
-                    comparisonModels = comparisonPayload.models || [];
+
+            const comparisonModels = comparisonPayload.models || [];
+            setAiUsage(usageData);
+            setMonthlyCostCap(usageData?.cap_ccy !== null && usageData?.cap_ccy !== undefined ? usageData.cap_ccy : (usageData?.budget?.monthly_cost_cap ?? ''));
+            setEnforceBlock(Boolean(usageData?.budget?.enforce_block));
+            const usageModels = usageData?.per_model || [];
+
+            const configuredMap = new Map();
+            for (const modelEntry of (payload?.configured_models || [])) {
+                if (modelEntry?.model_id) {
+                    configuredMap.set(`${modelEntry.provider}:${modelEntry.model_id}`, modelEntry);
                 }
-
-                let usageModels = [];
-                if (usageRes.ok) {
-                    const usageData = await usageRes.json();
-                    setAiUsage(usageData);
-                    setMonthlyCostCap(usageData?.cap_ccy !== null && usageData?.cap_ccy !== undefined ? usageData.cap_ccy : (usageData?.budget?.monthly_cost_cap ?? ''));
-                    setEnforceBlock(Boolean(usageData?.budget?.enforce_block));
-                    usageModels = usageData?.per_model || [];
-                }
-
-                const configuredMap = new Map();
-                for (const modelEntry of (payload?.configured_models || [])) {
-                    if (modelEntry?.model_id) {
-                        configuredMap.set(`${modelEntry.provider}:${modelEntry.model_id}`, modelEntry);
-                    }
-                }
-
-                for (const u of usageModels) {
-                    const key = `${u.provider}:${u.model_id}`;
-                    if (!configuredMap.has(key) && (u.in > 0 || u.out > 0 || u.cost_usd > 0)) {
-                        configuredMap.set(key, {
-                            provider: u.provider,
-                            model_id: u.model_id,
-                            enabled: false,
-                            cost_in: 0,
-                            cost_out: 0,
-                        });
-                    }
-                }
-
-                const configured = [];
-                for (const configuredModel of configuredMap.values()) {
-                    const matched = comparisonModels.find(cm => registryEntryMatchesModel(configuredModel, cm));
-                    const costIn = (matched && matched.input_price !== undefined && matched.input_price !== null)
-                        ? Number(matched.input_price)
-                        : Number(configuredModel.cost_in || 0);
-                    const costOut = (matched && matched.output_price !== undefined && matched.output_price !== null)
-                        ? Number(matched.output_price)
-                        : Number(configuredModel.cost_out || 0);
-                    const isFree = Boolean(configuredModel.is_local) || Boolean(matched?.is_free) || (costIn === 0 && costOut === 0);
-
-                    const usage = usageModels.find(
-                        u => u.provider === configuredModel.provider && u.model_id === configuredModel.model_id
-                    );
-                    const hasUsage = usage && (usage.in > 0 || usage.out > 0 || usage.cost_usd > 0);
-
-                    if (configuredModel.enabled !== false || hasUsage) {
-                        configured.push({
-                            ...configuredModel,
-                            name: matched?.name || configuredModel.model_id,
-                            creator: matched?.creator || configuredModel.provider || '',
-                            profile: matched?.profile || 'unrated',
-                            cost_in: costIn,
-                            cost_out: costOut,
-                            is_free: isFree,
-                        });
-                    }
-                }
-                
-                setAiRegistry(configured);
             }
+
+            for (const u of usageModels) {
+                const key = `${u.provider}:${u.model_id}`;
+                if (!configuredMap.has(key) && (u.in > 0 || u.out > 0 || u.cost_usd > 0)) {
+                    configuredMap.set(key, {
+                        provider: u.provider,
+                        model_id: u.model_id,
+                        enabled: false,
+                        cost_in: 0,
+                        cost_out: 0,
+                    });
+                }
+            }
+
+            const configured = [];
+            for (const configuredModel of configuredMap.values()) {
+                const matched = comparisonModels.find(cm => registryEntryMatchesModel(configuredModel, cm));
+                const costIn = (matched && matched.input_price !== undefined && matched.input_price !== null)
+                    ? Number(matched.input_price)
+                    : Number(configuredModel.cost_in || 0);
+                const costOut = (matched && matched.output_price !== undefined && matched.output_price !== null)
+                    ? Number(matched.output_price)
+                    : Number(configuredModel.cost_out || 0);
+                const isFree = Boolean(configuredModel.is_local) || Boolean(matched?.is_free) || (costIn === 0 && costOut === 0);
+
+                const usage = usageModels.find(
+                    u => u.provider === configuredModel.provider && u.model_id === configuredModel.model_id
+                );
+                const hasUsage = usage && (usage.in > 0 || usage.out > 0 || usage.cost_usd > 0);
+
+                if (configuredModel.enabled !== false || hasUsage) {
+                    configured.push({
+                        ...configuredModel,
+                        name: matched?.name || configuredModel.model_id,
+                        creator: matched?.creator || configuredModel.provider || '',
+                        profile: matched?.profile || 'unrated',
+                        cost_in: costIn,
+                        cost_out: costOut,
+                        is_free: isFree,
+                    });
+                }
+            }
+
+            setAiRegistry(configured);
         } catch (err) { console.error("Error loading AI model registry:", err); }
     };
 
     const saveAiBudget = async (newCap, newEnforceBlock) => {
         setSavingBudget(true);
         try {
-            const modelsRes = await fetch('/api/ai/models');
-            let currentModels = [];
-            let currentBudget = {};
-            if (modelsRes.ok) {
-                const payload = await modelsRes.json();
-                // Preserve capability, context, and quality metadata. The
-                // budget control changes policy only; reducing each row to an
-                // identity used to rewrite tool-capable models as tool-less.
-                currentModels = payload?.configured_models || [];
-                currentBudget = payload?.budget || {};
-            }
+            const payload = await fetchAiModels();
+            // Preserve capability, context, and quality metadata. The budget
+            // control changes policy only; reducing each row to an identity
+            // used to rewrite tool-capable models as tool-less.
+            const currentModels = payload?.configured_models || [];
+            const currentBudget = payload?.budget || {};
             
             const updatedBudget = {
                 ...currentBudget,
@@ -1639,18 +1648,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                 enforce_block: Boolean(newEnforceBlock)
             };
 
-            const response = await fetch('/api/ai/models', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ models: currentModels, budget: updatedBudget }),
-            });
+            await updateAiModels({ models: currentModels, budget: updatedBudget });
 
-            if (!response.ok) {
-                throw new Error('Save failed');
-            }
-
-            const uRes = await fetch('/api/ai/usage');
-            if (uRes.ok) setAiUsage(await uRes.json());
+            setAiUsage(await fetchAiUsage());
             window.dispatchEvent(new CustomEvent('gnosi-ai-models-changed', {
                 detail: { source: 'budget-settings' },
             }));
@@ -1678,12 +1678,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         // (table selection) and Databases tabs. They used to be loaded inside
         // loadZoteroData, removed when the Zotero integration was taken out of Settings.
         try {
-            const res = await fetch('/api/vault/tables');
-            if (res.ok) setTables(await res.json());
+            setTables(await fetchVaultTables());
         } catch (e) { console.error("Tables fetch error:", e); }
         try {
-            const res = await fetch('/api/vault/databases');
-            if (res.ok) setDatabases(await res.json());
+            setDatabases(await fetchVaultDatabases());
         } catch (e) { console.error("Databases fetch error:", e); }
     };
 
@@ -1691,12 +1689,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setNewsletterSourcesLoading(true);
         setNewsletterSourcesError('');
         try {
-            const res = await fetch('/api/reader/sources');
-            if (!res.ok) {
-                setNewsletterSourcesError(t('subs_sources_load_error_status', { status: res.status }));
-                return;
-            }
-            const sources = await res.json();
+            const sources = await fetchReaderSources();
             setNewsletterSources((sources || []).filter(s => ['rss', 'newsletter', 'youtube', 'newsletter_account'].includes(s.type)));
             setNewsletterSourcesLoaded(true);
         } catch (err) {
@@ -1709,9 +1702,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     const loadNewsletterAccount = async () => {
         try {
-            const res = await fetch('/api/reader/newsletter-account');
-            if (!res.ok) return;
-            const data = await res.json();
+            const data = await fetchNewsletterAccount();
             const next = {
                 mail_server: data.mail_server || '',
                 mail_port: data.mail_port || 110,
@@ -1750,15 +1741,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             if (newsletterPasswordDirty) {
                 payload.password = newsletterAccount.password;
             }
-            const res = await fetch('/api/reader/newsletter-account', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) {
-                setSavingStatus('error');
-                return;
-            }
+            await updateNewsletterAccount(payload);
             setSavingStatus('saved');
             setTimeout(() => setSavingStatus('idle'), 2000);
             setNewsletterPasswordDirty(false);
@@ -1785,15 +1768,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             if (newsletterPasswordDirty && newsletterAccount.password) {
                 payload.password = newsletterAccount.password;
             }
-            const res = await fetch('/api/reader/newsletter-account/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json().catch(() => ({}));
-            setNewsletterAccountStatus(data.message || data.detail || (res.ok ? '' : t('subs_news_status_test_error')));
-        } catch (_error) {
-            setNewsletterAccountStatus(t('subs_news_status_test_error'));
+            const data = await requestNewsletterTest(payload);
+            setNewsletterAccountStatus(data.message || '');
+        } catch (error) {
+            setNewsletterAccountStatus(error instanceof Error
+                ? error.message
+                : t('subs_news_status_test_error'));
         } finally {
             setNewsletterAccountTesting(false);
         }
@@ -1803,12 +1783,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setNewsletterAccountSyncing(true);
         setNewsletterAccountStatus(t('subs_news_status_syncing'));
         try {
-            const res = await fetch('/api/reader/newsletter-account/sync', { method: 'POST' });
-            const data = await res.json().catch(() => ({}));
-            setNewsletterAccountStatus(data.message || (res.ok ? t('subs_news_status_sync_started') : t('subs_news_status_sync_error')));
+            const data = await requestNewsletterSync();
+            setNewsletterAccountStatus(data.message || t('subs_news_status_sync_started'));
             await loadNewsletterSources();
-        } catch (_error) {
-            setNewsletterAccountStatus(t('subs_news_status_sync_conn_error'));
+        } catch (error) {
+            setNewsletterAccountStatus(error instanceof Error
+                ? error.message
+                : t('subs_news_status_sync_conn_error'));
         } finally {
             setNewsletterAccountSyncing(false);
         }
@@ -1858,7 +1839,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         
         try {
             await Promise.all([
-                axios.post('/api/config', {
+                updateConfiguration({
                     settings: draft.settings,
                     paths: draft.paths,
                     graph: draft.graph,
@@ -1868,8 +1849,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                         providers: draft.ai.providers
                     }
                 }),
-                axios.post('/api/integrations/bulk', integrations),
-                axios.post('/api/identity', draft.identity)
+                bulkUpdateIntegrations(integrations),
+                saveIdentity(draft.identity)
             ]);
             
             lastSavedData.current = currentData;
@@ -2024,7 +2005,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                 setSavingStatus('saving');
                 try {
                     // We force the save even if 'changed' is false to clean up possible inconsistencies
-                    await axios.post('/api/integrations/bulk', updatedIntegrations);
+                    await bulkUpdateIntegrations(updatedIntegrations);
                     setIntegrations(updatedIntegrations);
                     setSavingStatus('saved');
                     setTimeout(() => setSavingStatus('idle'), 2000);
@@ -2085,20 +2066,26 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setSyncingAccounts(prev => ({ ...prev, [accountId]: true }));
         setSavingStatus('saving');
         try {
-            let res;
+            let data;
             if (category === 'contacts') {
                 const provider = account?.provider || 'manual';
-                res = await axios.post('/api/contacts/sync', { provider, email, server_url: account?.server_url, password: account?.password, username: account?.username });
+                data = await requestContactsSync({
+                    provider,
+                    email,
+                    server_url: account?.server_url,
+                    password: account?.password,
+                    username: account?.username,
+                });
             } else if (category === 'calendar') {
-                res = await axios.post(`/api/calendar/sync?email=${encodeURIComponent(email)}`);
+                data = await syncCalendar(email);
             } else {
-                res = await axios.post(`/api/mail/sync?email=${encodeURIComponent(email)}`);
+                data = await syncMail(email);
             }
 
-            const ok = res.data.status === 'success' || res.data.status === 'ok';
-            const partial = res.data.status === 'partial';
+            const ok = data.status === 'success' || data.status === 'ok';
+            const partial = data.status === 'partial';
             if (ok || partial) {
-                const failedEmails = res.data.failed || [];
+                const failedEmails = data.failed || [];
                 markError(prev => {
                     const next = new Set(prev);
                     if (email) failedEmails.includes(email) ? next.add(email) : next.delete(email);
@@ -2112,7 +2099,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
             } else {
                 setSavingStatus('error');
                 if (email) markError(prev => new Set(prev).add(email));
-                toast.error(tn('accounts.sync_error', { detail: res.data.error || res.data.detail || tn('accounts.unknown_error') }));
+                toast.error(tn('accounts.sync_error', { detail: data.error || data.detail || tn('accounts.unknown_error') }));
             }
         } catch (e) {
             console.error("Sync error:", e);
@@ -2195,21 +2182,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         }
 
         try {
-            const res = await fetch('/api/reader/sources', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newsletterName || finalUrl, url: finalUrl, type: newsletterType })
+            await createReaderSource({
+                name: newsletterName || finalUrl,
+                url: finalUrl,
+                type: newsletterType,
             });
-            if (res.ok) {
-                setNewsletterName(''); setNewsletterAddress(''); loadNewsletterSources();
-                setNewsletterStatus(newsletterType === 'youtube' && finalUrl !== newsletterAddress.trim()
-                    ? t('subs_form_status_youtube_converted', { url: finalUrl })
-                    : t('subs_form_status_added'));
-            } else {
-                const j = await res.json().catch(() => ({}));
-                setNewsletterStatus(j.detail || t('subs_form_status_error'));
-            }
-        } catch { setNewsletterStatus(t('subs_form_status_error')); }
+            setNewsletterName(''); setNewsletterAddress(''); loadNewsletterSources();
+            setNewsletterStatus(newsletterType === 'youtube' && finalUrl !== newsletterAddress.trim()
+                ? t('subs_form_status_youtube_converted', { url: finalUrl })
+                : t('subs_form_status_added'));
+        } catch (error) {
+            setNewsletterStatus(error instanceof Error ? error.message : t('subs_form_status_error'));
+        }
     };
 
     const handleNewsletterOpmlUpload = async (file) => {
@@ -2219,21 +2203,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
         setNewsletterStatus(t('subs_opml_status_importing'));
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const res = await fetch('/api/reader/sources/opml', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await res.json().catch(() => ({}));
-
-            if (!res.ok) {
-                setNewsletterStatus(data?.detail || t('subs_opml_status_failed'));
-                return;
-            }
-
+            const data = await importReaderOpml(file);
             setNewsletterStatus(data?.message || t('subs_opml_status_done'));
             await loadNewsletterSources();
         } catch (err) {
@@ -2689,7 +2659,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                             const email = e.target.value;
                                                             const updated = { ...integrations, default_contacts: email };
                                                             setIntegrations(updated);
-                                                            axios.put('/api/integrations/default_contacts', { email }).catch(console.error);
+                                                            updateDefaultContacts(email).catch(console.error);
                                                         }}
                                                         className="gnosi-input"
                                                         style={{ width: '100%' }}
@@ -2722,7 +2692,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                             const email = e.target.value;
                                                             const updated = { ...integrations, default_mail: email };
                                                             setIntegrations(updated);
-                                                            axios.put('/api/integrations/default_mail', { email }).catch(console.error);
+                                                            updateDefaultMail(email).catch(console.error);
                                                         }}
                                                         className="gnosi-input"
                                                         style={{ width: '100%' }}
@@ -2765,7 +2735,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                             const source = e.target.value;
                                                             const updated = { ...integrations, default_calendar: source };
                                                             setIntegrations(updated);
-                                                            axios.put('/api/integrations/default_calendar', { source }).catch(console.error);
+                                                            updateDefaultCalendar(source).catch(console.error);
                                                         }}
                                                         className="gnosi-input"
                                                         style={{ width: '100%' }}
@@ -2798,7 +2768,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                 const newList = [...(integrations.vault_calendar?.enabled_tables || []), tbl.id];
                                                                 const updated = { ...integrations, vault_calendar: { ...integrations.vault_calendar, enabled_tables: newList } };
                                                                 setIntegrations(updated);
-                                                                axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                bulkUpdateIntegrations(updated).catch(console.error);
                                                                 setIsAddingTable(false);
                                                             }}
                                                             style={{ 
@@ -2968,8 +2938,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                 // Edit mode: test the IMAP/SMTP connection
                                                                 setMailTestStatus('testing');
                                                                 try {
-                                                                    await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
-                                                                    const res = await axios.post('/api/integrations/test-email', {
+                                                                    await bulkUpdateIntegrations({ ...integrations, [key]: newList });
+                                                                    const result = await testEmailIntegration({
                                                                         imap_server: mailImapHost,
                                                                         imap_port: mailImapPort,
                                                                         imap_encryption: mailImapEnc,
@@ -2979,9 +2949,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                         username: mailImapUser || addAccountEmail,
                                                                         password: mailImapPass,
                                                                     });
-                                                                    const ok = res.data?.success;
+                                                                    const ok = result.success;
                                                                     setMailTestStatus(ok ? 'ok' : 'error');
-                                                                    toast[ok ? 'success' : 'error'](ok ? tn('accounts.test_ok') : tn('accounts.test_error', { error: res.data?.error || tn('accounts.could_not_connect') }));
+                                                                    toast[ok ? 'success' : 'error'](ok ? tn('accounts.test_ok') : tn('accounts.test_error', { error: result.error || tn('accounts.could_not_connect') }));
                                                                     if (ok) loadIntegrations();
                                                                 } catch (err) {
                                                                     setMailTestStatus('error');
@@ -2991,7 +2961,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                 // New account mode: saves and closes
                                                                 setSavingStatus('saving');
                                                                 try {
-                                                                    await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
+                                                                    await bulkUpdateIntegrations({ ...integrations, [key]: newList });
                                                                     setSavingStatus('saved');
                                                                     setAddAccountType(null);
                                                                     setAddAccountEmail('');
@@ -3139,7 +3109,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                     newList = [...currentList, newAcc];
                                                                 }
 
-                                                                await axios.post('/api/integrations/bulk', {
+                                                                await bulkUpdateIntegrations({
                                                                     ...integrations,
                                                                     [key]: newList
                                                                 });
@@ -3236,7 +3206,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                         enabled={acc.enabled !== false}
                                                                         onToggleEnabled={activeTab === 'mail' ? async (val) => {
                                                                             const emailAddr = acc.email || acc.username;
-                                                                            await axios.patch(`/api/mail/accounts/${encodeURIComponent(emailAddr)}/enabled`, { enabled: val });
+                                                                            await setMailAccountEnabled(emailAddr, val);
                                                                             setIntegrations(prev => {
                                                                                 const updated = { ...prev };
                                                                                 for (const section of ['mail_accounts', 'emails']) {
@@ -3284,7 +3254,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                             const newList = integrations.vault_calendar?.enabled_tables?.filter(id => id !== tbl.id) || [];
                                                                             const updated = { ...integrations, vault_calendar: { ...integrations.vault_calendar, enabled_tables: newList } };
                                                                             setIntegrations(updated);
-                                                                            axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                            bulkUpdateIntegrations(updated).catch(console.error);
                                                                         }}
                                                                         color={tblColor}
                                                                     />
@@ -3326,7 +3296,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                                                 const updatedColors = { ...(integrations.calendar_colors || {}), [editingTableColor.id]: editingTableColor.color };
                                                                                 const updated = { ...integrations, calendar_colors: updatedColors };
                                                                                 setIntegrations(updated);
-                                                                                axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                                bulkUpdateIntegrations(updated).catch(console.error);
                                                                                 setEditingTableColor(null);
                                                                             }}
                                                                             className="btn-gnosi-primary" style={{ flex: 1, padding: '12px' }}
@@ -3805,7 +3775,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                                         message: t('subs_delete_modal_message', { name: s.name }),
                                                         onConfirm: async () => {
                                                             try {
-                                                                await fetch(`/api/reader/sources/${s.id}`, { method: 'DELETE' });
+                                                                await deleteReaderSource(s.id);
                                                                 loadNewsletterSources();
                                                                 setConfirmConfig(prev => ({ ...prev, isOpen: false }));
                                                             } catch (e) {

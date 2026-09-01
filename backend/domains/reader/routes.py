@@ -1,47 +1,59 @@
 from datetime import datetime, timezone
-import inspect
 import logging
 import os
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeAlias, TypedDict, cast
+from typing import Any, List, Optional, TypedDict, cast
 import xml.etree.ElementTree as ET
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.data.db import get_db
-from backend.domains.reader.internal_sources import (
-    fetch_newsletters,
-    normalize_scope,
-    reader_inventory,
+from backend.domains.reader.analysis_routes import (
+    ReaderAnalysisRequest as ReaderAnalysisRequest,
+    cancel_reader_analysis as cancel_reader_analysis,
+    get_reader_analysis_result as get_reader_analysis_result,
+    get_reader_analysis_status as get_reader_analysis_status,
+    get_reader_inventory as get_reader_inventory,
+    list_reader_analyses as list_reader_analyses,
+    register_routes as _register_analysis_routes,
+    resume_reader_analysis as resume_reader_analysis,
+    start_reader_analysis as start_reader_analysis,
+)
+from backend.domains.reader.backfill_routes import (
+    BackfillStatus as BackfillStatus,
+    _run_backfill as _run_backfill,
+    backfill_status as backfill_status,
+    get_backfill_extract_status as get_backfill_extract_status,
+    register_routes as _register_backfill_routes,
+    trigger_backfill_extract as trigger_backfill_extract,
+)
+from backend.domains.reader.internal_sources import fetch_newsletters
+from backend.domains.reader.podcast_routes import (
+    get_latest_podcast as get_latest_podcast,
+    get_podcast_info as get_podcast_info,
+    get_podcast_status as get_podcast_status,
+    register_routes as _register_podcast_routes,
+    trigger_podcast_generation as trigger_podcast_generation,
+)
+from backend.domains.reader.routing import (
+    RouteReturn,
+    require_active_vault as _require_active_vault,
+)
+from backend.domains.reader.schemas import (
+    NewsletterConnectionTestResponse,
+    NewsletterSyncResponse,
+    ReaderArticleExtractResponse,
+    ReaderArticleReadResponse,
+    ReaderMessageResponse,
 )
 from backend.models import reader as models
-from backend.services.context_vars import get_active_vault_path
-from backend.services.plugin_access import require_plugins
 from backend.services.workspace_service import get_workspace_context, require_role
-
-
-if TYPE_CHECKING:
-    RouteReturn: TypeAlias = Any
-else:
-    # FastAPI must observe the pre-PR6 absence of a return annotation so its
-    # generated response schema remains byte-for-byte stable. Mypy sees Any.
-    RouteReturn = inspect.Signature.empty
 
 
 log = logging.getLogger(__name__)
 
 
 ALLOWED_SSL_MODES = ("starttls", "ssl", "none")
-
-
-def _require_active_vault() -> Path:
-    vault_path = get_active_vault_path()
-    if vault_path is None:
-        raise HTTPException(status_code=503, detail="No active Vault is available")
-    return vault_path
 
 
 class NewsletterDefaults(TypedDict):
@@ -53,41 +65,9 @@ class NewsletterDefaults(TypedDict):
     delete_after_ingest: bool
 
 
-class BackfillStatus(TypedDict):
-    running: bool
-    total: int
-    done: int
-    extracted: int
-    failed: int
-    current: str
-    error: str | None
-
-
 router = APIRouter(
     prefix="/api/reader", tags=["reader"], dependencies=[Depends(get_workspace_context)]
 )
-
-
-class ReaderAnalysisRequest(BaseModel):
-    """Validated scope and output preferences for a durable Reader analysis."""
-
-    unread_only: bool = True
-    source_ids: List[int] = Field(default_factory=list, max_length=50)
-    categories: List[str] = Field(default_factory=list, max_length=50)
-    date_from: str = Field(default="", max_length=64)
-    date_to: str = Field(default="", max_length=64)
-    language: str = Field(default="Catalan", max_length=64)
-    guidance: str = Field(default="", max_length=2_000)
-
-    def source_scope(self) -> Dict[str, Any]:
-        return {
-            "unread_only": self.unread_only,
-            "source_ids": self.source_ids,
-            "categories": self.categories,
-            "date_from": self.date_from,
-            "date_to": self.date_to,
-            "include_full_content": True,
-        }
 
 
 @router.get("/sources", response_model=List[models.FeedSourceResponse])
@@ -115,7 +95,11 @@ def create_source(source: models.FeedSourceCreate, db: Session = Depends(get_db)
     return new_source
 
 
-@router.delete("/sources/{source_id}", dependencies=[Depends(require_role("editor"))])
+@router.delete(
+    "/sources/{source_id}",
+    response_model=ReaderMessageResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 def delete_source(source_id: int, db: Session = Depends(get_db)) -> RouteReturn:
     """Delete a source and its articles"""
     db_source = db.query(models.FeedSource).filter(models.FeedSource.id == source_id).first()
@@ -127,7 +111,11 @@ def delete_source(source_id: int, db: Session = Depends(get_db)) -> RouteReturn:
     return {"message": "Source deleted successfully"}
 
 
-@router.post("/sources/opml", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/sources/opml",
+    response_model=ReaderMessageResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db)) -> RouteReturn:
     """Upload an OPML file to import feeds"""
     log.info(f"[OPML] Iniciant pujada de: {file.filename}")
@@ -296,7 +284,11 @@ def update_newsletter_account(
     return _account_to_response(acc)
 
 
-@router.post("/newsletter-account/test", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/newsletter-account/test",
+    response_model=NewsletterConnectionTestResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 def test_newsletter_account(
     payload: Optional[models.NewsletterAccountUpdate] = None, db: Session = Depends(get_db)
 ) -> RouteReturn:
@@ -364,7 +356,11 @@ def _run_newsletter_sync_safe() -> None:
         log.exception("Newsletter sync failed")
 
 
-@router.post("/newsletter-account/sync", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/newsletter-account/sync",
+    response_model=NewsletterSyncResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 def sync_newsletter_account(background_tasks: BackgroundTasks) -> RouteReturn:
     """
     Schedule a newsletter ingestion run. Returns immediately (202 Accepted-ish);
@@ -375,102 +371,7 @@ def sync_newsletter_account(background_tasks: BackgroundTasks) -> RouteReturn:
     return {"ok": True, "message": "Sincronització iniciada en segon pla."}
 
 
-@router.get("/inventory")
-def get_reader_inventory(
-    unread_only: bool = True,
-    source_id: Optional[List[int]] = Query(default=None),
-    category: Optional[List[str]] = Query(default=None),
-    date_from: str = "",
-    date_to: str = "",
-) -> RouteReturn:
-    """Return exact Reader counts and source breakdown without fetching rows."""
-    scope = normalize_scope(
-        "reader",
-        {
-            "unread_only": unread_only,
-            "source_ids": source_id or [],
-            "categories": category or [],
-            "date_from": date_from,
-            "date_to": date_to,
-        },
-    )
-    return reader_inventory(scope)
-
-
-@router.post(
-    "/analysis",
-    dependencies=[Depends(require_role("editor")), Depends(require_plugins("ai-platform"))],
-)
-def start_reader_analysis(payload: ReaderAnalysisRequest) -> RouteReturn:
-    """Snapshot the selected Reader corpus and start durable topic analysis."""
-    from backend.services.reader_analysis import start_analysis
-
-    return start_analysis(
-        _require_active_vault(),
-        payload.source_scope(),
-        language=payload.language,
-        guidance=payload.guidance,
-    )
-
-
-@router.get("/analysis")
-def list_reader_analyses(limit: int = Query(default=20, ge=1, le=100)) -> RouteReturn:
-    """List recent durable Reader analyses in the active vault."""
-    from backend.services.reader_analysis import list_analyses
-
-    return list_analyses(_require_active_vault(), limit=limit)
-
-
-@router.get("/analysis/{job_id}")
-def get_reader_analysis_status(job_id: str) -> RouteReturn:
-    """Return progress for one analysis job in the active vault."""
-    from backend.services.reader_analysis import get_status
-
-    try:
-        return get_status(_require_active_vault(), job_id)
-    except (KeyError, ValueError) as error:
-        raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
-
-
-@router.get("/analysis/{job_id}/result")
-def get_reader_analysis_result(job_id: str) -> RouteReturn:
-    """Return the structured cited result for one completed analysis."""
-    from backend.services.reader_analysis import read_result
-
-    try:
-        return read_result(_require_active_vault(), job_id)
-    except (KeyError, ValueError) as error:
-        raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
-    except RuntimeError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
-
-
-@router.post(
-    "/analysis/{job_id}/resume",
-    dependencies=[Depends(require_role("editor")), Depends(require_plugins("ai-platform"))],
-)
-def resume_reader_analysis(job_id: str) -> RouteReturn:
-    """Resume a durable job from completed checkpoints."""
-    from backend.services.reader_analysis import resume_analysis
-
-    try:
-        return resume_analysis(_require_active_vault(), job_id)
-    except (KeyError, ValueError) as error:
-        raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
-
-
-@router.post(
-    "/analysis/{job_id}/cancel",
-    dependencies=[Depends(require_role("editor"))],
-)
-def cancel_reader_analysis(job_id: str) -> RouteReturn:
-    """Request cooperative cancellation of a running analysis."""
-    from backend.services.reader_analysis import cancel_analysis
-
-    try:
-        return cancel_analysis(_require_active_vault(), job_id)
-    except (KeyError, ValueError) as error:
-        raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
+_register_analysis_routes(router)
 
 
 @router.get("/articles", response_model=List[models.ArticleResponse])
@@ -506,7 +407,11 @@ def get_articles(
     return result
 
 
-@router.patch("/articles/{article_id}/read", dependencies=[Depends(require_role("editor"))])
+@router.patch(
+    "/articles/{article_id}/read",
+    response_model=ReaderArticleReadResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 def mark_article_read(
     article_id: int, read: bool = True, db: Session = Depends(get_db)
 ) -> RouteReturn:
@@ -525,6 +430,7 @@ def mark_article_read(
 
 @router.post(
     "/articles/{article_id}/extract",
+    response_model=ReaderArticleExtractResponse,
     dependencies=[Depends(require_role("editor"))],
 )
 def extract_article_full_content(article_id: int, db: Session = Depends(get_db)) -> RouteReturn:
@@ -556,130 +462,7 @@ def extract_article_full_content(article_id: int, db: Session = Depends(get_db))
     return {"message": "ok", "length": len(extracted)}
 
 
-backfill_status: BackfillStatus = {
-    "running": False,
-    "total": 0,
-    "done": 0,
-    "extracted": 0,
-    "failed": 0,
-    "current": "",
-    "error": None,
-}
-
-
-def _run_backfill(vault_path: Path) -> None:
-    """Iterate excerpt-only articles, extract via trafilatura, persist.
-
-    Polite: 1s sleep between fetches of the same hostname so we don't
-    hammer a single publisher. 8s per-request timeout already lives in
-    the extractor. Stops if the global flag goes False (set on a fresh
-    trigger; container restart is an implicit stop).
-    """
-    import time
-    from urllib.parse import urlparse
-    from sqlalchemy.orm import sessionmaker
-    from backend.data.db import get_engine_for_path
-    from backend.services.article_extractor import (
-        extract_full_content,
-        looks_like_excerpt,
-    )
-    from backend.services.context_vars import active_vault_path
-
-    # ContextVars don't propagate to fresh threads; set it explicitly
-    # so anything inside the worker that calls get_active_vault_path()
-    # (logging, downstream services) sees the right vault.
-    active_vault_path.set(vault_path)
-    engine, _ = get_engine_for_path(vault_path)
-    SessionLocal = sessionmaker(bind=engine)
-
-    last_seen_at: dict[str, float] = {}  # hostname -> monotonic timestamp
-
-    try:
-        with SessionLocal() as db:
-            # Pick everything that still lacks a full_content. We then
-            # filter client-side to those that look like excerpts so we
-            # don't waste an HTTP call on already-rich articles.
-            candidates = cast(
-                list[Any],
-                db.query(models.Article)
-                .filter(models.Article.full_content.is_(None))
-                .order_by(models.Article.published_at.desc().nullslast())
-                .all(),
-            )
-            targets = [a for a in candidates if looks_like_excerpt(a.content)]
-            backfill_status["total"] = len(targets)
-            log.info("Backfill: %s articles to process", len(targets))
-
-            for art in targets:
-                if not backfill_status["running"]:
-                    log.info("Backfill: stopped externally")
-                    break
-                backfill_status["current"] = (art.title or "")[:80]
-
-                # Per-host rate limit
-                try:
-                    host = urlparse(art.url).hostname or ""
-                except Exception:
-                    host = ""
-                now = time.monotonic()
-                wait = 1.0 - (now - last_seen_at.get(host, 0))
-                if wait > 0:
-                    time.sleep(wait)
-                last_seen_at[host] = time.monotonic()
-
-                extracted = extract_full_content(art.url)
-                if extracted:
-                    art.full_content = extracted
-                    db.commit()
-                    backfill_status["extracted"] += 1
-                else:
-                    backfill_status["failed"] += 1
-                backfill_status["done"] += 1
-    except Exception as e:
-        log.exception("Backfill crashed")
-        backfill_status["error"] = str(e)
-    finally:
-        backfill_status["running"] = False
-        backfill_status["current"] = ""
-
-
-@router.post(
-    "/articles/backfill-extract",
-    dependencies=[Depends(require_role("editor"))],
-)
-def trigger_backfill_extract() -> RouteReturn:
-    """Spin up a background pass that fills `full_content` on existing
-    articles whose RSS body looks like an excerpt. Idempotent — only
-    rows with `full_content IS NULL` are touched.
-    """
-    import threading
-
-    if backfill_status["running"]:
-        return {"status": "already_running", **backfill_status}
-
-    backfill_status.update(
-        {
-            "running": True,
-            "total": 0,
-            "done": 0,
-            "extracted": 0,
-            "failed": 0,
-            "current": "",
-            "error": None,
-        }
-    )
-
-    vault_path = _require_active_vault()
-
-    thread = threading.Thread(target=_run_backfill, args=(vault_path,), daemon=True)
-    thread.start()
-    return {"status": "started"}
-
-
-@router.get("/articles/backfill-extract/status")
-def get_backfill_extract_status() -> RouteReturn:
-    """Poll the backfill progress. Safe to call any time."""
-    return backfill_status
+_register_backfill_routes(router)
 
 
 @router.get("/articles/{article_id}", response_model=models.ArticleResponse)
@@ -700,90 +483,4 @@ def get_article(article_id: int, db: Session = Depends(get_db)) -> RouteReturn:
     return result
 
 
-@router.post(
-    "/podcast/generate",
-    dependencies=[Depends(require_role("editor")), Depends(require_plugins("ai-platform"))],
-)
-def trigger_podcast_generation() -> RouteReturn:
-    """Launches podcast generation in the background"""
-    from backend.services.audio_summarizer import start_generation_async, generation_status
-    if generation_status["running"]:
-        return {
-            "status": "already_running",
-            "message": "A podcast is already being generated.",
-            "progress": generation_status["progress"],
-        }
-
-    launch = cast(Callable[..., bool], start_generation_async)
-    started = launch(vault_path=_require_active_vault())
-    if not started:
-        raise HTTPException(status_code=409, detail="Generation already in progress.")
-    return {"status": "started", "message": "Generation started in the background."}
-
-
-@router.get("/podcast/status")
-def get_podcast_status() -> RouteReturn:
-    """Returns the current status of podcast generation"""
-    from backend.services.audio_summarizer import generation_status
-
-    return {
-        "running": generation_status["running"],
-        "progress": generation_status["progress"],
-        "error": generation_status["error"],
-        "result_filename": generation_status["result_filename"],
-    }
-
-
-@router.get("/podcast/info")
-def get_podcast_info() -> RouteReturn:
-    """Returns information about the last generated podcast"""
-    import os
-    from datetime import datetime
-
-    from backend.services.audio_summarizer import get_podcast_output_dir
-
-    output_dir = cast(Callable[[], Path], get_podcast_output_dir)
-    pod_dir = output_dir()
-    pod_dir.mkdir(parents=True, exist_ok=True)
-
-    files = [f for f in os.listdir(pod_dir) if f.endswith(".mp3")]
-    if not files:
-        return {"exists": False}
-
-    latest_file = sorted(files, reverse=True)[0]
-    # Previous bug: file_path was built using AUDIO_OUTPUT_DIR (config.paths.AUDIO)
-    # but the files lived in pod_dir → getmtime failed with FileNotFoundError.
-    file_path = os.path.join(pod_dir, latest_file)
-
-    # Get the modification date
-    mtime = os.path.getmtime(file_path)
-    dt = datetime.fromtimestamp(mtime)
-
-    return {
-        "exists": True,
-        "filename": latest_file,
-        "created_at": dt.isoformat(),
-        "formatted_date": dt.strftime("%d/%m/%Y"),
-        "formatted_time": dt.strftime("%H:%M"),
-    }
-
-
-@router.get("/podcast/latest")
-def get_latest_podcast() -> RouteReturn:
-    """Download/Stream the most recent podcast"""
-    from backend.services.audio_summarizer import get_podcast_output_dir
-
-    output_dir = cast(Callable[[], Path], get_podcast_output_dir)
-    pod_dir = output_dir()
-    if not os.path.exists(pod_dir):
-        raise HTTPException(status_code=404, detail="No podcasts available")
-
-    files = [f for f in os.listdir(pod_dir) if f.endswith(".mp3")]
-    if not files:
-        raise HTTPException(status_code=404, detail="No podcasts available")
-
-    # Sort files by name (which contains the date format YYYY_MM_DD) to get the latest
-    latest_file = sorted(files, reverse=True)[0]
-    file_path = os.path.join(pod_dir, latest_file)
-
-    return FileResponse(file_path, media_type="audio/mpeg", filename="gnosi_daily.mp3")
+_register_podcast_routes(router)

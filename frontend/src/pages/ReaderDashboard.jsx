@@ -1,13 +1,25 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import { toast } from '../lib/toast';
 import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Menu, X, History } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { getIntlLocale } from '../locales/registry';
 import { usePlugins } from '../plugins/usePlugins';
+import { runScheduledTask } from '../shared/api/scheduler';
+import {
+    fetchReaderArticle,
+    fetchReaderPodcastStatus,
+    generateReaderPodcast,
+    readerPodcastUrl,
+} from '../shared/api/reader';
+import {
+    useMarkReaderArticleRead,
+    useReaderArticles,
+    useReaderInventory,
+    useReaderPodcastInfo,
+    useReaderSources,
+} from '../shared/api/useReaderData';
 
-const API_BASE = '/api';
 // Google's favicon service: covers all public domains, returns a 32px PNG
 // with sane fallbacks. Trade-off: each source URL leaks once to Google when
 // the column renders. Acceptable here because the user already pulls these
@@ -143,25 +155,31 @@ const ReaderDashboard = () => {
     const podcastEnabled = isEnabled('ai-platform');
     const locale = getIntlLocale(i18n.resolvedLanguage || i18n.language);
 
-    const [displayArticles, setDisplayArticles] = useState([]);
-    const [unreadInventory, setUnreadInventory] = useState({ count: 0, feeds: [] });
     const [selectedArticle, setSelectedArticle] = useState(null);
-    const [articlesLoading, setArticlesLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [generatingPodcast, setGeneratingPodcast] = useState(false);
     const [podcastUrl, setPodcastUrl] = useState(null);
-    const [podcastInfo, setPodcastInfo] = useState(null);
-    const [sources, setSources] = useState([]);
     const [selectedSourceId, setSelectedSourceId] = useState(null);
     const [showUnreadOnly, setShowUnreadOnly] = useState(true);
     const [collapsedCategories, setCollapsedCategories] = useState(() => new Set());
     const [mobileChannelsOpen, setMobileChannelsOpen] = useState(false);
     const [podcastProgress, setPodcastProgress] = useState('');
     const pollingRef = React.useRef(null);
+    const sourcesQuery = useReaderSources();
+    const articlesQuery = useReaderArticles({
+        unreadOnly: showUnreadOnly,
+        sourceIds: selectedSourceId ? [selectedSourceId] : undefined,
+    });
+    const inventoryQuery = useReaderInventory({ unreadOnly: true });
+    const podcastInfoQuery = useReaderPodcastInfo(podcastEnabled);
+    const markArticleRead = useMarkReaderArticleRead();
+    const sources = sourcesQuery.data || [];
+    const displayArticles = articlesQuery.data || [];
+    const unreadInventory = inventoryQuery.data || { count: 0, feeds: [] };
+    const podcastInfo = podcastInfoQuery.data?.exists ? podcastInfoQuery.data : null;
+    const articlesLoading = articlesQuery.isPending;
 
     useEffect(() => {
-        fetchSources();
-        fetchUnreadCounts();
         const canonicalMatch = window.location.pathname.match(/^\/@[^/]+\/reader\/article\/([^/]+)\/?$/);
         const articleId = canonicalMatch
             ? decodeURIComponent(canonicalMatch[1])
@@ -170,17 +188,12 @@ const ReaderDashboard = () => {
     }, []);
 
     useEffect(() => {
-        if (podcastEnabled) {
-            checkPodcast();
+        if (podcastEnabled && podcastInfo?.exists) {
+            setPodcastUrl((current) => current || readerPodcastUrl());
         } else {
             setPodcastUrl(null);
-            setPodcastInfo(null);
         }
-    }, [podcastEnabled]);
-
-    useEffect(() => {
-        fetchDisplayArticles();
-    }, [selectedSourceId, showUnreadOnly]);
+    }, [podcastEnabled, podcastInfo]);
 
     useEffect(() => {
         window.dispatchEvent(new CustomEvent('gnosi:module-context', {
@@ -198,60 +211,14 @@ const ReaderDashboard = () => {
         }));
     }, [t]);
 
-    const fetchSources = async () => {
-        try {
-            const res = await axios.get(`${API_BASE}/reader/sources`);
-            setSources(res.data || []);
-        } catch (error) {
-            console.error("Error fetching sources:", error);
-        }
-    };
-
-    const fetchDisplayArticles = async () => {
-        setArticlesLoading(true);
-        try {
-            let url = `${API_BASE}/reader/articles?unread_only=${showUnreadOnly}`;
-            if (selectedSourceId) url += `&source_id=${selectedSourceId}`;
-            const res = await axios.get(url);
-            setDisplayArticles(res.data);
-        } catch (error) {
-            console.error("Error fetching articles:", error);
-        } finally {
-            setArticlesLoading(false);
-        }
-    };
-
-    const fetchUnreadCounts = async () => {
-        try {
-            const res = await axios.get(`${API_BASE}/reader/inventory?unread_only=true`);
-            setUnreadInventory(res.data || { count: 0, feeds: [] });
-        } catch (error) {
-            console.error("Error fetching unread counts:", error);
-        }
-    };
-
     const openEvidenceArticle = async (articleId) => {
         try {
-            const response = await axios.get(`${API_BASE}/reader/articles/${articleId}`);
-            setSelectedArticle(response.data);
+            const numericArticleId = Number(articleId);
+            if (!Number.isInteger(numericArticleId)) throw new Error('Invalid Reader article id');
+            setSelectedArticle(await fetchReaderArticle(numericArticleId));
         } catch (error) {
             console.error('Could not open Reader evidence article', error);
             toast.error(t('reader_analysis_evidence_error', 'The evidence article is no longer available.'));
-        }
-    };
-
-    const checkPodcast = async () => {
-        try {
-            const res = await axios.get(`${API_BASE}/reader/podcast/info`);
-            if (res.data.exists) {
-                setPodcastUrl(`${API_BASE}/reader/podcast/latest`);
-                setPodcastInfo(res.data);
-            } else {
-                setPodcastUrl(null);
-                setPodcastInfo(null);
-            }
-        } catch (error) {
-            console.debug('podcast info fetch failed:', error?.message);
         }
     };
 
@@ -260,21 +227,7 @@ const ReaderDashboard = () => {
         const sourceId = displayArticles.find(article => article.id === id)?.source_id
             || (selectedArticle?.id === id ? selectedArticle.source_id : null);
         try {
-            await axios.patch(`${API_BASE}/reader/articles/${id}/read?read=true`);
-            setDisplayArticles((prev) => (
-                showUnreadOnly
-                    ? prev.filter((a) => a.id !== id)
-                    : prev.map((a) => (a.id === id ? { ...a, is_read: true } : a))
-            ));
-            setUnreadInventory(prev => ({
-                ...prev,
-                count: Math.max(0, (prev.count || 0) - 1),
-                feeds: (prev.feeds || []).map(feed => (
-                    feed.id === sourceId
-                        ? { ...feed, count: Math.max(0, (feed.count || 0) - 1) }
-                        : feed
-                )),
-            }));
+            await markArticleRead.mutateAsync({ articleId: id, sourceId });
             if (selectedArticle?.id === id) {
                 setSelectedArticle(showUnreadOnly ? null : { ...selectedArticle, is_read: true });
             }
@@ -287,14 +240,13 @@ const ReaderDashboard = () => {
         setGeneratingPodcast(true);
         setPodcastProgress(t('reader_podcast_starting'));
         try {
-            const res = await axios.post(`${API_BASE}/reader/podcast/generate`);
-            if (res.data.status === 'already_running') {
-                setPodcastProgress(res.data.progress || t('reader_podcast_in_progress'));
+            const generation = await generateReaderPodcast();
+            if (generation.status === 'already_running') {
+                setPodcastProgress(generation.progress || t('reader_podcast_in_progress'));
             }
             pollingRef.current = setInterval(async () => {
                 try {
-                    const statusRes = await axios.get(`${API_BASE}/reader/podcast/status`);
-                    const { running, progress, error, result_filename } = statusRes.data;
+                    const { running, progress, error, result_filename } = await fetchReaderPodcastStatus();
                     setPodcastProgress(progress || '');
                     if (!running) {
                         clearInterval(pollingRef.current);
@@ -302,8 +254,8 @@ const ReaderDashboard = () => {
                         if (error) {
                             toast.error(`${t('reader_podcast_error_prefix', 'Error')}: ${error}`);
                         } else if (result_filename) {
-                            setPodcastUrl(`${API_BASE}/reader/podcast/latest?t=${Date.now()}`);
-                            checkPodcast();
+                            setPodcastUrl(readerPodcastUrl(Date.now()));
+                            await podcastInfoQuery.refetch();
                         }
                         setGeneratingPodcast(false);
                         setPodcastProgress('');
@@ -330,10 +282,14 @@ const ReaderDashboard = () => {
         setSyncing(true);
         try {
             await Promise.all([
-                axios.post(`${API_BASE}/schedulers/fetch_feeds/run`),
-                axios.post(`${API_BASE}/schedulers/fetch_newsletters/run`)
+                runScheduledTask('fetch_feeds'),
+                runScheduledTask('fetch_newsletters'),
             ]);
-            await Promise.all([fetchDisplayArticles(), fetchUnreadCounts()]);
+            await Promise.all([
+                articlesQuery.refetch(),
+                inventoryQuery.refetch(),
+                sourcesQuery.refetch(),
+            ]);
         } catch (error) {
             console.error("Error during synchronization:", error);
         } finally {

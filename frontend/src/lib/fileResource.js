@@ -13,6 +13,8 @@
  *     can't open it (typical inside Docker without Finder access).
  */
 import { toast } from './toast';
+import { transportFetch } from '../shared/api/transports';
+import { fetchNotebookEvidence } from '../shared/api/notebooks';
 
 // Document types that the integrated viewer (Zotero reader) can display.
 const DOCUMENT_KIND_BY_EXT = { pdf: 'pdf', epub: 'epub', html: 'snapshot', htm: 'snapshot' };
@@ -66,7 +68,7 @@ export function getActiveVaultId() {
  * Why this is needed IN ADDITION to the `X-Vault-Id` header: the header is only added
  * by the axios interceptor, so ALL requests that don't go through axios
  * are left without a vault signal and fall back to the default vault (Principal) on the
- * backend: raw `fetch()`, native media (`<img>/<video>/<audio>/<iframe>`),
+ * backend: shared HTTP transports, native media (`<img>/<video>/<audio>/<iframe>`),
  * CSS `background-image`, `EventSource`/SSE, `/api/chat`, and even the
  * WebSocket handshake. A same-origin cookie AUTOMATICALLY travels with every
  * request to the same origin → this closes off that whole class without touching every call
@@ -483,7 +485,7 @@ async function copyPathToClipboard(target, t) {
 
 async function openViaSystem(target, t) {
     try {
-        const res = await fetch('/api/vault/open-local-path', {
+        const res = await transportFetch('/api/vault/open-local-path', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ path: target }),
@@ -637,20 +639,17 @@ export async function openCitation(resourceId, page, {
     if (citation.notebook && citation.chunk) {
         try {
             const revision = String(citation.revision || '').trim();
-            const revisionQuery = /^\d+$/.test(revision)
-                ? `?revision=${encodeURIComponent(revision)}`
-                : '';
-            const evidenceResponse = await fetch(
-                `/api/notebooks/${encodeURIComponent(citation.notebook)}/evidence/${encodeURIComponent(citation.chunk)}${revisionQuery}`,
-                { credentials: 'include' },
+            evidence = await fetchNotebookEvidence(
+                String(citation.notebook),
+                String(citation.chunk),
+                /^\d+$/.test(revision) ? Number(revision) : undefined,
             );
-            if (evidenceResponse.ok) evidence = await evidenceResponse.json();
         } catch {
             evidence = null;
         }
     } else if (citation.snapshot && citation.segment) {
         try {
-            const evidenceResponse = await fetch(
+            const evidenceResponse = await transportFetch(
                 `/api/vault/llm-wiki/evidence/${encodeURIComponent(resourceId)}/${encodeURIComponent(citation.snapshot)}/${encodeURIComponent(citation.segment)}`,
                 { credentials: 'include' },
             );
@@ -660,7 +659,7 @@ export async function openCitation(resourceId, page, {
         }
     }
     try {
-        const res = await fetch(`/api/vault/pages/${encodeURIComponent(resourceId)}`, { credentials: 'include' });
+        const res = await transportFetch(`/api/vault/pages/${encodeURIComponent(resourceId)}`, { credentials: 'include' });
         if (res.ok) {
             const data = await res.json();
             const meta = data?.metadata || data || {};

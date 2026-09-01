@@ -1,33 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle, Calendar, ExternalLink } from 'lucide-react';
 import i18n from '../i18n';
+import { useSocialPostHistory } from '../shared/api/useSocialData';
 
 const PostHistory = () => {
     const { t } = useTranslation();
-    const [history, setHistory] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-
-    useEffect(() => {
-        fetchHistory();
-    }, []);
-
-    const fetchHistory = async () => {
-        setIsRefreshing(true);
-        try {
-            const res = await fetch('/api/social/history');
-            if (res.ok) {
-                const data = await res.json();
-                setHistory(data.reverse()); // Show newest first
-            }
-        } catch (error) {
-            console.error('Error fetching history:', error);
-        } finally {
-            setLoading(false);
-            setIsRefreshing(false);
-        }
-    };
+    const historyQuery = useSocialPostHistory();
+    const history = [...(historyQuery.data || [])].reverse();
+    const loading = historyQuery.isLoading;
+    const isRefreshing = historyQuery.isFetching && !loading;
 
     const formatDate = (isoString) => {
         // Unpublished posts (pending/failed/cancelled) come with
@@ -58,7 +40,7 @@ const PostHistory = () => {
         <div className="h-full overflow-y-auto p-6">
             <div className="flex justify-end mb-4 shrink-0">
                 <button
-                    onClick={fetchHistory}
+                    onClick={() => historyQuery.refetch()}
                     className={`p-2 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-primary)] transition-all ${isRefreshing ? 'animate-spin' : ''}`}
                     title={t('common.refresh', "Refresh")}
                 >

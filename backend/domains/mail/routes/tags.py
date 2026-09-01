@@ -5,14 +5,19 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import Body, Depends, HTTPException
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.data.db import get_db
 from backend.domains.mail.routing import router
 from backend.domains.mail.schemas import (
     MailMessageTagsSetSchema,
+    MailMessageTagsResponse,
     MailTagCreateSchema,
+    MailTaggedMessagesResponse,
+    MailTagResponse,
+    MailTagsBatchRequest,
+    MailTagsByMessageResponse,
     MailTagUpdateSchema,
 )
 from backend.models.mail import MailMessageTag, MailTag
@@ -30,13 +35,13 @@ def _tag_to_dict(tag: MailTag) -> dict[str, Any]:
     }
 
 
-@router.get("/tags")
+@router.get("/tags", response_model=list[MailTagResponse])
 async def list_tags(db: Session = Depends(get_db)) -> Any:
     tags = db.query(MailTag).order_by(MailTag.created_at).all()
     return [_tag_to_dict(t) for t in tags]
 
 
-@router.post("/tags", status_code=201)
+@router.post("/tags", status_code=201, response_model=MailTagResponse)
 async def create_tag(payload: MailTagCreateSchema, db: Session = Depends(get_db)) -> Any:
     tag = MailTag(name=payload.name, color=payload.color)
     db.add(tag)
@@ -45,7 +50,7 @@ async def create_tag(payload: MailTagCreateSchema, db: Session = Depends(get_db)
     return _tag_to_dict(tag)
 
 
-@router.put("/tags/{tag_id}")
+@router.put("/tags/{tag_id}", response_model=MailTagResponse)
 async def update_tag(
     tag_id: str, payload: MailTagUpdateSchema, db: Session = Depends(get_db)
 ) -> Any:
@@ -76,13 +81,16 @@ async def delete_tag(tag_id: str, db: Session = Depends(get_db)) -> Any:
     db.commit()
 
 
-@router.get("/messages/{message_id}/tags")
+@router.get("/messages/{message_id}/tags", response_model=list[str])
 async def get_message_tags(message_id: str, db: Session = Depends(get_db)) -> Any:
     rows = db.query(MailMessageTag).filter(MailMessageTag.message_id == message_id).all()
     return [row.tag_id for row in rows]
 
 
-@router.post("/messages/{message_id}/tags")
+@router.post(
+    "/messages/{message_id}/tags",
+    response_model=MailMessageTagsResponse,
+)
 async def set_message_tags(
     message_id: str, payload: MailMessageTagsSetSchema, db: Session = Depends(get_db)
 ) -> Any:
@@ -104,7 +112,10 @@ async def set_message_tags(
     return {"status": "success", "tag_ids": payload.tag_ids}
 
 
-@router.get("/tags/{tag_id}/messages")
+@router.get(
+    "/tags/{tag_id}/messages",
+    response_model=MailTaggedMessagesResponse,
+)
 async def get_tagged_messages(tag_id: str, db: Session = Depends(get_db)) -> Any:
     tag = db.query(MailTag).filter(MailTag.id == tag_id).first()
     if not tag:
@@ -125,11 +136,15 @@ async def get_tagged_messages(tag_id: str, db: Session = Depends(get_db)) -> Any
     }
 
 
-@router.post("/tags/messages/batch")
+@router.post(
+    "/tags/messages/batch",
+    response_model=MailTagsByMessageResponse,
+)
 async def get_tags_for_messages(
-    payload: dict[str, Any] = Body(...), db: Session = Depends(get_db)
+    payload: MailTagsBatchRequest,
+    db: Session = Depends(get_db),
 ) -> Any:
-    message_ids = payload.get("message_ids", [])
+    message_ids = payload.message_ids
     if not message_ids:
         return {}
     rows = db.query(MailMessageTag).filter(MailMessageTag.message_id.in_(message_ids)).all()

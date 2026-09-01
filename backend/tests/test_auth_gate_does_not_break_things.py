@@ -19,6 +19,11 @@ from backend.services.auth_service import COOKIE_NAME, REQUIRE_AUTH_ENV
 STALE_COOKIE = {COOKIE_NAME: "not.a.valid.jwt"}
 
 
+def _set_stale_cookie(client: TestClient) -> None:
+    for name, value in STALE_COOKIE.items():
+        client.cookies.set(name, value)
+
+
 @pytest.fixture
 def client():
     from backend.server import app
@@ -69,7 +74,8 @@ def test_logout_works_with_an_unusable_cookie(client, monkeypatch, flag):
         monkeypatch.setenv(REQUIRE_AUTH_ENV, "1")
     else:
         monkeypatch.delenv(REQUIRE_AUTH_ENV, raising=False)
-    r = client.post("/api/auth/logout", cookies=STALE_COOKIE)
+    _set_stale_cookie(client)
+    r = client.post("/api/auth/logout")
     assert r.status_code == 200, r.text
 
 
@@ -81,14 +87,15 @@ def test_login_is_reachable_with_an_unusable_cookie(client, monkeypatch, flag):
         monkeypatch.setenv(REQUIRE_AUTH_ENV, "1")
     else:
         monkeypatch.delenv(REQUIRE_AUTH_ENV, raising=False)
+    _set_stale_cookie(client)
     r = client.post(
         "/api/auth/login",
         json={"email": "nobody@corp.com", "password": "whatever12"},
-        cookies=STALE_COOKIE,
     )
     assert "Cal autenticació" not in r.text, "blocked by the gate, not by credentials"
 
 
 def test_on_the_liveness_probe_ignores_a_stale_cookie(client, flag_on):
     """The allowlist is consulted before identity, so a bad cookie is irrelevant."""
-    assert client.get("/api/health", cookies=STALE_COOKIE).status_code == 200
+    _set_stale_cookie(client)
+    assert client.get("/api/health").status_code == 200

@@ -13,9 +13,22 @@ from backend.domains.vault.tables import lifecycle as table_lifecycle
 from backend.domains.vault.tables import options as table_options
 from backend.domains.vault.tables import schema as table_schema
 from backend.domains.vault.tables.composition import TableDomainDependencies
+from backend.domains.vault.tables.contracts import (
+    RegistryRecord,
+    TablePropertyPatchRequest,
+    TablePropertyPatchResponse,
+)
 from backend.domains.vault.tables.security import get_workspace_context, require_role
 from backend.domains.vault.views import api as vault_views
 from backend.domains.vault.views import schema as vault_view_schema
+from backend.domains.vault.views.contracts import (
+    VaultViewInput,
+    VaultViewResponse,
+    ViewMutationResponse,
+    ViewReorderRequest,
+    ViewReorderResponse,
+    ViewUsageResponse,
+)
 
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
 _dependencies: TableDomainDependencies | None = None
@@ -44,7 +57,7 @@ def register_routes(parent_router: APIRouter) -> None:
         parent_router._mark_routes_changed()
 
 
-@router.get("/databases", response_model=None)
+@router.get("/databases", response_model=list[RegistryRecord])
 async def list_databases() -> list[RegistryData]:
     return await table_collection_api.list_databases(_configured().collections)
 
@@ -52,7 +65,7 @@ async def list_databases() -> list[RegistryData]:
 @router.post(
     "/databases",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def create_database(db: RegistryData = Body(...)) -> RegistryData:
     return await table_collection_api.create_database(db, _configured().collections)
@@ -61,7 +74,7 @@ async def create_database(db: RegistryData = Body(...)) -> RegistryData:
 @router.delete(
     "/databases/{database_id}",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def delete_database(database_id: str) -> RegistryData:
     return await table_collection_api.delete_database(
@@ -70,7 +83,7 @@ async def delete_database(database_id: str) -> RegistryData:
     )
 
 
-@router.get("/tables", response_model=None)
+@router.get("/tables", response_model=list[RegistryRecord])
 async def list_tables(database_id: Optional[str] = None) -> list[RegistryData]:
     return await table_collection_api.list_tables(
         database_id,
@@ -89,7 +102,7 @@ def _ensure_main_view(
 @router.post(
     "/tables",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def create_table(table: RegistryData = Body(...)) -> RegistryData:
     return await table_lifecycle.create_table(table, _configured().create_table)
@@ -120,7 +133,7 @@ def _create_table_locked(table: RegistryData) -> RegistryData:
 @router.delete(
     "/tables/{table_id}",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def delete_table(
     table_id: str,
@@ -152,7 +165,7 @@ async def delete_table(
 @router.put(
     "/tables/{table_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def rename_table(
     table_id: str,
@@ -205,12 +218,12 @@ def _propagate_property_rename(
 @router.patch(
     "/tables/{table_id}/properties/{field_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=TablePropertyPatchResponse,
 )
 async def patch_table_property(
     table_id: str,
     field_id: str,
-    data: RegistryData = Body(...),
+    data: TablePropertyPatchRequest = Body(...),
 ) -> RegistryData:
     """
         Renames or updates non-structural attributes of a property identified
@@ -231,7 +244,9 @@ async def patch_table_property(
     return await table_schema.patch_table_property(
         table_id,
         field_id,
-        data,
+        data.model_dump(exclude_unset=True)
+        if isinstance(data, TablePropertyPatchRequest)
+        else data,
         _configured().properties,
     )
 
@@ -286,7 +301,7 @@ async def _rewrite_option_in_rows(
     )
 
 
-@router.get("/tables/{table_id}/options/usage", response_model=None)
+@router.get("/tables/{table_id}/options/usage", response_model=RegistryRecord)
 async def table_option_usage(table_id: str, field_id: str) -> RegistryData:
     """Usage counter per option (how many rows use each value) — feeds
     the option editor of the SchemaConfigModal."""
@@ -300,7 +315,7 @@ async def table_option_usage(table_id: str, field_id: str) -> RegistryData:
 @router.post(
     "/tables/{table_id}/options/rename",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def rename_table_option(
     table_id: str,
@@ -322,7 +337,7 @@ async def rename_table_option(
 @router.post(
     "/tables/{table_id}/options/remove",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def remove_table_option(
     table_id: str,
@@ -341,7 +356,7 @@ async def remove_table_option(
     )
 
 
-@router.get("/option-catalogs", response_model=None)
+@router.get("/option-catalogs", response_model=RegistryRecord)
 async def list_option_catalogs() -> RegistryData:
     return await table_options.list_option_catalogs(_configured().options)
 
@@ -349,7 +364,7 @@ async def list_option_catalogs() -> RegistryData:
 @router.put(
     "/option-catalogs/{name}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def put_option_catalog(
     name: str,
@@ -376,7 +391,23 @@ async def delete_option_catalog(name: str) -> RegistryData:
     )
 
 
-@router.get("/views", response_model=None)
+def _view_payload(view: VaultViewInput | RegistryData) -> RegistryData:
+    if isinstance(view, VaultViewInput):
+        return view.model_dump(exclude_unset=True)
+    return view
+
+
+def _view_reorder_payload(body: ViewReorderRequest | RegistryData) -> RegistryData:
+    if isinstance(body, ViewReorderRequest):
+        return body.model_dump()
+    return body
+
+
+@router.get(
+    "/views",
+    response_model=list[VaultViewResponse],
+    response_model_exclude_unset=True,
+)
 async def list_views(table_id: Optional[str] = None) -> list[RegistryData]:
     return await vault_views.list_views(table_id, _configured().views)
 
@@ -384,18 +415,19 @@ async def list_views(table_id: Optional[str] = None) -> list[RegistryData]:
 @router.post(
     "/views",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=VaultViewResponse,
+    response_model_exclude_unset=True,
 )
-async def create_view(view: RegistryData = Body(...)) -> RegistryData:
-    return await vault_views.create_view(view, _configured().views)
+async def create_view(view: VaultViewInput = Body(...)) -> RegistryData:
+    return await vault_views.create_view(_view_payload(view), _configured().views)
 
 
 @router.put(
     "/views/order",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ViewReorderResponse,
 )
-async def reorder_views(body: RegistryData = Body(...)) -> RegistryData:
+async def reorder_views(body: ViewReorderRequest = Body(...)) -> RegistryData:
     """Reorders a table's views according to the received order.
 
     Body: {"table_id": "...", "ordered_ids": ["v1", "v2", "v3"]}.
@@ -404,15 +436,22 @@ async def reorder_views(body: RegistryData = Body(...)) -> RegistryData:
     the given order.
 
     """
-    return await vault_views.reorder_views(body, _configured().views)
+    return await vault_views.reorder_views(
+        _view_reorder_payload(body),
+        _configured().views,
+    )
 
 
-@router.get("/views/{view_id}", response_model=None)
+@router.get(
+    "/views/{view_id}",
+    response_model=VaultViewResponse,
+    response_model_exclude_unset=True,
+)
 async def get_view(view_id: str) -> RegistryData:
     return await vault_views.get_view(view_id, _configured().views)
 
 
-@router.get("/views/{view_id}/usage", response_model=None)
+@router.get("/views/{view_id}/usage", response_model=ViewUsageResponse)
 async def get_view_usage(view_id: str) -> RegistryData:
     """Find all pages/notes in the vault where this view_id is embedded or referenced."""
     return await vault_views.get_view_usage(view_id, _configured().views)
@@ -421,7 +460,7 @@ async def get_view_usage(view_id: str) -> RegistryData:
 @router.delete(
     "/views/{view_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ViewMutationResponse,
 )
 async def delete_view(view_id: str) -> RegistryData:
     return await vault_views.delete_view(view_id, _configured().views)
@@ -430,13 +469,17 @@ async def delete_view(view_id: str) -> RegistryData:
 @router.put(
     "/views/{view_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=ViewMutationResponse,
 )
 async def update_view(
     view_id: str,
-    data: RegistryData = Body(...),
+    data: VaultViewInput = Body(...),
 ) -> RegistryData:
-    return await vault_views.update_view(view_id, data, _configured().views)
+    return await vault_views.update_view(
+        view_id,
+        _view_payload(data),
+        _configured().views,
+    )
 
 
 def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
@@ -451,7 +494,7 @@ def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
 @router.post(
     "/schema",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=RegistryRecord,
 )
 async def save_schema(
     folder: str,

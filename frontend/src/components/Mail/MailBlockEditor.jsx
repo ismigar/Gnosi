@@ -6,14 +6,10 @@ import "@blocknote/core/fonts/inter.css";
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { toast } from '../../lib/toast';
+import { uploadVaultAsset } from '../../shared/api/vault-specialized';
 
 async function uploadFileToVault(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch('/api/vault/assets/upload', { method: 'POST', body: formData });
-    if (!res.ok) throw new Error('Upload failed');
-    const data = await res.json();
-    return data.url;
+    return (await uploadVaultAsset(file)).url;
 }
 
 export default function MailBlockEditor({ initialContent, onChange, editorRef, minHeight = "200px", onAttachFile, autoFocus = false, prependEmptyLines = 0 }) {

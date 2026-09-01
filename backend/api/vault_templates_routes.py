@@ -128,7 +128,7 @@ def _config_dir(ctx: WorkspaceContext) -> Path:
     return Path(ctx.vault_path) / ".gnosi"
 
 
-@router.get("/templates/catalog", response_model=None)
+@router.get("/templates/catalog", response_model=TemplateCatalogResponse)
 def list_template_catalog(
     ctx: WorkspaceContext = Depends(get_workspace_context),
 ) -> dict[str, Any]:
@@ -152,7 +152,7 @@ def list_template_catalog(
 @router.post(
     "/from-template",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=CreatedVaultTemplateResponse,
 )
 def create_vault_from_template(
     payload: CreateFromTemplatePayload,
@@ -223,7 +223,7 @@ def create_vault_from_template(
 @router.get(
     "/{vault_id}/template-export/preview",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=TemplateExportPreviewResponse,
 )
 def preview_template_export(
     vault_id: str,
@@ -262,6 +262,7 @@ def _template_response(row: Vault, payload: TemplateExportPayload) -> Response:
     "/{vault_id}/template-export",
     dependencies=[Depends(require_role("editor"))],
     response_model=None,
+    response_class=Response,
 )
 def export_vault_template(
     vault_id: str,
@@ -281,7 +282,7 @@ def export_vault_template(
 @router.post(
     "/{vault_id}/template-submissions",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=TemplateSubmissionResponse,
 )
 def submit_vault_template(
     vault_id: str,

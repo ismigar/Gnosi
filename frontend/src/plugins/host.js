@@ -21,9 +21,18 @@
  * Module-level store with subscription (same pattern as usePlugins): the
  * command palette, the shell, and the config panel read the active contributions.
  */
-import axios from 'axios';
-
-const API = '/api/vault/plugins';
+import { getCachedPageEtag } from '../shared/api/page-etag';
+import {
+    createPluginHostPage,
+    fetchForUiPlugin,
+    fetchPluginAssetText,
+    fetchPluginHostPage,
+    fetchPluginSettings,
+    patchPluginHostPage,
+    updatePluginSettings,
+} from '../shared/api/plugin-runtime';
+import { fetchInstalledPlugins } from '../shared/api/plugins';
+import { fetchVaultPagesByTable, fetchVaultTables } from '../shared/api/vaults';
 
 const _frames = new Map();        // pluginId → { iframe, manifest, granted }
 let _commands = [];               // { pluginId, id, title, icon }
@@ -158,8 +167,7 @@ function _buildSrcdoc(pluginCode) {
 const _HOST_METHODS = {
     'vault.readPage': { perm: 'vault:read', run: async (args) => {
         const id = String(args.pageId || '');
-        const res = await axios.get(`/api/vault/pages/${encodeURIComponent(id)}`);
-        const d = res.data || {};
+        const d = await fetchPluginHostPage(id);
         // Unified shape with the data sandbox: {pageId, title, content, metadata}.
         return { pageId: d.id, title: d.title || '', content: d.content || '', metadata: d.metadata || {} };
     } },
@@ -169,14 +177,14 @@ const _HOST_METHODS = {
         const payload = {};
         if (args.content !== undefined) payload.content = args.content;
         if (args.metadata !== undefined) payload.metadata = args.metadata;
-        await axios.patch(`/api/vault/pages/${encodeURIComponent(id)}`, payload);
+        await patchPluginHostPage(id, payload, { knownEtag: getCachedPageEtag(id) });
         return { pageId: id, written: (args.content || '').length };
     } },
     'vault.queryDB': { perm: 'vault:read', run: async (args) => {
         const id = String(args.tableId || '');
         const limit = Math.max(1, Math.min(Number(args.limit) || 200, 1000));
-        const res = await axios.get(`/api/vault/pages/by-table/${encodeURIComponent(id)}`);
-        const all = Array.isArray(res.data) ? res.data : [];
+        const response = await fetchVaultPagesByTable(id);
+        const all = Array.isArray(response) ? response : [];
         // Templates (is_template) are not data: no other consumer of
         // by-table shows them as rows (DbViewEmbed, PageViewModal,
         // dashboard, sidebar). Without this filter a plugin would receive them
@@ -186,33 +194,29 @@ const _HOST_METHODS = {
         return { tableId: id, rows, total: records.length, truncated: records.length > limit };
     } },
     'vault.listTables': { perm: 'vault:read', run: async () => {
-        const res = await axios.get('/api/vault/tables');
-        const all = Array.isArray(res.data) ? res.data : [];
+        const response = await fetchVaultTables();
+        const all = Array.isArray(response) ? response : [];
         return { tables: all.map((t) => ({ id: t.id, name: t.name || t.id, fields: (t.properties || []).length })) };
     } },
     'vault.createPage': { perm: 'vault:write', run: async (args) => {
-        const res = await axios.post('/api/vault/pages', {
+        const response = await createPluginHostPage({
             title: args.title || 'Sense títol',
             content: args.content || '',
             metadata: {},
             ...(args.parent_id ? { parent_id: args.parent_id } : {}),
         });
-        return { pageId: res.data?.id, title: res.data?.title };
+        return { pageId: response.id, title: response.title };
     } },
     'settings.get': { perm: 'settings', run: async (args, pluginId) => {
-        const res = await axios.get(`/api/vault/plugins/${encodeURIComponent(pluginId)}/settings`);
-        return { settings: res.data?.settings || {} };
+        const response = await fetchPluginSettings(pluginId);
+        return { settings: response.settings || {} };
     } },
     'settings.set': { perm: 'settings', run: async (args, pluginId) => {
-        const res = await axios.put(`/api/vault/plugins/${encodeURIComponent(pluginId)}/settings`, { settings: args.settings || {} });
-        return { settings: res.data?.settings || {} };
+        const response = await updatePluginSettings(pluginId, args.settings || {});
+        return { settings: response.settings || {} };
     } },
     'network.fetch': { perm: 'network', run: async (args, pluginId) => {
-        const res = await axios.post(
-            `/api/vault/plugins/${encodeURIComponent(pluginId)}/network/fetch`,
-            { url: args.url, opts: args.opts || {} },
-        );
-        return res.data;
+        return fetchForUiPlugin(pluginId, args.url, args.opts || {});
     } },
 };
 
@@ -316,8 +320,8 @@ export function mountSettingsPanel(pluginId, panelId, container, height = 420) {
 export async function loadPlugins() {
     let installed;
     try {
-        const res = await axios.get(`${API}/installed`);
-        installed = res.data?.plugins || [];
+        const response = await fetchInstalledPlugins();
+        installed = response.plugins || [];
     } catch {
         return;
     }
@@ -330,8 +334,8 @@ export async function loadPlugins() {
         if (!manifest.main || !wantsUI) continue;
         seen.add(manifest.id);
         try {
-            const res = await axios.get(`${API}/${encodeURIComponent(manifest.id)}/asset/${manifest.main}`, { responseType: 'text' });
-            _mountPlugin(manifest, granted, res.data);
+            const code = await fetchPluginAssetText(manifest.id, manifest.main);
+            _mountPlugin(manifest, granted, code);
         } catch (e) {
             console.warn(`[plugins] could not load ${manifest.id}:`, e?.message || e);
         }

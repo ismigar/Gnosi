@@ -1,7 +1,6 @@
 """Typed AI content-generation routes used by the Vault editor."""
 
 import asyncio
-from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -17,6 +16,11 @@ class GeneratePayload(BaseModel):
     context: str | None = ""
     mode: str | None = "free"
     language: str | None = None
+
+
+class GenerateContentResponse(BaseModel):
+    content: str
+    provider: str
 
 
 def build_generation_prompt(payload: GeneratePayload) -> str:
@@ -103,10 +107,9 @@ def _provider_error(error: Exception, *, route: str) -> HTTPException:
 
 @router.post(
     "/generate",
-    response_model=None,
-    responses={200: {"content": {"application/json": {"schema": {}}}}},
+    response_model=GenerateContentResponse,
 )
-async def generate_content(payload: GeneratePayload) -> Any:
+async def generate_content(payload: GeneratePayload) -> dict[str, str]:
     """One-shot AI text generation to insert into Vault pages.
 
     Uses the MODERN path `factory.generate_text` (get_llm + resolve_provider_api_key),
@@ -135,7 +138,10 @@ async def generate_content(payload: GeneratePayload) -> Any:
     except Exception as error:
         raise _provider_error(error, route="POST /ai/generate") from error
 
-    return {"content": (content or "").strip(), "provider": provider}
+    return GenerateContentResponse(
+        content=(content or "").strip(),
+        provider=provider,
+    ).model_dump()
 
 
 class CorrectPayload(BaseModel):
@@ -144,15 +150,19 @@ class CorrectPayload(BaseModel):
     scope: str | None = "selection"
 
 
+class CorrectTextResponse(BaseModel):
+    corrected: str
+    provider: str
+
+
 _LANG_LABELS = {"ca": "Catalan", "es": "Spanish", "en": "English"}
 
 
 @router.post(
     "/correct",
-    response_model=None,
-    responses={200: {"content": {"application/json": {"schema": {}}}}},
+    response_model=CorrectTextResponse,
 )
-async def correct_text(payload: CorrectPayload) -> Any:
+async def correct_text(payload: CorrectPayload) -> dict[str, str]:
     """Corrects spelling and grammar of a fragment using AI.
 
     Sibling of `/ai/generate` but with a strict contract: it returns ONLY the
@@ -189,4 +199,7 @@ async def correct_text(payload: CorrectPayload) -> Any:
     except Exception as error:
         raise _provider_error(error, route="POST /ai/correct") from error
 
-    return {"corrected": (content or "").strip(), "provider": provider}
+    return CorrectTextResponse(
+        corrected=(content or "").strip(),
+        provider=provider,
+    ).model_dump()

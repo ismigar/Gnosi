@@ -1,10 +1,8 @@
 import asyncio
-import json
-
-from starlette.requests import Request
 
 from backend.domains.configuration.api import credentials as credentials_routes
 from backend.domains.configuration.api import environment as env_routes
+from backend.domains.configuration.environment_schemas import EnvironmentUpdateRequest
 
 
 class FakeKeychain:
@@ -20,23 +18,6 @@ class FakeKeychain:
         return True
 
 
-def _json_request(payload):
-    body = json.dumps(payload).encode("utf-8")
-    sent = False
-
-    async def receive():
-        nonlocal sent
-        if sent:
-            return {"type": "http.disconnect"}
-        sent = True
-        return {"type": "http.request", "body": body, "more_body": False}
-
-    return Request(
-        {"type": "http", "method": "POST", "path": "/api/env", "headers": []},
-        receive,
-    )
-
-
 def test_ui_environment_endpoint_never_writes_credentials_to_env_file(tmp_path, monkeypatch):
     local_env = tmp_path / ".env"
     local_env.write_text("EXISTING_SETTING=keep\n", encoding="utf-8")
@@ -47,7 +28,7 @@ def test_ui_environment_endpoint_never_writes_credentials_to_env_file(tmp_path, 
 
     response = asyncio.run(
         env_routes.update_env(
-            _json_request(
+            EnvironmentUpdateRequest(
                 {
                     "SOFTCATALA_API_URL": "http://localhost:8000",
                     "CUSTOM_PRIVATE_TOKEN": "super-secret",

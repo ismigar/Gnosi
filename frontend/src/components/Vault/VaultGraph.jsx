@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { GraphViewer } from '../GraphViewer';
 import { Loader2, Settings2, Maximize2, ZoomIn, ZoomOut, Target, AlertTriangle } from 'lucide-react';
 import { } from '../../utils/vaultFilters';
 import { useConfigChanged } from '../../lib/configEvents';
+import { fetchConfiguration } from '../../shared/api/configuration';
+import { useVaultGraphData } from '../../shared/api/useGraphData';
 
 /**
  * VaultGraph.jsx
@@ -19,39 +20,37 @@ export function VaultGraph({
     onNodeClick
 }) {
     const { t } = useTranslation();
-    const [graphData, setGraphData] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [, setConfig] = useState(null);
     const viewerRef = useRef(null);
+    const graphQuery = useVaultGraphData();
+    const graphData = graphQuery.data || null;
+    const loading = graphQuery.isLoading;
 
     // Load graph data and configuration. Defined outside the effect so the
     // partial-graph warning's retry button can re-trigger a full fetch.
     const fetchData = async () => {
         try {
-            setLoading(true);
-            const [graphRes, configRes] = await Promise.all([
-                axios.get('/api/graph'),
-                axios.get('/api/config')
+            const [, config] = await Promise.all([
+                graphQuery.refetch(),
+                fetchConfiguration()
             ]);
-            setGraphData(graphRes.data);
-            setConfig(configRes.data);
+            setConfig(config);
         } catch (err) {
             console.error("Error loading graph data:", err);
-        } finally {
-            setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchData();
+        fetchConfiguration()
+            .then(setConfig)
+            .catch((err) => console.error('Error loading graph config:', err));
     }, []);
 
     // Re-fetch only the config when the Settings modals emit the event
     // (the graph itself doesn't change due to config changes).
     useConfigChanged(async () => {
         try {
-            const res = await axios.get('/api/config');
-            setConfig(res.data);
+            setConfig(await fetchConfiguration());
         } catch (err) {
             console.error('Error refetching config:', err);
         }

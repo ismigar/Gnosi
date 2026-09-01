@@ -48,6 +48,8 @@ test-results/
 # Security & storage
 pipeline/private_skills/
 pipeline/backups/
+# One-off deterministic construction scripts; mature tools move to skills/scripts.
+pipeline/sandbox/
 data/chroma_db/
 *.log
 *.bak
@@ -71,3 +73,6 @@ vault.db
 # credencials i mapping reals. Es versiona només la plantilla `.example`
 # (mateixa convenció que config/params.yaml + params.yaml.example).
 pipeline/skills/zotero_sync/zotero_db_config.json
+
+# Local fallback configuration; only the reviewed example is versioned.
+config/params.yaml

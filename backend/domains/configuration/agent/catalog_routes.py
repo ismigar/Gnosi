@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import BackgroundTasks, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, ConfigDict
 
 from backend.domains.configuration.agent.contracts import (
     AgentSkillAssignmentPayload,
@@ -24,7 +25,12 @@ from backend.domains.configuration.agent.governance_routes import (
     _store_for,
 )
 from backend.domains.configuration.agent.router import router
-from backend.models.agent_skills import CatalogStatus, SkillKind
+from backend.models.agent_skills import (
+    CatalogStatus,
+    SkillDescriptor,
+    SkillKind,
+    ToolEffect,
+)
 from backend.services.agent_skill_assignments import (
     AgentAssignmentConflictError,
     AgentNotFoundError,
@@ -65,6 +71,38 @@ _AssignmentProvider = Callable[[], Any]
 _skill_catalog_provider: _CatalogProvider = _default_get_skill_catalog
 _tool_catalog_provider: _CatalogProvider = _default_get_tool_catalog
 _assignment_provider: _AssignmentProvider = _default_assignment_store
+
+
+class AgentSkillCatalogItemResponse(SkillDescriptor):
+    """Flattened effective skill descriptor returned by the catalog route."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    available: bool
+    missing_tool_ids: list[str]
+    effects: list[ToolEffect]
+    editable: bool
+    deletable: bool
+    revision: str
+
+
+class AgentSkillCatalogIssueResponse(BaseModel):
+    """Validation issue for one user-provided skill package."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    package: str
+    error: str
+
+
+class AgentSkillCatalogResponse(BaseModel):
+    """Effective skills plus package issues and the catalog revision."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    skills: list[AgentSkillCatalogItemResponse]
+    issues: list[AgentSkillCatalogIssueResponse]
+    catalog_revision: str
 
 
 def configure_catalog_dependencies(
@@ -159,7 +197,7 @@ def _validate_referenced_tools(tool_ids: List[str]) -> None:
         )
 
 
-@router.get("/skills", response_model=None)
+@router.get("/skills", response_model=AgentSkillCatalogResponse)
 def list_skills(
     request: Request,
     context: WorkspaceContext = Depends(get_workspace_context),

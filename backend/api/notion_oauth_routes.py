@@ -16,15 +16,21 @@ import secrets
 from typing import Any, cast
 from urllib.parse import urlencode, urlparse
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 
 from backend.config.env_config import get_env
-from backend.services.workspace_service import require_role
 from backend.services.integration_manager import integration_manager
+from backend.services.workspace_service import require_role
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/notion-oauth", tags=["Notion MCP OAuth"])
+
+
+class NotionOAuthStatusResponse(BaseModel):
+    connected: bool
+
 
 def _base_url() -> str:
     return str(get_env("NOTION_MCP_BASE", "https://mcp.notion.com")).rstrip("/")
@@ -124,7 +130,7 @@ def _pkce() -> tuple[str, str]:
     return verifier, challenge
 
 
-@router.get("/status", response_model=None)
+@router.get("/status", response_model=NotionOAuthStatusResponse)
 async def status() -> dict[str, bool]:
     return {"connected": bool(_stored_object("notion_mcp").get("token"))}
 

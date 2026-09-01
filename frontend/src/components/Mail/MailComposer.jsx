@@ -7,11 +7,33 @@ import {
 import { toast } from '../../lib/toast';
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
-import axios from 'axios';
 import MailBlockEditor from './MailBlockEditor';
 import { AddressInput } from './MailAddressInput';
 import { DigitalBrainCalendar } from '../Vault/DigitalBrainCalendar';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import {
+    deleteMailDraft,
+    generateMailDraft,
+    saveMailDraft,
+} from '../../shared/api/mail';
+import { fetchIntegrations } from '../../shared/api/integrations';
+import {
+    replyMailMultipart,
+    sendMailMultipart,
+} from '../../shared/api/mail-specialized';
+import { queryClient } from '../../shared/api/query-client';
+import { fetchVaultPages, fetchVaultTables } from '../../shared/api/vaults';
+
+const INTEGRATIONS_QUERY_KEY = ['integrations'];
+
+function fetchCachedIntegrations() {
+    return queryClient.fetchQuery({
+        queryKey: INTEGRATIONS_QUERY_KEY,
+        queryFn: ({ signal }) => fetchIntegrations(signal),
+        retry: false,
+        staleTime: 500,
+    });
+}
 
 // ─── AttachmentBadge ──────────────────────────────────────────────────────────
 function AttachmentBadge({ file, onRemove }) {
@@ -98,25 +120,15 @@ export default function MailComposer({
         const bodyText = currentBody?.replace(/<[^>]*>/g, '').trim() || '';
         if (!bodyText && !currentSubject) return;
         try {
-            const res = await fetch('/api/mail/drafts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    draft_id: draftIdRef.current || undefined,
-                    to: toRef.current,
-                    cc: ccRef.current,
-                    bcc: bccRef.current,
-                    subject: currentSubject,
-                    body: currentBody,
-                    account: fromAccount.email,
-                }),
+            const data = await saveMailDraft({
+                draft_id: draftIdRef.current || undefined,
+                to: toRef.current,
+                cc: ccRef.current,
+                bcc: bccRef.current,
+                subject: currentSubject,
+                body: currentBody,
+                account: fromAccount.email,
             });
-            // Without this check, a 5xx response (server down, drafts
-            // database full) made res.json() return the body
-            // of the error and everything continued as if nothing had happened, leaving the user with the
-            // feeling that drafts were being saved every 2s when none were.
-            if (!res.ok) throw new Error(`Draft save HTTP ${res.status}`);
-            const data = await res.json();
             const isFirstSave = !draftIdRef.current;
             if (data.draft_id) draftIdRef.current = data.draft_id;
             if (isFirstSave) {
@@ -197,25 +209,22 @@ export default function MailComposer({
             if (fromDisplayName) formData.append('from_name', fromDisplayName);
             attachments.forEach(f => formData.append('attachments', f));
 
-            let res;
+            let data;
             if (mode && replyToMessageId) {
                 // folder: the backend resolves the cid: of the quoted message against the
                 // original message (for IMAP we need to know its folder).
-                const folderQuery = sourceFolder ? `&folder=${encodeURIComponent(sourceFolder)}` : '';
-                res = await fetch(
-                    `/api/mail/messages/${replyToMessageId}/reply?email=${encodeURIComponent(smtpEmail)}${folderQuery}`,
-                    { method: 'POST', body: formData }
+                data = await replyMailMultipart(
+                    replyToMessageId,
+                    smtpEmail,
+                    sourceFolder,
+                    formData,
                 );
             } else {
-                res = await fetch(`/api/mail/send?email=${encodeURIComponent(smtpEmail)}`, {
-                    method: 'POST',
-                    body: formData,
-                });
+                data = await sendMailMultipart(smtpEmail, formData);
             }
-            const data = await res.json();
             if (data.status === 'success' || data.message_id) {
                 if (draftIdRef.current) {
-                    fetch(`/api/mail/drafts/${draftIdRef.current}`, { method: 'DELETE' }).catch(() => {});
+                    deleteMailDraft(draftIdRef.current).catch(() => {});
                     onDraftSaved?.();
                 }
                 toast.success(t('mail.sent_ok'));
@@ -234,12 +243,12 @@ export default function MailComposer({
 
     const fetchCalendarResources = useCallback(async () => {
         try {
-            const [pagesRes, integrationsRes, tablesRes] = await Promise.all([
-                axios.get('/api/vault/pages'),
-                axios.get('/api/integrations'),
-                axios.get('/api/vault/tables'),
+            const [pages, integrations, tables] = await Promise.all([
+                fetchVaultPages(),
+                fetchCachedIntegrations(),
+                fetchVaultTables(),
             ]);
-            setCalendarData({ pages: pagesRes.data, integrations: integrationsRes.data, tables: tablesRes.data });
+            setCalendarData({ pages, integrations, tables });
         } catch {
             toast.error(t('mail.calendar_load_error', "Error loading the calendar"));
         }
@@ -306,12 +315,10 @@ export default function MailComposer({
         }
         setAiGenerating(true);
         try {
-            const res = await fetch('/api/mail/ai/generate_draft', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ context: body, prompt: `Create a professional draft about: ${subject}` }),
-            });
-            const data = await res.json();
+            const data = await generateMailDraft(
+                body,
+                `Create a professional draft about: ${subject}`,
+            );
             setBody(data.draft);
             toast.success(t('mail.ai_draft_ok'));
         } catch {

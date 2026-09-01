@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import { Loader2, Lock, FileText } from 'lucide-react';
 import { VaultMarkdown } from '../components/Vault/VaultMarkdown';
+import { GnosiApiError } from '../shared/api/errors';
+import { fetchSharedPage } from '../shared/api/sharing';
 
 /**
  * Public read-only view of a shared page (`/s/:token`). Renders OUTSIDE the
@@ -17,22 +18,26 @@ export default function SharedPage() {
 
     useEffect(() => {
         let cancelled = false;
+        const controller = new AbortController();
         (async () => {
             try {
-                const res = await axios.get(`/api/share/${token}`);
-                if (!cancelled) setState({ loading: false, error: null, data: res.data });
+                const data = await fetchSharedPage(token || '', controller.signal);
+                if (!cancelled) setState({ loading: false, error: null, data });
             } catch (err) {
-                if (!cancelled) {
-                    const status = err?.response?.status;
-                    setState({
-                        loading: false,
-                        error: status === 404 ? 'not_found' : 'error',
-                        data: null,
-                    });
-                }
+                if (cancelled || controller.signal.aborted) return;
+                setState({
+                    loading: false,
+                    error: err instanceof GnosiApiError && err.status === 404
+                        ? 'not_found'
+                        : 'error',
+                    data: null,
+                });
             }
         })();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
     }, [token]);
 
     if (state.loading) {

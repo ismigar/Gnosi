@@ -73,8 +73,13 @@ def test_meeting_routes_keep_status_and_start_shapes(tmp_path, monkeypatch) -> N
     monkeypatch.setattr(meeting_routes, "_audio_dir", lambda: tmp_path)
     upload = UploadFile(filename="meeting.webm", file=io.BytesIO(b"audio"))
 
-    assert asyncio.run(meeting_routes.meeting_status()) == status
-    assert asyncio.run(meeting_routes.record_meeting(upload)) == {"status": "started"}
+    meeting_status = asyncio.run(meeting_routes.meeting_status())
+    assert isinstance(meeting_status, meeting_routes.MeetingStatusResponse)
+    assert meeting_status.model_dump() == status
+
+    meeting_start = asyncio.run(meeting_routes.record_meeting(upload))
+    assert isinstance(meeting_start, meeting_routes.MeetingStartResponse)
+    assert meeting_start.model_dump() == {"status": "started"}
 
 
 def test_tool_mutations_keep_mapping_results(tmp_path, monkeypatch) -> None:

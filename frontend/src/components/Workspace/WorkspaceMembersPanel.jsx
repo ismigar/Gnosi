@@ -1,7 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, Trash2, Shield, X, Loader2, Lock } from 'lucide-react';
+import {
+    fetchWorkspaceMembers,
+    fetchWorkspaceMemberVaults,
+    fetchWorkspaceVaults,
+    grantWorkspaceMemberVault,
+    inviteWorkspaceMember,
+    removeWorkspaceMember,
+    revokeWorkspaceMemberVault,
+    updateWorkspaceMemberRole,
+} from '../../shared/api/workspace-members';
 import { toast } from '../../lib/toast';
 import ConfirmModal from '../ConfirmModal';
 
@@ -50,8 +59,8 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         if (!workspaceId) return;
         setLoading(true);
         try {
-            const r = await axios.get(`/api/workspaces/${workspaceId}/members`);
-            setMembers(Array.isArray(r.data) ? r.data : []);
+            const data = await fetchWorkspaceMembers(workspaceId);
+            setMembers(Array.isArray(data) ? data : []);
         } catch (_error) {
             toast.error(t('workspace.members_fetch_failed', { defaultValue: "Error loading members" }));
         } finally {
@@ -62,8 +71,8 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
     const fetchVaults = useCallback(async () => {
         if (!workspaceId) return;
         try {
-            const r = await axios.get(`/api/workspaces/${workspaceId}/vaults`);
-            setVaults(Array.isArray(r.data) ? r.data : []);
+            const data = await fetchWorkspaceVaults(workspaceId);
+            setVaults(Array.isArray(data) ? data : []);
         } catch {
             setVaults([]);
         }
@@ -72,8 +81,8 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
     const fetchVaultAccess = useCallback(async (userId) => {
         if (!workspaceId || !userId) return;
         try {
-            const r = await axios.get(`/api/workspaces/${workspaceId}/members/${userId}/vaults`);
-            setVaultAccess(Array.isArray(r.data) ? r.data : []);
+            const data = await fetchWorkspaceMemberVaults(workspaceId, userId);
+            setVaultAccess(Array.isArray(data) ? data : []);
         } catch {
             setVaultAccess([]);
         }
@@ -89,13 +98,13 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         const email = newEmail.trim();
         if (!email) return;
         try {
-            await axios.post(`/api/workspaces/${workspaceId}/members`, { email, role: newRole });
+            await inviteWorkspaceMember(workspaceId, { email, role: newRole });
             toast.success(t('workspace.member_added', { email, newRole, defaultValue: "Invited {{email}} as {{newRole}}" }));
             setNewEmail('');
             setShowAddForm(false);
             fetchMembers();
         } catch (error) {
-            const msg = error?.response?.data?.detail || error?.message;
+            const msg = error instanceof Error ? error.message : undefined;
             toast.error(t('workspace.add_failed', { msg, defaultValue: 'Error: {{msg}}' }));
         }
     };
@@ -112,7 +121,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         const userId = confirmUserId;
         setConfirmUserId(null);
         try {
-            await axios.delete(`/api/workspaces/${workspaceId}/members/${userId}`);
+            await removeWorkspaceMember(workspaceId, userId);
             fetchMembers();
         } catch (_error) {
             toast.error(t('workspace.remove_failed', { defaultValue: "Error removing member" }));
@@ -121,7 +130,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
 
     const updateRole = async (userId, newRoleValue) => {
         try {
-            await axios.put(`/api/workspaces/${workspaceId}/members/${userId}/role`, {
+            await updateWorkspaceMemberRole(workspaceId, userId, {
                 role: newRoleValue,
                 permissions: { capabilities: ROLE_CAPABILITIES[newRoleValue] || ['read'] },
             });
@@ -135,9 +144,9 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         const has = vaultAccess.some(a => a.vault_id === vaultId);
         try {
             if (has) {
-                await axios.delete(`/api/workspaces/${workspaceId}/members/${userId}/vaults/${vaultId}`);
+                await revokeWorkspaceMemberVault(workspaceId, userId, vaultId);
             } else {
-                await axios.post(`/api/workspaces/${workspaceId}/members/${userId}/vaults`, {
+                await grantWorkspaceMemberVault(workspaceId, userId, {
                     vault_id: vaultId,
                     permissions: { capabilities: ['read'] },
                 });

@@ -1,7 +1,18 @@
-from fastapi import Depends, APIRouter, HTTPException, Body, Request
+from fastapi import Depends, APIRouter, HTTPException, Request
 import asyncio
 import logging
 from backend.services.integration_manager import integration_manager
+from backend.domains.integrations.contracts import (
+    CalendarSelectionRequest,
+    DavConnectionTestRequest,
+    DefaultAccountRequest,
+    DefaultCalendarRequest,
+    EmailConnectionTestRequest,
+    IntegrationConnectionTestResponse,
+    IntegrationsDocument,
+    IntegrationUpdateResponse,
+    IntegrationsUpdateRequest,
+)
 from backend.utils.errors import safe_error_detail
 from backend.services.workspace_service import require_role
 from backend.services.plugin_access import require_plugins
@@ -117,7 +128,7 @@ def _invalidate_imap_state(emails: set[str]) -> None:
     )
 
 
-@router.get("", response_model=None)
+@router.get("", response_model=IntegrationsDocument)
 async def get_integrations() -> Any:
     """Returns safe masked integration configuration for the UI."""
     try:
@@ -192,29 +203,31 @@ def _test_email_sync(
 @router.post(
     "/test-email",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("mail"))],
-    response_model=None,
+    response_model=IntegrationConnectionTestResponse,
 )
-async def test_email_connection(payload: dict[str, Any] = Body(...)) -> Any:
+async def test_email_connection(
+    payload: EmailConnectionTestRequest,
+) -> dict[str, object]:
     """Tests IMAP/SMTP connection for an email account."""
     try:
-        imap_host = payload.get("imap_server") or payload.get("imap_host")
-        imap_encryption = payload.get("imap_encryption", "ssl")
-        imap_port_raw = payload.get("imap_port")
+        imap_host = payload.imap_server or payload.imap_host
+        imap_encryption = payload.imap_encryption
+        imap_port_raw = payload.imap_port
         if imap_port_raw:
             imap_port = int(imap_port_raw)
         else:
             imap_port = 993 if imap_encryption.lower() == "ssl" else 143
 
-        smtp_host = payload.get("smtp_server") or payload.get("smtp_host")
-        smtp_encryption = payload.get("smtp_encryption", "ssl")
-        smtp_port_raw = payload.get("smtp_port")
+        smtp_host = payload.smtp_server or payload.smtp_host
+        smtp_encryption = payload.smtp_encryption
+        smtp_port_raw = payload.smtp_port
         if smtp_port_raw:
             smtp_port = int(smtp_port_raw)
         else:
             smtp_port = 465 if smtp_encryption.lower() == "ssl" else 587
 
-        username = payload.get("username")
-        password = payload.get("password")
+        username = payload.username
+        password = payload.password
 
         required = (imap_host, smtp_host, username, password)
         if not all(isinstance(value, str) and value for value in required):
@@ -281,14 +294,16 @@ def _validate_dav_url(url: str) -> None:
 @router.post(
     "/test-contacts",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("contacts"))],
-    response_model=None,
+    response_model=IntegrationConnectionTestResponse,
 )
-async def test_contacts_connection(payload: dict[str, Any] = Body(...)) -> Any:
+async def test_contacts_connection(
+    payload: DavConnectionTestRequest,
+) -> dict[str, object]:
     """Tests CardDAV connection for a contacts account."""
     try:
-        url = payload.get("url")
-        username = payload.get("username")
-        password = payload.get("password")
+        url = payload.url
+        username = payload.username
+        password = payload.password
 
         required = (url, username, password)
         if not all(isinstance(value, str) and value for value in required):
@@ -335,14 +350,16 @@ async def test_contacts_connection(payload: dict[str, Any] = Body(...)) -> Any:
 @router.post(
     "/test-calendar",
     dependencies=[Depends(require_role("editor")), Depends(require_plugins("calendar"))],
-    response_model=None,
+    response_model=IntegrationConnectionTestResponse,
 )
-async def test_calendar_connection(payload: dict[str, Any] = Body(...)) -> Any:
+async def test_calendar_connection(
+    payload: DavConnectionTestRequest,
+) -> dict[str, object]:
     """Tests CalDAV connection for a calendar account."""
     try:
-        url = payload.get("url")
-        username = payload.get("username")
-        password = payload.get("password")
+        url = payload.url
+        username = payload.username
+        password = payload.password
 
         required = (url, username, password)
         if not all(isinstance(value, str) and value for value in required):
@@ -398,15 +415,15 @@ async def test_calendar_connection(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/{integration_id}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_integration(integration_id: str, payload: dict[str, Any] = Body(...)) -> Any:
+async def update_integration(integration_id: str, payload: IntegrationsUpdateRequest) -> Any:
     """Updates a specific integration (e.g. 'email', 'ai')"""
     try:
         before = (
             _snapshot_mail_credentials() if integration_id in ("mail_accounts", "emails") else {}
         )
-        integration_manager.update(integration_id, payload)
+        integration_manager.update(integration_id, payload.root)
         if before:
             _invalidate_imap_state(_diff_mail_credentials(before, _snapshot_mail_credentials()))
         return {"status": "success", "message": f"Integration {integration_id} updated"}
@@ -421,12 +438,12 @@ async def update_integration(integration_id: str, payload: dict[str, Any] = Body
 @router.put(
     "/calendar_colors",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_calendar_colors(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_calendar_colors(payload: IntegrationsUpdateRequest) -> Any:
     """Saves custom colors for specific calendar sources."""
     try:
-        integration_manager.update("calendar_colors", payload)
+        integration_manager.update("calendar_colors", payload.root)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating calendar colors: {e}")
@@ -439,12 +456,12 @@ async def update_calendar_colors(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/calendar_aliases",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_calendar_aliases(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_calendar_aliases(payload: IntegrationsUpdateRequest) -> Any:
     """Saves custom names/aliases for specific calendar sources."""
     try:
-        integration_manager.update("calendar_aliases", payload)
+        integration_manager.update("calendar_aliases", payload.root)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating calendar aliases: {e}")
@@ -457,14 +474,14 @@ async def update_calendar_aliases(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/calendar_selection",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_calendar_selection(payload: Any = Body(...)) -> Any:
+async def update_calendar_selection(payload: CalendarSelectionRequest) -> Any:
     """Saves the list of visible/selected calendar sources."""
     try:
-        data = payload
-        if isinstance(payload, dict) and "selection" in payload:
-            data = payload["selection"]
+        data = payload.root
+        if isinstance(data, dict) and "selection" in data:
+            data = data["selection"]
 
         integration_manager.update("calendar_selection", data)
         return {"status": "success"}
@@ -479,12 +496,12 @@ async def update_calendar_selection(payload: Any = Body(...)) -> Any:
 @router.put(
     "/default_calendar",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_default_calendar(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_default_calendar(payload: DefaultCalendarRequest) -> Any:
     """Save the default calendar for new appointments."""
     try:
-        integration_manager.update("default_calendar", payload.get("source", ""))
+        integration_manager.update("default_calendar", payload.source)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating default calendar: {e}")
@@ -497,12 +514,12 @@ async def update_default_calendar(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/default_mail",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_default_mail(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_default_mail(payload: DefaultAccountRequest) -> Any:
     """Save the default mail account."""
     try:
-        integration_manager.update("default_mail", payload.get("email", ""))
+        integration_manager.update("default_mail", payload.email)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating default mail: {e}")
@@ -515,12 +532,12 @@ async def update_default_mail(payload: dict[str, Any] = Body(...)) -> Any:
 @router.put(
     "/default_contacts",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=IntegrationUpdateResponse,
 )
-async def update_default_contacts(payload: dict[str, Any] = Body(...)) -> Any:
+async def update_default_contacts(payload: DefaultAccountRequest) -> Any:
     """Save the default contacts account."""
     try:
-        integration_manager.update("default_contacts", payload.get("email", ""))
+        integration_manager.update("default_contacts", payload.email)
         return {"status": "success"}
     except Exception as e:
         log.error(f"Error updating default contacts: {e}")
@@ -530,12 +547,16 @@ async def update_default_contacts(payload: dict[str, Any] = Body(...)) -> Any:
         )
 
 
-@router.post("/bulk", dependencies=[Depends(require_role("editor"))], response_model=None)
-async def bulk_update_integrations(payload: dict[str, Any] = Body(...)) -> Any:
+@router.post(
+    "/bulk",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=IntegrationUpdateResponse,
+)
+async def bulk_update_integrations(payload: IntegrationsUpdateRequest) -> Any:
     """Updates multiple integrations at once."""
     try:
         before = _snapshot_mail_credentials()
-        integration_manager.bulk_update(payload)
+        integration_manager.bulk_update(payload.root)
         _invalidate_imap_state(_diff_mail_credentials(before, _snapshot_mail_credentials()))
         return {"status": "success", "message": "Integrations updated in bulk"}
     except Exception as e:

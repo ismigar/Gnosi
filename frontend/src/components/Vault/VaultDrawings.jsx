@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Palette, Calendar, HardDrive, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import toast from '../../lib/toast';
+import { deleteDrawing, listDrawings } from '../../shared/api/drawings';
 import ConfirmModal from '../ConfirmModal';
-
-const API_BASE_URL = '/api/vault';
 
 const VaultDrawings = ({ onDrawingSelect }) => {
     const { t } = useTranslation();
@@ -16,8 +14,7 @@ const VaultDrawings = ({ onDrawingSelect }) => {
     const fetchDrawings = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${API_BASE_URL}/drawings`);
-            setDrawings(response.data);
+            setDrawings(await listDrawings());
         } catch (error) {
             toast.error(t('drawings.load_error', "Error loading drawings"));
             console.error(error);
@@ -38,7 +35,7 @@ const VaultDrawings = ({ onDrawingSelect }) => {
     const confirmDelete = async () => {
         if (!drawingToDelete) return;
         try {
-            await axios.delete(`${API_BASE_URL}/drawings/${drawingToDelete}`);
+            await deleteDrawing(drawingToDelete);
             toast.success(t('drawings.deleted', "Drawing deleted"));
             fetchDrawings();
         } catch (error) {

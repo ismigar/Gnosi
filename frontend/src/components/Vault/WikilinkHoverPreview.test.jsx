@@ -1,12 +1,12 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import axios from 'axios';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { fetchVaultPagePreview } from '../../shared/api/vaults';
 import { WikilinkHoverPreview } from './WikilinkHoverPreview';
 
-vi.mock('axios', () => ({
-    default: { get: vi.fn() },
+vi.mock('../../shared/api/vaults', () => ({
+    fetchVaultPagePreview: vi.fn(),
 }));
 
 vi.mock('react-i18next', () => ({
@@ -42,12 +42,10 @@ async function render(element) {
 
 describe('WikilinkHoverPreview', () => {
     it('requests and renders the full record body instead of its excerpt', async () => {
-        axios.get.mockResolvedValueOnce({
-            data: {
-                title: 'Target record',
-                excerpt: 'Short excerpt',
-                body_md: 'Complete body\n\nwith additional sections',
-            },
+        fetchVaultPagePreview.mockResolvedValueOnce({
+            title: 'Target record',
+            excerpt: 'Short excerpt',
+            body_md: 'Complete body\n\nwith additional sections',
         });
 
         await render(
@@ -61,7 +59,7 @@ describe('WikilinkHoverPreview', () => {
             await Promise.resolve();
         });
 
-        expect(axios.get).toHaveBeenCalledWith('/api/vault/pages/target%2Fpage/preview?full=true');
+        expect(fetchVaultPagePreview).toHaveBeenCalledWith('target/page', { full: true });
         expect(document.body.querySelector('[data-testid="rendered-preview-markdown"]').textContent)
             .toBe('Complete body\n\nwith additional sections');
         expect(document.body.textContent).not.toContain('Short excerpt');

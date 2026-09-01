@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Clock, RefreshCw, AlertCircle, Edit2, Check, X } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
+import {
+    useScheduledTasks,
+    useUpdateScheduledTask,
+} from '../shared/api/useSchedulerTasks';
 
 const formatInterval = (minutes) => {
     if (!minutes && minutes !== 0) return null;
@@ -34,36 +38,24 @@ const hoursToMinutes = (hours) => {
 
 const SchedulerPage = () => {
     const { t } = useTranslation();
-    const [schedulers, setSchedulers] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [editingInterval, setEditingInterval] = useState({});
-
-    const loadSchedulers = async (silent = false) => {
-        if (!silent) setLoading(true);
-        try {
-            const res = await fetch('/api/schedulers');
-            if (res.ok) {
-                const data = await res.json();
-                setSchedulers(data);
-            }
-        } catch (e) {
-            console.error("Error loading schedulers", e);
-        }
-        if (!silent) setLoading(false);
-    };
-
-    useEffect(() => {
-        loadSchedulers();
-    }, []);
+    const {
+        data: schedulers = [],
+        error: loadError,
+        isLoading: loading,
+        refetch,
+    } = useScheduledTasks();
+    const updateTask = useUpdateScheduledTask();
 
     const toggleTask = async (task) => {
         try {
-            const res = await fetch(`/api/schedulers/${task.name}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interval_minutes: task.interval_minutes, enabled: !task.enabled })
+            await updateTask.mutateAsync({
+                name: task.name,
+                update: {
+                    interval_minutes: task.interval_minutes,
+                    enabled: !task.enabled,
+                },
             });
-            if (res.ok) loadSchedulers(true);
         } catch (e) {
             console.error("Error toggling task", e);
         }
@@ -88,15 +80,14 @@ const SchedulerPage = () => {
         const newMinutes = hoursToMinutes(editingInterval[task.name]);
         if (newMinutes === null) return;
         try {
-            const res = await fetch(`/api/schedulers/${task.name}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interval_minutes: newMinutes, enabled: task.enabled })
+            await updateTask.mutateAsync({
+                name: task.name,
+                update: {
+                    interval_minutes: newMinutes,
+                    enabled: task.enabled,
+                },
             });
-            if (res.ok) {
-                cancelEditingInterval(task.name);
-                loadSchedulers(true);
-            }
+            cancelEditingInterval(task.name);
         } catch (e) {
             console.error("Error saving interval", e);
         }
@@ -116,7 +107,15 @@ const SchedulerPage = () => {
             />
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4">
-                {loading ? (
+                {loadError ? (
+                    <div className="gnosi-panel flex flex-col items-center justify-center gap-3 p-8 text-[var(--text-secondary)]" role="alert">
+                        <AlertCircle size={24} className="text-red-400" />
+                        <span>{t('scheduler.load_error', 'The scheduled tasks could not be loaded.')}</span>
+                        <button type="button" className="gnosi-button-secondary" onClick={() => refetch()}>
+                            {t('common.retry', 'Retry')}
+                        </button>
+                    </div>
+                ) : loading ? (
                     <div className="gnosi-panel flex items-center justify-center gap-3 p-8 text-[var(--text-secondary)]" role="status" aria-live="polite">
                         <RefreshCw className="animate-spin" size={20} />
                         <span>{t('dashboard.loading_tasks', "Loading tasks...")}</span>

@@ -11,10 +11,11 @@ from datetime import datetime, timezone
 from typing import Any, List, Optional, cast
 
 import yaml
-from fastapi import Body, Depends, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi import Depends, File, Form, Header, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from backend.data.management_db import get_mgmt_db
+from backend.domains.mail import schemas as mail_schemas
 from backend.domains.mail.cache import (
     _COUNTS_CACHE,
     _invalidate_mail_cache,
@@ -52,8 +53,12 @@ from backend.utils.safe_io import safe_write_text
 log = logging.getLogger(__name__)
 
 
-@router.post("/drafts")
-async def save_draft(payload: dict[str, Any] = Body(...)) -> Any:
+@router.post(
+    "/drafts",
+    response_model=mail_schemas.MailDraftSaveResponse,
+    response_model_exclude_unset=True,
+)
+async def save_draft(payload: mail_schemas.MailDraftSaveRequest) -> Any:
     """Auto-saves a draft.
 
     For IMAP accounts (including Google via XOAUTH2), performs `IMAP APPEND` to the
@@ -68,14 +73,14 @@ async def save_draft(payload: dict[str, Any] = Body(...)) -> Any:
     """
     from backend.services.integration_manager import integration_manager
 
-    draft_id = payload.get("draft_id") or None
-    prev_imap_uid = payload.get("imap_uid") or None
-    to = payload.get("to", "")
-    cc = payload.get("cc", "")
-    bcc = payload.get("bcc", "")
-    subject = payload.get("subject", "")
-    body = payload.get("body", "")
-    email_account = payload.get("account", "")
+    draft_id = payload.draft_id or None
+    prev_imap_uid = payload.imap_uid or None
+    to = payload.to
+    cc = payload.cc
+    bcc = payload.bcc
+    subject = payload.subject
+    body = payload.body
+    email_account = payload.account
 
     acc = integration_manager.get_mail_account(email_account) if email_account else None
 
@@ -143,7 +148,11 @@ async def save_draft(payload: dict[str, Any] = Body(...)) -> Any:
     }
 
 
-@router.delete("/drafts/{draft_id}", dependencies=[Depends(require_role("editor"))])
+@router.delete(
+    "/drafts/{draft_id}",
+    response_model=mail_schemas.MailStatusResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def delete_draft(draft_id: str) -> Any:
     # Validate draft_id (same allow-list as message_id) before glob.
     draft_id = _validate_message_id(draft_id)
@@ -263,7 +272,11 @@ def _group_suggestions(
     ]
 
 
-@router.get("/recipients/suggest")
+@router.get(
+    "/recipients/suggest",
+    response_model=mail_schemas.MailRecipientSuggestionsResponse,
+    response_model_exclude_unset=True,
+)
 async def suggest_recipients(
     q: str = Query(default=""),
     email: Optional[str] = Query(default=None),
@@ -297,7 +310,7 @@ async def suggest_recipients(
     }
 
 
-@router.post("/send")
+@router.post("/send", response_model=mail_schemas.MailStatusResponse)
 async def send_mail(
     email: str = Query(...),
     to: str = Form(None),
@@ -392,7 +405,11 @@ async def send_mail(
     raise HTTPException(status_code=500, detail="Error sending email")
 
 
-@router.get("/folders")
+@router.get(
+    "/folders",
+    response_model=mail_schemas.MailFoldersResponse,
+    response_model_exclude_unset=True,
+)
 async def get_folders(email: str = Query(...)) -> Any:
     """Returns available IMAP folders for an account."""
     if not _is_imap_account(email):
@@ -481,19 +498,25 @@ def _move_microsoft_message(email: str, message_id: str, target_folder: str) -> 
     return {"status": "success"}
 
 
-@router.post("/messages/{message_id}/move")
+@router.post(
+    "/messages/{message_id}/move",
+    response_model=mail_schemas.MailStatusResponse,
+)
 async def move_message(
-    message_id: str, email: str = Query(...), payload: dict[str, Any] = Body(...)
+    message_id: str,
+    payload: mail_schemas.MailMoveRequest,
+    email: str = Query(...),
 ) -> Any:
     """Move a message to a different folder (IMAP) or apply label changes (Gmail)."""
-    target_folder = payload.get("target_folder")
+    target_folder = payload.target_folder
     if not target_folder:
         raise HTTPException(status_code=400, detail="Missing target_folder")
+    payload_values = payload.model_dump(exclude_unset=True)
     from backend.services.integration_manager import integration_manager
 
     account = integration_manager.get_mail_account(email)
     if account and integration_manager.is_imap_account(account):
-        return _move_imap_message(email, message_id, target_folder, payload)
+        return _move_imap_message(email, message_id, target_folder, payload_values)
     if account and integration_manager.is_google_account(account):
         return _move_gmail_message(email, message_id, target_folder)
     if _is_microsoft_account(email):
@@ -501,10 +524,13 @@ async def move_message(
     raise HTTPException(status_code=400, detail="Account does not support moving messages")
 
 
-@router.post("/batch")
-async def batch_action(email: str = Query(...), payload: dict[str, Any] = Body(...)) -> Any:
-    action = payload.get("action")  # 'trash', 'archive', 'read', 'star'
-    ids = payload.get("ids", [])
+@router.post("/batch", response_model=mail_schemas.MailBatchResponse)
+async def batch_action(
+    payload: mail_schemas.MailBatchRequest,
+    email: str = Query(...),
+) -> Any:
+    action = payload.action  # 'trash', 'archive', 'read', 'star'
+    ids = payload.ids
 
     if not action or not ids:
         raise HTTPException(status_code=400, detail="Missing ACTION or IDS")
@@ -529,7 +555,10 @@ async def batch_action(email: str = Query(...), payload: dict[str, Any] = Body(.
     return {"status": "success", "processed": success_count}
 
 
-@router.post("/messages/{message_id}/read")
+@router.post(
+    "/messages/{message_id}/read",
+    response_model=mail_schemas.MailStatusResponse,
+)
 async def mark_as_read(
     message_id: str,
     email: str = Query(...),
@@ -570,10 +599,16 @@ async def mark_as_read(
     return {"status": "success"}  # not an error if there's no vault file
 
 
-@router.post("/messages/{message_id}/snooze")
-async def snooze_message(message_id: str, payload: dict[str, Any] = Body(...)) -> Any:
+@router.post(
+    "/messages/{message_id}/snooze",
+    response_model=mail_schemas.MailStatusResponse,
+)
+async def snooze_message(
+    message_id: str,
+    payload: mail_schemas.MailSnoozeRequest,
+) -> Any:
     """Saves a snoozed_until timestamp in the message's Vault markdown file."""
-    snooze_until = payload.get("snooze_until")
+    snooze_until = payload.snooze_until
     if not snooze_until:
         raise HTTPException(status_code=400, detail="Missing snooze_until")
 
@@ -592,7 +627,10 @@ async def snooze_message(message_id: str, payload: dict[str, Any] = Body(...)) -
     return {"status": "success"}
 
 
-@router.post("/messages/{message_id}/reply")
+@router.post(
+    "/messages/{message_id}/reply",
+    response_model=mail_schemas.MailStatusResponse,
+)
 async def reply_message(
     message_id: str,
     email: str = Query(...),
@@ -656,12 +694,15 @@ async def reply_message(
     raise HTTPException(status_code=500, detail="Error sending email")
 
 
-@router.post("/ai/generate_draft")
-async def generate_draft(payload: dict[str, Any] = Body(...)) -> Any:
+@router.post(
+    "/ai/generate_draft",
+    response_model=mail_schemas.MailGenerateDraftResponse,
+)
+async def generate_draft(payload: mail_schemas.MailGenerateDraftRequest) -> Any:
     from pipeline.ai_client import call_ai_with_fallback
 
-    context = payload.get("context", "")
-    instruction = payload.get("prompt", "Write a professional response.")
+    context = payload.context
+    instruction = payload.prompt
     ai_prompt = (
         f"Context: {context}\nInstruction: {instruction}\n"
         "Respond only with the email body in English."
@@ -670,13 +711,17 @@ async def generate_draft(payload: dict[str, Any] = Body(...)) -> Any:
     return {"draft": content, "provider": provider}
 
 
-@router.post("/ai/extract_entities")
-async def extract_entities(payload: dict[str, Any] = Body(...)) -> Any:
+@router.post(
+    "/ai/extract_entities",
+    response_model=mail_schemas.MailExtractEntitiesResponse,
+    response_model_exclude_unset=True,
+)
+async def extract_entities(payload: mail_schemas.MailExtractEntitiesRequest) -> Any:
     import json
 
     from pipeline.ai_client import call_ai_with_fallback
 
-    context = payload.get("context", "")
+    context = payload.context
     if not context:
         return {"events": [], "contacts": []}
 

@@ -5,9 +5,41 @@ from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
 from fastapi import APIRouter
+from pydantic import BaseModel, ConfigDict, JsonValue, RootModel
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
+
+
+class DrawingSummaryResponse(BaseModel):
+    """Stable catalog entry for current and legacy drawing files."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    title: str
+    last_modified: str
+    size: int
+
+
+class DrawingDocumentResponse(RootModel[dict[str, JsonValue]]):
+    """Arbitrary JSON document understood by Tldraw or legacy Excalidraw."""
+
+
+class DrawingSaveResponse(BaseModel):
+    status: str
+    id: str
+
+
+class DrawingDeleteResponse(BaseModel):
+    """Recoverable deletion result returned by the shared Vault trash."""
+
+    model_config = ConfigDict(extra="allow")
+
+    status: str
+    id: str
+    deleted_at: str | None
+    title: str
 
 _DRAWING_DEPENDENCIES = _legacy.drawing_service.DrawingDependencies(
     drawings_directory=lambda: _legacy.get_p("DIBUIXOS"),
@@ -28,17 +60,19 @@ _DRAWING_DEPENDENCIES = _legacy.drawing_service.DrawingDependencies(
 )
 
 
-@router.get("/drawings", response_model=None)
-async def list_drawings() -> _LegacyAny:
+@router.get("/drawings", response_model=list[DrawingSummaryResponse])
+async def list_drawings() -> list[dict[str, JsonValue]]:
     """Lists all drawings in the vault (tldraw and excalidraw)."""
-    return await _legacy.drawing_service.list_drawings(_DRAWING_DEPENDENCIES)
+    result = await _legacy.drawing_service.list_drawings(_DRAWING_DEPENDENCIES)
+    return _strict_cast(list[dict[str, JsonValue]], result)
 
 
-@router.get("/drawings/{drawing_id}", response_model=None)
-async def get_drawing(drawing_id: str) -> _LegacyAny:
+@router.get("/drawings/{drawing_id}", response_model=DrawingDocumentResponse)
+async def get_drawing(drawing_id: str) -> dict[str, JsonValue]:
     """Returns the data of a Tldraw drawing."""
     try:
-        return await _legacy.drawing_service.get_drawing(drawing_id, _DRAWING_DEPENDENCIES)
+        result = await _legacy.drawing_service.get_drawing(drawing_id, _DRAWING_DEPENDENCIES)
+        return _strict_cast(dict[str, JsonValue], result)
     except _legacy.drawing_service.DrawingNotFoundError:
         raise _legacy.HTTPException(status_code=404, detail="Drawing not found")
     except _legacy.drawing_service.DrawingReadError:
@@ -59,18 +93,22 @@ def _backup_drawing_version(drawing_id: str, file_path: _legacy.Path) -> None:
 @router.put(
     "/drawings/{drawing_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=DrawingSaveResponse,
 )
-async def save_drawing(drawing_id: str, request: _legacy.DrawingSaveRequest) -> _LegacyAny:
+async def save_drawing(
+    drawing_id: str,
+    request: _legacy.DrawingSaveRequest,
+) -> dict[str, JsonValue]:
     """Saves or updates a Tldraw drawing."""
     try:
-        return await _legacy.drawing_service.save_drawing(
+        result = await _legacy.drawing_service.save_drawing(
             drawing_id,
             request.title,
             _legacy.cast(_legacy.drawing_service.JsonObject, request.data),
             _legacy.cast(_legacy.drawing_service.JsonObject, request.metadata or {}),
             _DRAWING_DEPENDENCIES,
         )
+        return _strict_cast(dict[str, JsonValue], result)
     except _legacy.drawing_service.DrawingWriteError:
         raise _legacy.HTTPException(status_code=500, detail="Error writing target file")
 
@@ -78,9 +116,9 @@ async def save_drawing(drawing_id: str, request: _legacy.DrawingSaveRequest) -> 
 @router.delete(
     "/drawings/{drawing_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=DrawingDeleteResponse,
 )
-async def delete_drawing(drawing_id: str) -> _LegacyAny:
+async def delete_drawing(drawing_id: str) -> dict[str, JsonValue]:
     """Soft-delete: moves the drawing to the trash, like pages.
 
     It used to do a direct `unlink()`: instant and IRREVERSIBLE deletion —
@@ -95,7 +133,11 @@ async def delete_drawing(drawing_id: str) -> _LegacyAny:
     """
     drawing_id = _legacy._validate_safe_page_id(drawing_id)
     try:
-        return await _legacy.drawing_service.delete_drawing(drawing_id, _DRAWING_DEPENDENCIES)
+        result = await _legacy.drawing_service.delete_drawing(
+            drawing_id,
+            _DRAWING_DEPENDENCIES,
+        )
+        return _strict_cast(dict[str, JsonValue], result)
     except _legacy.drawing_service.DrawingNotFoundError:
         raise _legacy.HTTPException(status_code=404, detail="Drawing not found")
 

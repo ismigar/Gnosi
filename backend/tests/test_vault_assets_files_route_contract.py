@@ -9,6 +9,7 @@ from fastapi.routing import APIRoute
 
 from backend.api import vault_routes
 from backend.domains.vault.assets import api as assets_api
+from backend.domains.vault.assets.schemas import AssetUploadResponse
 from backend.domains.vault.files import api as files_api
 from backend.domains.vault.files.state import file_serving_state
 
@@ -103,6 +104,15 @@ def test_assets_files_handlers_are_canonical_domain_exports() -> None:
     for name in TARGET_HANDLER_NAMES:
         expected_module = assets_api if name in asset_handlers else files_api
         assert getattr(vault_routes, name) is getattr(expected_module, name)
+
+
+def test_asset_upload_exposes_its_typed_response_contract() -> None:
+    route = next(
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute) and route.endpoint.__name__ == "upload_asset"
+    )
+    assert route.response_model is AssetUploadResponse
 
 
 def test_legacy_facade_does_not_define_target_handlers() -> None:

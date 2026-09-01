@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { X, BrainCircuit, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import {
+    fetchResourceProcessingStatus,
+    startResourceProcessing,
+} from '../../shared/api';
 
 // Trigger an LLM Wiki (Brain) ingest for one resource row and poll its
 // background job, showing the phase and how many Brain pages were touched.
@@ -47,22 +50,18 @@ export function ProcessResourceModal({
     };
 
     const localizeStartError = (err) => {
-        const detail = err.response?.data?.detail;
+        const detail = err instanceof Error ? err.message : '';
         if (detail === NO_BRAIN_TABLE_ERROR) {
             return tp('error_no_brain_table', 'No Brain table is configured. Create one in Settings → Plugins → LLM Wiki.');
         }
-        return detail || err.message || tp('error_generic', 'Error processing the resource');
+        return detail || tp('error_generic', 'Error processing the resource');
     };
 
     useEffect(() => () => stopPolling(), []);
 
     const poll = async (identifier) => {
         try {
-            const res = await axios.get(
-                `/api/vault/llm-wiki/status/${encodeURIComponent(identifier)}`,
-                { params: sourceTableId ? { source_table_id: sourceTableId } : undefined },
-            );
-            const j = res.data || {};
+            const j = await fetchResourceProcessingStatus(identifier, sourceTableId);
             jobRef.current = j;
             setJob(j);
             onJobUpdate?.(j);
@@ -77,9 +76,8 @@ export function ProcessResourceModal({
                 setError(j.error || tp('error_generic', "Error processing the resource"));
                 setState('error');
             }
-        } catch (err) {
+        } catch {
             // Transient poll failure — keep trying; a hard failure surfaces via phase=error.
-            console.warn('llm-wiki poll error:', err);
         }
     };
 
@@ -87,13 +85,13 @@ export function ProcessResourceModal({
         setState('running');
         setError('');
         try {
-            const response = await axios.post('/api/vault/llm-wiki/process', {
+            const response = await startResourceProcessing({
                 resource_id: noteId,
                 source_table_id: sourceTableId,
                 force,
             });
-            const nextJobId = response.data?.job_id || noteId;
-            const startedJob = response.data?.job || null;
+            const nextJobId = response.job_id || noteId;
+            const startedJob = response.job || null;
             jobRef.current = startedJob;
             setJob(startedJob);
             if (startedJob) onJobUpdate?.(startedJob);

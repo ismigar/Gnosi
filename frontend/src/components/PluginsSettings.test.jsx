@@ -1,17 +1,41 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import axios from 'axios';
 
 import { PluginsSettings } from './PluginsSettings';
 import { notifyError } from '../lib/notifyError';
 
 const setPluginEnabled = vi.hoisted(() => vi.fn());
+const fetchVaultTables = vi.hoisted(() => vi.fn());
+const pluginRuntimeApi = vi.hoisted(() => ({
+    exportPluginPackage: vi.fn(),
+    uploadPluginZip: vi.fn(),
+}));
+const pluginApi = vi.hoisted(() => ({
+    addPluginTrustedKey: vi.fn(),
+    createPluginLlmWikiBrain: vi.fn(),
+    fetchInstalledPlugins: vi.fn(),
+    fetchPluginCatalog: vi.fn(),
+    fetchPluginLlmWikiConfig: vi.fn(),
+    fetchPluginPermissionsCatalog: vi.fn(),
+    fetchPluginRegistryUrl: vi.fn(),
+    fetchPluginTrustedKeys: vi.fn(),
+    installPluginFromCatalog: vi.fn(),
+    removePluginTrustedKey: vi.fn(),
+    runPluginLlmWikiMaintenance: vi.fn(),
+    savePluginLlmWikiConfig: vi.fn(),
+    setPluginPermissions: vi.fn(),
+    setPluginRegistryUrl: vi.fn(),
+    submitPluginPackage: vi.fn(),
+    uninstallPlugin: vi.fn(),
+}));
 
-vi.mock('axios', () => ({
-    default: {
-        get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn(),
-    },
+vi.mock('../shared/api/brain', () => ({ fetchBrainSuggestions: vi.fn() }));
+vi.mock('../shared/api/plugin-runtime', () => pluginRuntimeApi);
+vi.mock('../shared/api/plugins', () => pluginApi);
+vi.mock('../shared/api/vaults', () => ({
+    fetchVaultPagesByTable: vi.fn(),
+    fetchVaultTables,
 }));
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key) => key }),
@@ -44,7 +68,12 @@ afterEach(async () => {
 });
 
 async function renderSettings() {
-    axios.get.mockResolvedValue({ data: {} });
+    fetchVaultTables.mockResolvedValue([]);
+    pluginApi.fetchInstalledPlugins.mockResolvedValue({ plugins: [] });
+    pluginApi.fetchPluginPermissionsCatalog.mockResolvedValue({ apiVersion: 2, permissions: {} });
+    pluginApi.fetchPluginCatalog.mockResolvedValue({ catalog: [] });
+    pluginApi.fetchPluginTrustedKeys.mockResolvedValue({ keys: [] });
+    pluginApi.fetchPluginRegistryUrl.mockResolvedValue({ url: '' });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);

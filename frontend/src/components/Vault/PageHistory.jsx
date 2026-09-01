@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { History, RotateCcw, X, Loader2, FileText, Clock, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 import { ConfirmModal } from '../ConfirmModal';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import {
+  fetchVaultPageHistory,
+  fetchVaultPageHistoryVersion,
+  purgeVaultPageHistory,
+  restoreVaultPageHistoryVersion,
+} from '../../shared/api/vault-history';
 
 const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   const { t } = useTranslation();
@@ -60,8 +65,8 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`/api/vault/pages/${pageId}/history`);
-      setHistory(response.data);
+      const versions = await fetchVaultPageHistory(pageId);
+      setHistory(versions);
     } catch (error) {
       console.error('Error fetching history:', error);
     } finally {
@@ -73,13 +78,13 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
     setPreviewLoading(true);
     setPreviewVersion(version);
     try {
-      const response = await axios.get(`/api/vault/pages/${pageId}/history/${version.id}`);
-      setPreviewContent(response.data.content);
+      const content = await fetchVaultPageHistoryVersion(pageId, version.id);
+      setPreviewContent(content.content);
       const fallback = history[history.findIndex((item) => item.id === version.id) + 1];
       if (comparisonVersion || fallback) {
         const target = comparisonVersion || fallback;
-        const olderResponse = await axios.get(`/api/vault/pages/${pageId}/history/${target.id}`);
-        setComparisonContent(olderResponse.data.content);
+        const olderContent = await fetchVaultPageHistoryVersion(pageId, target.id);
+        setComparisonContent(olderContent.content);
       } else {
         setComparisonContent(null);
       }
@@ -94,8 +99,8 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
     if (!previewVersion) return;
     setPreviewLoading(true);
     try {
-      const response = await axios.get(`/api/vault/pages/${pageId}/history/${version.id}`);
-      setComparisonContent(response.data.content);
+      const content = await fetchVaultPageHistoryVersion(pageId, version.id);
+      setComparisonContent(content.content);
     } finally {
       setPreviewLoading(false);
     }
@@ -109,7 +114,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   const executeRestore = async () => {
     if (!restoreTarget) return;
     try {
-      await axios.post(`/api/vault/pages/${pageId}/history/restore/${restoreTarget.id}`);
+      await restoreVaultPageHistoryVersion(pageId, restoreTarget.id);
       onRestore();
       onClose();
     } catch (error) {
@@ -126,7 +131,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
 
   const executePurge = async () => {
     try {
-      await axios.delete(`/api/vault/pages/${pageId}/history`);
+      await purgeVaultPageHistory(pageId);
       setHistory([]);
       setPreviewContent(null);
       setPreviewVersion(null);

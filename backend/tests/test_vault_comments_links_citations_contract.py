@@ -7,11 +7,14 @@ from dataclasses import dataclass
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes as legacy_vault
+from backend.domains.vault.citations import io_api as citation_io
 from backend.domains.vault.citations import references_api as citation_references
+from backend.domains.vault.citations import search as citation_search
 from backend.domains.vault.citations.state import citation_index_state
 from backend.domains.vault.comments import schemas as comment_schemas
 from backend.domains.vault.comments import state as comment_state
 from backend.domains.vault.links import schemas as link_schemas
+from backend.domains.vault.links.api import preview as link_preview
 from backend.domains.vault.links.state import link_index_state
 
 
@@ -247,7 +250,33 @@ def test_extracted_routes_preserve_order_contract_and_facade_identity() -> None:
         assert route.endpoint.__name__ == expected.endpoint
         assert route.endpoint.__module__ == expected.module
         assert route.endpoint is getattr(legacy_vault, expected.endpoint)
-        assert route.response_model is None
+        expected_response_model = {
+            "add_page_comment": comment_schemas.PageComment,
+            "create_inline_comment": comment_schemas.InlineComment,
+            "delete_inline_comment": comment_schemas.CommentDeleteResponse,
+            "delete_page_comment": comment_schemas.CommentDeleteResponse,
+            "clear_reference_table": citation_references.ReferenceTableResponse,
+            "create_reference_table": citation_references.ReferenceTableResponse,
+            "get_alias_index": link_schemas.AliasIndexResponse,
+            "get_backlinks": list[link_schemas.VaultBacklinkResponse],
+            "get_global_index": link_schemas.GlobalIndexResponse,
+            "get_link_preview": link_preview.LinkPreviewResponse,
+            "get_outlinks": link_schemas.VaultOutlinksResponse,
+            "get_reference_table": citation_references.ReferenceTableResponse,
+            "get_unlinked_mentions": list[link_schemas.VaultUnlinkedMentionResponse],
+            "import_references": citation_io.ImportReferencesResponse,
+            "link_unlinked_mentions": link_schemas.VaultLinkMentionsResponse,
+            "list_inline_comments": list[comment_schemas.InlineComment],
+            "list_page_comments": comment_schemas.PageCommentThread,
+            "list_csl_styles": citation_io.CslStylesResponse,
+            "resolve_by_citation_key": citation_search.CitationResolutionResponse,
+            "search_citations": list[citation_search.CitationSearchItemResponse],
+            "set_reference_table": citation_references.ReferenceTableResponse,
+            "update_inline_comment": comment_schemas.InlineComment,
+            "update_page_comment": comment_schemas.PageComment,
+            "upload_csl_style": citation_io.CslStyleResponse,
+        }.get(route.endpoint.__name__)
+        assert route.response_model == expected_response_model
         # APIRouter contributes get_workspace_context to every route; the
         # frozen count records only the route-local dependencies above it.
         assert len(route.dependencies) == expected.dependency_count + 1
@@ -263,6 +292,58 @@ def test_extracted_request_models_keep_legacy_identity() -> None:
         assert getattr(legacy_vault, model_name) is getattr(comment_schemas, model_name)
     assert legacy_vault.LinkMentionsRequest is link_schemas.LinkMentionsRequest
     assert legacy_vault._REFERENCE_SCHEMA is citation_references.REFERENCE_SCHEMA
+
+
+def test_editor_link_panel_response_models_preserve_payloads() -> None:
+    backlinks = [
+        {"id": "source-1", "title": "Source", "kind": "link"},
+        {"id": "source-2", "title": "Related", "kind": "relation"},
+    ]
+    parsed_backlinks = [
+        link_schemas.VaultBacklinkResponse.model_validate(item).model_dump()
+        for item in backlinks
+    ]
+    assert parsed_backlinks == backlinks
+
+    outlinks = {
+        "links": [{"id": "target-1", "title": "Target"}],
+        "relations": [{"id": "target-2", "title": "Related"}],
+        "unresolved": [{"title": "Missing"}],
+    }
+    assert (
+        link_schemas.VaultOutlinksResponse.model_validate(outlinks).model_dump()
+        == outlinks
+    )
+
+    mention = {
+        "id": "source-3",
+        "title": "Mentioning page",
+        "count": 2,
+        "snippet": "A plain Target mention",
+    }
+    assert (
+        link_schemas.VaultUnlinkedMentionResponse.model_validate(mention).model_dump()
+        == mention
+    )
+
+    linked = {
+        "status": "success",
+        "target_id": "target-1",
+        "target_title": "Target",
+        "notes_changed": 1,
+        "total_replacements": 2,
+        "changed_notes": [
+            {
+                "id": "source-3",
+                "title": "Mentioning page",
+                "replacements": 2,
+            }
+        ],
+    }
+    assert (
+        link_schemas.VaultLinkMentionsResponse.model_validate(linked).model_dump()
+        == linked
+    )
 
 
 def test_extracted_domains_are_the_single_mutable_state_owners() -> None:

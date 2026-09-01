@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Users } from 'lucide-react';
-import { useApi } from '../../hooks/use-api';
+import { fetchMailRecipientSuggestions } from '../../shared/api/mail';
 
 export function AddressInput({ value, onChange, label, placeholder, accountEmail }) {
     const { t } = useTranslation();
@@ -9,18 +9,18 @@ export function AddressInput({ value, onChange, label, placeholder, accountEmail
     const [groupSuggestions, setGroupSuggestions] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const debounceRef = useRef(null);
-    const { apiFetch } = useApi();
 
     const fetchSuggestions = useCallback(async (token) => {
         try {
-            const params = new URLSearchParams({ q: token, limit: 8 });
-            if (accountEmail) params.set('email', accountEmail);
-            const data = await apiFetch(`/api/mail/recipients/suggest?${params}`);
+            const data = await fetchMailRecipientSuggestions(
+                token,
+                accountEmail || undefined,
+            );
             setSuggestions(data.suggestions || []);
             setGroupSuggestions(data.group_suggestions || []);
             setShowDropdown((data.suggestions?.length || 0) + (data.group_suggestions?.length || 0) > 0);
         } catch { /* silent */ }
-    }, [accountEmail, apiFetch]);
+    }, [accountEmail]);
 
     const handleChange = (e) => {
         // Normalizes the Outlook separator (";" → ",") so that recipients

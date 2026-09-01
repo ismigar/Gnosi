@@ -604,7 +604,7 @@ class SchedulerManager:
 
         def _runner() -> dict[str, Any]:
             result = asyncio.run(process_scheduled_posts(BackgroundTasks()))
-            return cast(dict[str, Any], result)
+            return result.model_dump()
 
         try:
             return _runner()

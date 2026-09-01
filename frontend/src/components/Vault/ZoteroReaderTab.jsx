@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 import { getLocaleMeta } from '../../locales/registry';
 import { uiLangToZoteroLocale } from './zoteroLocale';
+import { transportFetch } from '../../shared/api/transports';
 
 const HOST_URL = '/zotero-reader/host.html?v=20260802-citation-highlights-2';
 
@@ -111,7 +112,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
 
     const fetchPersistedAnnotations = useCallback(async ({ signal } = {}) => {
         if (!rawSrc) return [];
-        const res = await fetch(
+        const res = await transportFetch(
             `/api/vault/pdf-annotations?source_uri=${encodeURIComponent(rawSrc)}`,
             { signal },
         );
@@ -145,7 +146,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
         const filePath = toFilesystemPath(rawSrc);
         (async () => {
             try {
-                const res = await fetch('/api/vault/local-file/register', {
+                const res = await transportFetch('/api/vault/local-file/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ file_path: filePath }),
@@ -328,7 +329,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
             const body = zoteroToPdfAnnotation(ann, rawSrc);
             try {
                 if (dbId != null) {
-                    const res = await fetch(`/api/vault/pdf-annotations/${dbId}`, {
+                    const res = await transportFetch(`/api/vault/pdf-annotations/${dbId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -346,7 +347,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                         console.warn('zotero-reader: PATCH failed', res.status, detail.slice(0, 200));
                     }
                 } else {
-                    const res = await fetch('/api/vault/pdf-annotations', {
+                    const res = await transportFetch('/api/vault/pdf-annotations', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(body),
@@ -391,7 +392,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
             }
             if (dbId == null) continue;
             try {
-                const res = await fetch(`/api/vault/pdf-annotations/${dbId}`, { method: 'DELETE' });
+                const res = await transportFetch(`/api/vault/pdf-annotations/${dbId}`, { method: 'DELETE' });
                 // 404 is acceptable (a race with another client that has already
                 // deleted it) — we clean up the mapping anyway so that no
                 // an orphan id. Other error statuses: we log and DO NOT touch the
@@ -413,7 +414,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
         const filePath = toFilesystemPath(rawSrc);
         if (!filePath) return;
         try {
-            const res = await fetch('/api/vault/open-local-path', {
+            const res = await transportFetch('/api/vault/open-local-path', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path: `file://${filePath}` }),
             });

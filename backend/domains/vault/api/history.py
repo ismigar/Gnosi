@@ -12,6 +12,11 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.params import Depends as DependsParameter
 
 from backend.domains.vault.history.repository import HistoryRepository
+from backend.domains.vault.schemas.history import (
+    PageHistoryContent,
+    PageHistoryMutationResponse,
+    PageHistoryVersion,
+)
 
 FrontmatterParser = Callable[[str, Path | None], tuple[dict[str, Any], str]]
 PageFinder = Callable[[str], Path | None]
@@ -161,27 +166,27 @@ def register_routes(
         "/pages/{page_id}/history",
         get_page_history,
         methods=["GET"],
-        response_model=None,
+        response_model=list[PageHistoryVersion],
     )
     router.add_api_route(
         "/pages/{page_id}/history/{timestamp}",
         get_page_version_content,
         methods=["GET"],
-        response_model=None,
+        response_model=PageHistoryContent,
     )
     router.add_api_route(
         "/pages/{page_id}/history/restore/{timestamp}",
         restore_page_version,
         methods=["POST"],
         dependencies=list(editor_dependencies),
-        response_model=None,
+        response_model=PageHistoryMutationResponse,
     )
     router.add_api_route(
         "/pages/{page_id}/history",
         purge_page_history,
         methods=["DELETE"],
         dependencies=list(admin_dependencies),
-        response_model=None,
+        response_model=PageHistoryMutationResponse,
     )
 
 

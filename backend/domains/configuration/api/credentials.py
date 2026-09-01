@@ -1,10 +1,14 @@
 # backend/api/credentials_routes.py
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Any, List
 
-from backend.security.keychain_manager import get_keychain
 from backend.config.env_config import configured_shared_env_path, reload_keychain
+from backend.domains.configuration.credential_schemas import (
+    CredentialMigrationResponse,
+    CredentialMutationResponse,
+    CredentialSet,
+    CredentialStatus,
+)
+from backend.security.keychain_manager import get_keychain
 from backend.services.workspace_service import require_role
 
 # Auth gate: these endpoints manage the Keychain (HuggingFace, OpenRouter,
@@ -70,19 +74,7 @@ CREDENTIAL_INFO: dict[str, dict[str, str]] = {
 CREDENTIAL_KEYS: list[str] = list(CREDENTIAL_INFO.keys())
 
 
-class CredentialSet(BaseModel):
-    key: str
-    value: str
-
-
-class CredentialStatus(BaseModel):
-    key: str
-    name: str
-    description: str
-    has_value: bool
-
-
-@router.get("/", response_model=List[CredentialStatus])
+@router.get("/", response_model=list[CredentialStatus])
 async def list_credentials() -> list[CredentialStatus]:
     """List all credentials with their status (without exposing values)."""
     keychain = get_keychain()
@@ -103,8 +95,8 @@ async def list_credentials() -> list[CredentialStatus]:
     return result
 
 
-@router.get("/{credential_key}", response_model=None)
-async def get_credential_status(credential_key: str) -> Any:
+@router.get("/{credential_key}", response_model=CredentialStatus)
+async def get_credential_status(credential_key: str) -> dict[str, object]:
     """Check if a specific credential exists."""
     if credential_key not in CREDENTIAL_KEYS:
         raise HTTPException(status_code=404, detail="Credential not found")
@@ -123,8 +115,8 @@ async def get_credential_status(credential_key: str) -> Any:
     }
 
 
-@router.post("/", response_model=None)
-async def set_credential(credential: CredentialSet) -> Any:
+@router.post("/", response_model=CredentialMutationResponse)
+async def set_credential(credential: CredentialSet) -> dict[str, str]:
     """Set a credential value."""
     if credential.key not in CREDENTIAL_KEYS:
         raise HTTPException(status_code=404, detail="Credential not found")
@@ -143,8 +135,8 @@ async def set_credential(credential: CredentialSet) -> Any:
         raise HTTPException(status_code=500, detail="Failed to save credential")
 
 
-@router.delete("/{credential_key}", response_model=None)
-async def delete_credential(credential_key: str) -> Any:
+@router.delete("/{credential_key}", response_model=CredentialMutationResponse)
+async def delete_credential(credential_key: str) -> dict[str, str]:
     """Delete a credential."""
     if credential_key not in CREDENTIAL_KEYS:
         raise HTTPException(status_code=404, detail="Credential not found")
@@ -163,8 +155,8 @@ async def delete_credential(credential_key: str) -> Any:
         raise HTTPException(status_code=500, detail="Failed to delete credential")
 
 
-@router.post("/migrate", response_model=None)
-async def migrate_from_env() -> Any:
+@router.post("/migrate", response_model=CredentialMigrationResponse)
+async def migrate_from_env() -> dict[str, object]:
     """Import credentials from the explicitly configured shared env file."""
     env_path = configured_shared_env_path()
 
@@ -206,3 +198,19 @@ async def migrate_from_env() -> Any:
         "total": len(migrated),
         "source_modified": False,
     }
+
+
+__all__ = [
+    "CREDENTIAL_INFO",
+    "CREDENTIAL_KEYS",
+    "CredentialMigrationResponse",
+    "CredentialMutationResponse",
+    "CredentialSet",
+    "CredentialStatus",
+    "delete_credential",
+    "get_credential_status",
+    "list_credentials",
+    "migrate_from_env",
+    "router",
+    "set_credential",
+]

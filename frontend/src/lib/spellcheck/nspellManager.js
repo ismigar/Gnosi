@@ -1,4 +1,5 @@
 import { SUPPORTED_LANGS } from './detectLang';
+import { transportFetch } from '../../shared/api/transports';
 
 // Spell-checker manager based on Hunspell compiled to WebAssembly (hunspell-asm).
 // Hunspell-WASM was chosen over nspell because the Catalan dictionary
@@ -103,11 +104,11 @@ export function loadSpeller(lang) {
         try {
             const [factory, affBuf, dicBuf] = await Promise.all([
                 getFactory(),
-                fetch(`${base}dictionaries/${lang}.aff`).then((r) => {
+                transportFetch(`${base}dictionaries/${lang}.aff`).then((r) => {
                     if (!r.ok) throw new Error(`aff ${r.status}`);
                     return r.arrayBuffer();
                 }),
-                fetch(`${base}dictionaries/${lang}.dic`).then((r) => {
+                transportFetch(`${base}dictionaries/${lang}.dic`).then((r) => {
                     if (!r.ok) throw new Error(`dic ${r.status}`);
                     return r.arrayBuffer();
                 }),

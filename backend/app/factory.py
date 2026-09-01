@@ -9,6 +9,7 @@ from fastapi import Depends, FastAPI
 
 from backend import models as _models
 from backend.app.errors import register_error_handlers
+from backend.app.health_contracts import HealthResponse
 from backend.app.middleware import register_middleware
 from backend.app.routes import register_routers
 from backend.config.app_config import load_params
@@ -47,7 +48,7 @@ def create_app(lifespan: Lifespan) -> FastAPI:
         "/api/health",
         health_check,
         methods=["GET"],
-        response_model=None,
+        response_model=HealthResponse,
     )
     setup_logging()
     return app

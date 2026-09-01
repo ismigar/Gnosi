@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Link2, Loader2, ExternalLink } from 'lucide-react';
+import { fetchLinkPreview } from '../../shared/api/links';
 
 /**
  * LinkCardBlock
@@ -24,16 +24,24 @@ export default function LinkCardBlock({ block }) {
         if (!url) { setLoading(false); return undefined; }
         if (_previewCache.has(url)) { setData(_previewCache.get(url)); setLoading(false); return undefined; }
         let cancelled = false;
+        const controller = new AbortController();
         setLoading(true);
-        axios.get('/api/vault/link-preview', { params: { url } })
-            .then((res) => {
+        fetchLinkPreview(url, controller.signal)
+            .then((preview) => {
                 if (cancelled) return;
-                _previewCache.set(url, res.data);
-                setData(res.data);
+                _previewCache.set(url, preview);
+                setData(preview);
             })
-            .catch(() => { if (!cancelled) setError(t('link_card.preview_error', "Couldn't load the preview.")); })
+            .catch(() => {
+                if (!cancelled && !controller.signal.aborted) {
+                    setError(t('link_card.preview_error', "Couldn't load the preview."));
+                }
+            })
             .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
     }, [url]);
 
     let host = url;

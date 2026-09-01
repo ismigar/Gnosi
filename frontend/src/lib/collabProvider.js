@@ -11,6 +11,7 @@ import * as Y from 'yjs';
 import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness';
 import { ensureBackendOrigin } from './electron';
 import { canonicalizeVaultApiUrl } from './vaultRouting';
+import { openWebSocket, WEB_SOCKET_OPEN_STATE } from '../shared/api/specialized-transports';
 
 function toBase64(uint8) {
     let binary = '';
@@ -78,7 +79,7 @@ export class GnosiCollabProvider {
     }
 
     _send(msg) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        if (this.ws && this.ws.readyState === WEB_SOCKET_OPEN_STATE) {
             try { this.ws.send(JSON.stringify(msg)); } catch { /* noop */ }
         }
     }
@@ -86,7 +87,7 @@ export class GnosiCollabProvider {
     async _connect() {
         let ws;
         try {
-            ws = new WebSocket(await buildWsUrl(this.pageId));
+            ws = openWebSocket(await buildWsUrl(this.pageId));
         } catch {
             return;
         }

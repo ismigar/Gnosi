@@ -3,9 +3,14 @@ from typing import Any, AsyncIterator
 
 from fastapi import Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, ConfigDict
 
 from backend.agent.model_reliability import reliability_report
-from backend.domains.agent.routes.contracts import ChatFeedbackRequest
+from backend.domains.agent.routes.contracts import (
+    ChatFeedbackRequest,
+    ExternalContextSourceResponse,
+    InternalContextSourceResponse,
+)
 from backend.domains.agent.routes.router import router
 from backend.domains.agent.routes.shared import _validated_identifier, _vault_scope
 from backend.services.agent_cancellation import cancel_stream as cancel_agent_stream
@@ -15,11 +20,34 @@ from backend.services.agent_stream_journal import scope_digest
 from backend.services.workspace_service import WorkspaceContext, require_role
 
 
-@router.get("/ai/model-reliability", response_model=None)
+class ModelReliabilityEntryResponse(BaseModel):
+    """Recorded failure evidence for one provider model."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    model_id: str
+    window_days: int
+    reasons: dict[str, int]
+    model_fault_total: int
+    total: int
+    top_model_reason: str | None
+
+
+class ModelReliabilityResponse(BaseModel):
+    """Failure evidence returned for the requested reporting window."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    window_days: int
+    models: list[ModelReliabilityEntryResponse]
+
+
+@router.get("/ai/model-reliability", response_model=ModelReliabilityResponse)
 async def model_reliability(
     window_days: int = 30,
     workspace_context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
+) -> ModelReliabilityResponse:
     """Recorded failures per model, by reason.
 
     Evidence for the UI, not a policy: nothing here disables or reroutes a
@@ -33,13 +61,17 @@ async def model_reliability(
             workspace_context.user_id,
         )
     )
-    return {
-        "window_days": window_days,
-        "models": reliability_report(window_days, scope_key=reliability_scope),
-    }
+    models = [
+        ModelReliabilityEntryResponse.model_validate(row)
+        for row in reliability_report(window_days, scope_key=reliability_scope)
+    ]
+    return ModelReliabilityResponse(window_days=window_days, models=models)
 
 
-@router.get("/agent/context-sources", response_model=None)
+@router.get(
+    "/agent/context-sources",
+    response_model=list[ExternalContextSourceResponse],
+)
 async def list_context_sources() -> Any:
     """Catalogue of large external sources an agent can attach to its context.
 
@@ -51,7 +83,10 @@ async def list_context_sources() -> Any:
     return list_sources()
 
 
-@router.get("/agent/internal-sources", response_model=None)
+@router.get(
+    "/agent/internal-sources",
+    response_model=list[InternalContextSourceResponse],
+)
 async def list_internal_context_sources(
     workspace_context: WorkspaceContext = Depends(require_role("viewer")),
 ) -> Any:

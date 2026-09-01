@@ -6,10 +6,23 @@ import MailList from '../components/Mail/MailList';
 import MailViewer from '../components/Mail/MailViewer';
 import MailComposer from '../components/Mail/MailComposer';
 import { MailTagsProvider } from '../hooks/useMailTags';
-import { cachedJson } from '../lib/cachedJson';
 import { AppHeader } from '../components/AppHeader';
 import { Inbox, PanelLeft } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { fetchIntegrations } from '../shared/api/integrations';
+import { fetchMailCounts, moveMailMessage } from '../shared/api/mail';
+import { queryClient } from '../shared/api/query-client';
+
+const INTEGRATIONS_QUERY_KEY = ['integrations'];
+
+function fetchCachedIntegrations() {
+    return queryClient.fetchQuery({
+        queryKey: INTEGRATIONS_QUERY_KEY,
+        queryFn: ({ signal }) => fetchIntegrations(signal),
+        retry: false,
+        staleTime: 500,
+    });
+}
 
 export default function MailPage() {
     return (
@@ -52,10 +65,9 @@ function MailPageInner() {
     }, [isCompact]);
 
     useEffect(() => {
-        // Use a short-TTL cache so MailPage, MailComposer and CalendarPage
-        // don't each hit /api/integrations independently when they happen to
-        // mount close together.
-        cachedJson('/api/integrations')
+        // Use the shared short-TTL query so account consumers collapse
+        // concurrent integration reads when they mount close together.
+        fetchCachedIntegrations()
             .then(data => {
                 const allMail = [...(data.mail_accounts || []), ...(data.emails || [])];
                 const seen = new Set();
@@ -107,7 +119,7 @@ function MailPageInner() {
             ? [selectedAccount.email]
             : accs.map(a => a.email || a.username).filter(Boolean);
         if (!emailList.length) return;
-        Promise.all(emailList.map(e => fetch(`/api/mail/counts?email=${encodeURIComponent(e)}`).then(r => r.json()).catch(() => ({}))))
+        Promise.all(emailList.map(e => fetchMailCounts(e).catch(() => ({}))))
             .then(results => {
                 const merged = {};
                 results.forEach(res => {
@@ -130,15 +142,11 @@ function MailPageInner() {
         undoRef.current = null;
         toast.dismiss('undo-toast');
         try {
-            const res = await fetch(
-                `/api/mail/messages/${action.mailId}/move?email=${encodeURIComponent(action.email)}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target_folder: 'INBOX', imap_uid: action.imap_uid, imap_folder: action.imap_folder }),
-                }
-            );
-            if (!res.ok) throw new Error('move_failed');
+            await moveMailMessage(action.mailId, action.email, {
+                target_folder: 'INBOX',
+                imap_uid: action.imap_uid,
+                imap_folder: action.imap_folder,
+            });
             setRemovedMailId(null);
             setListRefreshToken(n => n + 1);
             fetchCounts(accounts);

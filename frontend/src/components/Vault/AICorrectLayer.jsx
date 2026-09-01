@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../ConfirmModal';
+import { correctAiContent } from '../../shared/api/ai';
 
 /**
  * AICorrectLayer
@@ -22,7 +22,7 @@ export default function AICorrectLayer({ editor, lang }) {
     const view = useCallback(() => editor?.prosemirrorView || null, [editor]);
 
     const callCorrect = useCallback(async (text, scope) => {
-        const { data } = await axios.post('/api/ai/correct', {
+        const data = await correctAiContent({
             text,
             language: lang || undefined,
             scope,
@@ -58,7 +58,9 @@ export default function AICorrectLayer({ editor, lang }) {
                 toast(t('ai_correct.no_correction', "No correction needed"));
             }
         } catch (err) {
-            toast.error(err?.response?.data?.detail || t('ai_correct.selection_error', "Could not correct"));
+            toast.error(err instanceof Error && err.message
+                ? err.message
+                : t('ai_correct.selection_error', "Could not correct"));
         } finally {
             busyRef.current = false; setBusy(false);
         }
@@ -78,7 +80,9 @@ export default function AICorrectLayer({ editor, lang }) {
             editor.replaceBlocks(editor.document, newBlocks);
             toast.success(t('ai_correct.page_corrected', "Page corrected"), { id: tid });
         } catch (err) {
-            toast.error(err?.response?.data?.detail || t('ai_correct.page_error', "Could not correct the page"), { id: tid });
+            toast.error(err instanceof Error && err.message
+                ? err.message
+                : t('ai_correct.page_error', "Could not correct the page"), { id: tid });
         } finally {
             busyRef.current = false; setBusy(false);
         }

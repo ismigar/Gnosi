@@ -12,12 +12,59 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, UploadFile
 from fastapi.params import Depends as DependsParameter
 from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict
 
 from backend.domains.vault.citations.keys import generate_citation_key
 from backend.domains.vault.schemas.pages import PageSaveRequest
 
 
 log = logging.getLogger(__name__)
+
+
+class CitationIoResponseModel(BaseModel):
+    """Base contract that preserves provider-specific response extensions."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class ImportedReferenceItemResponse(CitationIoResponseModel):
+    id: str | None
+    citation_key: str
+    title: str
+
+
+class SkippedReferenceDetailResponse(CitationIoResponseModel):
+    key: str
+    reason: str
+    existing_key: str
+    title: str | None
+
+
+class ImportReferenceErrorResponse(CitationIoResponseModel):
+    title: str | None
+    error: str
+
+
+class ImportReferencesResponse(CitationIoResponseModel):
+    created: int
+    skipped: int
+    items: list[ImportedReferenceItemResponse]
+    skipped_details: list[SkippedReferenceDetailResponse]
+    skipped_keys: list[str]
+    skip_summary: dict[str, int]
+    errors: list[ImportReferenceErrorResponse]
+    format: str
+    message: str | None = None
+
+
+class CslStyleResponse(CitationIoResponseModel):
+    id: str
+    file: str
+    title: str | None
+
+
+class CslStylesResponse(CitationIoResponseModel):
+    styles: list[CslStyleResponse]
 
 
 @dataclass(frozen=True)
@@ -272,7 +319,8 @@ def register_import_route(
         import_references,
         methods=["POST"],
         dependencies=list(editor_dependencies),
-        response_model=None,
+        response_model=ImportReferencesResponse,
+        response_model_exclude_unset=True,
     )
     return import_references
 
@@ -346,14 +394,14 @@ def register_catalog_export_routes(
         "/csl/styles",
         list_csl_styles,
         methods=["GET"],
-        response_model=None,
+        response_model=CslStylesResponse,
     )
     router.add_api_route(
         "/csl/styles",
         upload_csl_style,
         methods=["POST"],
         dependencies=list(upload_dependencies),
-        response_model=None,
+        response_model=CslStyleResponse,
     )
     router.add_api_route(
         "/export-references",
@@ -361,12 +409,19 @@ def register_catalog_export_routes(
         methods=["GET"],
         dependencies=list(export_dependencies),
         response_model=None,
+        response_class=Response,
     )
     return list_csl_styles, upload_csl_style, export_references
 
 
 __all__ = [
+    "CslStyleResponse",
+    "CslStylesResponse",
+    "ImportedReferenceItemResponse",
+    "ImportReferenceErrorResponse",
+    "ImportReferencesResponse",
     "ReferencesIoDependencies",
+    "SkippedReferenceDetailResponse",
     "build_dedup_indexes",
     "collect_table_reference_metas",
     "register_catalog_export_routes",

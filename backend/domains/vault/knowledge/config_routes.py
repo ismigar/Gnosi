@@ -5,14 +5,33 @@ from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 from backend.domains.configuration import llm_wiki as _llm_wiki_configuration
+from backend.domains.vault.knowledge.contracts import (
+    BrainTableClearResponse,
+    BrainTableCreateRequest,
+    BrainTableCreateResponse,
+    BrainTableSelectionRequest,
+    BrainTableSelectionResponse,
+    BrainTableStatusResponse,
+    LlmWikiCreatedSettingsResponse,
+    LlmWikiSettingsResponse,
+)
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 
 
-@router.get("/brain-table", response_model=None)
+def _contract_payload(
+    payload: BaseModel | dict[_LegacyAny, _LegacyAny] | None,
+) -> dict[_LegacyAny, _LegacyAny]:
+    if isinstance(payload, BaseModel):
+        return payload.model_dump(exclude_unset=True)
+    return payload or {}
+
+
+@router.get("/brain-table", response_model=BrainTableStatusResponse)
 async def get_brain_table() -> _LegacyAny:
     """Return the designated Brain table status for Settings and UI gating.
 
@@ -37,19 +56,22 @@ async def get_brain_table() -> _LegacyAny:
 @router.post(
     "/brain-table",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainTableSelectionResponse,
 )
-async def set_brain_table(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
+async def set_brain_table(
+    payload: BrainTableSelectionRequest = _legacy.Body(...),
+) -> _LegacyAny:
     """Designate an existing table as the Brain and guarantee its
     knowledge schema (note type, sources, verification status, and more)."""
     from backend.services import llm_wiki_config as bw
 
-    table_id = str((payload or {}).get("table_id") or "").strip()
+    payload_data = _contract_payload(payload)
+    table_id = str(payload_data.get("table_id") or "").strip()
     if not table_id:
         raise _legacy.HTTPException(status_code=400, detail="table_id is required")
     if not _legacy._table_by_id(table_id):
         raise _legacy.HTTPException(status_code=404, detail=f"Table {table_id} not found")
-    locale = str((payload or {}).get("ui_locale") or (payload or {}).get("language") or "en")
+    locale = str(payload_data.get("ui_locale") or payload_data.get("language") or "en")
     _legacy._ensure_default_db_group()
     added = _legacy.ensure_brain_table_schema(table_id, locale)
     cfg = bw.migrate_config()
@@ -78,17 +100,18 @@ async def set_brain_table(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(.
 @router.post(
     "/brain-table/create",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainTableCreateResponse,
 )
 async def create_brain_table(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(default=None),
+    payload: BrainTableCreateRequest | None = _legacy.Body(default=None),
 ) -> _LegacyAny:
     """Create and designate a new Brain table with the knowledge schema."""
     from backend.services import llm_wiki_config as bw
 
-    locale = str((payload or {}).get("ui_locale") or (payload or {}).get("language") or "en")
+    payload_data = _contract_payload(payload)
+    locale = str(payload_data.get("ui_locale") or payload_data.get("language") or "en")
     language = locale.split("-", 1)[0].lower()
-    name = str((payload or {}).get("name") or "").strip() or {
+    name = str(payload_data.get("name") or "").strip() or {
         "ca": "Cervell",
         "en": "Brain",
         "es": "Cerebro",
@@ -136,7 +159,7 @@ async def create_brain_table(
 @router.delete(
     "/brain-table",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainTableClearResponse,
 )
 async def clear_brain_table() -> _LegacyAny:
     """Disable the Brain designation without deleting any table."""
@@ -227,7 +250,11 @@ def _llm_wiki_property_options(prop: dict[_LegacyAny, _LegacyAny]) -> list[dict[
     ]
 
 
-@router.get("/llm-wiki/config", response_model=None)
+@router.get(
+    "/llm-wiki/config",
+    response_model=LlmWikiSettingsResponse,
+    response_model_exclude_unset=True,
+)
 async def get_llm_wiki_config() -> _LegacyAny:
     """Return the migrated v2 per-vault LLM Wiki configuration."""
     from backend.services import llm_wiki_config
@@ -257,7 +284,8 @@ _LLM_WIKI_CONFIG_DEPENDENCIES = _llm_wiki_configuration.LlmWikiConfigDependencie
 @router.put(
     "/llm-wiki/config",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LlmWikiSettingsResponse,
+    response_model_exclude_unset=True,
 )
 async def put_llm_wiki_config(
     payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
@@ -269,13 +297,15 @@ async def put_llm_wiki_config(
 @router.post(
     "/llm-wiki/brain/create",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LlmWikiCreatedSettingsResponse,
+    response_model_exclude_unset=True,
 )
 async def create_standard_llm_wiki_brain(
     payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(default=None),
 ) -> _LegacyAny:
     """Compatibility-namespaced alias used by the v2 Settings panel."""
-    result = await create_brain_table(payload)
+    request = BrainTableCreateRequest.model_validate(payload or {})
+    result = await create_brain_table(request)
     from backend.services import llm_wiki_config
 
     cfg = await _legacy.asyncio.to_thread(llm_wiki_config.load_config)

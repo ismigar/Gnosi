@@ -1,9 +1,12 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import { Bell, X, Calendar, MapPin, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { vaultPath } from '../lib/vaultRouting';
+import {
+    useDismissMeetingReminder,
+    useMeetingReminders,
+} from '../shared/api/useCalendarData';
 
 const POLL_MS = 60000;
 
@@ -18,36 +21,22 @@ const POLL_MS = 60000;
  */
 export default function MeetingReminderWatcher() {
     const { t } = useTranslation();
-    const [reminders, setReminders] = useState([]);
     const [expanded, setExpanded] = useState({});
-    const dismissedRef = useRef(new Set());
+    const [dismissedIds, setDismissedIds] = useState(() => new Set());
     const navigate = useNavigate();
-
-    const fetchReminders = useCallback(async () => {
-        try {
-            const { data } = await axios.get('/api/calendar/reminders');
-            const list = Array.isArray(data?.reminders) ? data.reminders : [];
-            setReminders(list.filter((r) => r?.id && !dismissedRef.current.has(r.id)));
-        } catch {
-            // best-effort: if the backend doesn't respond, nothing happens
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchReminders();
-        const iv = setInterval(fetchReminders, POLL_MS);
-        return () => clearInterval(iv);
-    }, [fetchReminders]);
+    const remindersQuery = useMeetingReminders(POLL_MS);
+    const dismissMutation = useDismissMeetingReminder();
+    const reminders = (remindersQuery.data?.reminders || [])
+        .filter((reminder) => reminder?.id && !dismissedIds.has(reminder.id));
 
     const dismiss = useCallback(async (id) => {
-        dismissedRef.current.add(id);
-        setReminders((prev) => prev.filter((r) => r.id !== id));
+        setDismissedIds((current) => new Set([...current, id]));
         try {
-            await axios.post(`/api/calendar/reminders/${encodeURIComponent(id)}/dismiss`);
+            await dismissMutation.mutateAsync(id);
         } catch {
             // noop
         }
-    }, []);
+    }, [dismissMutation]);
 
     if (!reminders.length) return null;
 

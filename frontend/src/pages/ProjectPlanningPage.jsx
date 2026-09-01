@@ -1,10 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CalendarRange, RefreshCw, Route, Wallet } from 'lucide-react';
 import { VaultTimeline } from '../components/Vault/VaultTimeline';
 import { usePlugins } from '../plugins/usePlugins';
 import { AppHeader } from '../components/AppHeader';
+import {
+    useApplyPlanningLevelingProposal,
+    useCreatePlanningBaseline,
+    useCreatePlanningLevelingProposal,
+    useCreatePlanningWorklog,
+    usePlanningAllocation,
+    usePlanningBaselines,
+    usePlanningWorklogs,
+    useProjectSchedule,
+} from '../shared/api/usePlanningData';
+import { fetchVaultPagesByTable } from '../shared/api/vaults';
 
 export default function ProjectPlanningPage() {
     const { t } = useTranslation();
@@ -12,15 +22,30 @@ export default function ProjectPlanningPage() {
     const planningSettings = getPluginSettings('project-planning');
     const [projects, setProjects] = useState([]);
     const [projectId, setProjectId] = useState('default');
-    const [schedule, setSchedule] = useState(null);
-    const [allocation, setAllocation] = useState(null);
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [baselines, setBaselines] = useState([]);
-    const [worklogs, setWorklogs] = useState([]);
     const [proposal, setProposal] = useState(null);
     const [baselineName, setBaselineName] = useState('');
     const [worklog, setWorklog] = useState({ task_id: '', date: '', hours: '' });
+    const scheduleQuery = useProjectSchedule(projectId);
+    const allocationQuery = usePlanningAllocation();
+    const baselinesQuery = usePlanningBaselines(projectId);
+    const worklogsQuery = usePlanningWorklogs();
+    const createBaselineMutation = useCreatePlanningBaseline();
+    const createWorklogMutation = useCreatePlanningWorklog();
+    const createProposalMutation = useCreatePlanningLevelingProposal();
+    const applyProposalMutation = useApplyPlanningLevelingProposal();
+    const schedule = scheduleQuery.data || null;
+    const allocation = allocationQuery.data || null;
+    const baselines = baselinesQuery.data?.baselines || [];
+    const worklogs = worklogsQuery.data?.worklogs || [];
+    const loading = scheduleQuery.isFetching
+        || allocationQuery.isFetching
+        || baselinesQuery.isFetching
+        || worklogsQuery.isFetching;
+    const loadError = scheduleQuery.isError
+        || allocationQuery.isError
+        || baselinesQuery.isError
+        || worklogsQuery.isError;
 
     useEffect(() => {
         const tableId = planningSettings.project_table_id;
@@ -30,40 +55,39 @@ export default function ProjectPlanningPage() {
             return;
         }
         let active = true;
-        axios.get(`/api/vault/pages/by-table/${encodeURIComponent(tableId)}`, { params: { include_templates: false } })
-            .then((response) => {
+        const controller = new AbortController();
+        fetchVaultPagesByTable(
+            tableId,
+            { include_templates: false },
+            controller.signal,
+        )
+            .then((pages) => {
                 if (!active) return;
-                const next = Array.isArray(response.data) ? response.data : [];
+                const next = Array.isArray(pages) ? pages : [];
                 setProjects(next);
                 setProjectId((current) => next.some((project) => project.id === current) ? current : (next[0]?.id || 'default'));
             })
             .catch(() => { if (active) setProjects([]); });
-        return () => { active = false; };
+        return () => {
+            active = false;
+            controller.abort();
+        };
     }, [planningSettings.project_table_id]);
 
     const load = useCallback(async () => {
-        setLoading(true);
         try {
-            const [scheduleResponse, allocationResponse] = await Promise.all([
-                axios.get(`/api/planning/projects/${encodeURIComponent(projectId)}/schedule`),
-                axios.get('/api/planning/allocation'),
+            await Promise.all([
+                scheduleQuery.refetch(),
+                allocationQuery.refetch(),
+                baselinesQuery.refetch(),
+                worklogsQuery.refetch(),
             ]);
-            setSchedule(scheduleResponse.data);
-            setAllocation(allocationResponse.data);
-            const [baselineResponse, worklogResponse] = await Promise.all([
-                axios.get(`/api/planning/projects/${encodeURIComponent(projectId)}/baselines`), axios.get('/api/planning/worklogs'),
-            ]);
-            setBaselines(baselineResponse.data.baselines || []);
-            setWorklogs(worklogResponse.data.worklogs || []);
             setError('');
         } catch (_error) {
             setError(t('planning_page.load_error', 'Could not load the project schedule.'));
-        } finally {
-            setLoading(false);
         }
-    }, [projectId, t]);
+    }, [allocationQuery, baselinesQuery, scheduleQuery, t, worklogsQuery]);
 
-    useEffect(() => { void load(); }, [load]);
     const diagnostics = schedule?.diagnostics || [];
     const tasks = schedule?.tasks || [];
     const ganttNotes = tasks.map((task) => ({
@@ -71,10 +95,33 @@ export default function ProjectPlanningPage() {
         title: task.title,
         metadata: { Schedule: { start: task.start, end: task.end } },
     }));
-    const createBaseline = async () => { if (!baselineName.trim() || !schedule?.scheduleRevision) return; await axios.post(`/api/planning/projects/${encodeURIComponent(projectId)}/baselines`, { name: baselineName, schedule_revision: schedule.scheduleRevision }); setBaselineName(''); void load(); };
-    const addWorklog = async () => { if (!worklog.task_id || !worklog.date || !worklog.hours) return; await axios.post('/api/planning/worklogs', { ...worklog, hours: Number(worklog.hours) }); setWorklog({ task_id: '', date: '', hours: '' }); void load(); };
-    const createProposal = async () => { const response = await axios.post(`/api/planning/projects/${encodeURIComponent(projectId)}/leveling/proposals`); setProposal(response.data); };
-    const applyProposal = async () => { if (!proposal) return; await axios.post(`/api/planning/leveling/proposals/${proposal.id}/apply`, { schedule_revision: proposal.scheduleRevision, etags: proposal.sourceEtags || {} }); setProposal(null); void load(); };
+    const createBaseline = async () => {
+        if (!baselineName.trim() || !schedule?.scheduleRevision) return;
+        await createBaselineMutation.mutateAsync({
+            baseline: { name: baselineName, schedule_revision: schedule.scheduleRevision },
+            projectId,
+        });
+        setBaselineName('');
+    };
+    const addWorklog = async () => {
+        if (!worklog.task_id || !worklog.date || !worklog.hours) return;
+        await createWorklogMutation.mutateAsync({ ...worklog, hours: Number(worklog.hours) });
+        setWorklog({ task_id: '', date: '', hours: '' });
+    };
+    const createProposal = async () => {
+        setProposal(await createProposalMutation.mutateAsync(projectId));
+    };
+    const applyProposal = async () => {
+        if (!proposal) return;
+        await applyProposalMutation.mutateAsync({
+            proposal: {
+                schedule_revision: proposal.scheduleRevision,
+                etags: proposal.sourceEtags || {},
+            },
+            proposalId: proposal.id,
+        });
+        setProposal(null);
+    };
     return (
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
             <AppHeader
@@ -86,7 +133,7 @@ export default function ProjectPlanningPage() {
                 <button onClick={() => void load()} className="gnosi-button gnosi-button--primary"><RefreshCw size={15} className={loading ? 'animate-spin' : ''} />{t('planning_page.refresh', 'Refresh')}</button>
             </AppHeader>
         <div className="mx-auto w-full max-w-7xl flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-            {error && <p className="rounded border border-red-400 p-3 text-sm text-red-700 dark:text-red-300" role="alert">{error}</p>}
+            {(error || loadError) && <p className="rounded border border-red-400 p-3 text-sm text-red-700 dark:text-red-300" role="alert">{error || t('planning_page.load_error', 'Could not load the project schedule.')}</p>}
             <section className="grid gap-4 md:grid-cols-3">
                 <article className="gnosi-panel p-4"><Route size={18} /><p className="mt-2 text-sm text-[var(--text-tertiary)]">{t('planning_page.critical_tasks', 'Critical tasks')}</p><strong className="text-2xl">{schedule?.criticalTaskIds?.length || 0}</strong></article>
                 <article className="gnosi-panel p-4"><Wallet size={18} /><p className="mt-2 text-sm text-[var(--text-tertiary)]">{t('planning_page.estimated_cost', 'Estimated cost')}</p><strong className="text-2xl">{allocation?.total_estimated_cost ?? '—'}</strong></article>

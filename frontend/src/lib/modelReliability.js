@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import { fetchAiModelReliability } from '../shared/api/ai';
 
 /**
  * Recorded failures per model, by reason.
@@ -34,11 +34,17 @@ export function useModelReliability() {
     const [rows, setRows] = useState([]);
 
     useEffect(() => {
-        let alive = true;
-        axios.get('/api/ai/model-reliability')
-            .then(res => { if (alive) setRows(res.data?.models || []); })
-            .catch(err => console.error('Could not load model reliability', err));
-        return () => { alive = false; };
+        const controller = new AbortController();
+        fetchAiModelReliability(30, controller.signal)
+            .then(data => {
+                if (!controller.signal.aborted) setRows(data?.models || []);
+            })
+            .catch(err => {
+                if (!controller.signal.aborted) {
+                    console.error('Could not load model reliability', err);
+                }
+            });
+        return () => controller.abort();
     }, []);
 
     return rows;

@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import axios from 'axios';
 import { FileText, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { fetchVaultPage, fetchVaultPagePreview } from '../../shared/api/vaults';
 import { IconRenderer } from './IconRenderer';
 import { VaultMarkdown } from './VaultMarkdown';
 import {
@@ -150,11 +150,11 @@ export const PageHoverCard = ({
         setMeta(null);
         setLoading(true);
         setError(false);
-        axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}/preview?full=true`)
-            .then(res => {
+        fetchVaultPagePreview(pageId, { full: true })
+            .then(preview => {
                 if (cancelled) return;
-                writeCache(pageId, res.data);
-                setData(res.data);
+                writeCache(pageId, preview);
+                setData(preview);
                 setLoading(false);
             })
             .catch(() => {
@@ -170,8 +170,8 @@ export const PageHoverCard = ({
     useEffect(() => {
         if (!data || (data.body_md && String(data.body_md).trim())) return undefined;
         let cancelled = false;
-        axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}`)
-            .then(res => { if (!cancelled) setMeta(res.data?.metadata || {}); })
+        fetchVaultPage(pageId)
+            .then(page => { if (!cancelled) setMeta(page?.metadata || {}); })
             .catch(() => { if (!cancelled) setMeta({}); });
         return () => { cancelled = true; };
     }, [data, pageId]);

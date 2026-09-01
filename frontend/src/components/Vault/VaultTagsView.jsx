@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import axios from 'axios';
 import { Hash, Search, ChevronRight, ChevronDown, FileText, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
+import { fetchVaultTags } from '../../shared/api/vault-tags';
 
 /**
  * Obsidian-style Tags page: an index of every tag in the vault with
@@ -18,8 +18,8 @@ export function VaultTagsView({ onPageSelect }) {
     const fetchTags = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await axios.get('/api/vault/tags');
-            setTags(res.data?.tags || []);
+            const data = await fetchVaultTags();
+            setTags(data.tags || []);
         } catch (err) {
             console.error('Error loading tags:', err);
             toast.error(t('errors.tags_load', { defaultValue: "Couldn't load the tags" }));

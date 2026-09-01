@@ -13,12 +13,23 @@ source_paths:
   - frontend/src/hooks/useModalKeyboard.js
   - frontend/src/index.css
   - frontend/src/lib/vaultRouting.js
+  - frontend/src/shared/api/client.ts
+  - frontend/src/shared/api/request-context.ts
+  - frontend/src/shared/api/transports.ts
+  - frontend/src/shared/api/specialized-transports.ts
+  - frontend/api-boundaries.json
+  - openapi/openapi.json
+  - scripts/generate_openapi.py
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - tests/e2e/tests/accessibility/accessibility.spec.ts
   - frontend/src/lib/vaultRouting.test.js
+  - frontend/src/shared/api/client.test.ts
+  - frontend/src/shared/api/transports.test.ts
+  - backend/tests/test_openapi_generation.py
+  - pipeline/tests/test_frontend_api_boundary.py
   - tests/e2e/tests/legacy/vault-routing.spec.js
 ---
 
@@ -72,12 +83,22 @@ Signal parsing is isolated into typed header, query and cookie helpers. The
 middleware call only rewrites canonical scope, installs the context token,
 dispatches, and resets it, so HTTP and WebSocket share one propagation boundary.
 
-The frontend installs one route builder and one API rewriter before rendering.
-This covers Axios, `fetch`, server-sent events, collaboration WebSockets, and
-native asset URLs. Stored legacy browser links are replaced with their
-canonical location while preserving query parameters and fragments. Legacy API
-paths remain compatibility aliases for older clients; new callers and all
-frontend traffic use the versioned vault-scoped form.
+The frontend keeps browser-route construction separate from network transport.
+Ordinary HTTP crosses one typed `openapi-fetch` client or the shared
+compatibility adapter; both delegate to `transportFetch`, which adds current
+workspace, user and Vault context and canonicalizes string/URL requests without
+replacing `window.fetch`. TanStack Query owns server cache and invalidation at
+the application provider boundary. SSE, streaming, downloads and collaboration
+WebSockets use explicit specialized adapters because OpenAPI does not describe
+their browser contracts completely.
+
+The OpenAPI artifact and TypeScript operations are generated deterministically
+from the canonical FastAPI application in an ephemeral runtime. A source guard
+forbids Axios, direct production `fetch`, global fetch monkeypatches and
+unreviewed special transports; its small reasoned allowlist covers only browser
+boundaries that cannot import the application client. Stored legacy links are
+still replaced with canonical browser locations, and legacy API paths remain
+compatibility aliases for older clients.
 
 ## Configuration flow
 

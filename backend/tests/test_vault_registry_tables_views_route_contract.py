@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes
+from backend.domains.vault.tables.contracts import RegistryRecord
 
 
 RouteFingerprint = tuple[str, str, str, int]
@@ -72,7 +73,7 @@ def _fingerprint() -> tuple[RouteFingerprint, ...]:
                 handler_name,
                 len(route.dependant.dependencies),
             )
-            for method in sorted(route.methods)
+            for method in sorted(route.methods or ())
         )
     return tuple(output)
 
@@ -90,3 +91,23 @@ def test_registry_table_view_routes_keep_legacy_facade_identity() -> None:
     assert tuple(routes) == tuple(item[2] for item in EXPECTED_ROUTE_FINGERPRINT)
     for handler_name, route in routes.items():
         assert route.endpoint is getattr(vault_routes, handler_name)
+
+
+def test_collection_routes_expose_typed_registry_contracts() -> None:
+    expected_response_models: tuple[tuple[str, object], ...] = (
+        ("list_databases", list[RegistryRecord]),
+        ("create_database", RegistryRecord),
+        ("delete_database", RegistryRecord),
+        ("list_tables", list[RegistryRecord]),
+        ("create_table", RegistryRecord),
+        ("delete_table", RegistryRecord),
+        ("rename_table", RegistryRecord),
+    )
+
+    routes = {
+        route.endpoint.__name__: route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+    }
+    for handler_name, response_model in expected_response_models:
+        assert routes[handler_name].response_model == response_model

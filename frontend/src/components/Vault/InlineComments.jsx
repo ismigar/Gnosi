@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { MessageSquarePlus, Check, Trash2, X, MessageSquare } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { useApi } from '../../hooks/use-api';
+import {
+    createVaultInlineComment,
+    deleteVaultInlineComment,
+    fetchVaultInlineComments,
+    updateVaultInlineComment,
+} from '../../shared/api/vault-comments';
 
 /**
  * InlineComments
@@ -32,7 +37,7 @@ export default function InlineComments({ pageId }) {
 
     const load = useCallback(async () => {
         if (!pageId) { setComments([]); return; }
-        try { const r = await axios.get(`/api/vault/pages/${pageId}/inline-comments`); setComments(r.data || []); }
+        try { setComments(await fetchVaultInlineComments(pageId)); }
         catch { setComments([]); }
     }, [pageId]);
 
@@ -68,7 +73,7 @@ export default function InlineComments({ pageId }) {
 
     // Reports mutation errors: 403 → permissions message; otherwise → generic.
     const notifyMutationError = useCallback((err, key, fallback) => {
-        if (err?.response?.status === 403) {
+        if (err?.status === 403 || err?.response?.status === 403) {
             toast.error(t('errors.comment_forbidden', { defaultValue: "Your role does not allow modifying comments" }));
         } else {
             toast.error(t(key, { defaultValue: fallback }));
@@ -93,7 +98,7 @@ export default function InlineComments({ pageId }) {
     const submitComment = async () => {
         if (!draft.trim() || !compose) return;
         try {
-            await axios.post(`/api/vault/pages/${pageId}/inline-comments`, {
+            await createVaultInlineComment(pageId, {
                 quote: compose.quote, comment: draft.trim(), block_id: compose.blockId,
             });
             setCompose(null); setDraft(''); setPanelOpen(true); load();
@@ -103,11 +108,11 @@ export default function InlineComments({ pageId }) {
     };
 
     const resolve = async (c) => {
-        try { await axios.patch(`/api/vault/pages/${pageId}/inline-comments/${c.id}`, { resolved: !c.resolved }); load(); }
+        try { await updateVaultInlineComment(pageId, c.id, { resolved: !c.resolved }); load(); }
         catch (err) { notifyMutationError(err, 'errors.comment_resolve', 'Error actualitzant el comentari'); }
     };
     const remove = async (c) => {
-        try { await axios.delete(`/api/vault/pages/${pageId}/inline-comments/${c.id}`); load(); }
+        try { await deleteVaultInlineComment(pageId, c.id); load(); }
         catch (err) { notifyMutationError(err, 'errors.comment_delete', 'Error eliminant el comentari'); }
     };
     const goTo = (c) => {

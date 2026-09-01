@@ -8,7 +8,8 @@ import time
 from typing import Any, Optional, cast
 
 import yaml
-from fastapi import Body, Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from backend.domains.mail.cache import (
     _COUNTS_CACHE,
@@ -23,6 +24,7 @@ from backend.domains.mail.repositories.vault import (
     parse_frontmatter,
 )
 from backend.domains.mail.routing import router
+from backend.domains.mail import schemas as mail_schemas
 from backend.domains.mail.services.accounts import _is_imap_account
 from backend.services.google_mail_service import (
     get_thread_details,
@@ -35,7 +37,11 @@ from backend.utils.safe_io import safe_write_text
 log = logging.getLogger(__name__)
 
 
-@router.get("/counts")
+@router.get(
+    "/counts",
+    response_model=mail_schemas.MailCountsResponse,
+    response_model_exclude_unset=True,
+)
 async def get_mail_counts(email: str = Query(...)) -> Any:
     """Returns unread and total counts per folder/category via IMAP or Microsoft Graph.
 
@@ -64,7 +70,11 @@ async def get_mail_counts(email: str = Query(...)) -> Any:
     return counts
 
 
-@router.get("/messages")
+@router.get(
+    "/messages",
+    response_model=mail_schemas.MailMessagesResponse,
+    response_model_exclude_unset=True,
+)
 async def get_messages(
     email: str = Query("ismigar@gmail.com"),
     folder: Optional[str] = Query(None),
@@ -153,7 +163,11 @@ async def get_messages(
     return data
 
 
-@router.get("/messages/{message_id}")
+@router.get(
+    "/messages/{message_id}",
+    response_model=mail_schemas.MailMessageResponse,
+    response_model_exclude_unset=True,
+)
 async def get_message(
     message_id: str,
     email: Optional[str] = Query(None),
@@ -219,7 +233,11 @@ async def get_message(
     }
 
 
-@router.get("/threads/{thread_id}")
+@router.get(
+    "/threads/{thread_id}",
+    response_model=mail_schemas.MailThreadResponse,
+    response_model_exclude_unset=True,
+)
 async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
     """Returns all messages in a thread.
 
@@ -279,7 +297,7 @@ async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
     return {"messages": []}
 
 
-@router.get("/events")
+@router.get("/events", response_class=StreamingResponse, response_model=None)
 async def mail_events(email: Optional[str] = Query(None)) -> Any:
     """Server-Sent Events stream with IMAP IDLE push notifications.
 
@@ -292,8 +310,6 @@ async def mail_events(email: Optional[str] = Query(None)) -> Any:
     If `email` is present, the stream filters to only that account.
 
     """
-    from fastapi.responses import StreamingResponse
-
     from backend.services.imap_idle_service import idle_manager
 
     sub = idle_manager.subscribe(account_filter=email)
@@ -338,7 +354,11 @@ async def mail_events(email: Optional[str] = Query(None)) -> Any:
     )
 
 
-@router.post("/sync", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/sync",
+    response_model=mail_schemas.MailSyncResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def sync_mail_accounts(email: Optional[str] = Query(None), limit: int = 50) -> Any:
     """Triggers a manual synchronization for one or all mail accounts."""
     try:
@@ -406,8 +426,15 @@ async def sync_mail_accounts(email: Optional[str] = Query(None), limit: int = 50
         )
 
 
-@router.patch("/messages/{message_id}", dependencies=[Depends(require_role("editor"))])
-async def update_message(message_id: str, update: dict[str, Any] = Body(...)) -> Any:
+@router.patch(
+    "/messages/{message_id}",
+    response_model=mail_schemas.MailStatusResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
+async def update_message(
+    message_id: str,
+    update: mail_schemas.MailMessageUpdateRequest,
+) -> Any:
     """Updates metadata fields in Vault and propagates flag changes to IMAP server."""
     mail_path = get_mail_vault_path()
     files = _find_message_files(mail_path, message_id)
@@ -418,8 +445,9 @@ async def update_message(message_id: str, update: dict[str, Any] = Body(...)) ->
     content = file_path.read_text(encoding="utf-8")
     metadata, body = parse_frontmatter(content, file_path)
 
+    update_values = update.model_dump(exclude_unset=True)
     allowed_fields = {"is_read", "is_starred", "snoozed_until", "category"}
-    for key, value in update.items():
+    for key, value in update_values.items():
         if key in allowed_fields:
             metadata[key] = value
 
@@ -433,9 +461,17 @@ async def update_message(message_id: str, update: dict[str, Any] = Body(...)) ->
     if account_email and _is_imap_account(account_email):
         from backend.services.imap_mail_sync_service import imap_sync_service
 
-        if "is_read" in update:
-            imap_sync_service.mark_read(account_email, message_id, update["is_read"])
-        if "is_starred" in update:
-            imap_sync_service.star_message(account_email, message_id, update["is_starred"])
+        if "is_read" in update_values:
+            imap_sync_service.mark_read(
+                account_email,
+                message_id,
+                bool(update_values["is_read"]),
+            )
+        if "is_starred" in update_values:
+            imap_sync_service.star_message(
+                account_email,
+                message_id,
+                bool(update_values["is_starred"]),
+            )
 
     return {"status": "success"}

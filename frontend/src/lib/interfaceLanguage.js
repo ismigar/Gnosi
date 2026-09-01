@@ -1,3 +1,5 @@
+import { fetchConfiguration } from '../shared/api/configuration';
+
 export const DEFAULT_INTERFACE_LANGUAGE = 'en';
 export const INTERFACE_LANGUAGE_STORAGE_KEY = 'i18nextLng';
 export const SUPPORTED_INTERFACE_LANGUAGES = Object.freeze(['en', 'es', 'fr', 'ca']);
@@ -17,18 +19,20 @@ export function getStoredInterfaceLanguage(storage = globalThis.localStorage) {
 
 export async function resolveInitialInterfaceLanguage({
     storage = globalThis.localStorage,
-    fetchConfig = globalThis.fetch,
+    fetchConfig = fetchConfiguration,
 } = {}) {
     const storedLanguage = getStoredInterfaceLanguage(storage);
     if (storedLanguage) return storedLanguage;
 
     if (typeof fetchConfig === 'function') {
         try {
-            const response = await fetchConfig('/api/config');
-            if (response?.ok) {
-                const config = await response.json();
-                const configuredLanguage = normalizeInterfaceLanguage(config?.settings?.language);
-                if (configuredLanguage) return configuredLanguage;
+            const result = await fetchConfig();
+            const config = typeof result?.json === 'function'
+                ? (result.ok ? await result.json() : null)
+                : result;
+            const configuredLanguage = normalizeInterfaceLanguage(config?.settings?.language);
+            if (configuredLanguage) {
+                return configuredLanguage;
             }
         } catch {
             // English remains the deterministic default when configuration is unavailable.

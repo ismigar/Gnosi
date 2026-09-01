@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, CalendarPlus, Clock, MapPin, Bell, AlignLeft, Trash2, Sun, Users, UserPlus, Loader2, Check, Navigation } from 'lucide-react';
-import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../ConfirmModal';
@@ -11,6 +10,19 @@ import {
     inclusiveToExclusiveAllDayEnd,
     truncateRruleBefore,
 } from '../../utils/calendarUtils';
+import {
+    createCalendarEvent,
+    deleteCalendarEvent,
+    fetchCalendarFreeBusy,
+    geocodeCalendarLocation,
+    searchCalendarAttendees,
+    updateCalendarEvent,
+} from '../../shared/api/calendar';
+import {
+    createVaultPage,
+    deleteVaultPage,
+    patchVaultPage,
+} from '../../shared/api/vaults';
 
 export const CalendarSidebarRight = ({
     searchQuery,
@@ -503,8 +515,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         if (val.trim().length < 2) return;
         attendeeSuggestTimeoutRef.current = setTimeout(async () => {
             try {
-                const res = await axios.get(`/api/calendar/attendees/search?q=${encodeURIComponent(val.trim())}`);
-                setAttendeeSuggestions(res.data || []);
+                setAttendeeSuggestions(await searchCalendarAttendees(val.trim()));
             } catch {
                 setAttendeeSuggestions([]);
             }
@@ -542,8 +553,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         setLocationLoading(true);
         locationSuggestTimeoutRef.current = setTimeout(async () => {
             try {
-                const res = await axios.get(`/api/calendar/geocode?q=${encodeURIComponent(query)}`);
-                setLocationSuggestions(Array.isArray(res.data) ? res.data : []);
+                setLocationSuggestions(await geocodeCalendarLocation(query));
                 setLocationHighlight(-1);
             } catch {
                 setLocationSuggestions([]);
@@ -662,9 +672,11 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 endType, endCount, untilDate, description, attendees, travelTime
             });
             try {
-                await axios.patch(
-                    `/api/calendar/events/${encodeURIComponent(eventData.id)}?email=${encodeURIComponent(existGm._account)}&calendar_id=${encodeURIComponent(existGm._calendar_id || 'primary')}`,
-                    {
+                await updateCalendarEvent({
+                    calendarId: existGm._calendar_id || 'primary',
+                    email: existGm._account,
+                    eventId: eventData.id,
+                    event: {
                         summary: title.trim(),
                         location: location.trim(),
                         description: description.trim() || '',
@@ -672,8 +684,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         end: googleEnd,
                         calendar_id: existGm._calendar_id || 'primary',
                         attendees,
-                    }
-                );
+                    },
+                });
                 lastSavedData.current = formSnap;
                 if (!silent) toast.success(t('calendar.event_updated', "Appointment updated!"));
                 // Optimistic update (without refetch) so as not to reload the whole calendar on
@@ -716,9 +728,11 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             try {
                 if (googleRef.current?.id) {
                     // Updates the event we already created in Google during this session
-                    await axios.patch(
-                        `/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`,
-                        {
+                    await updateCalendarEvent({
+                        calendarId: googleRef.current.calendar_id,
+                        email: googleRef.current.account,
+                        eventId: googleRef.current.id,
+                        event: {
                             summary: title.trim(),
                             location: location.trim(),
                             description: description.trim() || '',
@@ -726,22 +740,23 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             end: googleEnd,
                             calendar_id: googleRef.current.calendar_id,
                             attendees,
-                        }
-                    );
+                        },
+                    });
                 } else if (!isCreatingRef.current) {
                     // Creates the new event in Google (we store the id to avoid duplicating it)
                     isCreatingRef.current = true;
-                    const resp = await axios.post(
-                        `/api/calendar/events?email=${encodeURIComponent(selCal.account)}&calendar_id=${encodeURIComponent(selCal.google_calendar_id)}`,
-                        buildGoogleEventData()
-                    );
-                    if (resp.data?.id) {
-                        googleRef.current = { id: resp.data.id, account: selCal.account, calendar_id: selCal.google_calendar_id };
-                        setCreatedId(resp.data.id);
+                    const created = await createCalendarEvent({
+                        calendarId: selCal.google_calendar_id,
+                        email: selCal.account,
+                        event: buildGoogleEventData(),
+                    });
+                    if (created.id) {
+                        googleRef.current = { id: created.id, account: selCal.account, calendar_id: selCal.google_calendar_id };
+                        setCreatedId(created.id);
                         // If the appointment already existed in the Vault (calendar change Tasks→Google),
                         // delete it so it doesn't remain duplicated.
                         if (createdIdRef.current) {
-                            try { await axios.delete(`/api/vault/pages/${createdIdRef.current}`); }
+                            try { await deleteVaultPage(createdIdRef.current); }
                             catch (delErr) { console.error('Error cleaning up duplicate appointment in Vault:', delErr); }
                             createdIdRef.current = null;
                         }
@@ -841,7 +856,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             ? eventData.metadata.exdates.split(',').filter(Boolean)
                             : []);
                     
-                    await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                    await patchVaultPage(eventData.id, {
                         metadata: {
                             exdates: [...new Set([...existingExdates, occurrenceKey])],
                         }
@@ -849,18 +864,18 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
                     // 2. Creates a new single appointment
                     const newMetadata = { ...metadata, rrule: null, exdates: [] };
-                    const response = await axios.post('/api/vault/pages', {
+                    const response = await createVaultPage({
                         title: title.trim(),
                         content: description.trim() || '',
                         metadata: newMetadata,
                     });
-                    onSaved?.(response.data);
+                    onSaved?.(response);
                     onClose?.();
                     toast.success(t('calendar.instance_updated'));
                 } else if (isFollowing) {
                     // 1. Truncate the old master's rrule
                     const newRruleOldMaster = truncateRruleBefore(eventData.metadata?.rrule, eventData.metadata?.date);
-                    await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                    await patchVaultPage(eventData.id, {
                         metadata: { rrule: newRruleOldMaster }
                     });
 
@@ -872,17 +887,17 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     };
                     delete newMetadata.id;
 
-                    const response = await axios.post('/api/vault/pages', {
+                    const response = await createVaultPage({
                         title: title.trim(),
                         content: description.trim() || '',
                         metadata: newMetadata,
                     });
-                    onSaved?.(response.data);
+                    onSaved?.(response);
                     onClose?.();
                     toast.success(t('calendar.series_split_updated'));
                 } else {
                     // Normal patch (or the whole series)
-                    const response = await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                    const response = await patchVaultPage(eventData.id, {
                         title: title.trim(),
                         content: description.trim() || undefined,
                         metadata,
@@ -890,41 +905,45 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     });
                     
                     if (!silent) toast.success(t('calendar.event_updated', "Appointment updated!"));
-                    onSaved?.(response.data);
+                    onSaved?.(response);
                     if (!silent) onClose?.();
                 }
             } else if (createdIdRef.current) {
                 // Appointment already created in this same session: PATCH (we continue editing it)
-                const response = await axios.patch(`/api/vault/pages/${createdIdRef.current}`, {
+                const response = await patchVaultPage(createdIdRef.current, {
                     title: title.trim(),
                     content: description.trim() || undefined,
                     metadata,
                     ...(removeMetaKeys.length ? { remove_metadata_keys: removeMetaKeys } : {}),
                 });
                 if (!silent) toast.success(t('calendar.event_updated', "Appointment updated!"));
-                onSaved?.(response.data);
+                onSaved?.(response);
                 if (!silent) onClose?.();
             } else {
                 // First creation: POST. Stores the id so subsequent autosaves do a
                 // PATCH (not duplicate) and the UI switches to "edit" mode.
                 isCreatingRef.current = true;
-                const response = await axios.post('/api/vault/pages', {
+                const response = await createVaultPage({
                     title: title.trim(),
                     content: description.trim() || '',
                     metadata,
                 });
-                createdIdRef.current = response.data?.id || null;
+                createdIdRef.current = response.id || null;
                 setCreatedId(createdIdRef.current);
                 // If the appointment already existed in Google (calendar change Google→table),
                 // delete it from Google so it doesn't remain duplicated.
                 if (googleRef.current?.id) {
                     try {
-                        await axios.delete(`/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`);
+                        await deleteCalendarEvent({
+                            calendarId: googleRef.current.calendar_id,
+                            email: googleRef.current.account,
+                            eventId: googleRef.current.id,
+                        });
                     } catch (delErr) { console.error('Error cleaning up duplicate appointment in Google:', delErr); }
                     googleRef.current = null;
                 }
                 if (!silent) toast.success(t('calendar.event_created', "Appointment created!"));
-                onSaved?.(response.data);
+                onSaved?.(response);
                 if (!silent) onClose?.();
             }
 
@@ -950,7 +969,11 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         if (googleRef.current?.id) {
             setDeleting(true);
             try {
-                await axios.delete(`/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`);
+                await deleteCalendarEvent({
+                    calendarId: googleRef.current.calendar_id,
+                    email: googleRef.current.account,
+                    eventId: googleRef.current.id,
+                });
                 toast.success(t('calendar.event_deleted', "Appointment deleted."));
                 googleRef.current = null;
                 onSaved?.();
@@ -975,7 +998,11 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             }
             setDeleting(true);
             try {
-                await axios.delete(`/api/calendar/events/${encodeURIComponent(eventData.id)}?email=${encodeURIComponent(gmeta._account)}&calendar_id=${encodeURIComponent(gmeta._calendar_id || 'primary')}`);
+                await deleteCalendarEvent({
+                    calendarId: gmeta._calendar_id || 'primary',
+                    email: gmeta._account,
+                    eventId: eventData.id,
+                });
                 toast.success(t('calendar.event_deleted', "Appointment deleted."));
                 onSaved?.();
                 onClose?.();
@@ -1016,7 +1043,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         ? eventData.metadata.exdates.split(',').filter(Boolean)
                         : []);
 
-                await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                await patchVaultPage(eventData.id, {
                     metadata: {
                         exdates: [...new Set([...existingExdates, occurrenceKey])],
                     }
@@ -1025,12 +1052,12 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             } else if (isFollowing) {
                 // Split: Truncate the master's rrule so it ends before today
                 const newRrule = truncateRruleBefore(eventData.metadata?.rrule, eventData.metadata?.date);
-                await axios.patch(`/api/vault/pages/${eventData.id}`, {
+                await patchVaultPage(eventData.id, {
                     metadata: { rrule: newRrule }
                 });
                 toast.success(t('calendar.following_deleted', "Series truncated from today."));
             } else {
-                await axios.delete(`/api/vault/pages/${deleteId}`);
+                await deleteVaultPage(deleteId);
                 toast.success(t('calendar.event_deleted', "Appointment deleted."));
             }
             onSaved?.();
@@ -1602,13 +1629,14 @@ const AvailabilityTool = ({ calendars }) => {
             const timeMin = new Date(`${date}T00:00:00`).toISOString();
             const timeMax = new Date(`${date}T23:59:59`).toISOString();
 
-            const res = await axios.post(`/api/calendar/freebusy?email=${encodeURIComponent(email)}`, {
-                time_min: timeMin,
-                time_max: timeMax,
-                calendar_ids: ['primary']
+            const result = await fetchCalendarFreeBusy({
+                calendarIds: ['primary'],
+                email,
+                timeMax,
+                timeMin,
             });
 
-            const busy = res.data.calendars.primary.busy || [];
+            const busy = result.calendars?.primary?.busy || [];
 
             const slots = [];
             let current = new Date(`${date}T09:00:00`);

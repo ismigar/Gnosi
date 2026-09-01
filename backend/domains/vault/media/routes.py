@@ -5,10 +5,34 @@ from typing import Any as _LegacyAny
 from typing import cast as _strict_cast
 
 from fastapi import APIRouter
+from pydantic import BaseModel
+
+from backend.domains.vault.media.schemas import (
+    MediaItemResponse,
+    MediaMutationResponse,
+    MediaPageResponse,
+    MediaRootResponse,
+    MediaTreeNodeResponse,
+    MediaViewInput,
+    MediaViewResponse,
+)
 
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 _VALID_MEDIA_ROOTS = {"images", "assets", "library", "vault"}
+
+
+class UnsplashPhotoResponse(BaseModel):
+    id: str
+    url: str
+    thumb: str
+    author: str
+    author_url: str
+
+
+class UnsplashSearchResponse(BaseModel):
+    results: list[UnsplashPhotoResponse]
+    total_pages: int
 
 
 def _validate_root(root: str) -> str:
@@ -17,7 +41,7 @@ def _validate_root(root: str) -> str:
     return root
 
 
-@router.get("/media/roots", response_model=None)
+@router.get("/media/roots", response_model=list[MediaRootResponse])
 async def get_media_roots() -> _LegacyAny:
     """Returns the roots available for media search (Images, Assets,
     Library, Vault). Each element indicates `available` based on whether the folder
@@ -25,7 +49,7 @@ async def get_media_roots() -> _LegacyAny:
     return _legacy.media_service.get_roots()
 
 
-@router.get("/media", response_model=None)
+@router.get("/media", response_model=MediaPageResponse)
 async def get_all_media(
     album: str | None = _legacy.Query(None),
     limit: int = _legacy.Query(50, ge=1, le=500),
@@ -86,7 +110,7 @@ async def get_albums() -> _LegacyAny:
     return _legacy.media_service.get_albums()
 
 
-@router.get("/media/tree", response_model=None)
+@router.get("/media/tree", response_model=list[MediaTreeNodeResponse])
 async def get_media_tree(
     path: str | None = _legacy.Query(None), root: str = _legacy.Query("images")
 ) -> _LegacyAny:
@@ -103,7 +127,7 @@ async def get_media_tree(
 @router.post(
     "/media/upload",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=MediaItemResponse,
 )
 async def upload_media(
     file: _legacy.UploadFile = _legacy.File(...),
@@ -118,7 +142,7 @@ async def upload_media(
 @router.patch(
     "/media/metadata",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=MediaMutationResponse,
 )
 async def update_media_metadata(
     metadata: dict[str, _LegacyAny] = _legacy.Body(
@@ -153,7 +177,7 @@ async def update_media_metadata(
     return {"status": "ok"}
 
 
-@router.get("/media/views", response_model=None)
+@router.get("/media/views", response_model=list[MediaViewResponse])
 async def list_media_views() -> _LegacyAny:
     """Returns the user's saved views (JSON sidecar in the vault)."""
     return _legacy.media_service.list_views()
@@ -162,12 +186,12 @@ async def list_media_views() -> _LegacyAny:
 @router.post(
     "/media/views",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=MediaViewResponse,
 )
-async def create_media_view(payload: dict[str, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
+async def create_media_view(payload: MediaViewInput) -> _LegacyAny:
     """Creates a new view. Payload: {label, scope, filters, sort}."""
     try:
-        return _legacy.media_service.create_view(payload)
+        return _legacy.media_service.create_view(payload.model_dump())
     except ValueError as e:
         raise _legacy.HTTPException(status_code=400, detail=str(e))
 
@@ -175,13 +199,13 @@ async def create_media_view(payload: dict[str, _LegacyAny] = _legacy.Body(...)) 
 @router.patch(
     "/media/views/{view_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=MediaViewResponse,
 )
 async def update_media_view(
-    view_id: str, payload: dict[str, _LegacyAny] = _legacy.Body(...)
+    view_id: str, payload: MediaViewInput
 ) -> _LegacyAny:
     """Updates an existing view."""
-    updated = _legacy.media_service.update_view(view_id, payload)
+    updated = _legacy.media_service.update_view(view_id, payload.model_dump())
     if updated is None:
         raise _legacy.HTTPException(status_code=404, detail="Vista no trobada")
     return updated
@@ -190,7 +214,7 @@ async def update_media_view(
 @router.delete(
     "/media/views/{view_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=MediaMutationResponse,
 )
 async def delete_media_view(view_id: str) -> _LegacyAny:
     """Deletes a view."""
@@ -387,7 +411,7 @@ async def pick_file() -> _LegacyAny:
         )
 
 
-@router.get("/unsplash/search", response_model=None)
+@router.get("/unsplash/search", response_model=UnsplashSearchResponse)
 async def unsplash_search(
     query: str = _legacy.Query(...), page: int = _legacy.Query(1)
 ) -> _LegacyAny:

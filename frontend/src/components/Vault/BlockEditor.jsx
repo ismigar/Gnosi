@@ -43,7 +43,6 @@ import {
     PanelBottomOpen,
     Info,
 } from 'lucide-react';
-import axios from 'axios';
 import {
     useCreateBlockNote,
     getDefaultReactSlashMenuItems,
@@ -81,6 +80,15 @@ import { formatNumber, formatDate, resolveFieldFormat } from './formatUtils';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useTheme } from '../../hooks/useTheme';
 import { useYjsCollaboration } from '../../hooks/useYjsCollaboration';
+import {
+    fetchBlockEditorBacklinks,
+    fetchBlockEditorOutlinks,
+    fetchBlockEditorUnlinkedMentions,
+    linkBlockEditorUnlinkedMentions,
+} from '../../shared/api/block-editor';
+import { fetchContacts } from '../../shared/api/contacts';
+import { fetchLinkPreview } from '../../shared/api/links';
+import { createVaultPage, fetchVaultPage, patchVaultPage } from '../../shared/api/vaults';
 import PageHistory from './PageHistory';
 import { IconPicker } from './IconPicker';
 import { CoverPicker } from './CoverPicker';
@@ -135,6 +143,13 @@ import {
     saveToggleDomExpansionState,
     saveToggleExpansionState,
 } from './toggleExpansionStateUtils';
+import { uploadVaultAsset } from '../../shared/api/vault-specialized';
+
+
+const isRequestCancelled = (error, signal) => (
+    Boolean(signal?.aborted) || error?.name === 'AbortError'
+);
+
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -938,11 +953,8 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
             }
 
             try {
-                const response = await axios.get(
-                    `/api/vault/pages/${encodeURIComponent(resolvedId)}`,
-                    { signal: controller.signal },
-                );
-                const raw = String(response?.data?.content || '');
+                const response = await fetchVaultPage(resolvedId, controller.signal);
+                const raw = String(response?.content || '');
                 const scopedSection = section ? extractSectionPreview(raw, section) : '';
                 const clean = scopedSection || markdownToPlainText(raw);
 
@@ -955,7 +967,7 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
 
                 setPreview(clean.slice(0, 300) || t('editor.no_content'));
             } catch (error) {
-                if (controller.signal.aborted || error?.name === 'CanceledError' || axios.isCancel?.(error)) return;
+                if (isRequestCancelled(error, controller.signal)) return;
                 setError(t('editor.preview_load_error'));
             }
         };
@@ -1113,7 +1125,7 @@ const MarkdownCodeEditor = ({
                 content: nextText,
                 metadata: metadata || {},
             };
-            await axios.patch(`/api/vault/pages/${noteFilename}`, data);
+            await patchVaultPage(noteFilename, data);
             lastSavedTextRef.current = nextText;
             if (onUpdate) onUpdate(noteFilename, data.content, { metadata: data.metadata, title: data.title });
             if (onRefreshNotes) onRefreshNotes();
@@ -1563,13 +1575,24 @@ export function EditorInner({
             return undefined;
         }
         let cancelled = false;
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => {
+            controller.abort();
+        }, 4000);
         setLinkPastePreviewTitle('');
-        axios.get('/api/vault/link-preview', { params: { url }, timeout: 4000 })
+        fetchLinkPreview(url, controller.signal)
             .then((response) => {
-                if (!cancelled) setLinkPastePreviewTitle(String(response.data?.title || '').trim());
+                if (!cancelled) setLinkPastePreviewTitle(String(response?.title || '').trim());
             })
-            .catch(() => { /* A hostname fallback keeps mention insertion available. */ });
-        return () => { cancelled = true; };
+            .catch(() => { /* A hostname fallback keeps mention insertion available. */ })
+            .finally(() => {
+                window.clearTimeout(timeoutId);
+            });
+        return () => {
+            cancelled = true;
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
     }, [linkPasteCtx?.internalPageId, linkPasteCtx?.url]);
 
     const requestInsertContent = useCallback(({ initialFile = null, initialTab = 'vault' } = {}) => {
@@ -1629,24 +1652,16 @@ export function EditorInner({
     // wrapper's onDrop/onPaste handlers intercept them first and take them
     // to the unified insertion modal.
     const uploadFileToAssetsDirect = useCallback(async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
         const tid = tableIdRef.current;
-        const params = new URLSearchParams();
-        if (tid) params.set('table_id', tid);
         // Default naming pattern for inline images: "{title} {index}".
         // The index is (#multimedia blocks already in the body) + 1; it's omitted when it's the 1st.
         const title = String(metadataRef.current?.title || '').trim();
+        let targetName;
         if (title) {
             const index = countMediaBlocks(editorRef.current?.document) + 1;
-            params.set('target_name', index > 1 ? `${title} ${index}` : title);
+            targetName = index > 1 ? `${title} ${index}` : title;
         }
-        const qs = params.toString();
-        const url = qs ? `/api/vault/assets/upload?${qs}` : '/api/vault/assets/upload';
-        const res = await fetch(url, { method: 'POST', body: formData });
-        if (!res.ok) throw new Error('Upload failed');
-        const data = await res.json();
-        return data.url;
+        return (await uploadVaultAsset(file, { tableId: tid, targetName })).url;
     }, [metadataRef]);
 
     // Real-time collaboration (CRDT/Yjs) ONLY in org mode. In
@@ -2632,8 +2647,8 @@ export function EditorInner({
 
         const request = (async () => {
             try {
-                const response = await axios.get(`/api/vault/pages/${encodeURIComponent(safeId)}`);
-                const headings = extractHeadingsFromMarkdown(response?.data?.content || '');
+                const response = await fetchVaultPage(safeId);
+                const headings = extractHeadingsFromMarkdown(response?.content || '');
                 headingCacheRef.current.set(safeId, headings);
                 return headings;
             } catch {
@@ -2663,7 +2678,7 @@ export function EditorInner({
                 metadata: currentMetadata 
             };
 
-            const savePromise = axios.patch(`/api/vault/pages/${noteFilename}`, data);
+            const savePromise = patchVaultPage(noteFilename, data);
             
             inFlightSaves.set(noteFilename, {
                 content: markdownContent,
@@ -2991,14 +3006,14 @@ export function EditorInner({
         }
 
         try {
-            const response = await axios.post('/api/vault/pages', {
+            const response = await createVaultPage({
                 title: safeTitle,
                 content: '',
                 is_database: false,
                 metadata: baseMetadata,
             });
 
-            const createdId = String(response?.data?.id || '').trim();
+            const createdId = String(response?.id || '').trim();
 
             if (mode === 'transclusion') {
                 insertTransclusion(createdId || safeTitle, safeTitle, safeSection);
@@ -3016,9 +3031,9 @@ export function EditorInner({
                 }, 1400);
             }
 
-            if (response.data?.filename) {
-                const safeTitle = response.data.title || String(response.data.filename).replace(/\.md$/, '');
-                toast.success(t('editor.page_created', { title: safeTitle }));
+            if (response?.filename) {
+                const createdTitle = response.title || String(response.filename).replace(/\.md$/, '');
+                toast.success(t('editor.page_created', { title: createdTitle }));
             }
         } catch (error) {
             notifyError('page-create', error, t('editor.page_create_error'));
@@ -3069,7 +3084,7 @@ export function EditorInner({
                     metadata: currentMetadata
                 };
 
-                const savePromise = axios.patch(`/api/vault/pages/${noteFilename}`, data);
+                const savePromise = patchVaultPage(noteFilename, data);
 
                 inFlightSaves.set(noteFilename, {
                     content: markdownContent,
@@ -4122,8 +4137,7 @@ export function EditorInner({
                         }
                         // Contacts (people).
                         try {
-                            const res = await axios.get('/api/contacts', { params: q ? { search: q } : {} });
-                            const contacts = Array.isArray(res.data) ? res.data : [];
+                            const contacts = await fetchContacts(q ? { search: q } : {});
                             for (const c of contacts.slice(0, 8)) {
                                 const name = String(c?.name || '').trim();
                                 if (!name) continue;
@@ -4217,7 +4231,7 @@ export function EditorInner({
 
 export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onCreateTemplate, onCreateFromSource, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig, pageActions = null, isActivePage = true }) {
     const { t } = useTranslation();
-    const { apiFetch, role } = useApi();
+    const { role } = useApi();
     const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
     const projectPlanningEnabled = isPluginEnabled('project-planning');
     const projectPlanningSettings = getPluginSettings('project-planning');
@@ -4454,7 +4468,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 // The PATCH merges on the backend; to REMOVE keys (properties
                 // local/ad-hoc) they must be sent explicitly.
                 if (keys && keys.length) data.remove_metadata_keys = keys;
-                await axios.patch(`/api/vault/pages/${noteFilename}`, data);
+                await patchVaultPage(noteFilename, data);
                 setSaveStatus('saved');
                 // Notifies the parent so that `tabs[i].title` and the breadcrumb
                 // follow the rename. Without this, title changes via the
@@ -5034,16 +5048,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             try {
                 // Wiki backlinks (with kind) + outgoing schema relations, in parallel.
                 const [backlinksRes, outlinksRes] = await Promise.all([
-                    axios.get('/api/vault/backlinks', {
-                        params: { id: noteFilename },
-                        signal: controller.signal,
-                    }),
-                    axios.get('/api/vault/outlinks', {
-                        params: { id: noteFilename },
-                        signal: controller.signal,
-                    }).catch((err) => {
-                        if (axios.isCancel?.(err)) throw err;
-                        return { data: { relations: [] } };
+                    fetchBlockEditorBacklinks(noteFilename, controller.signal),
+                    fetchBlockEditorOutlinks(noteFilename, controller.signal).catch((error) => {
+                        if (isRequestCancelled(error, controller.signal)) throw error;
+                        return { links: [], relations: [], unresolved: [] };
                     }),
                 ]);
                 if (controller.signal.aborted) return;
@@ -5055,7 +5063,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     if (!id || id === selfId || relationsDedup.has(id)) return;
                     relationsDedup.set(id, { id, title: String(title || idToTitle?.[id] || id) });
                 };
-                for (const item of Array.isArray(backlinksRes?.data) ? backlinksRes.data : []) {
+                for (const item of Array.isArray(backlinksRes) ? backlinksRes : []) {
                     const id = String(item?.id || '').trim();
                     if (!id || id === selfId) continue;
                     const title = String(item?.title || idToTitle?.[id] || id);
@@ -5066,7 +5074,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     }
                 }
                 // Merge outgoing schema relations (same undirected relation edge in the graph).
-                for (const item of Array.isArray(outlinksRes?.data?.relations) ? outlinksRes.data.relations : []) {
+                for (const item of Array.isArray(outlinksRes?.relations) ? outlinksRes.relations : []) {
                     addRelation(String(item?.id || '').trim(), item?.title);
                 }
 
@@ -5077,7 +5085,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     Array.from(relationsDedup.values()).sort((a, b) => a.title.localeCompare(b.title))
                 );
             } catch (error) {
-                if (controller.signal.aborted || error?.name === 'CanceledError' || axios.isCancel?.(error)) return;
+                if (isRequestCancelled(error, controller.signal)) return;
                 logError('load-backlinks', error);
                 setIncomingLinks([]);
                 setRelatedPages([]);
@@ -5105,15 +5113,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
             setUnlinkedMentionsLoading(true);
             try {
-                const response = await axios.get('/api/vault/unlinked-mentions', {
-                    params: { id: noteFilename },
-                    signal: controller.signal,
-                });
+                const response = await fetchBlockEditorUnlinkedMentions(
+                    noteFilename,
+                    controller.signal,
+                );
                 if (controller.signal.aborted) return;
-                const items = Array.isArray(response?.data) ? response.data : [];
+                const items = Array.isArray(response) ? response : [];
                 setUnlinkedMentions(items);
             } catch (error) {
-                if (controller.signal.aborted || error?.name === 'CanceledError' || axios.isCancel?.(error)) return;
+                if (isRequestCancelled(error, controller.signal)) return;
                 logError('load-unlinked-mentions', error);
                 setUnlinkedMentions([]);
             } finally {
@@ -5137,9 +5145,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 target_id: noteFilename,
                 source_id: sourceId || null,
             };
-            const response = await axios.post('/api/vault/link-unlinked-mentions', payload);
-            const changed = Number(response?.data?.notes_changed || 0);
-            const replacements = Number(response?.data?.total_replacements || 0);
+            const response = await linkBlockEditorUnlinkedMentions(payload);
+            const changed = Number(response?.notes_changed || 0);
+            const replacements = Number(response?.total_replacements || 0);
 
             if (changed > 0) {
                 toast.success(t('editor.mentions_linked', { count: replacements, notes: changed }));
@@ -5147,12 +5155,12 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 toast(t('editor.no_pending_mentions'));
             }
 
-            const mentionsRes = await axios.get('/api/vault/unlinked-mentions', { params: { id: noteFilename } });
-            setUnlinkedMentions(Array.isArray(mentionsRes?.data) ? mentionsRes.data : []);
+            const mentionsRes = await fetchBlockEditorUnlinkedMentions(noteFilename);
+            setUnlinkedMentions(Array.isArray(mentionsRes) ? mentionsRes : []);
 
-            const backlinksRes = await axios.get('/api/vault/backlinks', { params: { id: noteFilename } });
+            const backlinksRes = await fetchBlockEditorBacklinks(noteFilename);
             const dedup = new Map();
-            for (const item of Array.isArray(backlinksRes?.data) ? backlinksRes.data : []) {
+            for (const item of Array.isArray(backlinksRes) ? backlinksRes : []) {
                 const id = String(item?.id || '').trim();
                 if (!id || id === String(noteFilename || '').trim() || dedup.has(id)) continue;
                 dedup.set(id, {
@@ -6221,7 +6229,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 }}
                 pageId={noteFilename}
                 allTables={allTables}
-                apiFetch={apiFetch}
                 preselectedTableId={pageViewPreselectedTable}
                 editingBlock={pageViewEditingBlock}
             />

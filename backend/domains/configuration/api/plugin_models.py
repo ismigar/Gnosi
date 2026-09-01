@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PluginsUpdateRequest(BaseModel):
@@ -50,6 +50,125 @@ class VaultSummaryRequest(BaseModel):
 
     content: str
     language: str = "en"
+
+
+class PluginSettingsResponse(BaseModel):
+    """Dynamic settings document owned by one plugin."""
+
+    model_config = ConfigDict(extra="allow")
+
+    settings: dict[str, Any]
+
+
+class ConfigurationPluginStateResponse(BaseModel):
+    """Versioned plugin activation state exposed to the frontend host."""
+
+    model_config = ConfigDict(extra="allow")
+
+    schema_version: int | None = None
+    enabled_builtin: list[str] = Field(default_factory=list)
+    enabled_third_party: list[str] = Field(default_factory=list)
+    disabled: list[str] = Field(default_factory=list)
+    settings: dict[str, Any] = Field(default_factory=dict)
+    granted: dict[str, Any] = Field(default_factory=dict)
+    builtins: list[dict[str, Any]] | None = None
+    registry_url: str | None = None
+
+
+class ConfigurationPluginPermissionsCatalogResponse(BaseModel):
+    """Capability descriptions supported by the plugin host."""
+
+    permissions: dict[str, str]
+    apiVersion: int
+
+
+class ConfigurationPluginManifestResponse(BaseModel):
+    """Validated third-party plugin manifest displayed by Settings."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    version: str | None = None
+    name: str | None = None
+    description: str | None = None
+    main: str | None = None
+    permissions: list[str] = Field(default_factory=list)
+    author: str | None = None
+    homepage: str | None = None
+
+
+class ConfigurationInstalledPluginResponse(BaseModel):
+    """One installed plugin or one discoverable broken installation."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str | None = None
+    error: str | None = None
+    manifest: ConfigurationPluginManifestResponse | None = None
+    enabled: bool | None = None
+    granted: list[str] = Field(default_factory=list)
+    provenance: dict[str, Any] | None = None
+
+
+class ConfigurationInstalledPluginsResponse(BaseModel):
+    """Installed third-party plugin inventory."""
+
+    plugins: list[ConfigurationInstalledPluginResponse]
+
+
+class ConfigurationPluginCatalogEntryResponse(BaseModel):
+    """One local or remote plugin catalog entry."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    name: str | None = None
+    version: str | None = None
+    description: str | None = None
+    author: str | None = None
+    source: str | None = None
+    installed: bool
+    signed: bool
+
+
+class ConfigurationPluginCatalogResponse(BaseModel):
+    """Plugin marketplace entries with installation state."""
+
+    catalog: list[ConfigurationPluginCatalogEntryResponse]
+
+
+class ConfigurationPluginTrustedKeyResponse(BaseModel):
+    """Safe public summary of one trusted signing key."""
+
+    name: str
+    fingerprint: str
+
+
+class ConfigurationPluginTrustedKeysResponse(BaseModel):
+    """Trusted signing-key summaries."""
+
+    keys: list[ConfigurationPluginTrustedKeyResponse]
+
+
+class ConfigurationPluginRegistryUrlResponse(BaseModel):
+    """Effective remote plugin registry URL."""
+
+    url: str
+
+
+class ConfigurationPluginNetworkFetchResponse(BaseModel):
+    """Bounded network response returned to a sandboxed UI plugin."""
+
+    status: int
+    body: str
+    contentType: str
+
+
+class VaultPluginSummaryResponse(BaseModel):
+    """Generated summary and the governed model that produced it."""
+
+    summary: str
+    model: str
 
 
 class CatalogInstallRequest(BaseModel):

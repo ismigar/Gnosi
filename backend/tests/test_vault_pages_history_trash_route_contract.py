@@ -8,6 +8,25 @@ from pathlib import Path
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes
+from backend.domains.vault.schemas.pages import (
+    BulkPreviewWarmResponse,
+    PageDeleteResponse,
+    PageDetailResponse,
+    PageMutationResponse,
+    PagePreviewResponse,
+)
+from backend.domains.vault.schemas.history import (
+    PageHistoryContent,
+    PageHistoryMutationResponse,
+    PageHistoryVersion,
+)
+from backend.domains.vault.schemas.trash import (
+    PageRestoreResponse,
+    ResolveByTitleResponse,
+    TrashEmptyResponse,
+    TrashListResponse,
+    TrashPurgeResponse,
+)
 from backend.domains.vault.trash import purge as trash_purge
 
 
@@ -75,6 +94,87 @@ def test_pages_history_trash_route_fingerprint_is_unchanged() -> None:
         EXPECTED_ROUTE_FINGERPRINT,
         separators=(",", ":"),
     )
+
+
+def test_page_detail_route_exposes_its_typed_response_contract() -> None:
+    route = next(
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute) and route.endpoint.__name__ == "get_page"
+    )
+    assert route.response_model is PageDetailResponse
+
+
+def test_page_preview_routes_expose_typed_response_contracts() -> None:
+    routes = {
+        route.endpoint.__name__: route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+        and route.endpoint.__name__ in {"get_page_preview", "bulk_warm_previews"}
+    }
+    assert routes["get_page_preview"].response_model is PagePreviewResponse
+    assert routes["bulk_warm_previews"].response_model is BulkPreviewWarmResponse
+
+
+def test_page_mutation_routes_share_the_canonical_response_contract() -> None:
+    routes = [
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+        and route.endpoint.__name__ in {"create_page", "save_page", "patch_page"}
+    ]
+    assert len(routes) == 3
+    assert all(route.response_model is PageMutationResponse for route in routes)
+
+
+def test_page_delete_route_exposes_its_typed_response_contract() -> None:
+    route = next(
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute) and route.endpoint.__name__ == "delete_page"
+    )
+    assert route.response_model is PageDeleteResponse
+
+
+def test_page_resolution_and_trash_routes_expose_typed_contracts() -> None:
+    routes = {
+        route.endpoint.__name__: route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+        and route.endpoint.__name__
+        in {
+            "empty_trash",
+            "list_trash",
+            "purge_trash_entry",
+            "resolve_by_title",
+            "restore_page",
+        }
+    }
+    assert routes["resolve_by_title"].response_model is ResolveByTitleResponse
+    assert routes["restore_page"].response_model is PageRestoreResponse
+    assert routes["list_trash"].response_model is TrashListResponse
+    assert routes["empty_trash"].response_model is TrashEmptyResponse
+    assert routes["purge_trash_entry"].response_model is TrashPurgeResponse
+
+
+def test_page_history_routes_expose_typed_contracts() -> None:
+    routes = [
+        route
+        for route in vault_routes.router.routes
+        if isinstance(route, APIRoute)
+        and route.endpoint.__name__
+        in {
+            "get_page_history",
+            "get_page_version_content",
+            "purge_page_history",
+            "restore_page_version",
+        }
+    ]
+    response_models = {route.endpoint.__name__: route.response_model for route in routes}
+    assert response_models["get_page_history"] == list[PageHistoryVersion]
+    assert response_models["get_page_version_content"] is PageHistoryContent
+    assert response_models["restore_page_version"] is PageHistoryMutationResponse
+    assert response_models["purge_page_history"] is PageHistoryMutationResponse
 
 
 def test_trash_purge_domain_does_not_import_http_facade() -> None:

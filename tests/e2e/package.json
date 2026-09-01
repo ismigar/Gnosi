@@ -5,7 +5,7 @@
   "description": "Host-side E2E tests for the native Gnosi frontend on localhost:5173",
   "scripts": {
     "test": "playwright test",
-    "test:smoke": "playwright test --project=chromium-anon",
+    "test:smoke": "playwright test --project=chromium-anon --workers=1",
     "test:a11y": "playwright test --project=accessibility",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",

@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.params import Depends as DependsParameter
+from pydantic import BaseModel, ConfigDict
 
 
 REFERENCE_SCHEMA: list[tuple[str, str]] = [
@@ -36,6 +37,18 @@ REFERENCE_SCHEMA: list[tuple[str, str]] = [
     ("Literature Sources", "text"),
     ("Literature Work Key", "text"),
 ]
+
+
+class ReferenceTableResponse(BaseModel):
+    """Stable designation state shared by all reference-table mutations."""
+
+    model_config = ConfigDict(extra="allow")
+
+    table_id: str | None
+    configured: bool
+    name: str | None = None
+    columns_added: int | None = None
+    created: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -124,28 +137,32 @@ def register_routes(
         "/reference-table",
         get_reference_table,
         methods=["GET"],
-        response_model=None,
+        response_model=ReferenceTableResponse,
+        response_model_exclude_unset=True,
     )
     router.add_api_route(
         "/reference-table",
         set_reference_table,
         methods=["POST"],
         dependencies=list(post_dependencies),
-        response_model=None,
+        response_model=ReferenceTableResponse,
+        response_model_exclude_unset=True,
     )
     router.add_api_route(
         "/reference-table/create",
         create_reference_table,
         methods=["POST"],
         dependencies=list(create_dependencies),
-        response_model=None,
+        response_model=ReferenceTableResponse,
+        response_model_exclude_unset=True,
     )
     router.add_api_route(
         "/reference-table",
         clear_reference_table,
         methods=["DELETE"],
         dependencies=list(delete_dependencies),
-        response_model=None,
+        response_model=ReferenceTableResponse,
+        response_model_exclude_unset=True,
     )
     return (
         get_reference_table,
@@ -155,4 +172,9 @@ def register_routes(
     )
 
 
-__all__ = ["REFERENCE_SCHEMA", "ReferenceApiDependencies", "register_routes"]
+__all__ = [
+    "REFERENCE_SCHEMA",
+    "ReferenceApiDependencies",
+    "ReferenceTableResponse",
+    "register_routes",
+]

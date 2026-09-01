@@ -7,6 +7,15 @@ from typing import cast as _strict_cast
 
 from fastapi import APIRouter
 
+from backend.domains.vault.registry.contracts import (
+    LocalPathOpenRequest,
+    LocalPathOpenResponse,
+    RegistryMutationResponse,
+    ResourceOpenResponse,
+    VaultRegistryResponse,
+    VaultRegistryUpdateRequest,
+)
+
 _legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
 router = _strict_cast(APIRouter, _legacy.router)
 _registry_cache = _legacy.registry_state.cache
@@ -328,16 +337,18 @@ def _pick_existing_path(file_path: str | None, attachments: object | None) -> st
     return None
 
 
-@router.get("/registry", response_model=None)
+@router.get("/registry", response_model=VaultRegistryResponse)
 async def get_registry() -> _LegacyAny:
     """Returns the full registry of databases, tables, and views (sorted alphabetically)."""
     return await _legacy.registry_api.get_registry(_legacy.registry_api_dependencies)
 
 
 @router.post(
-    "/registry", dependencies=[_legacy.Depends(_legacy.require_role("admin"))], response_model=None
+    "/registry",
+    dependencies=[_legacy.Depends(_legacy.require_role("admin"))],
+    response_model=RegistryMutationResponse,
 )
-async def update_registry(data: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
+async def update_registry(data: VaultRegistryUpdateRequest = _legacy.Body(...)) -> _LegacyAny:
     """Updates the entire registry (use with care).
 
     Auth: admin-only. Overwrites the ENTIRE registry at once, so an
@@ -345,13 +356,14 @@ async def update_registry(data: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)
     databases/tables/views of a workspace in a single call.
 
     """
-    return await _legacy.registry_api.update_registry(data, _legacy.registry_api_dependencies)
+    payload = data.model_dump() if isinstance(data, VaultRegistryUpdateRequest) else data
+    return await _legacy.registry_api.update_registry(payload, _legacy.registry_api_dependencies)
 
 
 @router.post(
     "/open-resource",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=ResourceOpenResponse,
 )
 async def open_resource(payload: _legacy.OpenResourceRequest) -> _LegacyAny:
     """Open a Zotero URI or local attachment path with the OS default handler.
@@ -553,16 +565,16 @@ def _resolve_stored_file_target(raw: str) -> _legacy.Path | None:
 @router.post(
     "/open-local-path",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LocalPathOpenResponse,
 )
-async def open_local_path(payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...)) -> _LegacyAny:
+async def open_local_path(payload: LocalPathOpenRequest) -> _LegacyAny:
     """
         Opens a local path (file or folder) with the system's default app.
     Accepts an absolute path or file:// URL. Useful for file:// links inserted
     in the BlockEditor that modern browsers block for security reasons.
 
     """
-    raw = (payload or {}).get("path") or (payload or {}).get("url") or ""
+    raw = payload.path or payload.url or ""
     raw = str(raw).strip()
     if not raw:
         raise _legacy.HTTPException(status_code=400, detail="Missing 'path'")

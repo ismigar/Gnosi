@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Search, BookText, Upload, Loader2, Check } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { uploadCslStyle } from '../../shared/api/citation-io';
 import { fetchAvailableStyles, invalidateAvailableStylesCache } from './cslEngine';
 
 /**
@@ -33,8 +33,8 @@ export function CslStylePicker({ value, onChange, readOnly = false }) {
     const loadStyles = useCallback(async (force = false) => {
         setLoading(true);
         try {
-            const s = await fetchAvailableStyles({ force });
-            setStyles(s);
+            const available = await fetchAvailableStyles({ force });
+            setStyles(available);
         } finally {
             setLoading(false);
         }
@@ -57,20 +57,16 @@ export function CslStylePicker({ value, onChange, readOnly = false }) {
         if (!file) return;
         setUploading(true);
         try {
-            const fd = new FormData();
-            fd.append('file', file);
-            const r = await axios.post('/api/vault/csl/styles', fd, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            const uploaded = await uploadCslStyle(file);
             toast.success(t('csl_picker.uploaded', {
-                defaultValue: `Estil "${r.data?.title || r.data?.id}" disponible`,
-                title: r.data?.title || r.data?.id,
+                defaultValue: `Estil "${uploaded.title || uploaded.id}" disponible`,
+                title: uploaded.title || uploaded.id,
             }));
             invalidateAvailableStylesCache();
             await loadStyles(true);
-            if (r.data?.id) onChange?.(r.data.id);
+            if (uploaded.id) onChange?.(uploaded.id);
         } catch (err) {
-            const detail = err?.response?.data?.detail || err?.message || t('common.unknown', "unknown");
+            const detail = err?.message || t('common.unknown', "unknown");
             toast.error(t('csl_picker.upload_failed', {
                 defaultValue: `Error uploading style: ${detail}`,
                 detail,

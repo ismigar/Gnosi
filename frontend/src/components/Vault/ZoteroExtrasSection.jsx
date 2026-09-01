@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Sparkles, ChevronRight, X, Plus, ArrowUpRight } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { promoteZoteroExtra } from '../../shared/api/resource-lookup';
 
 /**
  * Renders and edits the `Zotero Extras` key of the frontmatter (a dict with
@@ -66,13 +66,12 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
             return;
         }
         try {
-            const r = await axios.post('/api/vault/promote-zotero-extra', {
+            const d = await promoteZoteroExtra({
                 table_id: tableId,
                 zotero_field: key,
                 column_name: finalName,
                 column_type: 'text',
             });
-            const d = r.data || {};
             toast.success(t('zotero_extras.promote_done', {
                 defaultValue: `Field "${key}" promoted to column "${finalName}" (${d.migrated || 0} pages migrated)`,
                 key,
@@ -82,7 +81,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
             setPromoting(null);
             onPromoted?.(d);
         } catch (err) {
-            const msg = err?.response?.data?.detail || err?.message;
+            const msg = err?.message;
             toast.error(t('zotero_extras.promote_failed', {
                 defaultValue: `Error promovent: ${msg}`,
                 err: msg,

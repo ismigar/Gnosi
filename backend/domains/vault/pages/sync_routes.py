@@ -23,8 +23,21 @@ class ImportRequest(BaseModel):
     folder: str = "Importades"
 
 
+class ImportErrorResponse(BaseModel):
+    name: str
+    error: str
+
+
+class ImportResponse(BaseModel):
+    imported: int
+    errors: list[ImportErrorResponse]
+    folder: str
+
+
 @router.post(
-    "/import", dependencies=[_legacy.Depends(_legacy.require_role("editor"))], response_model=None
+    "/import",
+    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    response_model=ImportResponse,
 )
 async def import_markdown(body: ImportRequest) -> _LegacyAny:
     """Imports Markdown/Obsidian files into the vault (importer style with UI).
@@ -149,7 +162,13 @@ async def synced_events() -> _LegacyAny:
     )
 
 
-@router.get("/synced/{sync_id}", response_model=None)
+class SyncedBlockResponse(BaseModel):
+    __module__ = "backend.api.vault_routes"
+    sync_id: str
+    content: str
+
+
+@router.get("/synced/{sync_id}", response_model=SyncedBlockResponse)
 async def get_synced_block(sync_id: str) -> _LegacyAny:
     """Content of a synced block (source shared across instances)."""
     p = _synced_block_path(sync_id)
@@ -162,10 +181,17 @@ class SyncedBlockSave(BaseModel):
     content: str = ""
 
 
+class SyncedBlockSaveResponse(BaseModel):
+    __module__ = "backend.api.vault_routes"
+    sync_id: str
+    content: str
+    saved: bool
+
+
 @router.put(
     "/synced/{sync_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=SyncedBlockSaveResponse,
 )
 async def save_synced_block(sync_id: str, body: SyncedBlockSave) -> _LegacyAny:
     """Saves the source of a synced block. All instances (on any

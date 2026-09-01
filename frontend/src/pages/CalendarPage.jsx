@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import axios from 'axios';
 import { toast } from '../lib/toast';
 import { Calendar, ChevronLeft, ChevronRight, PanelLeft, PanelRight, Circle, Trash2, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +15,30 @@ import { buildOccurrenceKey, truncateRruleBefore } from '../utils/calendarUtils'
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePlugins } from '../plugins/usePlugins';
 import { vaultPath } from '../lib/vaultRouting';
+import {
+    fetchCalendarEvents,
+    rsvpCalendarEvent,
+} from '../shared/api/calendar';
+import {
+    fetchIntegrations,
+    updateCalendarAliases,
+    updateCalendarColors,
+    updateCalendarSelection,
+    updateDefaultCalendar,
+} from '../shared/api/integrations';
+import {
+    createVaultPage,
+    deleteVaultPage,
+    fetchVaultPage,
+    fetchVaultPages,
+    fetchVaultTables,
+    patchVaultPage,
+} from '../shared/api/vaults';
+import {
+    useCalendarList,
+    useMeetingReminderSettings,
+    useUpdateMeetingReminderSettings,
+} from '../shared/api/useCalendarData';
 
 // Keyboard handler removed in favor of RecurrenceChoiceModal component
 
@@ -27,7 +50,6 @@ export default function CalendarPage() {
     const isCompact = useMediaQuery('(max-width: 1023px)');
     const [pages, setPages] = useState([]);           // notes vault locals (source=Gnosi)
     const [externalEvents, setExternalEvents] = useState([]); // Google/CalDAV events
-    const [googleCalendars, setGoogleCalendars] = useState([]); // real Google calendars (id, name, account)
     const [undatedNotes, setUndatedNotes] = useState([]);
     const [dateRange, setDateRange] = useState(null);  // { start, end } of the visible range
     const [loading, setLoading] = useState(true);
@@ -48,6 +70,10 @@ export default function CalendarPage() {
     // AI meeting notifier (agenda)
     const [remindersEnabled, setRemindersEnabled] = useState(false);
     const [remindersLead, setRemindersLead] = useState(10);
+    const calendarListQuery = useCalendarList();
+    const googleCalendars = calendarListQuery.data?.items || [];
+    const reminderSettingsQuery = useMeetingReminderSettings(aiMeetingsEnabled);
+    const updateReminderSettingsMutation = useUpdateMeetingReminderSettings();
 
     // Event selection and editing state
     const [selectedEventId, setSelectedEventId] = useState(null); // ID of the selected event
@@ -263,20 +289,21 @@ export default function CalendarPage() {
         const controller = new AbortController();
         externalEventsAbortRef.current = controller;
         try {
-            const params = { include_vault: false };
-            if (timeMin) params.time_min = timeMin;
-            if (timeMax) params.time_max = timeMax;
-            if (search) params.search = search;
-            const res = await axios.get('/api/calendar/events', {
-                params,
-                timeout: 30000,
-                signal: controller.signal,
-            });
+            const events = await fetchCalendarEvents({
+                includeVault: false,
+                search: search || undefined,
+                timeMax: timeMax || undefined,
+                timeMin: timeMin || undefined,
+            }, controller.signal);
             if (controller.signal.aborted) return;
-            const converted = (res.data || []).map(convertHybridEvent);
+            const converted = events.map(convertHybridEvent);
             setExternalEvents(converted);
         } catch (err) {
-            if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
+            if (
+                controller.signal.aborted
+                || err?.name === 'AbortError'
+                || err?.name === 'CanceledError'
+            ) return;
             console.warn('fetchExternalEvents error:', err);
         } finally {
             if (externalEventsAbortRef.current === controller) {
@@ -289,28 +316,29 @@ export default function CalendarPage() {
         setLoading(true);
         try {
             const timeout = 120000;
+            const signal = AbortSignal.timeout(timeout);
             const [pagesRes, integrationsRes, tablesRes] = await Promise.allSettled([
-                axios.get('/api/vault/pages', { params: { only_calendar: true }, timeout }),
-                axios.get('/api/integrations', { timeout }),
-                axios.get('/api/vault/tables', { timeout }),
+                fetchVaultPages({ only_calendar: true }, signal),
+                fetchIntegrations(signal),
+                fetchVaultTables(undefined, signal),
             ]);
 
             if (pagesRes.status !== 'fulfilled') throw pagesRes.reason;
 
             const integrationsData = integrationsRes.status === 'fulfilled'
-                ? (integrationsRes.value.data || {}) : null;
+                ? (integrationsRes.value || {}) : null;
             const hasIntegrations = integrationsData !== null;
             const safeIntegrations = integrationsData || {};
             setIntegrations(safeIntegrations);
 
             const enabledTableIds = safeIntegrations.vault_calendar?.enabled_tables || [];
-            const allTables = tablesRes.status === 'fulfilled' ? (tablesRes.value.data || []) : [];
+            const allTables = tablesRes.status === 'fulfilled' ? (tablesRes.value || []) : [];
             const tables = allTables
                 .filter(tbl => !hasIntegrations || enabledTableIds.includes(tbl.id))
                 .map(tbl => ({ id: tbl.id, name: tbl.name, type: 'table' }));
             setEnabledTables(tables);
 
-            const allData = pagesRes.value.data || [];
+            const allData = pagesRes.value || [];
             const dated = [];
             const undated = [];
 
@@ -350,15 +378,6 @@ export default function CalendarPage() {
 
     useEffect(() => {
         fetchPages();
-    }, []);
-
-    // Loads the real Google calendars (id/account) to be able to actually create events in them
-    useEffect(() => {
-        let cancelled = false;
-        axios.get('/api/calendar/calendars')
-            .then(res => { if (!cancelled) setGoogleCalendars(Array.isArray(res.data) ? res.data : []); })
-            .catch(() => { if (!cancelled) setGoogleCalendars([]); });
-        return () => { cancelled = true; };
     }, []);
 
     // Abort the external events request if the component unmounts.
@@ -418,7 +437,7 @@ export default function CalendarPage() {
 
             const updatedIntegrations = { ...integrations, calendar_aliases: updatedAliases };
 
-            await axios.put('/api/integrations/calendar_aliases', updatedAliases);
+            await updateCalendarAliases(updatedAliases);
             setIntegrations(updatedIntegrations);
             toast.success(t('calendar.calendar_renamed_success'));
         } catch (err) {
@@ -434,7 +453,7 @@ export default function CalendarPage() {
 
             const updatedIntegrations = { ...integrations, calendar_colors: updatedColors };
 
-            await axios.put('/api/integrations/calendar_colors', updatedColors);
+            await updateCalendarColors(updatedColors);
             setIntegrations(updatedIntegrations);
             toast.success(t('calendar.calendar_color_updated_success'));
         } catch (err) {
@@ -480,7 +499,7 @@ export default function CalendarPage() {
 
             // If it's not recurring, we apply the patch directly
             try {
-                await axios.patch(`/api/vault/pages/${pageId}`, { metadata: patchData });
+                await patchVaultPage(pageId, { metadata: patchData });
                 toast.success(t('calendar.event_updated', "Appointment updated!"));
                 fetchPages();
             } catch (err) {
@@ -516,12 +535,12 @@ export default function CalendarPage() {
 
         // Vault event → loads the full page for editing
         try {
-            const res = await axios.get(`/api/vault/pages/${pageId}`);
+            const event = await fetchVaultPage(pageId);
             setSelectedEventId(pageId);
-            setSelectedEvent(res.data);
+            setSelectedEvent(event);
             setIsEditingEvent(true);
             setShowRightSidebar(true);
-            setEventPanel({ mode: 'edit', data: res.data, date: '', isEditing: true });
+            setEventPanel({ mode: 'edit', data: event, date: '', isEditing: true });
         } catch (err) {
             console.error('Error loading event:', err);
             toast.error(t('calendar.error_loading_event_data'));
@@ -615,20 +634,20 @@ export default function CalendarPage() {
                     ...(eventData.metadata || {}),
                     exdates: [...new Set([...existingExdates, occurrenceKey])],
                 };
-                await axios.patch(`/api/vault/pages/${targetEventId}`, {
+                await patchVaultPage(targetEventId, {
                     metadata: patchedMetadata,
                 });
                 toast.success(t('calendar.instance_deleted'));
             } else if (isFollowing) {
                 // Split: Truncate the master's rrule so it ends before today
                 const newRrule = truncateRruleBefore(eventData.metadata?.rrule, contextMenu.instanceStart);
-                await axios.patch(`/api/vault/pages/${targetEventId}`, {
+                await patchVaultPage(targetEventId, {
                     metadata: { rrule: newRrule }
                 });
                 toast.success(t('calendar.following_deleted', "Series truncated from today."));
             } else {
                 // Delete full series
-                await axios.delete(`/api/vault/pages/${targetEventId}`);
+                await deleteVaultPage(targetEventId);
                 toast.success(isSeries ? t('calendar.series_deleted') : t('calendar.event_deleted'));
             }
 
@@ -668,7 +687,7 @@ export default function CalendarPage() {
                         ? eventData.metadata.exdates.split(',').filter(Boolean)
                         : []);
 
-                await axios.patch(`/api/vault/pages/${id}`, {
+                await patchVaultPage(id, {
                     metadata: {
                         exdates: [...new Set([...existingExdates, occurrenceKey])],
                     }
@@ -683,7 +702,7 @@ export default function CalendarPage() {
                 };
                 delete newMetadata.id;
 
-                await axios.post('/api/vault/pages', {
+                await createVaultPage({
                     title: eventData.title,
                     content: eventData.content || '',
                     metadata: newMetadata,
@@ -693,7 +712,7 @@ export default function CalendarPage() {
             } else if (isFollowing) {
                 // 1. Truncate the old master's rrule
                 const newRruleOldMaster = truncateRruleBefore(eventData.metadata?.rrule, instanceStart);
-                await axios.patch(`/api/vault/pages/${id}`, {
+                await patchVaultPage(id, {
                     metadata: { rrule: newRruleOldMaster }
                 });
 
@@ -706,7 +725,7 @@ export default function CalendarPage() {
                 };
                 delete newMetadata.id;
 
-                await axios.post('/api/vault/pages', {
+                await createVaultPage({
                     title: eventData.title,
                     content: eventData.content || '',
                     metadata: newMetadata,
@@ -715,7 +734,7 @@ export default function CalendarPage() {
                 toast.success(t('calendar.series_split_updated', "Series split and updated!"));
             } else {
                 // Modify the whole series (the master)
-                await axios.patch(`/api/vault/pages/${id}`, {
+                await patchVaultPage(id, {
                     metadata: patchData
                 });
                 toast.success(t('calendar.series_updated', "Series updated!"));
@@ -792,10 +811,11 @@ export default function CalendarPage() {
         if (!eventId || !acct) return;
 
         try {
-            await axios.post(`/api/calendar/events/${eventId}/rsvp`, {
+            await rsvpCalendarEvent({
+                eventId,
                 email: acct,
-                calendar_id: calId,
                 rsvp: rsvpStatus,
+                calendarId: calId,
             });
             // Update local state without re-fetching
             setEventPanel(prev => {
@@ -852,17 +872,11 @@ export default function CalendarPage() {
 
     // ── Meeting reminders (AI notifier) ──────────────────────────
     useEffect(() => {
-        if (!aiMeetingsEnabled) return undefined;
-        let alive = true;
-        axios.get('/api/calendar/reminders/settings')
-            .then(({ data }) => {
-                if (!alive || !data) return;
-                setRemindersEnabled(!!data.enabled);
-                if (data.lead_minutes) setRemindersLead(Number(data.lead_minutes));
-            })
-            .catch(() => {});
-        return () => { alive = false; };
-    }, [aiMeetingsEnabled]);
+        const settings = reminderSettingsQuery.data;
+        if (!aiMeetingsEnabled || !settings) return;
+        setRemindersEnabled(!!settings.enabled);
+        if (settings.lead_minutes) setRemindersLead(Number(settings.lead_minutes));
+    }, [aiMeetingsEnabled, reminderSettingsQuery.data]);
 
     const saveReminderSettings = useCallback(async (patch) => {
         const next = {
@@ -872,14 +886,14 @@ export default function CalendarPage() {
         setRemindersEnabled(next.enabled);
         setRemindersLead(next.lead_minutes);
         try {
-            await axios.put('/api/calendar/reminders/settings', next);
+            await updateReminderSettingsMutation.mutateAsync(next);
             toast.success(next.enabled
                 ? t('calendar.reminders_on', "Meeting reminders enabled")
                 : t('calendar.reminders_off', "Meeting reminders disabled"));
         } catch {
             toast.error(t('calendar.reminders_error', "Couldn't save the reminder settings"));
         }
-    }, [remindersEnabled, remindersLead, t]);
+    }, [remindersEnabled, remindersLead, t, updateReminderSettingsMutation]);
 
     const btnClass = "flex items-center justify-center h-7 px-3 rounded-md text-[11px] font-bold tracking-tight uppercase transition-all border";
 
@@ -1009,7 +1023,7 @@ export default function CalendarPage() {
                                 setSelectedCalendars(next);
                                 // Sync the ref to prevent the effect from resetting hidden calendars
                                 savedCalendarSelectionRef.current = new Set(next);
-                                axios.put('/api/integrations/calendar_selection', {
+                                updateCalendarSelection({
                                     selection: Array.from(next)
                                 }).catch(err => console.error('Error saving calendar selection:', err));
                             }}
@@ -1018,7 +1032,7 @@ export default function CalendarPage() {
                             onToggleSidebar={() => setShowLeftSidebar(false)}
                             onSetDefaultCalendar={async (source) => {
                                 try {
-                                    await axios.put('/api/integrations/default_calendar', { source });
+                                    await updateDefaultCalendar(source);
                                     setIntegrations(prev => ({ ...prev, default_calendar: source }));
                                 } catch (err) {
                                     console.error('Error saving default calendar:', err);

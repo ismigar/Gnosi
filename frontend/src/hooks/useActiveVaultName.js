@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useVaultNameChanged } from '../lib/configEvents';
+import { useVaultCatalog } from '../shared/api/useVaultCatalog';
 
 export function useActiveVaultName() {
+    const vaultCatalog = useVaultCatalog();
     const [activeVaultName, setActiveVaultName] = useState(() => {
         try {
             return localStorage.getItem('gnosi_active_vault_name') || '';
@@ -12,34 +13,20 @@ export function useActiveVaultName() {
     });
 
     useEffect(() => {
-        let mounted = true;
-        axios.get('/api/vaults').then(({ data }) => {
-            if (!mounted) return;
-            const vaults = data?.vaults || [];
-            const active = vaults.find(v => v.active);
-            if (active?.name) {
-                setActiveVaultName(active.name);
-                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {
-                    // Storage can be unavailable in restricted browser contexts.
-                }
+        const vaults = vaultCatalog.data?.vaults || [];
+        const active = vaults.find(v => v.active);
+        if (active?.name) {
+            setActiveVaultName(active.name);
+            try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {
+                // Storage can be unavailable in restricted browser contexts.
             }
-        }).catch(() => {});
-        return () => { mounted = false; };
-    }, []);
+        }
+    }, [vaultCatalog.data]);
 
     // Refresh the name when the active vault is renamed (from Settings → General),
     // without reloading the page.
     useVaultNameChanged(() => {
-        axios.get('/api/vaults').then(({ data }) => {
-            const vaults = data?.vaults || [];
-            const active = vaults.find(v => v.active);
-            if (active?.name) {
-                setActiveVaultName(active.name);
-                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {
-                    // Storage can be unavailable in restricted browser contexts.
-                }
-            }
-        }).catch(() => {});
+        void vaultCatalog.refetch();
     });
 
     return activeVaultName;

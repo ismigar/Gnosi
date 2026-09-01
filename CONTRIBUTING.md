@@ -117,6 +117,15 @@ See `docs/dev_memory/directives/i18n_and_english_standardization.md`.
 - ESLint flat config (`frontend/eslint.config.js`). Run `pnpm lint:frontend` and fix warnings.
 - Prefer strict, explicit types — avoid `any`.
 - Top-level views go in `frontend/src/pages/`; reusable pieces in `frontend/src/components/`.
+- Treat `openapi/openapi.json` as a generated backend contract and
+  `frontend/src/generated/openapi.ts` as generated code. Never edit either by hand.
+- Use `frontend/src/shared/api/` for HTTP, query caching, streaming, downloads,
+  SSE and WebSockets. Production components must not import Axios or call the
+  browser's `fetch` directly. The reviewed exception list lives in
+  `frontend/api-boundaries.json`.
+- Run `pnpm check:api-client` after changing a public route, schema or frontend
+  network boundary. Regenerate intentional contract changes with
+  `pnpm generate:api-client`, then review both generated diffs.
 
 ### Reusable scripts and tools
 
@@ -129,6 +138,9 @@ A change is not done until it builds and the relevant tests pass. "Couldn't test
 **Frontend** — from the repository root:
 
 ```bash
+pnpm check:api-client
+pnpm --filter @gnosi/frontend typecheck
+pnpm test:frontend
 pnpm build:frontend
 pnpm lint:frontend
 ```

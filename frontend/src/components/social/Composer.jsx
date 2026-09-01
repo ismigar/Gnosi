@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Send, Calendar as CalendarIcon, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Scheduler from './Scheduler';
 import { toast } from '../../lib/toast';
+import { createSocialPost, scheduleSocialPosts } from '../../shared/api/social';
+import { useSocialNetworks } from '../../shared/api/useSocialData';
 
 const NETWORK_STYLES = {
     mastodon: { color: 'bg-purple-600', border: 'border-purple-500/50' },
@@ -15,52 +17,40 @@ const NETWORK_STYLES = {
 const Composer = () => {
     const { t } = useTranslation();
     const [content, setContent] = useState('');
-    const [networks, setNetworks] = useState([]);
-    const [selectedNetworks, setSelectedNetworks] = useState([]);
+    const [selectedNetworkIds, setSelectedNetworkIds] = useState(null);
     const [isPosting, setIsPosting] = useState(false);
     const [showScheduler, setShowScheduler] = useState(false);
     const [scheduledTime, setScheduledTime] = useState(null);
-
-    useEffect(() => {
-        fetch('/api/social/networks')
-            .then(r => r.ok ? r.json() : null)
-            .then(data => {
-                if (!data) return;
-                const enabled = data.filter(n => n.enabled);
-                setNetworks(enabled.map(n => ({
-                    ...n,
-                    ...(NETWORK_STYLES[n.id] || { color: 'bg-zinc-600', border: 'border-zinc-500/50' }),
-                })));
-                setSelectedNetworks(enabled.map(n => n.id));
-            })
-            .catch(() => {});
-    }, []);
+    const { data: availableNetworks } = useSocialNetworks();
+    const networks = (availableNetworks || [])
+        .filter(n => n.enabled)
+        .map(n => ({
+            ...n,
+            ...(NETWORK_STYLES[n.id] || { color: 'bg-zinc-600', border: 'border-zinc-500/50' }),
+        }));
+    const selectedNetworks = selectedNetworkIds || networks.map(n => n.id);
 
     const toggleNetwork = (id) => {
-        setSelectedNetworks(prev =>
-            prev.includes(id) ? prev.filter(n => n !== id) : [...prev, id]
-        );
+        setSelectedNetworkIds(previous => {
+            const current = previous || networks.map(network => network.id);
+            return current.includes(id)
+                ? current.filter(network => network !== id)
+                : [...current, id];
+        });
     };
 
     const handlePost = async (immediate = true) => {
         setIsPosting(true);
         try {
-            const endpoint = immediate ? '/api/social/post' : '/api/social/schedule';
-            const payload = {
-                content,
-                networks: selectedNetworks,
-                ...(scheduledTime && !immediate && { scheduled_time: scheduledTime.toISOString() })
-            };
-
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || t('social.post_failed', "Failed to post"));
+            if (immediate) {
+                await createSocialPost({ content, networks: selectedNetworks });
+            } else {
+                await scheduleSocialPosts({
+                    posts: Object.fromEntries(
+                        selectedNetworks.map(network => [network, { text: content }]),
+                    ),
+                    scheduled_time: scheduledTime.toISOString(),
+                });
             }
 
             const message = immediate

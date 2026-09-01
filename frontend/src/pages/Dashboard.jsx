@@ -11,6 +11,28 @@ import { DashboardPaginationControls } from '../components/DashboardPaginationCo
 import { SettingsSectionTabs } from '../components/SettingsSectionTabs';
 import { ReleaseNotesDialog } from '../components/ReleaseNotesDialog';
 import { usePlugins } from '../plugins/usePlugins';
+import {
+    clearSchedulerHistory,
+    fetchScheduledTasks,
+    fetchSchedulerHistory,
+    runScheduledTask,
+    updateScheduledTask,
+} from '../shared/api/scheduler';
+import {
+    deleteDirective,
+    fetchAnalyticsOverview,
+    fetchDirectiveAnalytics,
+    fetchDirectiveContent,
+    fetchTrapAnalytics,
+    saveDirectiveContent,
+} from '../shared/api/analytics';
+import {
+    useClearSystemNotifications,
+    useSystemNotifications,
+} from '../shared/api/useSystemData';
+import { fetchConfiguration } from '../shared/api/configuration';
+
+const NOTIF_LIMIT = 20;
 
 const ROLE_CAPABILITIES = {
     viewer: ['read'],
@@ -35,12 +57,19 @@ function Dashboard() {
     const [, setApprovedLoading] = useState(true);
     const [analytics, setAnalytics] = useState(null);
     const [schedulers, setSchedulers] = useState([]);
-    const [notifications, setNotifications] = useState([]);
     const [schedulerLoading, setSchedulerLoading] = useState(true);
-    const [notificationsLoading, setNotificationsLoading] = useState(false);
     const [notifPage, setNotifPage] = useState(0);
-    const [notifTotal, setNotifTotal] = useState(0);
-    const NOTIF_LIMIT = 20;
+    const {
+        data: notificationPage,
+        isFetching: notificationsLoading,
+        refetch: refetchNotifications,
+    } = useSystemNotifications({
+        limit: NOTIF_LIMIT,
+        offset: notifPage * NOTIF_LIMIT,
+    });
+    const clearNotifications = useClearSystemNotifications();
+    const notifications = notificationPage?.items || [];
+    const notifTotal = notificationPage?.total || 0;
 
     // Task Execution History (DB Persistent)
     const [taskHistory, setTaskHistory] = useState([]);
@@ -98,14 +127,14 @@ function Dashboard() {
     const [gnosiMode, setGnosiMode] = useState('personal');
     const fetchConfig = useCallback(async () => {
         try {
-            const config = await apiFetch('/api/config');
+            const config = await fetchConfiguration();
             if (config.settings && config.settings.gnosi_mode) {
                 setGnosiMode(config.settings.gnosi_mode);
             }
         } catch (error) {
             console.error("Error fetching config", error);
         }
-    }, [apiFetch]);
+    }, []);
 
     // Re-fetch when the Settings modal has saved changes (without a reload).
     useConfigChanged(fetchConfig);
@@ -119,31 +148,30 @@ function Dashboard() {
         }
     }, [apiFetch]);
 
-    const fetchAnalytics = async () => {
+    const fetchAnalytics = useCallback(async () => {
         try {
-            const data = await apiFetch('/api/analytics/');
+            const data = await fetchAnalyticsOverview();
             if (data) setAnalytics(data);
         } catch (error) {
             console.error('Error fetching analytics:', error);
         }
-    };
+    }, []);
 
     const fetchSchedulers = useCallback(async (silent = false) => {
         if (!silent) setSchedulerLoading(true);
         try {
-            const data = await apiFetch('/api/schedulers');
-            setSchedulers(Array.isArray(data) ? data : []);
+            setSchedulers(await fetchScheduledTasks());
         } catch (error) {
             console.error("Error fetching schedulers", error);
         } finally {
             if (!silent) setSchedulerLoading(false);
         }
-    }, [apiFetch]);
+    }, []);
 
     const fetchApprovedTools = useCallback(async () => {
         setApprovedLoading(true);
         try {
-            const data = await apiFetch('/api/analytics/directives');
+            const data = await fetchDirectiveAnalytics();
             const mature = (data.directives || []).filter(d => d.path.includes('pipeline/skills/') && d.path.endsWith('SKILL.md'));
             setApprovedTools(mature);
         } catch (error) {
@@ -151,37 +179,17 @@ function Dashboard() {
         } finally {
             setApprovedLoading(false);
         }
-    }, [apiFetch]);
-
-    const fetchNotifications = async (p = 0) => {
-        const page = typeof p === 'number' ? p : 0;
-        setNotificationsLoading(true);
-        try {
-            const offset = page * NOTIF_LIMIT;
-            const data = await apiFetch(`/api/system/notifications?limit=${NOTIF_LIMIT}&offset=${offset}`);
-            if (data && data.items) {
-                setNotifications(data.items);
-                setNotifTotal(data.total);
-                setNotifPage(page);
-            }
-        } catch (error) {
-            console.error('Error fetching notifications:', error);
-        } finally {
-            setNotificationsLoading(false);
-        }
-    };
+    }, []);
 
     const fetchTaskHistory = async (p = 0) => {
         const page = typeof p === 'number' ? p : 0;
         setTaskHistoryLoading(true);
         try {
             const offset = page * HISTORY_LIMIT;
-            const data = await apiFetch(`/api/schedulers/history?limit=${HISTORY_LIMIT}&offset=${offset}`);
-            if (data && data.items) {
-                setTaskHistory(data.items);
-                setTaskHistoryTotal(data.total);
-                setTaskHistoryPage(page);
-            }
+            const data = await fetchSchedulerHistory({ limit: HISTORY_LIMIT, offset });
+            setTaskHistory(data.items);
+            setTaskHistoryTotal(data.total);
+            setTaskHistoryPage(page);
         } catch (error) {
             console.error('Error fetching task history:', error);
         } finally {
@@ -194,7 +202,7 @@ function Dashboard() {
         setIsTrapsLoading(true);
         try {
             const offset = page * TRAPS_LIMIT;
-            const data = await apiFetch(`/api/analytics/traps?limit=${TRAPS_LIMIT}&offset=${offset}`);
+            const data = await fetchTrapAnalytics({ limit: TRAPS_LIMIT, offset });
             if (data && data.traps) {
                 setTraps(data.traps);
                 setTrapsTotal(data.total);
@@ -212,7 +220,7 @@ function Dashboard() {
         setIsDirectivesLoading(true);
         try {
             const offset = page * DIRECTIVES_LIMIT;
-            const data = await apiFetch(`/api/analytics/directives?limit=${DIRECTIVES_LIMIT}&offset=${offset}`);
+            const data = await fetchDirectiveAnalytics({ limit: DIRECTIVES_LIMIT, offset });
             if (data && data.directives) {
                 setDirectives(data.directives);
                 setDirectivesTotal(data.total);
@@ -227,24 +235,21 @@ function Dashboard() {
 
     const handleEditDirective = useCallback(async (directive) => {
         try {
-            const data = await apiFetch(`/api/analytics/directives/content?path=${encodeURIComponent(directive.path)}`);
+            const data = await fetchDirectiveContent(directive.path);
             setEditorContent(data.content);
             setEditingDirective(directive);
         } catch (_error) {
             toast.error(t('dashboard.directive_load_error'));
         }
-    }, [apiFetch, t]);
+    }, [t]);
 
     const handleSaveDirective = useCallback(async () => {
         if (!editingDirective) return;
         setIsEditorSaving(true);
         try {
-            await apiFetch('/api/analytics/directives/content', {
-                method: 'POST',
-                body: JSON.stringify({
-                    path: editingDirective.path,
-                    content: editorContent
-                })
+            await saveDirectiveContent({
+                path: editingDirective.path,
+                content: editorContent,
             });
             toast.success(t('dashboard.directive_saved'));
             setEditingDirective(null);
@@ -256,7 +261,7 @@ function Dashboard() {
         } finally {
             setIsEditorSaving(false);
         }
-    }, [editingDirective, editorContent, directivesPage, fetchApprovedTools, fetchAnalytics, apiFetch, t]);
+    }, [editingDirective, editorContent, directivesPage, fetchApprovedTools, fetchAnalytics, t]);
 
     const handleDeleteDirective = (directive) => setConfirmDeleteDirective(directive);
 
@@ -266,9 +271,7 @@ function Dashboard() {
         if (!directive) return;
         const isSkill = directive.path?.includes("pipeline/skills");
         try {
-            await apiFetch(`/api/analytics/directives?path=${encodeURIComponent(directive.path)}`, {
-                method: 'DELETE'
-            });
+            await deleteDirective(directive.path);
             toast.success(isSkill ? t('dashboard.skill_deleted') : t('dashboard.directive_deleted'));
             fetchDirectives(directivesPage);
             fetchApprovedTools();
@@ -283,7 +286,7 @@ function Dashboard() {
     const doPurgeHistory = async () => {
         setConfirmPurgeHistory(false);
         try {
-            await apiFetch('/api/schedulers/history', { method: 'DELETE' });
+            await clearSchedulerHistory();
             toast.success(t('dashboard.history_purged'));
             fetchTaskHistory(0);
         } catch (_error) {
@@ -296,9 +299,9 @@ function Dashboard() {
     const doPurgeLogs = async () => {
         setConfirmPurgeLogs(false);
         try {
-            await apiFetch('/api/system/notifications', { method: 'DELETE' });
+            await clearNotifications.mutateAsync();
             toast.success(t('dashboard.logs_purged'));
-            fetchNotifications(0);
+            setNotifPage(0);
         } catch (_error) {
             toast.error(t('dashboard.logs_purge_error'));
         }
@@ -330,7 +333,6 @@ function Dashboard() {
         fetchTraps(0);
         fetchSystemStatus();
         if (automationsEnabled) fetchSchedulers();
-        fetchNotifications(0);
         if (automationsEnabled) fetchTaskHistory(0);
 
         const toolsInterval = aiEnabled ? setInterval(fetchPendingTools, 15000) : null;
@@ -349,11 +351,11 @@ function Dashboard() {
         if (automationsEnabled && selectedControlTab === 'history') {
             const historyInterval = setInterval(() => {
                 fetchTaskHistory(taskHistoryPage);
-                fetchNotifications(notifPage);
+                void refetchNotifications();
             }, 20000);
             return () => clearInterval(historyInterval);
         }
-    }, [selectedControlTab, taskHistoryPage, notifPage, automationsEnabled]);
+    }, [selectedControlTab, taskHistoryPage, automationsEnabled, refetchNotifications]);
 
     useEffect(() => {
         if (!automationsEnabled && ['schedulers', 'history'].includes(selectedControlTab)) {
@@ -473,10 +475,12 @@ function Dashboard() {
 
     const updateScheduler = async (task, overrides) => {
         try {
-            const payload = { ...task, ...overrides };
-            await apiFetch(`/api/schedulers/${task.name}`, {
-                method: 'PUT',
-                body: JSON.stringify(payload)
+            await updateScheduledTask({
+                name: task.name,
+                update: {
+                    interval_minutes: overrides.interval_minutes ?? task.interval_minutes,
+                    enabled: overrides.enabled ?? task.enabled,
+                },
             });
             fetchSchedulers(true);
         } catch (e) {
@@ -491,12 +495,8 @@ function Dashboard() {
         const t_id = toast.loading(`${t('dashboard.running_task', "Running task")} ${taskName.replace(/_/g, ' ')}...`);
         
         try {
-            const data = await apiFetch(`/api/schedulers/${taskName}/run`, { method: 'POST' });
-            if (data.success) {
-                toast.success(t('dashboard.task_started', "Task started successfully"), { id: t_id });
-            } else {
-                toast.error(data.error || t('dashboard.unknown_error'), { id: t_id });
-            }
+            await runScheduledTask(taskName);
+            toast.success(t('dashboard.task_started', "Task started successfully"), { id: t_id });
             // We refresh after a short delay so the backend has processed the state change to "running"
             setTimeout(() => fetchSchedulers(true), 500);
         } catch (e) {
@@ -818,7 +818,7 @@ function Dashboard() {
                                     </h3>
                                     <div className="flex items-center gap-2">
                                         <button 
-                                            onClick={() => fetchNotifications(notifPage)}
+                                            onClick={() => void refetchNotifications()}
                                             className="p-1 hover:bg-blue-500/10 text-blue-400 rounded transition-all"
                                             title={t('dashboard.refresh_logs')}
                                         >
@@ -885,7 +885,7 @@ function Dashboard() {
                                         total={notifTotal}
                                         limit={NOTIF_LIMIT}
                                         page={notifPage}
-                                        onPageChange={fetchNotifications}
+                                        onPageChange={setNotifPage}
                                         loading={notificationsLoading}
                                     />
                                 </>

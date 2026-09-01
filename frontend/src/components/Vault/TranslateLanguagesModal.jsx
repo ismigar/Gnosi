@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { X, Languages, Loader2 } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import {
+    translateVaultPage,
+    translateVaultRow,
+    translateVaultRows,
+} from '../../shared/api/translation';
 import { detectRecordSourceLang } from './schemaUtils';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
@@ -66,30 +70,28 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
         }
         setSubmitting(true);
         try {
-            let endpoint, payload, successMsg;
+            let result, successMsg;
             if (isBulk) {
-                endpoint = '/api/vault/skills/translate-rows';
-                payload = { item_ids: noteIds, target_languages: selected, button_action: 'translate_row' };
                 successMsg = t('translate.success_bulk', {
                     count: noteIds.length,
                     defaultValue: "Translation started for {{count}} records.",
                 });
+                result = await translateVaultRows({ item_ids: noteIds, target_languages: selected, button_action: 'translate_row' });
             } else if (isPage) {
-                endpoint = '/api/vault/skills/translate-page';
-                payload = { page_id: noteId, target_languages: selected, button_action: 'translate_page' };
                 successMsg = t('translate.success_page', "Translation started — child pages will appear shortly.");
+                result = await translateVaultPage({ page_id: noteId, target_languages: selected, button_action: 'translate_page' });
             } else {
-                endpoint = '/api/vault/skills/translate-row';
-                payload = { item_id: noteId, target_languages: selected, button_action: fieldConfig?.button_action || 'translate_row' };
                 successMsg = t('translate.success', "Translation started — subitems will appear shortly.");
+                result = await translateVaultRow({ item_id: noteId, target_languages: selected, button_action: fieldConfig?.button_action || 'translate_row' });
             }
-            const res = await axios.post(endpoint, payload);
             toast.success(successMsg);
-            if (onTranslated) onTranslated(res.data);
+            if (onTranslated) onTranslated(result);
             onClose();
         } catch (err) {
             console.error('Error requesting translation:', err);
-            const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");
+            const msg = err instanceof Error && err.message
+                ? err.message
+                : t('errors.unknown', "Unknown error");
             toast.error(`${t('translate.error', "Error starting translation")}: ${msg}`);
         } finally {
             setSubmitting(false);

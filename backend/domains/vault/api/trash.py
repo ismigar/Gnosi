@@ -13,6 +13,14 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.params import Depends as DependsParameter
 
+from backend.domains.vault.schemas.pages import PageDeleteResponse
+from backend.domains.vault.schemas.trash import (
+    PageRestoreResponse,
+    TrashEmptyResponse,
+    TrashListResponse,
+    TrashPurgeResponse,
+)
+
 PageWriteLock = Callable[[str], Awaitable[asyncio.Lock]]
 
 log = logging.getLogger(__name__)
@@ -289,35 +297,35 @@ def register_routes(
         delete_page,
         methods=["DELETE"],
         dependencies=list(editor_dependencies),
-        response_model=None,
+        response_model=PageDeleteResponse,
     )
     router.add_api_route(
         "/pages/{page_id}/restore",
         restore_page,
         methods=["POST"],
         dependencies=list(editor_dependencies),
-        response_model=None,
+        response_model=PageRestoreResponse,
     )
     router.add_api_route(
         "/trash",
         list_trash,
         methods=["GET"],
         dependencies=list(admin_dependencies),
-        response_model=None,
+        response_model=TrashListResponse,
     )
     router.add_api_route(
         "/trash",
         empty_trash,
         methods=["DELETE"],
         dependencies=list(admin_dependencies),
-        response_model=None,
+        response_model=TrashEmptyResponse,
     )
     router.add_api_route(
         "/trash/{page_id}",
         purge_trash_entry,
         methods=["DELETE"],
         dependencies=list(admin_dependencies),
-        response_model=None,
+        response_model=TrashPurgeResponse,
     )
 
 

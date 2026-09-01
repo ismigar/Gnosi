@@ -1,11 +1,27 @@
-import axios from 'axios';
-
 import { setActiveVaultCookie } from './fileResource.js';
+import { fetchVaultCatalog } from '../shared/api/vaults';
+import {
+    ACTIVE_VAULT_ID_KEY,
+    ACTIVE_VAULT_NAME_KEY,
+    ACTIVE_VAULT_SLUG_KEY,
+    canonicalizeVaultApiUrl,
+    getActiveVaultId,
+    getActiveVaultSlug,
+    persistVaultCatalog,
+    readVaultCatalog,
+    storageSet,
+} from '../shared/api/vault-context';
 
-export const ACTIVE_VAULT_ID_KEY = 'gnosi_active_vault';
-export const ACTIVE_VAULT_NAME_KEY = 'gnosi_active_vault_name';
-export const ACTIVE_VAULT_SLUG_KEY = 'gnosi_active_vault_slug';
-const VAULT_CATALOG_KEY = 'gnosi_vault_catalog';
+export {
+    ACTIVE_VAULT_ID_KEY,
+    ACTIVE_VAULT_NAME_KEY,
+    ACTIVE_VAULT_SLUG_KEY,
+    canonicalizeVaultApiUrl,
+    getActiveVaultId,
+    getActiveVaultSlug,
+    persistVaultCatalog,
+    readVaultCatalog,
+};
 
 const LEGACY_BROWSER_APPS = {
     '/vault': 'knowledge',
@@ -22,75 +38,6 @@ const LEGACY_BROWSER_APPS = {
     '/literature': 'resources',
     '/notebooks': 'notebooks',
 };
-
-const LEGACY_API_RULES = [
-    { prefix: '/api/vault/literature', app: 'resources' },
-    { prefix: '/api/vault/media', app: 'media' },
-    { prefix: '/api/vault', app: 'knowledge' },
-    { prefix: '/api/pages', app: 'knowledge', keepPrefix: '/pages' },
-    { prefix: '/api/meetings', app: 'calendar', keepPrefix: '/meetings' },
-    { prefix: '/api/calendar', app: 'calendar' },
-    { prefix: '/api/mail', app: 'mail' },
-    { prefix: '/api/reader', app: 'reader' },
-    { prefix: '/api/schedulers', app: 'automations' },
-    { prefix: '/api/social', app: 'social' },
-    { prefix: '/api/contacts', app: 'contacts' },
-    { prefix: '/api/planning', app: 'planning' },
-    { prefix: '/api/notebooks', app: 'notebooks' },
-    { prefix: '/api/graph', app: 'graph' },
-    { prefix: '/api/ai', app: 'ai', keepPrefix: '/ai' },
-    { prefix: '/api/chat', app: 'ai', keepPrefix: '/chat' },
-    { prefix: '/api/agent', app: 'ai', keepPrefix: '/agent' },
-    { prefix: '/api/tools', app: 'ai', keepPrefix: '/tools' },
-    { prefix: '/api/skills', app: 'ai', keepPrefix: '/skills' },
-];
-
-function storageGet(key) {
-    try {
-        return typeof localStorage !== 'undefined' ? localStorage.getItem(key) || '' : '';
-    } catch {
-        return '';
-    }
-}
-
-function storageSet(key, value) {
-    try {
-        if (typeof localStorage === 'undefined') return;
-        if (value) localStorage.setItem(key, value);
-        else localStorage.removeItem(key);
-    } catch {
-        // Storage can be unavailable in hardened browser contexts.
-    }
-}
-
-export function getActiveVaultId() {
-    return storageGet(ACTIVE_VAULT_ID_KEY);
-}
-
-export function getActiveVaultSlug() {
-    return storageGet(ACTIVE_VAULT_SLUG_KEY);
-}
-
-export function getVaultSlugById(vaultId) {
-    return readVaultCatalog().find((vault) => vault.id === vaultId)?.slug || '';
-}
-
-export function readVaultCatalog() {
-    try {
-        const parsed = JSON.parse(storageGet(VAULT_CATALOG_KEY) || '[]');
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
-}
-
-export function persistVaultCatalog(vaults) {
-    const normalized = Array.isArray(vaults)
-        ? vaults.filter((vault) => vault?.id && vault?.slug)
-        : [];
-    storageSet(VAULT_CATALOG_KEY, JSON.stringify(normalized));
-    return normalized;
-}
 
 export function activateVault(vault, { notify = true } = {}) {
     if (!vault?.id || !vault?.slug) return false;
@@ -118,11 +65,8 @@ export async function initializeVaultRouting({ preferredSlug = '', force = false
     );
     let vaults = force ? [] : readVaultCatalog();
     try {
-        const response = await fetch('/api/vaults', { credentials: 'include' });
-        if (response.ok) {
-            const data = await response.json();
-            vaults = persistVaultCatalog(data?.vaults || []);
-        }
+        const data = await fetchVaultCatalog();
+        vaults = persistVaultCatalog(data.vaults || []);
     } catch {
         // Cached routing metadata still permits offline navigation.
     }
@@ -201,60 +145,4 @@ export function legacyBrowserPathToCanonical(pathname, explicitSlug = '') {
 export function canonicalVaultSwitchPath(pathname, targetSlug) {
     const app = vaultAppFromPath(pathname) || 'knowledge';
     return vaultPath(app, '', targetSlug);
-}
-
-export function canonicalizeVaultApiUrl(url, explicitSlug = '') {
-    if (typeof url !== 'string') return url;
-    if (url.startsWith('/api/v1/vaults/') || url.startsWith('/api/vaults')) return url;
-    const slug = explicitSlug || getActiveVaultSlug();
-    if (!slug) return url;
-    const rule = LEGACY_API_RULES.find(({ prefix }) => (
-        url === prefix
-        || url.startsWith(`${prefix}/`)
-        || url.startsWith(`${prefix}?`)
-    ));
-    if (!rule) return url;
-    const remainder = url.slice(rule.prefix.length);
-    const canonicalRemainder = `${rule.keepPrefix || ''}${remainder}`;
-    return `/api/v1/vaults/${encodeURIComponent(slug)}/${rule.app}${canonicalRemainder}`;
-}
-
-let apiRoutingInstalled = false;
-
-export function installVaultApiRouting() {
-    if (apiRoutingInstalled) return;
-    apiRoutingInstalled = true;
-
-    axios.interceptors.request.use((config) => {
-        const explicitId = config.headers?.['X-Vault-Id'] || config.headers?.['x-vault-id'];
-        const explicitSlug = explicitId ? getVaultSlugById(explicitId) : '';
-        // When a one-off explicit vault is unknown to the local catalog, keep
-        // the legacy URL so its header semantics remain intact.
-        if (!explicitId || explicitSlug) {
-            config.url = canonicalizeVaultApiUrl(config.url, explicitSlug);
-        }
-        return config;
-    });
-
-    if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
-    const nativeFetch = window.fetch.bind(window);
-    window.fetch = (input, init) => {
-        const isRequest = typeof Request !== 'undefined' && input instanceof Request;
-        const headers = new Headers(init?.headers || (isRequest ? input.headers : undefined));
-        const explicitId = headers.get('X-Vault-Id') || '';
-        const explicitSlug = explicitId ? getVaultSlugById(explicitId) : '';
-        const rewrite = (value) => (
-            !explicitId || explicitSlug ? canonicalizeVaultApiUrl(value, explicitSlug) : value
-        );
-        if (typeof input === 'string') {
-            return nativeFetch(rewrite(input), init);
-        }
-        if (input instanceof URL) {
-            const next = rewrite(`${input.pathname}${input.search}${input.hash}`);
-            return nativeFetch(new URL(next, input.origin), init);
-        }
-        // Request bodies can be one-shot streams. Preserve Request objects
-        // unchanged instead of cloning them solely for URL rewriting.
-        return nativeFetch(input, init);
-    };
 }

@@ -8,8 +8,34 @@ import { CSS } from '@dnd-kit/utilities';
 import ConfirmModal from '../ConfirmModal';
 import { MAIN_VIEW_NAME, VIEW_TYPES } from './viewConstants';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { fetchAiModels } from '../../shared/api/ai';
+import { fetchVaultSummarySettings } from '../../shared/api/vault-summary';
+import { fetchVaultPages, fetchVaultPagesByTable } from '../../shared/api/vaults';
+import {
+    createVaultView,
+    deleteVaultView,
+    fetchVaultView,
+    fetchVaultViews,
+    fetchVaultViewUsage,
+    updateVaultView,
+    upsertPageView,
+} from '../../shared/api/vault-views';
 import { discoverFieldNamesFromRecords } from './schemaUtils';
 import { normalizeOptions } from './optionCatalogUtils';
+
+const PAGE_VIEW_MODAL_API = Object.freeze({
+    createVaultView,
+    deleteVaultView,
+    fetchAiModels,
+    fetchVaultPages,
+    fetchVaultPagesByTable,
+    fetchVaultSummarySettings,
+    fetchVaultView,
+    fetchVaultViews,
+    fetchVaultViewUsage,
+    updateVaultView,
+    upsertPageView,
+});
 
 /**
  * Modal for adding a DB view to a page (slash command /vista).
@@ -575,7 +601,7 @@ function FilterGroupEditor({ node, onChange, onRemove, depth, ctx }) {
     );
 }
 
-export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetch, preselectedTableId = '', editingBlock = null, mode = 'embed', editingView = null, initialTab = null }) {
+export function PageViewModal({ isOpen, onClose, pageId, allTables = [], api = PAGE_VIEW_MODAL_API, preselectedTableId = '', editingBlock = null, mode = 'embed', editingView = null, initialTab = null }) {
     const { t } = useTranslation();
 
     // `mode='table'`: the SAME modal but configuring a view of the table
@@ -724,7 +750,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         if (!v?.id || v.is_main || v.id === 'default') return;
         setModalViewToDelete(v);
         setModalViewToDeleteUsage(null);
-        apiFetch(`/api/vault/views/${encodeURIComponent(v.id)}/usage`)
+        api.fetchVaultViewUsage(v.id)
             .then(data => setModalViewToDeleteUsage(data))
             .catch(() => {});
     };
@@ -733,7 +759,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         if (!modalViewToDelete?.id) return;
         const vid = modalViewToDelete.id;
         try {
-            await apiFetch(`/api/vault/views/${encodeURIComponent(vid)}`, { method: 'DELETE' });
+            await api.deleteVaultView(vid);
             setExistingViews(prev => prev.filter(x => x.id !== vid));
             setModalPinnedViewIds(prev => {
                 const next = new Set(prev);
@@ -929,7 +955,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         targets.forEach(async (tid) => {
             if (relationCache[tid] !== undefined) return;
             try {
-                const rows = await apiFetch(`/api/vault/pages/by-table/${encodeURIComponent(tid)}`);
+                const rows = await api.fetchVaultPagesByTable(tid);
                 const opts = (Array.isArray(rows) ? rows : [])
                     .filter(r => !r.metadata?.is_template)
                     .map(r => ({ value: r.id, label: r.title || t('view.untitled', "(untitled)") }))
@@ -939,7 +965,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 setRelationCache(prev => ({ ...prev, [tid]: [] }));
             }
         });
-    }, [isOpen, filterTree, fieldMeta, apiFetch, relationCache, t]);
+    }, [isOpen, filterTree, fieldMeta, api, relationCache, t]);
 
     // Reads the per-type options of a view (registry or inline section) into the
     // modal's state, tolerating both naming conventions (camelCase from the
@@ -993,8 +1019,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         if (!isOpen || viewType !== 'feed') return undefined;
         let cancelled = false;
         Promise.all([
-            apiFetch('/api/ai/models'),
-            apiFetch('/api/vault/plugins/vault-summary/settings').catch(() => ({})),
+            api.fetchAiModels(),
+            api.fetchVaultSummarySettings().catch(() => ({})),
         ]).then(([modelsResponse, settingsResponse]) => {
             if (cancelled) return;
             const models = (modelsResponse?.models || [])
@@ -1007,7 +1033,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             if (!cancelled) setSummaryModels([]);
         });
         return () => { cancelled = true; };
-    }, [apiFetch, isOpen, viewType]);
+    }, [api, isOpen, viewType]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -1113,7 +1139,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 // end up clearing the selection before the view has been read.
                 let cancelled = false;
                 initializedRef.current = true; // async prefill below will re-arm skip
-                apiFetch(`/api/vault/views/${encodeURIComponent(vid)}`)
+                api.fetchVaultView(vid)
                     .then(v => {
                         if (cancelled || !v) return;
                         setSourceTableId(String(v.table_id || ''));
@@ -1222,7 +1248,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setExistingViews([]);
         setExistingViewsTableId(sourceTableId);
         setExistingViewsStatus('loading');
-        apiFetch(`/api/vault/views?table_id=${encodeURIComponent(sourceTableId)}`)
+        api.fetchVaultViews(sourceTableId)
             .then(data => {
                 if (cancelled || requestId !== existingViewsRequestRef.current) return;
                 const responseList = Array.isArray(data) ? data : data?.views;
@@ -1272,7 +1298,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 }
             });
         return () => { cancelled = true; };
-    }, [sourceTableId, sourceTableName, existingViewsReloadKey, apiFetch]);
+    }, [sourceTableId, sourceTableName, existingViewsReloadKey, api]);
 
     // Tables without a registered schema (`properties` empty, e.g. "Recursos"
     // imported from the Notion clone) do not expose any field in the column selector.
@@ -1288,7 +1314,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             if (!tid) { setter([]); return; }
             if (hasSchema) { setter([]); return; }
             let cancelled = false;
-            apiFetch(`/api/vault/pages?table_id=${encodeURIComponent(tid)}&limit=300`)
+            api.fetchVaultPages({ table_id: tid, limit: 300 })
                 .then(data => {
                     if (cancelled) return;
                     const recs = Array.isArray(data) ? data : (data?.pages || data?.items || []);
@@ -1326,7 +1352,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         });
         if (changed) setDiscoveredByTable(next);
         return () => { baseCleanup && baseCleanup(); cleanups.forEach(c => c && c()); };
-    }, [sourceTableId, selectedTable, joins, allTables, apiFetch]);
+    }, [sourceTableId, selectedTable, joins, allTables, api]);
 
     // When the user selects an existing view, it pre-fills the fields with its
     // config and loads how many pages share it.
@@ -1374,7 +1400,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
         // Loads usage to find out whether the view is shared.
         let cancelled = false;
-        apiFetch(`/api/vault/views/${encodeURIComponent(selectedExistingViewId)}/usage`)
+        api.fetchVaultViewUsage(selectedExistingViewId)
             .then(data => {
                 if (cancelled) return;
                 setViewUsage({
@@ -1386,7 +1412,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 if (!cancelled) setViewUsage({ count: 0, pages: [] });
             });
         return () => { cancelled = true; };
-    }, [selectedExistingViewId, existingViews, apiFetch]);
+    }, [selectedExistingViewId, existingViews, api]);
 
     // Adjusts visibleProperties when the table changes (removes fields that no longer
     // exist) and ensures the canonical `title` is always present: as in Notion,
@@ -1755,17 +1781,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 }
                 let saved;
                 if (existingId) {
-                    saved = await apiFetch(`/api/vault/views/${encodeURIComponent(existingId)}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(viewBody),
-                    });
+                    saved = await api.updateVaultView(existingId, viewBody);
                 } else {
-                    saved = await apiFetch('/api/vault/views', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(viewBody),
-                    });
+                    saved = await api.createVaultView(viewBody);
                     // Feed the new id back so the next autosave PUTs instead of
                     // creating a duplicate.
                     if (saved?.id) createdViewIdRef.current = saved.id;
@@ -1860,11 +1878,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         resultSnapshotLimit,
                         ...buildViewExtras(),
                     };
-                    await apiFetch('/api/vault/views', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updated),
-                    });
+                    await api.createVaultView(updated);
                 }
             } else if (saveToTableViews) {
                 // Case "create new": we create it first in registry.views[] so that
@@ -1889,11 +1903,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     // of the table" and remains as a normal tab.
                     ...(leafRules.some(f => f?.value === 'this') ? { embedded: true } : {}),
                 };
-                const created = await apiFetch('/api/vault/views', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(viewBody),
-                });
+                const created = await api.createVaultView(viewBody);
                 viewId = created?.id || null;
             }
 
@@ -1918,14 +1928,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 columns: visiblePropertiesToPersist,
             };
 
-            // apiFetch returns PARSED JSON and throws on non-2xx, so there is no
-            // Response object to inspect (`res.ok`/`res.json()` would be a
-            // TypeError). Just await it; failures propagate to the catch below.
-            await apiFetch(`/api/pages/${pageId}/views`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(sectionBody),
-            });
+            // The typed client returns parsed JSON and throws on non-2xx.
+            await api.upsertPageView(pageId, sectionBody);
 
             if (viewId && !isTableMode) {
                 try {

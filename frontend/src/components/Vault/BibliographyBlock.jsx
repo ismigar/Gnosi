@@ -1,9 +1,10 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
 import { BookText, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { VaultEditorContext } from './VaultEditorContext';
 import { recursosPageToCsl, renderBibliography } from './cslEngine';
+import { resolveCitationKey } from '../../shared/api/citations';
+import { fetchVaultPage } from '../../shared/api/vaults';
 
 // Session-wide cache: citationKey → page CSL-JSON. Shared with
 // CiteInline (the two components look at the same data).
@@ -14,14 +15,14 @@ async function fetchCslItem(citationKey) {
     const entry = CSL_ITEM_CACHE.get(citationKey);
     if (entry && Date.now() - entry.ts < CACHE_TTL_MS) return entry.value;
     try {
-        const r = await axios.get('/api/vault/resolve-by-citation-key', { params: { key: citationKey } });
-        const id = r?.data?.id;
+        const resolved = await resolveCitationKey(citationKey);
+        const id = resolved?.id;
         if (!id) {
             CSL_ITEM_CACHE.set(citationKey, { ts: Date.now(), value: null });
             return null;
         }
-        const page = await axios.get(`/api/vault/pages/${id}`);
-        const item = recursosPageToCsl(page.data);
+        const page = await fetchVaultPage(id);
+        const item = recursosPageToCsl(page);
         CSL_ITEM_CACHE.set(citationKey, { ts: Date.now(), value: item });
         return item;
     } catch {
