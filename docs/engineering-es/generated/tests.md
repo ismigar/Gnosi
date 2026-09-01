@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 20 | 74 |
 | Vitest | 482 | 1971 |
-| pytest | 432 | 3053 |
+| pytest | 431 | 3053 |
 
 ## Archivos
 
@@ -520,7 +520,6 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/tests/vite-config.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/vite-config.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/tests/web-clipper.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/web-clipper.test.ts) | 18 | call-pattern estimate |
 | Vitest | [`frontend/tests/word-addin.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/word-addin.test.ts) | 13 | call-pattern estimate |
-| pytest | [`backend/agent/generated_tools/test_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/test_sandbox.py) | 0 | Python AST |
 | pytest | [`backend/tests/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/__init__.py) | 0 | Python AST |
 | pytest | [`backend/tests/conftest.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py) | 0 | Python AST |
 | pytest | [`backend/tests/page_write_open_fixtures.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/page_write_open_fixtures.py) | 0 | Python AST |

@@ -10,7 +10,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 46 | 8542 |
+| `agent` | 47 | 8657 |
 | `api` | 38 | 12952 |
 | `app` | 8 | 712 |
 | `application root` | 2 | 41 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **756 modules** and **156113 source lines**.
+Total: **757 modules** and **156228 source lines**.
 
 ## agent
 
@@ -56,6 +56,7 @@ Total: **756 modules** and **156113 source lines**.
 | [`backend/agent/generated_tools/registry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/registry.py) | 264 | 3 | 0 | 0 | 1 | Tool Registry: Persistent storage and lookup for generated tools. |
 | [`backend/agent/generated_tools/sandbox_runner.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/sandbox_runner.py) | 188 | 1 | 5 | 0 | 3 | Run approved generated tools in a short-lived restricted subprocess. |
 | [`backend/agent/generated_tools/validator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/validator.py) | 33 | 0 | 0 | 0 | 0 | Compatibility exports for generated-tool validation. |
+| [`backend/agent/generated_tools/verification_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/verification_sandbox.py) | 115 | 4 | 0 | 0 | 4 | Run generated-tool tests in a short-lived subprocess sandbox. |
 | [`backend/agent/gnosi_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/gnosi_tools.py) | 159 | 1 | 0 | 0 | 1 | Compatibility facade for stable first-party Gnosi tools. |
 | [`backend/agent/graph.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/graph.py) | 48 | 1 | 1 | 0 | 1 | No module docstring |
 | [`backend/agent/internal_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/internal_sources.py) | 567 | 0 | 22 | 0 | 10 | Scoped read adapters for first-party Gnosi data modules. |
