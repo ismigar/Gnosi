@@ -56,7 +56,7 @@ def create_new_tool(name: str, description: str, code: str) -> str:
     Returns:
         Creation result or error if invalid.
     """
-    from .test_sandbox import test_sandbox, TestCase
+    from .verification_sandbox import TestCase, test_sandbox
     
     output_lines = []
     

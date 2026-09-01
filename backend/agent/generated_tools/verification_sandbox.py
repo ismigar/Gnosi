@@ -1,7 +1,7 @@
 """Run generated-tool tests in a short-lived subprocess sandbox."""
 from __future__ import annotations
 
-# This is a production sandbox service, not a pytest module despite its filename.
+# This is a production sandbox service, not a pytest module.
 __test__ = False
 
 from dataclasses import dataclass, field

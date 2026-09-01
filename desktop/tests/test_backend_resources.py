@@ -54,6 +54,7 @@ def repository(tmp_path: Path) -> Path:
     for name in policy.MODULE_TREES:
         write(root, f"{name}/runtime.py", "raise AssertionError('do not import')\n")
     for name in (
+        "backend/agent/generated_tools/verification_sandbox.py",
         "backend/domains/mail/routes/messages.py",
         "backend/domains/configuration/api/credentials.py",
         "backend/security/plugin_trust_root.py",
@@ -97,6 +98,8 @@ def test_plan_keeps_required_runtime_without_importing_application(repository: P
     assert "pipeline.skills.translate_page.scripts.markdown_segmenter" in first.modules
     assert "backend.server" in first.modules
     assert "backend.security.plugin_trust_root" in first.modules
+    assert "backend.agent.generated_tools.verification_sandbox" in first.modules
+    assert "backend.agent.generated_tools.test_sandbox" not in first.modules
     assert "extensions.marketplace.signing_policy" not in first.modules
     assert "backend/migrations/alembic/versions/management_0005.py" in first.resources
     assert "backend/migrations/alembic/script.py.mako" in first.resources
