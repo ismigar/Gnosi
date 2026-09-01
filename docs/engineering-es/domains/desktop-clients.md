@@ -281,7 +281,9 @@ traducción dinámica, los plugins de ejemplo y los estilos bibliográficos.
 Rechaza recursos ausentes, modificados, no revisados o inseguros, en lugar de
 incluir recursivamente vaults, bases de datos, configuración, secretos o
 herramientas generadas. El hook `afterPack` comprueba el ASAR real y los recursos
-de Python antes de la firma. Los recursos gráficos pertenecen a
+de Python antes de la firma. El escaneo completo en frío sigue siendo fail-closed
+y tiene un límite de proceso de diez minutos para que los paquetes Windows recién
+copiados no terminen durante la primera inspección. Los recursos gráficos pertenecen a
 `desktop/assets/`; los paquetes generados, a `desktop/dist/` y
 `desktop/dist-python/`.
 

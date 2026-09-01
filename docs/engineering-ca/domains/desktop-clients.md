@@ -275,7 +275,9 @@ els recursos d’Alembic, les instruccions dels agents, les skills de traducció
 dinàmiques, els complements d’exemple i els estils de citació. Rebutja recursos
 absents, modificats, no revisats o insegurs, en lloc d’incloure recursivament
 vaults, bases de dades, configuració, secrets o eines generades. El hook
-`afterPack` comprova l’ASAR i els recursos Python reals abans de signar.
+`afterPack` comprova l’ASAR i els recursos Python reals abans de signar. L’escaneig
+complet en fred continua sent fail-closed i té un límit de procés de deu minuts
+perquè els paquets Windows acabats de copiar no morin durant la primera inspecció.
 Els recursos gràfics pertanyen a `desktop/assets/`; els paquets generats
 pertanyen a `desktop/dist/` i `desktop/dist-python/`.
 

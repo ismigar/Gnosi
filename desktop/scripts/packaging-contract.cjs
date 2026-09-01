@@ -3,6 +3,11 @@ const path = require('node:path');
 const asar = require('@electron/asar');
 const { execFileSync } = require('node:child_process');
 
+// A newly copied Windows onedir can require several minutes for its first full
+// resource walk while the guest inspects thousands of dependency files. Keep
+// the verification bounded without killing a valid cold scan at two minutes.
+const BACKEND_RESOURCE_VERIFY_TIMEOUT_MS = 10 * 60 * 1000;
+
 const REQUIRED_RUNTIME_FILES = Object.freeze([
   'main.js',
   'preload.js',
@@ -71,10 +76,15 @@ function verifyPackagedBackendResources(
     path.join(__dirname, 'backend_resources.py'),
     'verify', '--repository', repository,
     '--bundle', path.join(getResourcesDirectory(context), 'python'),
-  ], { cwd: repository, stdio: 'inherit', timeout: 120000 });
+  ], {
+    cwd: repository,
+    stdio: 'inherit',
+    timeout: BACKEND_RESOURCE_VERIFY_TIMEOUT_MS,
+  });
 }
 
 module.exports = {
+  BACKEND_RESOURCE_VERIFY_TIMEOUT_MS,
   REQUIRED_RUNTIME_FILES,
   assertPackagedRuntimeEntries,
   getResourcesDirectory,

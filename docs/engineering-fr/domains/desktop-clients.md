@@ -289,7 +289,9 @@ de traduction dynamique, les plugins d’exemple et les styles bibliographiques.
 Elle rejette les ressources manquantes, modifiées, non examinées ou dangereuses
 au lieu d’inclure récursivement les vaults, bases de données, configurations,
 secrets ou outils générés. Le hook `afterPack` vérifie l’ASAR réel et les
-ressources Python avant la signature. Les ressources graphiques se trouvent
+ressources Python avant la signature. L’analyse à froid complète reste fail-closed
+et dispose d’un délai de processus de dix minutes afin que les paquets Windows
+nouvellement copiés ne soient pas arrêtés pendant la première inspection. Les ressources graphiques se trouvent
 dans `desktop/assets/` ; les paquets générés, dans `desktop/dist/` et
 `desktop/dist-python/`.
 

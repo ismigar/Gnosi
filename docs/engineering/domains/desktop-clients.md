@@ -248,7 +248,9 @@ Alembic resources, agent instructions, dynamic translation skills, example
 plugins and citation styles. It rejects missing, changed, unreviewed or unsafe
 resources rather than recursively bundling vaults, databases, configuration,
 secrets or generated tools. The `afterPack` hook checks the actual ASAR and
-Python resources before signing. Assets belong under `desktop/assets/`;
+Python resources before signing. Its complete cold scan remains fail-closed and
+has a ten-minute process deadline so newly copied Windows bundles are not killed
+during first-access inspection. Assets belong under `desktop/assets/`;
 generated bundles belong under `desktop/dist/` and `desktop/dist-python/`.
 
 The root project declares uv `required-environments` for macOS arm64 and x64,
