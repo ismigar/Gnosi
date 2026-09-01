@@ -13,8 +13,8 @@ from backend.domains.vault.registry.state import RegistryData
 
 
 @pytest.fixture(autouse=True)
-def require_isolated_runner() -> None:
-    assert validation_runtime_enabled(), "Run through verify_typed_drawings.py"
+def require_isolated_runner(isolated_validation_runtime: Path) -> None:
+    assert isolated_validation_runtime.is_dir() and validation_runtime_enabled()
 
 
 @pytest.mark.parametrize("second", [[("extension", 7)], None, 7, [1]])

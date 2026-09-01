@@ -13,8 +13,10 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def citation_callbacks(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    root = Path(os.environ["GNOSI_VALIDATION_ROOT"])
+def citation_callbacks(
+    monkeypatch: pytest.MonkeyPatch, isolated_validation_runtime: Path
+) -> list[str]:
+    root = isolated_validation_runtime
     assert root.is_absolute() and root.is_dir()
     assert Path(os.environ["DIGITAL_BRAIN_VAULT_PATH"]).is_relative_to(root)
     assert os.environ["GNOSI_RUN_LIVE_E2E"] == "0"
