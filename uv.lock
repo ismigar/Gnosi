@@ -1004,7 +1004,7 @@ wheels = [
 
 [[package]]
 name = "gnosi-runtime"
-version = "3.0.0rc2"
+version = "3.0.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiosqlite" },

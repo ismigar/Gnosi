@@ -1,5 +1,26 @@
 # Gnosi changelog
 
+## Gnosi 3.0.0
+
+_2026-09-02 · Stable_
+
+### Highlights
+
+- Gnosi 3.0 establishes one canonical repository with a modular FastAPI backend and a feature-oriented React 19 interface.
+- The complete production interface uses strict TypeScript and deterministic OpenAPI contracts through a shared data layer.
+
+### Improvements
+
+- Canonical, provider-neutral data directories and verified 2.x migrations keep local Vaults recoverable across native, Docker and desktop installations.
+- Electron 43 provides isolated IPC, owned backend startup and architecture-specific packages for macOS, Windows and Linux.
+
+### Fixes
+
+- Node 22.22.2 and the pnpm and uv locks remove duplicate dependency graphs and make local releases reproducible.
+- Release gates validate source identity, generated clients, documentation, migrations and architecture-separated installers before publication.
+- Windows packaging now allows a bounded cold resource verification to finish without weakening the fail-closed package policy.
+- The macOS Intel package pins the NumPy ABI compatible with its Torch runtime.
+
 ## Gnosi 3.0.0-rc.2
 
 _2026-09-01 · Release candidate_

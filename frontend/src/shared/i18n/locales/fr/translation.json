@@ -5789,6 +5789,22 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v3_0_0": {
+        "highlights": {
+          "canonical_architecture": "Gnosi 3.0 établit un dépôt canonique unique, avec un backend FastAPI modulaire et une interface React 19 organisée par fonctionnalités.",
+          "typed_experience": "Toute l'interface de production utilise TypeScript strict et des contrats OpenAPI déterministes au moyen d'une couche de données partagée."
+        },
+        "improvements": {
+          "portable_data": "Les répertoires de données canoniques et indépendants du fournisseur, ainsi que les migrations 2.x vérifiées, maintiennent les Vaults locaux récupérables dans les installations natives, Docker et desktop.",
+          "desktop_runtime": "Electron 43 fournit un IPC isolé, un démarrage contrôlé du backend et des paquets propres à chaque architecture pour macOS, Windows et Linux."
+        },
+        "fixes": {
+          "reproducible_toolchain": "Node 22.22.2 et les verrous pnpm et uv éliminent les graphes de dépendances dupliqués et rendent les releases locales reproductibles.",
+          "release_safety": "Les barrières de release valident l'identité du code, les clients générés, la documentation, les migrations et les installateurs séparés par architecture avant publication.",
+          "windows_cold_scan": "L'empaquetage Windows permet désormais à une vérification à froid bornée de se terminer sans affaiblir la politique de paquet fermée par défaut.",
+          "intel_numpy_abi": "Le paquet macOS Intel verrouille l'ABI NumPy compatible avec son runtime Torch."
+        }
+      },
       "v3_0_0_rc_2": {
         "highlights": {},
         "improvements": {},
