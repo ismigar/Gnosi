@@ -8,19 +8,19 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 15 | 5 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 208 | 16 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 17 | 10 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 14 | 9 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 361 | 40 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 43 | 19 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 10 | 12 | 0 |
-| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 16 | 10 | 0 |
-| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 67 | 21 | 0 |
-| `mail` | **covered** | [`Mail`](../domains/mail.md) | 15 | 6 | 0 |
-| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 11 | 4 | 0 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 26 | 16 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 67 | 25 | 0 |
+| `mail` | **covered** | [`Mail`](../domains/mail.md) | 15 | 9 | 0 |
+| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 11 | 7 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 9 | 2 | 0 |
-| `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 6 | 0 | 0 |
-| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 55 | 8 | 0 |
+| `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 6 | 2 | 0 |
+| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 78 | 21 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 12 | 10 | 0 |
-| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 8 | 2 | 0 |
+| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 12 | 4 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 50 | 5 | 0 |
 
 ## Platform foundation and runtime
@@ -40,8 +40,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Database views and project planning
 
 - Guide: [`Database views and project planning`](../domains/database-views-planning.md)
-- Source patterns: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `frontend/src/components/Vault/*Table*`, `frontend/src/components/Vault/*View*`, `frontend/src/pages/ProjectPlanningPage.jsx`
-- Test patterns: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `tests/e2e/tests/e2e/dashboards.spec.ts`
+- Source patterns: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `backend/services/option_catalogs.py`, `backend/services/rule_engine.py`, `backend/services/view_snapshot.py`, `backend/domains/vault/tables/catalogs/**/*.py`, `backend/domains/vault/tables/rules/**/*.py`, `backend/domains/vault/views/**/*.py`, `frontend/src/components/Vault/*Table*`, `frontend/src/components/Vault/*View*`, `frontend/src/pages/ProjectPlanningPage.jsx`
+- Test patterns: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `backend/tests/test_*rule*.py`, `backend/tests/test_*rollup*.py`, `backend/tests/test_*option_catalogs.py`, `backend/tests/test_snapshot_sort*.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `tests/e2e/tests/e2e/dashboards.spec.ts`
 - Directives: none found
 
 ## Knowledge graph
@@ -54,8 +54,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Reader, references, and citations
 
 - Guide: [`Reader, references, and citations`](../domains/reader-references.md)
-- Source patterns: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `backend/api/literature_routes.py`, `backend/services/**/*literature*.py`, `backend/services/academic_connectors.py`, `frontend/src/pages/ReaderDashboard.jsx`, `frontend/src/pages/LiteraturePage.jsx`, `frontend/src/components/ResourcesPluginConfig.jsx`, `frontend/src/components/Vault/ZoteroReaderTab.jsx`
-- Test patterns: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `backend/tests/test_*literature*.py`, `backend/tests/test_academic_connectors.py`, `frontend/src/**/*Literature*.test.*`, `frontend/src/**/*ResourcesPluginConfig*.test.*`, `tests/e2e/tests/e2e/*citation*.spec.ts`
+- Source patterns: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `backend/services/lookup_normalizers.py`, `backend/domains/vault/citations/normalizers/**/*.py`, `backend/api/literature_routes.py`, `backend/services/**/*literature*.py`, `backend/services/academic_connectors.py`, `frontend/src/pages/ReaderDashboard.jsx`, `frontend/src/pages/LiteraturePage.jsx`, `frontend/src/components/ResourcesPluginConfig.jsx`, `frontend/src/components/Vault/ZoteroReaderTab.jsx`
+- Test patterns: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `backend/tests/test_*literature*.py`, `backend/tests/test_academic_connectors.py`, `backend/tests/test_lookup_normalizers.py`, `backend/tests/test_html_meta_attr_order.py`, `backend/tests/test_database_rules_views_domain_contract.py`, `frontend/src/**/*Literature*.test.*`, `frontend/src/**/*ResourcesPluginConfig*.test.*`, `tests/e2e/tests/e2e/*citation*.spec.ts`
 - Directives: none found
 
 ## AI agents, models, tools, and skills
@@ -96,8 +96,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Integrations and plugins
 
 - Guide: [`Integrations and plugins`](../domains/integrations-plugins.md)
-- Source patterns: `backend/api/integrations_routes.py`, `backend/services/integration*.py`, `backend/services/plugin*.py`, `backend/services/academic_connectors.py`, `extensions/**/*`, `extensions/examples/**/*`, `extensions/mcp/**/*`
-- Test patterns: `backend/tests/test_integration*.py`, `backend/tests/test_plugin*.py`, `extensions/**/tests/**/*`
+- Source patterns: `backend/api/integrations_routes.py`, `backend/domains/plugins/*.py`, `backend/api/notion_routes.py`, `backend/domains/notion/**/*.py`, `backend/services/integration*.py`, `backend/services/notion_*.py`, `backend/services/plugin*.py`, `backend/services/academic_connectors.py`, `extensions/**/*`, `extensions/examples/**/*`, `extensions/mcp/**/*`
+- Test patterns: `backend/tests/test_integration*.py`, `backend/tests/test_notion*.py`, `backend/tests/test_plugin*.py`, `extensions/**/tests/**/*`
 - Directives: none found
 
 ## Authentication, workspaces, and sharing

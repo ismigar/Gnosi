@@ -11,7 +11,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, Optional, cast
 
 from langchain_core.messages import HumanMessage
 
@@ -28,7 +28,10 @@ class AutomationConflictError(RuntimeError):
 
 
 def _database_path() -> Path:
-    root = Path(load_params(strict_env=False).paths["LOCAL_DATA"])
+    configured_root = load_params(strict_env=False).paths.get("LOCAL_DATA")
+    if configured_root is None:
+        raise RuntimeError("Capability automations require a LOCAL_DATA path")
+    root = Path(configured_root)
     root.mkdir(parents=True, exist_ok=True)
     return root / "capability_automations.sqlite"
 
@@ -146,7 +149,7 @@ def save_automation(
     normalized_id = automation_id or uuid.uuid4().hex
     if not AUTOMATION_ID_RE.fullmatch(normalized_id):
         raise ValueError("Invalid automation ID.")
-    definition = {
+    definition: Dict[str, Any] = {
         "name": str(payload["name"]).strip()[:160],
         "agent_id": str(payload["agent_id"]).strip()[:128],
         "skill_id": str(payload["skill_id"]).strip().lower()[:256],
@@ -215,6 +218,8 @@ def save_automation(
         row = connection.execute(
             "SELECT * FROM capability_automations WHERE id = ?", (normalized_id,)
         ).fetchone()
+    if row is None:
+        raise RuntimeError("Automation write did not return its persisted row.")
     return _public(row)
 
 
@@ -251,7 +256,7 @@ def _load_for_run(automation_id: str) -> sqlite3.Row:
         ).fetchone()
     if row is None:
         raise LookupError("Automation not found.")
-    return row
+    return cast(sqlite3.Row, row)
 
 
 def _reserve_run(row: sqlite3.Row, *, manual: bool) -> str:

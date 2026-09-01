@@ -1,0 +1,1 @@
+"""Mail-domain application services."""

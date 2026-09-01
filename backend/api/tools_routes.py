@@ -2,6 +2,7 @@
 API Routes for Generated Tools Management.
 Provides endpoints for the Dashboard to approve/reject pending tools.
 """
+
 from pathlib import Path
 
 from fastapi import Depends, APIRouter, HTTPException
@@ -48,8 +49,14 @@ class RejectRequest(BaseModel):
     reason: Optional[str] = ""
 
 
+class ToolMutationResponse(BaseModel):
+    status: str
+    name: str
+    reason: Optional[str] = None
+
+
 @router.get("/pending", response_model=List[ToolResponse])
-async def get_pending_tools():
+async def get_pending_tools() -> List[ToolResponse]:
     """Get all tools pending approval."""
     pending = registry.list_pending()
     return [
@@ -63,14 +70,14 @@ async def get_pending_tools():
             approved_at=t.approved_at,
             rejected_at=t.rejected_at,
             rejection_reason=t.rejection_reason,
-            path=t.path
+            path=t.path,
         )
         for t in pending
     ]
 
 
 @router.get("/approved", response_model=List[ToolResponse])
-async def get_approved_tools():
+async def get_approved_tools() -> List[ToolResponse]:
     """Get all approved tools."""
     approved = registry.list_approved()
     return [
@@ -84,26 +91,31 @@ async def get_approved_tools():
             approved_at=t.approved_at,
             rejected_at=t.rejected_at,
             rejection_reason=t.rejection_reason,
-            path=t.path
+            path=t.path,
         )
         for t in approved
     ]
 
 
-@router.post("/approve", dependencies=[Depends(require_role("admin"))])
-async def approve_tool(request: ApproveRequest):
+@router.post(
+    "/approve",
+    dependencies=[Depends(require_role("admin"))],
+    response_model=None,
+)
+async def approve_tool(
+    request: ApproveRequest,
+) -> dict[str, Optional[str]]:
     """
     Approve a pending tool.
     Moves it from pending to approved status.
     """
     success = registry.approve(request.name)
-    
+
     if not success:
         raise HTTPException(
-            status_code=404,
-            detail=f"Tool '{request.name}' not found or not pending"
+            status_code=404, detail=f"Tool '{request.name}' not found or not pending"
         )
-    
+
     # Move file from pending to approved
     base_dir = _get_tools_base()
     (base_dir / "approved").mkdir(parents=True, exist_ok=True)
@@ -113,23 +125,28 @@ async def approve_tool(request: ApproveRequest):
     if pending_file.exists():
         pending_file.rename(approved_file)
 
-    return {"status": "approved", "name": request.name}
+    return ToolMutationResponse(status="approved", name=request.name).model_dump(exclude_none=True)
 
 
-@router.post("/reject", dependencies=[Depends(require_role("admin"))])
-async def reject_tool(request: RejectRequest):
+@router.post(
+    "/reject",
+    dependencies=[Depends(require_role("admin"))],
+    response_model=None,
+)
+async def reject_tool(
+    request: RejectRequest,
+) -> dict[str, Optional[str]]:
     """
     Reject a pending tool.
     Moves it from pending to rejected status.
     """
     success = registry.reject(request.name, request.reason or "")
-    
+
     if not success:
         raise HTTPException(
-            status_code=404,
-            detail=f"Tool '{request.name}' not found or not pending"
+            status_code=404, detail=f"Tool '{request.name}' not found or not pending"
         )
-    
+
     # Move file from pending to rejected
     base_dir = _get_tools_base()
     (base_dir / "rejected").mkdir(parents=True, exist_ok=True)
@@ -138,18 +155,22 @@ async def reject_tool(request: RejectRequest):
 
     if pending_file.exists():
         pending_file.rename(rejected_file)
-    
-    return {"status": "rejected", "name": request.name, "reason": request.reason}
+
+    return ToolMutationResponse(
+        status="rejected",
+        name=request.name,
+        reason=request.reason,
+    ).model_dump()
 
 
 @router.get("/{name}", response_model=ToolResponse)
-async def get_tool(name: str):
+async def get_tool(name: str) -> ToolResponse:
     """Get a specific tool by name."""
     tool = registry.get_by_name(name)
-    
+
     if not tool:
         raise HTTPException(status_code=404, detail=f"Tool '{name}' not found")
-    
+
     return ToolResponse(
         name=tool.name,
         description=tool.description,
@@ -160,5 +181,5 @@ async def get_tool(name: str):
         approved_at=tool.approved_at,
         rejected_at=tool.rejected_at,
         rejection_reason=tool.rejection_reason,
-        path=tool.path
+        path=tool.path,
     )

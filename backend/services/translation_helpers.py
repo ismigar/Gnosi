@@ -12,7 +12,8 @@ They live in `services/` (not inline in `vault_routes`) for two reasons:
 No I/O, no FastAPI, no backend imports: data goes in, data comes out.
 """
 import re
-from typing import Any, Dict, Iterable, Optional
+from collections.abc import Callable, Iterable
+from typing import Any, Dict, Optional, cast
 
 
 def canonicalize_id(page_id: Any) -> str:
@@ -35,7 +36,7 @@ def _meta_of(page: Any) -> Dict[str, Any]:
     md = getattr(page, "metadata", None)
     if md is None and isinstance(page, dict):
         md = page.get("metadata")
-    return md or {}
+    return cast(Dict[str, Any], md) if isinstance(md, dict) else {}
 
 
 def find_translations_of(origin_id: str, pages: Iterable[Any]) -> Dict[str, Any]:
@@ -209,7 +210,7 @@ def find_language_property(properties: Optional[Iterable[Any]]) -> Optional[Dict
     return None
 
 
-def _select_option_values(prop: Dict[str, Any]) -> list:
+def _select_option_values(prop: Dict[str, Any]) -> list[str]:
     """Selectable values of a select: `config.options` (nested, what the inline PATCH
     writes) or `options` (top-level, what the modal's save writes). Each
     option can be a string or a dict {name/label/value}. Returns clean strings."""
@@ -219,7 +220,7 @@ def _select_option_values(prop: Dict[str, Any]) -> list:
         raw = cfg["options"]
     elif isinstance(prop.get("options"), list):
         raw = prop["options"]
-    out: list = []
+    out: list[str] = []
     for o in raw or []:
         label = (o.get("name") or o.get("label") or o.get("value")) if isinstance(o, dict) else o
         if isinstance(label, str) and label.strip():
@@ -252,7 +253,7 @@ def language_field_assignment(
     properties: Optional[Iterable[Any]],
     target_lang: str,
     parent_metadata: Optional[Dict[str, Any]] = None,
-) -> tuple:
+) -> tuple[str | None, str | list[str] | None]:
     """(key, value) to mark the language field of a translation, or (None, None) if
     the table has no language field or the code can't be resolved.
 
@@ -265,18 +266,21 @@ def language_field_assignment(
     prop = find_language_property(properties)
     if not prop:
         return None, None
-    key = prop.get("id") or prop.get("name")
-    if not key:
+    raw_key = prop.get("id") or prop.get("name")
+    if not isinstance(raw_key, str) or not raw_key:
         return None, None
+    key = raw_key
     value = language_field_value(prop, target_lang)
     if not value:
         return None, None
     ptype = str(prop.get("type") or "").lower().replace("-", "_")
     is_multi = ptype in ("multi_select", "multiselect")
     if not is_multi and isinstance(parent_metadata, dict):
-        parent_val = parent_metadata.get(prop.get("name"))
-        if parent_val is None and prop.get("id"):
-            parent_val = parent_metadata.get(prop.get("id"))
+        name = prop.get("name")
+        field_id = prop.get("id")
+        parent_val = parent_metadata.get(name) if isinstance(name, str) else None
+        if parent_val is None and isinstance(field_id, str) and field_id:
+            parent_val = parent_metadata.get(field_id)
         if isinstance(parent_val, list):
             is_multi = True
     return key, ([value] if is_multi else value)
@@ -312,11 +316,15 @@ def is_image_field_name(name: Any) -> bool:
 def is_composite_image_value(val: Any) -> bool:
     """True if the value is a composite image map (has non-empty src/url/path)."""
     return isinstance(val, dict) and any(
-        isinstance(val.get(k), str) and val.get(k).strip() for k in _IMAGE_SRC_KEYS
+        isinstance((source := val.get(k)), str) and bool(source.strip())
+        for k in _IMAGE_SRC_KEYS
     )
 
 
-def translate_image_field(val: Any, translate_one) -> tuple:
+def translate_image_field(
+    val: Any,
+    translate_one: Callable[[str], tuple[str, str]],
+) -> tuple[Any, set[str], bool]:
     """Translate the text subfields of an image field, keeping the image.
 
     `translate_one(text) -> (translated, provider)`. Returns
@@ -330,7 +338,7 @@ def translate_image_field(val: Any, translate_one) -> tuple:
     if not isinstance(val, dict):
         return val, set(), False
     out = dict(val)
-    providers: set = set()
+    providers: set[str] = set()
     any_tr = False
     for k in _IMAGE_TEXT_SUBKEYS:
         sub = val.get(k)

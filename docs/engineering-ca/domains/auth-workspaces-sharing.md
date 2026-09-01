@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
@@ -9,13 +9,20 @@ source_paths:
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
+  - backend/services/workspace_service.py
   - frontend/src/context/AuthContext.jsx
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_auth_enforcement_flag.py
   - backend/tests/test_pat_authentication.py
   - backend/tests/test_workspace_bootstrap_race.py
+  - backend/tests/test_workspace_invite_email_case.py
+  - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
+  - backend/tests/test_auth_account_settings.py
+  - backend/tests/test_auth_email_case.py
+  - backend/tests/test_auth_placeholder_account.py
+  - backend/tests/test_password_hashing.py
 ---
 
 # Autenticació, espais de treball i compartició
@@ -32,6 +39,11 @@ L' accés per correu/ contrasenya aclareix una marca de contrasenya i emet un co
 
 El secret de signatura ha de ser fort en el desplegament. El dorsal refusa començar amb la alternativa del desenvolupament públic quan el desplegament requereix protecció.
 
+La frontera de rutes d'autenticació està estrictament tipada i conserva els
+esquemes de resposta congelats. Els descriptors Column de SQLAlchemy legacy
+només es restringeixen a la frontera ORM; la reclamació de comptes, la rotació
+de contrasenya, el perfil i les cookies mantenen validació i transaccions.
+
 ## Model d' autorització
 
 ```mermaid
@@ -47,6 +59,12 @@ flowchart LR
 Els rols proporcionen capacitats de base de referència ordenades. Els diversos nivells s' access o concedeixen accés a una volta registrada. Un espai de treball que es proporciona, usuari o ID de la càmera mai no es basa en la resolució de la identitat i les no resoltes.
 
 Les botes d' espai de treball són d' acord amb seguretat tan simultaniment les primeres peticions no creen espais de treball duplicats per omissió, usuaris o autoadhesió. Els comptes de substitució i els comptes automàtics seran marcats explícitament; el registre no pot reclamar- los per correu electrònic com a prova d' identitat feble.
+
+La resolució del context de l'espai de treball manté estable la dependència
+pública de FastAPI, mentre que funcions separades gestionen la pertinença, el
+filtratge de vaults accessibles, la ruta d'emmagatzematge i les capacitats. Això
+fa explícites les decisions d'autorització sense canviar capçaleres, codis
+d'estat ni el comportament del vault actiu.
 
 ## Compartició pública
 

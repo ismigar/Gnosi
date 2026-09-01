@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
@@ -9,13 +9,20 @@ source_paths:
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
+  - backend/services/workspace_service.py
   - frontend/src/context/AuthContext.jsx
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_auth_enforcement_flag.py
   - backend/tests/test_pat_authentication.py
   - backend/tests/test_workspace_bootstrap_race.py
+  - backend/tests/test_workspace_invite_email_case.py
+  - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
+  - backend/tests/test_auth_account_settings.py
+  - backend/tests/test_auth_email_case.py
+  - backend/tests/test_auth_placeholder_account.py
+  - backend/tests/test_password_hashing.py
 ---
 
 # Autenticación, espacios de trabajo y compartir
@@ -32,6 +39,11 @@ El acceso por correo electrónico/contraseña verifica un hash de contraseña y 
 
 El secreto de la firma debe ser fuerte en los despliegues expuestos. El motor se niega a comenzar con el retroceso del desarrollo público cuando el despliegue efectivo requiere protección.
 
+La frontera de rutas de autenticación está estrictamente tipada y conserva los
+esquemas de respuesta congelados. Los descriptores Column de SQLAlchemy legacy
+solo se restringen en la frontera ORM; la reclamación de cuentas, la rotación de
+contraseña, el perfil y las cookies mantienen su validación y transacciones.
+
 ## Modelo de autorización
 
 ```mermaid
@@ -47,6 +59,12 @@ flowchart LR
 Los roles proporcionan capacidades de línea base ordenadas. VaultAccess estrecha u concede acceso a una bóveda registrada. Un espacio de trabajo, usuario o ID de bóveda proporcionado por petición nunca se confía sin resolver la identidad y membresías autenticadas.
 
 Workspace bootstrap es seguro para las primeras solicitudes simultáneas, por lo que no se crean espacios de trabajo, usuarios o membresías por defecto duplicados. Los marcadores de posición y las cuentas automáticas están marcadas explícitamente; el registro no puede reclamarlas por correo electrónico como una prueba de identidad débil.
+
+La resolución del contexto del espacio de trabajo mantiene estable la
+dependencia pública de FastAPI, mientras funciones separadas gestionan la
+membresía, el filtrado de bóvedas accesibles, la ruta de almacenamiento y las
+capacidades. Así, las decisiones de autorización quedan explícitas sin cambiar
+cabeceras, códigos de estado ni el comportamiento de la bóveda activa.
 
 ## Participación del público
 

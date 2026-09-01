@@ -4,11 +4,13 @@
 by the Tldraw canvas and returns the recognized text. Fully local: the image never goes to
 any cloud (cf. `services/handwriting.py`).
 """
+
 import asyncio
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from backend.services import handwriting
 
@@ -19,39 +21,61 @@ log = logging.getLogger(__name__)
 _MAX_BYTES = 12 * 1024 * 1024  # 12 MB
 
 
-@router.get("/status")
-async def handwriting_status():
+class HandwritingStatusResponse(BaseModel):
+    available: bool
+    loaded: bool
+    model: str
+
+
+class HandwritingWarmupResponse(BaseModel):
+    warming: bool
+    loaded: bool
+
+
+class HandwritingRecognitionResponse(BaseModel):
+    text: str
+    raw: str
+    lines: list[str]
+    model: str
+    corrected: bool
+
+
+@router.get("/status", response_model=None)
+async def handwriting_status() -> dict[str, Any]:
     """Indicates whether the local engine (transformers + PIL) is available."""
-    return {
-        "available": handwriting.is_available(),
-        "loaded": handwriting.is_loaded(),
-        "model": handwriting._model_id(),
-    }
+    return HandwritingStatusResponse(
+        available=handwriting.is_available(),
+        loaded=handwriting.is_loaded(),
+        model=handwriting._model_id(),
+    ).model_dump()
 
 
-@router.post("/warmup")
-async def handwriting_warmup():
+@router.post("/warmup", response_model=None)
+async def handwriting_warmup() -> dict[str, bool]:
     """Preloads the model in the background (idempotent, non-blocking).
 
     The frontend calls this when opening the canvas so the 1st real
     recognition call doesn't have to wait for the model to load (~1.3 GB the first time).
-    
+
     """
     started = handwriting.warmup()
-    return {"warming": started, "loaded": handwriting.is_loaded()}
+    return HandwritingWarmupResponse(
+        warming=started,
+        loaded=handwriting.is_loaded(),
+    ).model_dump()
 
 
-@router.post("/recognize")
+@router.post("/recognize", response_model=None)
 async def recognize_handwriting(
     image: UploadFile = File(...),
     correct: Optional[bool] = Form(None),
     language: Optional[str] = Form(None),
-):
+) -> dict[str, Any]:
     """Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`.
 
     `correct` applies AI correction (accents/spelling) with the local LLM; if it's
     `None`, the config default is used. `language` is an optional hint (ca/es/…).
-    
+
     """
     if not handwriting.is_available():
         raise HTTPException(
@@ -67,11 +91,9 @@ async def recognize_handwriting(
 
     try:
         # TrOCR on CPU is heavy and blocking: keep it off the event loop.
-        result = await asyncio.to_thread(
-            handwriting.recognize, data, True, correct, language
-        )
+        result = await asyncio.to_thread(handwriting.recognize, data, True, correct, language)
     except Exception as e:
         log.exception("Handwriting recognition failed")
         raise HTTPException(status_code=500, detail=f"Recognition failed: {e}")
 
-    return result
+    return HandwritingRecognitionResponse.model_validate(result).model_dump()

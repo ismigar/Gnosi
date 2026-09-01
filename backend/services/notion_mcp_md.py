@@ -177,6 +177,8 @@ def _apply_color(text: str, attrs: Dict[str, str]) -> str:
     if not style or not text.strip():
         return text
     m = _MD_PREFIX_RE.match(text)
+    if m is None:
+        return text
     prefix, content = m.group(1), m.group(2)
     if not content.strip():
         return text
@@ -193,12 +195,12 @@ def _indent_and_text(line: str) -> Tuple[int, str]:
     return n, line[n:]
 
 
-def _build_tree(pairs: List[Tuple[int, str]]) -> List[list]:
+def _build_tree(pairs: List[Tuple[int, str]]) -> List[list[Any]]:
     """[(indent, text)] → tree [[text, [children…]], …] according to indentation (tabs)."""
-    root: List[list] = []
-    stack: List[Tuple[int, list]] = [(-1, root)]
+    root: List[list[Any]] = []
+    stack: List[Tuple[int, List[list[Any]]]] = [(-1, root)]
     for indent, text in pairs:
-        node = [text, []]
+        node: list[Any] = [text, []]
         while stack and stack[-1][0] >= indent:
             stack.pop()
         stack[-1][1].append(node)
@@ -210,7 +212,7 @@ def _is_list_item(text: str) -> bool:
     return bool(re.match(r'^\s*(?:[-*]\s+|\d+\.\s+)', text))
 
 
-def _serialize(nodes: List[list], out: List[str]) -> None:
+def _serialize(nodes: List[list[Any]], out: List[str]) -> None:
     for text, children in nodes:
         low = text.strip().lower()
         if low.startswith("<columns"):
@@ -251,7 +253,7 @@ def mcp_to_markdown(page_md: str) -> str:
     # 0) protect code blocks (leave untouched: they may have <, tabs, {…})
     codes: List[str] = []
 
-    def _stash(mm):
+    def _stash(mm: re.Match[str]) -> str:
         codes.append(mm.group(0))
         return f"§§CODE{len(codes) - 1}§§"
     text = _CODE_RE.sub(_stash, text)

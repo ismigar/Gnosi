@@ -1,12 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/graph
   - backend/api/vault_graph_routes.py
   - backend/services/graph_service.py
   - frontend/src/pages/GraphPage.jsx
   - frontend/src/components/GraphViewer.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
   - backend/tests/test_graph_similarity_suggestions.py
   - backend/tests/test_graph_wedged_dirs.py
@@ -16,6 +18,10 @@ tests:
 # Graphique des connaissances
 
 ## Responsabilité
+
+`backend/domains/graph/` gère l'analyse, les nœuds, les arêtes, la projection,
+les adaptateurs et l'orchestration. `graph_service.py` est la façade stable
+utilisée par l'API, l'agent et le planificateur.
 
 Le graphique projette des relations explicites de connaissances et des suggestions sémantiques optionnelles en réseau interactif. Il supporte la navigation et la découverte; il est dérivé de la Vault et n'est pas une source distincte de vérité.
 

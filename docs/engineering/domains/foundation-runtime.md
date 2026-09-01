@@ -1,15 +1,27 @@
 ---
 status: implemented
-last_verified: 2026-08-19
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
+  - backend/app/lifespan.py
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
+  - backend/domains/configuration/api/settings.py
+  - backend/domains/configuration/plugin_state.py
+  - backend/mcp/http_client.py
+  - backend/services/data_dir_migration.py
+  - backend/utils/cache.py
+  - backend/api/system_routes.py
   - frontend/src/App.jsx
 tests:
+  - backend/tests/test_app_lifespan.py
+  - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
+  - backend/tests/test_config_language_locale.py
   - backend/tests/test_host_helper_url.py
+  - backend/tests/test_data_dir_migration.py
+  - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -28,8 +40,22 @@ integrations are absent.
 handling, static reader mount, lifespan, and routers. Router order is explicit
 because workspace context and broad prefixes can overlap. The generated
 [API catalog](../generated/api-catalog.md) records every static mount and route.
+The composition registry imports each canonical domain router directly; legacy
+API facades remain available only for compatibility imports. Route annotations
+must preserve the frozen OpenAPI representation, so handlers without an
+explicit response model retain their inferred response contract.
 
 Lifespan startup performs these classes of work:
+
+The lifecycle module keeps the public `lifespan` context manager as a linear
+orchestrator. Focused helpers own plugin reconciliation, agent startup, index
+warmup, table repair, mail workers, and bounded shutdown while preserving their
+documented order and failure isolation.
+
+Early plugin reconciliation is transport-neutral: it can read normalized,
+atomically persisted per-Vault state before any HTTP route module is imported.
+This keeps Agent construction independent of Vault facade initialization order,
+while normal application startup converges on the same process-wide state store.
 
 1. Assert that an exposed deployment is not using a public development JWT
    secret.
@@ -45,6 +71,11 @@ Failures in optional AI or integration startup are logged and isolated.
 Security and core data initialization failures are not silently converted into
 healthy behavior.
 
+Shared in-process caches use one bounded, locked TTL/LRU implementation and
+accept explicitly typed zero-argument value factories. Streamable MCP HTTP
+narrows each decoded SSE payload to a JSON object before returning it to the
+JSON-RPC client; malformed or non-object events never enter the typed runtime.
+
 ## Configuration merge
 
 `load_params()` combines versioned application YAML with the current user or
@@ -55,6 +86,23 @@ settings. Path resolution then applies explicit deployment environment values.
 Credential-bearing AI configuration stores references. A legacy environment
 credential may create a provider once, but a persisted disconnection tombstone
 prevents it from reappearing after deliberate deletion.
+
+The Settings write boundary validates managed agents and model strategies,
+stores passwords and provider keys outside YAML, treats the provider map as
+desired state so deletions persist, writes configuration atomically, and
+invalidates compiled agents only after an AI change.
+
+Per-device data migration is a journaled state machine. Source verification,
+same-volume atomic rename, cross-volume staging, destination verification, and
+automatic rollback are separate phases. Every SQLite database is checkpointed
+and integrity-checked, and a copied tree is compared against a hashed inventory
+before the destination replaces an empty scaffold.
+
+System filesystem routes keep HTTP orchestration separate from bounded browsing
+and search helpers. Search prioritizes the active vault and standard user
+folders, including the provider-neutral `Library/CloudStorage` root used by
+OneDrive, Google Drive, Dropbox, Box and other macOS file providers. Local and
+Docker paths are mapped without making any cloud vendor part of the data model.
 
 ## Frontend shell
 
@@ -69,6 +117,9 @@ content. `/s/:token` renders outside the authenticated shell by design.
 - Application code uses the authoritative `Gnosi/` tree.
 - Frontend-visible strings use all locale catalogs.
 - Runtime imports must not be used by documentation generation.
+- Operational one-off commands live under `scripts/`; production packages do
+  not contain scratch synchronizers, data-mutating probes, or hard-coded
+  machine repair scripts.
 - An unavailable vault is represented explicitly; a temporary safe path may
   prevent import-time crashes but must not be presented as configured content.
 - Derived cache warmup cannot delay the first useful response when a safe disk

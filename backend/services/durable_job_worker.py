@@ -4,6 +4,7 @@ The queue remains the source of truth. This worker only wakes up, discovers
 ready payloads and asks the owning provider to claim them. Multiple API
 processes may run the dispatcher safely because the queue lease is atomic.
 """
+
 from __future__ import annotations
 
 import threading
@@ -46,18 +47,32 @@ def register_job_dispatcher(
     replace: bool = False,
 ) -> None:
     """Register a provider-owned durable queue dispatcher."""
-    contract = job_type if isinstance(job_type, DurableJobDispatcherContract) else DurableJobDispatcherContract(
-        job_type=str(job_type or ""), provider="legacy", dispatch=dispatcher, schema_version=1,
-    )
+    if isinstance(job_type, DurableJobDispatcherContract):
+        contract = job_type
+    else:
+        if dispatcher is None:
+            raise ValueError("Invalid durable job dispatcher contract.")
+        contract = DurableJobDispatcherContract(
+            job_type=str(job_type or ""),
+            provider="legacy",
+            dispatch=dispatcher,
+            schema_version=1,
+        )
     normalized = str(contract.job_type or "").strip().lower()
     if not normalized or len(normalized) > 96 or not callable(contract.dispatch):
         raise ValueError("Invalid durable job dispatcher contract.")
     if contract.schema_version >= 2:
-        if not str(contract.provider or "").strip() or contract.idempotency != "idempotency_key_required":
+        if (
+            not str(contract.provider or "").strip()
+            or contract.idempotency != "idempotency_key_required"
+        ):
             raise ValueError("Durable job dispatcher v2 requires provider and idempotency policy.")
         if not 10 <= int(contract.lease_seconds) <= 3_600:
             raise ValueError("Durable job dispatcher lease is outside the supported range.")
-        if not 1 <= int(contract.max_attempts) <= 20 or not 0 <= int(contract.model_call_budget) <= 64:
+        if (
+            not 1 <= int(contract.max_attempts) <= 20
+            or not 0 <= int(contract.model_call_budget) <= 64
+        ):
             raise ValueError("Durable job dispatcher budgets are outside the supported range.")
     contract = DurableJobDispatcherContract(**{**contract.__dict__, "job_type": normalized})
     with _DISPATCHER_LOCK:
@@ -87,8 +102,15 @@ def _reader_dispatcher(item: dict[str, Any], payload: dict[str, Any]) -> bool:
         raise ValueError("Durable Reader payload is missing vault_path or job_id.")
     from backend.services import reader_analysis
 
+    try:
+        reader_analysis.get_status(Path(vault_path), job_id)
+    except KeyError as error:
+        raise ValueError(
+            "Durable Reader provider state is missing; the orphaned queue item was rejected."
+        ) from error
     reader_analysis._launch(  # noqa: SLF001
-        Path(vault_path), job_id,
+        Path(vault_path),
+        job_id,
         model_call=reader_analysis._default_model_call,  # noqa: SLF001
     )
     return True
@@ -100,7 +122,9 @@ def _literature_sync_dispatcher(item: dict[str, Any], payload: dict[str, Any]) -
     job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
     full = bool(payload.get("full", False))
     if not vault_path or not source_id or not job_id:
-        raise ValueError("Durable literature sync payload is missing vault_path, source_id, or job_id.")
+        raise ValueError(
+            "Durable literature sync payload is missing vault_path, source_id, or job_id."
+        )
     from backend.services import literature_service
 
     literature_service.launch_sync(Path(vault_path), source_id, job_id, full=full)
@@ -111,38 +135,72 @@ def _literature_review_dispatcher(item: dict[str, Any], payload: dict[str, Any])
     vault_path = str(payload.get("vault_path") or "").strip()
     review_id = str(payload.get("review_id") or "").strip()
     job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
-    strategy = payload.get("strategy") if isinstance(payload.get("strategy"), dict) else {}
+    raw_strategy = payload.get("strategy")
+    strategy: dict[str, Any] = dict(raw_strategy) if isinstance(raw_strategy, dict) else {}
     interval_days = int(payload.get("interval_days") or 7)
     if not vault_path or not review_id or not job_id:
-        raise ValueError("Durable literature review update payload is missing vault_path, review_id, or job_id.")
+        raise ValueError(
+            "Durable literature review update payload is missing vault_path, review_id, or job_id."
+        )
     from backend.services import literature_service
 
-    literature_service.launch_review_update(Path(vault_path), review_id, job_id, strategy, interval_days=interval_days)
+    literature_service.launch_review_update(
+        Path(vault_path), review_id, job_id, strategy, interval_days=interval_days
+    )
     return True
 
 
 def _ensure_dispatchers() -> None:
     with _DISPATCHER_LOCK:
-        _DISPATCHERS.setdefault("notebook_ingest", DurableJobDispatcherContract(
-            job_type="notebook_ingest", provider="notebook", dispatch=_notebook_dispatcher,
-            model_call_budget=0,
-        ))
-        _DISPATCHERS.setdefault("notebook_analysis", DurableJobDispatcherContract(
-            job_type="notebook_analysis", provider="notebook", dispatch=_notebook_dispatcher,
-            model_call_budget=16,
-        ))
-        _DISPATCHERS.setdefault("reader_analysis", DurableJobDispatcherContract(
-            job_type="reader_analysis", provider="reader", dispatch=_reader_dispatcher,
-            model_call_budget=16,
-        ))
-        _DISPATCHERS.setdefault("academic_repository_sync", DurableJobDispatcherContract(
-            job_type="academic_repository_sync", provider="literature", dispatch=_literature_sync_dispatcher,
-            lease_seconds=3600, max_attempts=5, model_call_budget=0,
-        ))
-        _DISPATCHERS.setdefault("academic_review_update", DurableJobDispatcherContract(
-            job_type="academic_review_update", provider="literature", dispatch=_literature_review_dispatcher,
-            lease_seconds=3600, max_attempts=3, model_call_budget=0,
-        ))
+        _DISPATCHERS.setdefault(
+            "notebook_ingest",
+            DurableJobDispatcherContract(
+                job_type="notebook_ingest",
+                provider="notebook",
+                dispatch=_notebook_dispatcher,
+                model_call_budget=0,
+            ),
+        )
+        _DISPATCHERS.setdefault(
+            "notebook_analysis",
+            DurableJobDispatcherContract(
+                job_type="notebook_analysis",
+                provider="notebook",
+                dispatch=_notebook_dispatcher,
+                model_call_budget=16,
+            ),
+        )
+        _DISPATCHERS.setdefault(
+            "reader_analysis",
+            DurableJobDispatcherContract(
+                job_type="reader_analysis",
+                provider="reader",
+                dispatch=_reader_dispatcher,
+                model_call_budget=16,
+            ),
+        )
+        _DISPATCHERS.setdefault(
+            "academic_repository_sync",
+            DurableJobDispatcherContract(
+                job_type="academic_repository_sync",
+                provider="literature",
+                dispatch=_literature_sync_dispatcher,
+                lease_seconds=3600,
+                max_attempts=5,
+                model_call_budget=0,
+            ),
+        )
+        _DISPATCHERS.setdefault(
+            "academic_review_update",
+            DurableJobDispatcherContract(
+                job_type="academic_review_update",
+                provider="literature",
+                dispatch=_literature_review_dispatcher,
+                lease_seconds=3600,
+                max_attempts=3,
+                model_call_budget=0,
+            ),
+        )
 
 
 def dispatcher_contracts() -> list[dict[str, Any]]:
@@ -199,7 +257,8 @@ class DurableJobWorker:
         dispatched = 0
         for item in durable_job_queue.ready_jobs(limit=32):
             job_type = str(item.get("job_type") or "")
-            payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+            raw_payload = item.get("payload")
+            payload: dict[str, Any] = dict(raw_payload) if isinstance(raw_payload, dict) else {}
             with _DISPATCHER_LOCK:
                 contract = _DISPATCHERS.get(job_type)
             if contract is None:

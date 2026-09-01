@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import secrets
+from typing import Any, cast
 from urllib.parse import urlencode, urlparse
 
 from fastapi import APIRouter, Request, Depends
@@ -25,9 +26,30 @@ from backend.services.integration_manager import integration_manager
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/notion-oauth", tags=["Notion MCP OAuth"])
 
-_BASE = lambda: get_env("NOTION_MCP_BASE", "https://mcp.notion.com").rstrip("/")
-_REDIRECT = lambda: get_env("NOTION_OAUTH_REDIRECT_URI", "http://localhost:5002/api/notion-oauth/callback")
-_FRONTEND = lambda: get_env("FRONTEND_BASE_URL", "http://localhost:5173")
+def _base_url() -> str:
+    return str(get_env("NOTION_MCP_BASE", "https://mcp.notion.com")).rstrip("/")
+
+
+def _redirect_uri() -> str:
+    return str(
+        get_env(
+            "NOTION_OAUTH_REDIRECT_URI",
+            "http://localhost:5002/api/notion-oauth/callback",
+        )
+    )
+
+
+def _frontend_url() -> str:
+    return str(get_env("FRONTEND_BASE_URL", "http://localhost:5173"))
+
+
+def _stored_object(key: str) -> dict[str, Any]:
+    value = integration_manager.get_raw(key)
+    return cast(dict[str, Any], value) if isinstance(value, dict) else {}
+
+
+def _stored_object_value(value: object) -> dict[str, Any]:
+    return cast(dict[str, Any], value) if isinstance(value, dict) else {}
 
 # FIRST-CLASS secrets via IntegrationManager (shared lock + cache): keys
 # `notion_mcp` (token), `notion_mcp_client` (client_id DCR), `notion_mcp_pending` (PKCE).
@@ -50,12 +72,12 @@ def _frontend_base(request: Request) -> str:
                 return f"{u.scheme}://{u.netloc}"
         except Exception:  # noqa: BLE001
             pass
-    return _FRONTEND()
+    return _frontend_url()
 
 
-def _discover() -> dict:
+def _discover() -> dict[str, str]:
     """MCP OAuth server endpoints (well-known), with fallback to the known ones."""
-    base = _BASE()
+    base = _base_url()
     defaults = {"authorization_endpoint": f"{base}/authorize",
                 "token_endpoint": f"{base}/token",
                 "registration_endpoint": f"{base}/register"}
@@ -65,45 +87,50 @@ def _discover() -> dict:
             r = c.get(f"{base}/.well-known/oauth-authorization-server")
             r.raise_for_status()
             meta = r.json()
-        return {k: meta.get(k) or defaults[k] for k in defaults}
+        if not isinstance(meta, dict):
+            return defaults
+        return {key: str(meta.get(key) or defaults[key]) for key in defaults}
     except Exception:
         return defaults
 
 
 def _register_client(registration_endpoint: str) -> str:
     """Dynamic registration (caches the client_id in integrations.json to reuse it)."""
-    cached = (integration_manager.get_raw("notion_mcp_client") or {}).get("client_id")
+    cached = _stored_object("notion_mcp_client").get("client_id")
     if cached:
-        return cached
+        return str(cached)
     import httpx
     with httpx.Client(timeout=20) as c:
         r = c.post(registration_endpoint, json={
             "client_name": "Gnosi",
-            "redirect_uris": [_REDIRECT()],
+            "redirect_uris": [_redirect_uri()],
             "grant_types": ["authorization_code", "refresh_token"],
             "response_types": ["code"],
             "token_endpoint_auth_method": "none",
         })
         r.raise_for_status()
-        client_id = r.json().get("client_id")
+        payload = r.json()
+        client_id = payload.get("client_id") if isinstance(payload, dict) else None
+    if not client_id:
+        raise RuntimeError("Notion OAuth registration did not return a client_id")
     integration_manager.replace_key("notion_mcp_client", {"client_id": client_id})
-    return client_id
+    return str(client_id)
 
 
-def _pkce():
+def _pkce() -> tuple[str, str]:
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(48)).rstrip(b"=").decode()
     challenge = base64.urlsafe_b64encode(
         hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     return verifier, challenge
 
 
-@router.get("/status")
-async def status():
-    return {"connected": bool((integration_manager.get_raw("notion_mcp") or {}).get("token"))}
+@router.get("/status", response_model=None)
+async def status() -> dict[str, bool]:
+    return {"connected": bool(_stored_object("notion_mcp").get("token"))}
 
 
-@router.get("/login")
-async def login(request: Request):
+@router.get("/login", response_model=None)
+async def login(request: Request) -> RedirectResponse:
     front = _frontend_base(request)
     try:
         endpoints = _discover()
@@ -117,7 +144,7 @@ async def login(request: Request):
         params = {
             "response_type": "code",
             "client_id": client_id,
-            "redirect_uri": _REDIRECT(),
+            "redirect_uri": _redirect_uri(),
             "state": state,
             "code_challenge": challenge,
             "code_challenge_method": "S256",
@@ -128,13 +155,15 @@ async def login(request: Request):
         return RedirectResponse(url=f"{front}/?notion_mcp=error")
 
 
-@router.get("/callback")
-async def callback(request: Request):
+@router.get("/callback", response_model=None)
+async def callback(request: Request) -> RedirectResponse:
     code = request.query_params.get("code")
     state = request.query_params.get("state")
-    pend = (integration_manager.get_raw("notion_mcp_pending") or {}).get(state) if state else None
+    pending = _stored_object("notion_mcp_pending")
+    pend = pending.get(state) if state else None
+    pend = _stored_object_value(pend)
     # returns to the SAME frontend origin it was initiated from (saved at /login); fallback to env.
-    front = (pend or {}).get("frontend") or _FRONTEND()
+    front = str(pend.get("frontend") or _frontend_url())
     if not code or not pend:
         return RedirectResponse(url=f"{front}/?notion_mcp=error")
     try:
@@ -144,12 +173,13 @@ async def callback(request: Request):
             r = c.post(endpoints["token_endpoint"], data={
                 "grant_type": "authorization_code",
                 "code": code,
-                "redirect_uri": _REDIRECT(),
+                "redirect_uri": _redirect_uri(),
                 "client_id": pend["client_id"],
                 "code_verifier": pend["verifier"],
             }, headers={"Content-Type": "application/x-www-form-urlencoded"})
             r.raise_for_status()
-            tok = r.json()
+            payload = r.json()
+            tok = _stored_object_value(payload)
     except Exception as e:  # noqa: BLE001
         log.error(f"Notion MCP OAuth token exchange failed: {e}")
         return RedirectResponse(url=f"{front}/?notion_mcp=error")
@@ -169,8 +199,12 @@ async def callback(request: Request):
     return RedirectResponse(url=f"{front}/?notion_mcp=ok")
 
 
-@router.delete("/token", dependencies=[Depends(require_role("admin"))])
-async def disconnect():
+@router.delete(
+    "/token",
+    dependencies=[Depends(require_role("admin"))],
+    response_model=None,
+)
+async def disconnect() -> dict[str, str]:
     for k in ("notion_mcp", "notion_mcp_client", "notion_mcp_pending"):
         integration_manager.replace_key(k, {})
     return {"status": "success"}

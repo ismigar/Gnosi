@@ -16,13 +16,15 @@ Installation policy (applied in `plugin_catalog`/`plugin_system`):
 Key/sig format: base64 of the raw Ed25519 public key/signature (32/64 bytes).
 Store: `.gnosi/plugins_trust.json` = {"keys": {"<name>": "<pubkey_b64>"}}.
 """
+
 from __future__ import annotations
 
 import base64
 import json
 import threading
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -55,7 +57,7 @@ def generate_keypair() -> Dict[str, str]:
     """Generates an Ed25519 key pair. Returns {'private','public'} in base64.
 
     For authoring tools/tests. The private key must NEVER ship with Gnosi.
-    
+
     """
     priv = Ed25519PrivateKey.generate()
     raw_priv = priv.private_bytes_raw()
@@ -112,14 +114,18 @@ def add_trusted_key(config_dir: Path, name: str, public_key_b64: str) -> None:
         raise ValueError(f"clau pública Ed25519 invàlida: {e}") from e
     with _trust_lock:
         path = _trust_path(config_dir)
-        data = {"keys": {}}
+        data: dict[str, Any] = {"keys": {}}
         if path.exists():
             try:
-                data = json.loads(path.read_text(encoding="utf-8")) or {"keys": {}}
+                loaded: object = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    data = {str(key): value for key, value in loaded.items()}
             except Exception:  # noqa: BLE001
                 data = {"keys": {}}
-        data.setdefault("keys", {})
-        data["keys"][str(name)] = public_key_b64
+        raw_keys = data.get("keys")
+        keys = dict(raw_keys) if isinstance(raw_keys, Mapping) else {}
+        keys[str(name)] = public_key_b64
+        data["keys"] = keys
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 

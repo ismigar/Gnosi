@@ -1,29 +1,43 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/reader
+  - backend/domains/literature
+  - backend/domains/literature/review_logic.py
+  - backend/domains/literature/connectors
   - backend/api/reader.py
   - backend/models/reader.py
   - backend/models/pdf_annotation.py
   - backend/api/vault_routes.py
+  - backend/domains/vault/citations/exporting.py
+  - backend/domains/vault/citations/normalizers
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
+  - backend/services/lookup_normalizers.py
   - backend/services/literature_service.py
   - backend/services/literature_review_service.py
   - backend/services/literature_import_service.py
   - backend/services/literature_ai_service.py
+  - backend/services/references_io.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/pages/LiteraturePage.jsx
   - frontend/src/components/ResourcesPluginConfig.jsx
   - frontend/src/components/Vault/ZoteroReaderTab.jsx
 tests:
+  - backend/tests/test_reader_analysis_domain.py
+  - backend/tests/test_pr6_domain_facades.py
+  - backend/tests/test_vault_export_domain_contract.py
   - backend/tests/test_citation_key_and_pubmed.py
   - backend/tests/test_references_io.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_e2e_import_references_item_type.py
   - backend/tests/test_literature_models.py
   - backend/tests/test_academic_connectors.py
+  - backend/tests/test_academic_connectors_domain_contract.py
+  - backend/tests/test_lookup_normalizers.py
+  - backend/tests/test_html_meta_attr_order.py
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
@@ -32,19 +46,58 @@ tests:
 
 # Lector, referencias y citas
 
+Las rutas, el almacenamiento, el análisis y las fuentes del Reader viven ahora
+en `backend/domains/reader/`; los repositorios, la búsqueda, la sincronización y
+el almacenamiento bibliográfico, en `backend/domains/literature/`. Los módulos
+anteriores permanecen como fachadas compatibles.
+
+Las rutas HTTP, los modelos canónicos y los servicios de revisión sistemática
+están tipados estrictamente. El recuento PRISMA, las transiciones de cribado, la
+evidencia de acceso abierto y las exportaciones CSV/JSON/Markdown/SVG viven en
+el dominio puro `review_logic.py`; las funciones históricas siguen como fachadas.
+
 ## Responsabilidad
 
 Este dominio combina la lectura de feed/newsletter con un gestor de referencia compatible con Zotero, renderizado de citas CSL, identificador e importación web, lectura PDF/EPUB y anotaciones que pueden convertirse en evidencia citable.
 
 ## Ingestión de referencia
 
+Crossref, Open Library, arXiv, PubMed y los metadatos HTML tienen normalizadores
+tipados separados en `backend/domains/vault/citations/normalizers/`. Conservan
+los payloads canónicos de Zotero y el comportamiento de función pura, mientras
+`backend/services/lookup_normalizers.py` sigue siendo la fachada compatible.
+
 Las referencias ingresan a través de DOI, ISBN, arXiv, PMID, BibTeX, RIS, archivos o URLs web. Los solucionadores de identificadores y el servidor de traducción Zotero producen metadatos específicos del proveedor. Normalizadores lo asignan al esquema de referencia configurado, generan una clave de cita estable, deduplican candidatos y escriben un registro de Vault.
 
+`backend/services/references_io.py` es el límite tipado y determinista de
+BibTeX/RIS. Sus pequeños ayudantes de análisis, normalización, mapeo de campos y
+serialización preservan el orden, el escape, la resolución del tipo y el contrato
+público de importación/exportación, sin persistencia ni red ocultas.
+
+La orquestación de consulta, que es solo de lectura, reside en el dominio de citas,
+mantiene la prioridad DOI → arXiv → PMID → ISBN → URL y hace pasar las URL del
+usuario por el descargador protegido contra SSRF antes de sugerir cualquier campo.
+La tabla de Recursos designada se lee desde una única configuración canónica;
+solo los vaults heredados que nunca se hayan configurado pueden adoptar
+automáticamente la primera tabla con Citation Key, bajo el mismo bloqueo que Ajustes.
+
 Translation-server es un sidecar opcional. La operación nativa puede ejecutarse sin ella; los solucionadores específicos de identificador y las referencias existentes continúan funcionando. Los fallos de traducción web devuelven errores procesables en lugar de un registro vacío exitoso.
+
+`citations/pdf_fallback.py` deriva un registro citable de los metadatos PDF cuando
+falla la resolución de identificadores. `citations/web_capture.py` selecciona y
+mapea resultados Zotero, y `platform/translation_server.py` gestiona el transporte HTTP.
 
 ## Descubrimiento académico federal
 
 El complemento de recursos incorporado posee configuración de repositorio mientras `/api/vault/reference-table` sigue siendo la única fuente de verdad para la tabla de recursos objetivo. `/literature` ejecuta cada conector seleccionado de forma independiente y emite resultados parciales; una cuota o fallo del proveedor se adjunta a esa fuente sin descartar resultados saludables.
+
+`backend/domains/literature/connectors/` gestiona el transporte HTTPS acotado,
+la auditoría de solicitudes, la normalización canónica, OAI-PMH y JSON
+personalizado, los grafos de citas y los adaptadores por familia de proveedores.
+`backend/services/academic_connectors.py` es solo una fachada de compatibilidad.
+El puerto tipado resuelve los colaboradores de la fachada en cada llamada para
+que pruebas e integraciones puedan sustituir transporte, validación, parsers y
+dispatch sin duplicar estado mutable.
 
 `AcademicWork` Las uniones deterministas utilizan, en orden, DOI normalizado, PMID o PMCID, identificador arXiv sin versión, ISBN-13, y título normalizado más año más apellido de primer autor. Un partido de título borroso es sólo una advertencia. Las obras fusionadas conservan cada ocurrencia de fuente, ubicación abierta, número de citas específico del proveedor, procedencia de campo y variante en conflicto.
 
@@ -71,6 +124,11 @@ flowchart LR
 ```
 
 Los valores CSL se derivan de la materia frontal de referencia utilizando asignaciones de campo explícitas. Listas de nombres, fechas, tipos de elementos, BibTeX/LaTeX escapados y Zotero `extra` Los metadatos requieren normalización. El esquema fijado protege los tipos y campos de elementos compatibles de la deriva de aguas arriba.
+
+`backend/domains/vault/citations/exporting.py` gestiona la limpieza del Markdown,
+el subconjunto de citas, los marcadores de bibliografía, la ejecución de Pandoc
+y el empaquetado de la descarga. La ruta de compatibilidad conserva su firma
+pública e inyecta los puertos de archivos, CSL y procesos.
 
 ## Lector y anotaciones
 

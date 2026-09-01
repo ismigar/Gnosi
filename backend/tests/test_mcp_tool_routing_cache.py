@@ -8,7 +8,7 @@ import asyncio
 
 import pytest
 
-from backend.mcp.client import MultiServerMCPClient
+from backend.mcp.client import DockerMCPClient, MultiServerMCPClient
 
 
 class _FakeClient:
@@ -78,3 +78,16 @@ def test_stale_server_in_cache_triggers_refresh():
     asyncio.run(mc.call_tool("search", {}))
     assert mc._state["n"] == 1
     assert len(mc.clients["s1"].calls) == 1
+
+
+def test_list_tools_rejects_non_object_response(monkeypatch):
+    client = DockerMCPClient("invalid", ["unused"])
+
+    async def fake_send_request(method, params=None, timeout=30.0):
+        assert method == "tools/list"
+        return []
+
+    monkeypatch.setattr(client, "send_request", fake_send_request)
+
+    with pytest.raises(RuntimeError, match="invalid tools/list response"):
+        asyncio.run(client.list_tools())

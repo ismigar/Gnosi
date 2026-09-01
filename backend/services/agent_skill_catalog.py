@@ -494,10 +494,10 @@ def _register_builtin_gnosi_catalog() -> None:
     )
 
     registrations = core_gnosi_registrations()
-    for descriptor, handler in registrations:
-        _TOOL_CATALOG.register_core(descriptor, handler)
-    for descriptor in core_gnosi_skill_descriptors(registrations):
-        _SKILL_CATALOG.register_core(descriptor)
+    for tool_descriptor, handler in registrations:
+        _TOOL_CATALOG.register_core(tool_descriptor, handler)
+    for skill_descriptor in core_gnosi_skill_descriptors(registrations):
+        _SKILL_CATALOG.register_core(skill_descriptor)
     capability_platform_names = {
         "batch_mail_action",
         "calendar_free_busy",

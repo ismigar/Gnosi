@@ -1,4 +1,5 @@
 """Unit tests for the protected LLM Wiki agent lifecycle."""
+
 from __future__ import annotations
 
 import pytest
@@ -49,19 +50,24 @@ def test_ensure_agent_uses_active_model_and_is_idempotent():
     profile["persona"] = "Instruccions personals"
     repeated, changed = ensure_agent(created)
     assert changed is False
-    assert next(agent for agent in repeated["agents"] if agent["id"] == LLM_WIKI_AGENT_ID)["persona"] == "Instruccions personals"
+    assert (
+        next(agent for agent in repeated["agents"] if agent["id"] == LLM_WIKI_AGENT_ID)["persona"]
+        == "Instruccions personals"
+    )
 
 
 def test_ensure_agent_migrates_skills_and_resumes_without_overwriting_edits():
     current = {
-        "agents": [{
-            **_configured_agent(LLM_WIKI_AGENT_ID),
-            "managed_by": LLM_WIKI_AGENT_MARKER,
-            "persona": "Custom persona",
-            "plugin_suspended": True,
-            "plugin_enabled_before_suspend": True,
-            "enabled": False,
-        }],
+        "agents": [
+            {
+                **_configured_agent(LLM_WIKI_AGENT_ID),
+                "managed_by": LLM_WIKI_AGENT_MARKER,
+                "persona": "Custom persona",
+                "plugin_suspended": True,
+                "plugin_enabled_before_suspend": True,
+                "enabled": False,
+            }
+        ],
     }
 
     updated, changed = ensure_agent(current)
@@ -78,46 +84,48 @@ def test_ensure_agent_migrates_skills_and_resumes_without_overwriting_edits():
 
 def test_ensure_agent_replaces_only_the_synthetic_legacy_skill_bundle():
     legacy = {
-        "agents": [{
-            **_configured_agent(LLM_WIKI_AGENT_ID),
-            "managed_by": LLM_WIKI_AGENT_MARKER,
-            "persona": "Keep me",
-            "skill_ids": ["core.legacy-default-v1"],
-        }],
+        "agents": [
+            {
+                **_configured_agent(LLM_WIKI_AGENT_ID),
+                "managed_by": LLM_WIKI_AGENT_MARKER,
+                "persona": "Keep me",
+                "skill_ids": ["core.legacy-default-v1"],
+            }
+        ],
     }
 
     migrated, changed = ensure_agent(legacy)
 
     assert changed is True
     assert migrated["agents"][0]["skill_ids"] == LLM_WIKI_SKILL_IDS
-    assert migrated["agents"][0]["required_skill_ids"] == (
-        LLM_WIKI_REQUIRED_SKILL_IDS
-    )
+    assert migrated["agents"][0]["required_skill_ids"] == (LLM_WIKI_REQUIRED_SKILL_IDS)
     assert migrated["agents"][0]["persona"] == "Keep me"
 
     customized = {
-        "agents": [{
-            **_configured_agent(LLM_WIKI_AGENT_ID),
-            "managed_by": LLM_WIKI_AGENT_MARKER,
-            "skill_ids": ["user.my-own-skill"],
-        }],
+        "agents": [
+            {
+                **_configured_agent(LLM_WIKI_AGENT_ID),
+                "managed_by": LLM_WIKI_AGENT_MARKER,
+                "skill_ids": ["user.my-own-skill"],
+            }
+        ],
     }
     migrated_custom, changed_custom = ensure_agent(customized)
 
     assert changed_custom is True
     assert migrated_custom["agents"][0]["skill_ids"] == ["user.my-own-skill"]
-    assert migrated_custom["agents"][0]["required_skill_ids"] == (
-        LLM_WIKI_REQUIRED_SKILL_IDS
-    )
+    assert migrated_custom["agents"][0]["required_skill_ids"] == (LLM_WIKI_REQUIRED_SKILL_IDS)
 
 
 def test_ensure_agent_adds_vault_tools_to_the_previous_wiki_default():
     previous_default = {
-        "agents": [{
-            **_configured_agent(LLM_WIKI_AGENT_ID),
-            "managed_by": LLM_WIKI_AGENT_MARKER,
-            "skill_ids": LEGACY_LLM_WIKI_SKILL_IDS,
-        }],
+        "agents": [
+            {
+                **_configured_agent(LLM_WIKI_AGENT_ID),
+                "managed_by": LLM_WIKI_AGENT_MARKER,
+                "skill_ids": LEGACY_LLM_WIKI_SKILL_IDS,
+            }
+        ],
     }
 
     migrated, changed = ensure_agent(previous_default)
@@ -147,10 +155,12 @@ def test_reserved_id_owned_by_user_is_never_overwritten_or_removed():
 
 
 def test_remove_agent_only_removes_managed_profile_and_repairs_active_selection():
-    ai, _ = ensure_agent({
-        "active_agent_id": "active",
-        "agents": [_configured_agent("active"), _configured_agent("backup")],
-    })
+    ai, _ = ensure_agent(
+        {
+            "active_agent_id": "active",
+            "agents": [_configured_agent("active"), _configured_agent("backup")],
+        }
+    )
     ai["active_agent_id"] = LLM_WIKI_AGENT_ID
 
     updated, changed = remove_agent(ai)
@@ -161,21 +171,19 @@ def test_remove_agent_only_removes_managed_profile_and_repairs_active_selection(
 
 
 def test_suspend_agent_preserves_profile_and_reactivation_restores_enabled_state():
-    ai, _ = ensure_agent({
-        "active_agent_id": "active",
-        "agents": [_configured_agent("active")],
-    })
-    ai["active_agent_id"] = LLM_WIKI_AGENT_ID
-    profile = next(
-        agent for agent in ai["agents"] if agent["id"] == LLM_WIKI_AGENT_ID
+    ai, _ = ensure_agent(
+        {
+            "active_agent_id": "active",
+            "agents": [_configured_agent("active")],
+        }
     )
+    ai["active_agent_id"] = LLM_WIKI_AGENT_ID
+    profile = next(agent for agent in ai["agents"] if agent["id"] == LLM_WIKI_AGENT_ID)
     profile["persona"] = "Custom persona"
 
     suspended, changed = suspend_agent(ai)
     suspended_profile = next(
-        agent
-        for agent in suspended["agents"]
-        if agent["id"] == LLM_WIKI_AGENT_ID
+        agent for agent in suspended["agents"] if agent["id"] == LLM_WIKI_AGENT_ID
     )
 
     assert changed is True
@@ -185,9 +193,7 @@ def test_suspend_agent_preserves_profile_and_reactivation_restores_enabled_state
     assert suspended["active_agent_id"] == "active"
 
     resumed, resumed_changed = ensure_agent(suspended)
-    resumed_profile = next(
-        agent for agent in resumed["agents"] if agent["id"] == LLM_WIKI_AGENT_ID
-    )
+    resumed_profile = next(agent for agent in resumed["agents"] if agent["id"] == LLM_WIKI_AGENT_ID)
     assert resumed_changed is True
     assert resumed_profile["enabled"] is True
     assert resumed_profile["persona"] == "Custom persona"
@@ -208,23 +214,31 @@ def test_generic_settings_save_cannot_remove_or_unmanage_the_profile():
         validate_agent_preserved(current, edited)
 
 
-def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(monkeypatch):
+def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(
+    monkeypatch,
+    tmp_path,
+):
     """The endpoint must not turn off the feature before the explicit confirm."""
     import asyncio
     from types import SimpleNamespace
 
     from backend.api import vault_routes as vr
     from backend.scheduler import manager as scheduler_module
+    from backend.services.context_vars import active_vault_path
 
     state = {"disabled": [], "settings": {}, "granted": {}}
     transitions = []
     scheduler_updates = []
     monkeypatch.setattr(vr, "_load_plugins_state", lambda: dict(state))
-    monkeypatch.setattr(vr, "_save_plugins_state", lambda next_state: state.update(next_state) or dict(state))
+    monkeypatch.setattr(
+        vr, "_save_plugins_state", lambda next_state: state.update(next_state) or dict(state)
+    )
     monkeypatch.setattr(vr, "_reconcile_plugin_ai_contributions", lambda: {})
     monkeypatch.setattr(
         "backend.services.llm_wiki_agent.transition_agent",
-        lambda enabled: transitions.append(enabled) or {"agent_id": LLM_WIKI_AGENT_ID, "agent_changed": True},
+        lambda enabled: (
+            transitions.append(enabled) or {"agent_id": LLM_WIKI_AGENT_ID, "agent_changed": True}
+        ),
     )
     monkeypatch.setattr(vr, "_plugins_mutation_lock", asyncio.Lock())
     monkeypatch.setattr(
@@ -237,7 +251,9 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(monkeyp
         "update_task",
         lambda name, **fields: scheduler_updates.append((name, fields)),
     )
-    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(agent_cache={"cached": object()})))
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(agent_cache={"cached": object()}))
+    )
 
     async def scenario():
         with pytest.raises(HTTPException) as generic_error:
@@ -246,45 +262,56 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(monkeyp
 
         with pytest.raises(HTTPException) as error:
             await vr.set_llm_wiki_lifecycle(
-                vr.LlmWikiLifecycleRequest(enabled=False), request,
+                vr.LlmWikiLifecycleRequest(enabled=False),
+                request,
             )
         assert error.value.status_code == 409
         assert transitions == []
 
         result = await vr.set_llm_wiki_lifecycle(
-            vr.LlmWikiLifecycleRequest(enabled=False, confirm_disable=True), request,
+            vr.LlmWikiLifecycleRequest(enabled=False, confirm_disable=True),
+            request,
         )
         assert result["enabled"] is False
 
-    asyncio.run(scenario())
+    vault_token = active_vault_path.set(tmp_path)
+    try:
+        asyncio.run(scenario())
+    finally:
+        active_vault_path.reset(vault_token)
     assert "llm-wiki" in state["disabled"]
     assert state["enabled_builtin"] == ["resources"]
     assert transitions == [False]
-    assert scheduler_updates == [(
-        "llm_wiki_maintenance",
-        {"interval_minutes": 1440.0, "enabled": False},
-    )]
+    assert scheduler_updates == [
+        (
+            "llm_wiki_maintenance",
+            {"interval_minutes": 1440.0, "enabled": False},
+        )
+    ]
     assert request.app.state.agent_cache == {}
 
 
-def test_agent_default_never_falls_back_to_an_unrelated_model(monkeypatch):
+def test_agent_default_never_falls_back_to_an_unrelated_model(monkeypatch, tmp_path):
     """A selected agent either uses its assigned model or remains unavailable."""
     import asyncio
 
     from backend.agent import factory
+    from backend.services.context_vars import active_vault_path
 
     monkeypatch.setattr(
         factory,
         "load_params",
         lambda strict_env=False: {
             "ai": {
-                "agents": [{
-                    "id": "gnosy",
-                    "name": "Gnosy",
-                    "provider": "missing",
-                    "model": "missing-model",
-                    "enabled": True,
-                }],
+                "agents": [
+                    {
+                        "id": "gnosy",
+                        "name": "Gnosy",
+                        "provider": "missing",
+                        "model": "missing-model",
+                        "enabled": True,
+                    }
+                ],
                 "providers": {},
             },
         },
@@ -297,9 +324,13 @@ def test_agent_default_never_falls_back_to_an_unrelated_model(monkeypatch):
         lambda: (_ for _ in ()).throw(AssertionError("agent_default must not fall back")),
     )
 
-    workflow, selection = asyncio.run(
-        factory.create_agent_workflow([], object(), agent_id="gnosy"),
-    )
+    vault_token = active_vault_path.set(tmp_path)
+    try:
+        workflow, selection = asyncio.run(
+            factory.create_agent_workflow([], object(), agent_id="gnosy"),
+        )
+    finally:
+        active_vault_path.reset(vault_token)
 
     assert workflow is None
     assert selection == {

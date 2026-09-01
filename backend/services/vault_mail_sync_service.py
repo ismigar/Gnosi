@@ -2,6 +2,7 @@ import logging
 import base64
 import yaml
 from pathlib import Path
+from typing import Any
 from backend.services.google_mail_service import get_gmail_service
 from backend.config.app_config import load_params
 from backend.utils.safe_io import safe_write_text
@@ -36,7 +37,7 @@ _CATEGORY_LABEL_MAP = {
 
 
 class VaultMailSyncService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.config = load_params()
         raw_vault = self.config.paths.get("VAULT")
         self.vault_path = Path(raw_vault) if raw_vault else None
@@ -47,7 +48,7 @@ class VaultMailSyncService:
             except Exception:
                 pass
 
-    def sync_emails(self, email_account: str, limit: int = 20):
+    def sync_emails(self, email_account: str, limit: int = 20) -> int:
         """Syncs recent emails from Gmail (INBOX, SENT, DRAFTS, SPAM) to the Vault."""
         from backend.services.integration_manager import integration_manager
         integrations = integration_manager.get_all_safe()
@@ -80,11 +81,20 @@ class VaultMailSyncService:
 
         return total_synced
 
-    def _sync_single_message(self, service, msg_id: str, email_account: str, default_type: str) -> bool:
+    def _sync_single_message(
+        self,
+        service: Any,
+        msg_id: str,
+        email_account: str,
+        default_type: str,
+    ) -> bool:
         """Syncs a single Gmail message to .md (+ optional .html) files in the Vault."""
         try:
             # Fast duplicate check by msg_id prefix in filename
-            existing = list(self.mail_folder.glob(f"{msg_id}_*.md"))
+            mail_folder = self.mail_folder
+            if mail_folder is None:
+                raise RuntimeError("Vault Mail folder is not configured")
+            existing = list(mail_folder.glob(f"{msg_id}_*.md"))
             if existing:
                 return False
 
@@ -93,8 +103,15 @@ class VaultMailSyncService:
             payload = msg.get('payload', {})
             headers = payload.get('headers', [])
 
-            def _header(name):
-                return next((h['value'] for h in headers if h['name'].lower() == name.lower()), "")
+            def _header(name: str) -> str:
+                return next(
+                    (
+                        str(header.get("value") or "")
+                        for header in headers
+                        if str(header.get("name") or "").lower() == name.lower()
+                    ),
+                    "",
+                )
 
             subject = _header('Subject') or "Untitled"
             sender  = _header('From')    or "Unknown"
@@ -121,7 +138,7 @@ class VaultMailSyncService:
             # Build filename
             clean = "".join(c for c in subject if c.isalnum() or c in (' ', '-', '_')).strip()[:50]
             filename = f"{msg_id}_{clean}.md"
-            file_path = self.mail_folder / filename
+            file_path = mail_folder / filename
 
             def _sanitize(val: str) -> str:
                 return val.replace('"', '\\"') if isinstance(val, str) else val
@@ -166,7 +183,7 @@ class VaultMailSyncService:
     # Helpers                                                              #
     # ------------------------------------------------------------------ #
 
-    def _extract_text(self, payload) -> str:
+    def _extract_text(self, payload: dict[str, Any]) -> str:
         """Recursively extracts text/plain body."""
         if 'parts' in payload:
             for part in payload['parts']:
@@ -179,7 +196,7 @@ class VaultMailSyncService:
                 return base64.urlsafe_b64decode(data).decode('utf-8', errors='replace')
         return ""
 
-    def _extract_html(self, payload) -> str:
+    def _extract_html(self, payload: dict[str, Any]) -> str:
         """Recursively extracts text/html body."""
         if 'parts' in payload:
             for part in payload['parts']:
@@ -192,7 +209,7 @@ class VaultMailSyncService:
                 return base64.urlsafe_b64decode(data).decode('utf-8', errors='replace')
         return ""
 
-    def _has_attachments(self, payload) -> bool:
+    def _has_attachments(self, payload: dict[str, Any]) -> bool:
         """Returns True if the message has any non-text attachments."""
         mime = payload.get('mimeType', '')
         if mime not in ('text/plain', 'text/html', '') and payload.get('body', {}).get('attachmentId'):

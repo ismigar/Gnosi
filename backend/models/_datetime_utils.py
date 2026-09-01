@@ -11,10 +11,19 @@ By convention, every `default=lambda: datetime.now(timezone.utc)`
 in the repo stores UTC; for old naive entries we assume this
 convention and attach `tzinfo=UTC` to them before serializing.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, overload
+
+
+@overload
+def normalize_utc(v: None) -> None: ...
+
+
+@overload
+def normalize_utc(v: datetime) -> str: ...
 
 
 def normalize_utc(v: Optional[datetime]) -> Optional[str]:
@@ -23,7 +32,7 @@ def normalize_utc(v: Optional[datetime]) -> Optional[str]:
     - `None` → `None` (`Optional` fields).
     - Naive datetime → assumed as UTC and serialized with `+00:00`.
     - Aware datetime → serialized as-is.
-    
+
     """
     if v is None:
         return None

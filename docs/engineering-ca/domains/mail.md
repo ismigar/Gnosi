@@ -1,16 +1,19 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/mail_routes.py
   - backend/models/mail.py
   - backend/services/hybrid_mail_service.py
+  - backend/services/google_mail_service.py
+  - backend/services/microsoft_mail_service.py
   - backend/services/mail_ingester.py
   - frontend/src/pages/MailPage.jsx
   - frontend/src/components/Mail
 tests:
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
+  - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
@@ -25,6 +28,11 @@ El correu integra els comptes IMAP/ MTP, indexat de missatges locals, carpetes, 
 ## Sincronització
 
 Els programes d' integració del compte descriuen les referències de protocol i OAuth/credial. Una sincronització completa o incremental llegeix els missatges del proveïdor, l' identificador normalitza i el contingut MIME, i escriu files d' índex locals. Els treballadors IMAP tenen una connexió per compte i desencadenen la sincronització incremental quan el servidor anuncia canvis.
+
+Els adaptadors de Google i Microsoft exposen els mateixos límits tipats de
+missatges, adjunts, esborranys, etiquetes i enviament. Els payloads dinàmics dels
+SDK es validen dins de cada adaptador; les úniques excepcions locals de tipatge
+són les crides exactes de tercers sense stubs, mai l'API de servei de Gnosi.
 
 La ingestió usa punts de desat de manera que un missatge incorrecte no pot desfer els missatges anteriors. El missatge i la identitat dels fils han de romandre estables a través de les sincronitzacions. Els noms de les carpetes són valors dels proveïdors; les carpetes semàntices conegudes de la IU sense canviar els valors de comparació persisteix.
 
@@ -41,6 +49,11 @@ flowchart LR
 ```
 
 HTML està salititzat abans de renderitzar. Les imatges CID inlinees es resolen contra la part MIME correcta i conservades quan el contingut citat s' inclou en respostes. Les imatges remotes i els adjunts romandran explícites en comptes d' accedir a les rutes locals.
+
+La frontera d'imatges inline utilitza descriptors MIME tipats i una arrel
+`Message` comuna per als arbres de text, related i mixed. Només accepta payloads
+descodificats en bytes, normalitza tipus de contingut opcionals i conserva els
+URL dels assets si no hi ha Vault actiu o el fitxer no està materialitzat.
 
 ## Compon i enviï
 

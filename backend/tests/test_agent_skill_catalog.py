@@ -39,6 +39,7 @@ from backend.services.user_skill_store import (
     UserSkillConflictError,
     UserSkillStore,
 )
+from backend.services.context_vars import active_vault_path
 
 
 def _core_origin():
@@ -145,11 +146,15 @@ def test_descriptor_accepts_governed_policy_for_each_effect(
     assert descriptor.effects == [effect]
 
 
-def test_capability_platform_domain_tools_are_least_privilege():
-    tools = {
-        descriptor.id: descriptor
-        for descriptor in agent_skill_catalog_module.get_tool_catalog().list()
-    }
+def test_capability_platform_domain_tools_are_least_privilege(tmp_path: Path):
+    token = active_vault_path.set(tmp_path)
+    try:
+        tools = {
+            descriptor.id: descriptor
+            for descriptor in agent_skill_catalog_module.get_tool_catalog().list()
+        }
+    finally:
+        active_vault_path.reset(token)
     reply = tools["core.gnosi.reply-mail-message"]
     assert reply.confirmation == ConfirmationPolicy.ALWAYS
     assert ToolEffect.EXTERNAL_WRITE in reply.effects

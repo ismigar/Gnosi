@@ -1,8 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
+  - backend/services/active_vault_middleware.py
   - backend/services/context_vars.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
@@ -11,6 +12,7 @@ source_paths:
   - frontend/src/index.css
 tests:
   - backend/tests/test_auth_central_gate.py
+  - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -39,6 +41,12 @@ sequenceDiagram
 Le mode personnel peut résoudre un utilisateur efficace local sans connexion. Le mode organisation nécessite une session valide ou un mécanisme de porteur accepté. Le moteur de commande est le propriétaire de la décision; le portail d'authentification frontal améliore UX mais n'est pas une limite de sécurité.
 
 Les variables de contexte transportent la voûte active à travers les appels de service nichés sans transformer le chemin en un réglage mutable global. Le code en dehors d'une requête doit fournir une voûte explicite ou utiliser le chemin de résolution par défaut documenté.
+
+## Routage par Vault
+
+`ActiveVaultMiddleware` résout d'abord la route canonique puis applique la
+priorité en-tête → requête → cookie. Des helpers typés partagent cette résolution
+entre HTTP et WebSocket, et le contexte est toujours restauré à la fin.
 
 ## Flux de configuration
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 import shutil
@@ -11,7 +12,8 @@ import uuid
 from contextlib import AbstractContextManager, closing
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from types import TracebackType
+from typing import Any, Literal, TextIO, cast
 
 from backend.utils.safe_io import safe_write_json
 
@@ -63,42 +65,51 @@ def default_journal_path(source: Path, destination: Path) -> Path:
     return destination.parent / f".gnosi-data-migration-{digest}.json"
 
 
-class _JournalLock(AbstractContextManager):
-    def __init__(self, journal_path: Path):
-        self.path = journal_path.with_suffix(journal_path.suffix + ".lock")
-        self.handle = None
+class _JournalLock(AbstractContextManager["_JournalLock"]):
+    def __init__(self, journal_path: Path) -> None:
+        self.path: Path = journal_path.with_suffix(journal_path.suffix + ".lock")
+        self.handle: TextIO | None = None
 
-    def __enter__(self):
+    @staticmethod
+    def _windows_lock(handle: TextIO, mode_name: str) -> None:
+        windows_api = cast(Any, importlib.import_module("msvcrt"))
+        windows_api.locking(handle.fileno(), getattr(windows_api, mode_name), 1)
+
+    def __enter__(self) -> _JournalLock:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.handle = self.path.open("a+", encoding="utf-8")
+        handle = self.path.open("a+", encoding="utf-8")
+        self.handle = handle
         try:
             if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(self.handle.fileno(), msvcrt.LK_NBLCK, 1)
+                self._windows_lock(handle, "LK_NBLCK")
             else:
                 import fcntl
 
-                fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except (OSError, BlockingIOError) as exc:
-            self.handle.close()
+            handle.close()
             raise DataMigrationError(f"Another migration holds {self.path}") from exc
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.handle is not None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> Literal[False]:
+        del exc_type, exc_value, traceback
+        handle = self.handle
+        if handle is not None:
             try:
                 if os.name == "nt":
-                    import msvcrt
-
-                    self.handle.seek(0)
-                    msvcrt.locking(self.handle.fileno(), msvcrt.LK_UNLCK, 1)
+                    handle.seek(0)
+                    self._windows_lock(handle, "LK_UNLCK")
                 else:
                     import fcntl
 
-                    fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
             finally:
-                self.handle.close()
+                handle.close()
         return False
 
 
@@ -142,7 +153,9 @@ def verify_sqlite_databases(root: Path, *, checkpoint: bool) -> list[dict[str, A
             with closing(sqlite3.connect(str(path), timeout=10)) as connection:
                 checkpoint_result = None
                 if checkpoint:
-                    checkpoint_result = list(connection.execute("PRAGMA wal_checkpoint(TRUNCATE)"))[0]
+                    checkpoint_result = list(connection.execute("PRAGMA wal_checkpoint(TRUNCATE)"))[
+                        0
+                    ]
                     if checkpoint_result[0] != 0:
                         raise DataMigrationError(
                             f"SQLite WAL remains busy for {relative}: {checkpoint_result}"
@@ -221,9 +234,7 @@ def _verify_inventory(expected: dict[str, Any], actual: dict[str, Any]) -> None:
         target_item = actual[relative]
         for field in ("kind", "size", "sha256", "target"):
             if field in source_item and source_item[field] != target_item.get(field):
-                raise DataMigrationError(
-                    f"Inventory mismatch for {relative}: {field} differs"
-                )
+                raise DataMigrationError(f"Inventory mismatch for {relative}: {field} differs")
 
 
 def _empty_directory(path: Path) -> bool:
@@ -279,7 +290,7 @@ def _restore_displaced(journal: dict[str, Any], destination: Path) -> None:
         os.replace(displaced, destination)
 
 
-def _new_journal(source: Path, destination: Path, method: str) -> dict:
+def _new_journal(source: Path, destination: Path, method: str) -> dict[str, Any]:
     migration_id = uuid.uuid4().hex[:16]
     staging = (
         destination.parent / f".{destination.name}.gnosi-migration-{migration_id}.staging"
@@ -300,6 +311,14 @@ def _new_journal(source: Path, destination: Path, method: str) -> dict:
         "destination_device": destination.parent.stat().st_dev,
         "events": [],
     }
+
+
+def _load_journal(journal_file: Path) -> dict[str, Any]:
+    """Load one journal and reject non-object JSON before field access."""
+    loaded: object = json.loads(journal_file.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise DataMigrationError(f"Migration journal is not an object: {journal_file}")
+    return {str(key): value for key, value in loaded.items()}
 
 
 def plan_data_migration(
@@ -328,6 +347,127 @@ def plan_data_migration(
     }
 
 
+def _load_or_create_journal(
+    journal_file: Path,
+    source: Path,
+    destination: Path,
+    *,
+    force_copy: bool,
+) -> dict[str, Any]:
+    """Load a resumable journal or create the initial migration plan."""
+    if not journal_file.exists():
+        plan = plan_data_migration(source, destination, force_copy=force_copy)
+        created_journal = _new_journal(source, destination, str(plan["method"]))
+        _save_journal(journal_file, created_journal)
+        return created_journal
+
+    journal = _load_journal(journal_file)
+    if journal.get("source") != str(source) or journal.get("destination") != str(destination):
+        raise DataMigrationError("Existing migration journal targets different paths")
+    if journal.get("status") == "failed":
+        journal.setdefault("failures", []).append(
+            {
+                "at": journal.get("updated_at"),
+                "error": journal.get("error"),
+                "rollback": journal.get("rollback"),
+            }
+        )
+        journal.pop("error", None)
+        journal.pop("rollback", None)
+    return journal
+
+
+def _verify_source(
+    journal_file: Path,
+    journal: dict[str, Any],
+    source: Path,
+    *,
+    hashes: bool,
+) -> None:
+    """Checkpoint and inventory a source that is still available."""
+    if not source.exists():
+        return
+    _event(journal_file, journal, "verifying_source", "checkpoint and integrity checks")
+    journal["source_sqlite"] = verify_sqlite_databases(source, checkpoint=True)
+    journal["source_inventory"] = inventory_tree(source, hashes=hashes)
+    _save_journal(journal_file, journal, "source_verified")
+
+
+def _rename_into_destination(
+    journal_file: Path,
+    journal: dict[str, Any],
+    source: Path,
+    destination: Path,
+) -> None:
+    """Resume or perform the same-volume atomic rename."""
+    if not source.exists():
+        if not destination.exists():
+            raise DataMigrationError("Neither source nor destination is available for resume")
+        return
+    if destination.exists() and not _empty_directory(destination):
+        raise DataMigrationError(f"Destination is not empty: {destination}")
+    _prepare_destination(journal_file, journal, destination)
+    _event(journal_file, journal, "moving", "same-volume atomic rename")
+    os.replace(source, destination)
+
+
+def _copy_into_destination(
+    journal_file: Path,
+    journal: dict[str, Any],
+    source: Path,
+    destination: Path,
+) -> None:
+    """Copy through verified staging while preserving the source."""
+    if not source.exists():
+        raise DataMigrationError("Cross-volume migration requires the preserved source")
+    staging = Path(journal["staging"])
+    _event(journal_file, journal, "copying", "copying into verified staging")
+    _copy_tree(source, staging)
+    staging_inventory = inventory_tree(staging, hashes=True)
+    _verify_inventory(journal["source_inventory"], staging_inventory)
+    verify_sqlite_databases(staging, checkpoint=False)
+    if destination.exists():
+        if not _empty_directory(destination):
+            if destination != staging:
+                raise DataMigrationError("Destination already contains data")
+            return
+        _prepare_destination(journal_file, journal, destination)
+    os.replace(staging, destination)
+
+
+def _verify_destination(
+    journal_file: Path,
+    journal: dict[str, Any],
+    source: Path,
+    destination: Path,
+    *,
+    hashes: bool,
+) -> None:
+    """Verify the final tree and mark the migration complete."""
+    _event(journal_file, journal, "verifying_destination", "final inventory and SQLite checks")
+    destination_inventory = inventory_tree(destination, hashes=hashes)
+    _verify_inventory(journal["source_inventory"], destination_inventory)
+    journal["destination_sqlite"] = verify_sqlite_databases(destination, checkpoint=False)
+    journal["source_preserved"] = source.exists()
+    _event(journal_file, journal, "completed", "destination verified")
+
+
+def _record_migration_failure(
+    journal_file: Path,
+    journal: dict[str, Any],
+    source: Path,
+    destination: Path,
+    error: Exception,
+) -> None:
+    """Record a failure and automatically reverse an atomic rename."""
+    journal["error"] = str(error)
+    if journal["method"] == "rename" and destination.exists() and not source.exists():
+        os.replace(destination, source)
+        _restore_displaced(journal, destination)
+        journal["rollback"] = "automatic"
+    _save_journal(journal_file, journal, "failed")
+
+
 def migrate_data_dir(
     source: str | Path,
     destination: str | Path,
@@ -337,87 +477,60 @@ def migrate_data_dir(
     writers_stopped: bool = False,
 ) -> dict[str, Any]:
     if not writers_stopped:
-        raise DataMigrationError("Stop every Gnosi writer and confirm writers_stopped before migration")
+        raise DataMigrationError(
+            "Stop every Gnosi writer and confirm writers_stopped before migration"
+        )
     source_path, destination_path = _absolute(source), _absolute(destination)
-    journal_file = _absolute(journal_path) if journal_path else default_journal_path(source_path, destination_path)
+    journal_file = (
+        _absolute(journal_path)
+        if journal_path
+        else default_journal_path(source_path, destination_path)
+    )
     with _JournalLock(journal_file):
-        if journal_file.exists():
-            journal = json.loads(journal_file.read_text(encoding="utf-8"))
-            if journal.get("source") != str(source_path) or journal.get("destination") != str(destination_path):
-                raise DataMigrationError("Existing migration journal targets different paths")
-            if journal.get("status") in {"completed", "finalized"}:
-                return journal
-            if journal.get("status") == "failed":
-                journal.setdefault("failures", []).append(
-                    {
-                        "at": journal.get("updated_at"),
-                        "error": journal.get("error"),
-                        "rollback": journal.get("rollback"),
-                    }
-                )
-                journal.pop("error", None)
-                journal.pop("rollback", None)
-        else:
-            plan = plan_data_migration(source_path, destination_path, force_copy=force_copy)
-            journal = _new_journal(source_path, destination_path, plan["method"])
-            _save_journal(journal_file, journal)
+        journal = _load_or_create_journal(
+            journal_file,
+            source_path,
+            destination_path,
+            force_copy=force_copy,
+        )
+        if journal.get("status") in {"completed", "finalized"}:
+            return journal
 
         method = journal["method"]
         hashes = method == "copy"
-        if source_path.exists():
-            _event(journal_file, journal, "verifying_source", "checkpoint and integrity checks")
-            journal["source_sqlite"] = verify_sqlite_databases(source_path, checkpoint=True)
-            journal["source_inventory"] = inventory_tree(source_path, hashes=hashes)
-            _save_journal(journal_file, journal, "source_verified")
+        _verify_source(journal_file, journal, source_path, hashes=hashes)
 
         try:
             if method == "rename":
-                if source_path.exists() and not destination_path.exists():
-                    _prepare_destination(journal_file, journal, destination_path)
-                    _event(journal_file, journal, "moving", "same-volume atomic rename")
-                    os.replace(source_path, destination_path)
-                elif source_path.exists() and destination_path.exists():
-                    if _empty_directory(destination_path):
-                        _prepare_destination(journal_file, journal, destination_path)
-                        _event(journal_file, journal, "moving", "same-volume atomic rename")
-                        os.replace(source_path, destination_path)
-                    else:
-                        raise DataMigrationError(f"Destination is not empty: {destination_path}")
-                elif not destination_path.exists():
-                    raise DataMigrationError("Neither source nor destination is available for resume")
+                _rename_into_destination(
+                    journal_file,
+                    journal,
+                    source_path,
+                    destination_path,
+                )
             else:
-                if not source_path.exists():
-                    raise DataMigrationError("Cross-volume migration requires the preserved source")
-                staging = Path(journal["staging"])
-                _event(journal_file, journal, "copying", "copying into verified staging")
-                _copy_tree(source_path, staging)
-                staging_inventory = inventory_tree(staging, hashes=True)
-                _verify_inventory(journal["source_inventory"], staging_inventory)
-                verify_sqlite_databases(staging, checkpoint=False)
-                if not destination_path.exists():
-                    os.replace(staging, destination_path)
-                elif _empty_directory(destination_path):
-                    _prepare_destination(journal_file, journal, destination_path)
-                    os.replace(staging, destination_path)
-                elif destination_path != staging:
-                    raise DataMigrationError("Destination already contains data")
-
-            _event(journal_file, journal, "verifying_destination", "final inventory and SQLite checks")
-            destination_inventory = inventory_tree(destination_path, hashes=hashes)
-            _verify_inventory(journal["source_inventory"], destination_inventory)
-            journal["destination_sqlite"] = verify_sqlite_databases(
-                destination_path, checkpoint=False
+                _copy_into_destination(
+                    journal_file,
+                    journal,
+                    source_path,
+                    destination_path,
+                )
+            _verify_destination(
+                journal_file,
+                journal,
+                source_path,
+                destination_path,
+                hashes=hashes,
             )
-            journal["source_preserved"] = source_path.exists()
-            _event(journal_file, journal, "completed", "destination verified")
             return journal
         except Exception as exc:
-            journal["error"] = str(exc)
-            if method == "rename" and destination_path.exists() and not source_path.exists():
-                os.replace(destination_path, source_path)
-                _restore_displaced(journal, destination_path)
-                journal["rollback"] = "automatic"
-            _save_journal(journal_file, journal, "failed")
+            _record_migration_failure(
+                journal_file,
+                journal,
+                source_path,
+                destination_path,
+                exc,
+            )
             raise
 
 
@@ -430,7 +543,7 @@ def rollback_data_migration(
         raise DataMigrationError("Stop every Gnosi writer before rollback")
     journal_file = _absolute(journal_path)
     with _JournalLock(journal_file):
-        journal = json.loads(journal_file.read_text(encoding="utf-8"))
+        journal = _load_journal(journal_file)
         if journal.get("status") == "rolled_back":
             return journal
         source = Path(journal["source"])
@@ -459,7 +572,7 @@ def finalize_data_migration(journal_path: str | Path) -> dict[str, Any]:
     """Remove only an empty displaced scaffold; never delete user source data."""
     journal_file = _absolute(journal_path)
     with _JournalLock(journal_file):
-        journal = json.loads(journal_file.read_text(encoding="utf-8"))
+        journal = _load_journal(journal_file)
         if journal.get("status") == "finalized":
             return journal
         if journal.get("status") != "completed":
@@ -476,4 +589,4 @@ def finalize_data_migration(journal_path: str | Path) -> dict[str, Any]:
 
 
 def load_migration_journal(journal_path: str | Path) -> dict[str, Any]:
-    return json.loads(_absolute(journal_path).read_text(encoding="utf-8"))
+    return _load_journal(_absolute(journal_path))

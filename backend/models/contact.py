@@ -1,20 +1,17 @@
-from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    DateTime,
-    ForeignKey,
-    Enum as SqlEnum,
-    Text,
-)
-from sqlalchemy.orm import relationship
-from datetime import datetime, timezone
 import enum
 import uuid
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any, List, Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer
+from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from backend.data.management_db import Base
 from backend.models._datetime_utils import normalize_utc
-from pydantic import BaseModel, EmailStr, ConfigDict, field_serializer
-from typing import Optional, List
+
+if TYPE_CHECKING:
+    from backend.models.management import Workspace
 
 
 class ContactType(str, enum.Enum):
@@ -31,42 +28,44 @@ class ContactSource(str, enum.Enum):
 class Contact(Base):
     __tablename__ = "contacts"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    workspace_id = Column(
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    workspace_id: Mapped[str] = mapped_column(
         String, ForeignKey("workspaces.id"), nullable=False, index=True
     )
-    type = Column(String, default=ContactType.PERSONAL.value, nullable=False)
+    type: Mapped[str] = mapped_column(String, default=ContactType.PERSONAL.value, nullable=False)
 
-    name = Column(String, nullable=False)
-    email = Column(String, nullable=False, index=True)
-    phone = Column(String, nullable=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    email: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    phone: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    company = Column(String, nullable=True)
-    job_title = Column(String, nullable=True)
-    address = Column(String, nullable=True)
-    notes = Column(Text, nullable=True)
+    company: Mapped[str | None] = mapped_column(String, nullable=True)
+    job_title: Mapped[str | None] = mapped_column(String, nullable=True)
+    address: Mapped[str | None] = mapped_column(String, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    emails = Column(Text, default="[]")
-    phones = Column(Text, default="[]")
-    addresses = Column(Text, default="[]")
+    emails: Mapped[str] = mapped_column(Text, default="[]")
+    phones: Mapped[str] = mapped_column(Text, default="[]")
+    addresses: Mapped[str] = mapped_column(Text, default="[]")
 
-    google_resource_name = Column(String, nullable=True, index=True)
-    apple_resource_id = Column(String, nullable=True)
+    google_resource_name: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    apple_resource_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    last_synced_at = Column(DateTime(timezone=True), nullable=True)
-    source = Column(String, default=ContactSource.LOCAL.value, nullable=False)
-    photo_url = Column(String, nullable=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source: Mapped[str] = mapped_column(String, default=ContactSource.LOCAL.value, nullable=False)
+    photo_url: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    tags = Column(String, default="[]")
+    tags: Mapped[str] = mapped_column(String, default="[]")
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    workspace = relationship("Workspace")
+    workspace: Mapped["Workspace"] = relationship("Workspace")
 
 
 class ContactBase(BaseModel):
@@ -79,9 +78,9 @@ class ContactBase(BaseModel):
     address: Optional[str] = None
     notes: Optional[str] = None
     tags: Optional[List[str]] = []
-    emails: Optional[List[dict]] = []
-    phones: Optional[List[dict]] = []
-    addresses: Optional[List[dict]] = []
+    emails: Optional[List[dict[str, Any]]] = []
+    phones: Optional[List[dict[str, Any]]] = []
+    addresses: Optional[List[dict[str, Any]]] = []
     photo_url: Optional[str] = None
 
 
@@ -99,9 +98,9 @@ class ContactUpdate(BaseModel):
     address: Optional[str] = None
     notes: Optional[str] = None
     tags: Optional[List[str]] = None
-    emails: Optional[List[dict]] = None
-    phones: Optional[List[dict]] = None
-    addresses: Optional[List[dict]] = None
+    emails: Optional[List[dict[str, Any]]] = None
+    phones: Optional[List[dict[str, Any]]] = None
+    addresses: Optional[List[dict[str, Any]]] = None
     photo_url: Optional[str] = None
 
 
@@ -113,9 +112,9 @@ class ContactResponse(ContactBase):
     last_synced_at: Optional[datetime] = None
     source: ContactSource
     tags: List[str]
-    emails: List[dict]
-    phones: List[dict]
-    addresses: List[dict]
+    emails: List[dict[str, Any]]
+    phones: List[dict[str, Any]]
+    addresses: List[dict[str, Any]]
     photo_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime

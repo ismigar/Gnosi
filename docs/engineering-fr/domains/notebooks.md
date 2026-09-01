@@ -1,9 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
+  - backend/domains/agent/routes/checkpoints.py
+  - backend/domains/agent/routes/shared.py
   - backend/services/durable_job_worker.py
   - backend/agent/agent_context.py
   - backend/agent/factory.py
@@ -12,6 +15,7 @@ source_paths:
   - frontend/src/components/Notebooks
   - frontend/src/components/AgentChat.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
@@ -23,6 +27,10 @@ tests:
 # Carnets fondés sur les sources
 
 ## Responsabilité
+
+`backend/domains/notebooks/` gère désormais le dépôt, le catalogue, les sources,
+l'ingestion, les preuves, l'analyse, le chat et l'état. Le service historique
+reste une façade compatible pour l'API et les workers existants.
 
 Les carnets fondés sur les sources fournissent un espace `/notebooks` dédié aux
 questions portant sur les pièces jointes et les URL des enregistrements
@@ -177,6 +185,12 @@ mode précédent restaure son espace de noms.
 La suppression d'un carnet énumère tous ses principaux dérivés et supprime leurs
 threads de checkpoint avant la suppression en cascade des index, révisions et
 analyses. Les données originales du Vault restent hors de cette limite.
+
+Les routes HTTP des carnets sont strictement typées et utilisent les helpers
+publics de checkpoint du domaine Agent plutôt que les symboles privés de la
+façade compatible. L'absence de Vault actif ou de stockage des checkpoints
+échoue explicitement ; la suppression et la lecture des conversations conservent
+les mêmes fils isolés et les réponses OpenAPI gelées.
 
 ## Contrats HTTP
 

@@ -7,6 +7,7 @@ Handles `application/json` and `text/event-stream` responses (streamable HTTP).
 ⚠️ Exact endpoint/scope/tool-name for Notion's MCP → verify in the actual implementation
 (config per env). cf. directive `notion_mcp_oauth_views.md`.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,6 +22,7 @@ def _retry_after_seconds(value: Optional[str], attempt: int) -> float:
     format (seconds OR HTTP date). Default backoff up to 10s. Delegates to the
     shared helper `backend.utils.http_retry` (same logic as the Notion clone)."""
     from backend.utils.http_retry import retry_after_seconds
+
     return retry_after_seconds(value, default=1.5 * (attempt + 1), cap=10.0)
 
 
@@ -32,7 +34,9 @@ def _parse_sse(text: str) -> Dict[str, Any]:
             chunk = line[5:].strip()
             if chunk and chunk != "[DONE]":
                 try:
-                    return json.loads(chunk)
+                    decoded: object = json.loads(chunk)
+                    if isinstance(decoded, dict):
+                        return {str(key): value for key, value in decoded.items()}
                 except Exception:
                     continue
     return {}
@@ -55,8 +59,10 @@ class HttpMCPClient:
             "Accept": "application/json, text/event-stream",
             # mcp.notion.com is behind Cloudflare and BLOCKS (error 1010) the User-Agent
             # default in Python (urllib/httpx). A browser UA is needed to get through.
-            "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                           "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"),
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+            ),
         }
         if self._session_id:
             h["Mcp-Session-Id"] = self._session_id
@@ -65,6 +71,7 @@ class HttpMCPClient:
     def _rpc(self, method: str, params: Optional[Dict[str, Any]] = None) -> Any:
         import time
         import httpx
+
         self._id += 1
         payload = {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params or {}}
         last = None
@@ -93,11 +100,14 @@ class HttpMCPClient:
         return None
 
     def initialize(self) -> Any:
-        result = self._rpc("initialize", {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "gnosi-host", "version": "1.0"},
-        })
+        result = self._rpc(
+            "initialize",
+            {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "gnosi-host", "version": "1.0"},
+            },
+        )
         # "initialized" notification (best-effort)
         try:
             self._rpc("notifications/initialized", {})

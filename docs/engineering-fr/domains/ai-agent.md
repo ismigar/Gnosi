@@ -1,8 +1,16 @@
 ---
 status: implemented
-last_verified: 2026-08-17
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/configuration/llm_wiki.py
+  - backend/domains/llm_wiki
+  - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_pdf_annotations.py
+  - backend/domains/agent
+  - backend/domains/configuration/agent
+  - backend/domains/configuration/ai
   - backend/agent
+  - backend/agent/memory.py
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
@@ -11,6 +19,7 @@ source_paths:
   - backend/services/reader_analysis.py
   - backend/services/agent_cancellation.py
   - backend/services/provider_health.py
+  - backend/services/artificial_analysis.py
   - backend/services/agent_capability_health.py
   - backend/services/agent_stream_protocol.py
   - backend/agent/provider_resilience.py
@@ -21,14 +30,26 @@ source_paths:
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_llm_wiki_extraction_domains.py
+  - backend/tests/test_llm_wiki_lint.py
+  - backend/tests/test_llm_wiki_pdf_annotations.py
+  - backend/tests/test_llm_wiki_processing_domain_contract.py
+  - backend/tests/test_llm_wiki_configuration_domain_contract.py
+  - backend/tests/test_artificial_analysis.py
   - backend/tests/test_agent_turn_contract.py
+  - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_context_sources.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
+  - backend/tests/test_ai_model_registry_api.py
+  - backend/tests/test_ai_content_routes.py
+  - backend/tests/test_provider_delete.py
+  - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
   - backend/tests/test_agent_resilience.py
+  - backend/tests/test_agent_legacy_memory.py
   - backend/tests/test_agent_recovery.py
   - backend/tests/test_e2e_tables_assets.py
   - backend/tests/test_vault_trash.py
@@ -51,6 +72,11 @@ limite les outils compatibles.
 - Source du contexte : bulle sélectionnée par l'utilisateur, table, fichier ou matériel externe ajouté
 à une conversation avec un comportement de confinement explicite et de taille.
 
+Le flux Artificial Analysis est une frontière serveur typée. Il garde les
+identifiants privés, valide toutes les pages, complète uniquement les métadonnées
+absentes, conserve les métriques vérifiées du cache et utilise un cache périmé
+ou models.dev avec une provenance explicite lorsque le service échoue.
+
 ## Démarrage et flux de requête
 
 ```mermaid
@@ -70,9 +96,27 @@ sequenceDiagram
     Graph-->>Chat: Ordered events and final response
 ```
 
+Les imports historiques d'Agent restent disponibles au moyen de façades de
+compatibilité étroites, tandis que le paquet de domaine gère le contexte, les
+outils internes, les contrats de preuve et de citation, l'état des flux, les
+confirmations, les sessions et les routes. Le catalogue et la gouvernance des
+agents suivent le même modèle dans le domaine de configuration, sans modifier
+l'ordre des routes ni les identifiants d'opération.
+
 Le routeur modèle résout les combinaisons fournisseur/modèle, les limites de contexte, le support des outils, les plafonds de dépenses et la politique de repli. Les pouvoirs sont obtenus à partir de stockage secret local ou de migration d'environnement supporté, non exposés à la frontend. Les raisons de défaillance sont enregistrées séparément des réponses orientées vers l'utilisateur afin que les opérateurs puissent distinguer le temps de fermeture, le rejet du fournisseur, les pouvoirs non valides, le débordement de contexte et l'incompatibilité des outils.
 
 Un délai transitoire, une défaillance de connexion, une limite de fréquence ou 5xx peuvent se déplacer vers un autre modèle configuré avec la même localité locale/remote; les erreurs d'authentification, de politique et de contenu ne le font jamais. Le retour sélectionné est marqué dans les métadonnées des messages et dans le reçu du flux, de sorte qu'un modèle local ne peut pas envoyer de contexte privé inattendu à un fournisseur distant.
+
+Le client MCP stdio valide les limites des objets JSON-RPC, type explicitement
+les requêtes asynchrones en attente et route les outils avec un cache actualisé
+uniquement lors d'un échec de recherche. Un catalogue malformé échoue localement
+sans propager de valeurs non validées dans le runtime de l'agent.
+
+La configuration IA conserve les identifiants, les marqueurs de déconnexion, le
+registre des modèles, le budget et l'usage dans une façade de compatibilité
+strictement typée. La génération et la correction de l'éditeur vivent dans le
+domaine de configuration AI, tandis que le chargement YAML validé et les
+réponses legacy explicites préservent exactement les contrats HTTP et OpenAPI.
 
 ## Gouvernance des outils
 
@@ -83,6 +127,12 @@ Les actions nécessitant une confirmation créent des dossiers en suspens durabl
 ## Compétences et plugins
 
 Les compétences en cours d'exécution intégrées vivent dans `pipeline/skills/`. Les paquets utilisateur et plugin sont validés dans un catalogue tout en préservant l'origine, l'activation, la compatibilité et les champs gérés-versus-utilisateurs. La conciliation des plugins est idempotent : désactiver un plugin suspend sa contribution gérée sans supprimer les surcharges utilisateur.
+
+La façade legacy de mémoire Chroma reste paresseuse et strictement typée pour la
+compatibilité des imports. Son import ne crée que le répertoire configuré et ne
+charge aucun modèle d'embedding. Sans embeddings, les lectures restent vides et
+les écritures échouent explicitement ; la mémoire personnelle canonique demeure
+dans le service SQLite gouverné et borné du domaine Agent.
 
 ## Contexte et mémoire
 
@@ -147,6 +197,42 @@ Les mesures de tours comprennent une estimation USD basée sur le catalogue du f
 Le corpus déterministe en vertu de l'article `backend/agent/evals/` couvre tous les modes de requête, les quatre langues d'interface utilisateur, le confinement de domaine, le traitement local et à distance privé, les actions régies et l'admission durable du lecteur. Il fonctionne avant la suite de test backend sur les requêtes de tirage correspondant et tous les jours; tout cas échoué sort non zéro sans appeler un fournisseur ou passer des jetons.
 
 Les erreurs de production et les commentaires des pouces assistants alimentent une boucle de qualité locale et authentifiée. `POST /api/chat/feedback` Les erreurs de flux sont enregistrées par le serveur avec des codes stables. Le magasin local SQLite conserve les identités de virage/session/agent haché, les champs de plan et de vérification, les noms d'outils et les seaux de timing; il n'a pas d'invite, de réponse, de source, de titre, de chemin, d'URL, d'extrait, d'annexe ou de colonnes de charge d'outils brutes. `/api/ai/evals/candidates*`. Les affaires locales acceptées restent séparées du corpus de CI versionné jusqu'à ce qu'un responsable les encourage délibérément.
+
+## Configuration LLM Wiki
+
+`backend/domains/configuration/llm_wiki.py` valide la table Brain, les sources,
+les dimensions catégorielles, les champs fichier/URL, les valeurs fixes et les
+relations avant toute mutation du schéma. Il crée ensuite les rôles et relations
+canoniques, revalide les champs d'index, enregistre atomiquement et actualise les
+pages système.
+`backend/domains/configuration/llm_wiki_schema.py` gère séparément la réparation
+idempotente des champs Brain et la consolidation d'une relation canonique par
+source, y compris les alias, les métadonnées de page et les vues contextuelles.
+`backend/domains/configuration/llm_wiki_records.py` normalise les notes gérées
+existantes, les libellés de source et les titres localisés des index de ressource.
+L'extraction est répartie entre `backend/domains/llm_wiki/documents.py`, pour les
+adaptateurs typés de documents et de médias, et `origins.py`, pour l'identité, la
+déduplication et le découpage déterministes. Le service historique reste une
+façade de compatibilité compacte.
+Le traitement est aussi réparti entre `planning.py` pour les invites, l'analyse
+et les plans fondés, `dimensions.py` pour le mappage fixe/source/par IA,
+`ingestion.py` pour le flux bloquant, et `writing.py` pour la persistance
+idempotente des notes de lecture.
+`index_rendering.py` gère les pages d'index de ressource, de dimension et
+générales, tandis que `search_index.py` gère les index JSON, FTS5 et vectoriels
+reconstructibles. `backend/services/llm_wiki.py` et `llm_wiki_indices.py`
+restent des façades de compatibilité à résolution tardive afin de préserver les
+imports et les points de substitution des plugins et des tests.
+
+Le lint déterministe du Brain sépare des contrôles bornés pour les notes
+orphelines, les révisions anciennes, les renvois manquants, les clés dupliquées,
+les citations cassées, le retraitement et la dérive des index. Le format du
+rapport reste stable sans dépendre d'un fournisseur de modèles.
+
+Les citations PDF fondées utilisent une frontière de persistance déterministe.
+La géométrie est résolue en réutilisant un document par pièce jointe, les
+surlignages gérés sont mis à jour dans une transaction, les annotations
+manuelles sont préservées et seules les entrées obsolètes de Gnosi sont retirées.
 
 ## Invariants de défaillance et de sécurité
 

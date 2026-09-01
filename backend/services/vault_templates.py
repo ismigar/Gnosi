@@ -1,4 +1,5 @@
 """Verified Vault template catalogs, packages, exports, and installation."""
+
 from __future__ import annotations
 
 import hashlib
@@ -18,8 +19,7 @@ from backend.services.marketplace_http import MarketplaceHTTPError, fetch_public
 
 TEMPLATE_SCHEMA_VERSION = 1
 DEFAULT_INDEX_URL = (
-    "https://github.com/ismigar/Gnosi/releases/latest/download/"
-    "vault-templates-index.json"
+    "https://github.com/ismigar/Gnosi/releases/latest/download/vault-templates-index.json"
 )
 MAX_INDEX_BYTES = 2 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
@@ -31,17 +31,56 @@ MAX_PATH_CHARS = 300
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+([-.+][0-9A-Za-z.-]+)?$")
 _VAULT_SUBFOLDERS = (
-    "Assets", "BD", "Wiki", "Calendar", "Mail", "Templates", "Drawings",
-    "Daily Notes", "Newsletters", ".Dashboards", ".gnosi",
+    "Assets",
+    "BD",
+    "Wiki",
+    "Calendar",
+    "Mail",
+    "Templates",
+    "Drawings",
+    "Daily Notes",
+    "Newsletters",
+    ".Dashboards",
+    ".gnosi",
 )
 _EXCLUDED_ROOTS = {
-    ".git", ".gnosi", ".history", ".trash", "mail", "node_modules", "trash",
+    ".git",
+    ".gnosi",
+    ".history",
+    ".trash",
+    "mail",
+    "node_modules",
+    "trash",
 }
 _BLOCKED_SUFFIXES = {
-    ".app", ".bat", ".bin", ".cjs", ".cmd", ".com", ".dll", ".dylib",
-    ".exe", ".gadget", ".hta", ".htm", ".html", ".jar", ".js", ".lnk",
-    ".mjs", ".msi", ".pif", ".ps1", ".py", ".scr", ".sh", ".so",
-    ".svg", ".vb", ".vbs", ".wsf",
+    ".app",
+    ".bat",
+    ".bin",
+    ".cjs",
+    ".cmd",
+    ".com",
+    ".dll",
+    ".dylib",
+    ".exe",
+    ".gadget",
+    ".hta",
+    ".htm",
+    ".html",
+    ".jar",
+    ".js",
+    ".lnk",
+    ".mjs",
+    ".msi",
+    ".pif",
+    ".ps1",
+    ".py",
+    ".scr",
+    ".sh",
+    ".so",
+    ".svg",
+    ".vb",
+    ".vbs",
+    ".wsf",
 }
 _TEXT_SUFFIXES = {".md", ".txt", ".json", ".yaml", ".yml", ".csv", ".tsv", ".bib"}
 _SECRET_PATTERNS = (
@@ -87,6 +126,13 @@ def _string_list(value: Any, field: str, *, maximum: int = 32) -> List[str]:
     return result
 
 
+def _required_integer(value: Any, message: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise VaultTemplateError(message) from exc
+
+
 def validate_manifest(raw: Any) -> Dict[str, Any]:
     """Validate and normalize a `template.json` manifest."""
 
@@ -98,10 +144,7 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
     version = str(raw.get("version") or "").strip()
     if not _SEMVER_RE.fullmatch(version):
         raise VaultTemplateError("template version must use semantic versioning")
-    try:
-        schema_version = int(raw.get("schemaVersion"))
-    except (TypeError, ValueError) as exc:
-        raise VaultTemplateError("schemaVersion must be an integer") from exc
+    schema_version = _required_integer(raw.get("schemaVersion"), "schemaVersion must be an integer")
     if schema_version != TEMPLATE_SCHEMA_VERSION:
         raise VaultTemplateError(
             f"unsupported template schema {schema_version}; expected {TEMPLATE_SCHEMA_VERSION}"
@@ -124,10 +167,7 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
         digest = str(item.get("sha256") or "").lower()
         if not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise VaultTemplateError(f"invalid file checksum for {path}")
-        try:
-            size = int(item.get("size"))
-        except (TypeError, ValueError) as exc:
-            raise VaultTemplateError(f"invalid file size for {path}") from exc
+        size = _required_integer(item.get("size"), f"invalid file size for {path}")
         if size < 0 or size > MAX_FILE_BYTES:
             raise VaultTemplateError(f"file size is outside limits for {path}")
         normalized_files.append({"path": path, "sha256": digest, "size": size})
@@ -166,6 +206,99 @@ def _is_archive_link(info: zipfile.ZipInfo) -> bool:
     return stat.S_IFMT(mode) in {stat.S_IFLNK, stat.S_IFCHR, stat.S_IFBLK, stat.S_IFIFO}
 
 
+def _validate_archive_entry(
+    info: zipfile.ZipInfo,
+    seen: set[str],
+    total: int,
+) -> tuple[int, bool]:
+    """Validate one ZIP entry and report whether it is a Vault payload file."""
+
+    name = info.filename
+    if info.flag_bits & 0x1:
+        raise VaultTemplateError("encrypted template entries are not supported")
+    if _is_archive_link(info):
+        raise VaultTemplateError(f"template archive contains a link: {name}")
+    if "\\" in name or "\x00" in name or len(name) > MAX_PATH_CHARS + 6:
+        raise VaultTemplateError("template archive contains an invalid path")
+    pure = PurePosixPath(name)
+    if pure.is_absolute() or ".." in pure.parts:
+        raise VaultTemplateError(f"template archive path escapes its root: {name}")
+    folded = pure.as_posix().casefold()
+    if folded in seen:
+        raise VaultTemplateError(f"template archive contains a duplicate path: {name}")
+    seen.add(folded)
+    if info.is_dir():
+        return total, False
+    if info.file_size > MAX_FILE_BYTES:
+        raise VaultTemplateError(f"template file is too large: {name}")
+    total += info.file_size
+    if total > MAX_UNCOMPRESSED_BYTES:
+        raise VaultTemplateError("template expands beyond the allowed size")
+    if pure.parts and pure.parts[0] == "vault":
+        if len(pure.parts) < 2:
+            return total, False
+        _safe_payload_path(PurePosixPath(*pure.parts[1:]).as_posix())
+        return total, True
+    allowed_root_files = {
+        "template.json",
+        "README.md",
+        "LICENSE",
+        "preview.webp",
+        "preview.png",
+        "preview.jpg",
+    }
+    if name not in allowed_root_files:
+        raise VaultTemplateError(f"unexpected file at template package root: {name}")
+    return total, False
+
+
+def _validated_archive_infos(
+    archive: zipfile.ZipFile,
+) -> tuple[list[zipfile.ZipInfo], list[zipfile.ZipInfo]]:
+    infos = archive.infolist()
+    if len(infos) > MAX_ENTRIES:
+        raise VaultTemplateError("template archive has too many entries")
+    total = 0
+    seen: set[str] = set()
+    payload_infos: list[zipfile.ZipInfo] = []
+    for info in infos:
+        total, is_payload = _validate_archive_entry(info, seen, total)
+        if is_payload:
+            payload_infos.append(info)
+    return infos, payload_infos
+
+
+def _read_template_manifest(archive: zipfile.ZipFile) -> Dict[str, Any]:
+    try:
+        raw = archive.read("template.json").decode("utf-8")
+        return validate_manifest(json.loads(raw))
+    except (UnicodeDecodeError, ValueError) as exc:
+        if isinstance(exc, VaultTemplateError):
+            raise
+        raise VaultTemplateError(f"template.json is unreadable: {exc}") from exc
+
+
+def _validate_payload_inventory(
+    archive: zipfile.ZipFile,
+    manifest: Dict[str, Any],
+    payload_infos: List[zipfile.ZipInfo],
+) -> None:
+    expected = {item["path"]: item for item in manifest["files"]}
+    actual_names = {
+        PurePosixPath(*PurePosixPath(info.filename).parts[1:]).as_posix() for info in payload_infos
+    }
+    if set(expected) != actual_names:
+        raise VaultTemplateError("template manifest file inventory does not match the payload")
+    for info in payload_infos:
+        relative = PurePosixPath(*PurePosixPath(info.filename).parts[1:]).as_posix()
+        payload = archive.read(info)
+        item = expected[relative]
+        valid_size = len(payload) == item["size"]
+        valid_digest = hashlib.sha256(payload).hexdigest() == item["sha256"]
+        if not valid_size or not valid_digest:
+            raise VaultTemplateError(f"template payload integrity failed for {relative}")
+
+
 def validate_package(data: bytes) -> Tuple[Dict[str, Any], List[zipfile.ZipInfo]]:
     """Validate a complete template ZIP without writing to disk."""
 
@@ -175,63 +308,11 @@ def validate_package(data: bytes) -> Tuple[Dict[str, Any], List[zipfile.ZipInfo]
         archive = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile as exc:
         raise VaultTemplateError(f"invalid template ZIP: {exc}") from exc
-    infos = archive.infolist()
-    if len(infos) > MAX_ENTRIES:
-        raise VaultTemplateError("template archive has too many entries")
-    total = 0
-    seen = set()
-    payload_infos = []
-    for info in infos:
-        name = info.filename
-        if info.flag_bits & 0x1:
-            raise VaultTemplateError("encrypted template entries are not supported")
-        if _is_archive_link(info):
-            raise VaultTemplateError(f"template archive contains a link: {name}")
-        if "\\" in name or "\x00" in name or len(name) > MAX_PATH_CHARS + 6:
-            raise VaultTemplateError("template archive contains an invalid path")
-        pure = PurePosixPath(name)
-        if pure.is_absolute() or ".." in pure.parts:
-            raise VaultTemplateError(f"template archive path escapes its root: {name}")
-        folded = pure.as_posix().casefold()
-        if folded in seen:
-            raise VaultTemplateError(f"template archive contains a duplicate path: {name}")
-        seen.add(folded)
-        if info.is_dir():
-            continue
-        if info.file_size > MAX_FILE_BYTES:
-            raise VaultTemplateError(f"template file is too large: {name}")
-        total += info.file_size
-        if total > MAX_UNCOMPRESSED_BYTES:
-            raise VaultTemplateError("template expands beyond the allowed size")
-        if pure.parts and pure.parts[0] == "vault":
-            if len(pure.parts) < 2:
-                continue
-            _safe_payload_path(PurePosixPath(*pure.parts[1:]).as_posix())
-            payload_infos.append(info)
-        elif name not in {"template.json", "README.md", "LICENSE", "preview.webp", "preview.png", "preview.jpg"}:
-            raise VaultTemplateError(f"unexpected file at template package root: {name}")
+    infos, payload_infos = _validated_archive_infos(archive)
     if "template.json" not in {info.filename for info in infos}:
         raise VaultTemplateError("template package has no template.json")
-    try:
-        manifest = validate_manifest(json.loads(archive.read("template.json").decode("utf-8")))
-    except (UnicodeDecodeError, ValueError) as exc:
-        if isinstance(exc, VaultTemplateError):
-            raise
-        raise VaultTemplateError(f"template.json is unreadable: {exc}") from exc
-
-    expected = {item["path"]: item for item in manifest["files"]}
-    actual_names = {
-        PurePosixPath(*PurePosixPath(info.filename).parts[1:]).as_posix()
-        for info in payload_infos
-    }
-    if set(expected) != actual_names:
-        raise VaultTemplateError("template manifest file inventory does not match the payload")
-    for info in payload_infos:
-        relative = PurePosixPath(*PurePosixPath(info.filename).parts[1:]).as_posix()
-        payload = archive.read(info)
-        item = expected[relative]
-        if len(payload) != item["size"] or hashlib.sha256(payload).hexdigest() != item["sha256"]:
-            raise VaultTemplateError(f"template payload integrity failed for {relative}")
+    manifest = _read_template_manifest(archive)
+    _validate_payload_inventory(archive, manifest, payload_infos)
     return manifest, payload_infos
 
 
@@ -256,9 +337,7 @@ def _catalog_entry(raw: Any) -> Dict[str, Any]:
         "license": str(raw.get("license") or "")[:80],
         "categories": _string_list(raw.get("categories"), "categories"),
         "languages": _string_list(raw.get("languages"), "languages"),
-        "recommendedPlugins": _string_list(
-            raw.get("recommendedPlugins"), "recommendedPlugins"
-        ),
+        "recommendedPlugins": _string_list(raw.get("recommendedPlugins"), "recommendedPlugins"),
         "preview": str(raw.get("preview") or "")[:500],
         "url": url,
         "sha256": checksum,
@@ -274,9 +353,11 @@ def load_catalog(config_dir: Path, index_url: Optional[str] = None) -> Dict[str,
     url = str(index_url or default_index_url()).strip()
     try:
         raw = fetch_public_bytes(url, max_bytes=MAX_INDEX_BYTES, timeout=15).body
-        signature = fetch_public_bytes(
-            _signature_url(url), max_bytes=4_096, timeout=15
-        ).body.decode("ascii").strip()
+        signature = (
+            fetch_public_bytes(_signature_url(url), max_bytes=4_096, timeout=15)
+            .body.decode("ascii")
+            .strip()
+        )
     except (MarketplaceHTTPError, UnicodeDecodeError) as exc:
         raise VaultTemplateError(f"could not fetch the signed template catalog: {exc}") from exc
     signed_by = plugin_signing.verify_against_trust(config_dir, signature, raw)
@@ -462,19 +543,21 @@ def build_package(
     for item in preview["included"]:
         relative = _safe_payload_path(item["path"])
         payload = (root / relative).read_bytes()
-        inventory.append({
-            "path": relative,
-            "size": len(payload),
-            "sha256": hashlib.sha256(payload).hexdigest(),
-        })
+        inventory.append(
+            {
+                "path": relative,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
         file_payloads.append((relative, payload))
     raw_manifest = {**dict(metadata), "schemaVersion": TEMPLATE_SCHEMA_VERSION, "files": inventory}
     manifest = validate_manifest(raw_manifest)
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        manifest_bytes = json.dumps(
-            manifest, indent=2, ensure_ascii=False, sort_keys=True
-        ).encode("utf-8")
+        manifest_bytes = json.dumps(manifest, indent=2, ensure_ascii=False, sort_keys=True).encode(
+            "utf-8"
+        )
         _write_deterministic(archive, "template.json", manifest_bytes)
         for relative, payload in file_payloads:
             _write_deterministic(archive, f"vault/{relative}", payload)

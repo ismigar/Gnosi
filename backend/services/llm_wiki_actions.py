@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Dict, Protocol, cast
 
 
 @dataclass
@@ -23,6 +24,36 @@ class LlmWikiActionError(ValueError):
         return self.detail
 
 
+class VaultActionsPort(Protocol):
+    """Legacy Vault seams consumed by the LLM Wiki action boundary."""
+
+    def _load_plugins_state(self) -> dict[str, Any]: ...
+
+    def _llm_wiki_enabled(self, state: dict[str, Any]) -> bool: ...
+
+    def _table_by_id(self, table_id: str) -> dict[str, Any] | None: ...
+
+    def find_page_path(self, page_id: str) -> Path | None: ...
+
+    def parse_frontmatter(
+        self,
+        text: str,
+        path: Path,
+    ) -> tuple[dict[str, Any], str]: ...
+
+    def _resource_processed_value(self, metadata: dict[str, Any]) -> str: ...
+
+    def _llm_wiki_source_title(
+        self,
+        metadata: dict[str, Any],
+        path: Path,
+        source_table: dict[str, Any],
+        source_config: dict[str, Any],
+    ) -> str: ...
+
+    def get_p(self, key: str) -> Path: ...
+
+
 def start_source_process(
     resource_id: str,
     *,
@@ -32,8 +63,10 @@ def start_source_process(
 ) -> Dict[str, Any]:
     """Start one validated durable Brain ingest or reprocess job."""
 
-    from backend.api import vault_routes as vr
+    from backend.api import vault_routes as legacy_vault_routes
     from backend.services import llm_wiki, llm_wiki_config
+
+    vr = cast(VaultActionsPort, legacy_vault_routes)
 
     if not vr._llm_wiki_enabled(vr._load_plugins_state()):  # noqa: SLF001
         raise LlmWikiActionError(409, "The LLM Wiki plugin is disabled")
@@ -53,9 +86,7 @@ def start_source_process(
     if not path or not path.exists():
         raise LlmWikiActionError(404, f"Resource {item_id} was not found")
     metadata, body = vr.parse_frontmatter(path.read_text(encoding="utf-8"), path)
-    resolved_source_table_id = str(
-        source_table_id or metadata.get("table_id") or ""
-    ).strip()
+    resolved_source_table_id = str(source_table_id or metadata.get("table_id") or "").strip()
     source_config = llm_wiki_config.get_source_config(resolved_source_table_id)
     source_table = vr._table_by_id(resolved_source_table_id)  # noqa: SLF001
     if not source_config or not source_table:
@@ -72,9 +103,7 @@ def start_source_process(
 
     resolved_language = str(language or "").strip()
     if not resolved_language:
-        language_property_id = str(
-            source_config.get("language_property_id") or ""
-        )
+        language_property_id = str(source_config.get("language_property_id") or "")
         language_property = next(
             (
                 prop
@@ -89,9 +118,7 @@ def start_source_process(
                 or metadata.get(language_property_id)
                 or ""
             ).strip()
-    resolved_language = (
-        resolved_language or "the main language detected in the source"
-    )
+    resolved_language = resolved_language or "the main language detected in the source"
 
     if llm_wiki.is_running(item_id, resolved_source_table_id):
         raise LlmWikiActionError(
@@ -166,11 +193,7 @@ def run_maintenance(*, semantic: bool = False) -> Dict[str, Any]:
         if item.get("table_id")
     ]
     lint_report = llm_wiki_lint.run_lint(brain_table_id, source_ids)
-    queued = (
-        llm_wiki_suggestions.generate_suggestions(brain_table_id)
-        if semantic
-        else 0
-    )
+    queued = llm_wiki_suggestions.generate_suggestions(brain_table_id) if semantic else 0
     return {
         "indexes": index_report,
         "lint": lint_report,

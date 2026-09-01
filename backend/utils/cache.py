@@ -14,6 +14,7 @@ Why bounded + locked:
 This module is the single source of truth for in-process caches. Don't
 introduce new bespoke `_FOO_CACHE = {}` modules without a strong reason.
 """
+
 from __future__ import annotations
 
 import threading
@@ -76,7 +77,12 @@ class SimpleCache:
         with self._lock:
             self._cache.clear()
 
-    def get_or_set(self, key: str, func: Callable, ttl: Optional[int] = None) -> Any:
+    def get_or_set(
+        self,
+        key: str,
+        func: Callable[[], Any],
+        ttl: Optional[int] = None,
+    ) -> Any:
         # Fast path: hit (no compute, no recompute under lock).
         value = self.get(key)
         if value is not None:

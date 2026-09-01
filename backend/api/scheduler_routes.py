@@ -38,7 +38,7 @@ async def get_history(
     offset: int = Query(0, ge=0),
     task_name: Optional[str] = Query(None),
     db: Session = Depends(get_mgmt_db)
-):
+) -> Dict[str, Any]:
     """Get task execution history with pagination."""
     query = db.query(TaskExecutionHistory)
     if task_name:

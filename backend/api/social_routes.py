@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from pathlib import Path
+from typing import Any, Callable, cast
 from datetime import datetime
 import logging
 import html
@@ -10,7 +11,9 @@ import asyncio
 import copy
 
 from backend.services.social_clients import (
-    mastodon_client, bluesky_client, SOCIAL_PUBLISHERS,
+    mastodon_client,
+    bluesky_client,
+    SOCIAL_PUBLISHERS,
 )
 from backend.services import social_store
 from backend.services.social_compose import compose_one, detect_lang
@@ -28,13 +31,14 @@ DEFAULT_STREAMS = [
 
 DEFAULT_NETWORKS = [
     {"id": "mastodon", "name": "Mastodon", "icon": "🐘", "enabled": True},
-    {"id": "bluesky",  "name": "Bluesky",  "icon": "🦋", "enabled": True},
+    {"id": "bluesky", "name": "Bluesky", "icon": "🦋", "enabled": True},
     {"id": "linkedin", "name": "LinkedIn", "icon": "💼", "enabled": True},
     {"id": "facebook", "name": "Facebook", "icon": "📘", "enabled": False},
     {"id": "telegram", "name": "Telegram", "icon": "✈️", "enabled": False},
 ]
 
 router = APIRouter()
+
 
 # --- Models ---
 class SocialPost(BaseModel):
@@ -44,49 +48,55 @@ class SocialPost(BaseModel):
     handle: str
     content: str
     timestamp: str
-    avatar: Optional[str] = None
+    avatar: str | None = None
     is_reblog: bool = False
-    reblog_by: Optional[str] = None
+    reblog_by: str | None = None
     favourited: bool = False
     reblogged: bool = False
     favourites_count: int = 0
     reblogs_count: int = 0
     replies_count: int = 0
-    url: Optional[str] = None
-    cid: Optional[str] = None  # For Bluesky
+    url: str | None = None
+    cid: str | None = None  # For Bluesky
+
 
 class CreatePostRequest(BaseModel):
     content: str
-    networks: List[str]
+    networks: list[str]
+
 
 class NetworkPost(BaseModel):
     text: str
     # List of local paths or (path, alt_text) to attach media.
-    media: Optional[List[Any]] = None
+    media: list[Any] | None = None
+
 
 class ComposeRequest(BaseModel):
-    networks: List[str]
+    networks: list[str]
     content: str = ""
     title: str = ""
     url: str = ""
-    source_page_id: Optional[str] = None
+    source_page_id: str | None = None
     hint: str = ""
     # If passed, only these networks are regenerated (subset of `networks`).
-    regenerate_only: Optional[List[str]] = None
+    regenerate_only: list[str] | None = None
     # Increment to force a different proposal (bypasses the AI cache keyed by hash).
     variation: int = 0
 
+
 class PublishRequest(BaseModel):
-    posts: Dict[str, NetworkPost]
-    source_page_id: Optional[str] = None
+    posts: dict[str, NetworkPost]
+    source_page_id: str | None = None
     source_title: str = ""
     save_record: bool = True
 
+
 class SchedulePublishRequest(BaseModel):
-    posts: Dict[str, NetworkPost]
+    posts: dict[str, NetworkPost]
     scheduled_time: datetime
-    source_page_id: Optional[str] = None
+    source_page_id: str | None = None
     source_title: str = ""
+
 
 class Stream(BaseModel):
     id: str
@@ -94,50 +104,53 @@ class Stream(BaseModel):
     icon: str
     network: str
 
+
 class InteractionRequest(BaseModel):
     post_id: str
     network: str
     action: str  # like, unlike, reblog, unreblog
-    cid: Optional[str] = None  # For Bluesky
+    cid: str | None = None  # For Bluesky
+
 
 # --- Helper Functions ---
 def strip_html(text: str) -> str:
     """Remove HTML tags and decode entities."""
-    text = re.sub(r'<br\s*/?>', '\n', text)
-    text = re.sub(r'<p>', '', text)
-    text = re.sub(r'</p>', '\n\n', text)
-    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r"<br\s*/?>", "\n", text)
+    text = re.sub(r"<p>", "", text)
+    text = re.sub(r"</p>", "\n\n", text)
+    text = re.sub(r"<[^>]+>", "", text)
     text = html.unescape(text)
     return text.strip()
 
 
-def _network_settings(network: str) -> dict:
+def _network_settings(network: str) -> dict[str, Any]:
     """Config per-xarxa (to, hashtags, etc.) desada a integrations.json."""
     config = integration_manager._load()
     for n in config.get("social_networks", DEFAULT_NETWORKS):
         if n.get("id") == network:
-            return n
+            return cast(dict[str, Any], n)
     return {}
 
 
 # --- Endpoints ---
 
-@router.get("/streams", response_model=List[Stream])
-async def get_streams():
+
+@router.get("/streams", response_model=list[Stream])
+async def get_streams() -> Any:
     """Returns the user-configured streams/columns."""
     config = integration_manager._load()
     return config.get("social_streams", DEFAULT_STREAMS)
 
 
-@router.put("/streams", dependencies=[Depends(require_role("editor"))])
-async def update_streams(payload: List[dict] = Body(...)):
+@router.put("/streams", dependencies=[Depends(require_role("editor"))], response_model=None)
+async def update_streams(payload: list[dict[str, Any]] = Body(...)) -> Any:
     """Saves the user's stream configuration."""
     integration_manager.replace_key("social_streams", payload)
     return {"status": "ok"}
 
 
-@router.get("/networks")
-async def get_networks():
+@router.get("/networks", response_model=None)
+async def get_networks() -> Any:
     """Returns the user-configured social networks, with live config status."""
     config = integration_manager._load()
     # deepcopy: `_load()` caches and returns the shared object (and DEFAULT_NETWORKS is
@@ -156,21 +169,22 @@ async def get_networks():
     return networks
 
 
-def social_store_unconfigured_types():
+def social_store_unconfigured_types() -> tuple[type[Any], ...]:
     """Stub client type (networks not yet implemented)."""
     from backend.services.social_clients import UnconfiguredPublisher
+
     return (UnconfiguredPublisher,)
 
 
-@router.put("/networks", dependencies=[Depends(require_role("editor"))])
-async def update_networks(payload: List[dict] = Body(...)):
+@router.put("/networks", dependencies=[Depends(require_role("editor"))], response_model=None)
+async def update_networks(payload: list[dict[str, Any]] = Body(...)) -> Any:
     """Saves the enabled/disabled state and per-network settings."""
     integration_manager.replace_key("social_networks", payload)
     return {"status": "ok"}
 
 
-@router.get("/feed/{stream_id}")
-async def get_feed(stream_id: str, limit: int = 20):
+@router.get("/feed/{stream_id}", response_model=None)
+async def get_feed(stream_id: str, limit: int = 20) -> Any:
     """Returns posts for a specific stream."""
 
     if stream_id == "mastodon-home":
@@ -178,43 +192,47 @@ async def get_feed(stream_id: str, limit: int = 20):
         for post in posts:
             post["content"] = strip_html(post.get("content", ""))
         if not posts and not mastodon_client.bearer:
-            return [{
-                "id": "mastodon-setup",
-                "network": "mastodon",
-                "author": "🚀 Mastodon Setup",
-                "handle": "@guide",
-                "content": "You haven't configured the Mastodon token yet.\n\n1. Go to Development\n2. Create an App with 'read' and 'write' permissions\n3. Save the token in Gnosi's secure settings",
-                "timestamp": datetime.now().isoformat(),
-                "avatar": None,
-                "favourited": False,
-                "reblogged": False,
-                "favourites_count": 0,
-                "reblogs_count": 0,
-                "replies_count": 0,
-                "is_reblog": False,
-                "url": "https://mastodon.social/settings/applications"
-            }]
+            return [
+                {
+                    "id": "mastodon-setup",
+                    "network": "mastodon",
+                    "author": "🚀 Mastodon Setup",
+                    "handle": "@guide",
+                    "content": "You haven't configured the Mastodon token yet.\n\n1. Go to Development\n2. Create an App with 'read' and 'write' permissions\n3. Save the token in Gnosi's secure settings",
+                    "timestamp": datetime.now().isoformat(),
+                    "avatar": None,
+                    "favourited": False,
+                    "reblogged": False,
+                    "favourites_count": 0,
+                    "reblogs_count": 0,
+                    "replies_count": 0,
+                    "is_reblog": False,
+                    "url": "https://mastodon.social/settings/applications",
+                }
+            ]
         return posts
 
     elif stream_id == "bluesky-home":
         posts = await bluesky_client.get_timeline(limit=limit)
         if not posts and not bluesky_client.app_password:
-            return [{
-                "id": "bluesky-setup",
-                "network": "bluesky",
-                "author": "🚀 Bluesky Setup",
-                "handle": "@guide",
-                "content": "You haven't configured the Bluesky App Password yet.\n\n1. Go to Settings -> App Passwords\n2. Create a new one\n3. Save it in Gnosi's secure settings",
-                "timestamp": datetime.now().isoformat(),
-                "avatar": None,
-                "favourited": False,
-                "reblogged": False,
-                "favourites_count": 0,
-                "reblogs_count": 0,
-                "replies_count": 0,
-                "is_reblog": False,
-                "url": "https://bsky.app/settings/app-passwords"
-            }]
+            return [
+                {
+                    "id": "bluesky-setup",
+                    "network": "bluesky",
+                    "author": "🚀 Bluesky Setup",
+                    "handle": "@guide",
+                    "content": "You haven't configured the Bluesky App Password yet.\n\n1. Go to Settings -> App Passwords\n2. Create a new one\n3. Save it in Gnosi's secure settings",
+                    "timestamp": datetime.now().isoformat(),
+                    "avatar": None,
+                    "favourited": False,
+                    "reblogged": False,
+                    "favourites_count": 0,
+                    "reblogs_count": 0,
+                    "replies_count": 0,
+                    "is_reblog": False,
+                    "url": "https://bsky.app/settings/app-passwords",
+                }
+            ]
         return posts
 
     elif stream_id == "scheduled":
@@ -222,89 +240,107 @@ async def get_feed(stream_id: str, limit: int = 20):
         items = []
         for r in recs:
             sched = r.get(social_store.COL_SCHEDULED) or ""
-            networks = [n.strip() for n in (r.get(social_store.COL_NETWORKS) or "").split(",") if n.strip()]
+            networks = [
+                n.strip() for n in (r.get(social_store.COL_NETWORKS) or "").split(",") if n.strip()
+            ]
             content_preview = _messages_preview(r)
-            items.append({
-                "id": r.get("id"),
-                "network": "scheduled",
-                "author": "You",
-                "handle": "@scheduled",
-                "content": f"📅 {sched[:16]}\n\n{content_preview}\n\n→ {', '.join(networks)}",
-                "timestamp": sched,
-                "avatar": None,
-                "favourited": False,
-                "reblogged": False,
-                "favourites_count": 0,
-                "reblogs_count": 0,
-                "replies_count": 0,
-                "is_reblog": False,
-                "url": None,
-            })
+            items.append(
+                {
+                    "id": r.get("id"),
+                    "network": "scheduled",
+                    "author": "You",
+                    "handle": "@scheduled",
+                    "content": f"📅 {sched[:16]}\n\n{content_preview}\n\n→ {', '.join(networks)}",
+                    "timestamp": sched,
+                    "avatar": None,
+                    "favourited": False,
+                    "reblogged": False,
+                    "favourites_count": 0,
+                    "reblogs_count": 0,
+                    "replies_count": 0,
+                    "is_reblog": False,
+                    "url": None,
+                }
+            )
         return items
 
     elif stream_id.startswith(("facebook", "linkedin", "telegram", "instagram", "x")):
         network = stream_id.split("-")[0]
         recs = await social_store.list_publications()
         my_posts = [
-            r for r in recs
+            r
+            for r in recs
             if network in [n.strip() for n in (r.get(social_store.COL_NETWORKS) or "").split(",")]
         ]
         if not my_posts:
             network_name = network.capitalize()
-            return [{
-                "id": f"system-{stream_id}-empty",
-                "network": network,
-                "author": "System",
-                "handle": "@system",
-                "content": f"There are no recent posts on {network_name} from this application.\n\nUse the 'New Post' button to send your first message!",
-                "timestamp": datetime.now().isoformat(),
-                "avatar": None,
-                "favourited": False,
-                "reblogged": False,
-                "favourites_count": 0,
-                "reblogs_count": 0,
-                "replies_count": 0,
-                "is_reblog": False,
-                "url": None
-            }]
+            return [
+                {
+                    "id": f"system-{stream_id}-empty",
+                    "network": network,
+                    "author": "System",
+                    "handle": "@system",
+                    "content": f"There are no recent posts on {network_name} from this application.\n\nUse the 'New Post' button to send your first message!",
+                    "timestamp": datetime.now().isoformat(),
+                    "avatar": None,
+                    "favourited": False,
+                    "reblogged": False,
+                    "favourites_count": 0,
+                    "reblogs_count": 0,
+                    "replies_count": 0,
+                    "is_reblog": False,
+                    "url": None,
+                }
+            ]
         feed_items = []
         for r in my_posts:
-            feed_items.append({
-                "id": r.get("id"),
-                "network": network,
-                "author": "You",
-                "handle": "@me",
-                "content": _messages_preview(r, network=network),
-                "timestamp": r.get(social_store.COL_PUBLISHED) or r.get(social_store.COL_SCHEDULED) or "",
-                "avatar": None,
-                "favourited": False,
-                "reblogged": False,
-                "favourites_count": 0,
-                "reblogs_count": 0,
-                "replies_count": 0,
-                "is_reblog": False,
-                "url": _messages_url(r, network),
-            })
+            feed_items.append(
+                {
+                    "id": r.get("id"),
+                    "network": network,
+                    "author": "You",
+                    "handle": "@me",
+                    "content": _messages_preview(r, network=network),
+                    "timestamp": r.get(social_store.COL_PUBLISHED)
+                    or r.get(social_store.COL_SCHEDULED)
+                    or "",
+                    "avatar": None,
+                    "favourited": False,
+                    "reblogged": False,
+                    "favourites_count": 0,
+                    "reblogs_count": 0,
+                    "replies_count": 0,
+                    "is_reblog": False,
+                    "url": _messages_url(r, network),
+                }
+            )
         return feed_items
 
     return []
 
 
-def _messages_preview(rec: dict, network: Optional[str] = None) -> str:
+def _messages_preview(rec: dict[str, Any], network: str | None = None) -> str:
     """Extracts readable text from a record's Missatges field."""
     try:
-        msgs = json.loads(rec.get(social_store.COL_MESSAGES) or "{}")
+        msgs = cast(
+            dict[str, dict[str, Any]],
+            json.loads(rec.get(social_store.COL_MESSAGES) or "{}"),
+        )
     except Exception:
         return ""
     if network and network in msgs:
-        return (msgs[network] or {}).get("text", "")
-    return "\n---\n".join((d or {}).get("text", "") for d in msgs.values())
+        return str((msgs[network] or {}).get("text", ""))
+    return "\n---\n".join(str((d or {}).get("text", "")) for d in msgs.values())
 
 
-def _messages_url(rec: dict, network: str) -> Optional[str]:
+def _messages_url(rec: dict[str, Any], network: str) -> str | None:
     try:
-        msgs = json.loads(rec.get(social_store.COL_MESSAGES) or "{}")
-        return (msgs.get(network) or {}).get("url")
+        msgs = cast(
+            dict[str, dict[str, Any]],
+            json.loads(rec.get(social_store.COL_MESSAGES) or "{}"),
+        )
+        url = (msgs.get(network) or {}).get("url")
+        return str(url) if url is not None else None
     except Exception:
         return None
 
@@ -316,8 +352,8 @@ _VALID_ACTIONS = {
 }
 
 
-@router.post("/interact", dependencies=[Depends(require_role("editor"))])
-async def interact_with_post(request: InteractionRequest):
+@router.post("/interact", dependencies=[Depends(require_role("editor"))], response_model=None)
+async def interact_with_post(request: InteractionRequest) -> Any:
     """Perform an interaction (like, reblog) on a post."""
 
     if request.network not in _VALID_NETWORKS:
@@ -358,20 +394,22 @@ async def interact_with_post(request: InteractionRequest):
             success = await bluesky_client.repost(request.post_id, request.cid)
 
     if not success:
-        raise HTTPException(status_code=502, detail=f"Failed to {request.action} post on {request.network}")
+        raise HTTPException(
+            status_code=502, detail=f"Failed to {request.action} post on {request.network}"
+        )
 
     return {"status": "success", "action": request.action, "post_id": request.post_id}
 
 
-@router.post("/compose", dependencies=[Depends(require_role("editor"))])
-async def compose_posts(request: ComposeRequest):
+@router.post("/compose", dependencies=[Depends(require_role("editor"))], response_model=None)
+async def compose_posts(request: ComposeRequest) -> Any:
     """Generate (with AI) a text proposal adapted for each network. Does NOT publish.
 
     The text is generated IN THE SAME LANGUAGE as the original content (detected
     automatically). Each network respects its character limit and its
     config (tone, hashtags). To regenerate just one, pass `regenerate_only`
     and an increasing `variation`.
-    
+
     """
     networks = request.regenerate_only or request.networks
     if not networks:
@@ -379,7 +417,7 @@ async def compose_posts(request: ComposeRequest):
 
     source_lang = detect_lang(request.content or request.title)
 
-    async def _one(net: str):
+    async def _one(net: str) -> tuple[str, dict[str, Any]]:
         client = SOCIAL_PUBLISHERS.get(net)
         char_limit = getattr(client, "char_limit", 280) if client else 280
         settings = _network_settings(net)
@@ -400,10 +438,10 @@ async def compose_posts(request: ComposeRequest):
 
     results = await asyncio.gather(*[_one(n) for n in networks], return_exceptions=True)
 
-    proposals: Dict[str, Any] = {}
+    proposals: dict[str, Any] = {}
     provider = None
     for r in results:
-        if isinstance(r, Exception):
+        if isinstance(r, BaseException):
             log.error(f"compose error: {r}")
             continue
         net, data = r
@@ -418,7 +456,9 @@ async def compose_posts(request: ComposeRequest):
     return {"proposals": proposals, "source_lang": source_lang, "provider": provider}
 
 
-async def _load_source_row(source_page_id: str):
+async def _load_source_row(
+    source_page_id: str,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """(table, metadata) of the Vault source row, or (None, None).
 
     Lazy import of vault_routes to avoid the social↔vault cycle (same
@@ -428,12 +468,18 @@ async def _load_source_row(source_page_id: str):
         return None, None
     from backend.api import vault_routes as vr
 
-    fp = await asyncio.to_thread(vr.find_page_path, sid)
+    find_page_path = cast(Callable[[str], Path | None], vr.find_page_path)
+    fp = await asyncio.to_thread(find_page_path, sid)
     if not fp or not fp.exists():
         return None, None
     raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
-    metadata, _body = vr.parse_frontmatter(raw, fp)
-    table = vr._table_by_id(vr.get_table_id(metadata))
+    parse_frontmatter = cast(
+        Callable[[str, Path], tuple[dict[str, Any], str]], vr.parse_frontmatter
+    )
+    metadata, _body = parse_frontmatter(raw, fp)
+    get_table_id = cast(Callable[[dict[str, Any]], str], vr.get_table_id)
+    table_by_id = cast(Callable[[str], dict[str, Any] | None], vr._table_by_id)
+    table = table_by_id(get_table_id(metadata))
     return table, metadata
 
 
@@ -445,7 +491,7 @@ async def _check_publish_requires(source_page_id: str) -> None:
         from backend.services import action_rules as ars
 
         table, metadata = await _load_source_row(source_page_id)
-        if not table:
+        if not table or metadata is None:
             return
         ok, reason = ars.check_requires(table, ars.ACTION_PUBLISH_SOCIAL, metadata)
     except HTTPException:
@@ -467,21 +513,24 @@ async def _apply_publish_effect_to_source(
         from backend.services import action_rules as ars
 
         table, metadata = await _load_source_row(source_page_id)
-        if not table:
+        if not table or metadata is None:
             return
-        prop, value, changed = ars.status_effect(
-            table, ars.ACTION_PUBLISH_SOCIAL, "source"
-        )
+        prop, value, changed = ars.status_effect(table, ars.ACTION_PUBLISH_SOCIAL, "source")
         if not prop or value is None:
             return
         if changed:
-            vr._ensure_status_options_persisted(table.get("id"), [value])
+            ensure_options = cast(
+                Callable[[Any, list[Any]], None], vr._ensure_status_options_persisted
+            )
+            ensure_options(table.get("id"), [value])
         if ars.read_prop_value(metadata, prop) == value:
             return
         key = ars.effect_write_key(metadata, prop)
-        await vr.patch_page(
+        patch_page = cast(Callable[..., Any], vr.patch_page)
+        page_patch_request = cast(Callable[..., Any], vr.PagePatchRequest)
+        await patch_page(
             source_page_id,
-            vr.PagePatchRequest(metadata={key: value}),
+            page_patch_request(metadata={key: value}),
             background_tasks,
         )
     except Exception as e:
@@ -493,21 +542,21 @@ async def _apply_publish_effect_to_source(
 
 
 async def _do_publish(
-    posts: Dict[str, dict],
+    posts: dict[str, dict[str, Any]],
     *,
     background_tasks: BackgroundTasks,
     source_page_id: str = "",
     source_title: str = "",
     save_record: bool = True,
-    record_id: Optional[str] = None,
-):
+    record_id: str | None = None,
+) -> tuple[str | None, str, dict[str, Any]]:
     """Publish the final text to each network and persist the result.
 
     `posts`: {network: {"text": str, "media": list|None}}.
     Returns (record_id, final_status, results per network).
-    
+
     """
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
     for net, post in posts.items():
         client = SOCIAL_PUBLISHERS.get(net)
         text = post.get("text", "")
@@ -536,18 +585,27 @@ async def _do_publish(
         now = datetime.now().isoformat()
         if rid:
             await social_store.update_publication(
-                rid, status=final, results=results, published_at=now,
+                rid,
+                status=final,
+                results=results,
+                published_at=now,
                 background_tasks=background_tasks,
             )
         else:
             proposals = {net: {"text": p.get("text", "")} for net, p in posts.items()}
             rid = await social_store.save_publication(
-                networks=list(posts.keys()), proposals=proposals, status=final,
-                source_page_id=source_page_id, source_title=source_title,
+                networks=list(posts.keys()),
+                proposals=proposals,
+                status=final,
+                source_page_id=source_page_id,
+                source_title=source_title,
                 background_tasks=background_tasks,
             )
             await social_store.update_publication(
-                rid, status=final, results=results, published_at=now,
+                rid,
+                status=final,
+                results=results,
+                published_at=now,
                 background_tasks=background_tasks,
             )
     # Effect on the source row ONLY on full success: a publication
@@ -557,8 +615,8 @@ async def _do_publish(
     return rid, final, results
 
 
-@router.post("/publish", dependencies=[Depends(require_role("editor"))])
-async def publish_posts(request: PublishRequest, background_tasks: BackgroundTasks):
+@router.post("/publish", dependencies=[Depends(require_role("editor"))], response_model=None)
+async def publish_posts(request: PublishRequest, background_tasks: BackgroundTasks) -> Any:
     """Publish a message (potentially different) per network and save the registry."""
     if not request.posts:
         raise HTTPException(status_code=400, detail="Cap publicació a enviar.")
@@ -574,8 +632,8 @@ async def publish_posts(request: PublishRequest, background_tasks: BackgroundTas
     return {"record_id": rid, "status": final, "results": results}
 
 
-@router.post("/post", dependencies=[Depends(require_role("editor"))])
-async def create_post(request: CreatePostRequest, background_tasks: BackgroundTasks):
+@router.post("/post", dependencies=[Depends(require_role("editor"))], response_model=None)
+async def create_post(request: CreatePostRequest, background_tasks: BackgroundTasks) -> Any:
     """Compat: publishes the SAME text to multiple networks. For a per-network message,
     use /publish. (Previously returned 501 because it depended on n8n; now it publishes via
     the direct clients.)"""
@@ -586,8 +644,8 @@ async def create_post(request: CreatePostRequest, background_tasks: BackgroundTa
     return {"record_id": rid, "status": final, "results": results}
 
 
-@router.post("/schedule", dependencies=[Depends(require_role("editor"))])
-async def schedule_post(request: SchedulePublishRequest, background_tasks: BackgroundTasks):
+@router.post("/schedule", dependencies=[Depends(require_role("editor"))], response_model=None)
+async def schedule_post(request: SchedulePublishRequest, background_tasks: BackgroundTasks) -> Any:
     """Schedule a future publication (saved to the Vault table, not in memory)."""
     if request.scheduled_time <= datetime.now():
         raise HTTPException(status_code=400, detail="The scheduled time must be in the future.")
@@ -598,7 +656,8 @@ async def schedule_post(request: SchedulePublishRequest, background_tasks: Backg
     networks = list(request.posts.keys())
     proposals = {net: {"text": p.text} for net, p in request.posts.items()}
     rid = await social_store.save_publication(
-        networks=networks, proposals=proposals,
+        networks=networks,
+        proposals=proposals,
         status=social_store.STATUS_SCHEDULED,
         scheduled_time=request.scheduled_time.isoformat(),
         source_page_id=request.source_page_id or "",
@@ -613,36 +672,52 @@ async def schedule_post(request: SchedulePublishRequest, background_tasks: Backg
     }
 
 
-@router.get("/scheduled")
-async def get_scheduled_posts():
+@router.get("/scheduled", response_model=None)
+async def get_scheduled_posts() -> Any:
     """Returns all pending scheduled posts."""
     recs = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
     out = []
     for r in recs:
-        out.append({
-            "id": r.get("id"),
-            "content": _messages_preview(r),
-            "networks": [n.strip() for n in (r.get(social_store.COL_NETWORKS) or "").split(",") if n.strip()],
-            "scheduled_time": r.get(social_store.COL_SCHEDULED) or "",
-            "status": "pending",
-        })
+        out.append(
+            {
+                "id": r.get("id"),
+                "content": _messages_preview(r),
+                "networks": [
+                    n.strip()
+                    for n in (r.get(social_store.COL_NETWORKS) or "").split(",")
+                    if n.strip()
+                ],
+                "scheduled_time": r.get(social_store.COL_SCHEDULED) or "",
+                "status": "pending",
+            }
+        )
     return out
 
 
-@router.delete("/scheduled/{post_id}", dependencies=[Depends(require_role("editor"))])
-async def cancel_scheduled_post(post_id: str, background_tasks: BackgroundTasks):
+@router.delete(
+    "/scheduled/{post_id}",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=None,
+)
+async def cancel_scheduled_post(post_id: str, background_tasks: BackgroundTasks) -> Any:
     """Cancel a scheduled post (marks the status as cancelled)."""
     recs = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
     if not any(r.get("id") == post_id for r in recs):
         raise HTTPException(status_code=404, detail=f"Scheduled post {post_id} not found")
     await social_store.update_publication(
-        post_id, status=social_store.STATUS_CANCELLED, background_tasks=background_tasks,
+        post_id,
+        status=social_store.STATUS_CANCELLED,
+        background_tasks=background_tasks,
     )
     return {"status": "cancelled", "id": post_id}
 
 
-@router.post("/process-scheduled", dependencies=[Depends(require_role("editor"))])
-async def process_scheduled_posts(background_tasks: BackgroundTasks):
+@router.post(
+    "/process-scheduled",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=None,
+)
+async def process_scheduled_posts(background_tasks: BackgroundTasks) -> Any:
     """Publish overdue scheduled posts. Called periodically by the scheduler."""
     now = datetime.now()
     pending = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
@@ -656,18 +731,25 @@ async def process_scheduled_posts(background_tasks: BackgroundTasks):
         if not due:
             continue
         rid = rec.get("id")
+        if not isinstance(rid, str):
+            log.warning("Skipping scheduled publication without a string id")
+            continue
         try:
             msgs = json.loads(rec.get(social_store.COL_MESSAGES) or "{}")
         except Exception:
             msgs = {}
         posts = {net: {"text": (d or {}).get("text", ""), "media": None} for net, d in msgs.items()}
         await social_store.update_publication(
-            rid, status=social_store.STATUS_PUBLISHING, background_tasks=background_tasks,
+            rid,
+            status=social_store.STATUS_PUBLISHING,
+            background_tasks=background_tasks,
         )
         _, final, results = await _do_publish(
-            posts, save_record=True, record_id=rid,
+            posts,
+            save_record=True,
+            record_id=rid,
             # Origin saved on the record: when publishing the scheduled item, the effect
-        # of the status field reaches the Vault row anyway.
+            # of the status field reaches the Vault row anyway.
             source_page_id=rec.get(social_store.COL_ORIGIN) or "",
             background_tasks=background_tasks,
         )
@@ -675,22 +757,30 @@ async def process_scheduled_posts(background_tasks: BackgroundTasks):
     return {"processed": len(processed), "details": processed}
 
 
-@router.get("/history")
-async def get_post_history():
+@router.get("/history", response_model=None)
+async def get_post_history() -> Any:
     """Returns the history of published posts (most recent first)."""
     recs = await social_store.list_publications()
     done_states = {
-        social_store.STATUS_PUBLISHED, social_store.STATUS_PARTIAL, social_store.STATUS_ERROR,
+        social_store.STATUS_PUBLISHED,
+        social_store.STATUS_PARTIAL,
+        social_store.STATUS_ERROR,
     }
-    hist = []
+    hist: list[dict[str, Any]] = []
     for r in recs:
         if r.get(social_store.COL_STATUS) not in done_states:
             continue
-        hist.append({
-            "id": r.get("id"),
-            "content": _messages_preview(r),
-            "networks": [n.strip() for n in (r.get(social_store.COL_NETWORKS) or "").split(",") if n.strip()],
-            "published_at": r.get(social_store.COL_PUBLISHED) or "",
-            "status": r.get(social_store.COL_STATUS),
-        })
-    return sorted(hist, key=lambda x: x["published_at"], reverse=True)[:50]
+        hist.append(
+            {
+                "id": r.get("id"),
+                "content": _messages_preview(r),
+                "networks": [
+                    n.strip()
+                    for n in (r.get(social_store.COL_NETWORKS) or "").split(",")
+                    if n.strip()
+                ],
+                "published_at": r.get(social_store.COL_PUBLISHED) or "",
+                "status": r.get(social_store.COL_STATUS),
+            }
+        )
+    return sorted(hist, key=lambda x: str(x["published_at"]), reverse=True)[:50]

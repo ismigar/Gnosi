@@ -8,6 +8,7 @@ sending, ``extract_vault_inline_images`` replaces each ``src`` with
 ``cid:<id>`` and returns the bytes so they travel as a ``multipart/related`` part
 of the message (data-URIs are discarded: Gmail/Outlook strip them from the body).
 """
+
 import email as email_lib
 import html
 import logging
@@ -17,14 +18,38 @@ import urllib.parse
 import uuid
 from email import encoders
 from email.header import decode_header, make_header
+from email.message import Message
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from backend.services.context_vars import get_active_vault_path
 
 log = logging.getLogger(__name__)
+
+
+class InlineImage(TypedDict):
+    filename: str
+    content_type: str
+    data: bytes
+    content_id: str
+
+
+class MimeAsset(TypedDict):
+    data: bytes
+    filename: NotRequired[str]
+    content_type: NotRequired[str]
+
+
+class MailCidReference(TypedDict):
+    url: str
+    message_id: str
+    cid: str
+    email: str | None
+    folder: str | None
+
 
 # src attribute with a URL (relative or absolute with host) pointing to /api/vault/assets/.
 # Only `src=`: <a href> links to vault files are not inline images.
@@ -59,7 +84,7 @@ def _resolve_asset_file(url: str, assets_root: Path) -> Path | None:
     """Resolves an asset URL to the file inside the active vault's ``Assets/``.
 
     Returns None if the path escapes Assets (traversal) or isn't a file.
-    
+
     """
     rel = url.split("/api/vault/assets/", 1)[1]
     # HTML serializes & as &amp; and names with spaces are percent-encoded.
@@ -76,7 +101,7 @@ def _resolve_asset_file(url: str, assets_root: Path) -> Path | None:
     return candidate
 
 
-def extract_vault_inline_images(body: str) -> tuple[str, list[dict]]:
+def extract_vault_inline_images(body: str) -> tuple[str, list[InlineImage]]:
     """Replaces vault asset src attributes with cid: and returns the bytes.
 
     Args:
@@ -88,21 +113,24 @@ def extract_vault_inline_images(body: str) -> tuple[str, list[dict]]:
         reuses the same Content-ID. If an asset doesn't exist, isn't an
         image, or can't be read, its URL is left intact (sending is never blocked
         because of a missing asset).
-    
+
     """
     if not body or "/api/vault/assets/" not in body:
         return body, []
 
     try:
-        assets_root = (get_active_vault_path() / "Assets").resolve()
+        active_path = get_active_vault_path()
+        if active_path is None:
+            return body, []
+        assets_root = (active_path / "Assets").resolve()
     except Exception as e:
         log.warning("Could not resolve Assets/ for the active vault: %s", e)
         return body, []
 
-    images: list[dict] = []
+    images: list[InlineImage] = []
     cid_by_url: dict[str, str | None] = {}
 
-    def _replace(match: re.Match) -> str:
+    def _replace(match: re.Match[str]) -> str:
         url = match.group("url")
         if url not in cid_by_url:
             cid_by_url[url] = None
@@ -113,24 +141,28 @@ def extract_vault_inline_images(body: str) -> tuple[str, list[dict]]:
                 content_type = mimetypes.guess_type(asset.name)[0] or ""
                 data = asset.read_bytes()
                 if not content_type.startswith("image/"):
-                    log.warning("Asset source is not an image (%s); preserving URL: %r", content_type, url)
+                    log.warning(
+                        "Asset source is not an image (%s); preserving URL: %r", content_type, url
+                    )
                 elif not data:
                     # 0 bytes = likely a non-materialized OneDrive online-only file
                     log.warning("Asset is empty (possibly online-only); preserving URL: %r", url)
                 else:
                     cid = new_content_id()
-                    images.append({
-                        "filename": asset.name,
-                        "content_type": content_type,
-                        "data": data,
-                        "content_id": cid,
-                    })
+                    images.append(
+                        {
+                            "filename": asset.name,
+                            "content_type": content_type,
+                            "data": data,
+                            "content_id": cid,
+                        }
+                    )
                     cid_by_url[url] = cid
-        cid = cid_by_url[url]
-        if cid is None:
+        resolved_cid = cid_by_url[url]
+        if resolved_cid is None:
             return match.group(0)
         quote = match.group(1)
-        return f"src={quote}cid:{cid}{quote}"
+        return f"src={quote}cid:{resolved_cid}{quote}"
 
     new_body = _VAULT_ASSET_SRC_RE.sub(_replace, body)
     return new_body, images
@@ -143,18 +175,18 @@ def find_cid_srcs(body: str) -> set[str]:
     return {m.group("cid") for m in _CID_SRC_RE.finditer(body)}
 
 
-def rewrite_cid_srcs(body: str, mapping: dict) -> str:
+def rewrite_cid_srcs(body: str, mapping: dict[str, str]) -> str:
     """Rewrites ``src="cid:old"`` → ``src="cid:new"`` according to the mapping.
 
     cids with no entry in the mapping (unrecoverable) are left intact:
     the recipient will see them broken just like before, but sending is never
     blocked and the others are not lost.
-    
+
     """
     if not body or not mapping:
         return body
 
-    def _replace(match: re.Match) -> str:
+    def _replace(match: re.Match[str]) -> str:
         new_cid = mapping.get(match.group("cid"))
         if new_cid is None:
             return match.group(0)
@@ -164,7 +196,7 @@ def rewrite_cid_srcs(body: str, mapping: dict) -> str:
     return _CID_SRC_RE.sub(_replace, body)
 
 
-def find_mail_cid_refs(body: str) -> list[dict]:
+def find_mail_cid_refs(body: str) -> list[MailCidReference]:
     """References to ``/api/mail/messages/{id}/cid/{cid}`` in the body's src attributes.
 
     Returns:
@@ -172,12 +204,12 @@ def find_mail_cid_refs(body: str) -> list[dict]:
         src, for rewriting it), ``message_id`` and ``cid`` (percent-
         decoded) and ``email``/``folder`` from the URL query (None if
         not present).
-    
+
     """
     if not body or "/api/mail/messages/" not in body:
         return []
-    refs: list[dict] = []
-    seen: set = set()
+    refs: list[MailCidReference] = []
+    seen: set[str] = set()
     for match in _MAIL_CID_SRC_RE.finditer(body):
         url = match.group("url")
         if url in seen:
@@ -189,22 +221,24 @@ def find_mail_cid_refs(body: str) -> list[dict]:
         if not message_id or not cid:
             continue
         query = urllib.parse.parse_qs(parsed.query)
-        refs.append({
-            "url": url,
-            "message_id": urllib.parse.unquote(message_id),
-            "cid": urllib.parse.unquote(cid),
-            "email": (query.get("email") or [None])[0],
-            "folder": (query.get("folder") or [None])[0],
-        })
+        refs.append(
+            {
+                "url": url,
+                "message_id": urllib.parse.unquote(message_id),
+                "cid": urllib.parse.unquote(cid),
+                "email": query.get("email", [None])[0],
+                "folder": query.get("folder", [None])[0],
+            }
+        )
     return refs
 
 
-def rewrite_mail_cid_srcs(body: str, mapping: dict) -> str:
+def rewrite_mail_cid_srcs(body: str, mapping: dict[str, str]) -> str:
     """Rewrites ``src="<url /cid/>"`` → ``src="cid:nou"`` (mapping by literal URL)."""
     if not body or not mapping:
         return body
 
-    def _replace(match: re.Match) -> str:
+    def _replace(match: re.Match[str]) -> str:
         new_cid = mapping.get(match.group("url"))
         if new_cid is None:
             return match.group(0)
@@ -222,7 +256,7 @@ def _decode_mime_words(value: str) -> str:
         return value
 
 
-def extract_inline_parts_from_mime(raw_bytes: bytes, wanted_cids: set) -> dict:
+def extract_inline_parts_from_mime(raw_bytes: bytes, wanted_cids: set[str]) -> dict[str, MimeAsset]:
     """Extracts the parts with the requested Content-IDs from a raw MIME message.
 
     Args:
@@ -232,19 +266,19 @@ def extract_inline_parts_from_mime(raw_bytes: bytes, wanted_cids: set) -> dict:
     Returns:
         Dict cid (without ``<>``) → {filename, content_type, data}. Parts
         without a decodable payload are omitted.
-    
+
     """
     wanted = {c.strip("<>") for c in wanted_cids if c}
     if not wanted:
         return {}
     msg = email_lib.message_from_bytes(raw_bytes)
-    parts: dict = {}
+    parts: dict[str, MimeAsset] = {}
     for part in msg.walk():
         part_cid = (part.get("Content-ID") or "").strip("<>")
         if not part_cid or part_cid not in wanted or part_cid in parts:
             continue
         payload = part.get_payload(decode=True)
-        if not payload:
+        if not isinstance(payload, bytes) or not payload:
             continue
         parts[part_cid] = {
             "filename": _decode_mime_words(part.get_filename() or "image"),
@@ -264,9 +298,9 @@ def _file_part(content_type: str, data: bytes) -> MIMEBase:
 
 def build_mail_content(
     body: str,
-    attachments: list | None = None,
-    inline_images: list | None = None,
-):
+    attachments: list[MimeAsset] | None = None,
+    inline_images: list[InlineImage] | None = None,
+) -> Message:
     """Builds the content's MIME tree (without sending headers).
 
     Structure: text → multipart/related(text + inline) if there are inline
@@ -280,10 +314,10 @@ def build_mail_content(
 
     Returns:
         Root email.message.Message of the content.
-    
+
     """
     subtype = "html" if body.strip().startswith("<") else "plain"
-    content = MIMEText(body, subtype, "utf-8")
+    content: Message = MIMEText(body, subtype, "utf-8")
 
     if inline_images:
         related = MIMEMultipart("related")
@@ -292,7 +326,8 @@ def build_mail_content(
             part = _file_part(img.get("content_type"), img["data"])
             part.add_header("Content-ID", f"<{img['content_id']}>")
             part.add_header(
-                "Content-Disposition", "inline",
+                "Content-Disposition",
+                "inline",
                 filename=img.get("filename", "image"),
             )
             related.attach(part)
@@ -302,9 +337,10 @@ def build_mail_content(
         mixed = MIMEMultipart("mixed")
         mixed.attach(content)
         for att in attachments:
-            part = _file_part(att.get("content_type"), att["data"])
+            part = _file_part(att.get("content_type") or "application/octet-stream", att["data"])
             part.add_header(
-                "Content-Disposition", "attachment",
+                "Content-Disposition",
+                "attachment",
                 filename=att.get("filename", "attachment"),
             )
             mixed.attach(part)

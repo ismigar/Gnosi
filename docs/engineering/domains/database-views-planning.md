@@ -1,13 +1,27 @@
 ---
 status: implemented
-last_verified: 2026-08-16
+last_verified: 2026-08-28
 source_paths:
+  - backend/data/db.py
   - backend/api/vault_routes.py
+  - backend/domains/vault/tables/catalogs
+  - backend/domains/vault/tables/formula_recalculation.py
+  - backend/domains/vault/tables/rules
+  - backend/domains/vault/views/filters.py
+  - backend/domains/vault/views/row_resolution.py
+  - backend/domains/vault/views/snapshot_markup.py
+  - backend/domains/vault/views/snapshot_materialization.py
+  - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/api/virtual_fields.py
   - backend/services/table_system_dates.py
+  - backend/services/option_catalogs.py
+  - backend/services/action_rules.py
+  - backend/services/rule_engine.py
   - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
+  - backend/services/project_planning.py
   - backend/services/planning_scheduler.py
   - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
@@ -19,13 +33,24 @@ source_paths:
   - frontend/src/utils/projectPlanning.js
   - frontend/src/utils/vaultFilters.js
 tests:
+  - backend/tests/test_action_rules.py
+  - backend/tests/test_database_rules_views_domain_contract.py
+  - backend/tests/test_rule_engine_derived_order.py
+  - backend/tests/test_rollup_percent_checked_parity.py
+  - backend/tests/test_option_catalogs.py
+  - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_table_system_dates.py
   - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_view_filter_rename.py
   - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
+  - backend/tests/test_planning_agent_tools.py
+  - backend/tests/test_planning_scheduler.py
   - backend/tests/test_project_planning.py
+  - backend/tests/test_virtual_fields_graph_projection.py
+  - backend/tests/test_pipeline_naming.py
   - frontend/src/utils/projectPlanning.test.js
   - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
@@ -38,6 +63,12 @@ A Gnosi database is a schema and view layer over pages, normally rooted in a
 Vault folder. Page front matter contains record values. Registry data defines
 field types, view configurations, formulas, rollups, relations, options,
 display settings, and actions.
+
+Each active Vault resolves to one locally stored SQLite engine and typed session
+factory. The engine registry is keyed by Vault path, uses a typed SQLAlchemy
+declarative base, runs schema migration before first connection and disposes
+pooled connections on Vault deletion. SQLite files remain outside cloud-synced
+Vault storage.
 
 At least one main view is an invariant. Startup and read-time repair paths
 restore it when legacy or interrupted writes leave a table without a valid
@@ -99,6 +130,35 @@ resolved without allowing cycles to recurse indefinitely. Backend and frontend
 representations must agree on checkbox truthiness, percentages, empty values,
 and option identifiers.
 
+Read-time virtual fields use typed graph projections and computation contexts.
+Structural edges exclude unresolved and semantic proposal nodes; NetworkX
+metrics are narrowed when they enter the shared cache, while degree, hub,
+orphan and inverse task-progress values expose stable primitive results. The
+canonical frontmatter key remains the registry property name without slugging.
+
+Canonical database behavior is split by responsibility. `tables/rules/` owns
+formula, rollup, lookup and automation evaluation; `tables/catalogs/` owns
+option normalization, semantic roles and the global status catalog; and the
+small modules under `vault/views/` own snapshot syntax, materialization,
+filters, sorting and joins. The historical `rule_engine.py`,
+`option_catalogs.py` and `view_snapshot.py` imports remain thin compatibility
+facades, including the late-bound path and relation-decoration test seams.
+
+The table HTTP boundary consumes those strict collection, lifecycle, schema,
+option, view and contained-path contracts directly. It no longer recasts their
+results, so each domain module remains the sole owner of its return type while
+the flat historical route inventory and OpenAPI document stay unchanged.
+
+The transitional table composition graph now injects concrete option lists,
+typed join definitions and a protocol-compatible Markdown rematerializer. The
+adapter preserves late-bound legacy decoration while rejecting a non-text
+snapshot result instead of allowing it to cross into persistence.
+
+Cross-record changes are serialized per table by
+`tables/formula_recalculation.py`. Concurrent requests are coalesced into a
+pending pass; every visible row is recomputed, changed Markdown is written, and
+the page index and response cache are refreshed only after successful writes.
+
 Saved-view sort criteria are applied in array order with a stable multi-key
 comparison. Empty property values always follow populated values in both
 ascending and descending directions, matching imported Notion view semantics.
@@ -122,10 +182,37 @@ Registries are written atomically and refreshed after batch metadata changes.
 Cached snapshots are invalidated when source records or the schema revision
 changes.
 
+Per-page view routes validate the registry root, source table, filter field and
+page-on-disk identity before mutation. Their read-modify-write cycle shares the
+canonical registry lock and refreshes the facade cache after an atomic save;
+optional Obsidian section synchronization remains a typed best-effort adapter.
+Stable `view_id` takes precedence over headings during upsert so parallel embeds
+cannot overwrite each other. Read, upsert and deletion results pass through
+dedicated Pydantic models before returning the same legacy dictionaries; the
+request schema and frozen OpenAPI document are unchanged.
+
+Bulk field edits, Zotero Extra promotion, and template application share one
+typed page-mutation service. Each target is isolated, checks an optional ETag,
+refreshes the page index after a write, and reports skips, conflicts, and errors
+without aborting the remaining rows.
+
 Page-property editors use field-aware controls. `select` and `status` fields
 render as single-value option pickers; status catalogs are strict and do not
 expose inline option creation or deletion. The table grid and page-property
 panel must preserve the same field type and option semantics.
+
+Status values introduced by action rules are persisted idempotently through the
+table domain. Registry failures are logged but never turn the originating rule
+into a failed user action.
+The pure rule boundary resolves fields by id, current name or alias, evaluates
+declared prerequisites without treating absent data as a denial, preserves the
+frontmatter key already in use, and seeds missing status options deterministically.
+Button rules remain distinct from change-triggered automations.
+
+The Planning HTTP boundary is strictly typed while preserving its frozen
+OpenAPI contract. Active-vault resolution fails explicitly when no vault is
+selected, and recurrence materialization uses bounded iterator consumption for
+RRULE occurrences while preserving stable task identifiers and ETag checks.
 
 ## Project planning
 
@@ -134,6 +221,19 @@ rather than duplicating scheduling logic in the UI. The engine normalizes
 dependencies, calendars, durations, constraints, resources, deadlines,
 progress, and scheduling direction. It then calculates dates, slack, critical
 tasks, warnings, and resource allocations.
+
+The deterministic engine now separates fact normalization, one-task forward
+scheduling, constraint diagnostics, successor indexing, the backward slack pass,
+ALAP placement and payload serialization. This keeps persisted facts immutable
+while preserving partial schedules and diagnostics for recoverable graph errors.
+
+The coalesced scheduler keeps Markdown parsing, saving and ETag checks behind a
+narrow late-bound Vault port, with typed source records for every candidate
+write. It validates plugin-state shape before reading settings and writes only
+automatic boundaries whose source ETag is unchanged. Resource rate history and
+assignment overrides are narrowed at the planning-store boundary, so allocation
+and leveling calculations remain strictly typed without changing persisted
+numbers or schedule semantics.
 
 Period durations retain both their numeric value and configured unit (`hours`,
 `days`, or `years`). Calendar years are added as calendar-year offsets, which

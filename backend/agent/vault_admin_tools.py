@@ -4,14 +4,11 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
-try:
-    from langchain_core.tools import tool
-except Exception:  # pragma: no cover
-    def tool(fn=None, **_kwargs):
-        return fn if fn else (lambda function: function)
+from langchain_core.tools import tool
 
 
 @tool
@@ -19,7 +16,8 @@ def list_vault_tables(limit: int = 100) -> str:
     """List bounded Vault tables and their database associations."""
     from backend.api.vault_routes import load_registry
 
-    registry = load_registry()
+    typed_load_registry = cast(Callable[[], dict[str, Any]], load_registry)
+    registry = typed_load_registry()
     rows = []
     for table in list(registry.get("tables") or [])[:max(1, min(int(limit), 200))]:
         rows.append({
@@ -68,11 +66,13 @@ def query_vault_table(
     title_needle = str(title_contains or "").casefold()
     bounded_limit = max(1, min(int(limit), 100))
     results = []
-    pages = list(_get_pages_for_table(table_id) or [])
+    get_pages = cast(Callable[[str], list[Any]], _get_pages_for_table)
+    refresh_pages = cast(Callable[[list[Any]], None], _refresh_table_pages_metadata)
+    pages = list(get_pages(table_id) or [])
     # The page index normally carries complete frontmatter. A cold or partially
     # reconstructed cache can contain metadata stubs; refresh only this table in
     # the existing bounded worker pool instead of opening every page in the Vault.
-    _refresh_table_pages_metadata(pages)
+    refresh_pages(pages)
     for page in pages:
         metadata = dict(getattr(page, "metadata", None) or {})
         title = str(
@@ -112,7 +112,10 @@ def _normalized_identifier(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", " ", ascii_text.casefold()).strip()
 
 
-def _self_authorship_view(table_id: str, views: list[dict]) -> dict | None:
+def _self_authorship_view(
+    table_id: str,
+    views: list[dict[str, Any]],
+) -> dict[str, Any] | None:
     """Resolve a saved first-person authorship view inside one table."""
     exact_names = {
         "soc autor",
@@ -164,7 +167,15 @@ def list_authored_vault_resources(
     from backend.agent.agent_context import _table_rows
     from backend.api.vault_routes import load_registry
 
-    registry = load_registry() or {}
+    typed_load_registry = cast(Callable[[], dict[str, Any]], load_registry)
+    typed_table_rows = cast(
+        Callable[
+            [str, dict[str, str]],
+            tuple[list[dict[str, Any]], dict[str, Any] | None],
+        ],
+        _table_rows,
+    )
+    registry = typed_load_registry() or {}
     resource_names = {"recursos", "resources", "ressources"}
     table = next((
         item
@@ -203,7 +214,7 @@ def list_authored_vault_resources(
             ],
         }, ensure_ascii=False)
 
-    rows, resolved_view = _table_rows(
+    rows, resolved_view = typed_table_rows(
         table_id,
         {"view_id": str(view.get("id") or "")},
     )
@@ -303,7 +314,8 @@ def _relocate_page(
     else:
         _write_page(target, metadata, body)
         source.unlink()
-        register_page_in_index(target)
+        index_page = cast(Callable[[Path], None], register_page_in_index)
+        index_page(target)
     return json.dumps({
         "status": "updated",
         "page_id": str(metadata.get("id") or ""),

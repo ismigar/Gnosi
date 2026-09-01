@@ -5,6 +5,12 @@ import pytest
 import requests
 from fastapi import HTTPException
 
+from backend.domains.notebooks import analysis as notebook_analysis
+from backend.domains.notebooks import catalog as notebook_catalog
+from backend.domains.notebooks import ingestion as notebook_ingestion
+from backend.domains.notebooks import repository as notebook_repository
+from backend.domains.notebooks import resources as notebook_resources
+from backend.domains.notebooks import service as notebook_domain_service
 from backend.services import context_vars, durable_job_queue, notebook_service
 from backend.services.workspace_service import WorkspaceContext
 
@@ -15,11 +21,11 @@ def notebook_env(tmp_path, monkeypatch):
     vault = tmp_path / "vault"
     vault.mkdir()
     params = SimpleNamespace(paths={"LOCAL_DATA": local_data, "VAULT": vault})
-    monkeypatch.setattr(notebook_service, "load_params", lambda strict_env=False: params)
+    monkeypatch.setattr(notebook_repository, "load_params", lambda strict_env=False: params)
     monkeypatch.setattr(context_vars, "get_active_vault_path", lambda: vault)
     monkeypatch.setattr(durable_job_queue, "load_params", lambda strict_env=False: params)
-    monkeypatch.setattr(notebook_service, "launch_ingest", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(notebook_service, "launch_analysis", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(notebook_domain_service, "launch_ingest", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(notebook_analysis, "launch_analysis", lambda *_args, **_kwargs: None)
 
     attachment = vault / "evidence.txt"
     attachment.write_text("Grounded evidence about deterministic retrieval.", encoding="utf-8")
@@ -44,12 +50,12 @@ def notebook_env(tmp_path, monkeypatch):
         },
     )
     monkeypatch.setattr(
-        notebook_service,
+        notebook_catalog,
         "_reference_table",
         lambda: (table["id"], table, [page]),
     )
     monkeypatch.setattr(
-        notebook_service,
+        notebook_resources,
         "_current_resource_snapshot",
         lambda _notebook: (
             table,
@@ -61,6 +67,16 @@ def notebook_env(tmp_path, monkeypatch):
             },
             [page],
         ),
+    )
+    monkeypatch.setattr(
+        notebook_ingestion,
+        "_current_resource_snapshot",
+        notebook_resources._current_resource_snapshot,
+    )
+    monkeypatch.setattr(
+        notebook_domain_service,
+        "_current_resource_snapshot",
+        notebook_resources._current_resource_snapshot,
     )
     context = WorkspaceContext("workspace-1", "user-1", "owner", vault, ["read", "write"])
     return {
@@ -386,11 +402,11 @@ def test_failed_refresh_keeps_last_valid_source_as_stale(notebook_env, monkeypat
         resource_ids=["resource-1"],
     )
     _run_queued_ingest(notebook_env["vault"])
-    table, source_config, _pages = notebook_service._current_resource_snapshot(  # noqa: SLF001
+    table, source_config, _pages = notebook_resources._current_resource_snapshot(  # noqa: SLF001
         notebook
     )
     monkeypatch.setattr(
-        notebook_service,
+        notebook_ingestion,
         "_current_resource_snapshot",
         lambda _notebook: (table, source_config, []),
     )
@@ -407,7 +423,7 @@ def test_failed_refresh_keeps_last_valid_source_as_stale(notebook_env, monkeypat
 
 def test_three_hundred_resources_are_paged_with_multiple_sources(notebook_env, monkeypatch):
     context = notebook_env["context"]
-    table, _source_config, _pages = notebook_service._current_resource_snapshot(  # noqa: SLF001
+    table, _source_config, _pages = notebook_resources._current_resource_snapshot(  # noqa: SLF001
         {"source_table_id": "references-table"}
     )
     pages = [
@@ -425,7 +441,7 @@ def test_three_hundred_resources_are_paged_with_multiple_sources(notebook_env, m
         for index in range(300)
     ]
     monkeypatch.setattr(
-        notebook_service,
+        notebook_catalog,
         "_reference_table",
         lambda: (table["id"], table, pages),
     )
@@ -452,7 +468,7 @@ def test_three_hundred_resources_complete_one_bounded_ingestion_job(
     monkeypatch,
 ):
     context = notebook_env["context"]
-    table, source_config, _pages = notebook_service._current_resource_snapshot(  # noqa: SLF001
+    table, source_config, _pages = notebook_resources._current_resource_snapshot(  # noqa: SLF001
         {"source_table_id": "references-table"}
     )
     pages = [
@@ -469,12 +485,12 @@ def test_three_hundred_resources_complete_one_bounded_ingestion_job(
         for index in range(300)
     ]
     monkeypatch.setattr(
-        notebook_service,
+        notebook_catalog,
         "_reference_table",
         lambda: (table["id"], table, pages),
     )
     monkeypatch.setattr(
-        notebook_service,
+        notebook_ingestion,
         "_current_resource_snapshot",
         lambda _notebook: (table, source_config, pages),
     )
@@ -621,7 +637,7 @@ def test_resource_selector_sorts_before_paging_and_filters_schema_facets(noteboo
         ),
     ]
     monkeypatch.setattr(
-        notebook_service,
+        notebook_catalog,
         "_reference_table",
         lambda: (table["id"], table, pages),
     )
@@ -664,7 +680,7 @@ def test_resource_selector_hides_records_without_attachment_or_url_sources(
     monkeypatch,
 ):
     context = notebook_env["context"]
-    table, _source_config, _pages = notebook_service._current_resource_snapshot(  # noqa: SLF001
+    table, _source_config, _pages = notebook_resources._current_resource_snapshot(  # noqa: SLF001
         {"source_table_id": "references-table"}
     )
     pages = [
@@ -682,7 +698,7 @@ def test_resource_selector_hides_records_without_attachment_or_url_sources(
         ),
     ]
     monkeypatch.setattr(
-        notebook_service,
+        notebook_catalog,
         "_reference_table",
         lambda: (table["id"], table, pages),
     )
@@ -806,7 +822,7 @@ def test_targeted_resource_retry_reextracts_only_the_selected_resource(
     monkeypatch,
 ):
     context = notebook_env["context"]
-    table, source_config, _pages = notebook_service._current_resource_snapshot(  # noqa: SLF001
+    table, source_config, _pages = notebook_resources._current_resource_snapshot(  # noqa: SLF001
         {"source_table_id": "references-table"}
     )
     second_attachment = notebook_env["vault"] / "second.txt"
@@ -819,12 +835,12 @@ def test_targeted_resource_retry_reextracts_only_the_selected_resource(
     )
     pages = [notebook_env["page"], second_page]
     monkeypatch.setattr(
-        notebook_service,
+        notebook_catalog,
         "_reference_table",
         lambda: (table["id"], table, pages),
     )
     monkeypatch.setattr(
-        notebook_service,
+        notebook_ingestion,
         "_current_resource_snapshot",
         lambda _notebook: (table, source_config, pages),
     )
@@ -1117,7 +1133,7 @@ def test_whole_notebook_analysis_is_durable_and_revision_pinned(notebook_env, mo
     )
     _run_queued_ingest(notebook_env["vault"])
     monkeypatch.setattr(
-        notebook_service,
+        notebook_analysis,
         "_model_analysis",
         lambda prompt, request: f"Summary for {request}: {len(prompt)} chars",
     )
@@ -1198,6 +1214,3 @@ def test_notebook_patch_request_model_and_service_with_groups(notebook_env):
     assert len(updated.get("groups", [])) == 1
     assert updated["groups"][0]["name"] == "Created group"
     assert updated["groups"][0]["resource_ids"] == ["resource-1"]
-
-
-

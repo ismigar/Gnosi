@@ -50,9 +50,10 @@ class ToolRegistry:
 
     def __init__(self, db_path: Optional[Path] = None):
         self._db_path_override = db_path
+        self.db_path: Path
         self._initialized = False
 
-    def _ensure_init(self):
+    def _ensure_init(self) -> None:
         if self._initialized:
             return
 

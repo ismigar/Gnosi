@@ -3,15 +3,9 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Dict, List
 
 from fastapi import BackgroundTasks
-
-try:
-    from langchain_core.tools import tool
-except Exception:  # pragma: no cover
-    def tool(fn=None, **_kwargs):
-        return fn if fn else (lambda function: function)
+from langchain_core.tools import tool
 
 
 def _personal() -> None:
@@ -51,7 +45,7 @@ async def read_scheduled_social_posts() -> str:
 
 @tool
 async def compose_social_posts(
-    networks: List[str],
+    networks: list[str],
     content: str = "",
     title: str = "",
     url: str = "",
@@ -69,7 +63,7 @@ async def compose_social_posts(
 
 @tool
 async def publish_social_posts(
-    posts: Dict[str, str],
+    posts: dict[str, str],
     source_page_id: str = "",
     source_title: str = "",
 ) -> str:
@@ -89,7 +83,7 @@ async def publish_social_posts(
 
 @tool
 async def schedule_social_posts(
-    posts: Dict[str, str],
+    posts: dict[str, str],
     scheduled_time: str,
     source_page_id: str = "",
     source_title: str = "",

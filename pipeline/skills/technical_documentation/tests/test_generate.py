@@ -76,6 +76,56 @@ def test_route_module_combines_all_prefixes(tmp_path: Path) -> None:
     assert operations[0].summary == "Return one item."
 
 
+def test_route_module_follows_imported_router_registrars(tmp_path: Path) -> None:
+    """Injected-router registration remains visible in the API catalog."""
+    app_root = tmp_path / "gnosi"
+    api_root = app_root / "backend" / "api"
+    domain_root = app_root / "backend" / "domains" / "items"
+    api_root.mkdir(parents=True)
+    domain_root.mkdir(parents=True)
+    route_path = api_root / "sample_routes.py"
+    route_path.write_text(
+        "from fastapi import APIRouter, Depends\n"
+        "from backend.domains.items import api as items_api\n"
+        "router = APIRouter(prefix='/items', tags=['items'], "
+        "dependencies=[Depends(workspace)])\n"
+        "items_api.register_routes(router)\n",
+        encoding="utf-8",
+    )
+    domain_path = domain_root / "api.py"
+    domain_path.write_text(
+        "from fastapi import Depends\n"
+        "async def create_item(user=Depends(current_user)):\n"
+        "    '''Create one item.'''\n"
+        "    return user\n"
+        "def register_routes(router):\n"
+        "    router.add_api_route(\n"
+        "        '/dynamic', create_item, methods=['POST'],\n"
+        "        dependencies=[Depends(editor)],\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    registration = RouterRegistration(
+        module="sample_routes",
+        prefix="/api",
+        tags=("Sample",),
+        line=10,
+    )
+
+    operations = parse_route_module(route_path, app_root, registration)
+
+    assert len(operations) == 1
+    assert operations[0].path == "/api/items/dynamic"
+    assert operations[0].method == "POST"
+    assert operations[0].handler == "create_item"
+    assert operations[0].module == "backend/domains/items/api.py"
+    assert operations[0].tags == ("Sample", "items")
+    assert operations[0].guards == (
+        "[Depends(workspace)], [Depends(editor)], Depends(current_user)"
+    )
+    assert operations[0].summary == "Create one item."
+
+
 def test_api_catalog_is_deterministic() -> None:
     """Repeated static inspection produces byte-identical API reference."""
     first = build_api_catalog(APP_ROOT)
@@ -109,6 +159,28 @@ def test_data_model_catalog_redacts_sensitive_defaults() -> None:
     assert "`users`" in catalog
     assert "`newsletter_account`" in catalog
     assert "redacted" in catalog
+
+
+def test_data_model_catalog_supports_sqlalchemy_2_mapped_columns(tmp_path: Path) -> None:
+    """Annotated ``mapped_column`` declarations retain type and nullability."""
+    app_root = tmp_path / "gnosi"
+    model_root = app_root / "backend" / "models"
+    model_root.mkdir(parents=True)
+    (model_root / "sample.py").write_text(
+        "class Sample:\n"
+        "    __tablename__ = 'samples'\n"
+        "    legacy = Column(Integer, primary_key=True)\n"
+        "    title: Mapped[str] = mapped_column(String, nullable=False)\n"
+        "    note: Mapped[str | None] = mapped_column()\n",
+        encoding="utf-8",
+    )
+
+    catalog = build_data_model_catalog(app_root)
+
+    assert "Discovered **1 mapped tables** and **3 mapped columns**." in catalog
+    assert "| `legacy` | `Integer` | yes | — |" in catalog
+    assert "| `title` | `String` | — | no |" in catalog
+    assert r"| `note` | `str \| None` | — | yes |" in catalog
 
 
 def test_coverage_globs_exclude_cache_artifacts(tmp_path: Path) -> None:

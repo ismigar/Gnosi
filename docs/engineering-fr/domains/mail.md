@@ -1,16 +1,19 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/mail_routes.py
   - backend/models/mail.py
   - backend/services/hybrid_mail_service.py
+  - backend/services/google_mail_service.py
+  - backend/services/microsoft_mail_service.py
   - backend/services/mail_ingester.py
   - frontend/src/pages/MailPage.jsx
   - frontend/src/components/Mail
 tests:
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
+  - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
@@ -25,6 +28,11 @@ Le courrier intègre les comptes IMAP/SMTP, l'indexation locale des messages, le
 ## Synchronisation
 
 Les intégrations de comptes décrivent les références protocole et OAuth/crédentiel. Une synchronisation complète ou incrémentale lit les messages du fournisseur, normalise les identifiants et le contenu MIME et écrit des lignes d'index locales. Les travailleurs d'IMAP IDLE détiennent une connexion par compte éligible et déclenchent un rafraîchissement incrémental lorsque le serveur annonce des changements.
+
+Les adaptateurs Google et Microsoft exposent les mêmes frontières typées pour
+les messages, pièces jointes, brouillons, libellés et envois. Les payloads
+dynamiques des SDK sont validés dans chaque adaptateur ; les seules exceptions
+locales concernent les appels tiers exacts sans stubs, jamais l'API Gnosi.
 
 L'ingestion par lots utilise des savepoints afin qu'un message malformé ne puisse pas retourner les messages précédents. L'identité du message et du thread doit rester stable sur les synchronisations répétées. Les noms de dossiers sont des valeurs de fournisseur; l'interface utilisateur traduit les dossiers sémantiques connus sans modifier les valeurs de comparaison persistantes.
 
@@ -41,6 +49,11 @@ flowchart LR
 ```
 
 HTML est sainisé avant le rendu. Les images CID sont résolues contre la partie MIME correcte et préservées lorsque le contenu cité est inclus dans les réponses. Les images et pièces jointes à distance restent des ressources explicites plutôt que l'accès HTML arbitraire aux chemins locaux.
+
+La frontière des images inline utilise des descripteurs MIME typés et une racine
+`Message` commune aux arbres texte, related et mixed. Elle n'accepte que les
+payloads décodés en octets, normalise les types de contenu optionnels et conserve
+les URL des assets sans Vault actif ou fichier matérialisé.
 
 ## Composer et envoyer
 

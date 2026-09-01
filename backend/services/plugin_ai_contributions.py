@@ -12,16 +12,21 @@ import inspect
 import json
 import re
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, Optional
+from typing import Any, Dict, Iterable, Mapping, Optional, cast
 
 import yaml
 
 from backend.config.app_config import load_params
 from backend.config.logger_config import get_logger
+from backend.domains.configuration import plugin_state
 from backend.models.agent_skills import (
+    CatalogOrigin,
     CatalogStatus,
     ConfirmationPolicy,
+    OriginType,
+    ToolDescriptor,
     ToolEffect,
 )
 from backend.services import builtin_plugins, plugin_sandbox, plugin_system
@@ -30,7 +35,8 @@ from backend.services.agent_skill_catalog import (
     register_plugin_skill_provider,
     register_plugin_tool_provider,
 )
-from backend.utils.safe_io import safe_write_text
+from backend.services.context_vars import get_active_vault_path
+from backend.utils.safe_io import safe_write_json, safe_write_text
 
 logger = get_logger(__name__)
 
@@ -40,16 +46,26 @@ _reconcile_lock = threading.RLock()
 _registered_plugin_ids: set[str] = set()
 
 
+def _write_plugin_state_json(path: Path, payload: Any, **options: Any) -> None:
+    safe_write_json(path, payload, **options)
+
+
 def _runtime_context() -> tuple[Path, dict[str, Any]]:
     """Load the active vault's plugin directory and lifecycle state."""
 
-    from backend.api.vault_routes import get_p, _load_plugins_state
-
-    try:
-        config_dir = get_p("GNOSI_CONFIG")
-    except (AttributeError, KeyError, TypeError) as exc:
-        raise plugin_system.PluginError("No active vault is available") from exc
-    return config_dir, _load_plugins_state()
+    active_vault = get_active_vault_path()
+    if active_vault is None:
+        raise plugin_system.PluginError("No active vault is available")
+    config_dir = active_vault / ".gnosi"
+    state = plugin_state.load_with_dependencies(
+        plugin_state.PluginStateDependencies(
+            path=lambda: config_dir / "plugins.json",
+            normalize_state=builtin_plugins.normalize_state,
+            write_json=_write_plugin_state_json,
+            logger=logger,
+        )
+    )
+    return config_dir, state
 
 
 def _safe_contribution_path(
@@ -64,9 +80,7 @@ def _safe_contribution_path(
             f"AI contribution escapes plugin directory: {relative_path!r}"
         )
     if not target.is_file():
-        raise plugin_system.PluginError(
-            f"AI contribution not found: {relative_path!r}"
-        )
+        raise plugin_system.PluginError(f"AI contribution not found: {relative_path!r}")
     if target.stat().st_size > _MAX_CONTRIBUTION_BYTES:
         raise plugin_system.PluginError(
             f"AI contribution is larger than {_MAX_CONTRIBUTION_BYTES} bytes"
@@ -90,9 +104,7 @@ def _read_records(
             elif path.suffix.lower() in {".yaml", ".yml"}:
                 raw = yaml.safe_load(path.read_text(encoding="utf-8"))
             else:
-                raise plugin_system.PluginError(
-                    "AI contribution descriptors must be JSON or YAML"
-                )
+                raise plugin_system.PluginError("AI contribution descriptors must be JSON or YAML")
         except (OSError, json.JSONDecodeError, yaml.YAMLError) as exc:
             raise plugin_system.PluginError(
                 f"Could not read AI contribution {relative_path!r}: {exc}"
@@ -110,12 +122,8 @@ def _read_records(
                     config_dir, plugin_id, str(instructions_file)
                 )
                 if instructions_path.suffix.lower() != ".md":
-                    raise plugin_system.PluginError(
-                        "Skill instructions_file must be Markdown"
-                    )
-                record["instructions"] = instructions_path.read_text(
-                    encoding="utf-8"
-                )
+                    raise plugin_system.PluginError("Skill instructions_file must be Markdown")
+                record["instructions"] = instructions_path.read_text(encoding="utf-8")
             records.append(record)
     return records
 
@@ -135,19 +143,15 @@ def _contribution_status(
     granted: set[str],
     permission: str,
 ) -> CatalogStatus:
-    return (
-        CatalogStatus.AVAILABLE
-        if enabled and permission in granted
-        else CatalogStatus.SUSPENDED
-    )
+    return CatalogStatus.AVAILABLE if enabled and permission in granted else CatalogStatus.SUSPENDED
 
 
-def _skill_provider(plugin_id: str):
+def _skill_provider(
+    plugin_id: str,
+) -> Callable[[], Iterable[Mapping[str, Any]]]:
     def provide() -> Iterable[Mapping[str, Any]]:
         try:
-            config_dir, _state, manifest, granted, enabled = _plugin_snapshot(
-                plugin_id
-            )
+            config_dir, _state, manifest, granted, enabled = _plugin_snapshot(plugin_id)
             status = _contribution_status(enabled, granted, "ai:skills")
             records = _read_records(
                 config_dir,
@@ -189,8 +193,8 @@ def _permission_policy(required_permissions: set[str]) -> dict[str, Any]:
     }
 
 
-def _schema_python_type(schema: Mapping[str, Any]) -> type:
-    kind = schema.get("type")
+def _schema_python_type(schema: Mapping[str, Any]) -> type[Any]:
+    kind = str(schema.get("type") or "")
     return {
         "string": str,
         "integer": int,
@@ -210,15 +214,14 @@ def _callable_signature(input_schema: Mapping[str, Any]) -> inspect.Signature:
             raise plugin_system.PluginError(
                 f"Sandboxed tool argument is not a safe identifier: {name!r}"
             )
-        default = (
-            inspect.Parameter.empty if name in required else schema.get("default")
-        )
+        schema_mapping = schema if isinstance(schema, Mapping) else {}
+        default = inspect.Parameter.empty if name in required else schema_mapping.get("default")
         parameters.append(
             inspect.Parameter(
                 str(name),
                 inspect.Parameter.KEYWORD_ONLY,
                 default=default,
-                annotation=_schema_python_type(schema),
+                annotation=_schema_python_type(schema_mapping),
             )
         )
     return inspect.Signature(parameters=parameters)
@@ -230,20 +233,19 @@ def _sandbox_handler(
     description: str,
     input_schema: Mapping[str, Any],
     required_permissions: set[str],
-):
+) -> Callable[..., Any]:
     """Create a schema-bearing callable backed by the restricted Node runner."""
 
     action = tool_id.removeprefix(f"plugin.{plugin_id}.")
 
-    def invoke(**arguments):
+    def invoke(**arguments: Any) -> Any:
         config_dir, state, manifest, granted, enabled = _plugin_snapshot(plugin_id)
         if not enabled or "ai:tools" not in granted:
             raise RuntimeError(f"Plugin tool {tool_id!r} is suspended")
         missing = required_permissions.difference(granted)
         if missing:
             raise RuntimeError(
-                "Plugin tool permissions are unavailable: "
-                + ", ".join(sorted(missing))
+                "Plugin tool permissions are unavailable: " + ", ".join(sorted(missing))
             )
         result = plugin_sandbox.run_event(
             config_dir,
@@ -253,63 +255,52 @@ def _sandbox_handler(
             {"arguments": arguments, "tool_id": tool_id},
         )
         if not result.get("ok"):
-            raise RuntimeError(
-                str(result.get("error") or f"Plugin tool {tool_id!r} failed")
-            )
+            raise RuntimeError(str(result.get("error") or f"Plugin tool {tool_id!r} failed"))
         return result.get("result")
 
     invoke.__name__ = re.sub(r"[^A-Za-z0-9_]", "_", tool_id)
     invoke.__doc__ = description or f"Run the sandboxed plugin tool {tool_id}."
-    invoke.__signature__ = _callable_signature(input_schema)
+    setattr(invoke, "__signature__", _callable_signature(input_schema))
     return invoke
 
 
-def _tool_provider(plugin_id: str):
+def _tool_provider(plugin_id: str) -> Callable[[], Iterable[ToolRegistration]]:
     def provide() -> Iterable[ToolRegistration]:
         try:
-            config_dir, _state, manifest, granted, enabled = _plugin_snapshot(
-                plugin_id
-            )
+            config_dir, _state, manifest, granted, enabled = _plugin_snapshot(plugin_id)
             records = _read_records(
                 config_dir,
                 plugin_id,
                 (manifest.get("contributes") or {}).get("agentTools") or [],
             )
-            registrations = []
+            registrations: list[ToolRegistration] = []
             declared = set(manifest.get("permissions") or [])
             for value in records:
                 record = dict(value)
                 required_permissions = {
-                    str(permission)
-                    for permission in record.pop("required_permissions", [])
+                    str(permission) for permission in record.pop("required_permissions", [])
                 }
-                allowed_runtime_permissions = set(
-                    plugin_sandbox.runtime_permissions()
-                )
+                allowed_runtime_permissions = set(plugin_sandbox.runtime_permissions())
                 if not required_permissions.issubset(allowed_runtime_permissions):
                     raise plugin_system.PluginError(
                         "Agent tool requests unsupported sandbox permissions: "
                         + ", ".join(
-                            sorted(
-                                required_permissions.difference(
-                                    allowed_runtime_permissions
-                                )
-                            )
+                            sorted(required_permissions.difference(allowed_runtime_permissions))
                         )
                     )
                 if not required_permissions.issubset(declared):
                     raise plugin_system.PluginError(
                         "Agent tool requests permissions absent from manifest: "
-                        + ", ".join(
-                            sorted(required_permissions.difference(declared))
-                        )
+                        + ", ".join(sorted(required_permissions.difference(declared)))
                     )
                 tool_id = str(record.get("id") or "")
                 description = str(record.get("description") or "")
-                input_schema = record.get("input_schema") or {
-                    "type": "object",
-                    "properties": {},
-                }
+                raw_input_schema = record.get("input_schema")
+                input_schema = (
+                    cast(dict[str, Any], raw_input_schema)
+                    if isinstance(raw_input_schema, dict)
+                    else {"type": "object", "properties": {}}
+                )
                 policy = _permission_policy(required_permissions)
                 record.update(policy)
                 record["status"] = (
@@ -327,6 +318,10 @@ def _tool_provider(plugin_id: str):
                 metadata["required_permissions"] = sorted(required_permissions)
                 metadata["sandboxed"] = True
                 record["metadata"] = metadata
+                record["origin"] = CatalogOrigin(
+                    type=OriginType.PLUGIN,
+                    id=plugin_id,
+                )
                 handler = _sandbox_handler(
                     plugin_id,
                     tool_id,
@@ -335,7 +330,10 @@ def _tool_provider(plugin_id: str):
                     required_permissions,
                 )
                 registrations.append(
-                    ToolRegistration(descriptor=record, handler=handler)
+                    ToolRegistration(
+                        descriptor=ToolDescriptor.model_validate(record),
+                        handler=handler,
+                    )
                 )
             return registrations
         except plugin_system.PluginError as exc:
@@ -360,9 +358,7 @@ def _normalize_agent_id(plugin_id: str, value: Any) -> str:
         rf"plugin\.{re.escape(plugin_id)}\.[a-z0-9][a-z0-9._-]*",
         candidate,
     ):
-        raise plugin_system.PluginError(
-            f"Invalid contributed agent ID: {value!r}"
-        )
+        raise plugin_system.PluginError(f"Invalid contributed agent ID: {value!r}")
     return candidate
 
 
@@ -383,9 +379,7 @@ def _agent_templates(
         template["managed_by"] = _MANAGED_BY_PREFIX + plugin_id
         for field in ("skill_ids", "required_skill_ids", "context_refs"):
             if field in template and not isinstance(template[field], list):
-                raise plugin_system.PluginError(
-                    f"Contributed agent field {field!r} must be a list"
-                )
+                raise plugin_system.PluginError(f"Contributed agent field {field!r} must be a list")
         templates.append(template)
     return templates
 
@@ -403,20 +397,13 @@ def _reconcile_agents(
     agents = ai.setdefault("agents", [])
     if not isinstance(agents, list):
         raise plugin_system.PluginError("ai.agents must be a list")
-    by_id = {
-        str(agent.get("id") or ""): agent
-        for agent in agents
-        if isinstance(agent, dict)
-    }
+    by_id = {str(agent.get("id") or ""): agent for agent in agents if isinstance(agent, dict)}
     changed = False
     active_template_ids: set[str] = set()
 
     for plugin_id, manifest in manifests.items():
         granted = set(plugin_system.granted_permissions(dict(state), plugin_id))
-        active = (
-            builtin_plugins.is_enabled(state, plugin_id)
-            and "ai:agents" in granted
-        )
+        active = builtin_plugins.is_enabled(state, plugin_id) and "ai:agents" in granted
         templates = _agent_templates(config_dir, manifest) if active else []
         for template in templates:
             agent_id = str(template["id"])
@@ -458,9 +445,7 @@ def _reconcile_agents(
         if str(agent.get("id") or "") in active_template_ids:
             continue
         if not agent.get("plugin_suspended"):
-            agent["plugin_enabled_before_suspend"] = bool(
-                agent.get("enabled", True)
-            )
+            agent["plugin_enabled_before_suspend"] = bool(agent.get("enabled", True))
             agent["plugin_suspended"] = True
             agent["enabled"] = False
             changed = True
@@ -499,13 +484,9 @@ def reconcile_plugin_ai_contributions() -> dict[str, Any]:
             manifests[plugin_id] = manifest
             contributions = manifest.get("contributes") or {}
             if contributions.get("skills"):
-                register_plugin_skill_provider(
-                    plugin_id, _skill_provider(plugin_id)
-                )
+                register_plugin_skill_provider(plugin_id, _skill_provider(plugin_id))
             if contributions.get("agentTools"):
-                register_plugin_tool_provider(
-                    plugin_id, _tool_provider(plugin_id)
-                )
+                register_plugin_tool_provider(plugin_id, _tool_provider(plugin_id))
             _registered_plugin_ids.add(plugin_id)
 
         changed = _reconcile_agents(config_dir, state, manifests)

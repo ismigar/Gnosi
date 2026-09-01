@@ -17,9 +17,12 @@ Pure module: no I/O or backend imports. Whoever applies the effects (writing
 metadata, saving the registry if an option had to be created) is the caller.
 """
 import copy
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, TypeAlias, cast
 
 from backend.services import option_catalogs as oc
+
+JsonMap: TypeAlias = dict[str, Any]
+Property: TypeAlias = dict[str, Any]
 
 ACTION_TRANSLATE = "translate_row"
 ACTION_SYNC_DRUPAL = "sync_drupal"
@@ -28,7 +31,7 @@ ACTION_PUBLISH_SOCIAL = "publish_social"
 # Default seeds (directive §3.3). They are written to the registry when the table
 # enables the corresponding feature; once in the registry, the ones from the
 # registry take precedence (hand-editable).
-DEFAULT_ACTION_RULES: Dict[str, dict] = {
+DEFAULT_ACTION_RULES: dict[str, JsonMap] = {
     ACTION_TRANSLATE: {
         "requires": [
             {
@@ -72,7 +75,7 @@ DEFAULT_ACTION_RULES: Dict[str, dict] = {
 }
 
 
-def _action_enabled(table: dict, action: str) -> bool:
+def _action_enabled(table: JsonMap, action: str) -> bool:
     if action == ACTION_TRANSLATE:
         return bool(table.get("translation_enabled"))
     if action == ACTION_SYNC_DRUPAL:
@@ -82,19 +85,19 @@ def _action_enabled(table: dict, action: str) -> bool:
     return False
 
 
-def get_action_rules(table: dict, action: str) -> Optional[dict]:
+def get_action_rules(table: JsonMap, action: str) -> JsonMap | None:
     """Rules block for an action: the registry's if present; otherwise, the default
     when the feature is active (tables not yet re-saved with the seed).
     None if the action doesn't apply to the table."""
     rules = table.get("action_rules")
     if isinstance(rules, dict) and isinstance(rules.get(action), dict):
-        return rules[action]
+        return cast(JsonMap, rules[action])
     if _action_enabled(table, action):
         return DEFAULT_ACTION_RULES.get(action)
     return None
 
 
-def ensure_action_rules(table: dict) -> bool:
+def ensure_action_rules(table: JsonMap) -> bool:
     """Seed-on-enable for action_rules blocks (idempotent): writes the
     default block for each active feature that doesn't yet have one. Never
     overwrites an existing block (it's hand-editable in the registry)."""
@@ -111,15 +114,17 @@ def ensure_action_rules(table: dict) -> bool:
     return changed
 
 
-def read_prop_value(metadata: dict, prop: dict) -> Any:
+def read_prop_value(metadata: JsonMap, prop: Property) -> Any:
     """Value of a property in the frontmatter (priority id → name → alias),
     same convention as the rest of the backend."""
-    keys: List[str] = []
-    if prop.get("id"):
-        keys.append(prop["id"])
-    if prop.get("name"):
-        keys.append(prop["name"])
-    keys.extend(a for a in (prop.get("aliases") or []) if a)
+    keys: list[str] = []
+    field_id = prop.get("id")
+    name = prop.get("name")
+    if isinstance(field_id, str) and field_id:
+        keys.append(field_id)
+    if isinstance(name, str) and name:
+        keys.append(name)
+    keys.extend(a for a in (prop.get("aliases") or []) if isinstance(a, str) and a)
     for k in keys:
         if k in (metadata or {}):
             v = metadata.get(k)
@@ -128,7 +133,7 @@ def read_prop_value(metadata: dict, prop: dict) -> Any:
     return None
 
 
-def _values_of(raw: Any) -> List[str]:
+def _values_of(raw: Any) -> list[str]:
     if isinstance(raw, list):
         return [str(v).strip() for v in raw if str(v).strip()]
     if raw is None:
@@ -137,7 +142,7 @@ def _values_of(raw: Any) -> List[str]:
     return [s] if s else []
 
 
-def _group_of(option_name: str, options: List[dict]) -> str:
+def _group_of(option_name: str, options: list[JsonMap]) -> str:
     for o in options:
         if o.get("name") == option_name:
             return str(o.get("group") or "")
@@ -145,8 +150,8 @@ def _group_of(option_name: str, options: List[dict]) -> str:
 
 
 def check_requires(
-    table: dict, action: str, metadata: dict
-) -> Tuple[bool, Optional[str]]:
+    table: JsonMap, action: str, metadata: JsonMap
+) -> tuple[bool, str | None]:
     """Evaluates an action's `requires` conditions against a record.
 
     Returns `(ok, reason)`. If the table has no rules for the action, or a
@@ -188,25 +193,32 @@ def check_requires(
     return True, None
 
 
-def effect_write_key(metadata: dict, prop: dict) -> Optional[str]:
+def effect_write_key(metadata: JsonMap, prop: Property) -> str | None:
     """Key where an effect's value is written: the one the frontmatter ALREADY uses for
     that field (id, name, or alias), so as not to create duplicate keys; if the row
     has none, the stable-id→name convention."""
-    candidates: List[str] = []
-    if prop.get("id"):
-        candidates.append(prop["id"])
-    if prop.get("name"):
-        candidates.append(prop["name"])
-    candidates.extend(a for a in (prop.get("aliases") or []) if a)
+    candidates: list[str] = []
+    field_id = prop.get("id")
+    name = prop.get("name")
+    if isinstance(field_id, str) and field_id:
+        candidates.append(field_id)
+    if isinstance(name, str) and name:
+        candidates.append(name)
+    candidates.extend(
+        alias
+        for alias in (prop.get("aliases") or [])
+        if isinstance(alias, str) and alias
+    )
     for k in candidates:
         if k in (metadata or {}):
             return k
-    return prop.get("id") or prop.get("name")
+    fallback = field_id or name
+    return fallback if isinstance(fallback, str) else None
 
 
 def status_effect(
-    table: dict, action: str, target: str
-) -> Tuple[Optional[dict], Optional[str], bool]:
+    table: JsonMap, action: str, target: str
+) -> tuple[Property | None, str | None, bool]:
     """Status effect that the action must apply to `target` (source|created).
 
     Returns `(property, value, catalog_changed)` — the caller picks the key with
@@ -246,7 +258,7 @@ def status_effect(
     return None, None, False
 
 
-def on_stale_effect(table: dict) -> Tuple[Optional[dict], Optional[str], bool]:
+def on_stale_effect(table: JsonMap) -> tuple[Property | None, str | None, bool]:
     """Status effect for translations that become stale (`on_stale` from
     translate_row). Same return shape as `status_effect`."""
     rules = get_action_rules(table, ACTION_TRANSLATE)

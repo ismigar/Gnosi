@@ -8,6 +8,7 @@ Two surfaces:
 Tokens are stored ONLY as a SHA-256 hash. The plaintext is shown only once
 when created. Designed for third-party integrations and the web clipper.
 """
+
 from __future__ import annotations
 
 import re
@@ -15,7 +16,7 @@ import secrets
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel
@@ -48,25 +49,29 @@ def require_pat(
 
     Returns the active `ApiToken` and updates its `last_used_at`. 401 if it's missing or
     invalid/revoked.
-    
+
     """
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing token (Authorization: Bearer …)")
     raw = authorization.split(" ", 1)[1].strip()
     if not raw.startswith(TOKEN_PREFIX):
         raise HTTPException(status_code=401, detail="Invalid token format")
-    token = db.query(ApiToken).filter(
-        ApiToken.token_hash == _hash_token(raw),
-        ApiToken.revoked == 0,
-    ).first()
+    token = (
+        db.query(ApiToken)
+        .filter(
+            ApiToken.token_hash == _hash_token(raw),
+            ApiToken.revoked == 0,
+        )
+        .first()
+    )
     if not token:
         raise HTTPException(status_code=401, detail="Invalid or revoked token")
-    token.last_used_at = datetime.now(timezone.utc)
+    setattr(token, "last_used_at", datetime.now(timezone.utc))
     db.commit()
     return token
 
 
-def _token_scopes(token: ApiToken) -> set:
+def _token_scopes(token: ApiToken) -> set[str]:
     return {s.strip() for s in (token.scopes or "").split(",") if s.strip()}
 
 
@@ -83,17 +88,78 @@ def require_pat_write(token: ApiToken = Depends(require_pat)) -> ApiToken:
 
 # ───────────────────────── Token management (session) ─────────────────────────
 
+
 class CreateTokenRequest(BaseModel):
     name: str
     scopes: str = "read,write"
 
 
-@router.post("/tokens")
+class CreatedTokenResponse(BaseModel):
+    id: str
+    name: str
+    token: str
+    prefix: str
+    scopes: str
+    created_at: str | None
+
+
+class TokenSummaryResponse(BaseModel):
+    id: str
+    name: str
+    prefix: str
+    scopes: str
+    created_at: str | None
+    last_used_at: str | None
+
+
+class RevokedTokenResponse(BaseModel):
+    status: str
+    id: str
+
+
+class PublicPingResponse(BaseModel):
+    ok: bool
+    user_id: str
+    scopes: str
+
+
+class CreatedPublicPageResponse(BaseModel):
+    status: str
+    id: str
+    path: str
+
+
+class ClipTableResponse(BaseModel):
+    id: str
+    name: str
+
+
+class ClipFieldResponse(BaseModel):
+    id: str
+    name: str
+    type: str
+    options: list[str] | None = None
+
+
+class ClipConfigResponse(BaseModel):
+    enabled: bool
+    table: ClipTableResponse | None
+    fields: list[ClipFieldResponse]
+
+
+class PublicClipResponse(BaseModel):
+    status: str
+    id: str | None
+    path: str
+    table: str | None = None
+
+
+@router.post("/tokens", response_model=None)
 def create_token(
     body: CreateTokenRequest,
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
-):
+) -> dict[str, Any]:
     """Creates a PAT. Returns the plaintext token ONCE (it won't be shown again)."""
     raw = TOKEN_PREFIX + secrets.token_urlsafe(32)
     prefix = raw[: len(TOKEN_PREFIX) + 4]
@@ -108,58 +174,77 @@ def create_token(
     )
     db.add(tok)
     db.commit()
-    return {
-        "id": tok.id,
-        "name": tok.name,
-        "token": raw,  # ⚠️ only once
-        "prefix": prefix,
-        "scopes": tok.scopes,
-        "created_at": tok.created_at.isoformat() if tok.created_at else None,
-    }
+    return CreatedTokenResponse(
+        id=cast(str, tok.id),
+        name=cast(str, tok.name),
+        token=raw,  # ⚠️ only once
+        prefix=prefix,
+        scopes=cast(str, tok.scopes),
+        created_at=tok.created_at.isoformat() if tok.created_at else None,
+    ).model_dump()
 
 
-@router.get("/tokens")
+@router.get("/tokens", response_model=None)
 def list_tokens(
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
-):
-    rows = db.query(ApiToken).filter(
-        ApiToken.user_id == context.user_id,
-        ApiToken.revoked == 0,
-    ).order_by(ApiToken.created_at.desc()).all()
-    return [{
-        "id": r.id,
-        "name": r.name,
-        "prefix": r.token_prefix,
-        "scopes": r.scopes,
-        "created_at": r.created_at.isoformat() if r.created_at else None,
-        "last_used_at": r.last_used_at.isoformat() if r.last_used_at else None,
-    } for r in rows]
+) -> list[dict[str, Any]]:
+    rows = (
+        db.query(ApiToken)
+        .filter(
+            ApiToken.user_id == context.user_id,
+            ApiToken.revoked == 0,
+        )
+        .order_by(ApiToken.created_at.desc())
+        .all()
+    )
+    return [
+        TokenSummaryResponse(
+            id=cast(str, row.id),
+            name=cast(str, row.name),
+            prefix=cast(str, row.token_prefix),
+            scopes=cast(str, row.scopes),
+            created_at=row.created_at.isoformat() if row.created_at else None,
+            last_used_at=row.last_used_at.isoformat() if row.last_used_at else None,
+        ).model_dump()
+        for row in rows
+    ]
 
 
-@router.delete("/tokens/{token_id}")
+@router.delete("/tokens/{token_id}", response_model=None)
 def revoke_token(
     token_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
-):
-    tok = db.query(ApiToken).filter(ApiToken.id == token_id, ApiToken.user_id == context.user_id).first()
+) -> dict[str, Any]:
+    tok = (
+        db.query(ApiToken)
+        .filter(ApiToken.id == token_id, ApiToken.user_id == context.user_id)
+        .first()
+    )
     if not tok:
         raise HTTPException(status_code=404, detail="Token no trobat")
-    tok.revoked = 1
+    setattr(tok, "revoked", 1)
     db.commit()
-    return {"status": "revoked", "id": token_id}
+    return RevokedTokenResponse(status="revoked", id=token_id).model_dump()
 
 
 # ───────────────────────── Public API (PAT) ─────────────────────────
+
 
 def _sanitize_filename(title: str) -> str:
     return sanitize_vault_title(title)
 
 
-def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -> dict:
+def _write_vault_page(
+    folder: str,
+    title: str,
+    content: str,
+    extra_meta: dict[str, Any],
+) -> dict[str, str]:
     """Writes a .md page to the vault with minimal frontmatter. Returns {id, path}."""
     import yaml
+
     vault = get_active_vault_path()
     if not vault:
         raise HTTPException(status_code=503, detail="No active vault")
@@ -184,16 +269,21 @@ def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -
     # and can be deleted by id (without waiting for the index rebuild).
     try:
         from backend.api.vault_routes import register_page_in_index
+
         register_page_in_index(path)
     except Exception:
         pass
     return {"id": page_id, "path": str(path.relative_to(vault))}
 
 
-@router.get("/public/ping")
-def public_ping(token: ApiToken = Depends(require_pat)):
+@router.get("/public/ping", response_model=None)
+def public_ping(token: ApiToken = Depends(require_pat)) -> dict[str, Any]:
     """Authentication check for public API clients."""
-    return {"ok": True, "user_id": token.user_id, "scopes": token.scopes}
+    return PublicPingResponse(
+        ok=True,
+        user_id=cast(str, token.user_id),
+        scopes=cast(str, token.scopes),
+    ).model_dump()
 
 
 class PublicPageRequest(BaseModel):
@@ -203,27 +293,30 @@ class PublicPageRequest(BaseModel):
     tags: Optional[list[str]] = None
 
 
-@router.post("/public/pages")
-def public_create_page(body: PublicPageRequest, token: ApiToken = Depends(require_pat_write)):
+@router.post("/public/pages", response_model=None)
+def public_create_page(
+    body: PublicPageRequest,
+    token: ApiToken = Depends(require_pat_write),
+) -> dict[str, Any]:
     """Creates a page in the vault via the public API (PAT)."""
-    extra = {"created": datetime.now(timezone.utc).isoformat()}
+    extra: dict[str, Any] = {"created": datetime.now(timezone.utc).isoformat()}
     if body.tags:
         extra["tags"] = body.tags
     res = _write_vault_page(body.folder or "Wiki", body.title, body.content, extra)
-    return {"status": "created", **res}
+    return CreatedPublicPageResponse(status="created", **res).model_dump()
 
 
 class ClipRequest(BaseModel):
     url: str
     title: Optional[str] = None
-    content: str = ""          # markdown or text of the selection
+    content: str = ""  # markdown or text of the selection
     tags: Optional[list[str]] = None
     # Values for the destination table's columns, keyed by property id (or
     # name). Ignored when the clipper is not pointed at a table.
-    fields: Optional[dict] = None
+    fields: Optional[dict[str, Any]] = None
 
 
-def _clipper_state() -> tuple[bool, dict]:
+def _clipper_state() -> tuple[bool, dict[str, Any]]:
     """(enabled, settings) of the `web-clipper` plugin from `.gnosi/plugins.json`.
 
     An unreadable state uses the core-only fallback so external writes never
@@ -231,22 +324,29 @@ def _clipper_state() -> tuple[bool, dict]:
     """
     try:
         from backend.api.vault_routes import _load_plugins_state
+
         state = _load_plugins_state()
     except Exception as e:  # noqa: BLE001
         logger.warning("Could not read the plugin state for the clipper: %s", e)
         return False, {}
     from backend.services import builtin_plugins
+
     cfg = (state.get("settings") or {}).get(web_clipper.PLUGIN_ID)
-    return builtin_plugins.is_enabled(state, web_clipper.PLUGIN_ID), (cfg if isinstance(cfg, dict) else {})
+    return builtin_plugins.is_enabled(state, web_clipper.PLUGIN_ID), (
+        cfg if isinstance(cfg, dict) else {}
+    )
 
 
-def _clipper_target(cfg: dict) -> tuple[Optional[dict], Optional[dict]]:
+def _clipper_target(
+    cfg: dict[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """(table, registry) configured as the clip destination, or (None, None)."""
     table_id = str((cfg or {}).get("table_id") or "").strip()
     if not table_id:
         return None, None
     from backend.api.vault_routes import load_registry
-    registry = load_registry() or {}
+
+    registry = cast(dict[str, Any], load_registry() or {})
     table = next(
         (t for t in (registry.get("tables") or []) if str(t.get("id")) == table_id),
         None,
@@ -254,11 +354,11 @@ def _clipper_target(cfg: dict) -> tuple[Optional[dict], Optional[dict]]:
     return table, (registry if table else None)
 
 
-@router.get("/public/clip/config")
+@router.get("/public/clip/config", response_model=None)
 def public_clip_config(
     token: ApiToken = Depends(require_pat),
     context: WorkspaceContext = Depends(get_workspace_context),
-):
+) -> dict[str, Any]:
     """Destination and form schema for the browser extension.
 
     The extension calls this on open so its form mirrors whatever the user
@@ -267,26 +367,32 @@ def public_clip_config(
     """
     enabled, cfg = _clipper_state()
     if not enabled:
-        return {"enabled": False, "table": None, "fields": []}
+        return ClipConfigResponse(enabled=False, table=None, fields=[]).model_dump()
     table, registry = _clipper_target(cfg)
     if not table:
-        return {"enabled": True, "table": None, "fields": []}
-    return {
-        "enabled": True,
-        "table": {"id": table.get("id"), "name": table.get("name") or table.get("id")},
-        "fields": web_clipper.form_fields(
-            table, cfg, (registry or {}).get("option_catalogs")
+        return ClipConfigResponse(enabled=True, table=None, fields=[]).model_dump()
+    return ClipConfigResponse(
+        enabled=True,
+        table=ClipTableResponse(
+            id=str(table.get("id") or ""),
+            name=str(table.get("name") or table.get("id") or ""),
         ),
-    }
+        fields=[
+            ClipFieldResponse.model_validate(field)
+            for field in web_clipper.form_fields(
+                table, cfg, (registry or {}).get("option_catalogs")
+            )
+        ],
+    ).model_dump(exclude_unset=True)
 
 
-@router.post("/public/clip")
+@router.post("/public/clip", response_model=None)
 async def public_clip(
     body: ClipRequest,
     background_tasks: BackgroundTasks,
     token: ApiToken = Depends(require_pat_write),
     context: WorkspaceContext = Depends(get_workspace_context),
-):
+) -> dict[str, Any]:
     """Web clipper endpoint: saves a web page (URL + selection) to the vault.
 
     Destination depends on the `web-clipper` plugin settings: a record in the
@@ -318,17 +424,18 @@ async def public_clip(
         # here: a clipped record must be indistinguishable from one created in
         # the UI.
         from backend.api.vault_routes import PageSaveRequest, create_page
+
         res = await create_page(
             PageSaveRequest(title=title, content=page_body, metadata=metadata),
             background_tasks,
             context,
         )
-        return {
-            "status": "clipped",
-            "id": res.get("id"),
-            "path": res.get("folder") or table.get("name") or "",
-            "table": table.get("name") or table.get("id"),
-        }
+        return PublicClipResponse(
+            status="clipped",
+            id=res.get("id"),
+            path=res.get("folder") or table.get("name") or "",
+            table=table.get("name") or table.get("id"),
+        ).model_dump(exclude_unset=True)
 
     if "clipped" not in tags:
         tags.append("clipped")
@@ -340,4 +447,4 @@ async def public_clip(
         "created": datetime.now(timezone.utc).isoformat(),
     }
     res = _write_vault_page("Clips", title, body_md, extra)
-    return {"status": "clipped", **res}
+    return PublicClipResponse(status="clipped", **res).model_dump(exclude_unset=True)

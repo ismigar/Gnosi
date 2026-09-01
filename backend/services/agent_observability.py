@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Optional
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 
 MAX_SPANS = 2_000
 MAX_ATTRIBUTES = 32
@@ -61,8 +61,7 @@ def _safe_attributes(attributes: Optional[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def _storage_path() -> Path:
-    root = Path(load_params(strict_env=False).paths["LOCAL_DATA"])
-    root.mkdir(parents=True, exist_ok=True)
+    root = resolve_data_dir(create=True)
     return root / "agent_spans.jsonl"
 
 

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/social_routes.py
   - backend/services/social_clients.py
@@ -8,6 +8,7 @@ source_paths:
   - frontend/src/pages/MediaCenter.jsx
   - pipeline/skills/publisher
 tests:
+  - backend/tests/test_social_clients_contract.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_connection_scheduler_alignment.py
 ---
@@ -23,6 +24,11 @@ Este dominio prepara, programa, publica y observa contenidos en redes sociales c
 Los clientes de servicio aíslan a Mastodon, Bluesky, Telegram y otras semánticas de red configuradas: autenticación, límites de texto, carga de medios, identificadores de correos, hilos, normalización de respuestas y reportes de errores.
 
 La API expone redes configuradas, flujos, acciones de publicación y configuraciones relacionadas. Las pestañas de interfaz de usuario están keyed por identificadores de red estables mientras que los nombres y etiquetas de visualización utilizan cadenas localizadas.
+
+El JSON de proveedores se valida y normaliza en la frontera del adaptador. Las
+rutas HTTP están tipadas estrictamente y conservan el contrato OpenAPI
+existente; el JSON de mensajes almacenado se decodifica con helpers tipados
+antes de usar vistas previas, URL o publicaciones programadas.
 
 ## Publicar flujo
 

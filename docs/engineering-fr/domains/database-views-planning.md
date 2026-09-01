@@ -1,11 +1,21 @@
 ---
 status: implemented
-last_verified: 2026-08-16
+last_verified: 2026-08-28
 source_paths:
   - backend/api/vault_routes.py
+  - backend/domains/vault/tables/catalogs
+  - backend/domains/vault/tables/formula_recalculation.py
+  - backend/domains/vault/tables/rules
+  - backend/domains/vault/views/filters.py
+  - backend/domains/vault/views/row_resolution.py
+  - backend/domains/vault/views/snapshot_markup.py
+  - backend/domains/vault/views/snapshot_materialization.py
+  - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/table_system_dates.py
+  - backend/services/option_catalogs.py
+  - backend/services/rule_engine.py
   - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
@@ -19,12 +29,20 @@ source_paths:
   - frontend/src/utils/projectPlanning.js
   - frontend/src/utils/vaultFilters.js
 tests:
+  - backend/tests/test_database_rules_views_domain_contract.py
+  - backend/tests/test_rule_engine_derived_order.py
+  - backend/tests/test_rollup_percent_checked_parity.py
+  - backend/tests/test_option_catalogs.py
+  - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_table_system_dates.py
   - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_view_filter_rename.py
   - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
+  - backend/tests/test_planning_agent_tools.py
+  - backend/tests/test_planning_scheduler.py
   - backend/tests/test_project_planning.py
   - frontend/src/utils/projectPlanning.test.js
   - tests/e2e/tests/e2e/dashboards.spec.ts
@@ -69,9 +87,22 @@ Les valeurs dactylographiées doivent être comparées comme leur type de champ 
 
 L'évaluation de champ dérivé a un ordre explicite. Les formules qui dépendent des valeurs brutes exécutées avant les groupures que les relations agrégées, et les formules dépendantes sont résolues sans permettre aux cycles de se récidiver indéfiniment. Les représentations de l'arrière-plan et de la front-end doivent convenir de la vérité de la case à cocher, des pourcentages, des valeurs vides et des identifiants d'option.
 
+`tables/formula_recalculation.py` sérialise par table les changements entre
+enregistrements. Les requêtes concurrentes sont regroupées en une passe en
+attente; toutes les lignes visibles sont recalculées et l'index des pages et le
+cache des réponses ne sont actualisés qu'après une écriture réussie.
+
 Les critères de tri de la vue enregistrée sont appliqués en ordre de tableau avec une comparaison stable multi-clés. Les valeurs des propriétés vides suivent toujours les valeurs poolées dans les directions ascendante et décroissante, en correspondant à la sémantique de la vue de notion importée. Les vues de front et les instantanés de pointage de l'arrière utilisent la même règle pour que leur ordre d'enregistrement ne puisse pas dériver.
 
 Quand `VaultDashboard` rend un onglet table, il passe les fonctionnalités activées du registre de table à travers `VaultViewBody` à `VaultTable`. L'onglet table, table autonome, panneau divisé et vue intégrée exposent donc les mêmes actions de rangées configurées. Omettre cette chaîne de prop masque une action même lorsque le registre et l'API la signalent correctement comme activée.
+
+Le comportement canonique des bases de données est séparé par responsabilité.
+`tables/rules/` gère les formules, rollups, recherches et automatisations ;
+`tables/catalogs/` gère les options, rôles sémantiques et le catalogue global
+des statuts ; les petits modules de `vault/views/` gèrent les snapshots,
+filtres, tris et jointures. `rule_engine.py`, `option_catalogs.py` et
+`view_snapshot.py` restent des façades compatibles avec des coutures de test
+résolues tardivement.
 
 ## Évolution du schéma et concurrence
 
@@ -79,11 +110,31 @@ Les révisions de schéma protègent un client de sauvegarder une liste de champ
 
 Les enregistrements sont écrits atomiquement et rafraîchis après les changements de métadonnées par lot. Les instantanés cachés sont invalidés lorsque les enregistrements source ou la révision du schéma changent.
 
+Les modifications groupées, la promotion des champs Zotero Extras et
+l'application de modèles partagent un service typé de mutation des pages. Chaque
+cible vérifie l'ETag facultatif, actualise l'index après écriture et signale les
+omissions, conflits et erreurs sans interrompre les autres lignes.
+
 Les éditeurs de propriété de pages utilisent des commandes de champ. `select` et `status` les champs sont rendus comme des sélectionneurs d'options à valeur unique; les catalogues d'état sont stricts et ne dévoilent pas la création ou la suppression d'options en ligne. La grille de table et le panneau de propriété de page doivent conserver le même type de champ et la même sémantique d'option.
+
+Les statuts introduits par les règles d'action sont persistés de façon idempotente
+par le domaine des tables. Une erreur du registre est journalisée sans faire
+échouer l'action d'origine.
+
+La frontière HTTP de Planning est strictement typée et conserve le contrat
+OpenAPI figé. La résolution du vault actif échoue explicitement lorsqu'aucun
+vault n'est sélectionné, et la matérialisation des récurrences consomme de façon
+bornée les occurrences RRULE tout en préservant les identifiants et ETags.
 
 ## Planification des projets
 
 La planification consomme des champs de tâches structurés et produit un calendrier faisant autorité plutôt que de doubler la logique de planification dans l'interface utilisateur. Le moteur normalise les dépendances, les calendriers, les durées, les contraintes, les ressources, les échéances, les progrès et la direction de l'horaire.
+
+Le moteur déterministe sépare la normalisation des faits, le passage avant par
+tâche, les diagnostics de contraintes, l'index des successeurs, le passage
+arrière des marges, le placement ALAP et la sérialisation. Les faits persistés
+ne sont pas modifiés et les erreurs récupérables conservent un calendrier
+partiel avec ses diagnostics.
 
 Les durées de la période conservent à la fois leur valeur numérique et leur unité configurée (`hours`, `days`, ou `years`Les années civiles sont ajoutées sous forme de compensations pour l'année civile, qui conserve une année de début plus huit ans à la fin de l'année correspondante, y compris les années négatives. L'éditeur de propriété supprime les champs redondants à date réelle, recalcule la fin chaque fois que le début, la durée ou le prédécesseur change, et utilise un choix multiple pour les prédécesseurs. `durationDays` les valeurs restent disponibles pour la compatibilité avec les enregistrements et les instantanés de calendrier plus anciens.
 

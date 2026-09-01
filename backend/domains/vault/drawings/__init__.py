@@ -1,0 +1,1 @@
+"""Vault drawing persistence services."""

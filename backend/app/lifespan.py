@@ -4,21 +4,29 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI
 
+from backend.agent.factory import create_agent_workflow
+from backend.api import vault_routes
 from backend.config.app_config import load_params
 from backend.config.mcp_config import MCP_SERVERS
 from backend.mcp.client import MultiServerMCPClient
-from backend.agent.factory import create_agent_workflow
-
-from backend.api import vault_routes
 from backend.scheduler.manager import scheduler_manager
 
+
 log = logging.getLogger(__name__)
+
+
+def _scheduler_start_enabled() -> bool:
+    """Keep smoke tests read-only without changing the default native runtime."""
+    value = str(os.environ.get("GNOSI_DISABLE_SCHEDULER") or "").strip().lower()
+    return value not in {"1", "true", "yes", "on"}
 
 
 def _registered_vault_paths() -> set[Path]:
@@ -34,11 +42,12 @@ def _registered_vault_paths() -> set[Path]:
     database = None
     try:
         database = get_mgmt_session()
-        for (value,) in database.query(Vault.path_override).filter(Vault.path_override.isnot(None)):
+        query = database.query(Vault.path_override).filter(Vault.path_override.isnot(None))
+        for (value,) in query:
             if str(value or "").strip():
                 paths.add(Path(value).resolve())
-    except Exception as exc:
-        log.warning("Could not list registered Vaults for maintenance: %s", exc)
+    except Exception as error:
+        log.warning("Could not list registered Vaults for maintenance: %s", error)
     finally:
         if database is not None:
             database.close()
@@ -61,43 +70,17 @@ async def _confirmation_maintenance_loop() -> None:
                     cleanup_pending_table_asset_quarantines,
                     vault_path,
                 )
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Could not maintain agent action state: %s", exc)
+        except Exception as error:
+            log.warning("Could not maintain agent action state: %s", error)
         await asyncio.sleep(10 * 60)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # STARTUP
-    log.info("🚀 Starting Gnosi Agent (FastAPI Port)...")
-
-    # 0. Bring every existing first-party SQLite store to its explicit head
-    # before schedulers, workers or request handlers can open a writer.
-    from backend.config.data_dir import resolve_data_dir
-    from backend.migrations.coordinator import migrate_existing_databases
-
-    migrated_databases = migrate_existing_databases(resolve_data_dir())
-    log.info("Database schema verification complete (%s stores).", len(migrated_databases))
-
-    # 0a. Fail fast if an exposed deployment is missing a real JWT secret.
-    # Signing sessions with the public dev fallback would be an auth bypass.
-    from backend.services.auth_service import assert_signing_secret_safe
-
-    assert_signing_secret_safe()
-
-    # 0b. Start Scheduler
-    scheduler_manager.start()
-    from backend.services.durable_job_worker import durable_job_worker
-
-    durable_job_worker.start()
-    confirmation_maintenance_task = asyncio.create_task(_confirmation_maintenance_loop())
-    plugin_state = vault_routes._load_plugins_state()
-    ai_platform_enabled = vault_routes.builtin_plugins.is_enabled(plugin_state, "ai-platform")
-    mail_enabled = vault_routes.builtin_plugins.is_enabled(plugin_state, "mail")
-
-    # 0c. Reconcile declarative plugin contributions before any agent graph is
-    # built. This applies the idempotent Brain migration and restores/suspends
-    # third-party managed profiles without discarding user overrides.
+def _reconcile_plugin_contributions(
+    plugin_state: dict[str, Any],
+    *,
+    ai_platform_enabled: bool,
+) -> None:
+    """Reconcile built-in and third-party AI contributions without blocking startup."""
     try:
         from backend.services.llm_wiki_agent import transition_agent
         from backend.services.plugin_ai_contributions import (
@@ -107,49 +90,46 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if ai_platform_enabled and vault_routes._llm_wiki_enabled(plugin_state):
             transition_agent(True)
         reconcile_plugin_ai_contributions()
-    except Exception as exc:  # noqa: BLE001
-        log.warning("Could not reconcile plugin AI contributions: %s", exc)
+    except Exception as error:
+        log.warning("Could not reconcile plugin AI contributions: %s", error)
 
-    # 1. Init MCP Client
-    mcp_client = MultiServerMCPClient(MCP_SERVERS)
-    if ai_platform_enabled:
-        try:
-            await mcp_client.start()
-            log.info("✅ MCP Client started.")
-            app.state.mcp_client = mcp_client
 
-            # 2. Discover Tools
-            log.info("🔍 Discovering tools...")
-            tools_list = await mcp_client.get_all_tools()
-            log.info(f"🛠️ Found {len(tools_list)} tools.")
-            app.state.tools_list = tools_list
-
-            # 3. Build Agent Graph
-            workflow, _ = await create_agent_workflow(
-                tools_list,
-                mcp_client,
-                agent_id="gnosy",
-            )
-            if workflow:
-                app.state.agent_workflow = workflow
-                app.state.agent_app = workflow.compile()
-                log.info("🧠 Agent Graph built and ready.")
-
-        except Exception as e:
-            log.error(f"❌ Error during startup: {e}")
-    else:
+async def _start_agent_runtime(
+    app: FastAPI,
+    mcp_client: MultiServerMCPClient,
+    *,
+    enabled: bool,
+) -> None:
+    """Start MCP discovery and compile the default agent workflow when enabled."""
+    if not enabled:
         app.state.tools_list = []
         log.info("AI platform plugin is disabled; MCP and agent startup are paused.")
+        return
+    try:
+        await mcp_client.start()
+        log.info("✅ MCP Client started.")
+        app.state.mcp_client = mcp_client
 
-    # 4. Warm up the vault page index. We do this in two phases:
-    #    a) SYNC: load the persisted disk cache so the very first request
-    #       already finds data in memory. Without this step, /pages returns
-    #       [] during the few seconds the background indexer takes to load
-    #       the 3.6 MB JSON, and the frontend then bursts ~4 retries with
-    #       backoff (~12s of dead time before the sidebar populates).
-    #    b) ASYNC: kickoff_index_warmup keeps doing its background refresh
-    #       against the actual filesystem so external changes get picked up.
-    #    Endpoint /api/vault/indexer-status lets the UI poll progress.
+        log.info("🔍 Discovering tools...")
+        tools_list = await mcp_client.get_all_tools()
+        log.info("🛠️ Found %s tools.", len(tools_list))
+        app.state.tools_list = tools_list
+
+        workflow, _ = await create_agent_workflow(
+            tools_list,
+            mcp_client,
+            agent_id="gnosy",
+        )
+        if workflow:
+            app.state.agent_workflow = workflow
+            app.state.agent_app = workflow.compile()
+            log.info("🧠 Agent Graph built and ready.")
+    except Exception as error:
+        log.error("❌ Error during startup: %s", error)
+
+
+def _warm_vault_indexes() -> None:
+    """Load persisted Vault indexes and start safe asynchronous refreshes."""
     try:
         from backend.api.vault_routes import (
             _load_body_cache_from_disk,
@@ -158,144 +138,118 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             kickoff_link_index_rebuild,
             preload_page_index_from_disk,
         )
-        from backend.config.app_config import load_params
+        from backend.config.app_config import load_params as load_current_params
 
-        cfg = load_params(strict_env=False)
-        v_path = cfg.paths.get("VAULT")
-        if v_path:
-            loaded = preload_page_index_from_disk(Path(v_path))
-            if loaded:
-                log.info(f"⚡ Sync page-index preload completed for {v_path}")
-            else:
-                log.info(f"ℹ️ No disk page-index cache found for {v_path}")
-            # The warmup used to be commented out here because a macOS
-            # File-Provider walk (OneDrive) returned EDEADLK en masse and wedged
-            # the indexer. Disabling it unconditionally also punished Docker and
-            # Linux self-hosts, which cannot hit that fault. The decision now
-            # lives in `_index_warmup_enabled`, which skips the cloud-mount case
-            # and runs everywhere else (override: GNOSI_INDEX_WARMUP).
-            kickoff_index_warmup(v_path)
-            # Load the persisted body + parsed-document caches. They live HERE
-            # and not in kickoff_index_warmup precisely because that warmup is
-            # disabled above — anything hooked in there never runs.
-            #
-            # For the body cache this was not merely a lost optimisation: the
-            # save writes whatever is in memory, so starting empty every boot
-            # meant each flush OVERWROTE the persisted cache with the handful of
-            # files read so far. Observed decay 34798 -> 18 entries (5.4MB ->
-            # 7.3KB). Loading first makes the save additive again.
-            try:
-                _load_body_cache_from_disk()
-            except Exception as e:
-                log.warning(f"body-cache load skipped: {e}")
-            try:
-                _load_parsed_doc_cache_from_disk()
-            except Exception as e:
-                log.warning(f"parsed-doc-cache load skipped: {e}")
-            # Redundant trigger for the link-index rebuild: if the warmup indexer
-            # is slow (OneDrive being slow doing rglob), the wikilinks index starts
-            # anyway from here. kickoff_link_index_rebuild does a load-from-disk
-            # first (milliseconds) and then rebuilds in the background — this way the
-            # automatic wikilink rewriting on rename stays active from
-            # from the first instant.
-            kickoff_link_index_rebuild()
-            log.info("🔗 Link-index rebuild kickstarted at lifespan startup")
-            # Proactively materialize the vault's CRITICAL online-only files
-            # (BD/ registry + .gnosi/page_meta/) so the first request burst
-            # doesn't block on OneDrive on-access downloads and starve the
-            # request threadpool (symptom: /api/vaults -> "timeout of 30000ms
-            # exceeded" while OneDrive is cold). In-process version of the
-            # one-off rehydrate_vault.py incident script. Best-effort, non-blocking.
-            # Disabled during the EDEADLK incident, when direct file access to
-            # the OneDrive mount deadlocked. It needs no runtime gate of its
-            # own: the scan is stat-only (`st_blocks == 0`, which does not
-            # trigger an on-access download), and materialization goes through
-            # `files_provider`, whose `_default_warmup_mode` already picks the
-            # per-runtime path — "open" (LaunchServices) natively on macOS,
-            # which is precisely what avoids the deadlock, and "daemon"
-            # elsewhere. Best-effort and non-blocking: failures are per-file and
-            # the per-request `_materialize_if_online_only` remains the net.
-            from backend.services.vault_warmup import kickoff_critical_warmup
+        vault_path = load_current_params(strict_env=False).paths.get("VAULT")
+        if not vault_path:
+            return
+        loaded = preload_page_index_from_disk(Path(vault_path))
+        if loaded:
+            log.info("⚡ Sync page-index preload completed for %s", vault_path)
+        else:
+            log.info("ℹ️ No disk page-index cache found for %s", vault_path)
+        kickoff_index_warmup(vault_path)
+        _load_persistent_document_caches(
+            _load_body_cache_from_disk,
+            _load_parsed_doc_cache_from_disk,
+        )
+        kickoff_link_index_rebuild()
+        log.info("🔗 Link-index rebuild kickstarted at lifespan startup")
 
-            kickoff_critical_warmup(v_path)
-            log.info(f"☁️ Critical-vault warmup kicked off for {v_path}")
-    except Exception as e:
-        log.warning(f"⚠️ Could not launch indexer warmup: {e}")
+        from backend.services.vault_warmup import kickoff_critical_warmup
 
-    # 5. Connects the plugins v2 system (event bus → sandbox of
-    #    data). Idempotent; if it fails, the data plugins remain inert but
-    #    the rest of the backend starts normally.
+        kickoff_critical_warmup(str(vault_path))
+        log.info("☁️ Critical-vault warmup kicked off for %s", vault_path)
+    except Exception as error:
+        log.warning("⚠️ Could not launch indexer warmup: %s", error)
+
+
+def _load_persistent_document_caches(
+    load_body_cache: Any,
+    load_parsed_cache: Any,
+) -> None:
+    """Load independent caches without allowing one failure to hide the other."""
     try:
-        from backend.services.plugin_dispatcher import wire as wire_plugins
+        load_body_cache()
+    except Exception as error:
+        log.warning("body-cache load skipped: %s", error)
+    try:
+        load_parsed_cache()
+    except Exception as error:
+        log.warning("parsed-doc-cache load skipped: %s", error)
 
-        wire_plugins()
+
+def _wire_plugin_system() -> None:
+    """Connect the plugin event bus while leaving failures non-fatal."""
+    try:
+        from backend.services.plugin_dispatcher import wire
+
+        wire()
         log.info("🧩 Plugin system connected")
-    except Exception as e:
-        log.warning("⚠️ Could not connect the plugin system: %s", e)
+    except Exception as error:
+        log.warning("⚠️ Could not connect the plugin system: %s", error)
 
-    # 4b. Index of Vault file/folder names for the picker search
-    #     ("Select file or folder"). The host_open_helper (Spotlight) does not
-    #     reliably see ~/Library/CloudStorage (OneDrive); this index,
-    #     built in the background from the container's /vault mount, makes the
-    #     search fast and reliable independent of the helper. See
-    #     services/vault_file_index.py.
+
+def _start_file_index() -> None:
+    """Start the independent Vault filename index."""
     try:
         from backend.services.vault_file_index import kickoff_file_index_rebuild
 
         kickoff_file_index_rebuild()
-    except Exception as e:
-        log.warning(f"⚠️ Could not launch vault file-index: {e}")
+    except Exception as error:
+        log.warning("⚠️ Could not launch vault file-index: %s", error)
 
-    # 5. Repair invariant: every table in the registry must own at least
-    #    one main view. Tables created before the auto-create logic landed
-    #    (or whose only view was deleted before the delete-protection was
-    #    added) can end up with zero views, leaving the table unrenderable.
+
+def _repair_main_views() -> None:
+    """Ensure every registered table has a main view under one mutation lock."""
     try:
         from backend.api.vault_routes import (
-            load_registry,
-            save_registry,
-            registry_mutation,
             _ensure_main_view,
+            load_registry,
+            registry_mutation,
+            save_registry,
         )
 
-        # Entire load→modify→save cycle under lock: even though it runs at startup,
-        # the IMAP IDLE workers / indexers that follow can now touch the registry.
         with registry_mutation():
             registry = load_registry()
-            repaired = []
-            for tbl in registry.get("tables", []):
-                tid = tbl.get("id")
-                if not tid:
+            repaired: list[str] = []
+            for table in registry.get("tables", []):
+                table_id = table.get("id")
+                if not table_id:
                     continue
-                created = _ensure_main_view(registry, tid)
-                if created:
-                    repaired.append(tbl.get("name") or tid)
+                if _ensure_main_view(registry, table_id):
+                    repaired.append(str(table.get("name") or table_id))
             if repaired:
                 save_registry(registry)
                 log.info(
-                    f"🛠️ Repaired {len(repaired)} table(s) without a main view: "
-                    f"{', '.join(repaired)}"
+                    "🛠️ Repaired %s table(s) without a main view: %s",
+                    len(repaired),
+                    ", ".join(repaired),
                 )
-    except Exception as e:
-        log.warning(f"⚠️ Could not run main-view repair pass: {e}")
+    except Exception as error:
+        log.warning("⚠️ Could not run main-view repair pass: %s", error)
 
-    # 6. IMAP IDLE workers for real push (new mail notifications).
-    #    Each IMAP-eligible account (including Google via XOAUTH2) launches a
-    #    daemon thread that keeps an IDLE connection open on INBOX. The
-    #    EXISTS/EXPUNGE/FETCH events are published to SSE clients
-    #    (/api/mail/events).
-    if mail_enabled:
-        try:
-            from backend.services.imap_idle_service import idle_manager
 
-            idle_manager.start_all()
-            log.info("📬 IMAP IDLE workers started.")
-        except Exception as e:
-            log.warning(f"⚠️ Could not start IMAP IDLE workers: {e}")
+def _start_mail_idle(*, enabled: bool) -> None:
+    """Start IMAP IDLE workers only while the mail plugin is enabled."""
+    if not enabled:
+        return
+    try:
+        from backend.services.imap_idle_service import idle_manager
 
-    yield
+        idle_manager.start_all()
+        log.info("📬 IMAP IDLE workers started.")
+    except Exception as error:
+        log.warning("⚠️ Could not start IMAP IDLE workers: %s", error)
 
-    # SHUTDOWN
+
+async def _shutdown_runtime(
+    app: FastAPI,
+    confirmation_maintenance_task: asyncio.Task[None],
+) -> None:
+    """Stop workers and MCP without allowing one shutdown path to hang reload."""
+    from backend.services.durable_job_worker import durable_job_worker
+
     log.info("🛑 Shutting down...")
     durable_job_worker.stop()
     confirmation_maintenance_task.cancel()
@@ -307,11 +261,53 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         idle_manager.stop_all()
     except Exception:
         pass
-    if hasattr(app.state, "mcp_client"):
-        # Timeout: if the MCP client stop hangs (servers not responding),
-        # it does not block the worker's shutdown (and with it the --reload reload).
-        try:
-            await asyncio.wait_for(app.state.mcp_client.stop(), timeout=5)
-            log.info("✅ MCP Client stopped.")
-        except Exception as e:
-            log.warning(f"⚠️ MCP Client stop timed out/failed: {e}")
+    if not hasattr(app.state, "mcp_client"):
+        return
+    try:
+        await asyncio.wait_for(app.state.mcp_client.stop(), timeout=5)
+        log.info("✅ MCP Client stopped.")
+    except Exception as error:
+        log.warning("⚠️ MCP Client stop timed out/failed: %s", error)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Bring Gnosi runtime services up and down in a deterministic order."""
+    log.info("🚀 Starting Gnosi Agent (FastAPI Port)...")
+
+    from backend.config.data_dir import resolve_data_dir
+    from backend.migrations.coordinator import migrate_existing_databases
+    from backend.services.auth_service import assert_signing_secret_safe
+    from backend.services.durable_job_worker import durable_job_worker
+
+    migrated_databases = migrate_existing_databases(resolve_data_dir())
+    log.info("Database schema verification complete (%s stores).", len(migrated_databases))
+    assert_signing_secret_safe()
+
+    if _scheduler_start_enabled():
+        scheduler_manager.start()
+    else:
+        log.info("Scheduler startup disabled by GNOSI_DISABLE_SCHEDULER.")
+    durable_job_worker.start()
+    confirmation_task = asyncio.create_task(_confirmation_maintenance_loop())
+
+    plugin_state = vault_routes._load_plugins_state()
+    ai_enabled = vault_routes.builtin_plugins.is_enabled(plugin_state, "ai-platform")
+    mail_enabled = vault_routes.builtin_plugins.is_enabled(plugin_state, "mail")
+    _reconcile_plugin_contributions(plugin_state, ai_platform_enabled=ai_enabled)
+
+    mcp_client = MultiServerMCPClient(MCP_SERVERS)
+    await _start_agent_runtime(app, mcp_client, enabled=ai_enabled)
+    _warm_vault_indexes()
+    _wire_plugin_system()
+    _start_file_index()
+    _repair_main_views()
+    _start_mail_idle(enabled=mail_enabled)
+
+    try:
+        yield
+    finally:
+        await _shutdown_runtime(app, confirmation_task)
+
+
+__all__ = ["lifespan"]

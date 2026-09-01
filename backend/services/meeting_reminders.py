@@ -18,12 +18,13 @@ import logging
 import threading
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, cast
 
 from backend.config.app_config import load_params
 from backend.utils.safe_io import safe_write_json
 
 log = logging.getLogger(__name__)
+JsonObject = dict[str, Any]
 
 # Serializes the WHOLE load→modify→save cycle of meeting_reminders.json. There are
 # FOUR concurrent mutators: `scan_and_notify` (scheduler thread, every
@@ -57,7 +58,7 @@ def _state_path() -> Optional[Path]:
     return p
 
 
-def _load_state() -> dict:
+def _load_state() -> JsonObject:
     path = _state_path()
     if path and path.exists():
         try:
@@ -69,13 +70,13 @@ def _load_state() -> dict:
                 data.setdefault("active", [])
                 for k, v in DEFAULT_SETTINGS.items():
                     data["settings"].setdefault(k, v)
-                return data
+                return cast(JsonObject, data)
         except Exception as e:
             log.warning(f"meeting_reminders: unreadable state ({e}); starting clean.")
     return {"settings": dict(DEFAULT_SETTINGS), "notified": {}, "active": []}
 
 
-def _save_state(state: dict) -> None:
+def _save_state(state: JsonObject) -> None:
     path = _state_path()
     if not path:
         return
@@ -87,14 +88,14 @@ def _save_state(state: dict) -> None:
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 
-def get_settings() -> dict:
-    return _load_state()["settings"]
+def get_settings() -> JsonObject:
+    return cast(JsonObject, _load_state()["settings"])
 
 
-def update_settings(patch: dict) -> dict:
+def update_settings(patch: JsonObject) -> JsonObject:
     with _state_lock:
         state = _load_state()
-        s = state["settings"]
+        s = cast(JsonObject, state["settings"])
         if "enabled" in patch:
             s["enabled"] = bool(patch["enabled"])
         if "lead_minutes" in patch:
@@ -108,7 +109,7 @@ def update_settings(patch: dict) -> dict:
 
 # ── Time helpers ─────────────────────────────────────────────────────────
 
-def _parse_dt(value) -> Optional[datetime]:
+def _parse_dt(value: object) -> Optional[datetime]:
     """Parses an event's ISO date into an aware datetime (UTC if it has no tz)."""
     if not value:
         return None
@@ -125,11 +126,11 @@ def _parse_dt(value) -> Optional[datetime]:
         return None
 
 
-def _event_key(ev: dict) -> str:
+def _event_key(ev: JsonObject) -> str:
     return f"{ev.get('id', '')}|{ev.get('start', '')}"
 
 
-def _attendees_str(attendees) -> str:
+def _attendees_str(attendees: object) -> str:
     if not isinstance(attendees, list):
         return ""
     names = []
@@ -137,18 +138,18 @@ def _attendees_str(attendees) -> str:
         if isinstance(a, dict):
             label = a.get("name") or a.get("email")
             if label:
-                names.append(label)
+                names.append(str(label))
     return ", ".join(names)
 
 
 # ── AI agenda generation ──────────────────────────────────────
 
-def _generate_agenda(ev: dict) -> str:
+def _generate_agenda(ev: JsonObject) -> str:
     """Generates a brief agenda (Markdown bullets) from the event's title +
     description. Returns "" if the AI fails or there's no provider."""
-    title = (ev.get("title") or "").strip()
-    desc = (ev.get("description") or "").strip()
-    location = (ev.get("location") or "").strip()
+    title = str(ev.get("title") or "").strip()
+    desc = str(ev.get("description") or "").strip()
+    location = str(ev.get("location") or "").strip()
     who = _attendees_str(ev.get("attendees"))
 
     prompt = (
@@ -164,7 +165,7 @@ def _generate_agenda(ev: dict) -> str:
     try:
         from backend.agent.factory import generate_text
         content, _model = generate_text(prompt, user_message=title)
-        return (content or "").strip()
+        return str(content or "").strip()
     except Exception as e:
         log.info(f"meeting_reminders: AI agenda unavailable ({e}).")
         return ""
@@ -172,7 +173,7 @@ def _generate_agenda(ev: dict) -> str:
 
 # ── Notification (native macOS + BD + MD) ─────────────────────────────────────────────
 
-def _dispatch_notification(reminder: dict) -> None:
+def _dispatch_notification(reminder: JsonObject) -> None:
     mins = reminder.get("minutes_until", 0)
     when = "ara" if mins <= 0 else f"en {mins} min"
     title = f"🔔 Reunió {when}: {reminder.get('title', '')}"
@@ -185,7 +186,8 @@ def _dispatch_notification(reminder: dict) -> None:
         parts.append("Tens una reunió a punt de començar.")
     message = "\n".join(parts)
     try:
-        from pipeline.skills.notification_service.scripts.notification_service import notify
+        from backend.platform.notifications import notify
+
         notify(title, message, level="INFO")
     except Exception as e:
         log.warning(f"meeting_reminders: notification failed: {e}")
@@ -193,7 +195,7 @@ def _dispatch_notification(reminder: dict) -> None:
 
 # ── Main scan (called by the scheduler) ──────────────────────────────
 
-def scan_and_notify() -> dict:
+def scan_and_notify() -> JsonObject:
     """Scans meetings within [now, now+lead] and notifies about them (once per meeting).
 
     Returns a summary {enabled, new, active}. Designed to run every minute.
@@ -218,7 +220,7 @@ def scan_and_notify() -> dict:
         return {"enabled": True, "new": 0, "error": str(e)}
 
     notified = state["notified"]
-    new_reminders: list = []
+    new_reminders: list[JsonObject] = []
     new_count = 0
 
     for ev in events:
@@ -273,8 +275,8 @@ def scan_and_notify() -> dict:
         return {"enabled": True, "new": new_count, "active": len(fresh["active"])}
 
 
-def _prune_active(active: list, now: datetime) -> list:
-    out = []
+def _prune_active(active: list[JsonObject], now: datetime) -> list[JsonObject]:
+    out: list[JsonObject] = []
     for a in active:
         if a.get("dismissed"):
             continue
@@ -285,8 +287,8 @@ def _prune_active(active: list, now: datetime) -> list:
     return out
 
 
-def _prune_notified(notified: dict, now: datetime) -> dict:
-    out = {}
+def _prune_notified(notified: JsonObject, now: datetime) -> JsonObject:
+    out: JsonObject = {}
     for key, ts in notified.items():
         t = _parse_dt(ts)
         if t and now - t > timedelta(hours=_NOTIFIED_TTL_HOURS):
@@ -297,7 +299,7 @@ def _prune_notified(notified: dict, now: datetime) -> dict:
 
 # ── Query from the frontend (banner) ───────────────────────────────────────
 
-def get_active(now: Optional[datetime] = None) -> list:
+def get_active(now: Optional[datetime] = None) -> list[JsonObject]:
     """Active reminders for the banner, with `minutes_until` recalculated."""
     now = now or datetime.now(timezone.utc)
     with _state_lock:
@@ -306,7 +308,7 @@ def get_active(now: Optional[datetime] = None) -> list:
         if len(pruned) != len(state.get("active", [])):
             state["active"] = pruned
             _save_state(state)
-    result = []
+    result: list[JsonObject] = []
     for a in pruned:
         start = _parse_dt(a.get("start"))
         mins = max(0, int((start - now).total_seconds() // 60)) if start else 0

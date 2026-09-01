@@ -2,15 +2,19 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Dict
 
 from langchain_core.tools import tool
 
 
-def _vault_path():
+def _vault_path() -> Path:
     from backend.services.context_vars import get_active_vault_path
 
-    return get_active_vault_path()
+    vault_path = get_active_vault_path()
+    if vault_path is None:
+        raise RuntimeError("There is no active Vault.")
+    return vault_path.resolve()
 
 
 @tool

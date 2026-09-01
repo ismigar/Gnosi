@@ -1,20 +1,31 @@
+"""Lazy compatibility stores for legacy Chroma-backed Agent memory."""
+
 import os
 import threading
-import chromadb
 from pathlib import Path
+from typing import Any, cast
+
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from pydantic import SecretStr
+
 from backend.config.app_config import load_params
+from backend.config.logger_config import get_logger
+
+log = get_logger(__name__)
 
 # Configuration
 cfg = load_params(strict_env=False)
 CHROMA_DIR = cfg.paths["CHROMA"]
+if CHROMA_DIR is None:
+    raise RuntimeError("Chroma storage is not configured.")
 
-        # Ensure the directory exists.
-os.makedirs(CHROMA_DIR, exist_ok=True)
+# Ensure the directory exists without loading any embedding model.
+Path(CHROMA_DIR).mkdir(parents=True, exist_ok=True)
 
 
-def _get_embeddings():
+def _get_embeddings() -> Embeddings | None:
     """
     Get embeddings with fallback:
     1. HuggingFace (local, free)
@@ -30,25 +41,25 @@ def _get_embeddings():
             encode_kwargs={"normalize_embeddings": True},
         )
     except ImportError:
-        print(
-            "⚠️ langchain-huggingface not installed, trying sentence-transformers directly"
-        )
+        log.warning("⚠️ langchain-huggingface not installed, trying sentence-transformers directly")
 
     # 1b. Try sentence-transformers directly
     try:
         from sentence_transformers import SentenceTransformer
 
-        class LocalEmbeddings:
+        class LocalEmbeddings(Embeddings):
             """Simple wrapper for sentence-transformers."""
 
-            def __init__(self, model_name="all-MiniLM-L6-v2"):
+            def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
                 self.model = SentenceTransformer(model_name)
 
-            def embed_documents(self, texts):
-                return self.model.encode(texts).tolist()
+            def embed_documents(self, texts: list[str]) -> list[list[float]]:
+                encoded = self.model.encode(texts).tolist()
+                return cast(list[list[float]], encoded)
 
-            def embed_query(self, text):
-                return self.model.encode(text).tolist()
+            def embed_query(self, text: str) -> list[float]:
+                encoded = self.model.encode(text).tolist()
+                return cast(list[float], encoded)
 
         return LocalEmbeddings()
     except ImportError:
@@ -59,7 +70,7 @@ def _get_embeddings():
         try:
             from langchain_openai import OpenAIEmbeddings
 
-            return OpenAIEmbeddings(model="text-embedding-3-small", api_key=api_key)
+            return OpenAIEmbeddings(model="text-embedding-3-small", api_key=SecretStr(api_key))
         except ImportError:
             pass
 
@@ -67,8 +78,9 @@ def _get_embeddings():
 
 
 class MemoryStore:
-    def __init__(self):
+    def __init__(self) -> None:
         self.embeddings = _get_embeddings()
+        self.vector_store: Chroma | None
 
         if not self.embeddings:
             self.vector_store = None
@@ -81,7 +93,7 @@ class MemoryStore:
             persist_directory=str(CHROMA_DIR),
         )
 
-    def add_memory(self, text: str, metadata: dict = None):
+    def add_memory(self, text: str, metadata: dict[str, Any] | None = None) -> str:
         """Saves a text fragment to long-term memory."""
         if not self.vector_store:
             return "Error: Memory not initialized (No embeddings available)."
@@ -90,7 +102,7 @@ class MemoryStore:
         self.vector_store.add_documents([doc])
         return "Success: Memory saved."
 
-    def search_memory(self, query: str, k: int = 3):
+    def search_memory(self, query: str, k: int = 3) -> list[str]:
         """Retrieves relevant facts for the query."""
         if not self.vector_store:
             return []
@@ -100,8 +112,9 @@ class MemoryStore:
 
 
 class VaultStore:
-    def __init__(self):
+    def __init__(self) -> None:
         self.embeddings = _get_embeddings()
+        self.vector_store: Chroma | None
 
         if not self.embeddings:
             self.vector_store = None
@@ -115,21 +128,15 @@ class VaultStore:
             persist_directory=str(CHROMA_DIR),
         )
 
-    def search_vault(self, query: str, k: int = 5):
+    def search_vault(self, query: str, k: int = 5) -> list[dict[str, Any]]:
         """Searches for relevant content in the Vault (Wiki, BD, etc.)."""
         if not self.vector_store:
             return []
 
         results = self.vector_store.similarity_search(query, k=k)
-        return [
-            {
-                "content": doc.page_content,
-                "metadata": doc.metadata
-            }
-            for doc in results
-        ]
+        return [{"content": doc.page_content, "metadata": doc.metadata} for doc in results]
 
-    def add_content(self, text: str, metadata: dict = None):
+    def add_content(self, text: str, metadata: dict[str, Any] | None = None) -> bool:
         """Adds indexed content from the Vault."""
         if not self.vector_store:
             return False
@@ -144,13 +151,13 @@ class VaultStore:
 # when importing the module, any `multiprocessing` process (spawn, default on
 # macOS) that re-imports the backend during its bootstrap loads torch inside
 # that restricted context and DEADLOCKS on an initialization lock
-        # (`PyThread_acquire_lock`). Observed result (2026-06-25): orphaned child processes hang.
+# (`PyThread_acquire_lock`). Observed result (2026-06-25): orphaned child processes hang.
 # that accumulate on each restart and, if the parent `join`s them on top of the event loop,
 # the whole backend freezes (every request -> 000, "doesn't load"). Deferring the
 # construction to the first real use removes torch from the children's bootstrap. Same pattern
 # than `services/transcription.py`.
-_memory_store = None
-_vault_store = None
+_memory_store: MemoryStore | None = None
+_vault_store: VaultStore | None = None
 _store_lock = threading.Lock()
 
 
@@ -174,8 +181,8 @@ def get_vault_store() -> "VaultStore":
     return _vault_store
 
 
-def __getattr__(name):
-        # Backward compatibility (PEP 562): `from .memory import memory_store` / `vault_store`
+def __getattr__(name: str) -> MemoryStore | VaultStore:
+    # Backward compatibility (PEP 562): `from .memory import memory_store` / `vault_store`
     # still works, but now the singleton (and torch) is built ONLY on
     # the first real access to the attribute, not when importing the module.
     if name == "memory_store":

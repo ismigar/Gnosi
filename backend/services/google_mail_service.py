@@ -1,10 +1,14 @@
+from __future__ import annotations
+
+from typing import Any
+
 import logging
 import base64
 from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+from googleapiclient.discovery import build  # type: ignore[import-untyped]
 
-from backend.services.mail_inline_images import build_mail_content
+from backend.services.mail_inline_images import InlineImage, MimeAsset, build_mail_content
 
 log = logging.getLogger(__name__)
 
@@ -12,6 +16,7 @@ log = logging.getLogger(__name__)
 def get_google_email_accounts() -> list[str]:
     """Returns email addresses of all registered Google OAuth2 accounts."""
     from backend.services.integration_manager import integration_manager
+
     return [
         acc.get("email", "")
         for acc in integration_manager.get_all_mail_accounts()
@@ -19,7 +24,7 @@ def get_google_email_accounts() -> list[str]:
     ]
 
 
-def get_gmail_service(email: str):
+def get_gmail_service(email: str) -> Any | None:
     """Builds and returns an authenticated Gmail API service for *email*.
 
     Automatically refreshes an expired access token and persists the new one.
@@ -29,7 +34,7 @@ def get_gmail_service(email: str):
     from backend.config.env_config import get_env
 
     account = integration_manager.get_mail_account(email)
-    if not integration_manager.is_google_account(account):
+    if not account or not integration_manager.is_google_account(account):
         log.warning(f"[Gmail] No OAuth2 Google account found for {email}")
         return None
 
@@ -40,7 +45,7 @@ def get_gmail_service(email: str):
         return None
 
     try:
-        creds = Credentials(
+        creds = Credentials(  # type: ignore[no-untyped-call]
             token=account.get("token"),
             refresh_token=account.get("refresh_token"),
             token_uri=account.get("token_uri", "https://oauth2.googleapis.com/token"),
@@ -49,8 +54,10 @@ def get_gmail_service(email: str):
         )
         if creds.expired and creds.refresh_token:
             from google.auth.transport.requests import Request
-            creds.refresh(Request())
-            integration_manager.update_mail_account_token(email, creds.token)
+
+            creds.refresh(Request())  # type: ignore[no-untyped-call]
+            if isinstance(creds.token, str):
+                integration_manager.update_mail_account_token(email, creds.token)
             log.info(f"[Gmail] Token renewed for {email}")
         return build("gmail", "v1", credentials=creds)
     except Exception as e:
@@ -58,7 +65,9 @@ def get_gmail_service(email: str):
         return None
 
 
-def list_threads(email: str, query: str = "label:INBOX", max_results: int = 50):
+def list_threads(
+    email: str, query: str = "label:INBOX", max_results: int = 50
+) -> list[dict[str, Any]]:
     """Lists threads for a given user and query."""
     service = get_gmail_service(email)
     if not service:
@@ -66,10 +75,7 @@ def list_threads(email: str, query: str = "label:INBOX", max_results: int = 50):
 
     try:
         results = (
-            service.users()
-            .threads()
-            .list(userId="me", q=query, maxResults=max_results)
-            .execute()
+            service.users().threads().list(userId="me", q=query, maxResults=max_results).execute()
         )
         threads = results.get("threads", [])
 
@@ -98,9 +104,7 @@ def list_threads(email: str, query: str = "label:INBOX", max_results: int = 50):
                 (h["value"] for h in headers if h["name"].lower() == "from"),
                 "Unknown",
             )
-            date = next(
-                (h["value"] for h in headers if h["name"].lower() == "date"), ""
-            )
+            date = next((h["value"] for h in headers if h["name"].lower() == "date"), "")
 
             detailed_threads.append(
                 {
@@ -120,7 +124,7 @@ def list_threads(email: str, query: str = "label:INBOX", max_results: int = 50):
         return []
 
 
-def get_thread_details(email: str, thread_id: str):
+def get_thread_details(email: str, thread_id: str) -> dict[str, Any] | None:
     """Fetches full details for a thread."""
     service = get_gmail_service(email)
     if not service:
@@ -128,7 +132,7 @@ def get_thread_details(email: str, thread_id: str):
 
     try:
         thread = service.users().threads().get(userId="me", id=thread_id).execute()
-        return thread
+        return thread if isinstance(thread, dict) else None
     except Exception as e:
         log.error(f"Error getting thread details for {thread_id} for {email}: {e}")
         return None
@@ -138,13 +142,13 @@ def send_reply(
     email: str,
     thread_id: str,
     body: str,
-    to_recipients: str = None,
-    cc_recipients: str = None,
-    bcc_recipients: str = None,
-    subject: str = None,
-    attachments: list = None,
-    inline_images: list = None,
-):
+    to_recipients: str | None = None,
+    cc_recipients: str | None = None,
+    bcc_recipients: str | None = None,
+    subject: str | None = None,
+    attachments: list[MimeAsset] | None = None,
+    inline_images: list[InlineImage] | None = None,
+) -> bool:
     """Sends a reply or forward to an existing thread, with optional attachments."""
     service = get_gmail_service(email)
     if not service:
@@ -154,9 +158,7 @@ def send_reply(
         thread = service.users().threads().get(userId="me", id=thread_id).execute()
         last_msg = thread["messages"][-1]
         headers = last_msg["payload"]["headers"]
-        orig_subject = next(
-            (h["value"] for h in headers if h["name"].lower() == "subject"), ""
-        )
+        orig_subject = next((h["value"] for h in headers if h["name"].lower() == "subject"), "")
 
         msg = build_mail_content(body, attachments=attachments, inline_images=inline_images)
 
@@ -166,12 +168,8 @@ def send_reply(
         if to_recipients:
             msg["To"] = to_recipients
         else:
-            original_to = next(
-                (h["value"] for h in headers if h["name"].lower() == "to"), email
-            )
-            original_from = next(
-                (h["value"] for h in headers if h["name"].lower() == "from"), ""
-            )
+            original_to = next((h["value"] for h in headers if h["name"].lower() == "to"), email)
+            original_from = next((h["value"] for h in headers if h["name"].lower() == "from"), "")
             msg["To"] = original_from if original_from != email else original_to
 
         if cc_recipients:
@@ -180,10 +178,14 @@ def send_reply(
         if bcc_recipients:
             msg["Bcc"] = bcc_recipients
 
-        msg["Subject"] = subject if subject else (
-            f"Re: {orig_subject}"
-            if not orig_subject.lower().startswith("re:")
-            else orig_subject
+        msg["Subject"] = (
+            subject
+            if subject
+            else (
+                f"Re: {orig_subject}"
+                if not orig_subject.lower().startswith("re:")
+                else orig_subject
+            )
         )
 
         raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
@@ -197,12 +199,17 @@ def send_reply(
         return False
 
 
-def update_labels(email: str, gmail_id: str, add_labels: list = None, remove_labels: list = None):
+def update_labels(
+    email: str,
+    gmail_id: str,
+    add_labels: list[str] | None = None,
+    remove_labels: list[str] | None = None,
+) -> bool:
     """Updates labels for a thread or message (tries thread first, falls back to message)."""
     service = get_gmail_service(email)
     if not service:
         return False
-    body = {}
+    body: dict[str, list[str]] = {}
     if add_labels:
         body["addLabelIds"] = add_labels
     if remove_labels:
@@ -221,12 +228,15 @@ def update_labels(email: str, gmail_id: str, add_labels: list = None, remove_lab
 
 
 def update_thread_labels(
-    email: str, thread_id: str, add_labels: list = None, remove_labels: list = None
-):
+    email: str,
+    thread_id: str,
+    add_labels: list[str] | None = None,
+    remove_labels: list[str] | None = None,
+) -> bool:
     return update_labels(email, thread_id, add_labels, remove_labels)
 
 
-def trash_gmail(email: str, gmail_id: str):
+def trash_gmail(email: str, gmail_id: str) -> bool:
     """Moves a thread or message to trash."""
     service = get_gmail_service(email)
     if not service:
@@ -244,11 +254,11 @@ def trash_gmail(email: str, gmail_id: str):
         return False
 
 
-def trash_thread(email: str, thread_id: str):
+def trash_thread(email: str, thread_id: str) -> bool:
     return trash_gmail(email, thread_id)
 
 
-def untrash_thread(email: str, thread_id: str):
+def untrash_thread(email: str, thread_id: str) -> bool:
     """Untrashes a thread."""
     service = get_gmail_service(email)
     if not service:
@@ -261,7 +271,14 @@ def untrash_thread(email: str, thread_id: str):
         return False
 
 
-def send_new_message(email: str, to: str, subject: str, body: str, cc: str = None, bcc: str = None):
+def send_new_message(
+    email: str,
+    to: str,
+    subject: str,
+    body: str,
+    cc: str | None = None,
+    bcc: str | None = None,
+) -> bool:
     """Sends a brand new email message."""
     service = get_gmail_service(email)
     if not service:
@@ -289,11 +306,11 @@ def send_new_message_with_attachments(
     to: str,
     subject: str,
     body: str,
-    cc: str = None,
-    bcc: str = None,
-    attachments: list = None,
-    inline_images: list = None,
-):
+    cc: str | None = None,
+    bcc: str | None = None,
+    attachments: list[MimeAsset] | None = None,
+    inline_images: list[InlineImage] | None = None,
+) -> bool:
     """Sends a new email with optional file attachments and inline images."""
     service = get_gmail_service(email)
     if not service:
@@ -316,7 +333,15 @@ def send_new_message_with_attachments(
         return False
 
 
-def save_gmail_draft(email: str, to: str, subject: str, body: str, cc: str = "", bcc: str = "", gmail_draft_id: str = None) -> str | None:
+def save_gmail_draft(
+    email: str,
+    to: str,
+    subject: str,
+    body: str,
+    cc: str = "",
+    bcc: str = "",
+    gmail_draft_id: str | None = None,
+) -> str | None:
     """Creates or updates a Gmail draft. Returns the Gmail draft ID on success, None on failure."""
     service = get_gmail_service(email)
     if not service:
@@ -334,10 +359,16 @@ def save_gmail_draft(email: str, to: str, subject: str, body: str, cc: str = "",
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         draft_body = {"message": {"raw": raw}}
         if gmail_draft_id:
-            result = service.users().drafts().update(userId="me", id=gmail_draft_id, body=draft_body).execute()
+            result = (
+                service.users()
+                .drafts()
+                .update(userId="me", id=gmail_draft_id, body=draft_body)
+                .execute()
+            )
         else:
             result = service.users().drafts().create(userId="me", body=draft_body).execute()
-        return result.get("id")
+        draft_id = result.get("id")
+        return draft_id if isinstance(draft_id, str) else None
     except Exception as e:
         log.error(f"Error saving Gmail draft for {email}: {e}")
         return None

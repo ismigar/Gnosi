@@ -1,21 +1,50 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/integrations_routes.py
+  - backend/api/notion_routes.py
+  - backend/api/vault_routes.py
+  - backend/domains/configuration/api/plugin_lifecycle.py
+  - backend/domains/configuration/api/plugin_models.py
+  - backend/domains/configuration/api/plugins.py
+  - backend/domains/configuration/plugin_state.py
+  - backend/domains/plugins
+  - backend/domains/notion
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
+  - backend/services/builtin_plugins.py
+  - backend/services/plugin_access.py
   - backend/services/plugin_sandbox.py
+  - backend/services/plugin_dispatcher.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
+  - backend/services/notion_clone.py
+  - backend/services/notion_importer.py
+  - backend/services/notion_view_recreator.py
   - extensions/examples
+  - frontend/src/plugins
   - extensions/mcp
   - extensions/office
 tests:
+  - backend/tests/test_integration_secret_storage.py
+  - backend/tests/test_keychain_manager.py
+  - backend/tests/test_notion_clone.py
+  - backend/tests/test_notion_domain_facades.py
+  - backend/tests/test_notion_importer.py
+  - backend/tests/test_notion_view_recreator.py
+  - backend/tests/test_openapi_contract.py
+  - backend/tests/test_configuration_plugins_facade.py
+  - backend/tests/test_configuration_plugins_route_contract.py
+  - backend/tests/test_plugin_domain_contract.py
+  - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
+  - backend/tests/test_plugin_network_guard.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
+  - frontend/src/plugins/host.test.js
+  - frontend/src/plugins/registry.test.js
   - extensions/office/libreoffice-cite/tests
 ---
 
@@ -25,11 +54,50 @@ tests:
 
 Intégrations connectent les comptes utilisateurs et les systèmes externes. Les plugins étendent Gnosi avec des contributions déclaratives et un comportement exécutable limité. Les serveurs MCP contribuent aux outils d'agents à travers une limite de protocole distincte.
 
+La frontière HTTP des intégrations est strictement typée sans modifier les
+payloads publics. Les tests de connexion Mail et DAV valident les identifiants
+textuels requis avant d'ouvrir des sockets. Les URL DAV peuvent viser des
+réseaux privés auto-hébergés comme Nextcloud, mais les adresses loopback,
+link-local, multicast, réservées et non spécifiées restent bloquées.
+
 ## Persistance de l'intégration
 
 Le gestionnaire d'intégration stocke la configuration non secrète des comptes et les références aux secrets sous les données locales. Chaque machine reconnexe les comptes de façon indépendante. Les API de configuration listent l'état de connexion masqué, valident la configuration, testent la connectivité, choisissent les défauts et déconnectent les fournisseurs sans exposer les jetons bruts.
 
 Les callbacks Google et Microsoft OAuth créent ou mettent à jour des enregistrements de fournisseurs. IMAP, SMTP, CalDAV, Drupal, Notion et adaptateurs similaires normalisent leurs propres paramètres dans le registre d'intégration commun si possible.
+
+## Propriété et compatibilité des backends
+
+Le domaine de configuration possède les 23 opérations HTTP intégrées et de plugins tiers. `backend/domains/configuration/api/plugins.py` traduit les requêtes HTTP, `plugin_lifecycle.py` possède une activation et des transitions d'exécution conscientes de la dépendance, `plugin_models.py` est propriétaire des contrats Pydantic, et `plugin_state.py` est le propriétaire unique des serrures par process et du magasin d'état normalisé par vault.
+
+Le paquet typé `backend/domains/plugins/` prend en charge la validation des
+manifestes, le confinement des chemins d'installation, la préparation et la
+restauration des ZIP, l'export déterministe, la normalisation des autorisations
+et le sandbox Node en JSON délimité par lignes. Les modules historiques
+`backend/services/plugin_system.py` et `plugin_sandbox.py` restent des façades
+minces. Ils sont les seuls propriétaires des constantes de compatibilité, du
+registre injecté des gestionnaires hôte, du chemin du runner et des points de
+substitution tardive ; l'état du cycle de vie et du sandbox n'est pas dupliqué
+entre les couches.
+
+`backend/api/vault_routes.py` Il injecte des chemins, des persistances, des durées d'exécution, des modèles de sélection et des mutations-blocs collaborateurs et réexporte les modèles et les manutentionnaires historiques. Les coutures de charge, d'enregistrement, de cycle de vie, de résumé et de mutation-bloc restent dynamiquement remplaçables pour les plugins et les tests. Les modules de domaine n'importent jamais la façade. Ordonnance d'itinéraire, chemins, méthodes, codes d'état, schémas de charge utile, identificateurs d'opération et le contrat généré OpenAPI restent gelés pendant cette migration structurelle.
+
+L'intégration Notion appartient à `backend/domains/notion`. Ses modules typés
+séparent la conversion de l'import REST, la recréation des vues intégrées, les
+phases du clone exact, la découverte du workspace, la persistance des fichiers
+et du registre de routes, et la vérification en lecture seule.
+`backend/api/notion_routes.py` conserve la traduction HTTP et l'état de
+progression du clone. Les trois chemins historiques
+`backend/services/notion_{importer,clone,view_recreator}.py` sont des façades de
+compatibilité explicites : les imports, globals et points de `monkeypatch` à
+résolution tardive restent disponibles. L'ordre, les méthodes, chemins,
+payloads, descriptions et le document OpenAPI de Notion restent identiques
+octet par octet.
+
+Le dispatcher et la façade du sandbox partagent un contrat typé de host handler
+à deux arguments : arguments bornés et identifiant du plugin appelant. Les RPC
+Vault importent paresseusement les propriétaires canoniques des pages, du
+registre et de la configuration, sans cycle ni façade dynamique.
 
 ## Cycle de vie du greffon
 
@@ -47,9 +115,17 @@ stateDiagram-v2
 
 Les paquets de plugins déclarent l'identité, la version, la compatibilité, les permissions, les contributions et l'intégrité des informations. L'installation valide les chemins, la structure des manifestes, les signatures, le cas échéant, et les effets déclarés.
 
+Les capacités secondaires intégrées utilisent la même limite par-vault cycle de vie. Le registre autorisé déclare les dépendances, les routes, les surfaces d'interface utilisateur et les destinations de Paramètres. `.gnosi/plugins.json` schéma version 2 enregistrements explicite `enabled_builtin` et `enabled_third_party` listes tout en conservant `disabled` pour les clients plus âgés. La migration d'un schéma ancien ou manquant est atomique et idempotent : chaque capacité optionnelle démarre désactivée et tous les paramètres, permissions et enregistrements incognites compatibles avec l'avant sont conservés.
+
+Les changements du cycle de vie passent par le général `POST /api/vault/plugins/{id}/lifecycle` Un changement avec les prérequis ou les personnes à charge activées retourne d'abord un conflit structuré; un administrateur confirme ensuite l'activation groupée ou la cascade. Les itinéraires désactivés échouent avant que leur fonctionnalité ne soit mise en œuvre, et le travail externe planifié vérifie le même registre. Maintenance du noyau, Markdown, vues du calendrier de base de données, champs de contact, pièces jointes aux médias et dessins ne dépendent pas de ces plugins.
+
+Les paramètres des plugins possèdent l'installation, l'activation, les autorisations, les mises à jour et la suppression. La configuration des fonctionnalités actives est exposée sous Connections, Connaissances ou Avancées. Une action de configure ouvre cette destination directement et les fonctionnalités sans configuration globale ne créent pas de pages vides.
+
 Le comportement des plugins exécutables passe par une limite de sandbox avec un environnement et un temps de fermeture limités. Les plugins ne reçoivent pas l'environnement hôte complet ou un accès secret arbitraire.
 
 La mise en réseau directe reste désactivée dans les deux exécutions de plugin. `network` la capacité expose seulement le RPC hôte, qui rejette les destinations privées et les méthodes de limites, les redirections, le temps et la taille de la réponse. `connect-src 'none'`; le parent appelle la même limite de l'arrière-plan après avoir vérifié les autorisations déclarées et accordées par le plugin.
+
+Les plugins tiers peuvent déclarer l'additif `ui:settings` Permission et appel `gnosi.registerSettingsPanel(...)`. Les panneaux actifs et accordés apparaissent dans le groupe des extensions dynamiques, se rendent à l'intérieur de la boîte de sable opaque d'origine iframe existante et disparaissent dès que le plugin est désactivé, révoqué ou supprimé. `settings` Permission. L'API hôte reste à la version principale 2.
 
 ## Distribution sur le marché
 
@@ -75,6 +151,8 @@ par défaut, de façon cohérente.
 - La compatibilité et la validation des autorisations se produisent avant l'activation.
 - Les index officiels et les paquets distants échouent lorsque les métadonnées d'intégrité sont manquantes.
 - Les prises de plugin directes et les connexions du navigateur ne contournent jamais le RPC hôte.
+- Une capacité désactivée ne peut pas démarrer une nouvelle route, synchronisation, automatisation ou effet externe.
+- Désactiver ou migrer ne supprime jamais les données, paramètres, identifiants ou profils du plugin.
 - L'origine et l'effet de l'outil MCP restent visibles après la normalisation du catalogue.
 
 ## Aspects de vérification

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/social_routes.py
   - backend/services/social_clients.py
@@ -8,6 +8,7 @@ source_paths:
   - frontend/src/pages/MediaCenter.jsx
   - pipeline/skills/publisher
 tests:
+  - backend/tests/test_social_clients_contract.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_connection_scheduler_alignment.py
 ---
@@ -23,6 +24,11 @@ Aquest domini prepara, planifica, publica i observa contingut a través de les x
 Clients de serveis aïllar Mastodon, Bluesky, Telegram, i altres semàntics de xarxa configurades: autenticació, límits de text, pujada de mitjans, identificadors de publicació, fils de resposta, i informe d' error. Les entrades de xarxa emmagatzemades a les credencials locals; les respostes no retornen mai els valors secrets.
 
 Les etiquetes API exposen xarxes configurades, fluxos, publicacions i arranjaments relacionades. Les pestanyes de l' IU estan claus per identificadors de xarxa estables mentre es mostren noms i etiquetes usen cadenes localitzats.
+
+El JSON dels proveïdors es valida i normalitza a la frontera de l'adaptador. Les
+rutes HTTP estan tipades estrictament i conserven el contracte OpenAPI existent;
+el JSON de missatges emmagatzemat es descodifica amb helpers tipats abans d'usar
+previsualitzacions, URL o publicacions programades.
 
 ## Publica flux
 

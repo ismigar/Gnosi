@@ -1,16 +1,23 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/calendar_routes.py
+  - backend/domains/calendar/geocoding.py
   - backend/api/meeting_routes.py
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
+  - backend/services/hybrid_calendar_service.py
+  - backend/services/vault_calendar_sync_service.py
+  - backend/services/meeting_reminders.py
   - frontend/src/pages/CalendarPage.jsx
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
 tests:
+  - backend/tests/test_calendar_geocoding_domain.py
+  - backend/tests/test_hybrid_calendar_service.py
   - backend/tests/test_calendar_path_containment.py
+  - backend/tests/test_google_calendar_event_updates.py
   - backend/tests/test_meeting_reminders_race.py
   - tests/e2e/tests/e2e/calendar.spec.ts
 ---
@@ -23,6 +30,22 @@ Calendar aggregates local Vault events with connected Google Calendar and
 CalDAV accounts. It supports calendar selection, event CRUD, invitations,
 RSVPs, free/busy queries, geocoding, reminders, hidden-event state, ICS export,
 meeting recording, transcription, and AI-generated notes.
+
+The HTTP boundary is strictly typed while preserving the existing response
+contract. Photon label normalization, URL rejection, result validation, and
+deduplication belong to the Calendar geocoding domain rather than the route
+module; provider payloads remain validated at that adapter boundary.
+
+The hybrid provider service is strictly typed and keeps Google as one adapter
+beside generic CalDAV. CalDAV account detection therefore supports Nextcloud,
+iCloud, Fastmail, Radicale and compatible servers through configured URLs,
+without introducing storage-provider-specific workspace behavior.
+
+The optional Google-to-Vault mirror narrows calendar and event payloads before
+filesystem work, requires a configured Vault, uses provider event IDs as stable
+filenames and contains account/calendar folders beneath `Calendar/External`.
+Missing identities are skipped and each calendar folder removes only stale
+Markdown rows from the bounded synchronization window.
 
 ## Event aggregation
 
@@ -62,10 +85,20 @@ events and deduplicates concurrent requests so duplicate reminders are not
 created. The frontend watcher displays active reminders and can navigate to the
 calendar or dismiss them.
 
+Reminder persistence narrows its JSON state into explicit settings, notified
+keys and active reminder objects. Time parsing accepts provider values at one
+boundary, attendee labels are normalized to strings, and AI output is converted
+before storage. The existing whole-cycle lock and fresh-state merge remain the
+authority for scheduler/API races.
+
 Meeting recording uploads bounded audio to a background workflow. Status polling
 separates recording, transcription, summarization, note creation, completion,
 and failure. Generated notes are written through Vault-safe operations and
-retain event/source context.
+retain event/source context. The background service normalizes the legacy Vault
+route result to a concrete mapping before reading the created page identifier;
+dynamic compatibility handlers do not leak into the typed job boundary. Record
+and polling responses pass through dedicated Pydantic models while returning
+the same directly indexable dictionaries used by existing callers.
 
 ## Invariants
 

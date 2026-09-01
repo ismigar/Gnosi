@@ -73,6 +73,12 @@ dev = [
   "pytest-cov>=7.0.0",
   "pytest>=9.1.1",
   "ruff>=0.13.0",
+  "types-defusedxml>=0.7.0.20260504",
+  "types-networkx>=3.6.1.20260728",
+  "types-psutil>=7.2.2.20260827",
+  "types-python-dateutil>=2.9.0.20260807",
+  "types-python-jose>=3.5.0.20260408",
+  "types-pyyaml>=6.0.12.20260815",
 ]
 desktop = [
   "pyinstaller>=6.16.0",

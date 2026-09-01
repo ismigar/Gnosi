@@ -1,15 +1,20 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/contracts.py
+  - backend/scheduler/notifications.py
+  - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
   - backend/services/literature_service.py
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_audio_summarizer.py
+  - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_literature_service.py
@@ -21,6 +26,11 @@ tests:
 ## Responsabilidad
 
 El planificador ejecuta tareas recurrentes y de una sola toma configuradas, registra el historial, expone el estado operativo y coordina trabajos de dominio como sincronización, publicación, ingestión, mantenimiento y actualización de planificación.
+
+Los metadatos de tarea, el estado de ejecución persistido y la frontera
+opcional de notificaciones están tipados estrictamente en módulos dedicados. El
+gestor se mantiene bajo el guardrail de tamaño y valida los diccionarios de
+tareas heredados antes de construir tareas de ejecución.
 
 ## Modelo de tareas
 
@@ -44,6 +54,11 @@ sequenceDiagram
 
 Las funciones de tareas deben ser idempotentes cuando sea posible la repetición. El administrador protege las instancias superpuestas de acuerdo a la política de tareas y utiliza nuevos contextos de base de datos o proveedores.
 
+El gestor conserva el ciclo de vida del planificador, la persistencia, el
+control de solapamientos y el historial. `task_handlers.py` contiene la política
+de despacho y las tareas operativas grandes, incluido el mantenimiento acotado.
+Así la ejecución es reutilizable y tipada sin acoplarla al hilo planificador.
+
 ## Sincronización académica y actualizaciones de revisión
 
 `academic_repository_sync` es un trabajo duradero y resumible para los índices locales de OAI. Su cursor, cuentas, error, estado de cancelación y última sincronización exitosa se mantienen fuera del proceso de solicitud. Un administrador inicia explícitamente la primera cosecha; después de que se complete, la programación incremental diaria se reanuda desde el último punto de control completado del repositorio y aplica lápidas OAI.
@@ -57,6 +72,13 @@ Las reglas de automatización de saltos combinan disparadores, condiciones y acc
 ## Trabajo de calidad autónomo
 
 Los bucles de mantenimiento y calidad son tareas operativas limitadas. Pueden diagnosticar, generar informes o aplicar cambios dentro de su ámbito declarado. No obtienen un sistema de archivos más amplio, secreto, Git o autoridad editorial porque están programados.
+
+## Generación diaria de audio
+
+El servicio de pódcast del Reader utiliza selección tipada de modelo e idioma,
+trabajadores TTS acotados por frase y sustitución atómica del MP3. La generación
+en segundo plano captura explícitamente el Vault seleccionado y no se inicia si
+no hay ninguno activo, evitando que la salida use una ruta local ambigua.
 
 ## Invariantes
 

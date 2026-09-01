@@ -42,11 +42,23 @@ PROVIDER_MODELS = {
     "groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
     "openai": ["gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini"],
     "anthropic": ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"],
-    "openrouter": ["openai/gpt-4o-mini", "anthropic/claude-3.5-sonnet", "meta-llama/llama-3.1-70b-instruct", "deepseek/deepseek-chat"],
+    "openrouter": [
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3.5-sonnet",
+        "meta-llama/llama-3.1-70b-instruct",
+        "deepseek/deepseek-chat",
+    ],
     "google": ["gemini-1.5-pro", "gemini-1.5-flash"],
     "perplexity": ["llama-3.1-sonar-large-128k-online", "llama-3.1-sonar-small-128k-online"],
-    "together": ["meta-llama/Llama-3.1-405B-Instruct-Turbo", "meta-llama/Llama-3.1-70B-Instruct-Turbo", "mistralai/Mixtral-8x7B-Instruct-v0.1"],
-    "fireworks": ["accounts/fireworks/models/llama-v3p1-405b-instruct", "accounts/fireworks/models/llama-v3p1-70b-instruct"],
+    "together": [
+        "meta-llama/Llama-3.1-405B-Instruct-Turbo",
+        "meta-llama/Llama-3.1-70B-Instruct-Turbo",
+        "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    ],
+    "fireworks": [
+        "accounts/fireworks/models/llama-v3p1-405b-instruct",
+        "accounts/fireworks/models/llama-v3p1-70b-instruct",
+    ],
     "xai": ["grok-2-1212", "grok-2-mini-1212", "grok-beta"],
     "deepseek": ["deepseek-chat", "deepseek-coder"],
     "mistral": ["mistral-large-latest", "pixtral-large-latest", "mistral-small-latest"],
@@ -63,7 +75,10 @@ PROVIDER_METADATA = {
     "openai": {"name": "OpenAI", "icon": "https://openai.com/favicon.ico"},
     "anthropic": {"name": "Anthropic", "icon": "https://www.anthropic.com/favicon.ico"},
     "openrouter": {"name": "OpenRouter", "icon": "https://openrouter.ai/favicon.ico"},
-    "google": {"name": "Google Gemini", "icon": "https://www.gstatic.com/lamda/images/favicon_v2_71f1146747ef16186b970.png"},
+    "google": {
+        "name": "Google Gemini",
+        "icon": "https://www.gstatic.com/lamda/images/favicon_v2_71f1146747ef16186b970.png",
+    },
     "perplexity": {"name": "Perplexity", "icon": "https://www.perplexity.ai/favicon.ico"},
     "together": {"name": "Together AI", "icon": "https://www.together.ai/favicon.ico"},
     "fireworks": {"name": "Fireworks AI", "icon": "https://fireworks.ai/favicon.ico"},
@@ -109,6 +124,7 @@ def env_keys_for_provider(provider_id: str) -> List[str]:
         keys.append(legacy)
     try:
         from backend.agent.model_catalog import catalog_env_keys
+
         for key in catalog_env_keys(provider_id):
             if key not in keys:
                 keys.append(key)
@@ -127,7 +143,9 @@ def normalize_credential_ref(provider_id: str, provider_cfg: Dict[str, Any]) -> 
     return f"__keychain__:{key}"
 
 
-def resolve_provider_api_key(provider_id: str, provider_cfg: Optional[Dict[str, Any]]) -> Optional[str]:
+def resolve_provider_api_key(
+    provider_id: str, provider_cfg: Optional[Dict[str, Any]]
+) -> Optional[str]:
     cfg = provider_cfg or {}
     inline_key = cfg.get("api_key")
     if isinstance(inline_key, str) and inline_key.strip() and inline_key.strip() != "********":
@@ -138,7 +156,7 @@ def resolve_provider_api_key(provider_id: str, provider_cfg: Optional[Dict[str, 
     if not ref:
         # Fallback to canonical gnosi pattern
         ref = credential_key_for_provider(provider_id)
-    
+
     if ref:
         # Check if it's already a __keychain__ ref
         key = ref.split(":", 1)[1] if ref.startswith("__keychain__:") else ref
@@ -252,12 +270,13 @@ def get_ai_catalog_with_status(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
     catalog_providers: List[Dict[str, Any]] = []
     try:
         from backend.agent.model_catalog import load_catalog
+
         catalog_providers = list(load_catalog().get("providers") or [])
     except Exception:
         catalog_providers = []
 
     providers: List[Dict[str, Any]] = []
-    seen: set = set()
+    seen: set[str] = set()
     for entry in catalog_providers:
         provider_id = entry.get("id") or ""
         if not provider_id:
@@ -282,7 +301,8 @@ def get_ai_catalog_with_status(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
                 "base_url_hint": entry.get("api") or "",
                 "model_name": cfg.get("model_name", ""),
                 "credential_ref": normalize_credential_ref(provider_id, cfg),
-                "has_api_key": has_provider_api_key(provider_id, cfg) if configured
+                "has_api_key": has_provider_api_key(provider_id, cfg)
+                if configured
                 else any(os.environ.get(k) for k in env_keys_for_provider(provider_id)),
                 "connected": is_provider_connected(provider_id, cfg if configured else None),
                 "configured": configured,

@@ -110,7 +110,11 @@ async def list_workspaces(
 
         # Convert to Pydantic model and add the role
         ws_data = WorkspaceResponse(
-            id=ws.id, name=ws.name, slug=ws.slug, created_at=ws.created_at, role=m.role
+            id=ws.id,
+            name=ws.name,
+            slug=ws.slug,
+            created_at=ws.created_at,
+            role=str(m.role),
         )
         results.append(ws_data)
 
@@ -141,7 +145,7 @@ async def list_workspace_members(
         permissions_dict = {}
         try:
             if m.permissions:
-                permissions_dict = json.loads(m.permissions)
+                permissions_dict = json.loads(str(m.permissions))
         except (ValueError, TypeError) as _e:
             log = logging.getLogger(__name__)
             log.warning(f"Invalid permissions JSON for membership {m.user_id}: {_e}")
@@ -186,11 +190,11 @@ async def update_member_role(
     # For now, we allow the admin to manage everything except perhaps their own role if they're the last admin.
 
     if request.role:
-        membership.role = request.role.value
+        setattr(membership, "role", request.role.value)
     if request.permissions is not None:
         import json
 
-        membership.permissions = json.dumps(request.permissions)
+        setattr(membership, "permissions", json.dumps(request.permissions))
 
     db.commit()
     return {"status": "ok", "message": "Membre actualitzat"}
@@ -302,7 +306,7 @@ async def get_workspace(
         # explicitly so the frontend can react (refresh the list, etc.).
         raise HTTPException(status_code=404, detail="Workspace not found (orphaned membership)")
     ws_data = WorkspaceResponse.from_orm(workspace)
-    ws_data.role = membership.role
+    ws_data.role = str(membership.role)
     return ws_data
 
 
@@ -344,7 +348,7 @@ async def list_member_vault_access(
             {
                 "vault_id": acc.vault_id,
                 "vault_name": acc.vault.name if acc.vault else "Unknown",
-                "permissions": json.loads(acc.permissions)
+                "permissions": json.loads(str(acc.permissions))
                 if acc.permissions
                 else {"capabilities": ["read"]},
             }
@@ -384,7 +388,7 @@ async def grant_vault_access(
     )
 
     if existing:
-        existing.permissions = json.dumps(request.permissions)
+        setattr(existing, "permissions", json.dumps(request.permissions))
     else:
         new_access = VaultAccess(
             vault_id=request.vault_id,

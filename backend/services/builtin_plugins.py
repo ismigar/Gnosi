@@ -19,9 +19,21 @@ BUILTIN_PLUGINS: tuple[dict[str, Any], ...] = (
         "routes": [],
     },
     {"id": "tags-page", "icon": "Hash", "group": "vault", "requires": [], "routes": []},
-    {"id": "page-comments", "icon": "MessageSquare", "group": "vault", "requires": [], "routes": []},
+    {
+        "id": "page-comments",
+        "icon": "MessageSquare",
+        "group": "vault",
+        "requires": [],
+        "routes": [],
+    },
     {"id": "share-links", "icon": "Share2", "group": "vault", "requires": [], "routes": []},
-    {"id": "canvas-cards", "icon": "LayoutDashboard", "group": "vault", "requires": [], "routes": []},
+    {
+        "id": "canvas-cards",
+        "icon": "LayoutDashboard",
+        "group": "vault",
+        "requires": [],
+        "routes": [],
+    },
     {
         "id": "web-clipper",
         "icon": "Scissors",
@@ -149,18 +161,17 @@ def normalize_state(raw: Any) -> tuple[dict[str, Any], bool]:
     data = dict(raw) if isinstance(raw, Mapping) else {}
     migrated = data.get("schema_version") != PLUGIN_STATE_VERSION
 
-    settings = data.get("settings") if isinstance(data.get("settings"), Mapping) else {}
-    granted = data.get("granted") if isinstance(data.get("granted"), Mapping) else {}
-    enabled_builtin = [] if migrated else _clean_ids(data.get("enabled_builtin"), BUILTIN_PLUGIN_IDS)
+    settings_value = data.get("settings")
+    settings: Mapping[Any, Any] = settings_value if isinstance(settings_value, Mapping) else {}
+    granted_value = data.get("granted")
+    granted: Mapping[Any, Any] = granted_value if isinstance(granted_value, Mapping) else {}
+    enabled_builtin = (
+        [] if migrated else _clean_ids(data.get("enabled_builtin"), BUILTIN_PLUGIN_IDS)
+    )
     enabled_third_party = [] if migrated else _clean_ids(data.get("enabled_third_party"))
 
-    legacy_disabled = {
-        str(value) for value in (data.get("disabled") or []) if str(value).strip()
-    }
-    enabled_builtin = sorted(
-        set(enabled_builtin)
-        | (DEFAULT_ENABLED_BUILTIN_IDS - legacy_disabled)
-    )
+    legacy_disabled = {str(value) for value in (data.get("disabled") or []) if str(value).strip()}
+    enabled_builtin = sorted(set(enabled_builtin) | (DEFAULT_ENABLED_BUILTIN_IDS - legacy_disabled))
     disabled = (
         legacy_disabled
         | (BUILTIN_PLUGIN_IDS - set(enabled_builtin))
@@ -187,9 +198,7 @@ def is_enabled(state: Mapping[str, Any], plugin_id: str) -> bool:
     """Return explicit enablement for built-in or third-party plugins."""
     plugin_id = str(plugin_id)
     if state.get("schema_version") != PLUGIN_STATE_VERSION:
-        return plugin_id not in {
-            str(value) for value in (state.get("disabled") or [])
-        }
+        return plugin_id not in {str(value) for value in (state.get("disabled") or [])}
     if plugin_id in BUILTIN_PLUGIN_IDS:
         return plugin_id in set(state.get("enabled_builtin") or [])
     return plugin_id in set(state.get("enabled_third_party") or [])

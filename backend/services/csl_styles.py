@@ -10,12 +10,13 @@ This module exposes pure functions to:
 It does NOT render any citation — that's citeproc-js's job on the frontend (and
 pandoc's on the backend for export). Here we only manage the catalog.
 """
+
 from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TypedDict
 
 # This file lives at Gnosi/backend/services/; parents[2]
 # reaches Gnosi (gnosi root). The styles live in frontend/.
@@ -26,12 +27,20 @@ STYLES_DIR = _GNOSI_ROOT / "frontend" / "public" / "csl" / "styles"
 _CSL_NS = "{http://purl.org/net/xbiblio/csl}"
 
 
+class CslStyle(TypedDict):
+    """Serializable metadata for one installed citation style."""
+
+    id: str
+    file: str
+    title: str | None
+
+
 def _extract_csl_title(path: Path) -> Optional[str]:
     """Reads the XML and extracts `<title>` or `<info><title>` from the header.
 
     `xml.etree` already handles the namespace if the .csl declares it
     correctly. If the XML is malformed or has no title, we return None.
-    
+
     """
     try:
         # We only read the first ~10 KB; the title is always in the header.
@@ -62,28 +71,30 @@ def _extract_csl_title(path: Path) -> Optional[str]:
     return None
 
 
-def list_styles() -> list[dict]:
+def list_styles() -> list[CslStyle]:
     """Lists the .csl files detected in the catalog with extracted metadata.
 
     Returns: `[{id, file, title}, ...]` sorted alphabetically by id.
     `id` is the file name without extension. `title` is the CSL's `<title>`
     (what the community officially calls the style, e.g. \"American Psychological
     Association 7th edition\"); it can be None if the XML doesn't have it or is malformed.
-    
+
     """
-    out: list[dict] = []
+    out: list[CslStyle] = []
     if not STYLES_DIR.exists():
         return out
     for path in sorted(STYLES_DIR.glob("*.csl")):
-        out.append({
-            "id": path.stem,
-            "file": path.name,
-            "title": _extract_csl_title(path),
-        })
+        out.append(
+            {
+                "id": path.stem,
+                "file": path.name,
+                "title": _extract_csl_title(path),
+            }
+        )
     return out
 
 
-def save_uploaded_style(file_bytes: bytes, filename: str) -> dict:
+def save_uploaded_style(file_bytes: bytes, filename: str) -> CslStyle:
     """Validates and saves an uploaded CSL file.
 
     Minimal validation:
@@ -93,7 +104,7 @@ def save_uploaded_style(file_bytes: bytes, filename: str) -> dict:
 
     Returns: `{id, file, title}` same as `list_styles()`, or raises ValueError
     with the reason if it's not valid.
-    
+
     """
     if len(file_bytes) > 1024 * 1024:
         raise ValueError("File is too large (>1 MB). CSL files are usually smaller than 200 KB.")

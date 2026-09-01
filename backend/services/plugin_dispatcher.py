@@ -12,10 +12,13 @@ services).
 
 It's activated by calling `wire()` at backend startup (server.py).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Callable, Dict, cast
+
+from backend.domains.plugins.sandbox import HostHandler
 
 from backend.config.logger_config import get_logger
 from backend.services import plugin_events, plugin_sandbox
@@ -25,12 +28,14 @@ logger = get_logger(__name__)
 
 
 def _config_dir() -> Path:
-    from backend.api.vault_routes import get_p
-    return get_p("GNOSI_CONFIG")
+    from backend.domains.vault.pages.runtime import get_p
+
+    return Path(get_p("GNOSI_CONFIG"))
 
 
 def _load_state() -> Dict[str, Any]:
-    from backend.api.vault_routes import _load_plugins_state
+    from backend.domains.vault.api.configuration_routes import _load_plugins_state
+
     return _load_plugins_state()
 
 
@@ -40,8 +45,11 @@ def _load_state() -> Dict[str, Any]:
 def _handle_read_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     """Reads a page and returns it in STRUCTURED form (same as the UI):
     {pageId, title, content (body only), metadata}."""
-    from backend.api.vault_routes import find_page_path, _validate_safe_page_id, parse_frontmatter
-    page_id = _validate_safe_page_id(str(args.get("pageId") or ""))
+    from backend.domains.vault.pages.foundation import parse_frontmatter
+    from backend.domains.vault.pages.identifiers import validate_safe_page_id
+    from backend.domains.vault.pages.resolver import find_page_path
+
+    page_id = validate_safe_page_id(str(args.get("pageId") or ""))
     path = find_page_path(page_id)
     if not path or not path.exists():
         raise ValueError(f"page not found: {page_id}")
@@ -61,12 +69,13 @@ def _handle_write_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     this did a full-file overwrite with raw `content` → it wiped out the
     frontmatter and the sidecar; now they are preserved and it's rewritten
     via `save_page_md`.
-    
+
     """
-    from backend.api.vault_routes import (
-        find_page_path, _validate_safe_page_id, parse_frontmatter, save_page_md,
-    )
-    page_id = _validate_safe_page_id(str(args.get("pageId") or ""))
+    from backend.domains.vault.pages.foundation import parse_frontmatter, save_page_md
+    from backend.domains.vault.pages.identifiers import validate_safe_page_id
+    from backend.domains.vault.pages.resolver import find_page_path
+
+    page_id = validate_safe_page_id(str(args.get("pageId") or ""))
     path = find_page_path(page_id)
     if not path or not path.exists():
         raise ValueError(f"page not found: {page_id}")
@@ -94,9 +103,11 @@ def _handle_write_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
 def _handle_create_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     """Creates a new page in the vault (optionally inside a relative folder)."""
     import uuid
-    from backend.api.vault_routes import (
-        save_page_md, register_page_in_index, _get_unique_filepath, get_p,
-    )
+    from backend.domains.vault.api.core_routes import _get_unique_filepath
+    from backend.domains.vault.links.runtime import register_page_in_index
+    from backend.domains.vault.pages.foundation import save_page_md
+    from backend.domains.vault.pages.runtime import get_p
+
     title = str(args.get("title") or "Untitled").strip() or "Untitled"
     content = args.get("content") or ""
     if not isinstance(content, str):
@@ -107,8 +118,11 @@ def _handle_create_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     if folder:
         if ".." in folder.split("/"):
             raise ValueError("invalid folder")
-        target_dir = (vault / folder)
-        if vault.resolve() not in target_dir.resolve().parents and target_dir.resolve() != vault.resolve():
+        target_dir = vault / folder
+        if (
+            vault.resolve() not in target_dir.resolve().parents
+            and target_dir.resolve() != vault.resolve()
+        ):
             raise ValueError("folder is outside the vault")
     target_dir.mkdir(parents=True, exist_ok=True)
     page_id = str(uuid.uuid4())
@@ -121,13 +135,18 @@ def _handle_create_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
 
 
 def _handle_settings_get(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
-    from backend.api.vault_routes import _load_plugins_state
+    from backend.domains.vault.api.configuration_routes import _load_plugins_state
+
     state = _load_plugins_state()
     return {"settings": (state.get("settings") or {}).get(plugin_id) or {}}
 
 
 def _handle_settings_set(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
-    from backend.api.vault_routes import _load_plugins_state, _save_plugins_state
+    from backend.domains.vault.api.configuration_routes import (
+        _load_plugins_state,
+        _save_plugins_state,
+    )
+
     patch = args.get("settings")
     if not isinstance(patch, dict):
         raise ValueError("settings ha de ser un objecte")
@@ -143,9 +162,10 @@ def _handle_query_db(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     """Returns the rows (pages) of a vault table, as a list of dicts.
 
     Limited to avoid huge payloads: `limit` (default 200, max 1000).
-    
+
     """
-    from backend.api.vault_routes import _get_pages_for_table
+    from backend.domains.vault.pages.foundation import _get_pages_for_table
+
     table_id = str(args.get("tableId") or "").strip()
     if not table_id:
         raise ValueError("tableId és obligatori")
@@ -155,25 +175,31 @@ def _handle_query_db(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
         limit = 200
     limit = max(1, min(limit, 1000))
     pages = _get_pages_for_table(table_id) or []
-    rows = [{
-        "id": p.id,
-        "title": p.title,
-        "metadata": p.metadata or {},
-    } for p in pages[:limit]]
+    rows = [
+        {
+            "id": p.id,
+            "title": p.title,
+            "metadata": p.metadata or {},
+        }
+        for p in pages[:limit]
+    ]
     return {"tableId": table_id, "rows": rows, "total": len(pages), "truncated": len(pages) > limit}
 
 
 def _handle_list_tables(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     """Returns the vault's tables (databases): id, name and number of fields."""
-    from backend.api.vault_routes import load_registry
+    from backend.domains.vault.registry.runtime import load_registry
+
     reg = load_registry() or {}
     tables = []
     for t in reg.get("tables", []) or []:
-        tables.append({
-            "id": t.get("id"),
-            "name": t.get("name") or t.get("id"),
-            "fields": len(t.get("properties") or []),
-        })
+        tables.append(
+            {
+                "id": t.get("id"),
+                "name": t.get("name") or t.get("id"),
+                "fields": len(t.get("properties") or []),
+            }
+        )
     return {"tables": tables}
 
 
@@ -212,7 +238,8 @@ def _handle_network_fetch(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any
     if body is not None and len(body) > 1_000_000:
         raise ValueError("network request body exceeds the 1 MB limit")
     resp = requests.request(
-        method, url,
+        method,
+        url,
         headers=normalized_headers or None,
         data=body,
         timeout=10,
@@ -245,7 +272,7 @@ def network_fetch(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     return _handle_network_fetch(args, plugin_id)
 
 
-_HOST_HANDLERS = {
+_HOST_HANDLERS: dict[str, HostHandler] = {
     "vault.readPage": _handle_read_page,
     "vault.writePage": _handle_write_page,
     "vault.createPage": _handle_create_page,
@@ -275,9 +302,11 @@ def _dispatch(event: str, payload: Dict[str, Any]) -> None:
         if event not in (manifest.get("events") or []):
             continue
         pid = manifest["id"]
-        if not ps.has_permission(state, pid, "vault:read") and \
-           not ps.has_permission(state, pid, "vault:write") and \
-           not ps.has_permission(state, pid, "network"):
+        if (
+            not ps.has_permission(state, pid, "vault:read")
+            and not ps.has_permission(state, pid, "vault:write")
+            and not ps.has_permission(state, pid, "network")
+        ):
             # Active but with no backend permission granted → nothing to do.
             continue
         granted = ps.granted_permissions(state, pid)
@@ -300,7 +329,11 @@ def wire() -> None:
     global _wired
     if _wired:
         return
-    plugin_sandbox.set_host_handlers(_HOST_HANDLERS)
+    # The compatibility facade preserves its historical one-argument
+    # annotation. The typed sandbox invokes these handlers with plugin context.
+    plugin_sandbox.set_host_handlers(
+        cast(Dict[str, Callable[[Dict[str, Any]], Any]], _HOST_HANDLERS)
+    )
     plugin_events.set_plugin_dispatcher(_dispatch)
     _wired = True
     logger.info("plugin_dispatcher connectat (handlers + bus)")

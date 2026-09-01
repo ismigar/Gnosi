@@ -2,25 +2,23 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List
+from typing import Any
 
-try:
-    from langchain_core.tools import tool
-except Exception:  # pragma: no cover
-    def tool(fn=None, **_kwargs):
-        return fn if fn else (lambda function: function)
+from langchain_core.tools import tool
+from sqlalchemy.orm import Session
+
+from backend.models.contact import Contact
+from backend.services.contacts_service import ContactsService
 
 
-def _service():
+def _service() -> tuple[Session, ContactsService]:
     from backend.agent.gnosi_tools import _workspace_id
     from backend.data.management_db import get_mgmt_session
-    from backend.services.contacts_service import ContactsService
-
     database = get_mgmt_session()
     return database, ContactsService(database, _workspace_id())
 
 
-def _row(contact) -> Dict[str, Any]:
+def _row(contact: Contact) -> dict[str, Any]:
     return {
         "id": contact.id,
         "name": contact.name,
@@ -55,7 +53,7 @@ def find_duplicate_contacts(limit: int = 100) -> str:
     database, service = _service()
     try:
         contacts = service.list_contacts(None, None, None)[:max(2, min(int(limit), 500))]
-        groups: Dict[str, List[Any]] = {}
+        groups: dict[str, list[Contact]] = {}
         for contact in contacts:
             keys = []
             if contact.email:
@@ -87,7 +85,7 @@ def find_duplicate_contacts(limit: int = 100) -> str:
 
 
 @tool
-def update_contact(contact_id: str, changes: Dict[str, Any]) -> str:
+def update_contact(contact_id: str, changes: dict[str, Any]) -> str:
     """Update supported local fields of one contact after an explicit request."""
     allowed = {
         "name", "email", "phone", "company", "job_title", "address",
@@ -111,7 +109,7 @@ def update_contact(contact_id: str, changes: Dict[str, Any]) -> str:
 
 
 @tool
-def merge_contacts(primary_contact_id: str, duplicate_contact_ids: List[str]) -> str:
+def merge_contacts(primary_contact_id: str, duplicate_contact_ids: list[str]) -> str:
     """Merge local duplicate contacts into one primary and delete the duplicates."""
     duplicate_ids = [
         str(value) for value in duplicate_contact_ids
@@ -138,7 +136,10 @@ def merge_contacts(primary_contact_id: str, duplicate_contact_ids: List[str]) ->
             if replacement:
                 changes[field] = replacement
         if changes:
-            primary = service.update_contact(primary_contact_id, changes)
+            updated_primary = service.update_contact(primary_contact_id, changes)
+            if updated_primary is None:
+                return json.dumps({"error": "Primary contact could not be updated."})
+            primary = updated_primary
         deleted = []
         for duplicate_id in duplicate_ids:
             if service.delete_contact(duplicate_id):

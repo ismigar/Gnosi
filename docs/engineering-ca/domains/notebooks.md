@@ -1,9 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
+  - backend/domains/agent/routes/checkpoints.py
+  - backend/domains/agent/routes/shared.py
   - backend/services/durable_job_worker.py
   - backend/agent/agent_context.py
   - backend/agent/factory.py
@@ -12,6 +15,7 @@ source_paths:
   - frontend/src/components/Notebooks
   - frontend/src/components/AgentChat.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
@@ -23,6 +27,10 @@ tests:
 # Quaderns fonamentats en fonts
 
 ## Responsabilitat
+
+`backend/domains/notebooks/` gestiona ara el repositori, el catàleg, les fonts,
+la ingestió, les evidències, l'anàlisi, el xat i l'estat. El servei històric es
+manté com una façana compatible per a l'API i els workers existents.
 
 Els quaderns fonamentats ofereixen un espai `/notebooks` dedicat a preguntar
 sobre els adjunts i els URL dels registres seleccionats a la taula Referències
@@ -160,6 +168,12 @@ anterior en restaura l'espai de noms.
 Eliminar un quadern esborra els threads de checkpoint derivats abans d'eliminar
 en cascada índexs, revisions i anàlisis. Les dades originals del Vault queden
 fora d'aquest límit.
+
+Les rutes HTTP de quaderns estan estrictament tipades i consumeixen helpers
+públics de checkpoints del domini Agent en lloc de símbols privats de la façana
+compatible. L'absència de Vault actiu o d'emmagatzematge de checkpoints falla
+explícitament; l'eliminació i lectura de converses conserva els mateixos fils
+aïllats i les respostes OpenAPI congelades.
 
 ## Contractes HTTP
 

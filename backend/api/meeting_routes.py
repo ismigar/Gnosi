@@ -4,17 +4,35 @@
 launches the background job (local transcription + AI minutes + Vault page). The
 frontend polls `GET /api/meetings/status` until it finishes and opens the page.
 """
+
 import logging
 import uuid
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel, ConfigDict
 
 from backend.config.app_config import load_params
 from backend.services import meeting_notes
 
 router = APIRouter(prefix="/api/meetings", tags=["Meetings"])
 log = logging.getLogger(__name__)
+
+
+class MeetingStartResponse(BaseModel):
+    status: str
+
+
+class MeetingStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    running: bool
+    stage: str
+    progress: int
+    error: str | None = None
+    page_id: str | None = None
+    title: str | None = None
 
 
 def _audio_dir() -> Path:
@@ -26,12 +44,12 @@ def _audio_dir() -> Path:
     return d
 
 
-@router.post("/record")
+@router.post("/record", response_model=None)
 async def record_meeting(
     audio: UploadFile = File(...),
     title: str = Form("Reunió"),
     mode: str = Form("presencial"),
-):
+) -> dict[str, str]:
     """Receives the audio, saves it, and starts background processing."""
     if meeting_notes.get_status().get("running"):
         raise HTTPException(status_code=409, detail="A meeting is already being processed.")
@@ -49,10 +67,10 @@ async def record_meeting(
 
     if not meeting_notes.start_async(str(dest), title, mode):
         raise HTTPException(status_code=409, detail="A meeting is already being processed.")
-    return {"status": "started"}
+    return MeetingStartResponse(status="started").model_dump()
 
 
-@router.get("/status")
-async def meeting_status():
+@router.get("/status", response_model=None)
+async def meeting_status() -> dict[str, Any]:
     """Status of the in-flight job (polled from the frontend)."""
-    return meeting_notes.get_status()
+    return MeetingStatusResponse.model_validate(meeting_notes.get_status()).model_dump()

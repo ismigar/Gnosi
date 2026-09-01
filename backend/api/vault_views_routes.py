@@ -9,8 +9,11 @@ DELETE /api/pages/{page_id}/views/{heading} → deletes a view
 import json
 import logging
 import sys
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+from importlib import import_module
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ConfigDict
@@ -28,6 +31,7 @@ router = APIRouter()
 # Models
 # ---------------------------------------------------------------------------
 
+
 class ViewFilter(BaseModel):
     field: str
     value: str  # "this" = current page_id, or an explicit UUID
@@ -38,7 +42,7 @@ class ViewSection(BaseModel):
     # group_by, etc.) that the frontend adds on top of the canonical
     # minimal version. This way sections saved to the registry preserve all the fields
     # when re-saved — previously, undeclared ones were lost in model_dump.
-    model_config = ConfigDict(extra='allow')
+    model_config = ConfigDict(extra="allow")
 
     heading: str
     heading_level: int = 1
@@ -49,20 +53,35 @@ class ViewSection(BaseModel):
     # Multi-table views: ordered joins to apply on top of `source_table_id`.
     # Each item: { tableId, type: inner|left|right, leftField, rightField }.
     # Optional (absent = single-table view, backward compatible).
-    joins: Optional[List[dict]] = None
+    joins: Optional[List[dict[str, Any]]] = None
 
-    def model_post_init(self, _ctx) -> None:
+    def model_post_init(self, _ctx: Any) -> None:
         # Sanitize heading: line breaks split the final markdown and
         # generate an invalid `# Heading\nrest`. We flatten to spaces.
         if self.heading:
             self.heading = " ".join(self.heading.splitlines()).strip()
 
 
+class PageViewsResponse(BaseModel):
+    page_id: str
+    sections: list[dict[str, Any]]
+
+
+class PageViewMutationResponse(BaseModel):
+    ok: bool
+    page_id: str
+    action: str | None = None
+    heading: str | None = None
+    md_synced: bool | None = None
+    heading_deleted: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _registry_mutation():
+
+def _registry_mutation() -> AbstractContextManager[None]:
     """Context manager for the registry's RMW cycle, SHARED with vault_routes.
 
     This module and vault_routes.py do RMW on THE SAME file
@@ -71,23 +90,31 @@ def _registry_mutation():
     single lock, a concurrent `create_table` (vault_routes) and a view upsert (here)
     would clobber each other (last-writer-wins between modules). Lazy import to
     break the import cycle (server imports both routers).
-    
+
     """
     from backend.api import vault_routes as _vr
-    return _vr.registry_mutation()
+
+    mutation = cast(
+        Callable[[], AbstractContextManager[None]],
+        _vr.registry_mutation,
+    )
+    return mutation()
 
 
-def _load_registry(vault_path: Path) -> tuple[dict, Path]:
+def _load_registry(vault_path: Path) -> tuple[dict[str, Any], Path]:
     registry_path = vault_path / "BD" / "vault_db_registry.json"
     if not registry_path.exists():
         registry_path = vault_path / "vault_db_registry.json"
     if not registry_path.exists():
         raise FileNotFoundError(f"Registry no trobat: {registry_path}")
-    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload: Any = json.loads(registry_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Vault registry root must be an object")
+    registry = cast(dict[str, Any], payload)
     return registry, registry_path
 
 
-def _save_registry(registry: dict, registry_path: Path) -> None:
+def _save_registry(registry: dict[str, Any], registry_path: Path) -> None:
     # Atomic write — registry sits on cloud-synced storage; half-flushed
     # writes propagate to other devices and break everyone.
     safe_write_json(registry_path, registry, indent=2, ensure_ascii=False)
@@ -99,6 +126,7 @@ def _save_registry(registry: dict, registry_path: Path) -> None:
     # with the fresh data makes that load already see this save.
     try:
         from backend.api import vault_routes as _vr
+
         _vr._update_registry_cache(registry_path, registry)
     except Exception as e:  # best-effort: never fail the save because of the cache
         log.debug("Could not refresh the vault_routes registry cache: %s", e)
@@ -111,17 +139,19 @@ def _page_exists_on_disk(page_id: str) -> bool:
     comparison (case- and dash-insensitive: frontmatter with
     `id: df3614865ff34a1490055d9b7b456492` matches a URL with
     `df361486-5ff3-4a14-9005-5d9b7b456492`, and vice versa).
-    
+
     """
     try:
-        from backend.api.vault_routes import find_page_path
-        return find_page_path(page_id) is not None
+        from backend.api import vault_routes
+
+        find_page = cast(Callable[[str], Path | None], vault_routes.find_page_path)
+        return find_page(page_id) is not None
     except Exception as e:
         log.warning(f"_page_exists_on_disk error: {e}")
         return False
 
 
-def _sync_page(page_id: str, registry: dict, vault_path: Path) -> bool:
+def _sync_page(page_id: str, registry: dict[str, Any], vault_path: Path) -> bool:
     """Syncs the .md sections (flat table for Obsidian).
 
     `sync_sections` lives in `pipeline/sandbox/` (gitignored): in the
@@ -129,14 +159,17 @@ def _sync_page(page_id: str, registry: dict, vault_path: Path) -> bool:
     is OK because the `gnosi-view` block is rendered by the frontend from the
     registry — the flat table is a best-effort for external markdown
     clients (Obsidian) and isn't necessary to see the view in the app.
-    
+
     """
     try:
         sandbox = Path(__file__).parents[2] / "pipeline" / "sandbox"
         if str(sandbox) not in sys.path:
             sys.path.insert(0, str(sandbox))
-        from sync_sections import sync_page_view  # type: ignore
-        return sync_page_view(page_id, registry, vault_path)
+        sync = cast(
+            Callable[[str, dict[str, Any], Path], bool],
+            getattr(import_module("sync_sections"), "sync_page_view"),
+        )
+        return sync(page_id, registry, vault_path)
     except Exception as e:
         log.debug(f"sync_page_view no disponible: {e}")
         return False
@@ -146,8 +179,9 @@ def _sync_page(page_id: str, registry: dict, vault_path: Path) -> bool:
 # Endpoints
 # ---------------------------------------------------------------------------
 
-@router.get("/pages/{page_id}/views")
-async def get_page_views(page_id: str):
+
+@router.get("/pages/{page_id}/views", response_model=None)
+async def get_page_views(page_id: str) -> dict[str, Any]:
     """Returns the views configured for a page."""
     try:
         cfg = load_params(strict_env=False)
@@ -157,10 +191,10 @@ async def get_page_views(page_id: str):
 
         registry, _ = _load_registry(vault_path)
         page_cfg = (registry.get("pages") or {}).get(page_id, {})
-        return {
-            "page_id": page_id,
-            "sections": page_cfg.get("sections", []),
-        }
+        return PageViewsResponse(
+            page_id=page_id,
+            sections=page_cfg.get("sections", []),
+        ).model_dump()
     except HTTPException:
         raise
     except FileNotFoundError as e:
@@ -176,7 +210,11 @@ async def get_page_views(page_id: str):
         )
 
 
-def _find_section_upsert_index(sections, new_vid, heading):
+def _find_section_upsert_index(
+    sections: list[dict[str, Any]],
+    new_vid: Any,
+    heading: str,
+) -> int | None:
     """Index of the section to REPLACE in an upsert, or ``None`` to add a
     new one.
 
@@ -185,7 +223,7 @@ def _find_section_upsert_index(sections, new_vid, heading):
     different view_id do NOT collide. If it doesn't have one (inline/legacy section),
     it's matched by ``heading`` but ONLY with sections that also lack a view_id
     (so as not to trample a section anchored to a registry view).
-    
+
     """
     if new_vid:
         return next(
@@ -193,20 +231,24 @@ def _find_section_upsert_index(sections, new_vid, heading):
             None,
         )
     return next(
-        (
-            i for i, s in enumerate(sections)
-            if not s.get("view_id") and s.get("heading") == heading
-        ),
+        (i for i, s in enumerate(sections) if not s.get("view_id") and s.get("heading") == heading),
         None,
     )
 
 
-@router.post("/pages/{page_id}/views", dependencies=[Depends(require_role("editor"))])
-async def upsert_page_view(page_id: str, view: ViewSection):
+@router.post(
+    "/pages/{page_id}/views",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=None,
+)
+async def upsert_page_view(
+    page_id: str,
+    view: ViewSection,
+) -> dict[str, Any]:
     """
         Adds or updates a view for a specific page.
     Saves the config to the registry and syncs the .md.
-    
+
     """
     try:
         cfg = load_params(strict_env=False)
@@ -254,9 +296,7 @@ async def upsert_page_view(page_id: str, view: ViewSection):
             if not _page_exists_on_disk(page_id):
                 raise HTTPException(
                     status_code=404,
-                    detail=(
-                        f"Page {page_id} was not found on disk. The view was not created."
-                    ),
+                    detail=(f"Page {page_id} was not found on disk. The view was not created."),
                 )
 
             # Initializes `pages` if it doesn't exist
@@ -265,7 +305,12 @@ async def upsert_page_view(page_id: str, view: ViewSection):
             if page_id not in registry["pages"]:
                 registry["pages"][page_id] = {"sections": []}
 
-            sections: list = registry["pages"][page_id].setdefault("sections", [])
+            pages = cast(dict[str, Any], registry["pages"])
+            page_config = cast(dict[str, Any], pages[page_id])
+            sections = cast(
+                list[dict[str, Any]],
+                page_config.setdefault("sections", []),
+            )
 
             # Upsert: identifies the section by `view_id` (STABLE identity of the
             # block), not by heading — this way multiple embeds WITHOUT a heading on the
@@ -288,13 +333,13 @@ async def upsert_page_view(page_id: str, view: ViewSection):
         # `gnosi-view` is rendered by the frontend, not needed for the app.
         synced = _sync_page(page_id, registry, vault_path)
 
-        return {
-            "ok": True,
-            "action": action,
-            "page_id": page_id,
-            "heading": view.heading,
-            "md_synced": synced,
-        }
+        return PageViewMutationResponse(
+            ok=True,
+            action=action,
+            page_id=page_id,
+            heading=view.heading,
+            md_synced=synced,
+        ).model_dump(exclude_none=True)
 
     except HTTPException:
         raise
@@ -311,8 +356,15 @@ async def upsert_page_view(page_id: str, view: ViewSection):
         )
 
 
-@router.delete("/pages/{page_id}/views/{heading}", dependencies=[Depends(require_role("editor"))])
-async def delete_page_view(page_id: str, heading: str):
+@router.delete(
+    "/pages/{page_id}/views/{heading}",
+    dependencies=[Depends(require_role("editor"))],
+    response_model=None,
+)
+async def delete_page_view(
+    page_id: str,
+    heading: str,
+) -> dict[str, Any]:
     """Deletes a view from a page and re-syncs the .md."""
     try:
         cfg = load_params(strict_env=False)
@@ -338,7 +390,11 @@ async def delete_page_view(page_id: str, heading: str):
             _save_registry(registry, registry_path)
         _sync_page(page_id, registry, vault_path)
 
-        return {"ok": True, "page_id": page_id, "heading_deleted": heading}
+        return PageViewMutationResponse(
+            ok=True,
+            page_id=page_id,
+            heading_deleted=heading,
+        ).model_dump(exclude_none=True)
 
     except HTTPException:
         raise

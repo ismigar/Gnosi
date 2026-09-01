@@ -202,7 +202,11 @@ def reliability_report(window_days: int = WINDOW_DAYS,
             "total": sum(counts.values()),
             # The dominant model-fault reason is what the UI shows; an account
             # problem is not evidence about the model and must not surface there.
-            "top_model_reason": max(model_faults, key=model_faults.get) if model_faults else None,
+            "top_model_reason": (
+                max(model_faults, key=lambda reason: model_faults[reason])
+                if model_faults
+                else None
+            ),
         })
     rows.sort(key=lambda r: (-r["model_fault_total"], -r["total"]))
     return rows

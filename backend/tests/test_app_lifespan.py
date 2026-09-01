@@ -33,6 +33,22 @@ def test_server_keeps_stable_app_and_lifespan_exports() -> None:
     assert application_lifespan.__module__ == "backend.app.lifespan"
 
 
+@pytest.mark.parametrize("value", ["1", "true", "YES", "on"])
+def test_scheduler_can_be_disabled_for_smoke_tests(
+    value: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GNOSI_DISABLE_SCHEDULER", value)
+
+    assert lifespan_module._scheduler_start_enabled() is False
+
+
+def test_scheduler_remains_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GNOSI_DISABLE_SCHEDULER", raising=False)
+
+    assert lifespan_module._scheduler_start_enabled() is True
+
+
 def test_lifespan_preserves_startup_and_shutdown_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

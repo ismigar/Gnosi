@@ -124,6 +124,14 @@ in an environment file.
 - Return HTTP 400 when the schema has no translatable fields.
 - The modal translates one row per request. Whole-table translation requires
   a separate future tool.
+- Treat Softcatalà, Apertium and DeepL response bodies as unknown objects and
+  narrow their envelope before reading translated text.
+- Keep cached OPUS-MT entries behind the minimal tokenizer/model protocols in
+  `translate_text.py`. Do not type the cache as generic `object` or leak
+  Transformers' incomplete concrete generics into translation routing.
+- Note: Do not add translation routing fixtures without running Ruff formatting
+  on the exact test file; multiline response envelopes may be collapsed by the
+  formatter even when lint and behavior already pass.
 
 ## Child item shape
 

@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Optional
+from typing import Any, Optional
+
+from backend.mcp.http_client import HttpMCPClient
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +33,9 @@ def _env(name: str, default: str) -> str:
 def get_mcp_token() -> Optional[str]:
     try:
         from backend.services.integration_manager import integration_manager
-        return (integration_manager.get_raw("notion_mcp") or {}).get("token")
+        raw = integration_manager.get_raw("notion_mcp")
+        token = raw.get("token") if isinstance(raw, dict) else None
+        return str(token) if token else None
     except Exception:
         pass
     return None
@@ -50,13 +54,13 @@ def _unwrap_notion_json(raw: str) -> str:
         try:
             obj = json.loads(s)
             if isinstance(obj, dict) and isinstance(obj.get("text"), str):
-                return obj["text"]
+                return str(obj["text"])
         except Exception:
             pass
     return raw
 
 
-def _extract_text(result) -> str:
+def _extract_text(result: Any) -> str:
     """Extracts the real markdown from the result of a Notion MCP tool."""
     if result is None:
         return ""
@@ -68,7 +72,8 @@ def _extract_text(result) -> str:
         if parts:
             return _unwrap_notion_json("\n".join(parts))
     if isinstance(result, dict):
-        return result.get("text") or json.dumps(result)
+        text = result.get("text")
+        return str(text) if text else json.dumps(result)
     return str(result)
 
 
@@ -76,7 +81,7 @@ _UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
 
-def _is_auth_error(e) -> bool:
+def _is_auth_error(e: Any) -> bool:
     s = str(e).lower()
     return "401" in s or "invalid_token" in s or "invalid access token" in s or "unauthorized" in s
 
@@ -105,7 +110,7 @@ def refresh_token() -> Optional[str]:
                 "token": access, "refresh_token": tok.get("refresh_token") or rt,
                 "token_type": tok.get("token_type")})
             log.info("Notion MCP token refreshed")
-            return access
+            return str(access)
     except Exception as e:  # noqa: BLE001
         log.warning(f"Could not refresh the MCP token: {e}")
         try:
@@ -123,7 +128,7 @@ def refresh_token() -> Optional[str]:
     return None
 
 
-_client_cache: dict = {}  # token → HttpMCPClient (initialized once, reused)
+_client_cache: dict[str, HttpMCPClient] = {}
 
 # Circuit breaker: if the token expires and CANNOT be renewed, we mark the MCP as dead so that
 # subsequent calls (clone = hundreds of pages × views) instantly return "" without a round-trip
@@ -137,10 +142,9 @@ def reset_health() -> None:
     _mcp_dead = False
 
 
-def _get_client(token: str):
+def _get_client(token: str) -> HttpMCPClient:
     c = _client_cache.get(token)
     if c is None:
-        from backend.mcp.http_client import HttpMCPClient
         c = HttpMCPClient(_env("NOTION_MCP_URL", _DEFAULT_URL), token)
         c.initialize()
         _client_cache.clear()           # we only keep the active token

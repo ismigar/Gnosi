@@ -15,6 +15,7 @@ Layered like the model catalog, most fresh wins and it NEVER raises:
 Rates are expressed as *currency units per 1 USD* ("usd_rate"), matching the
 frankfurter response for `from=USD`.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,26 +25,42 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TypedDict
 
 log = logging.getLogger(__name__)
 
 FRANKFURTER_URL = "https://api.frankfurter.app/latest"
-_CACHE_TTL = 24 * 3600   # ECB publishes once per working day
+_CACHE_TTL = 24 * 3600  # ECB publishes once per working day
 _MEM_TTL = 6 * 3600
-_REMOTE_TIMEOUT = 5      # seconds; budget math must never hang a request
+_REMOTE_TIMEOUT = 5  # seconds; budget math must never hang a request
 
 # Currencies offered in Settings (GlobalSettingsModal CURRENCIES) + USD.
 CURRENCY_SYMBOLS: Dict[str, str] = {
-    "EUR": "€", "USD": "$", "GBP": "£", "JPY": "¥", "CHF": "₣",
+    "EUR": "€",
+    "USD": "$",
+    "GBP": "£",
+    "JPY": "¥",
+    "CHF": "₣",
 }
 
 # Approximate units-per-USD, LAST-RESORT only (no network and no disk cache).
 _STATIC_RATES: Dict[str, float] = {
-    "USD": 1.0, "EUR": 0.86, "GBP": 0.74, "JPY": 147.0, "CHF": 0.80,
+    "USD": 1.0,
+    "EUR": 0.86,
+    "GBP": 0.74,
+    "JPY": 147.0,
+    "CHF": 0.80,
 }
 
 DEFAULT_CURRENCY = "EUR"  # mirrors the settings draft default in the UI
+
+
+class RateInfo(TypedDict):
+    code: str
+    symbol: str
+    usd_rate: float
+    source: str
+    fetched_at: str
 
 
 def parse_currency_code(raw: Optional[str]) -> str:
@@ -59,6 +76,7 @@ def _cache_path() -> Optional[Path]:
     base = None
     try:
         from backend.config.app_config import load_params
+
         paths = load_params(strict_env=False).paths
         base = paths.get("LOCAL_CACHE") or paths.get("LOCAL_DATA")
     except Exception:
@@ -81,7 +99,10 @@ def _read_cache() -> Optional[Dict[str, Any]]:
     if not path or not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        decoded: object = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(decoded, dict):
+            return None
+        return {str(key): value for key, value in decoded.items()}
     except Exception:
         return None
 
@@ -101,8 +122,10 @@ def _fetch_remote() -> Optional[Dict[str, Any]]:
     symbols = ",".join(c for c in CURRENCY_SYMBOLS if c != "USD")
     try:
         import requests
+
         resp = requests.get(
-            FRANKFURTER_URL, params={"from": "USD", "to": symbols},
+            FRANKFURTER_URL,
+            params={"from": "USD", "to": symbols},
             timeout=_REMOTE_TIMEOUT,
         )
         resp.raise_for_status()
@@ -141,8 +164,7 @@ def _load_snapshot() -> Dict[str, Any]:
                 path = _cache_path()
                 if path:
                     try:
-                        path.write_text(json.dumps(remote, ensure_ascii=False),
-                                        encoding="utf-8")
+                        path.write_text(json.dumps(remote, ensure_ascii=False), encoding="utf-8")
                     except Exception:
                         pass
             else:
@@ -155,7 +177,7 @@ def _load_snapshot() -> Dict[str, Any]:
         return snapshot
 
 
-def rate_info(code: str) -> Dict[str, Any]:
+def rate_info(code: str) -> RateInfo:
     """{code, symbol, usd_rate, source, fetched_at} for a currency code.
 
     `usd_rate` = units of `code` per 1 USD; always > 0 (falls back to the
@@ -163,12 +185,17 @@ def rate_info(code: str) -> Dict[str, Any]:
     """
     normalized = (code or "").strip().upper() or DEFAULT_CURRENCY
     if normalized == "USD":
-        return {"code": "USD", "symbol": "$", "usd_rate": 1.0,
-                "source": "fixed", "fetched_at": ""}
+        return {"code": "USD", "symbol": "$", "usd_rate": 1.0, "source": "fixed", "fetched_at": ""}
     snapshot = _load_snapshot()
-    rate = snapshot.get("rates", {}).get(normalized)
-    source = snapshot.get("source", "static")
-    if not rate or rate <= 0:
+    rates_value = snapshot.get("rates")
+    rates = rates_value if isinstance(rates_value, dict) else {}
+    raw_rate = rates.get(normalized)
+    try:
+        rate = float(raw_rate) if isinstance(raw_rate, (str, int, float)) else 0.0
+    except (TypeError, ValueError):
+        rate = 0.0
+    source = str(snapshot.get("source") or "static")
+    if rate <= 0:
         rate = _STATIC_RATES.get(normalized) or 1.0
         source = "static"
     return {
@@ -176,7 +203,7 @@ def rate_info(code: str) -> Dict[str, Any]:
         "symbol": CURRENCY_SYMBOLS.get(normalized, normalized),
         "usd_rate": float(rate),
         "source": source,
-        "fetched_at": snapshot.get("fetched_at", ""),
+        "fetched_at": str(snapshot.get("fetched_at") or ""),
     }
 
 

@@ -13,14 +13,17 @@ Three levels, none of which ever applies input raw:
   * glossary — per-vault (heard → meant) pairs confirmed by the user, injected
     into the corrector: the "intuition component" that grows over time.
 """
+
 from __future__ import annotations
 
 import json
 import re
 import threading
+from pathlib import Path
 from typing import Any, Dict, List
 
 from backend.config.logger_config import get_logger
+from backend.domains.llm_wiki import legacy_ports
 
 logger = get_logger(__name__)
 
@@ -38,10 +41,9 @@ VARIANT_LABELS = ("More concise", "More nuanced", "With counterargument")
 # Personal glossary (heard → meant)
 # ---------------------------------------------------------------------------
 
-def _glossary_path():
-    from backend.api.vault_routes import get_p
 
-    return get_p("GNOSI_CONFIG") / GLOSSARY_FILENAME
+def _glossary_path() -> Path:
+    return legacy_ports.path_for("GNOSI_CONFIG") / GLOSSARY_FILENAME
 
 
 def load_glossary() -> List[Dict[str, str]]:
@@ -79,6 +81,7 @@ def learn_pair(heard: str, meant: str) -> int:
 # Level 1 — draft variants to pick (no typing, no voice)
 # ---------------------------------------------------------------------------
 
+
 def _suggestion_context(sug: Dict[str, Any]) -> str:
     members = ", ".join(sug.get("member_titles") or [])
     return (
@@ -95,7 +98,7 @@ def reformulate(sug: Dict[str, Any], language: str = "English") -> List[Dict[str
     Raises RuntimeError when no AI provider is available (endpoint → 503)."""
     from backend.agent.factory import generate_text
 
-    labels = "\n".join(f"- \"{lb}\"" for lb in VARIANT_LABELS)
+    labels = "\n".join(f'- "{lb}"' for lb in VARIANT_LABELS)
     prompt = f"""You edit a permanent note in a Zettelkasten. The user chooses among
 variants with one click and does not type. Rewrite the DRAFT in {language} as
 {len(VARIANT_LABELS)} variants, one for each editorial angle below, while preserving existing [[wikilinks]]:
@@ -116,7 +119,7 @@ def _parse_variants(raw: str) -> List[Dict[str, str]]:
     cleaned = re.sub(r"^```(?:json)?|```$", "", (raw or "").strip(), flags=re.MULTILINE).strip()
     start, end = cleaned.find("{"), cleaned.rfind("}")
     try:
-        data = json.loads(cleaned[start:end + 1] if (start != -1 and end > start) else cleaned)
+        data = json.loads(cleaned[start : end + 1] if (start != -1 and end > start) else cleaned)
     except Exception:  # noqa: BLE001
         return []
     items = data.get("variants") if isinstance(data, dict) else None
@@ -128,15 +131,17 @@ def _parse_variants(raw: str) -> List[Dict[str, str]]:
         if not text:
             continue
         out.append({"label": str(v.get("label") or "").strip() or "Variant", "text": text})
-    return out[:len(VARIANT_LABELS)]
+    return out[: len(VARIANT_LABELS)]
 
 
 # ---------------------------------------------------------------------------
 # Level 2 — dictation with intent reconstruction
 # ---------------------------------------------------------------------------
 
-def correct_dictation(sug: Dict[str, Any], transcript: str,
-                      language: str = "English") -> Dict[str, Any]:
+
+def correct_dictation(
+    sug: Dict[str, Any], transcript: str, language: str = "English"
+) -> Dict[str, Any]:
     """Reconstructs what the user MEANT from a noisy ASR transcript.
 
     The corrector is context-first: it gets the suggestion being edited plus
@@ -152,8 +157,9 @@ def correct_dictation(sug: Dict[str, Any], transcript: str,
     glossary = load_glossary()
     glossary_block = ""
     if glossary:
-        pairs = "\n".join(f'- hearing "{p["heard"]}" usually means "{p["meant"]}"'
-                          for p in glossary[-30:])
+        pairs = "\n".join(
+            f'- hearing "{p["heard"]}" usually means "{p["meant"]}"' for p in glossary[-30:]
+        )
         glossary_block = f"""
 PERSONAL GLOSSARY (corrections the user previously confirmed; their speech pattern):
 {pairs}
@@ -176,7 +182,7 @@ Return ONLY JSON: {{"proposed": "the text the user probably meant, ready to inse
         raw, _model = generate_text(prompt, timeout=60)
         cleaned = re.sub(r"^```(?:json)?|```$", "", (raw or "").strip(), flags=re.MULTILINE).strip()
         start, end = cleaned.find("{"), cleaned.rfind("}")
-        data = json.loads(cleaned[start:end + 1] if (start != -1 and end > start) else cleaned)
+        data = json.loads(cleaned[start : end + 1] if (start != -1 and end > start) else cleaned)
         proposed = " ".join(str(data.get("proposed") or "").split()).strip()
         if proposed:
             return {"transcript": transcript, "proposed": proposed, "corrected": True}

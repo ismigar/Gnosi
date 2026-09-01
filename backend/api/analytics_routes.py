@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional, cast
 import re
 import os
 import shutil
@@ -124,7 +124,7 @@ def _extract_traps_from_file(md_file: Path, category: str) -> List[Dict[str, Any
 @router.get("/")
 async def get_analytics() -> Dict[str, Any]:
     """Get complete analytics overview (with cache)."""
-    def _fetch():
+    def _fetch() -> Dict[str, Any]:
         # 1. Tool statistics (Consolidated internally in registry)
         tool_stats = registry.get_stats()
         
@@ -154,7 +154,10 @@ async def get_analytics() -> Dict[str, Any]:
             "errors_prevented": total_traps,
         }
 
-    return global_cache.get_or_set("analytics_overview", _fetch, ttl=300)
+    return cast(
+        Dict[str, Any],
+        global_cache.get_or_set("analytics_overview", _fetch, ttl=300),
+    )
 
 @router.get("/tools")
 async def get_tool_analytics() -> Dict[str, Any]:
@@ -167,7 +170,7 @@ async def get_directive_analytics(
     offset: int = 0
 ) -> Dict[str, Any]:
     """Get directive analytics from all sources (with cache)."""
-    def _fetch():
+    def _fetch() -> List[Dict[str, Any]]:
         base_dir = _get_base_dir()
         sources = _get_trap_sources(base_dir)
         
@@ -214,7 +217,7 @@ async def get_traps(
     offset: int = 0
 ) -> Dict[str, Any]:
     """Get all documented traps sorted by date (with cache)."""
-    def _fetch():
+    def _fetch() -> List[Dict[str, Any]]:
         base_dir = _get_base_dir()
         sources = _get_trap_sources(base_dir)
         

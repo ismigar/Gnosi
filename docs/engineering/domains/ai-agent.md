@@ -1,39 +1,92 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/configuration/llm_wiki.py
+  - backend/domains/configuration/plugin_state.py
+  - backend/domains/llm_wiki
+  - backend/domains/llm_wiki/legacy_ports.py
+  - backend/domains/vault/knowledge/config_routes.py
+  - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_assist.py
+  - backend/services/llm_wiki_suggestions.py
+  - backend/services/llm_wiki_storage.py
+  - backend/services/llm_wiki_pdf_annotations.py
+  - backend/domains/agent
+  - backend/domains/configuration/agent
+  - backend/domains/configuration/ai
   - backend/agent
+  - backend/agent/memory.py
+  - backend/agent/vault_tools.py
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
   - backend/api/tools_routes.py
   - backend/services/agent_quality_telemetry.py
+  - backend/services/plugin_ai_contributions.py
+  - backend/services/llm_wiki_actions.py
   - backend/services/reader_analysis.py
   - backend/services/agent_cancellation.py
   - backend/services/provider_health.py
+  - backend/services/artificial_analysis.py
+  - backend/services/fx_rates.py
+  - backend/services/transcription.py
   - backend/services/agent_capability_health.py
   - backend/services/agent_stream_protocol.py
   - backend/services/agent_stream_journal.py
+  - backend/services/agent_observability.py
+  - backend/services/agent_replay.py
+  - backend/services/turn_idempotency.py
+  - backend/services/capability_audit.py
   - backend/services/agent_model_strategy.py
   - backend/services/agent_model_evaluations.py
   - backend/services/agent_personal_memory.py
   - backend/services/agent_capability_contract.py
+  - backend/services/capability_automations.py
   - backend/agent/provider_resilience.py
   - backend/agent/recovery.py
   - backend/agent/conversation_memory.py
   - backend/agent/context_safety.py
   - backend/mcp/client.py
+  - pipeline/ai_client.py
+  - pipeline/skills/translate_row
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_capability_automations.py
+  - backend/tests/test_llm_wiki_extraction_domains.py
+  - backend/tests/test_llm_wiki_lint.py
+  - backend/tests/test_llm_wiki_pdf_annotations.py
+  - backend/tests/test_llm_wiki_processing_domain_contract.py
+  - backend/tests/test_llm_wiki_configuration_domain_contract.py
+  - backend/tests/test_plugin_ai_contributions.py
+  - backend/tests/test_configuration_plugins_facade.py
+  - backend/tests/test_plugins_state_race.py
+  - backend/tests/test_artificial_analysis.py
+  - backend/tests/test_fx_rates.py
+  - backend/tests/test_transcription_service.py
+  - backend/tests/test_translate_row_skill.py
   - backend/tests/test_agent_turn_contract.py
+  - backend/tests/test_pr6_agent_remaining_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_context_sources.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
+  - backend/tests/test_ai_model_registry_api.py
+  - backend/tests/test_ai_content_routes.py
+  - backend/tests/test_pipeline_ai_client.py
+  - backend/tests/test_provider_delete.py
+  - backend/tests/test_mcp_tool_routing_cache.py
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
+  - backend/tests/test_agent_adaptive_quality.py
+  - backend/tests/test_capability_audit.py
+  - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_agent_resilience.py
+  - backend/tests/test_agent_legacy_memory.py
+  - backend/tests/test_vault_tools.py
+  - backend/tests/test_agent_read_pdf_containment.py
+  - backend/tests/test_agent_create_page_containment.py
   - backend/tests/test_agent_recovery.py
   - backend/tests/test_agent_universal_runtime_phase2.py
   - backend/tests/test_e2e_tables_assets.py
@@ -57,6 +110,17 @@ Gnosi separates models, agents, skills, and tools:
 - Context source: user-selected Vault, table, file, or external material added
   to a conversation with explicit containment and size behavior.
 
+The Vault knowledge tool belt keeps LangChain `StructuredTool` objects at the
+registration boundary and unwraps their typed callables only for internal tool
+composition. Page creation registers through the canonical Vault owner, Vault
+search obtains its dedicated lazy store explicitly, and path/PDF reads retain
+their containment and server-owned size ceilings.
+
+The Artificial Analysis feed is a typed, server-side comparison boundary. It
+keeps API credentials private, validates every paginated response, enriches only
+missing catalog metadata, preserves verified cached metrics, and falls back to
+stale cache or models.dev with explicit provenance.
+
 ## Startup and request flow
 
 ```mermaid
@@ -76,12 +140,46 @@ sequenceDiagram
     Graph-->>Chat: Ordered events and final response
 ```
 
+Legacy Agent imports remain available through narrow compatibility facades,
+while the domain package owns context matching and storage, first-party tool
+dispatch, evidence and citation contracts, stream state, confirmations,
+sessions, and route composition. Agent catalog and governance routes use the
+same pattern under the configuration domain, preserving route order and
+operation identifiers.
+
 The model router resolves provider/model combinations, context limits, tool
 support, spend caps, and fallback policy. Credentials are obtained from local
 secret storage or supported environment migration, not exposed to the
 frontend. Failure reasons are recorded separately from user-facing responses so
 operators can distinguish timeout, provider rejection, invalid credentials,
 context overflow, and tool incompatibility.
+
+The legacy hybrid client remains available to social composition, mail drafting
+and older pipeline parsers through a strictly typed compatibility boundary. It
+narrows dynamic YAML provider maps, requires a concrete provider URL before any
+network call, validates OpenAI-compatible response envelopes, writes its
+prompt-hash cache atomically below the per-device data directory, and preserves
+the established primary-then-fallback behavior without exposing credentials.
+
+Local Whisper transcription exposes a typed model protocol and result shape;
+audio remains on-device and its lazily downloaded model cache lives below the
+provider-neutral `GNOSI_DATA_DIR`. The optional untyped `faster-whisper` import
+is confined to this adapter. Currency conversion similarly narrows remote and
+cached JSON before budget arithmetic, retains stale-real and static fallbacks,
+and always returns a positive typed units-per-USD rate.
+
+The router normalizes unknown registry metadata before iteration, compares
+token quotas and context windows as integers, and keeps its usage ledger behind
+typed atomic path/load/save boundaries. Monetary caps distinguish an absent cap
+from zero explicitly, preserving the existing near-cap and free-model fallback
+policy while making malformed persisted data recover to an empty ledger.
+
+Agent observability, replay, stream journals, turn claims, reviewed quality,
+personal and semantic memory, model evaluations, capability audit and health
+are operational per-device state. Their SQLite/JSON stores resolve directly
+through `GNOSI_DATA_DIR`; they never derive a location from a Vault or cloud
+provider. Tests inject that same canonical resolver, and encrypted stream keys
+remain in the `secrets` child of the local data directory.
 
 Runtime model selection belongs to the agent profile. `pinned` uses only the
 assigned provider/model, `resilient` starts there and permits failover only on a
@@ -91,6 +189,17 @@ same local/remote locality; credentials and catalog defaults never expand the
 allowlist. Authentication, policy, and content errors never cause failover.
 The selected fallback is marked in message metadata and in the stream receipt,
 so a local model cannot unexpectedly send private context to a remote provider.
+
+The stdio MCP client validates JSON-RPC object boundaries, types pending async
+requests explicitly, and routes tools through a cache that refreshes only on a
+miss. Malformed tool catalogs fail locally instead of leaking unchecked values
+into the agent runtime.
+
+AI settings keep provider credentials, connection tombstones, model registry,
+budget and usage routes in a strictly typed compatibility facade. Editor
+generation and correction live in the configuration AI domain, while validated
+YAML mapping loads and explicit legacy response metadata preserve the existing
+HTTP and OpenAPI contracts exactly.
 
 ## Tool governance
 
@@ -104,6 +213,13 @@ binds the user, session, tool, arguments, effect, and expiry; accepting a stale
 or altered action does not authorize a different invocation. Maintenance
 expires and removes records independently of chat traffic.
 
+Versioned capability metadata is narrowed from model or mapping input before
+validation. Version 2 contracts fail closed unless timeout, idempotency,
+privacy, egress and durable-result policies are complete and valid; legacy
+version 1 descriptors remain compatible. Cooperative cancellation wraps any
+Python awaitable in a cancellable future, so coroutine and future based provider
+adapters share the same token semantics.
+
 ## Skills and plugins
 
 Built-in runtime skills live in `pipeline/skills/`. User and plugin packages are
@@ -111,6 +227,27 @@ validated into a catalog while preserving origin, activation, compatibility,
 and managed-versus-user-owned fields. Plugin reconciliation is idempotent:
 disabling a plugin suspends its managed contribution without deleting user
 overrides.
+
+The row-translation skill keeps provider routing and local OPUS-MT lifecycle in
+its own consolidated package. External JSON envelopes are narrowed before use,
+language scoring has deterministic typed ordering, and the lazy OPUS cache
+stores only minimal tokenizer/model protocols. Transformers' concrete generic
+types do not leak into the routing contract or alter the established
+Softcatalà, Apertium, OPUS, DeepL and placeholder fallback order.
+
+Plugin reconciliation can also run before FastAPI route composition. It derives
+the `.gnosi` directory from the canonical active-Vault context and reads state
+through `backend/domains/configuration/plugin_state.py`; it never imports a
+Vault route merely to resolve paths or configuration. Before the process-wide
+store exists, the same normalizer and atomic writer run behind a bootstrap
+lock; after composition, reconciliation reuses the shared store and mutation
+locks.
+
+The legacy Chroma memory facade remains lazy and strictly typed for import
+compatibility. Importing it creates only the configured storage directory; it
+does not load embedding models. Missing embeddings degrade to empty reads and
+explicit failed writes, while canonical governed personal memory remains in the
+Agent domain's scoped SQLite service.
 
 ## Context and memory
 
@@ -229,6 +366,16 @@ status, result availability, resume after failure or interruption, and
 cooperative cancellation in message details. The same
 facade remains extensible to other source-owned durable providers; unsupported
 requests stay foreground and are never represented as durable work.
+
+Reader agent tools require a concrete active Vault before analysis or page
+persistence, expose typed scope payloads and retain an identity decorator only
+for lean environments without LangChain. Article reads and mutations narrow
+legacy ORM descriptors at one boundary while preserving tool names, effects and
+serialized responses.
+Attached-Reader context tools apply the same guard and reuse one resolved Vault
+for status authorization and result retrieval, preventing cross-Vault context
+drift within a tool call. Untrusted-content wrapping and output bounds remain
+unchanged.
 Providers and queue dispatchers register versioned contracts declaring job
 kind, idempotency, lease, attempt and model-call budgets, result, resume, and
 cancellation behavior. Unknown job types fail visibly instead of entering a
@@ -259,6 +406,13 @@ whether a limit was reached. A zero tool budget is a mode declaration, not an
 authorization bypass: mandatory server-authored context reads still follow
 their explicit path. Dynamic context tools are not selected for a general
 question unless the user actually supplied a context source.
+
+Capability automations persist scope, revision, schedule and per-run budgets in
+their own migrated SQLite database under the canonical local data directory.
+Run reservation is transactional, rejects overlapping or over-budget work,
+recovers stale leases, and records terminal status even when agent execution
+fails. Missing data configuration or a failed persistence round-trip aborts
+explicitly instead of reporting an automation that was not stored.
 
 The ToolNode retains the complete active-skill runtime for execution and policy
 checks, while each model invocation binds only passive read tools plus guarded
@@ -430,6 +584,71 @@ result behavior are valid. Legacy version 1 tools and skills remain visible as
 legacy or partial in Settings while they migrate; conformance metadata never
 makes a handler executable.
 
+## LLM Wiki configuration
+
+`backend/domains/configuration/llm_wiki.py` validates the Brain table, source
+tables, categorical dimensions, file/URL fields, fixed values and relation
+targets before any schema mutation. It then provisions the canonical roles and
+source relations, revalidates eligible index fields, persists atomically and
+refreshes the system pages through late-bound facade ports.
+The per-Vault configuration facade narrows property, source and dimension
+mappings to typed objects while deliberately retaining late-bound path and
+reference-table callables from `vault_routes`; disposable-Vault tests and
+existing integrations can therefore replace those historical seams without
+duplicating their mutable state.
+Its HTTP boundary narrows the late-bound legacy router once to `APIRouter`, so
+Brain designation and LLM Wiki configuration endpoints remain strictly typed
+without altering permissions, payload schemas, route order or OpenAPI output.
+The route adapter imports the canonical configuration, schema and record
+services directly, avoiding partially initialized facade lookups during
+standalone Agent startup. Runtime-replaceable Vault operations remain explicit
+ports, including the typed `VaultActionsPort` used by Brain processing actions.
+The processing boundary uses the same typed router for durable ingestion,
+polling, evidence, maintenance, lint, suggestion review, dictation and glossary
+learning; late-bound services and recoverable HTTP errors remain unchanged.
+`backend/domains/configuration/llm_wiki_schema.py` separately owns idempotent
+Brain-field repair and consolidation of one canonical source relation, including
+legacy aliases, page metadata and contextual embedded views.
+`backend/domains/configuration/llm_wiki_records.py` normalizes existing managed
+notes, source labels and localized resource-index titles without owning HTTP routes.
+Source extraction is split between `backend/domains/llm_wiki/documents.py` for
+typed document and media adapters and `origins.py` for deterministic evidence
+identity, deduplication and chunking. The historical service remains a compact
+compatibility facade so notebook and plugin contracts keep their current symbols.
+Extractor inputs now carry explicit metadata/configuration mappings and cross
+legacy attachment and local-data helpers as concrete `Path` values. The
+optional `yt-dlp` import is the sole localized untyped third-party adapter;
+public-URL checks, fingerprints, source ordering and provenance remain stable.
+Processing is split further into `planning.py` for prompts, parsing and grounded
+plans, `dimensions.py` for fixed/source/AI field mapping, `ingestion.py` for the
+blocking workflow, and `writing.py` for idempotent persistence. `index_rendering.py` owns managed resource,
+dimension and general pages, while `search_index.py` owns rebuildable JSON, FTS5
+and vector indexes. `backend/services/llm_wiki.py` and
+`backend/services/llm_wiki_indices.py` remain late-bound compatibility facades so
+existing imports and monkeypatch/plugin seams continue to resolve at call time.
+`backend/domains/llm_wiki/legacy_ports.py` narrows the path, table, page parsing
+and persistence collaborators without introducing eager route imports. The JSON
+writer remains exposed by the facade because it is a historical replaceable seam;
+rebuild and incremental upsert paths retain their cache invalidation behaviour.
+The same late-bound path port owns Vault, `.gnosi` and local-data resolution for
+the personal dictation glossary, connection queue and durable Brain jobs,
+snapshots, manifests and synchronized page sidecars. Queue and lint scans use
+the typed table-page port, preserving existing runtime replacements while
+preventing dynamic facade values from escaping into persistence logic.
+The ingestion facade also consumes these typed late-bound ports for Brain page
+enumeration, table lookup and processed-state updates, preserving runtime plugin
+replacement while keeping domain dependency contracts statically checked.
+
+Deterministic Brain lint is split into bounded checks for orphan notes, stale
+reviews, missing cross-references, duplicate provenance keys, retained managed
+notes, broken evidence citations, reprocessing and resource-index drift. The
+report shape and finding limits remain stable and require no model provider.
+
+Grounded PDF citations use a separate deterministic persistence boundary. It
+resolves quote geometry with one cached document handle per attachment, upserts
+stable managed highlights in one transaction, preserves manual annotations and
+removes only obsolete Gnosi-managed entries.
+
 ## Failure and safety invariants
 
 - Provider failure does not silently route to a more expensive or less private
@@ -492,6 +711,102 @@ progress without reading internal prompts.
 Security boundaries remain conservative: generated tools are revalidated at
 load time, connector URLs can use the public-host egress policy, and common
 credentials are redacted before diagnostics or tool messages are persisted.
+The generated-tool registry declares its local SQLite path only through an
+idempotent initialization boundary; migrations and parent-directory creation
+complete before any search, approval, rejection or statistics query can open
+the database. Cloud-synced source files remain separate from this local state.
+Dry-run protection preserves wrapped callable signatures, generates collision-
+resistant pending identifiers and never invokes an external-write function
+before confirmation. Confirm and cancel consume only the addressed pending
+record; non-external operations retain normal execution.
+
+The generated-tool runtime also keeps typed boundaries from registry records
+through loader caches, dynamic JSON schemas, learning-loop results and sandbox
+resource callbacks. Untrusted schema payloads are narrowed before Pydantic
+model creation; these annotations document the existing subprocess contract
+without weakening validation or moving execution into the application process.
+The approval-registry provider constructs validated `ToolDescriptor` instances
+directly and exposes a signature-preserving lazy callable, so catalog policy
+and runtime loading share one typed record boundary. Approval and rejection
+handlers likewise validate their mutation responses with Pydantic while keeping
+the historical dictionary and OpenAPI shapes unchanged.
+Third-party plugin contributions use the same descriptor contract after
+narrowing manifest schemas and resolving the active Vault through the typed
+domain adapter. Their handlers remain Node-sandbox callables with exactly the
+declared permission subset; typing does not import plugin Python into FastAPI.
+First-party Gnosi tool support similarly narrows the remaining legacy facade
+ports for frontmatter parsing, page versioning, index refresh and table-view
+revisions. These adapters keep confirmation snapshots and optimistic
+concurrency checks typed without changing their persisted formats.
+Vault-administration tools consume those ports through explicit registry,
+table-row, metadata-refresh and page-index call signatures. Table discovery,
+saved authorship views, deterministic filtering and contained page relocation
+therefore retain their existing JSON tool contract under strict typing.
+Contact tools bind each operation to a typed management session and
+workspace-scoped `ContactsService`. Duplicate detection, bounded updates and
+destructive merges still close the session deterministically, while a missing
+primary after a concurrent update now follows the existing error-result path.
+Provider-neutral job tools resolve a concrete active Vault before listing,
+estimating, reading, resuming or cancelling durable work. Missing request
+context fails at this adapter boundary, while namespaced job identifiers and
+all persisted result payloads remain unchanged.
+MCP tool construction narrows each third-party descriptor and JSON schema
+before creating its dynamic Pydantic argument model. Required and optional
+fields preserve their prior call semantics, malformed entries remain isolated,
+and server-qualified routing continues through the existing MCP client.
+Mail tools use the installed LangChain tool contract directly and type the
+bounded serialization boundary for exact messages, threads and folders.
+Remote read/star/reply/batch behavior, account confinement and confirmation
+effects are unchanged.
+The remaining governed adapters for translation, public-web context,
+calendar, social publishing, Notion cloning and project planning use concrete
+tool signatures and canonical domain routes. Web fetches also make the
+otherwise unreachable no-response state explicit after bounded redirect
+handling; SSRF checks, payload limits, account policy and confirmation effects
+remain unchanged.
+Agent context sources now expose a typed searchable-source protocol for BOE
+and require concrete active-Vault paths before opening Reader or planning
+state. Plugin state is read through the canonical Vault configuration domain,
+while the small LangGraph compatibility graph uses a secret-bearing API-key
+type without changing its fallback responses.
+Runtime support now types confirmation context tokens and requires the
+configured local-data directory before opening its audit database. Memory and
+Vault search use their explicit lazy-store accessors, while model-catalog JSON,
+model identifiers, reliability ranking and evaluation metadata are narrowed at
+their input boundaries without altering routing evidence.
+Notion integration boundaries now type hosted-MCP responses, Markdown trees,
+attachment localization callbacks and clone-verification configuration. An
+atomic, idempotent integration-key deletion primitive removes irrecoverably
+expired OAuth credentials instead of repeatedly retrying a dead token; clone
+schemas, page bodies, views and attachment markers retain their formats.
+Core AI workflow contributions use an internal typed specification for identity,
+activation, source requirements, tools, and instructions. Descriptor creation
+therefore cannot conflate string fields with source/tool sequences, while the
+published catalog schema and ordering remain unchanged.
+Attached-context readers now preserve the concrete string contracts of URL,
+external-source, and internal-record wrappers directly. No dynamic cast masks a
+provider mismatch at these untrusted-content boundaries.
+Inventory cache readers retain the legacy Vault monkeypatch seams through a
+narrow typed adapter. This preserves plugin and test compatibility without
+allowing dynamically re-exported callables to spread into the agent domain.
+Confirmed page and table dispatchers apply the same rule to Vault mutation
+seams: each dynamically re-exported handler is narrowed at the call site, while
+conflict detection, partial-result reporting, rollback, and background cleanup
+retain their historical behavior.
+Context storage and the built-in LLM Wiki catalog also narrow their legacy Vault
+readers locally. Plugin lifecycle verification binds a concrete active Vault,
+including in isolated tests, before resolving filesystem-backed configuration.
+Eligible MCP tools are materialized as validated `ToolDescriptor` instances at
+the contribution boundary, with an explicit MCP origin and normalized input
+schema. Read-only/destructive annotations still determine admission exactly as
+before.
+Reference evidence requires a concrete active Vault before resolving or reading
+paths, and its table-page seam is narrowed locally. Notebook evidence wrappers
+return their typed untrusted-content strings directly across search, exact-read,
+and whole-analysis operations.
+Built-in catalog registration keeps tool and skill descriptor variables
+separate, so static validation cannot carry a tool type into the subsequent
+skill loop; registration order and resulting catalog revision remain stable.
 
 The runtime dispatcher now wakes the durable queue on application startup, so
 Reader work is recovered without a status request. Brain FTS updates are

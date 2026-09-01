@@ -1,22 +1,22 @@
 import logging
-import json
+from collections.abc import Callable
+from typing import Any, TypeAlias, cast
+
 import requests
-from pathlib import Path
-from datetime import datetime, timezone
-from typing import Optional
-from backend.config.app_config import load_params
-
-log = logging.getLogger(__name__)
-
 
 from backend.services.integration_manager import integration_manager
 
-def get_google_contacts_service(email: str):
+log = logging.getLogger(__name__)
+
+Contact: TypeAlias = dict[str, Any]
+
+
+def get_google_contacts_service(email: str) -> tuple[Any | None, Any | None]:
     """Helper to get a Google People service for a given email."""
     try:
-        from google.oauth2.credentials import Credentials
-        from googleapiclient.discovery import build
         from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build  # type: ignore[import-untyped]
     except ImportError:
         log.error("Missing dependencies: google-api-python-client, google-auth-oauthlib")
         return None, None
@@ -57,7 +57,7 @@ def get_google_contacts_service(email: str):
                     break
 
     if not contacts_config:
-        log.error(f"Contacts configuration not found for {email}")
+        log.error("Contacts configuration not found for %s", email)
         return None, None
 
     try:
@@ -69,7 +69,7 @@ def get_google_contacts_service(email: str):
         )
 
         if not client_id or not client_secret:
-            log.error(f"Missing OAuth client credentials for {email}")
+            log.error("Missing OAuth client credentials for %s", email)
             return None, None
 
         creds_dict = {
@@ -81,34 +81,36 @@ def get_google_contacts_service(email: str):
             "client_id": client_id,
             "client_secret": client_secret,
         }
-        creds = Credentials(**creds_dict)
+        credentials_factory = cast(Callable[..., Any], Credentials)
+        creds: Any = credentials_factory(**creds_dict)
         
         # Refresh token if expired
         if creds.expired and creds.refresh_token:
-            log.info(f"Refreshing the Google token for {email}")
+            log.info("Refreshing the Google token for %s", email)
             try:
-                creds.refresh(Request())
+                request_factory = cast(Callable[[], Any], Request)
+                creds.refresh(request_factory())
                 # Save updated token back via integration_manager
                 integration_manager.update(source_type, [{
                     "id": contacts_config.get("id"),
                     "token": creds.token
                 }])
                 log.info("Google token updated through integration_manager")
-            except Exception as e:
-                log.error(f"Error refreshing token for {email}: {e}")
+            except Exception as exc:
+                log.error("Error refreshing token for %s: %s", email, exc)
                 return None, None
         elif creds.expired and not creds.refresh_token:
-            log.error(f"Token expired and no refresh_token is available for {email}")
+            log.error("Token expired and no refresh_token is available for %s", email)
             return None, None
 
         service = build("people", "v1", credentials=creds, static_discovery=False)
         return service, creds
-    except Exception as e:
-        log.error(f"Error building contacts service for {email}: {e}")
+    except Exception as exc:
+        log.error("Error building contacts service for %s: %s", email, exc)
         return None, None
 
 
-def list_google_contacts(email: str, page_size: int = 200):
+def list_google_contacts(email: str, page_size: int = 200) -> list[Contact]:
     """Lists all contacts from Google People API."""
     service, _ = get_google_contacts_service(email)
     if not service:
@@ -125,13 +127,14 @@ def list_google_contacts(email: str, page_size: int = 200):
             )
             .execute()
         )
-        return results.get("connections", [])
-    except Exception as e:
-        log.error(f"Error listing Google contacts for {email}: {e}")
+        connections = results.get("connections", [])
+        return cast(list[Contact], connections) if isinstance(connections, list) else []
+    except Exception as exc:
+        log.error("Error listing Google contacts for %s: %s", email, exc)
         raise
 
 
-def get_google_contact_by_resource(email: str, resource_name: str):
+def get_google_contact_by_resource(email: str, resource_name: str) -> Contact | None:
     """Gets a single contact by Google resource name."""
     service, _ = get_google_contacts_service(email)
     if not service:
@@ -146,20 +149,20 @@ def get_google_contact_by_resource(email: str, resource_name: str):
             )
             .execute()
         )
-        return person
-    except Exception as e:
-        log.error(f"Error getting Google contact {resource_name}: {e}")
+        return cast(Contact, person) if isinstance(person, dict) else None
+    except Exception as exc:
+        log.error("Error getting Google contact %s: %s", resource_name, exc)
         return None
 
 
-def create_google_contact(email: str, contact_data: dict):
+def create_google_contact(email: str, contact_data: Contact) -> Contact:
     """Creates a new contact in Google People API."""
     service, _ = get_google_contacts_service(email)
     if not service:
         raise Exception("Could not initialize the Google service")
 
     try:
-        body = {
+        body: Contact = {
             "names": [{"displayName": contact_data.get("name", "")}],
         }
 
@@ -189,13 +192,17 @@ def create_google_contact(email: str, contact_data: dict):
             body["notes"] = {"notes": [{"content": contact_data["notes"]}]}
 
         created = service.people().createContact(body=body).execute()
-        return created
-    except Exception as e:
-        log.error(f"Error creating Google contact: {e}")
+        return cast(Contact, created)
+    except Exception as exc:
+        log.error("Error creating Google contact: %s", exc)
         raise
 
 
-def update_google_contact(email: str, resource_name: str, contact_data: dict):
+def update_google_contact(
+    email: str,
+    resource_name: str,
+    contact_data: Contact,
+) -> Contact:
     """Updates an existing contact in Google People API."""
     service, creds = get_google_contacts_service(email)
     if not service or not creds:
@@ -209,7 +216,7 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
 
         etag = current_person.get("etag")
         
-        body = {
+        body: Contact = {
             "etag": etag,
             "names": [{"displayName": contact_data.get("name", "")}]
         }
@@ -239,8 +246,9 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
         # Make sure the token is fresh
         from google.auth.transport.requests import Request as AuthRequest
         if creds.expired and creds.refresh_token:
-            log.info(f"Refreshing the Google token for {email} before PATCH")
-            creds.refresh(AuthRequest())
+            log.info("Refreshing the Google token for %s before PATCH", email)
+            request_factory = cast(Callable[[], Any], AuthRequest)
+            creds.refresh(request_factory())
             # Optionally persist the token (the next list call will already do it)
         
         # Use direct requests to avoid library syntax issues with updateMask
@@ -255,12 +263,13 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
         response = requests.patch(url, headers=headers, json=body, timeout=30)
 
         if response.status_code != 200:
-            log.error(f"Error direct patching Google contact: {response.text}")
+            log.error("Error direct patching Google contact: %s", response.text)
             response.raise_for_status()
             
-        return response.json()
-    except Exception as e:
-        log.error(f"Error updating Google contact {resource_name}: {e}")
+        payload: Any = response.json()
+        return cast(Contact, payload) if isinstance(payload, dict) else {}
+    except Exception as exc:
+        log.error("Error updating Google contact %s: %s", resource_name, exc)
         raise
 
 
@@ -273,14 +282,14 @@ def delete_google_contact(email: str, resource_name: str) -> bool:
     try:
         service.people().deleteContact(resourceName=resource_name).execute()
         return True
-    except Exception as e:
-        log.error(f"Error deleting Google contact {resource_name}: {e}")
+    except Exception as exc:
+        log.error("Error deleting Google contact %s: %s", resource_name, exc)
         raise
 
 
-def parse_google_contact_to_dict(person: dict) -> dict:
+def parse_google_contact_to_dict(person: Contact) -> Contact:
     """Parse a Google People person object to a normalized dict."""
-    parsed = {
+    parsed: Contact = {
         "name": "",
         "email": "",
         "phone": "",

@@ -5,7 +5,6 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI
 
 from backend.api import (
-    agent_routes,
     agent_skills_routes,
     ai_routes,
     analytics_routes,
@@ -42,6 +41,7 @@ from backend.api import (
     vaults_routes,
     workspace_routes,
 )
+from backend.domains.agent.routes.router import router as agent_router
 from backend.services.plugin_access import require_plugins
 
 
@@ -50,7 +50,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(workspace_routes.router, tags=["Workspaces"])
 
     app.include_router(
-        agent_routes.router,
+        agent_router,
         prefix="/api",
         dependencies=[Depends(require_plugins("ai-platform"))],
     )

@@ -11,6 +11,7 @@ directive `vault_knowledge_agents.md`, memory `feedback_local_backend_test_verif
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
@@ -80,7 +81,7 @@ def classify_request(message: str, *, has_images: bool = False,
     tokens = set(text.replace("\n", " ").split())
     is_complex = len(text) > 320 or bool(_COMPLEX_KW & tokens)
     is_simple = len(text) < 120 and (bool(_SIMPLE_KW & tokens) or "?" in text) and not is_complex
-    needs: set = set()
+    needs: set[str] = set()
     if _CODE_KW & tokens:
         needs.add("code")
     if has_images:
@@ -107,11 +108,11 @@ def _quota_exhausted(model: Dict[str, Any], usage: Dict[str, int]) -> bool:
     if not quota:
         return False
     key = f"{model['provider']}:{model['model_id']}"
-    return usage.get(key, 0) >= quota
+    return usage.get(key, 0) >= int(quota)
 
 
 def _fits_context(model: Dict[str, Any], features: Dict[str, Any]) -> bool:
-    return model.get("context_window", 0) >= features.get("context_tokens", 0)
+    return int(model.get("context_window") or 0) >= int(features.get("context_tokens") or 0)
 
 
 def route_model(
@@ -191,7 +192,7 @@ def route_model(
 
     desired = features["desired_quality"]
 
-    def score(m: Dict[str, Any]) -> tuple:
+    def score(m: Dict[str, Any]) -> tuple[float, ...]:
         # 1) Penalize falling short on quality; excess quality is a minor waste.
         q_gap = max(0, desired - m.get("quality", 1)) * 10 + max(0, m.get("quality", 1) - desired)
         avg_cost = (m.get("cost_in", 0) + m.get("cost_out", 0)) / 2
@@ -261,7 +262,8 @@ def hydrate_registry_metadata(
     exact tuple, or genuinely omitted fields, as missing. Explicit agent-level
     capability overrides remain authoritative in ``factory._model_supports_tools``.
     """
-    rows = [dict(row) for row in (registry or []) if isinstance(row, dict)]
+    source_rows = registry if isinstance(registry, list) else []
+    rows = [dict(row) for row in source_rows if isinstance(row, dict)]
     if metadata_index is None:
         try:
             from backend.agent.model_catalog import catalog_model_metadata_index
@@ -367,14 +369,13 @@ class UsageStore:
     still read correctly.
     """
 
-    def __init__(self, path: Optional[str] = None):
+    def __init__(self, path: Optional[str] = None) -> None:
         self._path = path
         self._data: Dict[str, Dict[str, Any]] = {}
         self._load()
 
-    def _resolve_path(self):
+    def _resolve_path(self) -> Path | None:
         if self._path:
-            from pathlib import Path
             return Path(self._path)
         try:
             from backend.config.app_config import load_params
@@ -384,7 +385,6 @@ class UsageStore:
             paths = load_params(strict_env=False).paths
             base = paths.get("LOCAL_CACHE") or paths.get("LOCAL_DATA")
             if base:
-                from pathlib import Path
                 d = Path(base)
                 if d.name != "cache":
                     d = d / "cache"
@@ -394,16 +394,17 @@ class UsageStore:
             pass
         return None
 
-    def _load(self):
+    def _load(self) -> None:
         p = self._resolve_path()
         if p and p.exists():
             try:
                 import json
-                self._data = json.loads(p.read_text(encoding="utf-8"))
+                loaded = json.loads(p.read_text(encoding="utf-8"))
+                self._data = loaded if isinstance(loaded, dict) else {}
             except Exception:
                 self._data = {}
 
-    def _save(self):
+    def _save(self) -> None:
         p = self._resolve_path()
         if not p:
             return
@@ -420,7 +421,7 @@ class UsageStore:
             pass
 
     def record(self, provider: str, model_id: str, in_tok: int, out_tok: int,
-               period: str, cost_usd: float = 0.0):
+               period: str, cost_usd: float = 0.0) -> None:
         with _usage_lock:
             # Re-read under the lock: another instance may have written since
             # this one loaded (the whole cycle must sit inside the lock).
@@ -445,7 +446,7 @@ class UsageStore:
     def spend_usd(self, period: str) -> float:
         """Total recorded USD cost for the period."""
         return round(sum(
-            _normalize_usage_entry(v)["cost_usd"]
+            float(_normalize_usage_entry(v)["cost_usd"])
             for v in (self._data.get(period, {}) or {}).values()
         ), 6)
 
@@ -461,7 +462,7 @@ class UsageStore:
 
 
 def model_cost_rates(provider: str, model_id: str,
-                     registry: Optional[List[Dict[str, Any]]] = None) -> tuple:
+                     registry: Optional[List[Dict[str, Any]]] = None) -> tuple[float, float]:
     """(cost_in, cost_out) in USD per 1M tokens.
 
     The catalog wins: it tracks the provider's current tariff, while a value
@@ -482,7 +483,7 @@ def model_cost_rates(provider: str, model_id: str,
     return 0.0, 0.0
 
 
-def usage_from_message(message: Any) -> Optional[tuple]:
+def usage_from_message(message: Any) -> Optional[tuple[int, int]]:
     """(input_tokens, output_tokens) from a langchain AIMessage, or None.
 
     Duck-typed on `usage_metadata` so this module keeps zero langchain
@@ -546,7 +547,7 @@ def budget_status(period: Optional[str] = None) -> Dict[str, Any]:
         "cap_ccy": cap_ccy,
         "cap_usd": cap_usd,
         "ratio": round(ratio, 4) if ratio is not None else None,
-        "over_cap": bool(cap_usd) and spent_usd >= cap_usd,
+        "over_cap": cap_usd is not None and spent_usd >= cap_usd,
         "budget": budget_cfg,
         "per_model": rows,
     }

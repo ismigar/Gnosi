@@ -1,67 +1,72 @@
 import logging
 import re
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
 from abc import ABC, abstractmethod
-from sqlalchemy.orm import Session
-import yaml
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
+
+import yaml
+from sqlalchemy.orm import Session
+
 from backend.config.paths_config import get_paths
+from backend.models.contact import ContactSource
 from backend.utils.safe_io import guard_windows_reserved, safe_write_text
 
-from backend.models.contact import Contact, ContactType, ContactSource
-from backend.services.google_contacts_service import (
-    list_google_contacts,
-    create_google_contact,
-    update_google_contact,
-    delete_google_contact,
-    parse_google_contact_to_dict,
-)
 from backend.services.contacts_service import ContactsService
+from backend.services.google_contacts_service import (
+    create_google_contact,
+    delete_google_contact,
+    list_google_contacts,
+    parse_google_contact_to_dict,
+    update_google_contact,
+)
 
 log = logging.getLogger(__name__)
 
+
 class BaseContactsProvider(ABC):
     @abstractmethod
-    def list_contacts(self) -> List[Dict[str, Any]]:
-        pass
+    def list_contacts(self) -> list[dict[str, Any]]: ...
 
     @abstractmethod
-    def create_contact(self, contact_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        pass
+    def create_contact(self, contact_data: dict[str, Any]) -> dict[str, Any] | None: ...
 
     @abstractmethod
-    def update_contact(self, remote_id: str, contact_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        pass
+    def update_contact(
+        self, remote_id: str, contact_data: dict[str, Any]
+    ) -> dict[str, Any] | None: ...
 
     @abstractmethod
-    def delete_contact(self, remote_id: str) -> bool:
-        pass
+    def delete_contact(self, remote_id: str) -> bool: ...
 
     @abstractmethod
-    def parse_to_internal(self, remote_contact: Dict[str, Any]) -> Dict[str, Any]:
-        pass
+    def parse_to_internal(self, remote_contact: dict[str, Any]) -> dict[str, Any]: ...
+
 
 class GoogleContactsProvider(BaseContactsProvider):
     def __init__(self, email: str):
         self.email = email
 
-    def list_contacts(self):
+    def list_contacts(self) -> list[dict[str, Any]]:
         return list_google_contacts(self.email)
 
-    def create_contact(self, contact_data):
-        return create_google_contact(self.email, contact_data)
+    def create_contact(self, contact_data: dict[str, Any]) -> dict[str, Any] | None:
+        return cast(dict[str, Any] | None, create_google_contact(self.email, contact_data))
 
-    def update_contact(self, remote_id, contact_data):
-        return update_google_contact(self.email, remote_id, contact_data)
+    def update_contact(self, remote_id: str, contact_data: dict[str, Any]) -> dict[str, Any] | None:
+        return cast(
+            dict[str, Any] | None,
+            update_google_contact(self.email, remote_id, contact_data),
+        )
 
-    def delete_contact(self, remote_id):
+    def delete_contact(self, remote_id: str) -> bool:
         return delete_google_contact(self.email, remote_id)
 
-    def parse_to_internal(self, remote_contact):
+    def parse_to_internal(self, remote_contact: dict[str, Any]) -> dict[str, Any]:
         parsed = parse_google_contact_to_dict(remote_contact)
         parsed["remote_id"] = parsed.get("resource_name")
         return parsed
+
 
 def _vcard_escape(value: Any) -> str:
     """Escapes a text value for vCard 3.0 (RFC 2426 §5). Order matters:
@@ -110,11 +115,11 @@ class CardDAVContactsProvider(BaseContactsProvider):
             url = f"https://{url}"
         return f"{url}/remote.php/dav/addressbooks/users/{self.username}/contacts/"
 
-    def _get_auth(self):
+    def _get_auth(self) -> tuple[str, str]:
         """Returns the auth tuple for requests."""
         return (self.username, self.token)
 
-    def list_contacts(self) -> List[Dict[str, Any]]:
+    def list_contacts(self) -> list[dict[str, Any]]:
         """Fetch all contacts from the CardDAV server via REPORT."""
         import requests
         import xml.etree.ElementTree as ET
@@ -122,8 +127,8 @@ class CardDAVContactsProvider(BaseContactsProvider):
         body = (
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<card:addressbook-query xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav">'
-            '<d:prop><d:getetag/><card:address-data/></d:prop>'
-            '</card:addressbook-query>'
+            "<d:prop><d:getetag/><card:address-data/></d:prop>"
+            "</card:addressbook-query>"
         )
 
         try:
@@ -141,7 +146,7 @@ class CardDAVContactsProvider(BaseContactsProvider):
                 raise Exception(f"CardDAV server returned {resp.status_code}")
 
             # Parse the XML response
-            contacts = []
+            contacts: list[dict[str, Any]] = []
             ns = {
                 "d": "DAV:",
                 "card": "urn:ietf:params:xml:ns:carddav",
@@ -166,11 +171,13 @@ class CardDAVContactsProvider(BaseContactsProvider):
                 vcard_data = prop.findtext("card:address-data", default="", namespaces=ns)
 
                 if vcard_data and "BEGIN:VCARD" in vcard_data:
-                    contacts.append({
-                        "href": href,
-                        "etag": etag.strip('"'),
-                        "vcard": vcard_data,
-                    })
+                    contacts.append(
+                        {
+                            "href": href,
+                            "etag": etag.strip('"'),
+                            "vcard": vcard_data,
+                        }
+                    )
 
             log.info(f"CardDAV: fetched {len(contacts)} contacts from {self.base_url}")
             return contacts
@@ -179,7 +186,7 @@ class CardDAVContactsProvider(BaseContactsProvider):
             log.error(f"CardDAV connection error to {self.base_url}: {e}")
             raise Exception(f"Error connecting to CardDAV server: {e}")
 
-    def create_contact(self, contact_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def create_contact(self, contact_data: dict[str, Any]) -> dict[str, Any] | None:
         """Create a new contact on the CardDAV server via PUT."""
         import requests
         import uuid
@@ -207,7 +214,7 @@ class CardDAVContactsProvider(BaseContactsProvider):
             log.error(f"CardDAV create error: {e}")
             return None
 
-    def update_contact(self, remote_id: str, contact_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def update_contact(self, remote_id: str, contact_data: dict[str, Any]) -> dict[str, Any] | None:
         """Update a contact on the CardDAV server via PUT."""
         import requests
 
@@ -218,7 +225,11 @@ class CardDAVContactsProvider(BaseContactsProvider):
         # Build full URL if remote_id is a relative path
         url = remote_id
         if not url.startswith("http"):
-            base = self.base_url.split("/remote.php")[0] if "/remote.php" in self.base_url else self.base_url
+            base = (
+                self.base_url.split("/remote.php")[0]
+                if "/remote.php" in self.base_url
+                else self.base_url
+            )
             url = f"{base}{remote_id}"
 
         try:
@@ -246,7 +257,11 @@ class CardDAVContactsProvider(BaseContactsProvider):
 
         url = remote_id
         if not url.startswith("http"):
-            base = self.base_url.split("/remote.php")[0] if "/remote.php" in self.base_url else self.base_url
+            base = (
+                self.base_url.split("/remote.php")[0]
+                if "/remote.php" in self.base_url
+                else self.base_url
+            )
             url = f"{base}{remote_id}"
 
         try:
@@ -261,7 +276,7 @@ class CardDAVContactsProvider(BaseContactsProvider):
             log.error(f"CardDAV delete error: {e}")
             return False
 
-    def parse_to_internal(self, remote_contact: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_to_internal(self, remote_contact: dict[str, Any]) -> dict[str, Any]:
         """Parse a CardDAV response entry (with vcard string) to internal dict."""
         import re
 
@@ -301,7 +316,8 @@ class CardDAVContactsProvider(BaseContactsProvider):
         adr_raw = _get_vcard_field("ADR")
         address = (
             _vcard_unescape(";".join([p.strip() for p in adr_raw.split(";") if p.strip()]))
-            if adr_raw else ""
+            if adr_raw
+            else ""
         )
 
         # Parse NOTE
@@ -325,7 +341,7 @@ class CardDAVContactsProvider(BaseContactsProvider):
             "uid": uid,
         }
 
-    def _build_vcard(self, contact_data: Dict[str, Any], uid: str) -> str:
+    def _build_vcard(self, contact_data: dict[str, Any], uid: str) -> str:
         """Build a vCard 3.0 string from contact data."""
         lines = [
             "BEGIN:VCARD",
@@ -374,40 +390,49 @@ class CardDAVContactsProvider(BaseContactsProvider):
 
         return "\r\n".join(lines)
 
+
 class ContactsSyncEngine:
-    def __init__(self, db: Session, workspace_id: str, integration: Dict[str, Any]):
+    def __init__(self, db: Session, workspace_id: str, integration: dict[str, Any]) -> None:
         self.db = db
         self.workspace_id = workspace_id
         self.integration = integration
         self.contacts_service = ContactsService(db, workspace_id)
-        
+
         self.provider = self._get_provider()
 
-    def _get_provider(self) -> Optional[BaseContactsProvider]:
+    def _get_provider(self) -> BaseContactsProvider | None:
         provider_type = self.integration.get("provider", "google")
         email = self.integration.get("email")
-        
+
         if provider_type == "google":
-            return GoogleContactsProvider(email)
+            return GoogleContactsProvider(email) if isinstance(email, str) else None
         elif provider_type in ["icloud", "carddav", "custom"]:
+            url = self.integration.get("url")
+            token = self.integration.get("token")
+            if not all(isinstance(value, str) for value in (url, token, email)):
+                return None
             return CardDAVContactsProvider(
-                url=self.integration.get("url"),
-                token=self.integration.get("token"),
-                email=email
+                url=cast(str, url), token=cast(str, token), email=cast(str, email)
             )
         return None
 
-    def sync_gnosi_to_remote(self) -> dict:
+    def sync_gnosi_to_remote(self) -> dict[str, Any]:
         """Push local contacts to Remote provider.
-        
+
         Only pushes:
         - Contacts that already have a remote_id (updates to previously synced contacts)
         - Contacts with source='local' that were explicitly created by the user
-        
+
         Skips contacts that match this provider's source but have no remote_id,
         as these were likely imported and should not be re-uploaded.
         """
-        results = {"created": 0, "updated": 0, "deleted": 0, "errors": [], "skipped": 0}
+        results: dict[str, Any] = {
+            "created": 0,
+            "updated": 0,
+            "deleted": 0,
+            "errors": [],
+            "skipped": 0,
+        }
         if not self.provider:
             results["errors"].append("No provider configured")
             return results
@@ -424,7 +449,7 @@ class ContactsSyncEngine:
 
         # Idempotency: track which contact IDs were successfully pushed in this run
         # so we don't double-count or recommit on partial failures.
-        synced_ids: set = set()
+        synced_ids: set[str] = set()
 
         for contact in local_contacts:
             remote_id = contact.google_resource_name
@@ -436,7 +461,9 @@ class ContactsSyncEngine:
 
             # Case 2: Contact belongs to THIS provider/account but has no remote_id
             # This means it was imported previously without tracking → skip push
-            if (contact.source == provider_name or contact.source == integration_email) and not remote_id:
+            if (
+                contact.source == provider_name or contact.source == integration_email
+            ) and not remote_id:
                 results["skipped"] += 1
                 continue
 
@@ -469,10 +496,13 @@ class ContactsSyncEngine:
                     created = self.provider.create_contact(contact_data)
                     if created:
                         parsed = self.provider.parse_to_internal(created)
-                        contact.google_resource_name = parsed.get("remote_id")
+                        remote_id_value = parsed.get("remote_id")
+                        contact.google_resource_name = (
+                            str(remote_id_value) if remote_id_value else None
+                        )
                         contact.last_synced_at = datetime.now(timezone.utc)
                         # Store the specific account email as source
-                        contact.source = integration_email or provider_name
+                        contact.source = str(integration_email or provider_name)
                         self.db.flush()
                         synced_ids.add(contact.id)
                         results["created"] += 1
@@ -501,9 +531,9 @@ class ContactsSyncEngine:
 
         return results
 
-    def sync_remote_to_gnosi(self) -> dict:
+    def sync_remote_to_gnosi(self) -> dict[str, Any]:
         """Pull contacts from Remote and merge with local."""
-        results = {"imported": 0, "updated": 0, "errors": []}
+        results: dict[str, Any] = {"imported": 0, "updated": 0, "errors": []}
         if not self.provider:
             results["errors"].append("No provider configured")
             return results
@@ -599,7 +629,8 @@ class ContactsSyncEngine:
                             "notes": parsed.get("notes"),
                             "photo_url": parsed.get("photo_url"),
                             "google_resource_name": remote_id,
-                            "source": self.integration.get("email") or self.integration.get("provider"),
+                            "source": self.integration.get("email")
+                            or self.integration.get("provider"),
                         }
                     )
                     pending_imported += 1
@@ -626,7 +657,7 @@ class ContactsSyncEngine:
 
         return results
 
-    def sync_full_bidirectional(self) -> dict:
+    def sync_full_bidirectional(self) -> dict[str, Any]:
         """Perform bidirectional sync. Pull first, then push."""
         # Pull remote → local FIRST so we don't re-upload freshly imported contacts
         remote_to_gnosi = self.sync_remote_to_gnosi()
@@ -639,13 +670,13 @@ class ContactsSyncEngine:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-    def export_to_vault(self) -> dict:
+    def export_to_vault(self) -> dict[str, Any]:
         """Export all local contacts for this workspace to the Vault as .contact.md files."""
-        results = {"exported": 0, "errors": []}
-        
+        results: dict[str, Any] = {"exported": 0, "errors": []}
+
         paths = get_paths()
         contacts_folder = paths.get("CONTACTS")
-        
+
         if not contacts_folder:
             results["errors"].append("CONTACTS folder not defined in paths_config")
             return results
@@ -653,20 +684,23 @@ class ContactsSyncEngine:
         try:
             contacts_folder.mkdir(parents=True, exist_ok=True)
             local_contacts = self.contacts_service.list_contacts()
-            
+
             for contact in local_contacts:
                 try:
                     # Filename: Name.contact.md (sanitize name)
-                    clean_name = "".join([c for c in contact.name if c.isalnum() or c in (' ', '-', '_')]).strip()
+                    contact_name = contact.name
+                    clean_name = "".join(
+                        [c for c in contact_name if c.isalnum() or c in (" ", "-", "_")]
+                    ).strip()
                     if not clean_name:
                         clean_name = f"Unknown_{contact.id}"
                     # Windows blocks by the part before the FIRST dot: a contact
                     # named "CON" would yield CON.contact.md, rejected by OneDrive.
                     clean_name = guard_windows_reserved(clean_name)
-                    
+
                     filename = f"{clean_name}.contact.md"
                     file_path = contacts_folder / filename
-                    
+
                     metadata = {
                         "name": contact.name,
                         "email": contact.email,
@@ -678,16 +712,16 @@ class ContactsSyncEngine:
                         "photo_url": contact.photo_url,
                         "id": contact.id,
                         "uid": contact.id,
-                        "type": "contact"
+                        "type": "contact",
                     }
-                    
+
                     content = f"---\n{yaml.dump(metadata, sort_keys=False, allow_unicode=True)}---\n\n{contact.notes or ''}\n"
-                    
+
                     safe_write_text(file_path, content)
                     results["exported"] += 1
                 except Exception as e:
                     results["errors"].append(f"Error exporting {contact.name}: {e}")
-            
+
             log.info(f"Exported {results['exported']} contacts to vault.")
             return results
         except Exception as e:

@@ -30,7 +30,8 @@ def relation_ids(value: Any) -> List[str]:
 
 def _property_signature(prop: Dict[str, Any]) -> Dict[str, Any]:
     """Comparable source-faithful subset of a Gnosi property definition."""
-    config = prop.get("config") if isinstance(prop.get("config"), dict) else {}
+    raw_config = prop.get("config")
+    config = raw_config if isinstance(raw_config, dict) else {}
     options = prop.get("options")
     if options is None:
         options = config.get("options")

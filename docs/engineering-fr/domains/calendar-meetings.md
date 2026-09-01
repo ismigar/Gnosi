@@ -1,15 +1,19 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/calendar_routes.py
+  - backend/domains/calendar/geocoding.py
   - backend/api/meeting_routes.py
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
+  - backend/services/hybrid_calendar_service.py
   - frontend/src/pages/CalendarPage.jsx
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
 tests:
+  - backend/tests/test_calendar_geocoding_domain.py
+  - backend/tests/test_hybrid_calendar_service.py
   - backend/tests/test_calendar_path_containment.py
   - backend/tests/test_meeting_reminders_race.py
   - tests/e2e/tests/e2e/calendar.spec.ts
@@ -20,6 +24,17 @@ tests:
 ## Responsabilité
 
 Calendrier regroupe les événements locaux de Vault avec les comptes Google Caldav et connectés. Il prend en charge la sélection de calendrier, l'événement CRUD, les invitations, RSVPs, les requêtes libres/obusy, le géocodage, les rappels, l'état d'événement caché, l'exportation ICS, l'enregistrement de réunion, la transcription et les notes générées par l'IA.
+
+La frontière HTTP est strictement typée tout en conservant le contrat de
+réponse existant. La normalisation des libellés Photon, le rejet des URL, la
+validation des résultats et la déduplication appartiennent au domaine de
+géocodage Calendar plutôt qu'au module de routes ; les payloads fournisseur
+sont validés à cette frontière d'adaptation.
+
+Le service hybride des fournisseurs est strictement typé et conserve Google
+comme adaptateur aux côtés du CalDAV générique. La détection CalDAV prend ainsi
+en charge Nextcloud, iCloud, Fastmail, Radicale et les serveurs compatibles via
+des URL configurées, sans comportement lié au fournisseur de stockage.
 
 ## Agrégation des événements
 

@@ -1,9 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
+  - backend/domains/agent/routes/checkpoints.py
+  - backend/domains/agent/routes/shared.py
   - backend/services/durable_job_worker.py
   - backend/agent/agent_context.py
   - backend/agent/factory.py
@@ -12,6 +15,7 @@ source_paths:
   - frontend/src/components/Notebooks
   - frontend/src/components/AgentChat.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
@@ -23,6 +27,10 @@ tests:
 # Grounded notebooks
 
 ## Responsibility
+
+`backend/domains/notebooks/` now owns repository access, catalog and resource
+selection, ingestion, evidence, analysis, chat, and state. The historical
+service remains a compatibility facade for the unchanged API and worker calls.
 
 Grounded notebooks provide a dedicated `/notebooks` workspace for asking
 questions about the attachments and URLs held by selected records in the
@@ -93,6 +101,9 @@ non-target evidence from the active revision.
 Removing a Resource deletes notebook membership immediately. Retrieval and
 whole-notebook analysis join against current membership, so removed evidence is
 excluded before a replacement revision is ready.
+Resource catalog and refresh adapters read the canonical Vault page, table, and
+reference owners directly. They do not call through the dynamic HTTP
+compatibility facade, keeping domain dependency direction explicit.
 
 ## Persistence and recovery
 
@@ -107,6 +118,9 @@ Queued or expired leased jobs resume after process restart. Revision activation
 is transactional. If a previously indexed source fails to refresh, its last
 valid representation remains available with `stale` status; a new failed
 source is reported and excluded.
+Analysis admission resolves a concrete active Vault before enqueueing the job;
+missing request context fails before a durable payload can contain an ambiguous
+or machine-dependent path.
 
 New revisions are retention-eligible. Cleanup preserves the active revision,
 the configured recent completed and audit windows, every revision pinned by a
@@ -168,6 +182,12 @@ histories: returning to a previous mode restores that namespace.
 Notebook deletion enumerates all registered derived principals and deletes
 their checkpoint threads before cascading notebook indexes, revisions, and
 analysis rows. Original Vault data is outside this deletion boundary.
+
+Notebook HTTP routes are strictly typed and consume public checkpoint helpers
+from the Agent domain instead of private compatibility-facade symbols. Missing
+active Vault or checkpoint storage now fails explicitly; transcript deletion
+and reads retain the same isolated thread identifiers and frozen OpenAPI
+responses.
 
 ## HTTP contracts
 

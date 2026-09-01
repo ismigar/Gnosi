@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 from backend.services.agent_model_strategy import route_key
 
 
@@ -21,8 +21,7 @@ EVALUATION_CASES = (
 
 
 def _path() -> Path:
-    root = Path(load_params(strict_env=False).paths["LOCAL_DATA"])
-    root.mkdir(parents=True, exist_ok=True)
+    root = resolve_data_dir(create=True)
     return root / "agent_model_evaluations.sqlite"
 
 
@@ -91,7 +90,9 @@ def evaluate_with_invoker(
                 json.dumps(failures[:12]), created_at,
             ),
         )
-        evaluation_id = int(cursor.lastrowid)
+        if cursor.lastrowid is None:
+            raise RuntimeError("Model evaluation insert did not return an identifier")
+        evaluation_id = cursor.lastrowid
     return {
         "evaluation_id": evaluation_id,
         "provider": provider,

@@ -1,15 +1,17 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/contacts_routes.py
   - backend/models/contact.py
   - backend/services/contacts_service.py
+  - backend/services/contacts_sync_engine.py
   - backend/services/google_contacts_service.py
   - frontend/src/pages/ContactsPage.jsx
   - frontend/src/components/Contacts
 tests:
   - backend/tests/test_contacts_sync_merge.py
+  - backend/tests/test_google_contacts_service.py
   - backend/tests/test_carddav_vcard_unfold.py
   - backend/tests/test_vcard_escaping.py
   - tests/e2e/tests/e2e/contacts.spec.ts
@@ -23,12 +25,21 @@ Contacts provides a local normalized address book over manual records and
 connected Google, CardDAV, and compatible sources. It supplies search and
 recipient/attendee autocomplete to Mail and Calendar.
 
+The HTTP routes and synchronization provider boundary are strictly typed.
+Integration credentials are validated before a Google or CardDAV provider is
+constructed, and heterogeneous synchronization counters and errors keep an
+explicit result contract without changing the public payload.
+
 ## Data model
 
 A contact has stable local identity, workspace, type, display name, primary
 email and phone, organization fields, notes, structured multi-value emails,
 phones and addresses, provider identifiers, source, photo, tags, timestamps,
 and synchronization state.
+The SQLAlchemy model uses `Mapped[]` declarations for every column and its
+workspace relationship, so service, route and synchronization assignments are
+checked against the persisted schema. Pydantic request/response models retain
+their historical defaults and byte-stable OpenAPI representation.
 
 Provider-specific payloads are normalized before merge. vCard processing
 unfolds continuation lines, decodes values, and escapes separators without

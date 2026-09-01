@@ -1,4 +1,5 @@
 """Canonical academic-work normalization and deterministic deduplication."""
+
 from __future__ import annotations
 
 import hashlib
@@ -105,7 +106,9 @@ def normalize_authors(values: Any) -> list[dict[str, str]]:
             given = clean_text(value.get("given") or value.get("given_name"), 200)
             family = clean_text(value.get("family") or value.get("family_name"), 200)
             literal = clean_text(
-                value.get("literal") or value.get("name") or " ".join(filter(None, (given, family))),
+                value.get("literal")
+                or value.get("name")
+                or " ".join(filter(None, (given, family))),
                 400,
             )
             orcid = clean_text(value.get("orcid") or value.get("ORCID"), 120)
@@ -158,19 +161,34 @@ def empty_work(provider: str, provider_id: Any = "") -> dict[str, Any]:
         "abstract_available": False,
         "type": "other",
         "peer_reviewed": None,
-        "publication": {"container_title": "", "publisher": "", "volume": "", "issue": "", "pages": ""},
+        "publication": {
+            "container_title": "",
+            "publisher": "",
+            "volume": "",
+            "issue": "",
+            "pages": "",
+        },
         "language": "",
-        "identifiers": {"doi": "", "pmid": "", "pmcid": "", "arxiv": "", "isbn13": [], "provider": {}},
+        "identifiers": {
+            "doi": "",
+            "pmid": "",
+            "pmcid": "",
+            "arxiv": "",
+            "isbn13": [],
+            "provider": {},
+        },
         "open_access": {"is_oa": None, "license": "", "best_location": None},
         "locations": [],
-        "sources": [{
-            "provider": provider,
-            "provider_id": provider_id_text,
-            "url": "",
-            "score": None,
-            "citations": None,
-            "retrieved_at": retrieved_at,
-        }],
+        "sources": [
+            {
+                "provider": provider,
+                "provider_id": provider_id_text,
+                "url": "",
+                "score": None,
+                "citations": None,
+                "retrieved_at": retrieved_at,
+            }
+        ],
         "metrics": {"citations": {}},
         "provenance": {},
         "conflicts": {},
@@ -194,14 +212,23 @@ def canonical_work(provider: str, provider_id: Any, **fields: Any) -> dict[str, 
     work["abstract"] = clean_text(work.get("abstract"), 50_000)
     work["abstract_available"] = bool(work["abstract"])
     work["language"] = normalize_language(work.get("language"))
-    identifiers = work.get("identifiers") if isinstance(work.get("identifiers"), dict) else {}
+    identifiers_value = work.get("identifiers")
+    identifiers: dict[str, Any] = identifiers_value if isinstance(identifiers_value, dict) else {}
     identifiers = {
         "doi": normalize_doi(identifiers.get("doi")),
         "pmid": normalize_pmid(identifiers.get("pmid")),
         "pmcid": normalize_pmcid(identifiers.get("pmcid")),
         "arxiv": normalize_arxiv(identifiers.get("arxiv")),
-        "isbn13": list(dict.fromkeys(filter(None, (normalize_isbn13(item) for item in identifiers.get("isbn13", []) or [])))),
-        "provider": identifiers.get("provider") if isinstance(identifiers.get("provider"), dict) else {},
+        "isbn13": list(
+            dict.fromkeys(
+                filter(
+                    None, (normalize_isbn13(item) for item in identifiers.get("isbn13", []) or [])
+                )
+            )
+        ),
+        "provider": identifiers.get("provider")
+        if isinstance(identifiers.get("provider"), dict)
+        else {},
     }
     identifiers["provider"].setdefault(provider, clean_text(provider_id, 500))
     work["identifiers"] = identifiers
@@ -215,7 +242,10 @@ def canonical_work(provider: str, provider_id: Any, **fields: Any) -> dict[str, 
         occurrence["provider_id"] = clean_text(occurrence.get("provider_id") or provider_id, 500)
         occurrence.setdefault("retrieved_at", now_iso())
     work["duplicate_key"] = deterministic_key(work)
-    stable = work["duplicate_key"] or f"source:{provider}:{clean_text(provider_id, 500)}:{work['normalized_title']}"
+    stable = (
+        work["duplicate_key"]
+        or f"source:{provider}:{clean_text(provider_id, 500)}:{work['normalized_title']}"
+    )
     work["id"] = hashlib.sha256(stable.encode("utf-8")).hexdigest()[:24]
     work["provenance"] = _initial_provenance(work, provider)
     return work
@@ -223,7 +253,8 @@ def canonical_work(provider: str, provider_id: Any, **fields: Any) -> dict[str, 
 
 def deterministic_key(work: dict[str, Any]) -> str:
     """Return the strongest deterministic duplicate key available."""
-    identifiers = work.get("identifiers") if isinstance(work.get("identifiers"), dict) else {}
+    identifiers_value = work.get("identifiers")
+    identifiers: dict[str, Any] = identifiers_value if isinstance(identifiers_value, dict) else {}
     if normalize_doi(identifiers.get("doi")):
         return f"doi:{normalize_doi(identifiers['doi'])}"
     if normalize_pmid(identifiers.get("pmid")):
@@ -245,7 +276,19 @@ def deterministic_key(work: dict[str, Any]) -> str:
 
 
 def _initial_provenance(work: dict[str, Any], provider: str) -> dict[str, list[str]]:
-    paths = ("title", "authors", "year", "abstract", "type", "peer_reviewed", "publication", "language", "identifiers", "open_access", "locations")
+    paths = (
+        "title",
+        "authors",
+        "year",
+        "abstract",
+        "type",
+        "peer_reviewed",
+        "publication",
+        "language",
+        "identifiers",
+        "open_access",
+        "locations",
+    )
     return {path: [provider] for path in paths if work.get(path) not in (None, "", [], {})}
 
 
@@ -262,7 +305,9 @@ def _field_score(field: str, value: Any, provider: str) -> tuple[int, int]:
 
 def _source_provider(work: dict[str, Any]) -> str:
     sources = work.get("sources") if isinstance(work.get("sources"), list) else []
-    return clean_text((sources[0] if sources and isinstance(sources[0], dict) else {}).get("provider"), 100)
+    return clean_text(
+        (sources[0] if sources and isinstance(sources[0], dict) else {}).get("provider"), 100
+    )
 
 
 def merge_works(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
@@ -270,7 +315,17 @@ def merge_works(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     merged = deepcopy(left)
     left_provider = _source_provider(left)
     right_provider = _source_provider(right)
-    for field in ("title", "authors", "year", "abstract", "type", "peer_reviewed", "publication", "language", "open_access"):
+    for field in (
+        "title",
+        "authors",
+        "year",
+        "abstract",
+        "type",
+        "peer_reviewed",
+        "publication",
+        "language",
+        "open_access",
+    ):
         old = merged.get(field)
         new = right.get(field)
         if new in (None, "", [], {}):
@@ -281,7 +336,9 @@ def merge_works(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
                 candidate = {"value": value, "provider": provider}
                 if candidate not in variants:
                     variants.append(candidate)
-        if old in (None, "", [], {}) or _field_score(field, new, right_provider) < _field_score(field, old, left_provider):
+        if old in (None, "", [], {}) or _field_score(field, new, right_provider) < _field_score(
+            field, old, left_provider
+        ):
             merged[field] = deepcopy(new)
         providers = merged.setdefault("provenance", {}).setdefault(field, [])
         for provider in right.get("provenance", {}).get(field, [right_provider]):
@@ -289,14 +346,26 @@ def merge_works(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
                 providers.append(provider)
 
     identifiers = merged.setdefault("identifiers", {})
-    incoming_ids = right.get("identifiers") if isinstance(right.get("identifiers"), dict) else {}
+    incoming_value = right.get("identifiers")
+    incoming_ids: dict[str, Any] = incoming_value if isinstance(incoming_value, dict) else {}
     for key in ("doi", "pmid", "pmcid", "arxiv"):
         identifiers[key] = identifiers.get(key) or incoming_ids.get(key) or ""
-    identifiers["isbn13"] = list(dict.fromkeys((identifiers.get("isbn13") or []) + (incoming_ids.get("isbn13") or [])))
-    identifiers["provider"] = {**(identifiers.get("provider") or {}), **(incoming_ids.get("provider") or {})}
+    identifiers["isbn13"] = list(
+        dict.fromkeys((identifiers.get("isbn13") or []) + (incoming_ids.get("isbn13") or []))
+    )
+    identifiers["provider"] = {
+        **(identifiers.get("provider") or {}),
+        **(incoming_ids.get("provider") or {}),
+    }
 
-    merged["locations"] = _unique_dicts((merged.get("locations") or []) + (right.get("locations") or []), ("url", "landing_page_url", "pdf_url"))
-    merged["sources"] = _unique_dicts((merged.get("sources") or []) + (right.get("sources") or []), ("provider", "provider_id", "url"))
+    merged["locations"] = _unique_dicts(
+        (merged.get("locations") or []) + (right.get("locations") or []),
+        ("url", "landing_page_url", "pdf_url"),
+    )
+    merged["sources"] = _unique_dicts(
+        (merged.get("sources") or []) + (right.get("sources") or []),
+        ("provider", "provider_id", "url"),
+    )
     citations = merged.setdefault("metrics", {}).setdefault("citations", {})
     citations.update((right.get("metrics") or {}).get("citations") or {})
     merged["abstract_available"] = bool(merged.get("abstract"))
@@ -337,15 +406,23 @@ def deduplicate_works(works: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
         title = normalize_title(work.get("title"))
         if len(title) < 20:
             continue
-        for other in merged[index + 1:]:
+        for other in merged[index + 1 :]:
             other_title = normalize_title(other.get("title"))
             if len(other_title) < 20:
                 continue
             ratio = SequenceMatcher(None, title, other_title).ratio()
             if ratio < 0.92:
                 continue
-            warning = {"result_id": other.get("id"), "title": other.get("title"), "similarity": round(ratio, 3)}
-            reverse = {"result_id": work.get("id"), "title": work.get("title"), "similarity": round(ratio, 3)}
+            warning = {
+                "result_id": other.get("id"),
+                "title": other.get("title"),
+                "similarity": round(ratio, 3),
+            }
+            reverse = {
+                "result_id": work.get("id"),
+                "title": work.get("title"),
+                "similarity": round(ratio, 3),
+            }
             work.setdefault("possible_duplicates", []).append(warning)
             other.setdefault("possible_duplicates", []).append(reverse)
     return merged

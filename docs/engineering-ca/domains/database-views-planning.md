@@ -1,16 +1,35 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/vault/tables/catalogs
+  - backend/domains/vault/tables/formula_recalculation.py
+  - backend/domains/vault/tables/rules
+  - backend/domains/vault/views/filters.py
+  - backend/domains/vault/views/row_resolution.py
+  - backend/domains/vault/views/snapshot_markup.py
+  - backend/domains/vault/views/snapshot_materialization.py
+  - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/services/option_catalogs.py
+  - backend/services/rule_engine.py
+  - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_database_rules_views_domain_contract.py
+  - backend/tests/test_rule_engine_derived_order.py
+  - backend/tests/test_rollup_percent_checked_parity.py
+  - backend/tests/test_option_catalogs.py
+  - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_view_filter_rename.py
   - backend/tests/test_planning_engine.py
+  - backend/tests/test_planning_agent_tools.py
+  - backend/tests/test_planning_scheduler.py
   - backend/tests/test_project_planning.py
   - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
@@ -40,15 +59,45 @@ Els valors amb tipus de camp declarat han de ser comparats com el seu tipus de c
 
 L' avaluació derivada del camp té una ordre explícita. Les fórmules que depenen dels valors en brut que s' executen abans de que les relacions agregades i dependre de fórmules es resolin sense permetre que els cicles es repeteixin indefinidament. El dorsal i les representacions dels frontals han d' estar d' acord amb la veritat, percentatges, valors buits i identificadors d' opció.
 
+`tables/formula_recalculation.py` serialitza per taula els canvis entre
+registres. Les peticions concurrents es fusionen en una passada pendent; es
+recalculen totes les files visibles i només després d'una escriptura correcta
+s'actualitzen l'índex de pàgines i la memòria cau de respostes.
+
+El comportament canònic de les bases de dades es divideix per responsabilitat.
+`tables/rules/` gestiona fórmules, rollups, consultes i automatitzacions;
+`tables/catalogs/` gestiona opcions, rols semàntics i el catàleg global
+d'estats; i els mòduls petits de `vault/views/` gestionen snapshots, filtres,
+ordenació i joins. `rule_engine.py`, `option_catalogs.py` i `view_snapshot.py`
+continuen sent façanes compatibles i conserven les costures de prova tardanes.
+
 ## Evolucionació d' esquemes i d'acordència
 
 Les revisions d' esquema protegeixen un client per a desar una llista de camp més antiga. Reanomenar un camp actualitzacions de filtres, tipus, fórmules, accions i referències de vista desades. Reanomenant una taula detecta col· lisions de fitxers pla abans de moure contingut.
 
 Els Registres s' escriuen atòmiques i es refrescen després de canviar les metadades per lots. Les instantànies Cacheades són validades quan els registres d' origen o els canvis de revisió de l' esquema.
 
+L'edició massiva de camps, la promoció de Zotero Extras i l'aplicació de
+plantilles comparteixen un servei tipat de mutació de pàgines. Cada registre
+comprova l'ETag opcional, refresca l'índex després d'escriure i informa de salts,
+conflictes i errors sense interrompre la resta de files.
+
+Els estats introduïts per regles d'acció es persisteixen idempotentment des del
+domini de taules. Un error del registre queda al log i no fa fallar l'acció original.
+
+La frontera HTTP de Planning està tipada estrictament i conserva el contracte
+OpenAPI congelat. La resolució del vault actiu falla explícitament si no n'hi ha
+cap de seleccionat, i la materialització de recurrències consumeix de manera
+acotada les ocurrències RRULE, preservant identificadors estables i ETags.
+
 ## Planificació de projecte
 
 Planificació consumeix camps de tasques estructurades i produeix una planificació autoritiva en comptes de duplicar la lògica de planificació a la IU. El motor normalitza les dependències, calendaris, restriccions, recursos, data, progrés i direcció de planificació. Calcula dates, puntuacions crítiques, avisos i assignacions de recursos.
+
+El motor determinista separa la normalització dels fets, el pas endavant per
+tasca, els diagnòstics de restriccions, l'índex de successors, el pas enrere de
+marges, la col·locació ALAP i la serialització. Els fets persistits no es muten i
+els errors recuperables conserven planificacions parcials amb diagnòstics.
 
 El frontal representa els resultats i els controls d' edició. No gestiona independentment les semàntices del camí crític. Les planificacions cronitzades són claus de l' estat d' entrada rellevant i viuen en dades locals, no els registres de codi font de la càmera.
 

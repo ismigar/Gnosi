@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Any, Callable, Iterable, cast
 
 from backend.agent.llm_wiki_tools import LLM_WIKI_TOOL_HANDLERS
 from backend.models.agent_skills import (
@@ -33,9 +33,11 @@ def _status() -> CatalogStatus:
     try:
         from backend.api.vault_routes import _llm_wiki_enabled, _load_plugins_state
 
+        load_state = cast(Callable[[], dict[str, Any]], _load_plugins_state)
+        is_enabled = cast(Callable[[dict[str, Any]], bool], _llm_wiki_enabled)
         return (
             CatalogStatus.AVAILABLE
-            if _llm_wiki_enabled(_load_plugins_state())
+            if is_enabled(load_state())
             else CatalogStatus.SUSPENDED
         )
     except Exception:

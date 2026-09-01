@@ -7,7 +7,13 @@ import threading
 from typing import Any, Iterable
 
 from backend.agent.tools import create_mcp_tool
-from backend.models.agent_skills import ConfirmationPolicy, ToolEffect
+from backend.models.agent_skills import (
+    CatalogOrigin,
+    ConfirmationPolicy,
+    OriginType,
+    ToolDescriptor,
+    ToolEffect,
+)
 from backend.services.agent_skill_catalog import (
     ToolRegistration,
     register_mcp_tool_provider,
@@ -29,7 +35,7 @@ def _provider() -> Iterable[ToolRegistration]:
         client = _client
     if client is None:
         return ()
-    registrations = []
+    registrations: list[ToolRegistration] = []
     for definition in definitions:
         annotations = definition.get("annotations") or {}
         if (
@@ -50,27 +56,30 @@ def _provider() -> Iterable[ToolRegistration]:
             exposed_name=exposed_name,
             server_name=str(definition.get("server") or ""),
         )
+        raw_schema = definition.get("inputSchema")
+        input_schema = (
+            dict(raw_schema)
+            if isinstance(raw_schema, dict)
+            else {"type": "object", "properties": {}}
+        )
         registrations.append(
             ToolRegistration(
-                descriptor={
-                    "id": tool_id,
-                    "_origin_id": server,
-                    "name": str(definition.get("title") or raw_name),
-                    "description": str(definition.get("description") or ""),
-                    "input_schema": definition.get("inputSchema") or {
-                        "type": "object",
-                        "properties": {},
-                    },
-                    "effects": [ToolEffect.READ],
-                    "minimum_role": "viewer",
-                    "confirmation": ConfirmationPolicy.NONE,
-                    "handler_ref": f"mcp:{server}:{raw_name}",
-                    "metadata": {
+                descriptor=ToolDescriptor(
+                    id=tool_id,
+                    origin=CatalogOrigin(type=OriginType.MCP, id=server),
+                    name=str(definition.get("title") or raw_name),
+                    description=str(definition.get("description") or ""),
+                    input_schema=input_schema,
+                    effects=[ToolEffect.READ],
+                    minimum_role="viewer",
+                    confirmation=ConfirmationPolicy.NONE,
+                    handler_ref=f"mcp:{server}:{raw_name}",
+                    metadata={
                         "server": str(definition.get("server") or ""),
                         "mcp_tool_name": raw_name,
                         "annotations": annotations,
                     },
-                },
+                ),
                 handler=handler,
             )
         )

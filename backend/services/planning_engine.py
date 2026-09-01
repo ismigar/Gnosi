@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 DEPENDENCY_TYPES = {"FS", "SS", "FF", "SF"}
@@ -33,41 +33,56 @@ def parse_datetime(value: Any) -> datetime | None:
 def normalize_period(value: Any) -> dict[str, Any]:
     """Returns v3 period data while accepting v1/v2 persisted values."""
     source = value if isinstance(value, dict) else {}
-    legacy = source.get("predecessorIds") or ([] if not source.get("predecessorId") else [source["predecessorId"]])
+    legacy = source.get("predecessorIds") or (
+        [] if not source.get("predecessorId") else [source["predecessorId"]]
+    )
     dependencies = source.get("dependencies")
     if not isinstance(dependencies, list):
         dependencies = [{"predecessorId": item, "type": "FS", "lagMinutes": 0} for item in legacy]
     normalized_dependencies = []
     for dependency in dependencies:
-        if not isinstance(dependency, dict) or not str(dependency.get("predecessorId") or "").strip():
+        if (
+            not isinstance(dependency, dict)
+            or not str(dependency.get("predecessorId") or "").strip()
+        ):
             continue
         kind = str(dependency.get("type") or "FS").upper()
-        normalized_dependencies.append({
-            "predecessorId": str(dependency["predecessorId"]),
-            "type": kind if kind in DEPENDENCY_TYPES else "FS",
-            "lagMinutes": float(dependency.get("lagMinutes") or 0),
-        })
+        normalized_dependencies.append(
+            {
+                "predecessorId": str(dependency["predecessorId"]),
+                "type": kind if kind in DEPENDENCY_TYPES else "FS",
+                "lagMinutes": float(dependency.get("lagMinutes") or 0),
+            }
+        )
     mode = str(source.get("mode") or "automatic").lower()
     return {
         "version": 3,
-        "start": source.get("start"), "end": source.get("end"),
+        "start": source.get("start"),
+        "end": source.get("end"),
         "durationDays": max(0.0, float(source.get("durationDays") or 0)),
-        "durationValue": max(0.0, float(source["durationValue"])) if source.get("durationValue") is not None else None,
-        "durationUnit": str(source.get("durationUnit") or "") if str(source.get("durationUnit") or "") in {"hours", "days", "years"} else None,
+        "durationValue": max(0.0, float(source["durationValue"]))
+        if source.get("durationValue") is not None
+        else None,
+        "durationUnit": str(source.get("durationUnit") or "")
+        if str(source.get("durationUnit") or "") in {"hours", "days", "years"}
+        else None,
         "startMode": "manual" if source.get("startMode") == "manual" else "automatic",
         "endMode": "manual" if source.get("endMode") == "manual" else "automatic",
         "dependencies": normalized_dependencies,
         "mode": "manual" if mode == "manual" else "automatic",
         "constraintType": str(source.get("constraintType") or "ASAP").upper(),
-        "constraintDate": source.get("constraintDate"), "deadline": source.get("deadline"),
+        "constraintDate": source.get("constraintDate"),
+        "deadline": source.get("deadline"),
         "percentComplete": min(100.0, max(0.0, float(source.get("percentComplete") or 0))),
-        "actualStart": source.get("actualStart"), "actualEnd": source.get("actualEnd"),
+        "actualStart": source.get("actualStart"),
+        "actualEnd": source.get("actualEnd"),
     }
 
 
 @dataclass(frozen=True)
 class WorkingCalendar:
     """Minimal work calendar used by the calculation engine."""
+
     weekdays: frozenset[int]
     holidays: frozenset[str]
     hours_per_day: float
@@ -76,10 +91,16 @@ class WorkingCalendar:
     def from_dict(cls, value: dict[str, Any] | None) -> "WorkingCalendar":
         value = value or {}
         days = value.get("working_weekdays") or [1, 2, 3, 4, 5]
-        return cls(frozenset((int(day) - 1) % 7 for day in days), frozenset(value.get("holidays") or []), float(value.get("hours_per_day") or 8))
+        return cls(
+            frozenset((int(day) - 1) % 7 for day in days),
+            frozenset(value.get("holidays") or []),
+            float(value.get("hours_per_day") or 8),
+        )
 
     def is_working(self, instant: datetime) -> bool:
-        return instant.weekday() in self.weekdays and instant.date().isoformat() not in self.holidays
+        return (
+            instant.weekday() in self.weekdays and instant.date().isoformat() not in self.holidays
+        )
 
     def add_working_minutes(self, instant: datetime, minutes: float) -> datetime:
         """Moves in working-day units while preserving the local clock.
@@ -111,7 +132,9 @@ class WorkingCalendar:
         return current
 
 
-def _add_period_duration(calendar: WorkingCalendar, instant: datetime, period: dict[str, Any], direction: int = 1) -> datetime:
+def _add_period_duration(
+    calendar: WorkingCalendar, instant: datetime, period: dict[str, Any], direction: int = 1
+) -> datetime:
     """Adds a configured period duration while retaining legacy day support."""
     raw_value = period.get("durationValue")
     value = float(raw_value) if raw_value is not None else float(period.get("durationDays") or 0)
@@ -156,7 +179,13 @@ def _topological_order(tasks: dict[str, dict[str, Any]]) -> tuple[list[str], lis
     return order, [cycle_nodes] if cycle_nodes else []
 
 
-def _apply_dependency(candidate: datetime, predecessor: dict[str, Any], dependency: dict[str, Any], period: dict[str, Any], calendar: WorkingCalendar) -> datetime:
+def _apply_dependency(
+    candidate: datetime,
+    predecessor: dict[str, Any],
+    dependency: dict[str, Any],
+    period: dict[str, Any],
+    calendar: WorkingCalendar,
+) -> datetime:
     lag = float(dependency.get("lagMinutes") or 0)
     kind = dependency["type"]
     pred_start, pred_end = predecessor["start"], predecessor["end"]
@@ -165,11 +194,18 @@ def _apply_dependency(candidate: datetime, predecessor: dict[str, Any], dependen
     if kind == "SS":
         return calendar.add_working_minutes(pred_start, lag)
     if kind == "FF":
-        return _add_period_duration(calendar, calendar.add_working_minutes(pred_end, lag), period, -1)
+        return _add_period_duration(
+            calendar, calendar.add_working_minutes(pred_end, lag), period, -1
+        )
     return _add_period_duration(calendar, calendar.add_working_minutes(pred_start, lag), period, -1)
 
 
-def _backward_bound(successor: dict[str, Any], dependency: dict[str, Any], predecessor_duration: float, calendar: WorkingCalendar) -> tuple[str, datetime]:
+def _backward_bound(
+    successor: dict[str, Any],
+    dependency: dict[str, Any],
+    predecessor_duration: float,
+    calendar: WorkingCalendar,
+) -> tuple[str, datetime]:
     """Returns the predecessor boundary constrained by one successor link."""
     lag = float(dependency.get("lagMinutes") or 0)
     kind = dependency["type"]
@@ -182,65 +218,149 @@ def _backward_bound(successor: dict[str, Any], dependency: dict[str, Any], prede
     return "start", calendar.add_working_minutes(successor["lateEnd"], -lag)
 
 
-def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, Any] | None = None, *, status_date: str | None = None, external_facts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Calculates dates, diagnostics, slack and critical tasks for a task graph."""
-    calendar = WorkingCalendar.from_dict(calendar_data)
-    tasks: dict[str, dict[str, Any]] = {}
-    diagnostics: list[dict[str, Any]] = []
+def _normalized_tasks(
+    task_facts: list[dict[str, Any]],
+    external_facts: list[dict[str, Any]] | None,
+) -> tuple[dict[str, dict[str, Any]], set[str]]:
+    """Normalize local and external facts while retaining local visibility."""
     requested_ids = {str(item.get("id") or "") for item in task_facts}
+    tasks: dict[str, dict[str, Any]] = {}
     for item in [*(external_facts or []), *task_facts]:
         task_id = str(item.get("id") or "")
-        if not task_id:
-            continue
-        tasks[task_id] = {**item, "period": normalize_period(item.get("period"))}
-    order, cycles = _topological_order(tasks)
-    for nodes in cycles:
-        diagnostics.append({"code": "dependency_cycle", "severity": "error", "taskIds": nodes, "message": "Dependency cycle prevents scheduling"})
-    calculated: dict[str, dict[str, Any]] = {}
-    epoch = parse_datetime(status_date) or datetime.now().replace(second=0, microsecond=0)
-    for task_id in order:
-        task = tasks[task_id]
-        period = task["period"]
-        duration = period["durationDays"]
-        actual_start = parse_datetime(period["actualStart"])
-        actual_end = parse_datetime(period["actualEnd"])
-        start = actual_start or (parse_datetime(period["start"]) if period["startMode"] == "manual" else None)
-        trace: list[str] = []
-        candidate = epoch
-        for dependency in period["dependencies"]:
-            predecessor = calculated.get(dependency["predecessorId"])
-            if predecessor:
-                candidate = max(candidate, _apply_dependency(candidate, predecessor, dependency, period, calendar))
-                trace.append(f"{dependency['type']} {dependency['predecessorId']}")
-            elif dependency["predecessorId"] not in tasks:
-                diagnostics.append({"code": "external_dependency", "severity": "warning", "taskId": task_id, "message": f"External predecessor {dependency['predecessorId']} is unavailable"})
-        constraint = period["constraintType"]
-        constraint_date = parse_datetime(period["constraintDate"])
-        if constraint in {"SNET", "MSO"} and constraint_date:
-            candidate = max(candidate, constraint_date)
-        if start is None:
-            start = candidate
-        end = actual_end or (parse_datetime(period["end"]) if period["endMode"] == "manual" else None)
-        if end is None:
-            end = _add_period_duration(calendar, start, period)
-        if constraint == "FNET" and constraint_date and end < constraint_date:
-            end = constraint_date
-            start = _add_period_duration(calendar, end, period, -1)
-        if constraint == "MFO" and constraint_date:
-            end = constraint_date
-            start = _add_period_duration(calendar, end, period, -1)
-        if constraint in {"SNLT", "FNLT"} and constraint_date and ((constraint == "SNLT" and start > constraint_date) or (constraint == "FNLT" and end > constraint_date)):
-            diagnostics.append({"code": "constraint_violation", "severity": "warning", "taskId": task_id, "message": f"{constraint} cannot be met"})
-        deadline = parse_datetime(period["deadline"])
-        if deadline and end > deadline:
-            diagnostics.append({"code": "deadline_missed", "severity": "warning", "taskId": task_id, "message": "Deadline is missed"})
-        calculated[task_id] = {"id": task_id, "title": task.get("title") or task_id, "start": start, "end": end, "durationDays": duration, "percentComplete": period["percentComplete"], "actualStart": period["actualStart"], "actualEnd": period["actualEnd"], "trace": trace, "sourceEtag": task.get("etag"), "period": period}
-    finish = max((item["end"] for item in calculated.values()), default=epoch)
+        if task_id:
+            tasks[task_id] = {**item, "period": normalize_period(item.get("period"))}
+    return tasks, requested_ids
+
+
+def _schedule_task(
+    task_id: str,
+    task: dict[str, Any],
+    tasks: dict[str, dict[str, Any]],
+    calculated: dict[str, dict[str, Any]],
+    calendar: WorkingCalendar,
+    epoch: datetime,
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Run the forward pass for one topologically ordered task."""
+    period = task["period"]
+    actual_start = parse_datetime(period["actualStart"])
+    actual_end = parse_datetime(period["actualEnd"])
+    start = actual_start or (
+        parse_datetime(period["start"]) if period["startMode"] == "manual" else None
+    )
+    trace: list[str] = []
+    candidate = epoch
+    for dependency in period["dependencies"]:
+        predecessor = calculated.get(dependency["predecessorId"])
+        if predecessor:
+            candidate = max(
+                candidate,
+                _apply_dependency(candidate, predecessor, dependency, period, calendar),
+            )
+            trace.append(f"{dependency['type']} {dependency['predecessorId']}")
+        elif dependency["predecessorId"] not in tasks:
+            diagnostics.append(
+                {
+                    "code": "external_dependency",
+                    "severity": "warning",
+                    "taskId": task_id,
+                    "message": f"External predecessor {dependency['predecessorId']} is unavailable",
+                }
+            )
+    constraint = period["constraintType"]
+    constraint_date = parse_datetime(period["constraintDate"])
+    if constraint in {"SNET", "MSO"} and constraint_date:
+        candidate = max(candidate, constraint_date)
+    if start is None:
+        start = candidate
+    end = actual_end or (parse_datetime(period["end"]) if period["endMode"] == "manual" else None)
+    if end is None:
+        end = _add_period_duration(calendar, start, period)
+    if constraint == "FNET" and constraint_date and end < constraint_date:
+        end = constraint_date
+        start = _add_period_duration(calendar, end, period, -1)
+    if constraint == "MFO" and constraint_date:
+        end = constraint_date
+        start = _add_period_duration(calendar, end, period, -1)
+    _append_boundary_diagnostics(
+        diagnostics,
+        task_id,
+        period,
+        constraint,
+        constraint_date,
+        start,
+        end,
+    )
+    return {
+        "id": task_id,
+        "title": task.get("title") or task_id,
+        "start": start,
+        "end": end,
+        "durationDays": period["durationDays"],
+        "percentComplete": period["percentComplete"],
+        "actualStart": period["actualStart"],
+        "actualEnd": period["actualEnd"],
+        "trace": trace,
+        "sourceEtag": task.get("etag"),
+        "period": period,
+    }
+
+
+def _append_boundary_diagnostics(
+    diagnostics: list[dict[str, Any]],
+    task_id: str,
+    period: dict[str, Any],
+    constraint: str,
+    constraint_date: datetime | None,
+    start: datetime,
+    end: datetime,
+) -> None:
+    """Record constraint and deadline findings without mutating schedule facts."""
+    violates_start = constraint == "SNLT" and bool(constraint_date and start > constraint_date)
+    violates_finish = constraint == "FNLT" and bool(constraint_date and end > constraint_date)
+    if violates_start or violates_finish:
+        diagnostics.append(
+            {
+                "code": "constraint_violation",
+                "severity": "warning",
+                "taskId": task_id,
+                "message": f"{constraint} cannot be met",
+            }
+        )
+    deadline = parse_datetime(period["deadline"])
+    if deadline and end > deadline:
+        diagnostics.append(
+            {
+                "code": "deadline_missed",
+                "severity": "warning",
+                "taskId": task_id,
+                "message": "Deadline is missed",
+            }
+        )
+
+
+def _successor_links(
+    tasks: dict[str, dict[str, Any]],
+    calculated: dict[str, dict[str, Any]],
+) -> dict[str, list[tuple[str, dict[str, Any]]]]:
+    """Index calculated successor dependencies by predecessor id."""
     successors: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
     for successor_id, task in tasks.items():
         for dependency in task["period"]["dependencies"]:
             if dependency["predecessorId"] in calculated:
                 successors[dependency["predecessorId"]].append((successor_id, dependency))
+    return successors
+
+
+def _apply_backward_pass(
+    order: list[str],
+    calculated: dict[str, dict[str, Any]],
+    tasks: dict[str, dict[str, Any]],
+    calendar: WorkingCalendar,
+    finish: datetime,
+) -> None:
+    """Calculate late boundaries, slack, criticality and ALAP placement."""
+    successors = _successor_links(tasks, calculated)
     for task_id in reversed(order):
         task = calculated[task_id]
         late_start = _add_period_duration(calendar, finish, task["period"], -1)
@@ -258,12 +378,78 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
         task["lateEnd"] = late_end
         task["freeSlackMinutes"] = round((late_start - task["start"]).total_seconds() / 60, 2)
         task["critical"] = task["freeSlackMinutes"] <= 0
-        if task["period"]["constraintType"] == "ALAP" and task["period"]["startMode"] == "automatic" and not task["actualStart"]:
-            task["start"] = late_start
-            if task["period"]["endMode"] == "automatic" and not task["actualEnd"]:
-                task["end"] = late_end
+        _apply_alap_boundaries(task, late_start, late_end)
+
+
+def _apply_alap_boundaries(task: dict[str, Any], late_start: datetime, late_end: datetime) -> None:
+    """Apply late boundaries only to unfrozen automatic ALAP tasks."""
+    period = task["period"]
+    if (
+        period["constraintType"] == "ALAP"
+        and period["startMode"] == "automatic"
+        and not task["actualStart"]
+    ):
+        task["start"] = late_start
+        if period["endMode"] == "automatic" and not task["actualEnd"]:
+            task["end"] = late_end
+
+
+def _serialized_task(task: dict[str, Any]) -> dict[str, Any]:
+    """Convert internal datetime fields to the existing public payload."""
+    return {
+        **task,
+        "start": task["start"].isoformat(timespec="minutes"),
+        "end": task["end"].isoformat(timespec="minutes"),
+        "lateStart": task["lateStart"].isoformat(timespec="minutes"),
+        "lateEnd": task["lateEnd"].isoformat(timespec="minutes"),
+        "period": None,
+    }
+
+
+def build_schedule(
+    task_facts: list[dict[str, Any]],
+    calendar_data: dict[str, Any] | None = None,
+    *,
+    status_date: str | None = None,
+    external_facts: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Calculates dates, diagnostics, slack and critical tasks for a task graph."""
+    calendar = WorkingCalendar.from_dict(calendar_data)
+    diagnostics: list[dict[str, Any]] = []
+    tasks, requested_ids = _normalized_tasks(task_facts, external_facts)
+    order, cycles = _topological_order(tasks)
+    for nodes in cycles:
+        diagnostics.append(
+            {
+                "code": "dependency_cycle",
+                "severity": "error",
+                "taskIds": nodes,
+                "message": "Dependency cycle prevents scheduling",
+            }
+        )
+    calculated: dict[str, dict[str, Any]] = {}
+    epoch = parse_datetime(status_date) or datetime.now().replace(second=0, microsecond=0)
+    for task_id in order:
+        calculated[task_id] = _schedule_task(
+            task_id,
+            tasks[task_id],
+            tasks,
+            calculated,
+            calendar,
+            epoch,
+            diagnostics,
+        )
+    finish = max((item["end"] for item in calculated.values()), default=epoch)
+    _apply_backward_pass(order, calculated, tasks, calendar, finish)
     visible_tasks = [item for item in calculated.values() if item["id"] in requested_ids]
-    return {"scheduleRevision": None, "generatedAt": datetime.now().isoformat(timespec="seconds"), "tasks": [{**item, "start": item["start"].isoformat(timespec="minutes"), "end": item["end"].isoformat(timespec="minutes"), "lateStart": item["lateStart"].isoformat(timespec="minutes"), "lateEnd": item["lateEnd"].isoformat(timespec="minutes"), "period": None} for item in visible_tasks], "diagnostics": diagnostics, "criticalTaskIds": [item["id"] for item in visible_tasks if item["critical"]], "cycles": cycles}
+    return {
+        "scheduleRevision": None,
+        "generatedAt": datetime.now().isoformat(timespec="seconds"),
+        "tasks": [_serialized_task(item) for item in visible_tasks],
+        "diagnostics": diagnostics,
+        "criticalTaskIds": [item["id"] for item in visible_tasks if item["critical"]],
+        "cycles": cycles,
+    }
 
 
 class ScheduleIndex:
@@ -278,11 +464,16 @@ class ScheduleIndex:
 
     def load(self) -> dict[str, Any] | None:
         try:
-            return json.loads(self.path.read_text(encoding="utf-8"))
+            return cast(
+                dict[str, Any],
+                json.loads(self.path.read_text(encoding="utf-8")),
+            )
         except (OSError, json.JSONDecodeError):
             return None
 
-    def save(self, project_id: str, schedule: dict[str, Any], planning_revision: int) -> dict[str, Any]:
+    def save(
+        self, project_id: str, schedule: dict[str, Any], planning_revision: int
+    ) -> dict[str, Any]:
         current = self.load() or {"projects": {}}
         projects = current.setdefault("projects", {})
         previous = projects.get(project_id) or {}

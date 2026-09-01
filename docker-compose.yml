@@ -36,9 +36,9 @@ services:
       # (La Biblioteca viu DINS de cada vault — vault-first pur, 2026-07-03 —
       # així que va pel mount rw del vault/vaults i no cal cap mount específic.)
       # $HOME is read-only: the backend reads project files (analytics scans
-      # docs/dev_memory/directives, system /browse navigates user directories,
-      # scratch_sync imports modules) but does not need to write outside the
-      # vault, /app/backend and the named gnosi_local_data volume.
+      # docs/dev_memory/directives and system /browse navigates user
+      # directories) but does not need to write outside the vault, /app/backend
+      # and the named gnosi_local_data volume.
       - ${HOME}:${HOME}:ro
       # Only the agent mailbox archive needs write access (system_maintenance
       # task purges old messages). Scoped explicitly so a process inside the

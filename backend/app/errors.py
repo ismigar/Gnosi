@@ -8,12 +8,7 @@ import traceback
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-try:
-    from pipeline.skills.notification_service.scripts.notification_service import (
-        notify as _notify_fn,
-    )
-except ImportError:
-    _notify_fn = None
+from backend.platform.notifications import notify as _notify_fn
 
 
 log = logging.getLogger(__name__)
@@ -26,16 +21,15 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     trace = traceback.format_exc()
     log.error("Unhandled exception on %s: %s\n%s", route, error_detail, trace)
 
-    if _notify_fn:
-        try:
-            short_trace = trace.split("\n")[-3] if trace else error_detail
-            _notify_fn(
-                f"Application error: {route}",
-                f"{error_detail}\n\n{short_trace}",
-                level="ERROR",
-            )
-        except Exception:  # noqa: BLE001
-            pass
+    try:
+        short_trace = trace.split("\n")[-3] if trace else error_detail
+        _notify_fn(
+            f"Application error: {route}",
+            f"{error_detail}\n\n{short_trace}",
+            level="ERROR",
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
     error_id = hex(abs(hash((route, error_detail))) & 0xFFFFFFFF)[2:]
     log.error("error_id=%s", error_id)

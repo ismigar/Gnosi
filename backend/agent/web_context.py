@@ -19,7 +19,6 @@ import ipaddress
 import logging
 import socket
 import time
-from typing import Dict, Optional, Tuple
 from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ USER_AGENT = (
 )
 
 # url -> (fetched_at, text)
-_cache: Dict[str, Tuple[float, str]] = {}
+_cache: dict[str, tuple[float, str]] = {}
 
 
 def wrap_untrusted(source_label: str, body: str) -> str:
@@ -47,7 +46,7 @@ def wrap_untrusted(source_label: str, body: str) -> str:
     )
 
 
-def is_public_http_url(url: str) -> Tuple[bool, str]:
+def is_public_http_url(url: str) -> tuple[bool, str]:
     """True when `url` is http(s) and resolves outside the internal network.
 
     Returns (ok, reason). Blocking is per RESOLVED address: a public hostname
@@ -113,6 +112,8 @@ def fetch_url_text(url: str, *, max_chars: int = MAX_URL_CHARS) -> str:
         log.debug("web_context: fetch failed for %s: %s", url, exc)
         return f"Could not download {url}: {exc}"
 
+    if resp is None:
+        return f"Could not download {url}: no response was returned."
     if resp.status_code != 200 or not resp.text:
         return f"{url} responded with status code {resp.status_code}."
 

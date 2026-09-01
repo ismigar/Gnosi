@@ -41,11 +41,17 @@
       "backend/api/vault_views_routes.py",
       "backend/api/planning_routes.py",
       "backend/services/planning*.py",
+      "backend/services/option_catalogs.py",
+      "backend/services/rule_engine.py",
+      "backend/services/view_snapshot.py",
+      "backend/domains/vault/tables/catalogs/**/*.py",
+      "backend/domains/vault/tables/rules/**/*.py",
+      "backend/domains/vault/views/**/*.py",
       "frontend/src/components/Vault/*Table*",
       "frontend/src/components/Vault/*View*",
       "frontend/src/pages/ProjectPlanningPage.jsx"
     ],
-    "test_globs": ["backend/tests/test_*view*.py", "backend/tests/test_planning*.py", "tests/e2e/tests/e2e/dashboards.spec.ts"],
+    "test_globs": ["backend/tests/test_*view*.py", "backend/tests/test_planning*.py", "backend/tests/test_*rule*.py", "backend/tests/test_*rollup*.py", "backend/tests/test_*option_catalogs.py", "backend/tests/test_snapshot_sort*.py", "backend/tests/test_database_rules_views_domain_contract.py", "tests/e2e/tests/e2e/dashboards.spec.ts"],
     "directives": [
       "automations_and_formulas.md",
       "project_planning_authoritative_engine.md",
@@ -76,6 +82,8 @@
       "backend/models/pdf_annotation.py",
       "backend/services/**/*citation*.py",
       "backend/services/**/*reference*.py",
+      "backend/services/lookup_normalizers.py",
+      "backend/domains/vault/citations/normalizers/**/*.py",
       "backend/api/literature_routes.py",
       "backend/services/**/*literature*.py",
       "backend/services/academic_connectors.py",
@@ -84,7 +92,7 @@
       "frontend/src/components/ResourcesPluginConfig.jsx",
       "frontend/src/components/Vault/ZoteroReaderTab.jsx"
     ],
-    "test_globs": ["backend/tests/test_*citation*.py", "backend/tests/test_*reader*.py", "backend/tests/test_*literature*.py", "backend/tests/test_academic_connectors.py", "frontend/src/**/*Literature*.test.*", "frontend/src/**/*ResourcesPluginConfig*.test.*", "tests/e2e/tests/e2e/*citation*.spec.ts"],
+    "test_globs": ["backend/tests/test_*citation*.py", "backend/tests/test_*reader*.py", "backend/tests/test_*literature*.py", "backend/tests/test_academic_connectors.py", "backend/tests/test_lookup_normalizers.py", "backend/tests/test_html_meta_attr_order.py", "backend/tests/test_database_rules_views_domain_contract.py", "frontend/src/**/*Literature*.test.*", "frontend/src/**/*ResourcesPluginConfig*.test.*", "tests/e2e/tests/e2e/*citation*.spec.ts"],
     "directives": ["academic_literature_search_and_review.md", "gnosi_native_reference_manager.md", "pdf_quote_capture.md", "zotero_reader_translation_contribution.md"]
   },
   {
@@ -166,14 +174,18 @@
     "guide": "docs/engineering/domains/integrations-plugins.md",
     "source_globs": [
       "backend/api/integrations_routes.py",
+      "backend/domains/plugins/*.py",
+      "backend/api/notion_routes.py",
+      "backend/domains/notion/**/*.py",
       "backend/services/integration*.py",
+      "backend/services/notion_*.py",
       "backend/services/plugin*.py",
       "backend/services/academic_connectors.py",
       "extensions/**/*",
       "extensions/examples/**/*",
       "extensions/mcp/**/*"
     ],
-    "test_globs": ["backend/tests/test_integration*.py", "backend/tests/test_plugin*.py", "extensions/**/tests/**/*"],
+    "test_globs": ["backend/tests/test_integration*.py", "backend/tests/test_notion*.py", "backend/tests/test_plugin*.py", "extensions/**/tests/**/*"],
     "directives": ["academic_literature_search_and_review.md", "plugin_system.md", "integrations_persistence.md", "skill_vs_tool_architecture.md"]
   },
   {

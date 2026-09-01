@@ -93,7 +93,10 @@ def configured_shared_env_path(environ: dict[str, str] | None = None) -> Path | 
     return Path(os.path.abspath(path))
 
 
-def remove_env_keys(env_keys, env_paths=None) -> list[str]:
+def remove_env_keys(
+    env_keys: list[str] | tuple[str, ...] | set[str] | None,
+    env_paths: list[Path] | tuple[Path, ...] | None = None,
+) -> list[str]:
     """Remove variables from Gnosi's local env and current process only.
 
     The shared environment file is an operator-owned, read-only input. Even an
@@ -182,11 +185,7 @@ def _clear_values_loaded_by_gnosi() -> None:
 def _read_env_file(path: Path | None) -> dict[str, str]:
     if path is None or not path.is_file():
         return {}
-    return {
-        str(key): str(value)
-        for key, value in dotenv_values(path).items()
-        if value is not None
-    }
+    return {str(key): str(value) for key, value in dotenv_values(path).items() if value is not None}
 
 
 def _load_keychain() -> None:
@@ -238,7 +237,7 @@ def load_env(force_reload: bool = False) -> None:
     _loaded = True
 
 
-def get_env(name: str, default: Any = None, required: bool = False):
+def get_env(name: str, default: Any = None, required: bool = False) -> Any:
     load_env()
     value = os.environ.get(name)
     if not value:

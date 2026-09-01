@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/social_routes.py
   - backend/services/social_clients.py
@@ -8,6 +8,7 @@ source_paths:
   - frontend/src/pages/MediaCenter.jsx
   - pipeline/skills/publisher
 tests:
+  - backend/tests/test_social_clients_contract.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_connection_scheduler_alignment.py
 ---
@@ -23,6 +24,11 @@ Ce domaine prépare, programme, publie et observe le contenu sur les réseaux so
 Les clients de service isolent Mastodon, Bluesky, Telegram et d'autres sémantiques de réseau configurées : authentification, limites de texte, téléchargement de médias, identifiants de poste, threads, normalisation des réponses et notification d'erreurs.
 
 L'API expose les réseaux configurés, les flux, les actions de publication et les paramètres connexes. Les onglets d'interface utilisateur sont claqués par des identifiants de réseau stables tandis que les noms d'affichage et les étiquettes utilisent des chaînes localisées.
+
+Le JSON des fournisseurs est validé et normalisé à la frontière de
+l'adaptateur. Les routes HTTP sont strictement typées tout en conservant le
+contrat OpenAPI existant ; le JSON des messages stockés est décodé par des
+helpers typés avant d'utiliser aperçus, URL ou publications planifiées.
 
 ## Écoulement des publications
 

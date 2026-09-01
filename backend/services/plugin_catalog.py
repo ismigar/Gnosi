@@ -10,6 +10,7 @@ with one-click installation. Two input sources:
 The catalog is read from `extensions/examples/catalog.json`. Keeping it as
 data (not code) allows it to be extended without touching the backend.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -72,29 +73,29 @@ def fetch_remote_index(
     Each entry may carry `id`, `name`, `description`, `url` (zip), `sha256` and
     `signature`. `source='url'` is forced. Errors → [] (the remote index must
     never take down the local gallery).
-    
+
     """
     try:
         raw = fetch_public_bytes(url, max_bytes=_MAX_INDEX_BYTES, timeout=15).body
         if require_signature:
-            signature = fetch_public_bytes(
-                _index_signature_url(url), max_bytes=4_096, timeout=15
-            ).body.decode("ascii").strip()
-            if plugin_signing.verify_against_trust(
-                config_dir or Path(), signature, raw
-            ) is None:
+            signature = (
+                fetch_public_bytes(_index_signature_url(url), max_bytes=4_096, timeout=15)
+                .body.decode("ascii")
+                .strip()
+            )
+            if plugin_signing.verify_against_trust(config_dir or Path(), signature, raw) is None:
                 raise ValueError("remote plugin index signature is invalid or untrusted")
         decoded = json.loads(raw.decode("utf-8"))
         data = decoded.get("plugins", []) if isinstance(decoded, dict) else decoded
-    except (MarketplaceHTTPError, UnicodeDecodeError, ValueError) as e:
-        logger.warning("Could not load the remote index: %s", e)
+    except (MarketplaceHTTPError, UnicodeDecodeError, ValueError) as exc:
+        logger.warning("Could not load the remote index: %s", exc)
         return []
     if not isinstance(data, list):
         return []
     out = []
-    for e in data:
-        if isinstance(e, dict) and e.get("id") and e.get("url"):
-            out.append({**e, "source": "url"})
+    for entry in data:
+        if isinstance(entry, dict) and entry.get("id") and entry.get("url"):
+            out.append({**entry, "source": "url"})
     return out
 
 
@@ -108,7 +109,7 @@ def load_catalog(
 
     If `registry_url` is given, the remote entries are merged in; the local
     (bundled) ones take priority if there's an id collision.
-    
+
     """
     catalog = _load_bundled_catalog()
     if registry_url:
@@ -166,7 +167,7 @@ def install_from_url(
         against some key in the trust store. If given but it does NOT verify →
         it's rejected (unknown publisher or altered binary). If NOT given →
         it's installed but the returned manifest is marked with `signedBy=None`.
-    
+
     """
     if require_integrity and (not expected_sha256 or not signature):
         raise ps.PluginError("remote catalog plugins require a checksum and trusted signature")
@@ -190,11 +191,15 @@ def install_from_url(
             )
     manifest = ps.install_from_zip(config_dir, data, overwrite=True)
     manifest["signedBy"] = signed_by
-    ps.write_provenance(config_dir, manifest["id"], {
-        "sourceUrl": url,
-        "sha256": actual,
-        "signedBy": signed_by,
-    })
+    ps.write_provenance(
+        config_dir,
+        manifest["id"],
+        {
+            "sourceUrl": url,
+            "sha256": actual,
+            "signedBy": signed_by,
+        },
+    )
     return manifest
 
 
@@ -209,13 +214,20 @@ def install_catalog_entry(
 
     For `url` entries, if the catalog declares `sha256` and/or `signature`,
     they are verified before installing.
-    
+
     """
-    entry = next((e for e in load_catalog(
-        registry_url,
-        config_dir,
-        require_index_signature=require_index_signature,
-    ) if e.get("id") == entry_id), None)
+    entry = next(
+        (
+            e
+            for e in load_catalog(
+                registry_url,
+                config_dir,
+                require_index_signature=require_index_signature,
+            )
+            if e.get("id") == entry_id
+        ),
+        None,
+    )
     if not entry:
         raise ps.PluginError(f"unknown catalog entry: {entry_id!r}")
     source = entry.get("source")

@@ -1,16 +1,19 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/mail_routes.py
   - backend/models/mail.py
   - backend/services/hybrid_mail_service.py
+  - backend/services/google_mail_service.py
+  - backend/services/microsoft_mail_service.py
   - backend/services/mail_ingester.py
   - frontend/src/pages/MailPage.jsx
   - frontend/src/components/Mail
 tests:
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
+  - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
@@ -25,6 +28,11 @@ El correo integra cuentas IMAP/SMTP, indexación de mensajes locales, carpetas, 
 ## Sincronización
 
 Las integraciones de cuentas describen el protocolo y las referencias OAuth/credencial. Una sincronización completa o incremental lee mensajes del proveedor, normaliza identificadores y contenido MIME, y escribe filas de índices locales. Los trabajadores de IMAP IDLE mantienen una conexión por cuenta elegible y activan actualización incremental cuando el servidor anuncia cambios.
+
+Los adaptadores de Google y Microsoft exponen los mismos límites tipados de
+mensajes, adjuntos, borradores, etiquetas y envío. Los payloads dinámicos de los
+SDK se validan dentro de cada adaptador; las únicas excepciones locales de
+tipado son las llamadas exactas de terceros sin stubs, nunca la API de Gnosi.
 
 La ingestión de lotes utiliza savepoints para que un mensaje mal formado no pueda revolver mensajes anteriores. La identidad de mensaje e hilo debe permanecer estable en las sincronizaciones repetidas. Los nombres de carpetas son valores de proveedores; la interfaz de usuario traduce carpetas semánticas conocidas sin cambiar los valores de comparación persistentes.
 
@@ -41,6 +49,11 @@ flowchart LR
 ```
 
 HTML se desinfecta antes de renderizar. Las imágenes CID en línea se resuelven contra la parte MIME correcta y se conservan cuando el contenido citado se incluye en las respuestas. Las imágenes remotas y los adjuntos siguen siendo recursos explícitos en lugar de acceso HTML arbitrario a rutas locales.
+
+La frontera de imágenes inline utiliza descriptores MIME tipados y una raíz
+`Message` común para los árboles de texto, related y mixed. Solo acepta payloads
+decodificados en bytes, normaliza tipos de contenido opcionales y conserva las
+URL de assets si no hay Vault activo o el archivo no está materializado.
 
 ## Preparar y enviar
 

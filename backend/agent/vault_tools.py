@@ -18,7 +18,11 @@ import re
 import threading
 import time
 import unicodedata
-from typing import Any, Dict, List, Optional
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, Dict, List, Optional, cast
+
+from langchain_core.tools import BaseTool, StructuredTool, tool
 
 from backend.utils.safe_io import sanitize_rel_folder, sanitize_vault_title
 
@@ -42,17 +46,17 @@ def clear_wiki_search_cache(brain_id: str | None = None) -> None:
                 _WIKI_CACHE.pop(key, None)
 
 
-def _read_text_prefix(path, max_chars: int) -> tuple[str, bool]:
+def _read_text_prefix(path: Path, max_chars: int) -> tuple[str, bool]:
     """Read at most one character beyond a server-owned text ceiling."""
     with path.open("r", encoding="utf-8", errors="replace") as handle:
         text = handle.read(max_chars + 1)
     return text[:max_chars], len(text) > max_chars
 
-try:
-    from langchain_core.tools import tool
-except Exception:  # allows importing the pure helpers without langchain (for tests)
-    def tool(fn=None, **_kw):
-        return fn if fn else (lambda f: f)
+def _tool_function(value: BaseTool) -> Callable[..., str]:
+    """Expose the callable wrapped by LangChain's typed tool boundary."""
+    if not isinstance(value, StructuredTool):
+        raise TypeError(f"Expected StructuredTool, got {type(value).__name__}")
+    return cast(Callable[..., str], value.func)
 
 
 # ===========================================================================
@@ -84,7 +88,7 @@ def build_cornell_note(title: str, *, cues: List[str], notes: str, summary: str)
     )
 
 
-def _tokenize(text: str) -> set:
+def _tokenize(text: str) -> set[str]:
     return set(re.findall(r"[\wàèéíòóúïüçñ]{4,}", (text or "").lower()))
 
 
@@ -151,7 +155,7 @@ def rank_link_candidates(page_text: str, candidates: List[Dict[str, Any]],
 # ===========================================================================
 # I/O TOOLS (operate on the active context's vault)
 # ===========================================================================
-def _resolve_page_path(page_id_or_title: str):
+def _resolve_page_path(page_id_or_title: str) -> Path | None:
     """Resolves id or title → Path of the .md within the active vault (via page index)."""
     from backend.services.context_vars import get_active_vault_path
     vault = get_active_vault_path()
@@ -193,7 +197,6 @@ def read_page(page_id_or_title: str) -> str:
 @tool
 def read_pdf(path: str, max_chars: int = DEFAULT_PDF_READ_CHARS) -> str:
     """Extracts text from a PDF (from Assets/Library). Materializes it if online-only."""
-    from pathlib import Path
     from backend.services.context_vars import get_active_vault_path
     vault = get_active_vault_path()
     if not vault:
@@ -233,15 +236,14 @@ def read_pdf(path: str, max_chars: int = DEFAULT_PDF_READ_CHARS) -> str:
 def create_page(title: str, content: str = "", folder: str = "Imported",
                 metadata: Optional[Dict[str, Any]] = None) -> str:
     """Creates a new page in the Vault (folder `folder`) and registers it in the index. Returns the id."""
-    from pathlib import Path
     from backend.services.context_vars import get_active_vault_path
-    from backend.api.vault_routes import register_page_in_index
+    from backend.domains.vault.links.runtime import register_page_in_index
     vault = get_active_vault_path()
     if not vault:
         return "Error: there is no active vault."
     fm_str = build_page_frontmatter(title, metadata)
-    page_id = re.search(r'(^|\n)id:\s*["\']?([\w-]+)', fm_str)
-    page_id = page_id.group(2) if page_id else ""
+    page_id_match = re.search(r'(^|\n)id:\s*["\']?([\w-]+)', fm_str)
+    page_id = page_id_match.group(2) if page_id_match else ""
     safe = sanitize_vault_title(title)
     folder_safe = sanitize_rel_folder(folder, fallback="Imported")
     # `folder` comes from the LLM (prompt-injectable). `sanitize_rel_folder` already
@@ -273,11 +275,12 @@ def create_page(title: str, content: str = "", folder: str = "Imported",
 @tool
 def propose_links(page_id_or_title: str, k: int = 8) -> str:
     """Proposes `[[...]]` connections for a page: searches for related ones and ranks them."""
-    from .memory import vault_store
-    page = read_page.func(page_id_or_title) if hasattr(read_page, "func") else read_page(page_id_or_title)
+    from .memory import get_vault_store
+
+    page = _tool_function(read_page)(page_id_or_title)
     if page.startswith("No page was found"):
         return page
-    results = vault_store.search_vault(page[:1500], k=max(k * 2, 12)) or []
+    results = get_vault_store().search_vault(page[:1500], k=max(k * 2, 12)) or []
     candidates = [{"title": (r.get("metadata") or {}).get("source", "?"),
                    "content": r.get("content", "")} for r in results]
     ranked = rank_link_candidates(page, candidates, top_k=k)
@@ -294,8 +297,11 @@ def summarize_to_cornell(source: str, title: str = "", folder: str = "Summaries"
     """Summarizes a page or PDF into a Cornell note and saves it as a new Vault page."""
     from .factory import generate_text
     is_pdf = str(source).lower().endswith(".pdf")
-    raw = (read_pdf.func(source) if hasattr(read_pdf, "func") else read_pdf(source)) if is_pdf \
-        else (read_page.func(source) if hasattr(read_page, "func") else read_page(source))
+    raw = (
+        _tool_function(read_pdf)(source)
+        if is_pdf
+        else _tool_function(read_page)(source)
+    )
     if raw.startswith("No ") or raw.startswith("Error"):
         return raw
     prompt = (
@@ -304,25 +310,35 @@ def summarize_to_cornell(source: str, title: str = "", folder: str = "Summaries"
         "'notes' (structured body summary), 'cues' (a list of 4–7 key prompts or questions), "
         "and 'summary' (3–4 sentences). Material:\n\n" + raw[:8000]
     )
-    text, _model = generate_text(prompt)
+    generated, _model = generate_text(prompt)
+    text = str(generated)
     notes, cues, summary = _parse_cornell_json(text)
     note_title = title or (f"Summary: {source}")
     md = build_cornell_note(note_title, cues=cues, notes=notes, summary=summary)
-    return (create_page.func(note_title, md, folder) if hasattr(create_page, "func")
-            else create_page(note_title, md, folder))
+    return _tool_function(create_page)(note_title, md, folder)
 
 
-def _parse_cornell_json(text: str):
+def _parse_cornell_json(text: str) -> tuple[str, list[str], str]:
     """Tolerant: extracts notes/cues/summary from a JSON (or degrades to plain text)."""
     import json
     m = re.search(r"\{.*\}", text or "", re.DOTALL)
     if m:
         try:
-            d = json.loads(m.group(0))
-            cues = d.get("cues") or []
-            if isinstance(cues, str):
-                cues = [c for c in re.split(r"[\n;]", cues) if c.strip()]
-            return str(d.get("notes", "")).strip(), cues, str(d.get("summary", "")).strip()
+            payload = json.loads(m.group(0))
+            if not isinstance(payload, dict):
+                raise ValueError("Cornell payload must be an object")
+            raw_cues = payload.get("cues") or []
+            if isinstance(raw_cues, str):
+                cues = [cue for cue in re.split(r"[\n;]", raw_cues) if cue.strip()]
+            elif isinstance(raw_cues, list):
+                cues = [str(cue) for cue in raw_cues]
+            else:
+                cues = []
+            return (
+                str(payload.get("notes", "")).strip(),
+                cues,
+                str(payload.get("summary", "")).strip(),
+            )
         except Exception:
             pass
     return (text or "").strip(), [], ""

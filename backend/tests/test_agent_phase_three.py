@@ -21,6 +21,10 @@ def test_durable_worker_dispatches_ready_reader_job(monkeypatch, tmp_path):
     def launch(vault_path, job_id, *, model_call):
         calls.append((str(vault_path), job_id, model_call))
 
+    monkeypatch.setattr(
+        "backend.services.reader_analysis.get_status",
+        lambda _vault_path, _job_id: {"state": "queued"},
+    )
     monkeypatch.setattr("backend.services.reader_analysis._launch", launch)
     dispatched = worker_module.DurableJobWorker(poll_seconds=0.1).run_once()
 

@@ -1,13 +1,17 @@
+import inspect
+import logging
+import os
+from pathlib import Path
+from typing import Any, cast
+
+import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from backend.config.app_config import load_params
 from backend.security.ai_credentials import migrate_ai_provider_secrets, sanitize_ai_config
 from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_text
-import yaml
-import logging
-import os
-from typing import Any
 
 # Auth gate: config contains the AI provider, vault paths, and mode (personal/org).
 # require_role("admin") is a no-op in personal mode (user is auto-owner) but
@@ -24,8 +28,6 @@ async def get_config() -> Any:
         # Reload params to get the latest version from disk
         cfg = load_params(strict_env=False)
         # Absolute origin trace of the function for debugging
-        import inspect
-
         source_file = inspect.getfile(load_params)
         log.info(f"DEBUG: load_params loaded from: {source_file}")
 
@@ -74,18 +76,140 @@ def deep_merge(
     """Recursively merges dict2 into dict1."""
     for k, v in dict2.items():
         if isinstance(v, dict) and k in dict1 and isinstance(dict1[k], dict):
-            deep_merge(dict1[k], v)
+            deep_merge(cast(dict[str, Any], dict1[k]), cast(dict[str, Any], v))
         else:
             dict1[k] = v
     return dict1
 
 
+async def _request_config(request: Request) -> dict[str, Any]:
+    """Read one non-empty JSON object while retaining legacy error handling."""
+    payload: object = await request.json()
+    if not payload:
+        raise HTTPException(status_code=400, detail="No data provided")
+    if not isinstance(payload, dict):
+        raise TypeError("Configuration payload must be a JSON object")
+    return {str(key): value for key, value in payload.items()}
+
+
+def _validate_llm_wiki_agent(current_ai: object, new_config: dict[str, Any]) -> None:
+    """Prevent a generic Settings save from removing the managed Wiki agent."""
+    ai_payload = new_config.get("ai")
+    if not isinstance(ai_payload, dict):
+        return
+    from backend.services.llm_wiki_agent import LlmWikiAgentError, validate_agent_preserved
+
+    try:
+        current_ai_payload = (
+            cast(dict[str, Any], current_ai) if isinstance(current_ai, dict) else {}
+        )
+        validate_agent_preserved(current_ai_payload, ai_payload)
+    except LlmWikiAgentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _load_current_config(params_path: Path) -> dict[str, Any]:
+    """Load persisted YAML as an object before applying a partial update."""
+    if not params_path.exists():
+        return {}
+    loaded: object = yaml.safe_load(params_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(loaded, dict):
+        raise TypeError("Persisted configuration must be a YAML object")
+    return {str(key): value for key, value in loaded.items()}
+
+
+def _migrate_system_password(new_config: dict[str, Any]) -> None:
+    """Move a posted system password into secure storage and out of YAML."""
+    settings = new_config.get("settings")
+    if not isinstance(settings, dict) or "password" not in settings:
+        return
+    password = settings["password"]
+    if password and password != "********":
+        from backend.security.keychain_manager import get_keychain
+
+        get_keychain().save_credential("system_password", password)
+        log.info("System password migrated to secure storage")
+    settings.pop("password", None)
+
+
+def _validate_agent_strategies(
+    new_config: dict[str, Any],
+    merged_config: dict[str, Any],
+) -> None:
+    """Validate explicit agent rows against the current model registry."""
+    ai_payload = new_config.get("ai")
+    if not isinstance(ai_payload, dict) or "agents" not in ai_payload:
+        return
+    from backend.agent.model_router import load_registry
+    from backend.services.agent_model_strategy import validate_model_strategies
+
+    try:
+        ai_config = merged_config.setdefault("ai", {})
+        if not isinstance(ai_config, dict):
+            ai_config = {}
+            merged_config["ai"] = ai_config
+        ai_config["agents"] = validate_model_strategies(
+            ai_payload.get("agents") or [],
+            load_registry(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _replace_provider_map(
+    new_config: dict[str, Any],
+    merged_config: dict[str, Any],
+) -> None:
+    """Treat providers as desired state so deletion survives deep merge."""
+    ai_payload = new_config.get("ai")
+    if not isinstance(ai_payload, dict) or "providers" not in ai_payload:
+        return
+    merged_ai = merged_config.get("ai")
+    if not isinstance(merged_ai, dict):
+        merged_ai = {}
+        merged_config["ai"] = merged_ai
+    providers = ai_payload.get("providers") or {}
+    if not isinstance(providers, dict):
+        raise TypeError("AI providers must be a JSON object")
+    merged_ai["providers"] = dict(providers)
+
+
+def _secure_ai_config(merged_config: dict[str, Any]) -> None:
+    """Move provider credentials out of the configuration document."""
+    ai_value = merged_config.get("ai") or {}
+    if not isinstance(ai_value, dict):
+        raise TypeError("AI configuration must be a JSON object")
+    migrated_ai, migrated = migrate_ai_provider_secrets(dict(ai_value))
+    merged_config["ai"] = migrated_ai
+    if migrated:
+        log.info("AI provider secrets migrated to secure storage")
+
+
+def _write_config(params_path: Path, merged_config: dict[str, Any]) -> None:
+    """Persist complete YAML through the application's atomic writer."""
+    yaml_text = yaml.safe_dump(
+        merged_config,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
+    safe_write_text(params_path, yaml_text)
+
+
+def _evict_agent_cache(request: Request, new_config: dict[str, Any]) -> None:
+    """Invalidate compiled agents after any AI configuration change."""
+    if "ai" not in new_config:
+        return
+    cache = getattr(request.app.state, "agent_cache", None)
+    if cache:
+        cache.clear()
+        log.info("Agent graph cache evicted after an AI configuration change.")
+
+
 @router.post("/config", response_model=None)
 async def update_config(request: Request) -> Any:
     try:
-        new_config = await request.json()
-        if not new_config:
-            raise HTTPException(status_code=400, detail="No data provided")
+        new_config = await _request_config(request)
 
         # Never log the raw payload: it carries the system password and AI API
         # keys in cleartext. Log only which top-level sections were sent.
@@ -100,60 +224,21 @@ async def update_config(request: Request) -> Any:
         # a generic Settings save: disabling the plugin is the deliberate,
         # confirmed removal path.
         if isinstance(new_config.get("ai"), dict):
-            from backend.services.llm_wiki_agent import (
-                LlmWikiAgentError,
-                validate_agent_preserved,
-            )
-
-            try:
-                validate_agent_preserved(cfg.ai, new_config["ai"])
-            except LlmWikiAgentError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        current_config: dict[str, Any] = {}
-        if params_path.exists():
-            with open(params_path, "r", encoding="utf-8") as f:
-                current_config = yaml.safe_load(f) or {}
+            _validate_llm_wiki_agent(cfg.ai, new_config)
+        current_config = _load_current_config(params_path)
 
         # 1. Migrate system password if sent
-        settings = new_config.get("settings", {})
-        if "password" in settings:
-            pwd = settings["password"]
-            if pwd and pwd != "********":
-                from backend.security.keychain_manager import get_keychain
-
-                get_keychain().save_credential("system_password", pwd)
-                log.info("System password migrated to secure storage")
-            # Always remove from the dict that will be merged into yaml
-            settings.pop("password", None)
+        _migrate_system_password(new_config)
 
         # Merge data and preserve unsent keys
         merged_config = deep_merge(current_config, new_config)
 
-        if isinstance(new_config.get("ai"), dict) and "agents" in new_config["ai"]:
-            from backend.agent.model_router import load_registry
-            from backend.services.agent_model_strategy import validate_model_strategies
-
-            try:
-                merged_config.setdefault("ai", {})["agents"] = validate_model_strategies(
-                    new_config["ai"].get("agents") or [],
-                    load_registry(),
-                )
-            except ValueError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _validate_agent_strategies(new_config, merged_config)
 
         # For AI providers, frontend sends the full desired map.
         # Replace instead of deep-merging to allow deleting removed providers.
-        if isinstance(new_config.get("ai"), dict) and "providers" in new_config.get("ai", {}):
-            if "ai" not in merged_config or not isinstance(merged_config.get("ai"), dict):
-                merged_config["ai"] = {}
-            merged_config["ai"]["providers"] = dict(new_config["ai"].get("providers") or {})
-
-        ai_cfg = dict(merged_config.get("ai") or {})
-        migrated_ai_cfg, migrated = migrate_ai_provider_secrets(ai_cfg)
-        merged_config["ai"] = migrated_ai_cfg
-        if migrated:
-            log.info("AI provider secrets migrated to secure storage")
+        _replace_provider_map(new_config, merged_config)
+        _secure_ai_config(merged_config)
 
         # Do not log the raw AI config: it contains provider api_key values.
         # The sanitized summary below is enough for debugging.
@@ -167,13 +252,7 @@ async def update_config(request: Request) -> Any:
         # Atomic write: params.yaml is the app's main config. A crash
         # mid safe_dump would leave the YAML truncated and the next restart
         # from the backend would expire on load_params.
-        yaml_text = yaml.safe_dump(
-            merged_config,
-            default_flow_style=False,
-            allow_unicode=True,
-            sort_keys=False,
-        )
-        safe_write_text(params_path, yaml_text)
+        _write_config(params_path, merged_config)
 
         # We do NOT force any server restart. Previously we did `touch backend/server.py`
         # so uvicorn --reload would reload the process on EVERY config save, but:
@@ -189,11 +268,7 @@ async def update_config(request: Request) -> Any:
         # persona, the model and the tools scoped to the attached context sources. Without
         # this eviction an edited agent keeps answering with its previous configuration
         # until the process restarts.
-        if "ai" in new_config:
-            cache = getattr(request.app.state, "agent_cache", None)
-            if cache:
-                cache.clear()
-                log.info("Agent graph cache evicted after an AI configuration change.")
+        _evict_agent_cache(request, new_config)
 
         return {"status": "success", "message": "Configuration updated"}
 

@@ -1,13 +1,18 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
+  - backend/scheduler/contracts.py
+  - backend/scheduler/notifications.py
+  - backend/scheduler/task_handlers.py
   - backend/models/scheduler.py
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
+  - backend/tests/test_audio_summarizer.py
+  - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
   - tests/e2e/tests/e2e/automation-scout.spec.ts
@@ -18,6 +23,11 @@ tests:
 ## Responsabilité
 
 Le programmeur exécute des tâches récurrentes et uniques configurées, enregistre l'historique, expose l'état opérationnel et coordonne les tâches de domaine telles que la synchronisation, la publication, l'ingestion, la maintenance et la planification de rafraîchissement.
+
+Les métadonnées des tâches, l'état d'exécution persistant et la frontière de
+notification facultative sont strictement typés dans des modules dédiés. Le
+gestionnaire reste sous la limite de taille et valide les dictionnaires de
+tâches hérités avant de construire les tâches d'exécution.
 
 ## Modèle de tâche
 
@@ -41,6 +51,11 @@ sequenceDiagram
 
 Les fonctions de la tâche doivent être idempotentes lorsque la répétition est possible. Le gestionnaire protège les instances qui se chevauchent selon la politique de la tâche et utilise des contextes de base de données ou de fournisseur nouveaux. Un redémarrage du processus concilie les horaires de configuration persistante au lieu de ne faire confiance qu'à l'état de mémoire.
 
+Le gestionnaire conserve le cycle de vie du planificateur, la persistance, le
+contrôle des chevauchements et l'historique. `task_handlers.py` contient la
+politique de répartition et les tâches opérationnelles importantes, y compris
+la maintenance bornée, sans les coupler au fil du planificateur.
+
 ## Automatisations des vannes
 
 Les règles d'automatisation des vaults combinent déclencheurs, conditions et actions. Les formules de champ dérivées et les groupures sont une évaluation déterministe, et non une exécution arbitraire de code. Les actions externes ou destructrices utilisent les mêmes limites d'autorisation et de confirmation que les actions interactives.
@@ -48,6 +63,13 @@ Les règles d'automatisation des vaults combinent déclencheurs, conditions et a
 ## Travail autonome de qualité
 
 Les boucles de maintenance et de qualité sont des tâches opérationnelles limitées. Elles peuvent diagnostiquer, générer des rapports ou appliquer des modifications dans leur champ d'application déclaré. Elles ne gagnent pas de système de fichiers plus large, secret, Git, ou autorité de publication parce qu'elles sont programmées.
+
+## Génération audio quotidienne
+
+Le service de podcast du Reader utilise une sélection typée du modèle et de la
+langue, des travailleurs TTS bornés par phrase et un remplacement atomique du
+MP3. La génération en arrière-plan capture explicitement le Vault sélectionné et
+refuse de démarrer sans Vault actif, afin d'éviter tout chemin local ambigu.
 
 ## Invariants
 

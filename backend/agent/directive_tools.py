@@ -11,7 +11,7 @@ INSTRUCTIONS_DIR = Path(__file__).resolve().parent / "instructions"
 INSTRUCTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _safe_directive_path(topic: str):
+def _safe_directive_path(topic: str) -> Path | None:
     """Resolve `topic` to a `.md` INSIDE INSTRUCTIONS_DIR, or None if it would escape.
 
     `topic` comes from the LLM (potentially influenced by untrusted content that

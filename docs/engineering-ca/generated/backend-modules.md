@@ -10,62 +10,76 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grup | Mòduls | Línies |
 | --- | ---: | ---: |
-| `agent` | 36 | 13128 |
-| `api` | 35 | 35511 |
-| `application root` | 6 | 627 |
-| `config` | 8 | 846 |
-| `data` | 2 | 295 |
-| `mcp` | 3 | 375 |
-| `models` | 12 | 1217 |
-| `scheduler` | 2 | 949 |
+| `agent` | 46 | 8452 |
+| `api` | 38 | 10872 |
+| `app` | 6 | 603 |
+| `application root` | 4 | 107 |
+| `config` | 9 | 1031 |
+| `data` | 2 | 203 |
+| `domains` | 319 | 74829 |
+| `mcp` | 3 | 394 |
+| `migrations` | 33 | 1949 |
+| `models` | 12 | 1221 |
+| `platform` | 11 | 1045 |
+| `scheduler` | 3 | 1126 |
 | `scripts` | 3 | 130 |
-| `security` | 3 | 735 |
-| `services` | 112 | 37203 |
+| `security` | 5 | 804 |
+| `services` | 148 | 37306 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **228 mòduls** i **Línies font de 91530**.
+Total: **648 mòduls** i **110586 línies font**.
 
 ## agent
 
 | Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [backend/ agent/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/__init__.py) | 0 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
-| [backend/ agent/ action_confirmacions.](https://github.com/ismigar/Gnosi/blob/main/backend/agent/action_confirmations.py) | 802 | 0 | 28 | 0 | 22 | Persistents, les confirmacions per als agents conseqüents. |
-| [backend/ agent/ agent_context.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/agent_context.py) | 875 | 0 | 19 | 0 | 10 | S'han adjuntat fonts de context per a un agent de Cognition. |
+| [backend/ agent/ action_confirmacions.](https://github.com/ismigar/Gnosi/blob/main/backend/agent/action_confirmations.py) | 755 | 0 | 28 | 0 | 22 | Persistents, les confirmacions per als agents conseqüents. |
+| [backend/ agent/ agent_context.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/agent_context.py) | 199 | 1 | 1 | 0 | 2 | S'han adjuntat fonts de context per a un agent de Cognition. |
 | [backend/ agent/calendar_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/calendar_tools.py) | 125 | 0 | 6 | 5 | 5 | Adaptadors controlats per al calendari exacte llegeix i mutacions externes. |
 | [backend/ agent/ contact_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/contact_tools.py) | 157 | 0 | 6 | 0 | 4 | Adaptadors controlats per al manteniment del contacte local. |
+| [backend/ agent/ context_safety.pypy McCyrthon](https://github.com/ismigar/Gnosi/blob/main/backend/agent/context_safety.py) | 47 | 0 | 2 | 0 | 2 | Límits de proves no fiables proporcionats a l'agent. |
 | [backend/ agent/ context_fonts/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/context_sources/__init__.py) | 32 | 0 | 2 | 0 | 1 | El catàleg de grans fonts cercables que un agent pot adjuntar (fase 3). |
 | [backend/ agent/ context_fonts/boe.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/context_sources/boe.py) | 174 | 0 | 6 | 0 | 4 | BOE adapter: Cerca l'agent espanyol a través de la seva API oberta. |
+| [backend/agent/conversació_Memòria.pypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/agent/conversation_memory.py) | 28 | 0 | 1 | 0 | 1 | Determinista, lligat a la compactació de conversa. |
 | [backend/agent/directive_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/directive_tools.py) | 90 | 0 | 4 | 0 | 4 | Sense documentació de mòduls |
-| [backend/ agent/ factory.py](https://github.com/ismigar/Gnosi/blob/main/backend/agent/factory.py) | 2093 | 1 | 35 | 1 | 33 | Sense documentació de mòduls |
+| [backend/agent/evals /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/evals/__init__.py) | 1 | 0 | 0 | 0 | 0 | La cortrina d'avaluació determinística per al contracte d'agent universal. |
+| [backend/agent/evals/respons_executador.pywottytxy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/evals/response_runner.py) | 99 | 0 | 5 | 0 | 3 | Executa les avaluacions de qualitat determinants de forma final sense model. |
+| [backend/agent/evals/ krunner.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/agent/evals/runner.py) | 144 | 0 | 5 | 0 | 3 | Executa el cos de la transferència universal determinant. |
+| [backend/ agent/ factory.py](https://github.com/ismigar/Gnosi/blob/main/backend/agent/factory.py) | 246 | 0 | 4 | 1 | 4 | Clona de compatibilitat per a la canònica:`backend.domains.agent` paquet. |
 | [backend/agent/ Lesson Name_Eines/ eina__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/__init__.py) | 3 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/agent/ Lesson Name_Eines/creador.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/creator.py) | 226 | 0 | 4 | 0 | 4 | Creador d' eines: La meta- eina que permet a l' agent crear noves eines. |
 | [backend/agent/ Lesson Name_Eines/didary_run.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/dry_run.py) | 139 | 2 | 1 | 0 | 3 | Ajustament de la imatge: operacions externes de vista prèvia abans de l' execució. |
 | [backend/agent/ Lesson Name_Eines/ cervesa_repeteix.pypypypypyrton](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/learning_loop.py) | 218 | 2 | 0 | 0 | 2 | Aprendre bucle: conservació automàtica i coneixement per al desenvolupament d' eines. |
-| [backend/agent/ Lesson Name_Eines/ càrrega.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/loader.py) | 138 | 1 | 0 | 0 | 1 | Eina Carregador: carregament d' eines aprovades a temps d' execució. |
-| [backend/agent/ Lesson Name_Eines/regista.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/registry.py) | 287 | 3 | 0 | 0 | 1 | Relocator d' eines: magatzem persistent i cerca eines generades. |
-| [backend/agent/ Lesson Name_Eines/ validador.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/validator.py) | 273 | 3 | 0 | 0 | 1 | Validador d' eines: Valida el codi d' eina per a la seguretat de lesson· les auto-sonàries. |
-| [backend/ agent/gnosi_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/gnosi_tools.py) | 2256 | 1 | 62 | 11 | 45 | Eina de xat per al Parlament Europeu es va reunir amb models de xat d'eines. |
+| [backend/agent/ Lesson Name_Eines/ càrrega.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/loader.py) | 102 | 1 | 0 | 0 | 1 | Eina Carregador: carregament d' eines aprovades a temps d' execució. |
+| [backend/agent/ Lesson Name_Eines/regista.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/registry.py) | 263 | 3 | 0 | 0 | 1 | Relocator d' eines: magatzem persistent i cerca eines generades. |
+| [backend/agent/ Lesson Name_Eines/ codi_ font_executador.pywottytxy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/sandbox_runner.py) | 187 | 1 | 5 | 0 | 3 | Executa les eines generades en un subprocess restringit de manera curta. |
+| [backend/agent/ Lesson Name_Eines/ validador.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/validator.py) | 33 | 0 | 0 | 0 | 0 | Exportacions de compatibilitat per la validació d' eines generada. |
+| [backend/ agent/gnosi_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/gnosi_tools.py) | 159 | 1 | 0 | 0 | 1 | Clona de compatibilitat per a eines de primera part estable. |
 | [backend/agent/graph.pypypypyt](https://github.com/ismigar/Gnosi/blob/main/backend/agent/graph.py) | 47 | 1 | 1 | 0 | 1 | Sense documentació de mòduls |
-| [backend/ agent/ interior_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/internal_sources.py) | 1543 | 0 | 57 | 0 | 15 | Àmbits llegits per mòduls de dades de primera part Gnosi. |
+| [backend/ agent/ interior_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/internal_sources.py) | 561 | 0 | 22 | 0 | 10 | Àmbits llegits per mòduls de dades de primera part Gnosi. |
 | [backend/ agent/ jobup_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/job_tools.py) | 83 | 0 | 7 | 0 | 6 | Eines coordinades per a llocs de treball amb capacitat de proveïdor. |
 | [backend/ agent/llm_wiki_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/llm_wiki_tools.py) | 120 | 0 | 4 | 0 | 4 | Naus de l'agent controlat pel connector de Wiki incorporat en LLLLLM. |
 | [backend/ agent/ mail_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/mail_tools.py) | 168 | 0 | 10 | 8 | 8 | Adaptadors controlats per al correu exacte llegeix i mutacions. |
 | [backend/agent/memory.ypyy McCrry](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py) | 185 | 2 | 4 | 0 | 3 | Sense documentació de mòduls |
-| [backend/ agent/ model_catàleg.pypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_catalog.py) | 492 | 0 | 22 | 0 | 18 | Catàleg de model de model Manveen per al flux de treball d'activació model-comparison. |
+| [backend/ agent/ model_catàleg.pypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_catalog.py) | 529 | 0 | 24 | 0 | 20 | Catàleg de model de model Manveen per al flux de treball d'activació model-comparison. |
 | [backend/ agent/ model_De confiança.](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_reliability.py) | 220 | 0 | 10 | 0 | 5 | Per què una crida a model ha fallat, gravat com a prova per proveïdor: model. |
-| [backend/ agent/ model_Encaminador.pywotxy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_router.py) | 489 | 1 | 13 | 0 | 12 | Enrutador de models coneixedors de dades, en forma de model de pressupost. |
+| [backend/ agent/ model_Encaminador.pywotxy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_router.py) | 552 | 1 | 14 | 0 | 13 | Enrutador de models coneixedors de dades, en forma de model de pressupost. |
 | [backend/ agent/notion_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/notion_tools.py) | 76 | 0 | 5 | 5 | 5 | Adaptadors controlats per a un descobriment de nocions connectat i clonament exacta. |
 | [backend/ agent/planning_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/planning_tools.py) | 167 | 0 | 13 | 12 | 12 | Les eines que han organitzat sobre els serveis de projectes d'en Gnosi. |
+| [backend/ agent/proveidor_Resili.](https://github.com/ismigar/Gnosi/blob/main/backend/agent/provider_resilience.py) | 175 | 1 | 3 | 0 | 3 | El proveïdor no funciona amb això, demana fluxs de treball independents. |
 | [backend/ agent/ reader_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/reader_tools.py) | 288 | 0 | 16 | 0 | 13 | Eines signades per inspeccionar i analitzar el contingut del lector Gnosi. |
+| [backend/agent/revery.ypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/recovery.py) | 39 | 0 | 2 | 0 | 2 | S' han obtingut les metadades per a l'agent fracassat. |
+| [backend/agent/semantic_Intèrpret.pytttxytxy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/semantic_interpreter.py) | 113 | 0 | 5 | 0 | 3 | Limitat, interpretació multilingüe abans de fer-ne possible. |
 | [backend/ agent/social_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/social_tools.py) | 142 | 0 | 8 | 7 | 7 | Adaptadors controlats per a la lectura social Gnosi, composició i publicació. |
 | [backend/ agent/system_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/system_tools.py) | 430 | 0 | 13 | 0 | 13 | Sense documentació de mòduls |
 | [backend/agent/tools.ypypyypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/tools.py) | 75 | 0 | 2 | 0 | 2 | Sense documentació de mòduls |
 | [backend/ agent/traducció_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/translation_tools.py) | 70 | 0 | 3 | 3 | 3 | Adaptadors controlats pels fluxs de traducció idipotent existents. |
-| [backend/ agent/vult_administrador_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/vault_admin_tools.py) | 150 | 0 | 6 | 0 | 5 | Adaptadors controlats per a descobriments d'esquema Vult i organització de pàgina. |
-| [backend/ agent/vult_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/vault_tools.py) | 351 | 0 | 13 | 0 | 12 | Cotja d' eines del coneixement: dóna a l'agent que dóna suport a la volta (no només cerca). |
+| [backend/ agent/ Return_contracte.](https://github.com/ismigar/Gnosi/blob/main/backend/agent/turn_contract.py) | 72 | 0 | 0 | 0 | 0 | Exportacions de compatibilitat per a la planificació i la verificació de girs governades. |
+| [backend/ agent/vult_administrador_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/vault_admin_tools.py) | 333 | 0 | 11 | 0 | 10 | Adaptadors controlats per a descobriments d'esquema Vult i organització de pàgina. |
+| [backend/ agent/vult_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/agent/vault_tools.py) | 436 | 0 | 15 | 0 | 14 | Cotja d' eines del coneixement: dóna a l'agent que dóna suport a la volta (no només cerca). |
 | [backend/ agent/web_context.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/agent/web_context.py) | 144 | 0 | 3 | 0 | 3 | S' estan recuperant les pàgines web adjuntades al context d' un agent (fase 2). |
 
 ## api
@@ -73,40 +87,54 @@ Total: **228 mòduls** i **Línies font de 91530**.
 | Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [backend/api /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
-| [backend/api/agent_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_routes.py) | 1633 | 7 | 40 | 17 | 29 | Sense documentació de mòduls |
-| [backend/api/agent_habilitats_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_skills_routes.py) | 635 | 4 | 28 | 0 | 9 | Arranjament API per a habilitats i eines de l' agent governades. |
-| [backend/api/ai_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 747 | 6 | 17 | 13 | 14 | Sense documentació de mòduls |
-| [backend/api/anàlisis_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py) | 376 | 0 | 12 | 7 | 12 | Sense documentació de mòduls |
+| [backend/api/agent_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_routes.py) | 209 | 1 | 0 | 0 | 1 | Clona de compatibilitat per a les rutes HTTP modulars. |
+| [backend/api/agent_habilitats_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_skills_routes.py) | 188 | 1 | 0 | 0 | 1 | Compatibilitat de les API de l' agent de configuració governades. |
+| [backend/api/ai_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 800 | 6 | 18 | 13 | 15 | Sense documentació de mòduls |
+| [backend/api/anàlisis_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py) | 352 | 0 | 12 | 7 | 12 | Sense documentació de mòduls |
 | [backen/api/auth_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/auth_routes.py) | 365 | 5 | 11 | 0 | 11 | Desinstal· la el registre de punts de la Autech / sessió / sortida / mi. |
 | [backend/api/calendar_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/calendar_routes.py) | 776 | 0 | 28 | 18 | 21 | Sense documentació de mòduls |
 | [backend/api/collab_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/collab_routes.py) | 262 | 2 | 3 | 1 | 4 | Una presència de col·laboració en temps real, en presència d'Envitació d'en presence + a cada pàgina. |
-| [backend/api/config_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/config_routes.py) | 176 | 0 | 3 | 2 | 1 | Sense documentació de mòduls |
+| [backend/api/config_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/config_routes.py) | 13 | 0 | 0 | 0 | 0 | Clona de compatibilitat per a l' encaminador de configuració. |
 | [backend/api/contacts_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/contacts_routes.py) | 289 | 0 | 9 | 7 | 1 | Sense documentació de mòduls |
-| [backend/api/crundials_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/credentials_routes.py) | 204 | 2 | 5 | 5 | 5 | Sense documentació de mòduls |
-| [backend/api/env_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/env_routes.py) | 148 | 0 | 4 | 2 | 4 | Sense documentació de mòduls |
-| [backend/api/google_Autorització_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/google_auth_routes.py) | 248 | 0 | 6 | 4 | 1 | Sense documentació de mòduls |
+| [backend/api/crundials_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/credentials_routes.py) | 30 | 0 | 0 | 0 | 0 | Clona de compatibilitat per a l' encaminador de credencials segura. |
+| [backend/api/env_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/env_routes.py) | 22 | 0 | 0 | 0 | 0 | Clona de compatibilitat per a l' encaminador d' entorn local. |
+| [backend/api/google_Autorització_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/google_auth_routes.py) | 251 | 0 | 6 | 4 | 1 | Sense documentació de mòduls |
 | [backend/api/dhan escriu_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py) | 77 | 0 | 3 | 3 | 3 | LOCAL de reconeixement d'escriptura de la mà (ke Manveen text) usant TrOCR. |
 | [backend/api/ identitat_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/identity_routes.py) | 60 | 1 | 3 | 2 | 0 | Sense documentació de mòduls |
-| [backbackend/api/integració_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/integrations_routes.py) | 413 | 0 | 17 | 12 | 16 | Sense documentació de mòduls |
-| [backend/api/ mail_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/mail_routes.py) | 1942 | 0 | 62 | 43 | 30 | Sense documentació de mòduls |
+| [backbackend/api/integració_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/integrations_routes.py) | 428 | 0 | 17 | 12 | 16 | Sense documentació de mòduls |
+| [backend/api/litre_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/literature_routes.py) | 377 | 15 | 33 | 15 | 0 | Els contractes HTTP per a la recerca de recerca acadèmica i la revisió sistemàtica de la literatura. |
+| [backend/api/ mail_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/mail_routes.py) | 234 | 0 | 1 | 1 | 0 | Descloïu i límit de composició pel domini del correu. |
 | [backbackend/api/meeting_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/meeting_routes.py) | 58 | 0 | 3 | 2 | 2 | Punts finals del Portador de notes de la mesa. |
-| [backend/api/micròsoft_Autorització_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py) | 157 | 0 | 4 | 3 | 0 | Rutes d' autenticació Microsoft OAuth2. |
+| [backend/api/micròsoft_Autorització_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py) | 160 | 0 | 4 | 3 | 0 | Rutes d' autenticació Microsoft OAuth2. |
+| [backend/api/notebook_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/notebook_routes.py) | 305 | 4 | 16 | 2 | 1 | Els contractes HTTP per a l' espai de treball de notes castigada. |
 | [backend/api/notion_oauthCity name (optional, probably does not need a translation)_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_oauth_routes.py) | 176 | 0 | 8 | 4 | 3 | OAuth 2.1 per a noion allotjat MCP (mcp.notion.com) per a recrear vistes. |
 | [backend/api/notion_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_routes.py) | 748 | 3 | 24 | 13 | 13 | Punts final per a la Notació CLONE  Yuri Gnosi Vulta. |
 | [backend/api/planning_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/planning_routes.py) | 511 | 9 | 28 | 23 | 10 | API per a recursos normalitzats i informes d' assignació de projectes. |
 | [backend/api/public_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/public_routes.py) | 343 | 3 | 14 | 1 | 10 | L' API pública del Gnosi amb accés personal Token (PAT) autenticació. |
-| [backend/api/reader.ypyy McCarthy](https://github.com/ismigar/Gnosi/blob/main/backend/api/reader.py) | 693 | 1 | 30 | 1 | 31 | Sense documentació de mòduls |
+| [backend/api/reader.ypyy McCarthy](https://github.com/ismigar/Gnosi/blob/main/backend/api/reader.py) | 75 | 0 | 0 | 0 | 0 | Clona de compatibilitat per a l' API del Reader HTTP. |
 | [backend/api/planplantor_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/scheduler_routes.py) | 100 | 1 | 6 | 6 | 6 | Sense documentació de mòduls |
-| [backend/api/share_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/share_routes.py) | 203 | 1 | 7 | 4 | 5 | Enllaços externs compartits per pàgines simples de volta (estil d' una sola volta). |
+| [backend/api/share_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/share_routes.py) | 205 | 1 | 7 | 4 | 5 | Enllaços externs compartits per pàgines simples de volta (estil d' una sola volta). |
 | [backend/api/social_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/social_routes.py) | 696 | 8 | 23 | 18 | 22 | Sense documentació de mòduls |
 | [backend/api/system_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 673 | 4 | 14 | 9 | 13 | Sense documentació de mòduls |
 | [backend/api/tools_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py) | 164 | 3 | 6 | 5 | 6 | Rutes API per a la gestió d' eines Generades. |
 | [backend/api/vult_gràfic_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | Sense documentació de mòduls |
-| [backend/api/vult_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 20906 | 29 | 572 | 190 | 470 | Sense documentació de mòduls |
+| [backend/api/vult_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 283 | 0 | 2 | 0 | 0 | Sense documentació de mòduls |
+| [backend/api/vult_plantilles_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_templates_routes.py) | 246 | 2 | 9 | 0 | 7 | Catàleg de plantilles Vulta, creació, exportació i rutes de submissió moderats. |
 | [backend/api/vult_Vistes_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_views_routes.py) | 350 | 2 | 9 | 3 | 7 | volta_Vistes_Rutes.py API per a gestionar vistes per pàgina. |
-| [backbackend/api/vultes_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py) | 276 | 2 | 10 | 0 | 9 | API Vultes (mode multi- vulta): llista, crea i escull voltes. |
+| [backbackend/api/vultes_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py) | 280 | 2 | 10 | 0 | 9 | API Vultes (mode multi- vulta): llista, crea i escull voltes. |
 | [backend/api/vivtual_camps.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/api/virtual_fields.py) | 676 | 0 | 32 | 0 | 26 | Camps virtuals: Les propietats derivades pel dorsal a l' hora de lectura. |
-| [backend/api/workespai_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/workspace_routes.py) | 375 | 0 | 11 | 11 | 0 | Sense documentació de mòduls |
+| [backend/api/workespai_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/api/workspace_routes.py) | 35 | 0 | 0 | 0 | 0 | Clona de compatibilitat per a l' enrutador de domini de l'espai. |
+
+## app
+
+| Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| [backend/app/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/app/__init__.py) | 5 | 0 | 0 | 0 | 0 | Composició ràpidaAPI per al dorsal Gnosi. |
+| [backend/app/ errors.pypypys](https://github.com/ismigar/Gnosi/blob/main/backend/app/errors.py) | 50 | 0 | 2 | 1 | 2 | Traducció a l' error global i una notificació de diagnòstics privada. |
+| [backend/app/ factory.pypy](https://github.com/ismigar/Gnosi/blob/main/backend/app/factory.py) | 53 | 0 | 2 | 1 | 1 | Forma de construcció completa Gnosi. |
+| [backend/app/Lividaspan.ypyy McCypython](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 303 | 0 | 12 | 4 | 12 | Aplicació en engegar, manteniment i apagar el cicle vital. |
+| [backend/app/alphaware.pypypyt](https://github.com/ismigar/Gnosi/blob/main/backend/app/middleware.py) | 30 | 0 | 1 | 0 | 1 | Composició de sistemes de memòria intermèdia per a l'aplicació GSnosi ràpidaAPI. |
+| [backend/app/routes.ypyyypyypy](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py) | 162 | 0 | 1 | 0 | 1 | Registre únic demanat per a cada encaminador públic Gnosi. |
 
 ## root de l' aplicació
 
@@ -115,18 +143,19 @@ Total: **228 mòduls** i **Línies font de 91530**.
 | [backend/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/patch_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/patch_sources.py) | 36 | 0 | 1 | 0 | 0 | Sense documentació de mòduls |
 | [backend/scrad_Sincronització.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/scratch_sync.py) | 30 | 0 | 1 | 0 | 0 | Sense documentació de mòduls |
-| [backend/server.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 501 | 0 | 5 | 4 | 3 | Sense documentació de mòduls |
+| [backend/server.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 41 | 0 | 0 | 0 | 0 | Punt d'entrada electrònica a l'Uvicorn i electrònica per al dorsal Gnosi. |
 
 ## configuració
 
 | Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [backend/config/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/config/__init__.py) | 0 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
-| [backend/config/app_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/config/app_config.py) | 201 | 1 | 4 | 0 | 4 | Sense documentació de mòduls |
-| [backend/config/ env_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/config/env_config.py) | 224 | 0 | 10 | 0 | 7 | Sense documentació de mòduls |
+| [backend/config/app_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/config/app_config.py) | 240 | 1 | 9 | 0 | 9 | Sense documentació de mòduls |
+| [backend/config/ data_dir.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/config/data_dir.py) | 104 | 0 | 4 | 0 | 4 | Resolució de directori de dades canonical per a dispositius Gnosi 3.x. |
+| [backend/config/ env_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/config/env_config.py) | 269 | 0 | 16 | 0 | 12 | Càrrega d' entorn amb prioritat i límits explícites del Gnosi 3.x. |
 | [backend/config/ logger_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/config/logger_config.py) | 40 | 0 | 2 | 0 | 1 | Sense documentació de mòduls |
 | [backend/config/mcp_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/config/mcp_config.py) | 6 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
-| [backend/config/ paths_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/config/paths_config.py) | 191 | 0 | 1 | 0 | 1 | Sense documentació de mòduls |
+| [backend/config/ paths_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/config/paths_config.py) | 188 | 0 | 1 | 0 | 1 | Sense documentació de mòduls |
 | [backend/config/schema_Claus.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/config/schema_keys.py) | 109 | 0 | 2 | 0 | 2 | Claus Candides i àlies per extreure dades de JSON i local Markdown. |
 | [backend/config/ text_normalització.pypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/config/text_normalization.py) | 75 | 0 | 3 | 0 | 1 | Sense documentació de mòduls |
 
@@ -134,16 +163,378 @@ Total: **228 mòduls** i **Línies font de 91530**.
 
 | Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| [backend/ data/db.pypypypypyt](https://github.com/ismigar/Gnosi/blob/main/backend/data/db.py) | 157 | 1 | 5 | 0 | 6 | Sense documentació de mòduls |
-| [backend/data/gestió_db.pypy literalmentzy](https://github.com/ismigar/Gnosi/blob/main/backend/data/management_db.py) | 138 | 0 | 5 | 0 | 2 | Sense documentació de mòduls |
+| [backend/ data/db.pypypypypyt](https://github.com/ismigar/Gnosi/blob/main/backend/data/db.py) | 128 | 1 | 4 | 0 | 5 | Sense documentació de mòduls |
+| [backend/data/gestió_db.pypy literalmentzy](https://github.com/ismigar/Gnosi/blob/main/backend/data/management_db.py) | 75 | 0 | 4 | 0 | 1 | Sense documentació de mòduls |
+
+## dominis
+
+| Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| [backend/ dominis/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/__init__.py) | 1 | 0 | 0 | 0 | 0 | Paquets de domini Gnosi. |
+| [backend/ dominis/ agent/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/__init__.py) | 1 | 0 | 0 | 0 | 0 | Serveis de domini de l'agent i composició del flux de treball. |
+| [backend/ dominis/agent/ context.py McBypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context.py) | 650 | 0 | 20 | 0 | 20 | Eina de planificació de context i de planificació de la propietat del servidor. |
+| [backend/ dominis/ agent/ context_core_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_core_tools.py) | 310 | 1 | 1 | 0 | 1 | Eina de lectura i cerca del nucli per referències de context adjuntades. |
+| [backend/ dominis/ agent/ context_inventari_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_inventory_tools.py) | 330 | 1 | 1 | 0 | 1 | Eina d'inventari selectiva per a context de la Culta adjunt. |
+| [backend/ dominis/ agent/ context_Coincidència.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_matching.py) | 356 | 0 | 11 | 0 | 10 | Coincidència de de de de de desterminació per a una Acrosstorieria connectada a Vult. |
+| [backend/ dominis/ agent/ context_Llibreta_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_notebook_tools.py) | 166 | 0 | 1 | 0 | 1 | Eines tancades sobre referències a context de la llibreta de notes castigadas. |
+| [backend/ dominis/ agent/ context_Lector_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_reader_tools.py) | 181 | 0 | 1 | 0 | 1 | Eines Tancades per un àmbit de lector adjunt. |
+| [backend/ dominis/ agent/ context_àrbitres.py literalment blestypy literalment](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_refs.py) | 218 | 0 | 6 | 0 | 4 | Normalització i descripcions per referències de context adjuntes. |
+| [backend/ dominis/ agent/ context_Emmagatzematge.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_storage.py) | 465 | 0 | 26 | 0 | 8 | Lectors lligats per a referències contextades adjuntades. |
+| [backend/ dominis/ agent/ context_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_tools.py) | 45 | 0 | 1 | 0 | 1 | Les eines d' execució es tancaren en un àmbit de context adjunt. |
+| [backend/ dominis/agent/ Lesson Name_Eines/ eina__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/generated_tools/__init__.py) | 1 | 0 | 0 | 0 | 0 | La validació d' eines generada pel domini de l' agent. |
+| [backend/ dominis/agent/ Lesson Name_Eines/ validador.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/generated_tools/validator.py) | 331 | 3 | 0 | 0 | 1 | Validació de seguretat per eines de l' agent generates. |
+| [backend/ dominis/agent/gnosi_confirmacions.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_confirmations.py) | 346 | 0 | 7 | 0 | 6 | Eines de preparació per accions de primera part. |
+| [backend/ dominis/agent/gnosi_Equiment.py waits](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch.py) | 29 | 0 | 1 | 1 | 1 | Executor per confirmar primer partit. |
+| [backend/ dominis/agent/gnosi_Enviament_Pyypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_basic.py) | 221 | 0 | 8 | 8 | 0 | Gestors de Confirmats per a pàgines, contactes, correu i calendaris. |
+| [backend/ dominis/agent/gnosi_Enviament_files.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_rows.py) | 202 | 0 | 7 | 2 | 0 | Gestors de missatges per reescriptura de files determinants. |
+| [backend/ dominis/agent/gnosi_Enviament_taules.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_tables.py) | 269 | 0 | 8 | 5 | 0 | Gestors de missatges per a la taula, historial, paperera i esquemes. |
+| [backend/ dominis/agent/gnosi_integrations.pypypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_integrations.py) | 390 | 0 | 12 | 8 | 11 | Calendari de primera part, eines de correu i contactes. |
+| [backend/ dominis/agent/gnosi_mutació.pypy wolthon](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_mutation.py) | 64 | 0 | 2 | 0 | 2 | Bloqueig de mutacions per a processos creuats. |
+| [backend/ dominis/agent/gnosi_Suport.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_support.py) | 561 | 1 | 28 | 2 | 11 | Administes compartides per eines de primera part Gnosi. |
+| [backend/ dominis/agent/gnosi_volta_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_vault_tools.py) | 388 | 0 | 15 | 0 | 14 | Eina de lectura i explícita de lectura. |
+| [backend/ dominis/agent/intent.ypy McBricken/ domini](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/intent.py) | 304 | 0 | 4 | 0 | 3 | Un intent multilingüe i classificació de l'autorització. |
+| [backend/ dominis/agent/llm.ypy McBrickend/ dominis/agent/llm.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py) | 569 | 0 | 20 | 0 | 7 | Selecció i adaptadors de proveïdors de llenguatge i tipus d' idioma. |
+| [backend/ dominis/ agent/messages.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/messages.py) | 200 | 0 | 9 | 0 | 2 | Tracció lligada dels missatges d' agent durables als proveïdors de proveïdors. |
+| [backend/ dominis/agent/ policy.pyy McBypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/policy.py) | 349 | 1 | 11 | 0 | 11 | Estat sol·licitat, cancel·lació i política d'eines governada. |
+| [backend/ dominis/agent/resons.pypypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/responses.py) | 461 | 0 | 14 | 0 | 14 | Determinista, representació local dels resultats de l'eina agent de confiança. |
+| [backend/ dominis/agent/uroutes /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Ordres modulars HTTP per al domini agent. |
+| [backend/ dominis/agent/routes/taxs.pypypygetton](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/attachments.py) | 205 | 0 | 9 | 2 | 4 | Sense documentació de mòduls |
+| [backend/ dominis/ agent/uroteus/chat_Pi.pypypypypypypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_route.py) | 469 | 0 | 6 | 3 | 1 | Sense documentació de mòduls |
+| [backend/ dominis/ agent/uroteus/chat_Flux.pywoty](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream.py) | 299 | 0 | 4 | 2 | 0 | Orquestració per al flux d'esdeveniments de l'agent públic NDJSON. |
+| [backend/ dominis/ agent/uroteus/chat_flux_Errors.pypypypypypyytypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_errors.py) | 283 | 0 | 4 | 2 | 0 | Traducció i neteja dels fluxos d' esdeveniments de l' agent. |
+| [backend/ dominis/ agent/uroteus/chat_flux_estat.pypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_state.py) | 96 | 1 | 0 | 0 | 0 | Estat mutable de sol· licitud local per a un flux d' esdeveniments d' agent. |
+| [backend/ dominis/ agent/uroteus/chat_flux_Actualitzacions.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_updates.py) | 303 | 0 | 7 | 1 | 0 | Traducció al flux de feina per al flux d' esdeveniments públics. |
+| [backend/ dominis/agent/croutes/ checkingpoints.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/checkpoints.py) | 332 | 1 | 14 | 1 | 7 | Sense documentació de mòduls |
+| [backend/ dominis/agent/routes/confirmàncies.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/confirmations.py) | 513 | 0 | 16 | 9 | 10 | Sense documentació de mòduls |
+| [backend/ dominis/agent/routes/contrasts.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/contracts.py) | 237 | 8 | 0 | 0 | 3 | Sense documentació de mòduls |
+| [backend/ dominis/agent/croutes/misc. pypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/misc.py) | 154 | 0 | 6 | 6 | 6 | Sense documentació de mòduls |
+| [backend/ dominis/agent/routes/router.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/router.py) | 3 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
+| [backend/ dominis/agent/croutes/sessions.pyypypych](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/sessions.py) | 236 | 0 | 3 | 3 | 3 | Sense documentació de mòduls |
+| [backend/ dominis/agent/routes/shared.pyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/shared.py) | 176 | 1 | 8 | 0 | 5 | Sense documentació de mòduls |
+| [backend/ dominis/agent/routes/estat.pypypypypypypypypypypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/state.py) | 3 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
+| [backend/ dominis/ agent/croutes/ flux de treball.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/workflow.py) | 158 | 0 | 1 | 1 | 1 | Sense documentació de mòduls |
+| [backend/ dominis/ agent/ stattime_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/runtime_tools.py) | 582 | 0 | 18 | 0 | 17 | Resolució d' agent amb tipus, metadades i selecció d' eines. |
+| [backend/ dominis/ agent/ sources /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/__init__.py) | 1 | 0 | 0 | 0 | 0 | Adaptadors de lectura d'altres països de primera part. |
+| [backend/ dominis/ agent/ sources/ integració.pyftyotyybar](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/integrations.py) | 213 | 0 | 9 | 0 | 3 | Correu, calendari i contactes llegits adaptadors. |
+| [backend/ dominis/ agent/ sources/ opcionals.pyftyBypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/optional.py) | 266 | 0 | 17 | 0 | 3 | Social, reunió i adaptadors de lectura de la noció. |
+| [backend/ dominis/ agent/ sources/planning.pypyft](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/planning.py) | 190 | 0 | 9 | 0 | 1 | planant l' adaptador de lectura del projecte. |
+| [backend/ dominis/ agent/ sources/ reader.pypy gwdata](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/reader.py) | 227 | 0 | 5 | 0 | 1 | Adaptadors de lector, cerca i adaptadors exactes. |
+| [backend/ dominis/ agent/ sources/references.pyftypyftpypypypypypypypyt](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/references.py) | 139 | 0 | 8 | 0 | 1 | Adaptador de lectura de referència Vulta. |
+| [backend/ dominis/ agent/ sources/ scopes.pypypypypypypypypypypypypypysaver](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/scopes.py) | 375 | 0 | 14 | 0 | 6 | Normalització i contenidor per a l' àmbit intern de les fonts. |
+| [backend/ dominis/ agent/stream_Protocol.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/stream_protocol.py) | 279 | 1 | 7 | 4 | 2 | Protocol creat, lligat per a esdeveniments d' agent en flux. |
+| [backend/ dominis/ agent/tool_Temps d' execució.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/tool_runtime.py) | 239 | 0 | 12 | 0 | 5 | El contracte d'execució per trucades de l' agent observables. |
+| [backend/ dominis/ agent/ backn_citacions.py literalment  diuen:](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_citations.py) | 552 | 1 | 12 | 0 | 5 | Una extracció i validació per a l'agent governat es converteix. |
+| [backend/ dominis/ agent/ backn_evidence.pypypypypypywol](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_evidence.py) | 343 | 1 | 9 | 0 | 1 | Verificació de proves determinística per torns de governada a l'agent. |
+| [backend/ dominis/ agent/ backn_Planificació.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_planning.py) | 465 | 0 | 7 | 0 | 4 | Planificació independent del proveïdor per torns de governada a l'agent. |
+| [backend/ dominis/ agent/workflow.py McBypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow.py) | 236 | 1 | 5 | 1 | 6 | Dependències de coordinació i de compatibilitat amb l'agent. |
+| [backend/ dominis/ agent/work_Nodes.pyntyntypyty](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_nodes.py) | 744 | 4 | 0 | 0 | 3 | Els nodes de Lang per al flux de treball de l'agent. |
+| [backend/ dominis/ agent/work_"Pable.pypypypypy" Comment](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_setup.py) | 716 | 4 | 16 | 1 | 20 | Markes de preparació per al coordinador del flux de treball de l'agent. |
+| [backend/ dominis/ agent/ write_Intent.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/write_intent.py) | 491 | 0 | 7 | 0 | 4 | Tanca l' autorització multilingüe. |
+| [backend/ dominis/calendar /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/__init__.py) | 1 | 0 | 0 | 0 | 0 | Domini de calendari. |
+| [backend/ dominis/calendar/google.pypyypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/google.py) | 350 | 0 | 11 | 0 | 7 | Sense documentació de mòduls |
+| [backend/ dominis/ configuració/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/__init__.py) | 1 | 0 | 0 | 0 | 0 | Domini de configuració. |
+| [backend/ dominis/ config/ agent /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configura els API per a les habilitats i capacitats de l' agent governades. |
+| [backend/ dominis/ config/ agent/catalog_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/catalog_routes.py) | 549 | 0 | 25 | 0 | 3 | Catàleg, assignació i rutes d'automatització per a habilitats d'agents. |
+| [backend/ dominis/ config/ agent/contracts. pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/contracts.py) | 86 | 7 | 0 | 0 | 7 | Sol· licitud de contractes per a les API de l' agent de configuració governades. |
+| [backend/ dominis/ config/ agent/gogogonance_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/governance_routes.py) | 486 | 0 | 28 | 1 | 17 | Les rutes d'injustícia i de qualitat per a capacitats de l'agent. |
+| [backend/ dominis/ config/ agent/router.pypy gwdata](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/router.py) | 5 | 0 | 0 | 0 | 0 | Encaminador compartit individualton per a les API de configuració de l' agent sense governar. |
+| [backend/ dominis/ configure/ api /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configura les API HTTP. |
+| [backend/ dominis/ configure/api/crundials.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/credentials.py) | 208 | 2 | 5 | 5 | 5 | Sense documentació de mòduls |
+| [backend/ dominis/ configure/ api/ System.pywywwywtden](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/environment.py) | 177 | 0 | 4 | 2 | 4 | Sense documentació de mòduls |
+| [backend/ dominis/ Configura/ api/ plugin_Transcicicle.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_lifecycle.py) | 241 | 1 | 10 | 4 | 2 | Un connector de cicle de dependències i transició d'esbarjo. |
+| [backend/ dominis/ Configura/ api/ plugin_models.pypypypypypyypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_models.py) | 72 | 10 | 0 | 0 | 4 | contractes Pydantics per a l' API de configuració del connector. |
+| [backend/ dominis/ configure/ api/ plugins.pyzyzyzypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugins.py) | 790 | 1 | 48 | 23 | 30 | adaptants HTTP per a la configuració del connector integrat i de tercers. |
+| [backend/ dominis/ configure/ api/settings.pypyft](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 204 | 0 | 3 | 2 | 1 | Sense documentació de mòduls |
+| [backend/ dominis/ configuració/llm_wiki.pywoypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki.py) | 285 | 1 | 10 | 1 | 2 | Validació i persisteix el flux de treball per la configuració del Wiki LLM. |
+| [backend/ dominis/ configuració/llm_wiki_Registres.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki_records.py) | 271 | 1 | 12 | 0 | 3 | Normalització i migració dels registres de pàgines Wiki de LLM gestionats. |
+| [backend/ dominis/ configuració/llm_wiki_esquema.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki_schema.py) | 360 | 1 | 11 | 0 | 3 | Esquema cerebral i capacitat d'improvesió d'informació. |
+| [backend/ dominis/ plugin/ plugin_estat.pypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/plugin_state.py) | 88 | 3 | 2 | 0 | 1 | Propietari únic per a connectors d' estat i panys de mutació. |
+| [backend/ dominis/graph/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/__init__.py) | 5 | 0 | 0 | 0 | 0 | Domini gràfic. |
+| [backend/ dominis/graph/adapters.pyBypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/adapters.py) | 16 | 0 | 1 | 0 | 1 | Límits locals per a biblioteques gràfiques que no publiquen metadades de tipus. |
+| [backend/ dominis/gra/ges.pyyByz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/edges.py) | 189 | 0 | 9 | 0 | 2 | Una construcció estructural, la relació i la construcció de la vora del cos. |
+| [backend/ dominis/graph/nodes.pyyBypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/nodes.py) | 199 | 0 | 9 | 0 | 6 | Càrrega de node de pàgina, ús de la memòria cau i inserció gràfica. |
+| [backend/ dominis/graph/projection.ypy McBypher](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/projection.py) | 125 | 0 | 4 | 0 | 3 | Projecció del gràfic canònica al frontal estable encarregant. |
+| [backend/ dominis/graph/scaning.ypyBypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/scanning.py) | 300 | 0 | 10 | 0 | 8 | Sense documentació de mòduls |
+| [backend/ dominis/graph/ services.pyy McBypyher](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/service.py) | 294 | 1 | 0 | 0 | 1 | La orquestra de servei canonical. |
+| [backend/ dominis/litretures /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/__init__.py) | 49 | 0 | 0 | 0 | 0 | Domini de literatura acadèmica Canonical. |
+| [backend/ dominis/litretures/connectors /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/__init__.py) | 1 | 0 | 0 | 0 | 0 | Adaptadors de connectors acadèmics i orquestracions. |
+| [backend/ dominis/litretures/connectors/ comercials.pyftyzyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/commercial.py) | 313 | 0 | 4 | 4 | 0 | Adaptadors acadèmics de Credencial. |
+| [backend/ dominis/litretures/connectors/crocrocrosf. pyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/crossref.py) | 216 | 0 | 4 | 3 | 1 | Adaptadors de proveïdors de feref i DataCits. |
+| [backend/ dominis/litretures/connectors/dspspyatcher. pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/dispatcher.py) | 132 | 0 | 3 | 2 | 3 | Un enviament de connexió,riquiment i assistent. |
+| [backend/ dominis/litretures/connectors/gener.pyzyzyzyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/generic.py) | 207 | 1 | 8 | 2 | 1 | S'ha declarat un subultador personalitzat JSON. |
+| [backend/ dominis/litretures/connectors/grafs.pyzyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/graphs.py) | 263 | 0 | 8 | 4 | 2 | Adaptadors de graf OpenAlex i semàntics. |
+| [backend/ dominis/litretures/connectors/normalització.pypyzyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/normalization.py) | 207 | 0 | 9 | 0 | 3 | La normalitat canonical compartida per proveïdors acadèmics. |
+| [backend/ dominis/litretures/connectors/public.pypyzyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/public.py) | 571 | 0 | 8 | 8 | 0 | Adaptadors acadèmics públics i oberts. |
+| [backend/ dominis/litretures/connectors/nittime. pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/runtime.py) | 98 | 6 | 2 | 0 | 2 | S' ha escrit l' últim seame de compatibilitat per a connectors acadèmics. |
+| [backend/ dominis/litretures/connectors/transport.pypypypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/transport.py) | 239 | 1 | 9 | 2 | 6 | Transport fixat, protecció SSRF i demana audició. |
+| [backend/ dominis/litretures/connectors/xml.pypypychyl](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/xml.py) | 215 | 0 | 6 | 2 | 3 | XML, arXiv, i proveïdor OAI-PMH adaptadors. |
+| [backend/ dominis/litreatura/repositories.pypypyWM](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/repositories.py) | 740 | 0 | 14 | 1 | 4 | Catàleg i configuració dels dipòsits adecamics. |
+| [backend/ dominis/litreatura/ search.pyft](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/search.py) | 655 | 0 | 17 | 3 | 3 | La recerca acadèmica i la de les orquesquesquedes han indexat. |
+| [backend/ dominis/litreatura/estat.pyByz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/state.py) | 33 | 0 | 0 | 0 | 0 | Estat de mutables per a fluxs de treball de literatura alimentada. |
+| [backend/ dominis/litretures/scatorge.pypyWM](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/storage.py) | 107 | 0 | 8 | 0 | 0 | Fitxers fiultius i l' emmagatzematge SQLite local per a fluxs de literatura. |
+| [backend/ dominis/litreatura/sys.pypyft](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/sync.py) | 509 | 0 | 11 | 0 | 4 | S' ha perdut el repositori acadèmic i ha desat la sincronització de la vista. |
+| [backend/ dominis/llm_wiki/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/__init__.py) | 1 | 0 | 0 | 0 | 0 | I no obstant això, el micro-extracció de WikiLM i dominis provats. |
+| [backend/ dominis/llm_wiki/dimensions.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/dimensions.py) | 220 | 1 | 8 | 0 | 5 | Mapatge de dimensió de Wikim i opció normalització de LLLLM. |
+| [backend/ dominis/llm_wiki/documents.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/documents.py) | 339 | 0 | 13 | 0 | 12 | Document i adaptadors de suports per a l'extracció de WikiLLM. |
+| [backend/ dominis/llm_wiki/index_Representació.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/index_rendering.py) | 360 | 2 | 12 | 0 | 4 | Representació de tipus per a recursos de Wiki i índex de dimensió LLLLLM. |
+| [backend/ dominis/llm_wiki/ingestió.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/ingestion.py) | 499 | 7 | 11 | 0 | 2 | Ingestió de bloqueigs de la orquestra per a Wiki LLLLM ingestió. |
+| [backend/ dominis/llm_wiki/origins.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/origins.py) | 161 | 0 | 5 | 0 | 4 | Identitat d'origen molt potent, deplisió iummaculada. |
+| [backend/ dominis/llm_wiki/planning.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/planning.py) | 284 | 0 | 8 | 0 | 4 | Planificació i regles de base per a la Wiki de LLLM ingestió. |
+| [backend/ dominis/llm_wiki/ search_índex.pypypypypyyty](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/search_index.py) | 370 | 3 | 14 | 0 | 11 | índexs de lèxica i vector per a la Wiki LLLLM. |
+| [backend/ dominis/llm_wiki/ writer.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/writing.py) | 416 | 5 | 13 | 0 | 2 | Tipust, persisteix per la influència per les notes de lectura de LLLLLM generates pel Wiki. |
+| [backend/ dominis/ mail/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/__init__.py) | 1 | 0 | 0 | 0 | 0 | Domini de correu. |
+| [backend/ dominis/mail/che.py McBypher](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/cache.py) | 33 | 0 | 4 | 0 | 0 | S' han lligat els llocs caus del correu local. |
+| [backend/ dominis/mail/composition.pypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/composition.py) | 17 | 0 | 0 | 0 | 0 | Composició determinística de l' encaminador de correu. |
+| [backend/ dominis/mails/connectors /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/__init__.py) | 1 | 0 | 0 | 0 | 0 | Connectors externs usats pel correu i els fluxs de treball de contingut. |
+| [backend/ dominis/mails/connectors/duplic.pypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/drupal.py) | 582 | 2 | 23 | 9 | 18 | Client de sincronització de Drupal (JaSON: API + personalitzat `n8n_helper` Punts final). |
+| [backend/ dominis/ mail/ingestió /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/ingestion/__init__.py) | 1 | 0 | 0 | 0 | 0 | Correu i alimenta els serveis d'imgestió. |
+| [backend/ dominis/mail/ingestió/ fonts.pypy=\\\\ {@} Name](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/ingestion/feeds.py) | 145 | 0 | 6 | 0 | 2 | Sense documentació de mòduls |
+| [backend/ dominis/mail/ingestió/news lletres.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/ingestion/newsletters.py) | 476 | 0 | 16 | 0 | 10 | Les notícies són engestió mitjançant POP3 (STTLS). |
+| [backend/ dominis/mails/proveidors /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/__init__.py) | 1 | 0 | 0 | 0 | 0 | Adaptadors de correus que no tenen. |
+| [backend/ dominis/mails/proveidors/ rarets.pypyaka](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/common.py) | 43 | 0 | 2 | 0 | 0 | Ajudadors de l' ajuda normalització compartida per correu. |
+| [backend/ dominis/mails/proveidors/ gmail.pyzyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/gmail.py) | 319 | 0 | 7 | 0 | 1 | Adaptador de l' API Gmail pel domini del correu. |
+| [backend/ dominis/mails/proveidors/hrid.pypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/hybrid.py) | 583 | 0 | 15 | 0 | 5 | Servei de correu híbrid KDEDIRS consultes de l' API Gmail i IMAP directament sense una volta. |
+| [backend/ dominis/mails/repositoris /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/repositories/__init__.py) | 1 | 0 | 0 | 0 | 0 | Repositoris persisteix de correu. |
+| [backend/ dominis/mails/repositoriries/vult. pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/repositories/vault.py) | 195 | 0 | 10 | 0 | 8 | Persisteix l'ajuda dels missatges persisteixen. |
+| [backend/ dominis/mails/routes /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Gestors de rutes de correu HTTP. |
+| [backend/ dominis/mail/routes/ Actions.pypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/actions.py) | 232 | 0 | 9 | 5 | 2 | Accions de correu canonical. |
+| [backend/ dominis/mail/routes/taxs.pypypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/attachments.py) | 132 | 0 | 3 | 3 | 2 | Rutes d' adjunt de correus canonical. |
+| [backend/ dominis/mail/routes/compose.pypypypypypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 732 | 0 | 19 | 12 | 6 | Compondre el correu canonical. |
+| [backend/ dominis/mail/routes/messages.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/messages.py) | 438 | 0 | 7 | 7 | 7 | Missatges de correu canonical. |
+| [backend/ dominis/mail/routes/ tags.pyypyzyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/tags.py) | 139 | 0 | 9 | 8 | 0 | Etiquetes de correu canonical. |
+| [backend/ dominis/mail/routes/views.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/views.py) | 96 | 0 | 5 | 4 | 0 | Vistes de correu canonical. |
+| [backend/ dominis/mails/routing.ypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routing.py) | 32 | 1 | 0 | 0 | 1 | Objecte de registre d' encaminadors de correu canonical. |
+| [backend/ dominis/mail/schemas.pypypypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/schemas.py) | 17 | 0 | 0 | 0 | 0 | Esquemes de peticions de domini de correu conservades del contracte públic 2.x. |
+| [backend/ dominis/mails/ services /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/__init__.py) | 1 | 0 | 0 | 0 | 0 | Serveis d' aplicació de domini de correu. |
+| [backend/ dominis/mails/ services/ accounts.pyyftypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/accounts.py) | 37 | 0 | 3 | 0 | 1 | Els ajudadors del compte de correu i la selecció del proveïdor. |
+| [backend/ dominis/mails/ services/taxs.pywyzyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/attachments.py) | 239 | 0 | 4 | 4 | 4 | Servei d' adjunt de correu canonical. |
+| [backend/ dominis/ mail/sysín/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/__init__.py) | 1 | 0 | 0 | 0 | 0 | Serveis de sincronització del correu. |
+| [backend/ dominis/mail/sysn/sysnle.pypyft](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/idle.py) | 269 | 2 | 0 | 0 | 2 | Servei IDLE IMAP: empenyeu notificacions quan arribin nous missatges. |
+| [backend/ dominis/mail/sysync/ imap_cor.pypy waitypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_core.py) | 544 | 1 | 3 | 0 | 0 | L' ús de la sincronització IMAP i la volta persisteix. |
+| [backend/ dominis/mail/sysync/ imap_mutacions.pypy literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_mutations.py) | 634 | 1 | 3 | 0 | 0 | Operacions de mutació del servidor IMAP. |
+| [backend/ dominis/mail/sysync/ imap_Protocol.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_protocol.py) | 169 | 0 | 4 | 0 | 2 | S' ha trobat la normalització del protocol IMAP i la descoberta de carpetes. |
+| [backend/ dominis/mail/sysync/ imap_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_service.py) | 49 | 1 | 0 | 0 | 1 | Servei de sincronització de correu IMAP. |
+| [backend/ dominis/mail/sysync/stp.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/smtp.py) | 113 | 0 | 1 | 0 | 1 | Enviació SMTP per als comptes compatibles amb IMAP configurats. |
+| [backend/ dominis/media/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/__init__.py) | 1 | 0 | 0 | 0 | 0 | Serveis de domini de l'entorn. |
+| [backend/ dominis/media/metadata.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/metadata.py) | 165 | 1 | 8 | 0 | 7 | Dades d'usuari sincronitzades per als fitxers de suports. |
+| [backend/ dominis/media/query.ypy McBrickend/ dominis/media/query.y](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/query.py) | 387 | 2 | 10 | 0 | 7 | Filtrat, ordenació, traginació i selecció de fitxers per a arrels de suports. |
+| [backend/ dominis/media/roots.pyBypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/roots.py) | 156 | 1 | 7 | 0 | 6 | Resolució de suport i mandrosa de carpeta, arbre traversal. |
+| [backend/ dominis/media/ scan_cache.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/scan_cache.py) | 203 | 1 | 8 | 0 | 8 | Exploració dels mitjans de comunicació recursius amb la memòria cau persistent TTL. |
+| [backend/ dominis/media/ types.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/types.py) | 155 | 16 | 0 | 0 | 16 | Compartida contractes per al domini de la xarxa. |
+| [backend/ dominis/media/uploads.py McBypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/uploads.py) | 240 | 6 | 5 | 0 | 10 | S' han conté les pujades dels suports, extracció EXIF i la sèrieització del fitxer API. |
+| [backend/ dominis/media/views.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/views.py) | 195 | 1 | 9 | 0 | 9 | S' han desat filtres i vistes d' ordenació per a la navegació dels mitjans de comunicació. |
+| [backend/ dominis/ notes/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/__init__.py) | 49 | 0 | 0 | 0 | 0 | Domini de notes canonical castigada. |
+| [backend/ dominis/ Notesbooks/anàlisi.pyotyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/analysis.py) | 342 | 0 | 7 | 0 | 1 | Durant tota la vida, els treballadors d'anàlisi de notes. |
+| [backend/ dominis/ Notesbooks/catalog.pypyftypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/catalog.py) | 326 | 0 | 12 | 0 | 3 | S' està canviant la descoberta de recursos i filtrat per a les notes basades. |
+| [backend/ dominis/ notes/ comot.pyft](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/chat.py) | 232 | 0 | 4 | 0 | 3 | Àmbit de conversa i resolució de context de l' agent de notes. |
+| [backend/ dominis/ notes/ evidence.pypypy gwdata](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/evidence.py) | 301 | 0 | 9 | 0 | 2 | Cerca i citant proves a través de notes adhens. |
+| [backend/ dominis/ notes/ obooks més recent_Emmagatzematge.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/ingest_storage.py) | 268 | 0 | 4 | 0 | 1 | SQLite escriu i revisa còpies de notes per a la llibreta d'spira. |
+| [backend/ dominis/ notes/dingestió.py=\\\\ {@} Name](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/ingestion.py) | 680 | 2 | 14 | 0 | 1 | Els treballadors durant la ingestió de les proves de notes castigats. |
+| [backend/ dominis/ notes/trbooks/ apypych. ftpypypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/repository.py) | 226 | 0 | 14 | 0 | 5 | Persistència i autorització per a llibres castigats. |
+| [backend/ dominis/ Notesbooks/recursos.pyftyotychych](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/resources.py) | 361 | 0 | 13 | 0 | 3 | S' està enviant l' empremta digital del recurs, refrescar la detecció i la retenció de revisió. |
+| [backend/ dominis/ notes/books/ services.pyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/service.py) | 569 | 0 | 14 | 0 | 2 | Emcleta de vida i refresca orquestració de notes. |
+| [backend/ dominis/ notes/ state.pyBypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/state.py) | 62 | 1 | 0 | 0 | 1 | Estat del procés compartit per serveis de notes castigats. |
+| [backend/ dominis/ reader /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/__init__.py) | 21 | 0 | 0 | 0 | 0 | Domini de lector Canonical. |
+| [backend/ dominis/ reader/anàlisi.pypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/analysis.py) | 356 | 0 | 12 | 0 | 0 | instantània, mapa/reduïu i informe de renderitzat per a les anàlisis del lector. |
+| [backend/ dominis/ reader/ interiors_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/internal_sources.py) | 54 | 0 | 5 | 0 | 5 | Límit límit al voltant del lector d' ajuda heretat pel domini de l' agent. |
+| [backend/ dominis/ reader/routes.pyypytypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/routes.py) | 786 | 3 | 30 | 1 | 31 | Sense documentació de mòduls |
+| [backend/ dominis/ reader/ services.py McBypher](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/service.py) | 621 | 0 | 21 | 0 | 8 | Anàlisi de cicle vital del lector i reembossió de orquestra. |
+| [backend/ dominis/reader/estat.pyBypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/state.py) | 49 | 1 | 0 | 0 | 1 | Estat i límits compartits per a analitzs de lectors durables. |
+| [backend/ dominis/ reader/scatorge.pypypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/storage.py) | 200 | 0 | 18 | 0 | 0 | Treball de lector durant temps, instantània i magatzem de punts de control. |
+| [backend/ dominis/vult/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/__init__.py) | 5 | 0 | 0 | 0 | 0 | Límits de domini Vulta. |
+| [backend/ dominis/vult/annotacions /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/annotations/__init__.py) | 1 | 0 | 0 | 0 | 0 | Paquet de domini de la Viulta. |
+| [backend/ dominis/vult/annotacions/pdf_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/annotations/pdf_routes.py) | 148 | 2 | 5 | 0 | 1 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/api /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | adaptants HTTP pel domini de la càmera forta. |
+| [backend/ dominis/vult/a/ api/ Configuration_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/configuration_routes.py) | 335 | 0 | 21 | 4 | 7 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/a/api/core_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/core_routes.py) | 373 | 0 | 18 | 4 | 14 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/a/api/ story.pywywynton](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/history.py) | 196 | 1 | 8 | 4 | 7 | Adaptador HTTP per a la història de la pàgina volta. |
+| [backend/ dominis/vult/a/api/pages_Ordres.pypypypypypys](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_commands.py) | 140 | 1 | 2 | 0 | 2 | Registre HTTP per als serveis de mutació de pàgina de caixa. |
+| [backend/ dominis/vult/a/api/pages_duplicat.pypyookiee](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_duplicate.py) | 125 | 1 | 4 | 1 | 1 | HTTP adaptador per a duplicar una pàgina de volta. |
+| [backend/ dominis/vult/a/api/pages_consultes.pypyakafghanistan. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_queries.py) | 455 | 3 | 14 | 8 | 9 | Només adaptadors HTTP de lectura per a pàgines i vistes prèvies. |
+| [backend/ dominis/vult/a/api/ trash.pypy gwdata](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/trash.py) | 334 | 1 | 10 | 5 | 9 | El treball d' adaptador HTTP i de retenció per a pàgines de volta amb cura esborrades. |
+| [backend/ dominis/vult/ass /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/__init__.py) | 1 | 0 | 0 | 0 | 0 | Pujades a l' actiu de la vora, magatzem d' icones i adaptadors HTTP de la imatge. |
+| [backend/ dominis/vult/asts/api.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/api.py) | 275 | 1 | 21 | 8 | 14 | HTTP adaptadors i registre de rutes per a actius de la caixa forta. |
+| [backend/ dominis/vult/asts/selfistence.pypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/persistence.py) | 337 | 2 | 20 | 0 | 3 | Persistència i neteja dels valors actius de la propietat de la taula. |
+| [backend/ dominis/vult/as/quarantina.pyzyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/quarantine.py) | 362 | 1 | 19 | 0 | 9 | Un detector de vital per als arbres de la taula. |
+| [backend/ dominis/vult/asts/scholimes.pyzyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/schemas.py) | 16 | 2 | 0 | 0 | 0 | Esquemes de peticions gelats per rutes d'actius de la volta. |
+| [backend/ dominis/vult/as/ services.pyzyzyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/service.py) | 308 | 1 | 9 | 4 | 10 | Serveis d' aplicació per a actius de caixa forta i icones. |
+| [backend/ dominis/vult/as/estat.pypypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/state.py) | 74 | 1 | 1 | 0 | 2 | Un sol propietaris de l'estat de la caixa forta. |
+| [backend/ dominis/vult/as/table_camins.pyntypyntypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/table_paths.py) | 410 | 2 | 24 | 0 | 12 | Camí d' actiu de la taula i el cicle de vida de directoris. |
+| [backend/ dominis/vult/ surreccions /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/__init__.py) | 1 | 0 | 0 | 0 | 0 | Citacions de la seguretat i referències de domini bibliografia. |
+| [backend/ dominis/vult/ auments/ authors.pypypych](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/authors.py) | 155 | 0 | 5 | 0 | 0 | Autor normalització i repetida correspondència normal-CSL. |
+| [backend/ dominis/vult/ ringupcions/export_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/export_routes.py) | 619 | 0 | 47 | 1 | 17 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/ ringing/exporting.pypy]](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/exporting.py) | 230 | 2 | 8 | 2 | 5 | Exportació de pàgines Pandoc-back Vulta amb citacions resoltes de CSL. |
+| [backend/ dominis/vult/ aulicions/formats/formats.pyzyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/formatting.py) | 455 | 2 | 9 | 0 | 1 | • La construcció de l'element CSL i les rutes de format Pandoc. |
+| [backend/ dominis/vult/ surrections/io_api.py literalment wolthon](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/io_api.py) | 374 | 1 | 4 | 0 | 0 | Adject/export i catàleg HTTP GS per a l'ordinador. |
+| [backend/ dominis/vult/ aulicions/keys.pypypypypypypypypypypypypypypypypypysa](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/keys.py) | 196 | 0 | 8 | 0 | 0 | Claus de citació d'estil BibTeX de manera més notable. |
+| [backend/ dominis/vult/ surreccions/ keys_api.py literalment wolthon](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/keys_api.py) | 43 | 0 | 1 | 0 | 0 | Generació de claus HTTP adaptador de Cittion. |
+| [backend/ dominis/vult/ kekings/lookup_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/lookup_routes.py) | 689 | 0 | 33 | 6 | 22 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/ kequacions/metadata_Cerca.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/metadata_lookup.py) | 211 | 2 | 9 | 6 | 3 | Resolució de metadades de només lectura per a identificadors de referència externs. |
+| [backend/ dominis/vult/ keckings/pdf_alternatiu.pypypypypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/pdf_fallback.py) | 77 | 1 | 2 | 0 | 2 | Les metadades de referència de reserva derivats d' un PDF i del seu nom. |
+| [backend/ dominis/vult/ agitació/references_Configuració.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/reference_configuration.py) | 105 | 1 | 5 | 0 | 2 | Dissenyació de referència canonical i opció automàtica d' herència heretat. |
+| [backend/ dominis/vult/ agitació/references_api.py literalment wolthon](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/references_api.py) | 158 | 1 | 1 | 0 | 0 | Composició HTTP dissenyada de referències a les ordres. |
+| [backend/ dominis/vult/ aulicions/ search.pypypypypypych](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/search.py) | 422 | 1 | 14 | 0 | 0 | Citejades de la clau, cerca i resolucions. |
+| [backend/ dominis/vult/ auliacions/estat.pypypypypypypypypypypypypypypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/state.py) | 32 | 2 | 0 | 0 | 0 | Propietari únic per l' índex de citació de la clau. |
+| [backend/ dominis/vult/ surreccions/web_capturar.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/web_capture.py) | 119 | 1 | 3 | 1 | 2 | Captura de traducció al servidor web de tan sols lectura. |
+| [backend/ dominis/vult/ments /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/comments/__init__.py) | 15 | 0 | 0 | 0 | 0 | Pàgina de veu i domini de comentari en línia. |
+| [backend/ dominis/vult/comments/api.pypypypypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/comments/api.py) | 285 | 2 | 2 | 0 | 0 | Registre HTTP per a comentaris de pàgina i inserides. |
+| [backend/ dominis/vult/ments/rrefer.pypypypypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/comments/repository.py) | 88 | 1 | 5 | 0 | 0 | Repositoris del sistema de fitxers per a la pàgina i comentaris inclosos. |
+| [backend/ dominis/vult/ments/schemas. pypyzyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/comments/schemas.py) | 34 | 4 | 0 | 0 | 0 | Petició pública de contractes per comentaris de càmera. |
+| [backend/ dominis/vult/ments/estat.pypypypypypypypypypypypyn](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/comments/state.py) | 18 | 0 | 0 | 0 | 0 | Hi ha un sol procés per a comentaris de la caixa forta. |
+| [backend/ dominis/vult/daly /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/daily/__init__.py) | 2 | 0 | 0 | 0 | 0 | Serveis de domini de notes diaris. |
+| [backend/ dominis/vult/datly/ services.pyyzyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/daily/service.py) | 306 | 1 | 10 | 2 | 9 | Un descobriment diari i descobriment atòmic de la cerca de projectes. |
+| [backend/ dominis/vult/drags /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drawings/__init__.py) | 2 | 0 | 0 | 0 | 0 | Aprofita els serveis persisteixen. |
+| [backend/ dominis/vult/dravers/routes.pypypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drawings/routes.py) | 154 | 0 | 7 | 4 | 7 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/dravers/ services.pyevyev](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drawings/service.py) | 247 | 4 | 9 | 4 | 9 | Persisteix el proveïdor de la sol·licitud de Tldraw i dels documents Excalidraw. |
+| [backend/ dominis/vult/dupal /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/__init__.py) | 21 | 0 | 0 | 0 | 0 | Domini de sincronització de laulta a Dupliar. |
+| [backend/ dominis/vult/dupal/composition. pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/composition.py) | 397 | 0 | 27 | 8 | 25 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/druupal/core.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/core.py) | 113 | 0 | 5 | 0 | 5 | PureMenu and identity mapejat per a files Vult. |
+| [backend/ dominis/vult/dupal/fields.pypy]](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/fields.py) | 213 | 2 | 4 | 4 | 1 | Construeix atributs de Drupal i relacions des de mapes de taula Vult. |
+| [backend/ dominis/vult/dupls/ idiomas.pyyyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/languages.py) | 220 | 5 | 7 | 4 | 6 | language de Drupal i descobriment de camp translatable amb les memòries cau de propietat. |
+| [backend/ dominis/vult/dupal/markdown.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/markdown.py) | 125 | 1 | 4 | 0 | 4 | La promoció del Gnosi Markdown per a la pràctica de la Drupal per als camps de text enriquit. |
+| [backend/ dominis/vult/dupal/inciinting. pypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/matching.py) | 133 | 1 | 2 | 1 | 1 | Concorda amb els nodes de Drupal existents a files de Vult amb títol. |
+| [backend/ dominis/vult/dupal/media.pypypypypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/media.py) | 326 | 4 | 8 | 1 | 6 | Resolució local de fitxers i preparació de suports per a Drupal. |
+| [backend/ dominis/vult/dupal/ services.pyzyzyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/drupal/service.py) | 715 | 6 | 14 | 10 | 3 | Ochestre idepotent sincronització de la Terra a Drupal. |
+| [backend/ dominis/vult/fade_Pont.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/facade_bridge.py) | 40 | 0 | 4 | 0 | 3 | Registre d' exportació de compatibilitat per la façana de l' API històrica. |
+| [backend/ dominis/vult/ files /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/__init__.py) | 1 | 0 | 0 | 0 | 0 | Fitxer de correu a la sortida, enllaços locals, pujades i supressió física. |
+| [backend/ dominis/vult/ files/ api.pypypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/api.py) | 399 | 1 | 24 | 9 | 19 | Programors HTTP i registre de rutes per a fluxs de fitxers de la volta. |
+| [backend/ dominis/vult/ files/ màquina_paperera.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/host_trash.py) | 39 | 0 | 1 | 0 | 1 | S' adapta la màquina per a crear un esborrat de fitxers físics recuperats. |
+| [backend/ dominis/vult/ files/local_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/local_service.py) | 386 | 4 | 10 | 4 | 13 | Serveis per fitxes de fitxers locals, enllaços portàtils i supressió física. Name |
+| [backend/ dominis/vult/ files/property_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/property_service.py) | 224 | 1 | 7 | 1 | 8 | Destí del fitxer de propietats, pujada, noms i serveis de resposta. |
+| [backend/ dominis/vult/ files/route_Composició.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/route_composition.py) | 426 | 0 | 13 | 2 | 11 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/ files/ defaultcons.pypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/serving.py) | 214 | 0 | 5 | 3 | 5 | Contét i un regal de fitxers de volta conscient de núvol. |
+| [backend/ dominis/vult/ files/estat.pypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/state.py) | 111 | 2 | 0 | 0 | 2 | Propietaris individuals per a l' estat de fitxer de taula de distància. |
+| [Backend/ dominis/vult/ files/ dummbles. pyzyzyzyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/thumbnails.py) | 194 | 1 | 5 | 1 | 6 | Resolució ràpida de miniatures i llançament. |
+| [backend/ dominis/vult/hist history /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/history/__init__.py) | 5 | 0 | 0 | 0 | 0 | Historial de versions per a pàgines de volta. |
+| [backend/ dominis/vult/hista/histayArvery.pypy=Cyron](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/history/repository.py) | 133 | 1 | 0 | 0 | 1 | repositori de fitxers per a la història de la pàgina de només volta cap endavant. |
+| [Backbackend/ dominis/vult/ knowd /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/__init__.py) | 1 | 0 | 0 | 0 | 0 | Paquet de domini de la Viulta. |
+| [Backbackend/ dominis/vult/ knowd/config_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/config_routes.py) | 276 | 0 | 9 | 7 | 9 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [Backbackend/ dominis/vult/ knowd/ monigols_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/jobs_routes.py) | 349 | 0 | 17 | 12 | 17 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [Backbackend/ dominis/vult/ knowd/schema_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/schema_service.py) | 538 | 0 | 25 | 0 | 13 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/links /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/__init__.py) | 5 | 0 | 0 | 0 | 0 | Viult wikilink, Reenllaç i esmenta el domini. |
+| [backend/ dominis/vult/links/api /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/__init__.py) | 5 | 0 | 0 | 0 | 0 | Adaptadors HTTP per als enllaços de càmera. |
+| [backend/ dominis/vult/ links/api/dependències.pyPypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/dependencies.py) | 48 | 2 | 0 | 0 | 0 | Ports de composició estrets usats per enllaçar a adaptadors HTTP. |
+| [backend/ dominis/vult/ links/api/mentions. pypypypypypypypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/mentions.py) | 283 | 0 | 7 | 0 | 0 | Un descobriment de la innumeració i enllaços a l'acció HTTP adaptadors sense enllaços. |
+| [backend/ dominis/vult/ links/api/nvigation.pypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/navigation.py) | 331 | 0 | 8 | 0 | 0 | Interservància inversa i navegació a les adaptadores HTTP. |
+| [backend/ dominis/vult/ links/api/verview. pypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/overview.py) | 50 | 0 | 1 | 0 | 0 | Registre global i àlies indexat HTTP. |
+| [backend/ dominis/vult/ links/api/preview. pypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/preview.py) | 157 | 0 | 4 | 1 | 0 | Adaptador extern de vista prèvia d' enllaços externs. |
+| [backend/ dominis/vult/links/document_cache.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/document_cache.py) | 278 | 2 | 10 | 0 | 10 | Cos persistent i executable de memòria cau de documents per a enllaços Vulta. |
+| [backend/ dominis/vult/links/document_Absorció.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/document_inventory.py) | 139 | 1 | 6 | 0 | 2 | l'inventari de les pàgines de marca i els taulers que es fan servir per enllaçar. |
+| [backend/ dominis/vult/links/index_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/index_service.py) | 560 | 2 | 16 | 0 | 0 | Inversos serveis d'índex i persisteixen. |
+| [backend/ dominis/vult/links/parsing.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/parsing.py) | 211 | 0 | 12 | 0 | 0 | Operacions d'anàlisi pura per a wikilinks i esmentos sense connexió. |
+| [backend/ dominis/vult/links/relació_Sincronització.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/relation_sync.py) | 185 | 1 | 4 | 0 | 4 | Oquestració del sistema de fitxers per a sincronització de relació bidireccional. |
+| [backend/ dominis/vult/links/runtime.pypypypypypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/runtime.py) | 597 | 0 | 43 | 0 | 22 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/links/schemas. pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/schemas.py) | 13 | 1 | 0 | 0 | 0 | Sol·licito contractes públics per a enllaços de cambra. |
+| [backend/ dominis/vult/links/estat.pypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/state.py) | 86 | 3 | 0 | 0 | 0 | Propietari de tot el procés únic per a l' índex d' enllaços invers. |
+| [backend/ dominis/vult/media /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/__init__.py) | 1 | 0 | 0 | 0 | 0 | Paquet de domini de la Viulta. |
+| [backend/ dominis/vult/media/routes.pypypypypypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/routes.py) | 453 | 0 | 30 | 14 | 14 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/pages /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/__init__.py) | 5 | 0 | 0 | 0 | 0 | Catàleg de pàgines, persisteix, límits de vista prèvia i indexat. |
+| [backend/ dominis/vult/pages/cche.py McLevyevyev](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/cache.py) | 140 | 0 | 9 | 1 | 9 | Conculència i cau en curta vida per operacions de pàgina en volta. |
+| [backend/ dominis/vult/pages/ create_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/create_service.py) | 200 | 1 | 4 | 2 | 2 | Servei d' aplicació per crear una pàgina de voltes. |
+| [backend/ dominis/vult/pages/ foundation.pypypyev](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/foundation.py) | 713 | 0 | 42 | 0 | 26 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/pages/identificadors.pyypyypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/identifiers.py) | 32 | 0 | 2 | 0 | 2 | Validació per a les pàgines i els identificadors d' historial usats en camins de sistema de fitxers. |
+| [backend/ dominis/vult/pages/index_Entrades.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_entries.py) | 334 | 2 | 12 | 0 | 9 | Creació d' entrada per a l' estil de pàgina. |
+| [backend/ dominis/vult/pages/index_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_service.py) | 632 | 1 | 28 | 0 | 8 | Descobriment de pàgines a l' index, refresc i serveis de instantània. |
+| [backend/ dominis/ vult/pages/markdown_writer.ypypypypyypyn.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/markdown_writer.py) | 201 | 1 | 7 | 0 | 2 | Un escriptor de marca canonical amb identitat i guàrdies de pèrdua de car. |
+| [backend/ dominis/vult/pages/ mmetadata_mutacions.pypy literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/metadata_mutations.py) | 482 | 2 | 18 | 3 | 5 | mutacions de metadades a les pàgines Vult i plantilles de taula. |
+| [backend/ dominis/vult/pages/ patch_helpers.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_helpers.py) | 282 | 1 | 9 | 0 | 5 | Sistema de fitxers, metadades i ajudadors de la memòria cau per actualitzacions parcials de pàgines. |
+| [backend/ dominis/vult/pages/ patch_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_service.py) | 222 | 1 | 1 | 1 | 1 | Servei d' aplicació per a actualitzacions parcial de la pàgina de volta. |
+| [backend/ dominis/vult/pages/preview_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/preview_routes.py) | 476 | 0 | 13 | 4 | 5 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/pages/resolver. pypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/resolver.py) | 243 | 1 | 11 | 0 | 3 | Resol els identificadors de pàgina estables als camins dels fitxers actuals. |
+| [backend/ dominis/vult/pages/ suntime.pypypypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/runtime.py) | 535 | 3 | 29 | 0 | 12 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/pages/ save_helpers.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/save_helpers.py) | 216 | 1 | 9 | 0 | 5 | Els fitxers de fitxers i els ajuda de metadades per a desar la pàgina completa. |
+| [backend/ dominis/vult/pages/ save_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/save_service.py) | 191 | 2 | 1 | 1 | 1 | El servei d' aplicació per a la pàgina de seguretat completa estalvia. |
+| [backend/ dominis/vult/pages/estat.pypypypypypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/state.py) | 45 | 1 | 0 | 0 | 1 | Propietari de l' estat únic en procés per operacions de pàgina volta. |
+| [backend/ dominis/vult/pages/sync_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/sync_routes.py) | 217 | 3 | 13 | 4 | 5 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/pages/ tags.pyyyzyyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/tags.py) | 139 | 4 | 7 | 1 | 5 | Etiquetes porta- seble i semàntices de taula a través de les pàgines de la vora de la vora. |
+| [backend/ dominis/vult/registry /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/__init__.py) | 6 | 0 | 0 | 0 | 0 | Registre de registre i operacions independents HTTP. |
+| [backend/ dominis/vult/registry/api.pypyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/api.py) | 83 | 1 | 3 | 2 | 1 | Gestors independents HTTP pels punts finals de registre de les caixes. |
+| [backend/ dominis/vult/registry/ defaults.pypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/defaults.py) | 93 | 1 | 3 | 0 | 1 | Va ser guardada per una nova llista de caixes. |
+| [backend/ dominis/vult/registry/noms.pypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/names.py) | 197 | 0 | 9 | 0 | 7 | Taula i vista de regles de noms en el registre. |
+| [backend/ dominis/vult/registry/rCread.pyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/repository.py) | 304 | 3 | 0 | 0 | 1 | La persisteixen perpetència per al registre de la pervitació. |
+| [backend/ dominis/vult/registry/runtime.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/runtime.py) | 591 | 0 | 37 | 4 | 25 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/registry/estat.pypypypyev](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/state.py) | 28 | 1 | 0 | 0 | 1 | Propietari únic de tot el procés per a la memòria cau i sincronització del registre. |
+| [backend/ dominis/vult/schemas /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/__init__.py) | 17 | 0 | 0 | 0 | 0 | Sol· licitud i esquemes de resposta per al domini de la caixa forta. |
+| [backend/ dominis/vult/schemas/pages.pypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/pages.py) | 72 | 6 | 0 | 0 | 0 | Esquemes d' API de la pàgina propietat del domini de la càmera forta. |
+| [backend/ dominis/ vult/tables /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/__init__.py) | 1 | 0 | 0 | 0 | 0 | Base de dades Vult, taules, propietats i catàlegs d' opcions. |
+| [backend/ dominis/vult/tables/api.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/api.py) | 115 | 1 | 5 | 4 | 0 | Operacions de base de dades i taula. |
+| [backend/ dominis/ vult/tables/composicions.pypyft](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/composition.py) | 39 | 1 | 0 | 0 | 1 | composició de dependències per a files de taula, esquemes i vistes desades. |
+| [backend/ dominis/ vult/ folders/ folders.pyypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/folders.py) | 157 | 1 | 8 | 0 | 4 | Una carpeta física de qualitat d'ault per a les taules. |
+| [backend/ dominis/ vult/tables/formula_Reassigna.](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/formula_recalculation.py) | 210 | 2 | 10 | 0 | 2 | Recomputació sèrieitzada de fórmules que depenen d' altres files de taula. |
+| [backend/ dominis/vult/tables/legeracy_Composició.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/legacy_composition.py) | 541 | 0 | 5 | 0 | 3 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/tables/ Transcicle.pypyotyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/lifecycle.py) | 546 | 4 | 17 | 3 | 0 | Creació de taula, supressió i reanomena serveis. |
+| [backend/ dominis/ vult/ tabtables/opcions.pyftypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/options.py) | 582 | 2 | 22 | 8 | 4 | Catàlegs d' opció compartides i reescriure files i valors de fila. |
+| [backend/ dominis/vult/tables/routs.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py) | 542 | 0 | 41 | 24 | 25 | Límit ràpid de l'API per a les bases de dades, files de taula, vistes i esquemes de carpetes. |
+| [backend/ dominis/vult/rows/rows.pypypypypypyz](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rows.py) | 421 | 2 | 17 | 0 | 11 | Descobriment de files de taula, resolució de context i lectura d'enriquiment. |
+| [backend/ dominis/vult/tables/scachma. pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/schema.py) | 403 | 1 | 20 | 1 | 7 | Esquemes d'esquema de taula revisions i regles d' mutació de propietats. |
+| [backend/ dominis/vult/tables/seguretat.py=\\\\ {@} Name](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/security.py) | 29 | 1 | 1 | 0 | 1 | Accés estret al límit de composició de l' autorització de l' espai de treball. |
+| [backend/ dominis/ vult/tables/estat_opcions.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/status_options.py) | 124 | 1 | 6 | 0 | 2 | La millor persisteixibilitat dels valors d'estat creats per regles d' acció. |
+| [backend/ dominis/vult/traduction /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/__init__.py) | 19 | 0 | 0 | 0 | 0 | Un flux de treball de traducció i serveis de compatibilitat-netral. |
+| [backend/ dominis/vult/tration/adapters.pypypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/adapters.py) | 106 | 4 | 3 | 0 | 3 | Els adaptadors opcionals de traducció de la Fayrth. |
+| [backend/ dominis/vult/tration/ Transcicle.py=\\\\ {@} Name](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/lifecycle.py) | 344 | 0 | 12 | 3 | 10 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/trau/suplooku.py=\\\\ {@} Name](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/lookup.py) | 129 | 1 | 3 | 2 | 2 | S'ha trobat el fill de traducció amb recuperació del fitxer en núvol. |
+| [backend/ dominis/vult/traduction/metadata_io.py literalmentzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/metadata_io.py) | 124 | 1 | 4 | 0 | 2 | Imatges mínimes que s' usen per efectes de cicle vital de traducció. |
+| [backend/ dominis/vult/traduction/ page_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/page_service.py) | 237 | 1 | 5 | 2 | 1 | Un flux de treball de traducció de pàgines autònomes Vult. |
+| [backend/ dominis/vult/traduction/routs.pypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/routes.py) | 393 | 0 | 10 | 10 | 10 | El domini de la caravana ha extret la façana de la ruta històrica. |
+| [backend/ dominis/vult/traduction/row_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/row_service.py) | 590 | 2 | 12 | 5 | 1 | S' ha generat un flux de traducció idipotent per a files de taula. |
+| [backend/ dominis/vult/traduction/scatration.pypyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/staleness.py) | 158 | 1 | 5 | 0 | 1 | Proporció de la línia de traducció després d' editar les pàgines font. |
+| [backend/ dominis/vult/tration/ tipus. pypyft=pypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/types.py) | 70 | 4 | 0 | 0 | 1 | Contractes estrictes compartides per serveis de traducció Vult. |
+| [backend/ dominis/vult/trash /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/trash/__init__.py) | 5 | 0 | 0 | 0 | 0 | Desborció suau per a les pàgines de volta. |
+| [backend/ dominis/vult/trash/purge.pypy gwdata](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/trash/purge.py) | 163 | 2 | 7 | 0 | 2 | Pura i més bona neteja de la traça. |
+| [backend/ dominis/vult/trash/rrapher.pypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/trash/repository.py) | 195 | 2 | 0 | 0 | 2 | repositori de fitxers per pàgines de càmera molt suaus que s' han esborrat. |
+| [backend/ dominis/vult/views /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mostra vistes desades i esquemes de carpeta heretats. |
+| [backend/ dominis/vult/views/api.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/api.py) | 263 | 1 | 10 | 7 | 0 | Operacions de vista desades pel registre central. |
+| [backend/ dominis/vult/views/schema.pypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/schema.py) | 77 | 2 | 3 | 2 | 1 | Esquema de carpeta compatible amb l' enrere persisteix. |
+| [backend/ dominis/vult/views/snapshots.pypypyzy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/snapshots.py) | 466 | 2 | 15 | 0 | 8 | instantànies de selecció materialitzada per a vistes de taula desades. |
+| [backend/ dominis/workspace /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/__init__.py) | 1 | 0 | 0 | 0 | 0 | Domini de l'espai. |
+| [backend/ dominis/workspace/api /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | Espai de treball HTTP API. |
+| [backend/ dominis/workspace/api/routes.pyzyName](https://github.com/ismigar/Gnosi/blob/main/backend/domains/workspace/api/routes.py) | 426 | 0 | 11 | 11 | 0 | Sense documentació de mòduls |
 
 ## mcp
 
 | Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [backend/mcp /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/__init__.py) | 0 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
-| [backend/mcp/client.ypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/client.py) | 266 | 3 | 1 | 1 | 2 | Sense documentació de mòduls |
+| [backend/mcp/client.ypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/client.py) | 285 | 3 | 1 | 1 | 2 | Sense documentació de mòduls |
 | [backend/mcp/http_client.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/mcp/http_client.py) | 109 | 1 | 2 | 0 | 3 | Client MCP sobre HTTP (remerible) amb Bearer OAuth. |
+
+## migració
+
+| Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| [backend/ Lleis/ anarions /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/__init__.py) | 1 | 0 | 0 | 0 | 0 | S' han obtingut, s' han recuperat les migració d' esquemes per a bases de dades de Gnosi. |
+| [backend/Images/ anaris/alembic/env.pypypypytest](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/env.py) | 27 | 0 | 1 | 0 | 1 | Entorn d'eembalatge compartit en línia per a branques d'espedrem independents. |
+| [backend/Images/ anarislàmiques/versions/ actions_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/actions_0001.py) | 34 | 0 | 2 | 0 | 0 | Crea la botiga de confirmació d' acció desada inicial. |
+| [backend/Images/ anarislàmiques/versions/ actions_0002.py Littlestone](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/actions_0002.py) | 39 | 0 | 2 | 0 | 0 | Segueix el temps de lloguer d'execució per accions governades. |
+| [backend/Images/ anariscal/versions/ automumpcions_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/automations_0001.py) | 42 | 0 | 2 | 0 | 0 | Creeu definicions d'automatització i executeu història. |
+| [backend/immigrants/alembic/versions/scabilitat_auditoria_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/capability_audit_0001.py) | 29 | 0 | 2 | 0 | 0 | Crea el registre d'auditoria de possibilitat rehabilada. |
+| [backbackend/immigrants/adebràdics/versions/eva valoracions_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/evaluations_0001.py) | 37 | 0 | 2 | 0 | 0 | Crea la botiga de metadades inicials del model. |
+| [backend/ Landings/alembic/versions/ salut salutenda_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/health_0001.py) | 27 | 0 | 2 | 0 | 0 | Crea la botiga d'història per a col·laborar amb la capacitat d'aconseguir-ne més. |
+| [backend/immigrants/alembic/versions/jos_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/jobs_0001.py) | 27 | 0 | 2 | 0 | 0 | Crea la cua de treball d' agent dur. |
+| [backend/ Landings/alembic/versions/gestió_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/management_0001.py) | 106 | 0 | 2 | 0 | 0 | Crea l' esquema de gestió del Gnosi antic. |
+| [backend/ Landings/alembic/versions/gestió_0002.py Littlestone](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/management_0002.py) | 33 | 0 | 2 | 0 | 0 | Afegeix la primera generació d' accés i columnes d' autenticació. |
+| [backend/ Landings/alembic/versions/gestió_0003.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/management_0003.py) | 34 | 0 | 2 | 0 | 0 | Afegeix declaració explícita. |
+| [backend/ Landings/alembic/versions/gestió_0004.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/management_0004.py) | 23 | 0 | 2 | 0 | 0 | Afegeix bales de volta estable per al Gnosi 2.6. |
+| [backend/ Landings/alembic/versions/gestió_000.000.py Ahir a la nit.](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/management_0005.py) | 22 | 0 | 2 | 0 | 0 | repara l' índex de la caixa forta de la volta a l' actualització 2. 6. |
+| [backend/Images/ anariscal/versions/ notes_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/notebooks_0001.py) | 102 | 0 | 2 | 0 | 0 | Crea el repositori de notes en línia inicial. |
+| [backend/Images/ anariscal/versions/ notes_0002.py Littlestone](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/notebooks_0002.py) | 35 | 0 | 2 | 0 | 0 | Els URL persist són validadors i l' últim cop de validació d' URL. |
+| [backend/Images/ anariscal/versions/ notes_0003.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/notebooks_0003.py) | 61 | 0 | 2 | 0 | 0 | Afegeix un progrés de refresc de la llibreta, cancel· lació i estat de retenció. |
+| [backend/Images/ anariscal/versions/ notes_0004.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/notebooks_0004.py) | 31 | 0 | 2 | 0 | 0 | Persist el codi font seleccionat per a les analitzes de notes. |
+| [backend/Images/ anariscal/versions/ notes_000.000.py Ahir a la nit.](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/notebooks_0005.py) | 26 | 0 | 2 | 0 | 0 | Afegeix un estat de visibilitat de grup de notes. |
+| [backend/immigrants/aalembic/versions/personal_Memòria_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/personal_memory_0001.py) | 27 | 0 | 2 | 0 | 0 | Crea la botiga personal explícita. |
+| [backbackend/ policies/alembic/versions/ qualitat_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/quality_0001.py) | 43 | 0 | 2 | 0 | 0 | Creeu botigues de telemetria de l'agent de seguretat de la privacitat. |
+| [backend/immigrants/alembic/versions/replay_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/replay_0001.py) | 22 | 0 | 2 | 0 | 0 | Crea la botiga d' esdeveniments de repetició determinants de l' agent de repetició. |
+| [backend/ Landings/alembic/versions/semantic_Memòria_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/semantic_memory_0001.py) | 27 | 0 | 2 | 0 | 0 | Crea la botiga semàntica amb un àmbit. |
+| [backend/immigrants/alembic/versions/stream_Diari_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/stream_journal_0001.py) | 22 | 0 | 2 | 0 | 0 | Crea el diari reemparable agent-stream. |
+| [backend/ Landings/alembic/versions/tool_registre_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/tool_registry_0001.py) | 25 | 0 | 2 | 0 | 0 | Crea el registre d' aprovada d' eines generada. |
+| [backend/ Landings/alembic/versions/ Return_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/turns_0001.py) | 20 | 0 | 2 | 0 | 0 | Crea la botiga d'agents idimpotent de reformència. |
+| [backend/ Landings/alembic/versions/vult_0001.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/vault_0001.py) | 84 | 0 | 2 | 0 | 0 | Crea l' esquema de relació pervultal heretat. |
+| [backend/ Landings/alembic/versions/vult_0002.py Littlestone](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/vault_0002.py) | 23 | 0 | 2 | 0 | 0 | Contingut complet de l' article del lector. |
+| [backend/ Landings/alembic/versions/vult_0003.py literalment](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/vault_0003.py) | 29 | 0 | 2 | 0 | 0 | Afegeix claus gestionades estable per a les anotacions PDF. |
+| [backend/sumptions/cocodefinor.y McCarry](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/coordinator.py) | 76 | 1 | 3 | 0 | 4 | Mapa de propietari Explilitat i coordinador d'inici per a botigues de Gnosi SQLite. |
+| [backend/sumptions/famis.ypy McBypry](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/families.py) | 99 | 1 | 1 | 0 | 2 | Identitats a cada línia de revisió gnosi-lleombic. |
+| [backend/ rules/Minners.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/runner.py) | 364 | 2 | 19 | 0 | 6 | Llançador de bases de dades SQLite amb Alembic per al Gnosi. |
+| [backend/ Landings/schema_Auditor.py wait](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/schema_audit.py) | 352 | 0 | 16 | 0 | 6 | Esquemes d' inicialització SQLite sense llegir els valors de fila de l' aplicació. |
 
 ## models
 
@@ -155,19 +546,36 @@ Total: **228 mòduls** i **Línies font de 91530**.
 | [backend/models/calendar.ypyy McByrry](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py) | 18 | 1 | 0 | 0 | 1 | Sense documentació de mòduls |
 | [backend/models/contact.pyyypyypy](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py) | 136 | 8 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/models/mails.ypyyypyt](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py) | 182 | 15 | 0 | 0 | 0 | Sense documentació de mòduls |
-| [backend/models/gestió.pyypy McCarthy](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py) | 204 | 17 | 0 | 0 | 2 | Sense documentació de mòduls |
+| [backend/models/gestió.pyypy McCarthy](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py) | 208 | 17 | 0 | 0 | 2 | Sense documentació de mòduls |
 | [backend/models/noificació.ypyyych](https://github.com/ismigar/Gnosi/blob/main/backend/models/notification.py) | 47 | 4 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/models/pdf_annotation.pypypypypypywoty](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py) | 61 | 1 | 0 | 0 | 0 | Cometes persistents per a PDF obertes en el visor Vult. |
 | [backend/models/reader.ypyy McCarthy](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py) | 128 | 11 | 0 | 0 | 3 | Sense documentació de mòduls |
 | [backend/models/planificació_post.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/models/scheduled_post.py) | 34 | 3 | 0 | 0 | 3 | Model programat d' enviament |
 | [backend/models/planplanton.ypypy](https://github.com/ismigar/Gnosi/blob/main/backend/models/scheduler.py) | 37 | 2 | 0 | 0 | 0 | Sense documentació de mòduls |
 
+## plataforma
+
+| Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| [backend/ Multiplú/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/platform/__init__.py) | 1 | 0 | 0 | 0 | 0 | Adaptadors del proveïdor-neutrals compartits per dominis Gnosi. |
+| [backend/ Multimple/ files /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/__init__.py) | 136 | 0 | 3 | 0 | 2 | La capa abstracta per proveïdors d'emmagatzematge en núvol. |
+| [backend/ Multipl/ files/ base.pypy](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/base.py) | 106 | 1 | 0 | 0 | 1 | Interfície base per als proveïdors d'emmagatzematge en núvol. |
+| [backend/ Multipl/ files/ col· loca.py McBURT](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/dropbox.py) | 12 | 1 | 0 | 0 | 1 | Adaptador de caixa de llista per a carpetes basades en fitxers del proveïdor de fitxers MacOS. |
+| [backend/ Multipl/ fitxers/ gwlock.py McBython](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/gdrive.py) | 54 | 1 | 0 | 0 | 1 | GoogleDrivaProvider: Una volta per Google Drive (Driva per a l'escriptori, MarcOS). |
+| [backend/ Multipl/files/ icsloud.pypy](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/icloud.py) | 49 | 1 | 0 | 0 | 1 | ICloolDrivaProvider: volta per iClod Drive amb el proveïdor de fitxers macOS. |
+| [backend/ Multipl/ files/local.py McBylin](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/local.py) | 28 | 1 | 0 | 0 | 1 | Proveïdor local: volta en disc local pur, sense fitxers a- demand. |
+| [backend/ Multipl/files/ nextcloud.pywych](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/nextcloud.py) | 107 | 1 | 0 | 0 | 1 | Següent proveïdor: volta per fitxers virtuals NextCoulod (EXPERIMENTAL). |
+| [backend/ Multi/files/ on_demanda.pypypypypypyypy](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/on_demand.py) | 429 | 1 | 3 | 0 | 4 | Suport del proveïdor-neutral per a cambres amb fitxers de demanda. |
+| [backend/ Multipl/ fitxers/ anundrive.py McBypher](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/onedrive.py) | 90 | 1 | 0 | 0 | 1 | Adaptador d' una d' elles mateix per a fitxers del proveïdor-neutrals-- a temps d' execució i temps d' execució. |
+| [backend/ Multiition/ Conduction_servidor.pypypypypyt](https://github.com/ismigar/Gnosi/blob/main/backend/platform/translation_server.py) | 33 | 0 | 1 | 0 | 1 | adaptador de traducció opcional del transport HTTP per al servidor opcional de traduccions Zotero. |
+
 ## Planificador
 
 | Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [backend/plantor/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/__init__.py) | 1 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
-| [backend/plantor/ managerr/manager.pyypypy](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py) | 948 | 2 | 0 | 0 | 1 | Gestor de planificador: Gestiona les tasques planificades usant APSheduler. |
+| [backend/plantor/ managerr/manager.pyypypy](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py) | 782 | 2 | 0 | 0 | 1 | Gestor de planificador: Gestiona les tasques planificades usant APSheduler. |
+| [backend/planplantor/task_Gestors.pypy waits](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/task_handlers.py) | 343 | 1 | 10 | 0 | 6 | Gestors de tasques grans mantinguts fora del gestor de cicles vital. |
 
 ## scripts
 
@@ -183,78 +591,110 @@ Total: **228 mòduls** i **Línies font de 91530**.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [backend/seguretat /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/security/__init__.py) | 4 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/seguretat/ai_credencials.pytest](https://github.com/ismigar/Gnosi/blob/main/backend/security/ai_credentials.py) | 324 | 0 | 11 | 0 | 3 | Sense documentació de mòduls |
-| [backend/ security/ keyCoden_manager.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/security/keychain_manager.py) | 407 | 1 | 2 | 0 | 3 | Gestor de claus Cohaure - magatzem de credencials segura usant la clau MacOS Descript. |
+| [backbackend/seguretat/egres_policy.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/security/egress_policy.py) | 31 | 0 | 1 | 0 | 0 | Comprovació d' URL conservadors per a eines generades/connector. |
+| [backend/ security/ keyCoden_manager.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/security/keychain_manager.py) | 426 | 1 | 2 | 0 | 3 | Gestor de claus Cohaure - magatzem de credencials segura usant la clau MacOS Descript. |
+| [backbackend/seguretat/ secrete_Redion.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/security/secret_redaction.py) | 19 | 0 | 1 | 0 | 0 | Redact credencials comuns abans dels errors, s' abasten o s' persisteix la sortida d' eines. |
 
 ## Serveis
 
 | Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [backend/ services /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/services/__init__.py) | 0 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
+| [backend/ services/academic_Connectors.pypyz](https://github.com/ismigar/Gnosi/blob/main/backend/services/academic_connectors.py) | 170 | 0 | 1 | 0 | 1 | Investiga de compatibilitat per a connectors acadèmics. |
 | [backend/ services/ action_Regles.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/action_rules.py) | 279 | 0 | 10 | 0 | 7 | Regles d' acció Declarativa per taula (`table.action_rules` Bloc). |
-| [backend/ services/ active_volta_terware.pypyntypyt](https://github.com/ismigar/Gnosi/blob/main/backend/services/active_vault_middleware.py) | 108 | 1 | 2 | 0 | 2 | ASGI Middleware: estableix l' ACTIVE volta de `X-Vault-Id` En un context que el PROPAGATES. |
+| [backend/ services/ active_volta_terware.pypyntypyt](https://github.com/ismigar/Gnosi/blob/main/backend/services/active_vault_middleware.py) | 235 | 1 | 10 | 2 | 7 | Resol les rutes de l' API de la volta i propagar el context de la volta activa. |
+| [backend/ services/ agent_cancel· lació.pypy literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_cancellation.py) | 195 | 1 | 11 | 1 | 10 | La cancel·lació Cooperiva per a l'agent en corrent torn. |
+| [backend/ services/ agent_Capacitat_conformància.pypyookiee](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_conformance.py) | 81 | 0 | 3 | 0 | 0 | Informe de conformància versions per a habilitats i eines governades. |
+| [backend/ services/ agent_Capacitat_contracte.](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_contract.py) | 46 | 0 | 2 | 0 | 2 | • El contracte de l'extensió de l' agent ha estat reconegut. |
+| [backend/ services/ agent_Capacitat_salut.](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_health.py) | 257 | 0 | 13 | 0 | 7 | Comprovacions de salut persistents per a capacitats en temps d' execució governades. |
+| [backend/ services/ agent_evidència_security.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_evidence_security.py) | 58 | 0 | 2 | 0 | 1 | Va limitar l'anàlisi semàntica per a proves no fiables de l'agent. |
+| [backend/ services/ agent_model_Absions.pypy literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_evaluations.py) | 133 | 0 | 5 | 0 | 2 | Apropiacions de seguretat de la privacitat per a models d'agent configurats. |
+| [backend/ services/ agent_model_Estratègia.pypypypypyny](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_strategy.py) | 186 | 0 | 6 | 0 | 5 | Model de perfil tractat tractat tractat de forma indisper als agents Gnosi. |
+| [backend/ services/ agent_Exervència.](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_observability.py) | 118 | 0 | 8 | 0 | 1 | Manerabilitat local de privadesa per a diagnòstics d'agents final a final. |
+| [backend/ services/ agent_personal_Memòria.pypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_personal_memory.py) | 194 | 0 | 11 | 0 | 0 | Explitat, edició de memòria a llarg termini per als agents Gnosi. |
+| [backend/ services/ agent_qualitat_telemetria.](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_quality_telemetry.py) | 542 | 0 | 18 | 0 | 3 | Senyals de qualitat agent de privadesa i candidats a l'avaluació. |
+| [backend/ services/ agent_Repetició.](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_replay.py) | 95 | 0 | 5 | 0 | 1 | La seguretat de privadesa torna les metadades de repetició per al comportament de diagnòstic agent. |
+| [backend/ services/ agent_Resposta_qualitat.pypy literalment](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_response_quality.py) | 162 | 0 | 5 | 0 | 3 | Apropiació de resposta de manera repetitiva i avaluació de l'evidència-conficativa. |
+| [backend/ services/ agent_semàntic_Memòria.pypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_semantic_memory.py) | 172 | 0 | 8 | 0 | 6 | Les associacions de vocabulari re-costrades remarcades per l' agent de recuperació. |
 | [backend/ services/ agent_habilitat_Assignacions.](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_skill_assignments.py) | 308 | 4 | 2 | 0 | 5 | Modificacions d'agents i migració heretats. |
-| [backend/ services/ agent_habilitat_catàleg.pypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_skill_catalog.py) | 783 | 6 | 21 | 0 | 18 | Catàlegs efectius i resolució d' hora d'execució per habilitats i eines d' agent. |
+| [backend/ services/ agent_habilitat_catàleg.pypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_skill_catalog.py) | 792 | 6 | 21 | 0 | 18 | Catàlegs efectius i resolució d' hora d'execució per habilitats i eines d' agent. |
+| [backend/ services/ agent_flux_Diari.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_stream_journal.py) | 114 | 0 | 7 | 0 | 0 | El diari de repetició curt encriptat per a fluxos d' agent acceptades. |
+| [backend/ services/ agent_flux_Protocol.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_stream_protocol.py) | 21 | 0 | 0 | 0 | 0 | Exportacions de compatibilitat pel protocol de flux del domini agent. |
 | [backend/ services/artlecle_Extractor.pypy waitypython](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Extracció de text complet per als articles RSS que només donen de menjar a vaixells un extracte. |
 | [backend/ services/ as artificial_anàlisi.pypypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 668 | 1 | 19 | 0 | 16 | S'estan enviant els models d'anàlisi artificial. |
 | [backen/ services/audio_resumeixdor.pyntynt](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 456 | 1 | 13 | 0 | 14 | Sense documentació de mòduls |
 | [backend/ services/auth_públic_superfície.pyzyl](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 164 | 1 | 4 | 1 | 4 | El joc de punts finals que s' han de mantenir accessible sense una sessió. |
 | [backend/ services/auth_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 636 | 0 | 25 | 0 | 24 | Autenticació del servei rwych JWT + bcrip de contrasenyes. |
-| [backend/ services/scabilitat_Auditor.py wait](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_audit.py) | 274 | 0 | 8 | 0 | 3 | Registre d'auditoria de metadades lligada per a una execució de capacitat governada. |
-| [backend/ services/scabilitat_Automumpcions.](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_automations.py) | 474 | 1 | 16 | 2 | 4 | Durant les definicions d'automatització del pressupost per habilitats de l'agent governades. |
-| [backend/ services/scabilitat_llocs de treball.](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_jobs.py) | 208 | 1 | 16 | 0 | 5 | Una façana del proveïdor per a treballs durables. |
+| [backend/ services/createn_Connectors.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/builtin_plugins.py) | 253 | 0 | 7 | 0 | 6 | Regista i regles d'estat per a les capacitats opcionals de Gnosi. |
+| [backend/ services/scabilitat_Auditor.py wait](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_audit.py) | 240 | 0 | 8 | 0 | 3 | Registre d'auditoria de metadades lligada per a una execució de capacitat governada. |
+| [backend/ services/scabilitat_Automumpcions.](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_automations.py) | 432 | 1 | 16 | 2 | 4 | Durant les definicions d'automatització del pressupost per habilitats de l'agent governades. |
+| [backend/ services/scabilitat_llocs de treball.](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_jobs.py) | 236 | 1 | 16 | 0 | 5 | Una façana del proveïdor per a treballs durables. |
 | [backend/ services/contacts_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/contacts_service.py) | 215 | 1 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/ services/contacts_Sincronització_Motor.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/contacts_sync_engine.py) | 717 | 4 | 2 | 0 | 3 | Sense documentació de mòduls |
 | [backend/ services/content_Revisió.pyntyl](https://github.com/ismigar/Gnosi/blob/main/backend/services/content_revision.py) | 55 | 0 | 3 | 0 | 2 | S' han modificat els continguts per operacions confirmades del sistema de fitxers. Error message |
 | [backend/ services/ context_vars.pypy literalmentzy](https://github.com/ismigar/Gnosi/blob/main/backend/services/context_vars.py) | 33 | 0 | 2 | 0 | 1 | Sense documentació de mòduls |
 | [backend/ services/csl_Estils.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/csl_styles.py) | 124 | 0 | 3 | 0 | 3 | Gestió de fitxers CSL al llistat de l' svn del disc i de pujada. |
-| [backend/ services/csl_tipus_resolveer.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/services/csl_type_resolver.py) | 201 | 0 | 5 | 0 | 4 | Resol el camp "Item Tipus" de la Viult a través dels seus espais de valor. |
-| [backend/ services/duphel_Sincronització_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/drupal_sync_service.py) | 529 | 2 | 19 | 9 | 18 | Client de sincronització de Drupal (JaSON: API + personalitzat `n8n_helper` Punts final). |
-| [backend/ services/wait_Harley.](https://github.com/ismigar/Gnosi/blob/main/backend/services/feed_ingester.py) | 167 | 0 | 2 | 0 | 2 | Sense documentació de mòduls |
+| [backend/ services/csl_tipus_resolveer.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/services/csl_type_resolver.py) | 205 | 0 | 5 | 0 | 4 | Resol el camp "Item Tipus" de la Viult a través dels seus espais de valor. |
+| [backend/ services/ data_dir_Plue.pyntsion](https://github.com/ismigar/Gnosi/blob/main/backend/services/data_dir_migration.py) | 479 | 2 | 23 | 0 | 5 | La migració i recuperable del directori de dades per a l'wnosi. |
+| [backend/ services/duphel_Sincronització_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/drupal_sync_service.py) | 71 | 0 | 0 | 0 | 0 | Clona de compatibilitat pel connector canònica de Drupal. |
+| [backend/ services/dinable_treball_Cua.pypywotthailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/durable_job_queue.py) | 246 | 0 | 19 | 0 | 8 | Cua SQLite- backed per a tornar a ser segures de fons. |
+| [backend/ services/dinable_treball_treballador.pypypypypyyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/durable_job_worker.py) | 229 | 2 | 7 | 0 | 4 | Enviador de processos local per a la cua de capacitat de dur. |
+| [backend/ services/wait_Harley.](https://github.com/ismigar/Gnosi/blob/main/backend/services/feed_ingester.py) | 28 | 0 | 1 | 0 | 0 | Clona de compatibilitat per a la transmissió de fonts. |
 | [backend/ services/field_resolveer.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/services/field_resolver.py) | 211 | 0 | 11 | 0 | 9 | Resolució del camp per ID i nom immutable (traçabilitat). |
-| [backend/ services/ files_proveïdor/ proveïdor__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/__init__.py) | 114 | 0 | 3 | 0 | 2 | La capa abstracta per proveïdors d'emmagatzematge en núvol. |
-| [backend/ services/ files_Proveïdor/base.pyíeut](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/base.py) | 101 | 1 | 0 | 0 | 1 | Interfície base per als proveïdors d'emmagatzematge en núvol. |
-| [backend/ services/ files_Proveïdor/gdrive.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/gdrive.py) | 61 | 1 | 0 | 0 | 1 | GoogleDrivaProvider: Una volta per Google Drive (Driva per a l'escriptori, MarcOS). |
-| [backend/ services/ files_proveïdor/loud.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/icloud.py) | 59 | 1 | 0 | 0 | 1 | ICloolDrivaProvider: volta per iClod Drive amb el proveïdor de fitxers macOS. |
-| [backend/ services/ files_proveïdor/ local. pypypyntypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/local.py) | 28 | 1 | 0 | 0 | 1 | Proveïdor local: volta en disc local pur, sense fitxers a- demand. |
-| [backend/ services/ files_Proveïdor/ Olcloud.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/nextcloud.py) | 113 | 1 | 0 | 0 | 1 | Següent proveïdor: volta per fitxers virtuals NextCoulod (EXPERIMENTAL). |
-| [backend/ services/ files_Proveïdor/onedrive.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/onedrive.py) | 421 | 1 | 3 | 0 | 4 | Un dels ports electrònics: volta sobre OneDriva amb fitxers On-Demand. |
+| [backend/ services/ files_proveïdor/ proveïdor__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/__init__.py) | 29 | 0 | 0 | 0 | 0 | Compatibilitat de la plataforma de fitxers del proveïdor-neutral. |
+| [backend/ services/ files_Proveïdor/base.pyíeut](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/base.py) | 5 | 0 | 0 | 0 | 0 | Cíncola de compatibilitat per a:mod:`backend.platform.files.base`. |
+| [backend/ services/ files_Camp de notícies i porta- retalls.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/dropbox.py) | 5 | 0 | 0 | 0 | 0 | Cíncola de compatibilitat per a:mod:`backend.platform.files.dropbox`. |
+| [backend/ services/ files_Proveïdor/gdrive.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/gdrive.py) | 5 | 0 | 0 | 0 | 0 | Cíncola de compatibilitat per a:mod:`backend.platform.files.gdrive`. |
+| [backend/ services/ files_proveïdor/loud.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/icloud.py) | 5 | 0 | 0 | 0 | 0 | Cíncola de compatibilitat per a:mod:`backend.platform.files.icloud`. |
+| [backend/ services/ files_proveïdor/ local. pypypyntypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/local.py) | 5 | 0 | 0 | 0 | 0 | Cíncola de compatibilitat per a:mod:`backend.platform.files.local`. |
+| [backend/ services/ files_Proveïdor/ Olcloud.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/nextcloud.py) | 5 | 0 | 0 | 0 | 0 | Cíncola de compatibilitat per a:mod:`backend.platform.files.nextcloud`. |
+| [backend/ services/ files_proveïdor/ on_demanda.pypypypypypyypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/on_demand.py) | 15 | 0 | 0 | 0 | 0 | Cíncola de compatibilitat per a:mod:`backend.platform.files.on_demand`. |
+| [backend/ services/ files_Proveïdor/onedrive.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/files_provider/onedrive.py) | 15 | 0 | 0 | 0 | 0 | Cíncola de compatibilitat per a:mod:`backend.platform.files.onedrive`. |
 | [backend/ services/frontatter_alternatiu.pypypypypythy](https://github.com/ismigar/Gnosi/blob/main/backend/services/frontmatter_fallback.py) | 65 | 0 | 1 | 0 | 1 | Analitzador del frontematter per quan `yaml.safe_load` falla. |
 | [backend/ services/fx_rates.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/fx_rates.py) | 188 | 0 | 9 | 0 | 5 | Conversió d'usuari ergy- ergy per al barret de l'AI. |
 | [backend/ services/ Lesson Name_Eina_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/backend/services/generated_tool_contributions.py) | 159 | 0 | 6 | 0 | 2 | En cas d'exposar les eines generades per habilitats sense concedir-les globalment. |
-| [backend/ services/gnosi_aiunit description in lists_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/backend/services/gnosi_ai_contributions.py) | 689 | 0 | 9 | 0 | 2 | Les habilitats bàsiques i eines per operacions de primera part. |
-| [backend/ services/google_calendari_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_calendar_service.py) | 306 | 0 | 7 | 0 | 7 | Sense documentació de mòduls |
+| [backend/ services/gnosi_aiunit description in lists_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/backend/services/gnosi_ai_contributions.py) | 693 | 0 | 9 | 0 | 2 | Les habilitats bàsiques i eines per operacions de primera part. |
+| [backend/ services/google_calendari_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_calendar_service.py) | 113 | 0 | 6 | 0 | 0 | Clona de compatibilitat per a l'adaptador canònica de Google Calendar. |
 | [backend/ services/google_contactes_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_contacts_service.py) | 335 | 0 | 7 | 0 | 7 | Sense documentació de mòduls |
 | [backend/ services/google_correu_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_mail_service.py) | 343 | 0 | 13 | 0 | 11 | Sense documentació de mòduls |
-| [backend/ services/graph_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/graph_service.py) | 958 | 1 | 8 | 0 | 8 | Sense documentació de mòduls |
+| [backend/ services/graph_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/graph_service.py) | 44 | 0 | 0 | 0 | 0 | Clona de compatibilitat pel domini de la gràfica. |
 | [backend/ services/ angld.pypypych](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py) | 271 | 0 | 10 | 0 | 6 | Reconeixement d'escriptura de mà (ke Manveen text) LOCAL amb TrOCR. |
 | [backend/ services/hrid_calendari_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_calendar_service.py) | 439 | 1 | 19 | 0 | 5 | Servei de calendari híbrid SearchConvoction Google Calendar i CalDAV directament sense una volta. |
-| [backend/ services/hrid_correu_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_mail_service.py) | 869 | 0 | 18 | 0 | 6 | Servei de correu híbrid KDEDIRS consultes de l' API Gmail i IMAP directament sense una volta. |
-| [backend/ services/ imap_inactiva_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_idle_service.py) | 271 | 2 | 0 | 0 | 2 | Servei IDLE IMAP: empenyeu notificacions quan arribin nous missatges. |
-| [backend/ services/ imap_correu_Sincronització_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_mail_sync_service.py) | 1340 | 1 | 5 | 0 | 3 | Servei de sincronització de correu IMAP. |
+| [backend/ services/hrid_correu_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_mail_service.py) | 89 | 0 | 0 | 0 | 0 | Compatibilitat de la façana per als proveïdors de correu híbrid canònica. |
+| [backend/ services/ imap_inactiva_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_idle_service.py) | 17 | 0 | 0 | 0 | 0 | Clona de compatibilitat pel servei Identònic IMAP. |
+| [backend/ services/ imap_correu_Sincronització_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_mail_sync_service.py) | 35 | 0 | 0 | 0 | 0 | Compatibilitat de la façana pel servei de sincronització IMAP canònica. |
 | [backend/ services/ import_dedup.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/import_dedup.py) | 134 | 0 | 5 | 0 | 3 | Denciaplicació en `POST /import-references`. |
-| [backend/ services/ integració_manager.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/integration_manager.py) | 337 | 1 | 0 | 0 | 0 | Sense documentació de mòduls |
+| [backend/ services/ integració_manager.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/integration_manager.py) | 442 | 1 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/ services/library_camins.pyntypyntypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/library_paths.py) | 25 | 0 | 2 | 0 | 2 | ResolucióLE de la carpeta d' adjunts: Sempre ha estat disponible `<vault>/Library`. |
-| [backend/ services/llm_wiki.pywoypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki.py) | 1160 | 0 | 29 | 0 | 11 | L'Elter Zettetateten ingestió de la viquida de Gnosi creat a LLLLLM. |
+| [backend/ services/litre_aiunit description in lists_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_ai_service.py) | 186 | 0 | 8 | 0 | 2 | Explitat, assistència a l'AI audit per a fluxs de treball de literatura. |
+| [backend/ services/litre_import_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_import_service.py) | 250 | 0 | 7 | 1 | 5 | Importació de treball atòmic a la taula de recursos designats. |
+| [backend/ services/litre_models.pypypypypypyypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_models.py) | 351 | 0 | 21 | 0 | 10 | normalització i dedefinació acadèmica canonical. |
+| [backend/ services/litre_review_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_review_service.py) | 593 | 0 | 32 | 10 | 4 | Registres sis-tres-tristes, decisions cegues i exportacions. |
+| [backend/ services/litre_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_service.py) | 144 | 0 | 0 | 0 | 0 | Clona de compatibilitat pel domini de literatura canònica. |
+| [backend/ services/llm_wiki.pywoypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki.py) | 696 | 0 | 29 | 0 | 11 | L'Elter Zettetateten ingestió de la viquida de Gnosi creat a LLLLLM. |
 | [backend/ services/llm_wiki_accions.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_actions.py) | 185 | 1 | 4 | 1 | 5 | Accions d' aplicació compartides per les rutes HTTP de LLLLLM Wiki i eines d' agent. |
 | [backend/ services/llm_wiki_Agent.pypypypypyton](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_agent.py) | 215 | 1 | 7 | 0 | 8 | Un cicle de vida i protecció de regles per al perfil de l'agent Wiki integrat LLLM. |
 | [backend/ services/llm_wiki_aiunit description in lists_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_ai_contributions.py) | 263 | 0 | 4 | 0 | 2 | Les habilitats agents i les eines de governades col·laborades per LLLLLLM Wiki. |
 | [backend/ services/llm_wiki_help.ypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_assist.py) | 185 | 0 | 7 | 0 | 4 | Una edició inbox cerebral (F6) accessible per al Brain (F6). |
 | [backend/ services/llm_wiki_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_config.py) | 462 | 0 | 29 | 0 | 12 | Configuració de Per-vult per al Wiki integrat LLLM ("Brain"). |
-| [backend/ services/llm_wiki_Extractors.](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_extractors.py) | 807 | 1 | 30 | 0 | 6 | Ordenat, extracció de la font de prova de la intervenció de LLLLLLM Wiki. |
-| [backend/ services/llm_wiki_índexs.](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_indices.py) | 798 | 0 | 38 | 0 | 12 | índexs de determinística gestionats i registres de la taula "kicons " LLLLLLLLLLLLM." |
+| [backend/ services/llm_wiki_Extractors.](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_extractors.py) | 739 | 1 | 35 | 0 | 10 | Ordenat, extracció de la font de prova de la intervenció de LLLLLLM Wiki. |
+| [backend/ services/llm_wiki_índexs.](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_indices.py) | 769 | 0 | 45 | 0 | 17 | índexs de determinística gestionats i registres de la taula "kicons " LLLLLLLLLLLLM." |
 | [backend/ services/llm_wiki_Lnt.py Winter.](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_lint.py) | 296 | 0 | 8 | 0 | 3 | Lint Monstrosity l'operació "Lint" del patró de Karapatia. |
 | [backend/ services/llm_wiki_pdf_Avenències.](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_pdf_annotations.py) | 302 | 0 | 9 | 0 | 2 | El fet que els ressaltats del PDF persistents siguin generats per les citacions de Wiki LLM. |
 | [backend/ services/llm_wiki_Emmagatzematge.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_storage.py) | 454 | 0 | 29 | 0 | 11 | Durant treballs durant la durada, demostracions i instantànies de prova per al Wiki LLLM. |
 | [backend/ services/llm_wiki_suggeriments.pypypyq](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_suggestions.py) | 280 | 0 | 13 | 0 | 10 | Només es propostes de connexió per al cervell. |
 | [backend/ services/ prookup_Sterzers normal.pyzyl](https://github.com/ismigar/Gnosi/blob/main/backend/services/lookup_normalizers.py) | 557 | 0 | 10 | 0 | 8 | Normalitzadors: Càrrega en brut de cada element de cerca d' una font Manveen canònica Zotero. |
-| [backend/ services/ mail_Harley.](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_ingester.py) | 478 | 0 | 10 | 0 | 10 | Les notícies són engestió mitjançant POP3 (STTLS). |
+| [backend/ services/ mail_Harley.](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_ingester.py) | 69 | 0 | 1 | 0 | 0 | Clona de compatibilitat per a la revista ingestió. |
 | [backend/ services/ mail_inserida_Imatges.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_inline_images.py) | 313 | 0 | 11 | 0 | 10 | Converteix imatges de volta referenciades en un cos de correu electrònic en línia |
 | [backend/ services/ mail_metadades_manager.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_metadata_manager.py) | 50 | 1 | 0 | 0 | 0 | Sense documentació de mòduls |
+| [backend/ services/mercat_http.pypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/marketplace_http.py) | 109 | 2 | 2 | 0 | 3 | Accés públic HTTP lligat als índexs i paquets del mercat. |
+| [backend/ services/mercat_Submissió.py (# 0)](https://github.com/ismigar/Gnosi/blob/main/backend/services/marketplace_submission.py) | 85 | 1 | 2 | 0 | 3 | Client opcional de trencar per a submissió moderat del mercat. |
 | [backend/ services/mcp_Eina_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/backend/services/mcp_tool_contributions.py) | 94 | 0 | 3 | 0 | 1 | Les eines de només lectura de només lectura MCC han estat exposats per a la composició explícita. |
-| [backend/ services/media_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/media_service.py) | 1001 | 1 | 0 | 0 | 0 | Sense documentació de mòduls |
+| [backend/ services/media_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/media_service.py) | 561 | 1 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backbackend/ services/meeting_notes.pypypypypyt](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_notes.py) | 161 | 0 | 6 | 0 | 3 | Uns minuts de reunió amb IA-Match. |
 | [backbackend/ services/meeting_recordatoris.py literalment blesaux](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_reminders.py) | 328 | 0 | 15 | 0 | 4 | Motor de recordatori d'una reunió intel·ligència (agenda). |
 | [backend/ services/micròsof_correu_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 397 | 0 | 20 | 0 | 8 | Servei de correu API Microsoft Gràfic. |
+| [backend/ services/ notesbook_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/notebook_service.py) | 210 | 0 | 0 | 0 | 0 | Investiga de compatibilitat per al domini canònica de les notes. |
 | [backend/ services/notion_Els adjunts.py literalment blestxy](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_attachments.py) | 182 | 0 | 8 | 0 | 6 | S' estan descarregant els adjunts de noció (clone)  Manveen local Vult, amb la ruta reescriptura. |
 | [backend/ services/notion_clon.py waitypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_clone.py) | 636 | 1 | 13 | 0 | 12 | Orquestrador per a l' EXACT CLONE of Noion Gnosi (en una nova carpeta, Noion = font de veritat). |
 | [backend/ services/notion_C clon_verificar.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_clone_verify.py) | 217 | 0 | 5 | 0 | 5 | Control de salut d'un clon de noció ( clon de la càmera de seguretat de l'EnvyneBunthen). |
@@ -267,17 +707,19 @@ Total: **228 mòduls** i **Línies font de 91530**.
 | [backend/ services/ option_Catàlegs.py Ahir a la nit](https://github.com/ismigar/Gnosi/blob/main/backend/services/option_catalogs.py) | 413 | 0 | 19 | 0 | 14 | Catàlegs d' opció rics, rols semàntics de camp, i llavors pertables. |
 | [backend/ services/ page_carcar.](https://github.com/ismigar/Gnosi/blob/main/backend/services/page_sidecar.py) | 225 | 0 | 11 | 0 | 11 | Selfcar I/O per a metadades internes de pàgina. |
 | [backend/ services/ path_resolveer.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/services/path_resolver.py) | 85 | 1 | 0 | 0 | 1 | Sense documentació de mòduls |
-| [backend/ services/planing_Motor.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_engine.py) | 270 | 2 | 6 | 0 | 6 | Determinista, planificació de projectes Gnosi. |
-| [backend/ services/planing_planificador.pypypypypyt](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_scheduler.py) | 132 | 0 | 7 | 0 | 4 | Coalesced, programació de prevenció de prevenció de prevenció d'ETag en els canvis de pàgina. |
-| [backend/ services/ plugin_aiunit description in lists_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_ai_contributions.py) | 508 | 0 | 15 | 0 | 6 | Contribuència de la IA des dels connectors de tercers instal· lats. |
-| [backend/ services/ plugin_catàleg.pypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_catalog.py) | 191 | 0 | 8 | 0 | 6 | Catàleg/gal· lay (fase 2. 2 del connector_sistema. md). |
-| [backend/ services/ plugin_Eker.py Winter.](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_dispatcher.py) | 263 | 0 | 12 | 0 | 6 | Sistema de fils: s' afegeix a l' esdeveniment bus amb la carpeta de proves de dades (fase 3). |
+| [backend/ services/planing_Motor.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_engine.py) | 296 | 2 | 7 | 0 | 7 | Determinista, planificació de projectes Gnosi. |
+| [backend/ services/planing_planificador.pypypypypyt](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_scheduler.py) | 134 | 0 | 7 | 0 | 4 | Coalesced, programació de prevenció de prevenció de prevenció d'ETag en els canvis de pàgina. |
+| [backend/ services/ plugin_access.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_access.py) | 42 | 0 | 2 | 1 | 2 | Guàrdies RàpidsAPI per a capacitats opcionals pervultes. |
+| [backend/ services/ plugin_aiunit description in lists_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_ai_contributions.py) | 516 | 0 | 15 | 0 | 6 | Contribuència de la IA des dels connectors de tercers instal· lats. |
+| [backend/ services/ plugin_catàleg.pypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_catalog.py) | 235 | 0 | 10 | 0 | 7 | Catàleg/gal· lay (fase 2. 2 del connector_sistema. md). |
+| [backend/ services/ plugin_Eker.py Winter.](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_dispatcher.py) | 306 | 0 | 13 | 0 | 7 | Sistema de fils: s' afegeix a l' esdeveniment bus amb la carpeta de proves de dades (fase 3). |
 | [backend/ services/ plugin_esdeveniments.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_events.py) | 107 | 0 | 3 | 0 | 3 | Bus d' esdeveniments de correu Vult per als connectors de dades (fase 3). |
-| [backend/ services/ plugin_RT.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_sandbox.py) | 221 | 0 | 4 | 0 | 3 | Entorn de proves de dades: executa un connector de tercers parts dins d' un node restringit (fase 3). |
+| [backend/ services/ plugin_RT.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_sandbox.py) | 226 | 0 | 4 | 0 | 3 | Entorn de proves de dades: executa un connector de tercers parts dins d' un node restringit (fase 3). |
 | [backend/ services/ plugin_sign.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_signing.py) | 148 | 0 | 8 | 0 | 6 | Signatura del connector i confiança (fase 3 del connector_sistema. md). |
-| [backend/ services/ plugin_sistema.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 396 | 1 | 12 | 0 | 11 | S' ha trobat el sistema de connectors Gnosi v2 pdfn, manifest i permisos. |
+| [backend/ services/ plugin_sistema.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 468 | 1 | 14 | 0 | 13 | S' ha trobat el sistema de connectors Gnosi v2 pdfn, manifest i permisos. |
 | [backend/ services/project_Planificació.](https://github.com/ismigar/Gnosi/blob/main/backend/services/project_planning.py) | 393 | 2 | 13 | 0 | 11 | Emmagatzematge d'aultes i càlculs purs per als recursos de planificació de projectes. |
-| [backend/ services/ reader_anàlisi.pypypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/reader_analysis.py) | 772 | 0 | 35 | 0 | 7 | Anàlisi jeràrquic durant grans col·leccions de lectors. |
+| [backend/ services/proveidor_salut.](https://github.com/ismigar/Gnosi/blob/main/backend/services/provider_health.py) | 87 | 1 | 6 | 0 | 5 | circuit de proveïdor local de processos amb redigres lligats. |
+| [backend/ services/ reader_anàlisi.pypypypypypyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/reader_analysis.py) | 125 | 0 | 0 | 0 | 0 | Clona de compatibilitat pel domini d'anàlisi canònica del lector. |
 | [backend/ services/recursos_zotero_Mapat.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/recursos_zotero_mapping.py) | 71 | 0 | 1 | 0 | 1 | Mapatge bidireccional entre columnes repetides i camps Zotero. |
 | [backend/ services/references_taula_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/backend/services/reference_table_config.py) | 63 | 0 | 2 | 0 | 2 | Emmagatzematge per a la designació de la taula de referències de la Viult. |
 | [backend/ services/references_io.py literalmentzy](https://github.com/ismigar/Gnosi/blob/main/backend/services/references_io.py) | 556 | 0 | 19 | 0 | 10 | Importa/Export BibTeX i RIS REUC són camps repetitius (Gnosi). |
@@ -288,17 +730,21 @@ Total: **228 mòduls** i **Línies font de 91530**.
 | [backend/ services/social_Compondre.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_compose.py) | 144 | 0 | 5 | 0 | 5 | Capa de l'AI per editar publicacions als mitjans de comunicació socials. |
 | [backend/ services/social_store.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_store.py) | 206 | 0 | 6 | 4 | 6 | Persisteix en una taula de correu social en una pissarra de Vult. |
 | [backend/ services/tables_sistema_dates.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/table_system_dates.py) | 266 | 0 | 10 | 0 | 6 | Creació del sistema i camps de data de modificació de les taules de Vult. |
+| [backend/ services/tool_Temps d' execució.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/backend/services/tool_runtime.py) | 35 | 0 | 0 | 0 | 0 | Exportacions de compatibilitat per a l' eina d' execució de domini agent. |
 | [backend/ services/trription.pyypyName](https://github.com/ismigar/Gnosi/blob/main/backend/services/transcription.py) | 109 | 0 | 5 | 0 | 2 | La transcripció d'àudio local amb un joc de més ràpid (traducció2, SENSE Off keble). |
 | [backend/ services/traduction_helpers.](https://github.com/ismigar/Gnosi/blob/main/backend/services/translation_helpers.py) | 343 | 0 | 15 | 0 | 14 | Ajudadors pura per a la traducció del contingut (translació_fila / tradueix_habilitats de pàgina). |
-| [backend/ services/traduction_índex.pypypypypyyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/translation_index.py) | 106 | 0 | 6 | 0 | 4 | Índex de traducció local per a la idpotència de la línia. |
+| [backend/ services/traduction_índex.pypypypypyyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/translation_index.py) | 104 | 0 | 6 | 0 | 4 | Índex de traducció local per a la idpotència de la línia. |
+| [backend/ services/ backn_ideempotència.](https://github.com/ismigar/Gnosi/blob/main/backend/services/turn_idempotency.py) | 41 | 0 | 3 | 0 | 0 | Presumpcions durant el gir durant l' execució duplicable. |
 | [backend/ services/ user_habilitat_store.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/user_skill_store.py) | 302 | 4 | 3 | 0 | 4 | Ha portàtil l' emmagatzematge perforat per habilitats portades per l' usuari. |
 | [backbackend/ services/vult_calendari_Sincronització_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_calendar_sync_service.py) | 210 | 1 | 0 | 0 | 0 | Sense documentació de mòduls |
-| [backbackend/ services/vult_fitxer_índex.pypypypypyyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_file_index.py) | 358 | 0 | 12 | 0 | 12 | volta_fitxer_índex. pynty nty Vulty file/ folder nom index. |
+| [backbackend/ services/vult_fitxer_índex.pypypypypyyty](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_file_index.py) | 360 | 0 | 12 | 0 | 12 | volta_fitxer_índex. pynty nty Vulty file/ folder nom index. |
 | [backbackend/ services/vult_correu_Sincronització_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_mail_sync_service.py) | 206 | 1 | 0 | 0 | 0 | Sense documentació de mòduls |
+| [backbackend/ services/vult_RTing.pypy Ahir a baix](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_routing.py) | 95 | 0 | 6 | 0 | 6 | Una volta canonical de bala d'ajuda compartida per API de ring i gestió. |
+| [backbackend/ services/vult_Plantilles.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_templates.py) | 491 | 1 | 17 | 0 | 10 | Catàlegs de plantilles Verstate, paquets, exportacions i instal·lació. |
 | [backbackend/ services/vult_warmup.py literalment wochylpy](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_warmup.py) | 127 | 0 | 3 | 1 | 3 | Proactiva l'escalfament dels fitxers CRIICAL de la càmera (només d' una banda virtual oberta). |
-| [backend/ services/view_instantània.py Boott](https://github.com/ismigar/Gnosi/blob/main/backend/services/view_snapshot.py) | 860 | 0 | 28 | 0 | 25 | Instantània dels resultats d' una vista encastada al cos de marca. |
+| [backend/ services/view_instantània.py Boott](https://github.com/ismigar/Gnosi/blob/main/backend/services/view_snapshot.py) | 943 | 0 | 33 | 0 | 29 | Instantània dels resultats d' una vista encastada al cos de marca. |
 | [backend/ services/web_clipper.pypyntypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/web_clipper.py) | 257 | 0 | 9 | 0 | 6 | Clipper web com a connector configurable: taula de destí i mapa de camp. |
-| [backend/ services/workespai_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/workspace_service.py) | 307 | 1 | 5 | 0 | 4 | Sense documentació de mòduls |
+| [backend/ services/workespai_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/services/workspace_service.py) | 364 | 1 | 9 | 0 | 8 | Sense documentació de mòduls |
 | [backend/ services/zotero_esquema.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/services/zotero_schema.py) | 558 | 0 | 0 | 0 | 0 | Font: canonada/suts/zotero_esquema/ schema.json. Regenera amb `pipeline/skills/zotero_schema/scripts/build_constants.py`. |
 | [backend/ services/zotero_a_es repeteix_mapper.pypypypypypypypypypypypypypypypypypypypypypypypypypypypypypypypypypper.](https://github.com/ismigar/Gnosi/blob/main/backend/services/zotero_to_recursos_mapper.py) | 148 | 0 | 3 | 0 | 3 | Element Declatiu Zotero  DOCTYPE Repeteix les columnes dictmapper. |
 

@@ -13,7 +13,7 @@ import os
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ job_status = {
 _LOCK = threading.Lock()
 
 
-def get_status() -> dict:
+def get_status() -> dict[str, Any]:
     return dict(job_status)
 
 
@@ -75,14 +75,18 @@ def _create_vault_page(title: str, content: str) -> Optional[str]:
 
     req = PageSaveRequest(title=title, content=content, metadata={"icon": "🎙️"})
 
-    async def _run():
-        return await create_page(req, BackgroundTasks())
+    async def _run() -> dict[str, Any]:
+        return dict(await create_page(req, BackgroundTasks()))
 
     result = asyncio.run(_run())
     return (result or {}).get("id")
 
 
-def process_meeting(audio_path: str, title: str, mode: str = "presencial") -> dict:
+def process_meeting(
+    audio_path: str,
+    title: str,
+    mode: str = "presencial",
+) -> dict[str, Any]:
     """Full job (intended to run in a background thread)."""
     from backend.services.transcription import transcribe
 

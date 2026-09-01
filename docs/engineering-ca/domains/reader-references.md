@@ -1,29 +1,43 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/reader
+  - backend/domains/literature
+  - backend/domains/literature/review_logic.py
+  - backend/domains/literature/connectors
   - backend/api/reader.py
   - backend/models/reader.py
   - backend/models/pdf_annotation.py
   - backend/api/vault_routes.py
+  - backend/domains/vault/citations/exporting.py
+  - backend/domains/vault/citations/normalizers
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
+  - backend/services/lookup_normalizers.py
   - backend/services/literature_service.py
   - backend/services/literature_review_service.py
   - backend/services/literature_import_service.py
   - backend/services/literature_ai_service.py
+  - backend/services/references_io.py
   - frontend/src/pages/ReaderDashboard.jsx
   - frontend/src/pages/LiteraturePage.jsx
   - frontend/src/components/ResourcesPluginConfig.jsx
   - frontend/src/components/Vault/ZoteroReaderTab.jsx
 tests:
+  - backend/tests/test_reader_analysis_domain.py
+  - backend/tests/test_pr6_domain_facades.py
+  - backend/tests/test_vault_export_domain_contract.py
   - backend/tests/test_citation_key_and_pubmed.py
   - backend/tests/test_references_io.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_e2e_import_references_item_type.py
   - backend/tests/test_literature_models.py
   - backend/tests/test_academic_connectors.py
+  - backend/tests/test_academic_connectors_domain_contract.py
+  - backend/tests/test_lookup_normalizers.py
+  - backend/tests/test_html_meta_attr_order.py
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/pages/LiteraturePage.test.jsx
@@ -32,19 +46,58 @@ tests:
 
 # Lector, referències i citacions
 
+Les rutes, l'emmagatzematge, l'anàlisi i les fonts del Reader viuen ara a
+`backend/domains/reader/`; els repositoris, la cerca, la sincronització i
+l'emmagatzematge bibliogràfic, a `backend/domains/literature/`. Els mòduls antics
+es mantenen com a façanes compatibles.
+
+Les rutes HTTP, els models canònics i els serveis de revisió sistemàtica estan
+tipats estrictament. El recompte PRISMA, les transicions de cribratge,
+l'evidència d'accés obert i les exportacions CSV/JSON/Markdown/SVG viuen al
+domini pur `review_logic.py`; les funcions històriques continuen com a façanes.
+
 ## Reversió
 
 Aquest domini combina la lectura de fonts/news lletres amb un gestor de referències compatible amb el Zotero, renderitzat de citació CSL, identificador i importació web, lectura PDF/EPUB i anotacions que poden convertir-se en proves citables.
 
 ## Referència d' ingestió
 
+Crossref, Open Library, arXiv, PubMed i les metadades HTML tenen normalitzadors
+tipats separats a `backend/domains/vault/citations/normalizers/`. Conserven els
+payloads canònics de Zotero i el comportament de funció pura, mentre que
+`backend/services/lookup_normalizers.py` continua sent la façana compatible.
+
 Les referències entren a través del DOI, ISBN, arXiv, PMID, BibTeX, RIS, fitxers o URL web. Els identificadors i el servidor de traducció Zo- servidor produeixen metadades específiques del proveïdor. Normalitza els mapes a l' esquema de referència configurat, genera una clau de citació estable, candidats de desuplicats, i escriu un registre de continguts.
 
+`backend/services/references_io.py` és el límit tipat i determinista de BibTeX/RIS.
+Els seus ajudants petits d'anàlisi, normalització, mapatge de camps i serialització
+preserven l'ordre, l'escapat, la resolució del tipus i el contracte públic
+d'importació/exportació, sense persistència ni xarxa ocultes.
+
+L'orquestració de consulta, que és només de lectura, viu al domini de citacions,
+manté la prioritat DOI → arXiv → PMID → ISBN → URL i fa passar les URL aportades
+per l'usuari pel descarregador protegit contra SSRF abans de suggerir cap camp.
+La taula de Recursos designada es llegeix d'una configuració canònica única;
+només els vaults heretats que mai no s'han configurat poden adoptar automàticament
+la primera taula amb Citation Key, sota el mateix bloqueig que Configuració.
+
 El servidor de traducció és un port opcional. L' operació nativa pot executar- se sense ell; els resoldors específics d' identificador i les referències existents continuen treballant. Els errors de traducció web retornen errors no vàlids en lloc d' un registre buit.
+
+`citations/pdf_fallback.py` deriva un registre citable de les metadades PDF quan
+falla la resolució d'identificadors. `citations/web_capture.py` selecciona i
+mapeja resultats Zotero, i `platform/translation_server.py` gestiona el transport HTTP.
 
 ## Un descobriment acadèmic Federed
 
 La configuració del repositori dels connectors de recursos integrats mentre que `/api/vault/reference-table` Encara queda l'única font de veritat per a la taula de recursos de destí. `/literature` Executa cada connector seleccionat de forma independent i els resultats parcials de fluxos; una fallada de quota o proveïdor està connectada a aquesta font sense descartar resultats sans.
+
+`backend/domains/literature/connectors/` gestiona el transport HTTPS acotat,
+l'auditoria de peticions, la normalització canònica, OAI-PMH i JSON personalitzat,
+els grafs de citacions i els adaptadors per família de proveïdors.
+`backend/services/academic_connectors.py` és només una façana de compatibilitat.
+El port tipat resol els col·laboradors de la façana en cada crida perquè les proves
+i integracions puguin substituir transport, validació, parsers i dispatch sense
+duplicar estat mutable.
 
 `AcademicWork` és el connector canònica. Les unió de connectors. Les unions de desterministes usen, per ordre, normalitzat DOI, PMID o PMCID, l' identificador arXiv, ISBN- 13, i el títol normalitzat més d' any i cognom del primer autor. Un títol bot només és un avís. Fusionat funciona mantenint totes les ocurrències de codi font, localització, subtitulació específica, nombre de paquets provat i variants contradicades.
 
@@ -71,6 +124,11 @@ flowchart LR
 ```
 
 Els valors CSL es derivaen de la matèria de referència usant mapes de camp explícits. Llista de noms, dates, tipus d' element, escapat de BibTeX/LaTeX, i Zotero `extra` Les metadades requereixen normalització. L' esquema adversat protegeix els tipus d' element compatibles i camps des de la deriva de dalt a baix.
+
+`backend/domains/vault/citations/exporting.py` gestiona la neteja del Markdown,
+la resolució del subconjunt de citacions, els marcadors de bibliografia,
+l'execució de Pandoc i el paquet de descàrrega. La ruta de compatibilitat
+conserva la signatura pública i injecta els ports de fitxers, CSL i processos.
 
 ## Lector i anotacions
 

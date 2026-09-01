@@ -10,26 +10,25 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 
 | Superficie | Cuenta |
 | --- | ---: |
-| Archivos de motor Python | 392 |
-| Archivos de prueba de motor Python | 165 |
-| Frontend JS/TS source files | 291 |
-| Archivos de prueba de la unidad de interfaz | 38 |
-| Enrutadores FastAPI registrados | 33 |
-| Contratos de capacitación en tiempo de ejecución | 23 |
-| Directivas sobre el desarrollo y la memoria | 158 |
+| Archivos de motor Python | 892 |
+| Archivos de prueba de motor Python | 244 |
+| Frontend JS/TS source files | 381 |
+| Archivos de prueba de la unidad de interfaz | 86 |
+| Enrutadores FastAPI registrados | 36 |
+| Contratos de capacitación en tiempo de ejecución | 25 |
+| Directivas sobre el desarrollo y la memoria | 0 |
 
 ## Superficies de aplicación propias
 
 | Superficie | Archivos | Límite de finalidad |
 | --- | ---: | --- |
-| `backend/` | 402 | FastAPI, servicios, modelos, agentes, agenda y adaptadores de almacenamiento |
-| `frontend/src/` | 309 | Reaccionar la aplicación, el comportamiento de la interfaz de usuario, el estado y las integraciones del navegador |
-| `pipeline/` | 98 | Capacidades de aplicación reutilizables y herramientas de procesamiento deterministas |
-| `desktop/` | 9 | Ciclo de vida del escritorio, embalaje de backend, IPC y actualizaciones |
-| `integrations/` | 12 | Adaptadores de oficina y de sistema externo |
-| `web-clipper/` | 11 | Superficie de captura de extensión del navegador |
-| `tests/e2e/` | 26 | Pruebas de aceptación de derechos de reproducción a nivel de host |
-| `sh/` | 22 | Scripts operativos nativos y auto-anfitriones |
+| `backend/` | 906 | FastAPI, servicios, modelos, agentes, agenda y adaptadores de almacenamiento |
+| `frontend/src/` | 405 | Reaccionar la aplicación, el comportamiento de la interfaz de usuario, el estado y las integraciones del navegador |
+| `pipeline/` | 110 | Capacidades de aplicación reutilizables y herramientas de procesamiento deterministas |
+| `desktop/` | 27 | Ciclo de vida del escritorio, embalaje de backend, IPC y actualizaciones |
+| `extensions/` | 44 | Oficina, navegador, plugin, mercado y adaptadores externos del sistema |
+| `tests/e2e/` | 31 | Pruebas de aceptación de derechos de reproducción a nivel de host |
+| `scripts/` | 35 | Guiones nativos, auto-anfitriones, de liberación y mantenimiento |
 
 ## Límite de exclusión
 

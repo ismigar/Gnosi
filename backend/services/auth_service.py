@@ -20,12 +20,14 @@ import hashlib
 import os
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from collections.abc import Callable, Generator
+from typing import Any, Optional, cast
 
 import bcrypt
 from fastapi import Cookie, Depends, Header, HTTPException
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+from starlette.requests import HTTPConnection
 
 from backend.config.logger_config import get_logger
 from backend.data.management_db import get_mgmt_db
@@ -165,7 +167,7 @@ def reset_auth_policy_cache() -> None:
     _auto_policy_cache = None
 
 
-def _auto_policy_requires_auth(db=None) -> bool:
+def _auto_policy_requires_auth(db: Session | None = None) -> bool:
     """Whether the autodetected policy demands a credential.
 
     Fails closed: if the deployment shape or the account count cannot be
@@ -183,7 +185,7 @@ def _auto_policy_requires_auth(db=None) -> bool:
     if cached is not None and now - cached[0] < _AUTO_POLICY_TTL_SECONDS:
         return cached[1]
 
-    gen = None
+    gen: Generator[Session, None, None] | None = None
     try:
         if deployment_is_exposed():
             value = True
@@ -202,7 +204,7 @@ def _auto_policy_requires_auth(db=None) -> bool:
     return value
 
 
-def require_auth_enabled(db=None) -> bool:
+def require_auth_enabled(db: Session | None = None) -> bool:
     """True when a request without a credential must be rejected.
 
     Args:
@@ -234,7 +236,7 @@ def looks_like_pat(raw: str) -> bool:
     return bool(raw) and raw.startswith(TOKEN_PREFIX)
 
 
-def resolve_pat_user_id(db, raw: str) -> Optional[str]:
+def resolve_pat_user_id(db: Session, raw: str) -> Optional[str]:
     """Map a raw PAT to the user it belongs to, refreshing `last_used_at`.
 
     Returns None when the token is unknown or revoked, so callers can decide
@@ -252,9 +254,9 @@ def resolve_pat_user_id(db, raw: str) -> Optional[str]:
     )
     if not token:
         return None
-    token.last_used_at = datetime.now(timezone.utc)
+    setattr(token, "last_used_at", datetime.now(timezone.utc))
     db.commit()
-    return token.user_id
+    return str(token.user_id)
 
 
 # ---------- Email identity ----------
@@ -270,7 +272,7 @@ PLACEHOLDER_EMAIL = "user@example.com"
 LEGACY_USER_ID = "ismael-legacy"
 
 
-def _account_count(db, cap: int = 2) -> int:
+def _account_count(db: Session, cap: int = 2) -> int:
     """How many accounts exist, counting no further than `cap`.
 
     Capped because every caller only asks "none, one, or several?" and this runs
@@ -281,7 +283,7 @@ def _account_count(db, cap: int = 2) -> int:
     return len(db.query(User.id).limit(cap).all())
 
 
-def ambient_identity_available(db) -> bool:
+def ambient_identity_available(db: Session) -> bool:
     """True when an unauthenticated local request has exactly one possible answer.
 
     One account is the obvious case. **Zero** counts too: a fresh install
@@ -295,12 +297,12 @@ def ambient_identity_available(db) -> bool:
     return _account_count(db, cap=2) < 2
 
 
-def sole_account_id(db) -> Optional[str]:
+def sole_account_id(db: Session) -> Optional[str]:
     """The id of the install's only account, or None when there are 0 or 2+."""
     from backend.models.management import User
 
     rows = db.query(User.id).limit(2).all()
-    return rows[0][0] if len(rows) == 1 else None
+    return str(rows[0][0]) if len(rows) == 1 else None
 
 
 def is_auto_provisioned_email(value: str) -> bool:
@@ -342,7 +344,7 @@ _AUTO_PROVISIONED_DOMAINS = frozenset({"example.com"})
 _AUTO_PROVISIONED_LITERALS = frozenset({"ismael-legacy@gnosi.app"})
 
 
-def is_auto_provisioned_account(user) -> bool:
+def is_auto_provisioned_account(user: object) -> bool:
     """True when nobody deliberately invited this account.
 
     `users.auto_provisioned` is the real answer: every minting path records it,
@@ -451,7 +453,7 @@ def create_access_token(user_id: str, ttl_days: Optional[int] = None) -> str:
         "iat": int(now.timestamp()),
         "exp": int((now + ttl).timestamp()),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return str(jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM))
 
 
 def decode_access_token(token: str) -> Optional[str]:
@@ -469,7 +471,8 @@ def decode_access_token(token: str) -> Optional[str]:
     assert_signing_secret_safe()
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload.get("sub")
+        subject = payload.get("sub")
+        return str(subject) if subject else None
     except JWTError:
         return None
 
@@ -517,7 +520,10 @@ def get_current_user_id(
     return None
 
 
-def resolve_identity(conn, db_factory=None) -> Optional[str]:
+def resolve_identity(
+    conn: HTTPConnection,
+    db_factory: Callable[[], Generator[Session, None, None]] | None = None,
+) -> Optional[str]:
     """Identity from a connection, or None. NEVER raises.
 
     `get_current_user_id` is a FastAPI dependency that raises 401 when a cookie
@@ -555,7 +561,7 @@ def resolve_identity(conn, db_factory=None) -> Optional[str]:
             # request, that would turn a transient DB blip into a 500 across the
             # whole API instead of an unauthenticated request. Failing closed
             # (None) degrades to 401, which is recoverable and honest.
-            gen = None
+            gen: Generator[Session, None, None] | None = None
             try:
                 gen = (db_factory or get_mgmt_db)()
                 return resolve_pat_user_id(next(gen), raw)
@@ -603,7 +609,7 @@ def require_authenticated(uid: Optional[str] = Depends(get_current_user_id)) -> 
     return uid
 
 
-def resolve_effective_user_id(auth_uid: Optional[str], db) -> str:
+def resolve_effective_user_id(auth_uid: Optional[str], db: Session) -> str:
     """Who this request is, from the only two sources that can be trusted.
 
     1. A credential the caller cannot mint — session cookie or PAT — already

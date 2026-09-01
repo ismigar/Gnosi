@@ -55,19 +55,23 @@ class MailView(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
-    fields = Column(Text, default="[]")       # JSON: [{key, visible, order, width?}]
-    filters = Column(Text, default="[]")      # JSON: [{field, operator, value}]
+    fields = Column(Text, default="[]")  # JSON: [{key, visible, order, width?}]
+    filters = Column(Text, default="[]")  # JSON: [{field, operator, value}]
     filter_logic = Column(String, default="AND")  # "AND" | "OR"
     group_by = Column(String, default="none")
     sort_by = Column(String, default="date")
     sort_dir = Column(String, default="desc")
     actions = Column(Text, default='["archive","trash","mark_read"]')  # JSON array
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 # ── Pydantic Schemas ────────────────────────────────────────────────────────────
+
 
 class MailMessageSchema(BaseModel):
     id: str
@@ -123,8 +127,15 @@ class MailViewCreateSchema(BaseModel):
     actions: List[str] = ["archive", "trash", "mark_read"]
 
 
-class MailViewUpdateSchema(MailViewCreateSchema):
+class MailViewUpdateSchema(BaseModel):
     name: Optional[str] = None
+    fields: List[MailViewFieldSchema] = []
+    filters: List[MailViewFilterSchema] = []
+    filter_logic: str = "AND"
+    group_by: str = "none"
+    sort_by: str = "date"
+    sort_dir: str = "desc"
+    actions: List[str] = ["archive", "trash", "mark_read"]
 
 
 class MailViewSchema(BaseModel):
@@ -149,6 +160,7 @@ class MailViewSchema(BaseModel):
 
 
 # ── Tag Schemas ─────────────────────────────────────────────────────────────────
+
 
 class MailTagCreateSchema(BaseModel):
     name: str

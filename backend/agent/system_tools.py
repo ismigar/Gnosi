@@ -323,9 +323,9 @@ def save_memory(content: str) -> str:
     Use it to remember facts, user preferences, or architectural decisions.
     content: The text to remember (ex: "The user prefers the color orange").
     """
-    from .memory import memory_store
+    from .memory import get_memory_store
 
-    return memory_store.add_memory(content)
+    return get_memory_store().add_memory(content)
 
 
 @tool
@@ -334,9 +334,9 @@ def query_memory(query: str) -> str:
     Searches in long-term memory.
     Use it when the user asks about things from the past or context that you don't have in the current chat.
     """
-    from .memory import memory_store
+    from .memory import get_memory_store
 
-    results = memory_store.search_memory(query)
+    results = get_memory_store().search_memory(query)
     if not results:
         return "No memory found."
     return "Relevant Memories:\n- " + "\n- ".join(results)
@@ -349,9 +349,9 @@ def search_vault(query: str, k: int = 5) -> str:
     Useful for answering questions about user's personal information, notes, and databases.
     Returns a summary of the most relevant fragments.
     """
-    from .memory import vault_store
+    from .memory import get_vault_store
 
-    results = vault_store.search_vault(query, k=k)
+    results = get_vault_store().search_vault(query, k=k)
     if not results:
         return "No relevant information found in the Vault."
 

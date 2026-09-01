@@ -1,12 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/graph
   - backend/api/vault_graph_routes.py
   - backend/services/graph_service.py
   - frontend/src/pages/GraphPage.jsx
   - frontend/src/components/GraphViewer.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
   - backend/tests/test_graph_similarity_suggestions.py
   - backend/tests/test_graph_wedged_dirs.py
@@ -16,6 +18,10 @@ tests:
 # Gráfico de conocimientos
 
 ## Responsabilidad
+
+`backend/domains/graph/` gestiona el escaneo, los nodos, las aristas, la
+proyección, los adaptadores y la orquestación. `graph_service.py` es la fachada
+estable utilizada por la API, el agente y el planificador.
 
 El gráfico proyecta relaciones de conocimiento explícitas y sugerencias semánticas opcionales en una red interactiva. Soporta navegación y descubrimiento; se deriva de la Bóveda y no es una fuente separada de verdad.
 

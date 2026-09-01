@@ -3,6 +3,8 @@ import yaml
 import os
 import logging
 from pathlib import Path
+from collections.abc import Mapping
+from typing import Any, cast
 from .env_config import get_env, load_env
 from .paths_config import get_paths
 from .schema_keys import get_schema_keys
@@ -18,27 +20,31 @@ ENV_PROVIDER_MIGRATIONS = {
     "OPENROUTER_API_KEY": ("openrouter", "__keychain__:openrouter_api_key"),
     "GOOGLE_API_KEY": ("google", "__keychain__:google_api_key"),
 }
+ConfigDict = dict[str, Any]
 
 
-def normalize_interface_language(value) -> str:
+def normalize_interface_language(value: object) -> str:
     """Return a supported interface language or the English default."""
     language = str(value or "").strip().split("-", 1)[0].lower()
     return language if language in SUPPORTED_INTERFACE_LANGUAGES else DEFAULT_INTERFACE_LANGUAGE
 
 
-def deep_merge(dict1, dict2):
+def deep_merge(dict1: ConfigDict, dict2: ConfigDict) -> ConfigDict:
     """Recursively merges dict2 into dict1."""
     if not isinstance(dict1, dict) or not isinstance(dict2, dict):
         return dict2
     for k, v in dict2.items():
         if k in dict1 and isinstance(dict1[k], dict) and isinstance(v, dict):
-            deep_merge(dict1[k], v)
+            deep_merge(cast(ConfigDict, dict1[k]), cast(ConfigDict, v))
         else:
             dict1[k] = v
     return dict1
 
 
-def apply_env_provider_migration(params: dict, environ=None) -> bool:
+def apply_env_provider_migration(
+    params: ConfigDict,
+    environ: Mapping[str, str] | None = None,
+) -> bool:
     """Add legacy environment-backed providers unless explicitly disconnected.
 
     Provider deletion cannot remove a LaunchAgent or ``.env`` variable. The
@@ -46,8 +52,8 @@ def apply_env_provider_migration(params: dict, environ=None) -> bool:
     legacy migration from recreating a provider on every config load.
     """
     environ = os.environ if environ is None else environ
-    ai_cfg = params.setdefault("ai", {})
-    providers = ai_cfg.setdefault("providers", {})
+    ai_cfg = cast(ConfigDict, params.setdefault("ai", {}))
+    providers = cast(ConfigDict, ai_cfg.setdefault("providers", {}))
     disconnected = {
         str(provider).strip().lower()
         for provider in (ai_cfg.get("disconnected_providers") or [])
@@ -58,39 +64,137 @@ def apply_env_provider_migration(params: dict, environ=None) -> bool:
     for env_var, (provider_id, credential_ref) in ENV_PROVIDER_MIGRATIONS.items():
         if not environ.get(env_var) or provider_id in disconnected:
             continue
-        provider_cfg = providers.setdefault(provider_id, {})
+        provider_cfg = cast(ConfigDict, providers.setdefault(provider_id, {}))
         if not provider_cfg.get("credential_ref"):
             provider_cfg["credential_ref"] = credential_ref
             migrated = True
     return migrated
 
+
 class Config:
-    def __init__(self, params: dict, params_source: Path, strict_env: bool = True):
-        self.hf = {}
+    def __init__(
+        self,
+        params: ConfigDict | None,
+        params_source: Path,
+        strict_env: bool = True,
+    ) -> None:
+        self.hf: ConfigDict = {}
         if params is None:
             params = {}
 
-        self.params = params
-        self.params_source = params_source
+        self.params: ConfigDict = params
+        self.params_source: Path = params_source
 
         # Load YAML sub-dictionaries.
-        self.ai          = params.get("ai", {})
-        self.graph       = params.get("graph", {})
-        self.colors      = params.get("colors", {})
-        self.input_files = params.get("input_files", {})
-        self.mapping     = params.get("mapping", {})
-        self.settings    = dict(params.get("settings") or {})
+        self.ai: ConfigDict = cast(ConfigDict, params.get("ai", {}))
+        self.graph: ConfigDict = cast(ConfigDict, params.get("graph", {}))
+        self.colors: ConfigDict = cast(ConfigDict, params.get("colors", {}))
+        self.input_files: ConfigDict = cast(ConfigDict, params.get("input_files", {}))
+        self.mapping: ConfigDict = cast(ConfigDict, params.get("mapping", {}))
+        self.settings: ConfigDict = dict(cast(ConfigDict, params.get("settings") or {}))
         self.settings["language"] = normalize_interface_language(self.settings.get("language"))
         self.params["settings"] = self.settings
-        
+
         # Determine Gnosi mode (personal or organization).
-        self.gnosi_mode = os.environ.get("GNOSI_MODE") or self.settings.get("gnosi_mode", "personal")
+        self.gnosi_mode = os.environ.get("GNOSI_MODE") or self.settings.get(
+            "gnosi_mode", "personal"
+        )
 
         # Load paths with optional overrides from params.yaml.
-        self.paths       = get_paths(params.get("paths", {}))
+        self.paths: dict[str, Path | None] = get_paths(params.get("paths", {}))
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Any = None) -> Any:
         return self.params.get(key, default)
+
+
+def _active_params_path() -> Path | None:
+    """Resolve the request-local Vault configuration without loading config again."""
+    try:
+        from backend.services.context_vars import active_vault_path
+
+        active = active_vault_path.get()
+        return Path(active) / ".gnosi" / "params.yaml" if active else None
+    except Exception:
+        return None
+
+
+def _exists_tolerant(path: Path | None) -> bool:
+    """Treat unavailable cloud placeholders as absent configuration files."""
+    if path is None:
+        return False
+    try:
+        return path.exists()
+    except OSError as error:
+        log.warning(
+            "params.yaml is unreadable (OneDrive placeholder?): %s → %s",
+            path,
+            error,
+        )
+        return False
+
+
+def _user_params_path(
+    params: ConfigDict,
+    *,
+    local_path: Path,
+    home_path: Path,
+    active_path: Path | None,
+) -> Path | None:
+    """Select the user configuration with the historical precedence rules."""
+    if _exists_tolerant(active_path):
+        return active_path
+
+    environment_vault = os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
+    if environment_vault:
+        vault_params = Path(environment_vault) / ".gnosi" / "params.yaml"
+        if _exists_tolerant(vault_params):
+            return vault_params
+    elif _exists_tolerant(home_path):
+        return home_path
+
+    vault_raw = (params.get("paths") or {}).get("vault")
+    if not vault_raw:
+        return None
+    vault_params = Path(vault_raw) / ".gnosi" / "params.yaml"
+    if _exists_tolerant(vault_params) and vault_params != local_path:
+        return vault_params
+    return None
+
+
+def _merge_user_params(
+    params: ConfigDict,
+    params_path: Path,
+    user_params_path: Path | None,
+) -> tuple[ConfigDict, Path]:
+    """Merge an available user file while tolerating cloud hydration races."""
+    if user_params_path is None:
+        return params, params_path
+    try:
+        with user_params_path.open("r", encoding="utf-8") as handle:
+            loaded = yaml.safe_load(handle) or {}
+            user_params = cast(ConfigDict, loaded) if isinstance(loaded, dict) else {}
+        return deep_merge(params, user_params), user_params_path
+    except OSError as error:
+        log.warning(
+            "params.yaml became unreadable while opening (OneDrive placeholder?): %s → %s",
+            user_params_path,
+            error,
+        )
+        return params, params_path
+
+
+def _persist_provider_migration(params: ConfigDict, params_path: Path) -> None:
+    """Persist environment-provider migration through the atomic writer."""
+    if not apply_env_provider_migration(params):
+        return
+    try:
+        from backend.utils.safe_io import safe_write_text
+
+        yaml_text = yaml.dump(params, default_flow_style=False, allow_unicode=True)
+        safe_write_text(params_path, yaml_text)
+    except Exception as error:
+        log.error("Error saving migrated configuration: %s", error)
+
 
 def load_params(strict_env: bool = True) -> Config:
     """
@@ -99,86 +203,31 @@ def load_params(strict_env: bool = True) -> Config:
     1. DIGITAL_BRAIN_VAULT_PATH/.gnosi/params.yaml
     2. ~/.gnosi/params.yaml
     3. Gnosi/config/params.yaml (Base/Default)
-    
+
     """
     load_env()
-    
+
     local_path = Path(__file__).parents[2] / "config" / "params.yaml"
     home_path = Path.home() / ".gnosi" / "params.yaml"
-    
+
     # ── 1. Load the local base configuration ──
-    params = {}
+    params: ConfigDict = {}
     if local_path.exists():
         with open(local_path, "r", encoding="utf-8") as f:
-            params = yaml.safe_load(f) or {}
-    
+            loaded = yaml.safe_load(f) or {}
+            params = cast(ConfigDict, loaded) if isinstance(loaded, dict) else {}
+
     params_path = local_path
-    
+
     # ── 2. Determine the user source (active vault > vault environment > home) ──
-    user_params_path = None
-
-    # Multi-vault: an active vault's configuration (graph, colors, AI, etc.)
-    # takes precedence. Read the context variable directly (not
-    # `get_active_vault_path`) to avoid the cycle
-    # load_params ↔ get_active_vault_path. Outside a request → None → previous behavior.
-    active_params_path = None
-    try:
-        from backend.services.context_vars import active_vault_path as _avp_var
-        _av = _avp_var.get()
-        if _av:
-            active_params_path = Path(_av) / ".gnosi" / "params.yaml"
-    except Exception:
-        active_params_path = None
-
-    # Make `Path.exists()` tolerant of OneDrive I/O errors. An online-only
-    # params.yaml that is not hydrated (or whose synchronization is stuck)
-    # causes `stat()` to fail with EDEADLK/EAGAIN (errno 11/35). Without this,
-    # one unavailable .gnosi file brought down every vault endpoint (500 in
-    # get_workspace_context). Treat it as unavailable and continue
-    # with the inherited config; when OneDrive materializes it, it will merge normally.
-    def _exists_tolerant(p):
-        if p is None:
-            return False
-        try:
-            return p.exists()
-        except OSError as e:
-            log.warning("params.yaml is unreadable (OneDrive placeholder?): %s → %s", p, e)
-            return False
-
-    env_vault = os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
-    if _exists_tolerant(active_params_path):
-        user_params_path = active_params_path
-    elif env_vault:
-        vault_params = Path(env_vault) / ".gnosi" / "params.yaml"
-        if _exists_tolerant(vault_params):
-            user_params_path = vault_params
-    elif _exists_tolerant(home_path):
-        user_params_path = home_path
-
-    # If the local configuration names a vault with its own params.yaml, use it.
-    if not user_params_path and "paths" in params:
-        vault_raw = params.get("paths", {}).get("vault")
-        if vault_raw:
-            vault_params = Path(vault_raw) / ".gnosi" / "params.yaml"
-            if _exists_tolerant(vault_params) and vault_params != local_path:
-                user_params_path = vault_params
-
-    # ── 3. Merge user configuration when present ──
-    if user_params_path:
-        # log.info(f"Merging user configuration from: {user_params_path}")
-        try:
-            with open(user_params_path, "r", encoding="utf-8") as f:
-                user_params = yaml.safe_load(f) or {}
-                params = deep_merge(params, user_params)
-            params_path = user_params_path
-        except OSError as e:
-            # The file became unreadable between exists() and open()
-            # (OneDrive placeholder). Keep the inherited configuration.
-            log.warning(
-                "params.yaml became unreadable while opening (OneDrive placeholder?): %s → %s",
-                user_params_path,
-                e,
-            )
+    active_params_path = _active_params_path()
+    user_params_path = _user_params_path(
+        params,
+        local_path=local_path,
+        home_path=home_path,
+        active_path=active_params_path,
+    )
+    params, params_path = _merge_user_params(params, params_path, user_params_path)
 
     # The active vault's params.yaml is always the save target (and is created
     # if needed), even when values were inherited. Editing a new vault's graph,
@@ -186,16 +235,6 @@ def load_params(strict_env: bool = True) -> Config:
     if active_params_path:
         params_path = active_params_path
 
-    # --- Maintenance and Migration ---
-    migrated = apply_env_provider_migration(params)
-
-    # Persist migrations with an atomic write.
-    if migrated:
-        try:
-            from backend.utils.safe_io import safe_write_text
-            yaml_text = yaml.dump(params, default_flow_style=False, allow_unicode=True)
-            safe_write_text(params_path, yaml_text)
-        except Exception as e:
-            log.error("Error saving migrated configuration: %s", e)
+    _persist_provider_migration(params, params_path)
 
     return Config(params, params_path, strict_env=strict_env)

@@ -12,40 +12,40 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 
 | Table | Model | Columns | Source |
 | --- | --- | ---: | --- |
-| `api_tokens` | `ApiToken` | 10 | [`backend/models/management.py:94`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L94) |
+| `api_tokens` | `ApiToken` | 10 | [`backend/models/management.py:103`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L103) |
 | `articles` | `Article` | 9 | [`backend/models/reader.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L23) |
-| `contacts` | `Contact` | 21 | [`backend/models/contact.py:31`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L31) |
+| `contacts` | `Contact` | 21 | [`backend/models/contact.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L28) |
 | `feed_sources` | `FeedSource` | 6 | [`backend/models/reader.py:11`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L11) |
-| `hidden_events` | `HiddenEvent` | 3 | [`backend/models/calendar.py:5`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L5) |
+| `hidden_events` | `HiddenEvent` | 3 | [`backend/models/calendar.py:6`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L6) |
 | `mail_message_tags` | `MailMessageTag` | 6 | [`backend/models/mail.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L42) |
 | `mail_tags` | `MailTag` | 4 | [`backend/models/mail.py:33`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L33) |
 | `mail_views` | `MailView` | 11 | [`backend/models/mail.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L53) |
-| `memberships` | `Membership` | 5 | [`backend/models/management.py:51`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L51) |
+| `memberships` | `Membership` | 5 | [`backend/models/management.py:55`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L55) |
 | `messages` | `MailMessage` | 18 | [`backend/models/mail.py:10`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py#L10) |
 | `newsletter_account` | `NewsletterAccount` | 8 | [`backend/models/reader.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L43) |
 | `notifications` | `Notification` | 7 | [`backend/models/notification.py:11`](https://github.com/ismigar/Gnosi/blob/main/backend/models/notification.py#L11) |
-| `pdf_annotations` | `PdfAnnotation` | 12 | [`backend/models/pdf_annotation.py:21`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L21) |
-| `share_links` | `ShareLink` | 9 | [`backend/models/management.py:113`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L113) |
+| `pdf_annotations` | `PdfAnnotation` | 12 | [`backend/models/pdf_annotation.py:22`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L22) |
+| `share_links` | `ShareLink` | 9 | [`backend/models/management.py:125`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L125) |
 | `task_execution_history` | `TaskExecutionHistory` | 8 | [`backend/models/scheduler.py:9`](https://github.com/ismigar/Gnosi/blob/main/backend/models/scheduler.py#L9) |
-| `users` | `User` | 7 | [`backend/models/management.py:17`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L17) |
-| `vault_access` | `VaultAccess` | 6 | [`backend/models/management.py:79`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L79) |
-| `vaults` | `Vault` | 6 | [`backend/models/management.py:63`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L63) |
-| `workspaces` | `Workspace` | 4 | [`backend/models/management.py:40`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L40) |
+| `users` | `User` | 7 | [`backend/models/management.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L19) |
+| `vault_access` | `VaultAccess` | 6 | [`backend/models/management.py:87`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L87) |
+| `vaults` | `Vault` | 6 | [`backend/models/management.py:68`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L68) |
+| `workspaces` | `Workspace` | 4 | [`backend/models/management.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L43) |
 
 ## `api_tokens` — `ApiToken`
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:103`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L103) |
-| `user_id` | `String` | — | no | — | yes | `users.id` | — | [`backend/models/management.py:104`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L104) |
-| `workspace_id` | `String` | — | yes | — | — | — | — | [`backend/models/management.py:105`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L105) |
-| `name` | `String` | — | no | — | — | — | — | [`backend/models/management.py:106`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L106) |
-| `token_hash` | `String` | — | no | yes | yes | — | redacted | [`backend/models/management.py:107`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L107) |
-| `token_prefix` | `String` | — | no | — | — | — | redacted | [`backend/models/management.py:108`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L108) |
-| `scopes` | `String` | — | — | — | — | — | 'read,write' | [`backend/models/management.py:109`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L109) |
-| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:110`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L110) |
-| `last_used_at` | `DateTime(timezone=True)` | — | yes | — | — | — | — | [`backend/models/management.py:111`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L111) |
-| `revoked` | `Integer` | — | — | — | — | — | 0 | [`backend/models/management.py:112`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L112) |
+| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:113`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L113) |
+| `user_id` | `String` | — | no | — | yes | `users.id` | — | [`backend/models/management.py:114`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L114) |
+| `workspace_id` | `String` | — | yes | — | — | — | — | [`backend/models/management.py:115`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L115) |
+| `name` | `String` | — | no | — | — | — | — | [`backend/models/management.py:116`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L116) |
+| `token_hash` | `String` | — | no | yes | yes | — | redacted | [`backend/models/management.py:117`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L117) |
+| `token_prefix` | `String` | — | no | — | — | — | redacted | [`backend/models/management.py:118`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L118) |
+| `scopes` | `String` | — | — | — | — | — | 'read,write' | [`backend/models/management.py:119`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L119) |
+| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:120`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L120) |
+| `last_used_at` | `DateTime(timezone=True)` | — | yes | — | — | — | — | [`backend/models/management.py:121`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L121) |
+| `revoked` | `Integer` | — | — | — | — | — | 0 | [`backend/models/management.py:122`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L122) |
 
 ## `articles` — `Article`
 
@@ -65,27 +65,27 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/contact.py:34`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L34) |
-| `workspace_id` | `String` | — | no | — | yes | `workspaces.id` | — | [`backend/models/contact.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L35) |
-| `type` | `String` | — | no | — | — | — | ContactType.PERSONAL.value | [`backend/models/contact.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L38) |
-| `name` | `String` | — | no | — | — | — | — | [`backend/models/contact.py:40`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L40) |
-| `email` | `String` | — | no | — | yes | — | — | [`backend/models/contact.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L41) |
-| `phone` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L42) |
-| `company` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L44) |
-| `job_title` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:45`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L45) |
-| `address` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:46`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L46) |
-| `notes` | `Text` | — | yes | — | — | — | — | [`backend/models/contact.py:47`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L47) |
-| `emails` | `Text` | — | — | — | — | — | '[]' | [`backend/models/contact.py:49`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L49) |
-| `phones` | `Text` | — | — | — | — | — | '[]' | [`backend/models/contact.py:50`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L50) |
-| `addresses` | `Text` | — | — | — | — | — | '[]' | [`backend/models/contact.py:51`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L51) |
-| `google_resource_name` | `String` | — | yes | — | yes | — | — | [`backend/models/contact.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L53) |
-| `apple_resource_id` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L54) |
-| `last_synced_at` | `DateTime(timezone=True)` | — | yes | — | — | — | — | [`backend/models/contact.py:56`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L56) |
-| `source` | `String` | — | no | — | — | — | ContactSource.LOCAL.value | [`backend/models/contact.py:57`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L57) |
-| `photo_url` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:58`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L58) |
-| `tags` | `String` | — | — | — | — | — | '[]' | [`backend/models/contact.py:60`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L60) |
-| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/contact.py:62`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L62) |
-| `updated_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/contact.py:63`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L63) |
+| `id` | `String` | yes | no | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/contact.py:31`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L31) |
+| `workspace_id` | `String` | — | no | — | yes | `workspaces.id` | — | [`backend/models/contact.py:32`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L32) |
+| `type` | `String` | — | no | — | — | — | ContactType.PERSONAL.value | [`backend/models/contact.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L35) |
+| `name` | `String` | — | no | — | — | — | — | [`backend/models/contact.py:37`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L37) |
+| `email` | `String` | — | no | — | yes | — | — | [`backend/models/contact.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L38) |
+| `phone` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:39`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L39) |
+| `company` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L41) |
+| `job_title` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L42) |
+| `address` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L43) |
+| `notes` | `Text` | — | yes | — | — | — | — | [`backend/models/contact.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L44) |
+| `emails` | `Text` | — | no | — | — | — | '[]' | [`backend/models/contact.py:46`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L46) |
+| `phones` | `Text` | — | no | — | — | — | '[]' | [`backend/models/contact.py:47`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L47) |
+| `addresses` | `Text` | — | no | — | — | — | '[]' | [`backend/models/contact.py:48`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L48) |
+| `google_resource_name` | `String` | — | yes | — | yes | — | — | [`backend/models/contact.py:50`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L50) |
+| `apple_resource_id` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:51`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L51) |
+| `last_synced_at` | `DateTime(timezone=True)` | — | yes | — | — | — | — | [`backend/models/contact.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L53) |
+| `source` | `String` | — | no | — | — | — | ContactSource.LOCAL.value | [`backend/models/contact.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L54) |
+| `photo_url` | `String` | — | yes | — | — | — | — | [`backend/models/contact.py:55`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L55) |
+| `tags` | `String` | — | no | — | — | — | '[]' | [`backend/models/contact.py:57`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L57) |
+| `created_at` | `DateTime(timezone=True)` | — | no | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/contact.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L59) |
+| `updated_at` | `DateTime(timezone=True)` | — | no | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/contact.py:62`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L62) |
 
 ## `feed_sources` — `FeedSource`
 
@@ -102,9 +102,9 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `event_id` | `String` | yes | — | — | yes | — | — | [`backend/models/calendar.py:13`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L13) |
-| `user_id` | `String` | — | yes | — | yes | — | — | [`backend/models/calendar.py:14`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L14) |
-| `hidden_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/calendar.py:15`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L15) |
+| `event_id` | `String` | yes | — | — | yes | — | — | [`backend/models/calendar.py:15`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L15) |
+| `user_id` | `String` | — | yes | — | yes | — | — | [`backend/models/calendar.py:16`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L16) |
+| `hidden_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/calendar.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L19) |
 
 ## `mail_message_tags` — `MailMessageTag`
 
@@ -146,11 +146,11 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `user_id` | `String` | yes | — | — | — | `users.id` | — | [`backend/models/management.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L54) |
-| `workspace_id` | `String` | yes | — | — | — | `workspaces.id` | — | [`backend/models/management.py:55`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L55) |
-| `role` | `String` | — | — | — | — | — | UserRole.VIEWER | [`backend/models/management.py:56`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L56) |
-| `permissions` | `String` | — | — | — | — | — | '{"capabilities": ["read"]}' | [`backend/models/management.py:57`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L57) |
-| `joined_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:58`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L58) |
+| `user_id` | `String` | yes | — | — | — | `users.id` | — | [`backend/models/management.py:58`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L58) |
+| `workspace_id` | `String` | yes | — | — | — | `workspaces.id` | — | [`backend/models/management.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L59) |
+| `role` | `String` | — | — | — | — | — | UserRole.VIEWER | [`backend/models/management.py:60`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L60) |
+| `permissions` | `String` | — | — | — | — | — | '{"capabilities": ["read"]}' | [`backend/models/management.py:61`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L61) |
+| `joined_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:62`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L62) |
 
 ## `messages` — `MailMessage`
 
@@ -204,32 +204,32 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `Integer` | yes | — | — | yes | — | — | [`backend/models/pdf_annotation.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L24) |
-| `source_uri` | `String` | — | no | — | yes | — | — | [`backend/models/pdf_annotation.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L28) |
-| `page` | `Integer` | — | no | — | — | — | — | [`backend/models/pdf_annotation.py:30`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L30) |
-| `type` | `String` | — | no | — | — | — | — | [`backend/models/pdf_annotation.py:34`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L34) |
-| `color` | `String` | — | — | — | — | — | '#ffeb3b' | [`backend/models/pdf_annotation.py:36`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L36) |
-| `rects_json` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:40`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L40) |
-| `text` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L42) |
-| `comment` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L44) |
-| `tags` | `String` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:47`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L47) |
-| `managed_key` | `String` | — | yes | yes | yes | — | — | [`backend/models/pdf_annotation.py:51`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L51) |
-| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L53) |
-| `updated_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:57`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L57) |
+| `id` | `Integer` | yes | no | — | yes | — | — | [`backend/models/pdf_annotation.py:25`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L25) |
+| `source_uri` | `String` | — | no | — | yes | — | — | [`backend/models/pdf_annotation.py:29`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L29) |
+| `page` | `Integer` | — | no | — | — | — | — | [`backend/models/pdf_annotation.py:31`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L31) |
+| `type` | `String` | — | no | — | — | — | — | [`backend/models/pdf_annotation.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L35) |
+| `color` | `String` | — | yes | — | — | — | '#ffeb3b' | [`backend/models/pdf_annotation.py:37`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L37) |
+| `rects_json` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L41) |
+| `text` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L43) |
+| `comment` | `Text` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:45`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L45) |
+| `tags` | `String` | — | yes | — | — | — | — | [`backend/models/pdf_annotation.py:48`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L48) |
+| `managed_key` | `String` | — | yes | yes | yes | — | — | [`backend/models/pdf_annotation.py:52`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L52) |
+| `created_at` | `DateTime(timezone=True)` | — | yes | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L59) |
+| `updated_at` | `DateTime(timezone=True)` | — | yes | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:64`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L64) |
 
 ## `share_links` — `ShareLink`
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `String` | yes | — | — | — | — | lambda: uuid.uuid4().hex | [`backend/models/management.py:123`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L123) |
-| `page_id` | `String` | — | no | — | yes | — | — | [`backend/models/management.py:124`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L124) |
-| `workspace_id` | `String` | — | no | — | — | — | — | [`backend/models/management.py:125`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L125) |
-| `vault_id` | `String` | — | yes | — | — | — | — | [`backend/models/management.py:131`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L131) |
-| `created_by` | `String` | — | — | — | — | — | — | [`backend/models/management.py:132`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L132) |
-| `permission` | `String` | — | — | — | — | — | 'view' | [`backend/models/management.py:133`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L133) |
-| `expires_at` | `DateTime(timezone=True)` | — | yes | — | — | — | — | [`backend/models/management.py:134`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L134) |
-| `revoked` | `Integer` | — | — | — | — | — | 0 | [`backend/models/management.py:135`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L135) |
-| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:136`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L136) |
+| `id` | `String` | yes | — | — | — | — | lambda: uuid.uuid4().hex | [`backend/models/management.py:136`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L136) |
+| `page_id` | `String` | — | no | — | yes | — | — | [`backend/models/management.py:137`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L137) |
+| `workspace_id` | `String` | — | no | — | — | — | — | [`backend/models/management.py:138`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L138) |
+| `vault_id` | `String` | — | yes | — | — | — | — | [`backend/models/management.py:144`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L144) |
+| `created_by` | `String` | — | — | — | — | — | — | [`backend/models/management.py:145`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L145) |
+| `permission` | `String` | — | — | — | — | — | 'view' | [`backend/models/management.py:146`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L146) |
+| `expires_at` | `DateTime(timezone=True)` | — | yes | — | — | — | — | [`backend/models/management.py:147`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L147) |
+| `revoked` | `Integer` | — | — | — | — | — | 0 | [`backend/models/management.py:148`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L148) |
+| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:149`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L149) |
 
 ## `task_execution_history` — `TaskExecutionHistory`
 
@@ -248,41 +248,41 @@ Discovered **19 mapped tables** and **160 mapped columns**.
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:20`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L20) |
-| `email` | `String` | — | no | yes | yes | — | — | [`backend/models/management.py:21`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L21) |
-| `name` | `String` | — | — | — | — | — | — | [`backend/models/management.py:22`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L22) |
-| `avatar_url` | `String` | — | — | — | — | — | — | [`backend/models/management.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L23) |
-| `password_hash` | `String` | — | yes | — | — | — | redacted | [`backend/models/management.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L28) |
-| `auto_provisioned` | `Boolean` | — | no | — | — | — | False | [`backend/models/management.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L35) |
-| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:36`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L36) |
+| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:22`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L22) |
+| `email` | `String` | — | no | yes | yes | — | — | [`backend/models/management.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L23) |
+| `name` | `String` | — | — | — | — | — | — | [`backend/models/management.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L24) |
+| `avatar_url` | `String` | — | — | — | — | — | — | [`backend/models/management.py:25`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L25) |
+| `password_hash` | `String` | — | yes | — | — | — | redacted | [`backend/models/management.py:30`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L30) |
+| `auto_provisioned` | `Boolean` | — | no | — | — | — | False | [`backend/models/management.py:37`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L37) |
+| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L38) |
 
 ## `vault_access` — `VaultAccess`
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:82`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L82) |
-| `vault_id` | `String` | — | no | — | — | `vaults.id` | — | [`backend/models/management.py:83`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L83) |
-| `user_id` | `String` | — | no | — | — | `users.id` | — | [`backend/models/management.py:84`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L84) |
-| `workspace_id` | `String` | — | no | — | — | `workspaces.id` | — | [`backend/models/management.py:85`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L85) |
-| `permissions` | `String` | — | — | — | — | — | '{"capabilities": ["read"]}' | [`backend/models/management.py:87`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L87) |
-| `granted_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:88`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L88) |
+| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:90`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L90) |
+| `vault_id` | `String` | — | no | — | — | `vaults.id` | — | [`backend/models/management.py:91`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L91) |
+| `user_id` | `String` | — | no | — | — | `users.id` | — | [`backend/models/management.py:92`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L92) |
+| `workspace_id` | `String` | — | no | — | — | `workspaces.id` | — | [`backend/models/management.py:93`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L93) |
+| `permissions` | `String` | — | — | — | — | — | '{"capabilities": ["read"]}' | [`backend/models/management.py:95`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L95) |
+| `granted_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:96`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L96) |
 
 ## `vaults` — `Vault`
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:66`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L66) |
-| `workspace_id` | `String` | — | — | — | — | `workspaces.id` | — | [`backend/models/management.py:67`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L67) |
-| `name` | `String` | — | no | — | — | — | — | [`backend/models/management.py:68`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L68) |
-| `slug` | `String` | — | — | — | yes | — | — | [`backend/models/management.py:72`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L72) |
-| `path_override` | `String` | — | — | — | — | — | — | [`backend/models/management.py:73`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L73) |
-| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:74`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L74) |
+| `id` | `String` | yes | no | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:71`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L71) |
+| `workspace_id` | `String` | — | yes | — | — | `workspaces.id` | — | [`backend/models/management.py:72`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L72) |
+| `name` | `String` | — | no | — | — | — | — | [`backend/models/management.py:73`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L73) |
+| `slug` | `String` | — | yes | — | yes | — | — | [`backend/models/management.py:77`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L77) |
+| `path_override` | `String` | — | yes | — | — | — | — | [`backend/models/management.py:78`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L78) |
+| `created_at` | `DateTime(timezone=True)` | — | no | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:79`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L79) |
 
 ## `workspaces` — `Workspace`
 
 | Column | Type | Primary key | Nullable | Unique | Index | Foreign key | Source default | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L43) |
-| `name` | `String` | — | no | — | — | — | — | [`backend/models/management.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L44) |
-| `slug` | `String` | — | — | yes | yes | — | — | [`backend/models/management.py:45`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L45) |
-| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:46`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L46) |
+| `id` | `String` | yes | — | — | — | — | lambda: str(uuid.uuid4()) | [`backend/models/management.py:46`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L46) |
+| `name` | `String` | — | no | — | — | — | — | [`backend/models/management.py:47`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L47) |
+| `slug` | `String` | — | — | yes | yes | — | — | [`backend/models/management.py:48`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L48) |
+| `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/management.py:49`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L49) |

@@ -1,15 +1,24 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
   - backend/server.py
+  - backend/app/lifespan.py
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
+  - backend/domains/configuration/api/settings.py
+  - backend/services/data_dir_migration.py
+  - backend/api/system_routes.py
   - frontend/src/App.jsx
 tests:
+  - backend/tests/test_app_lifespan.py
+  - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
+  - backend/tests/test_config_language_locale.py
   - backend/tests/test_host_helper_url.py
+  - backend/tests/test_data_dir_migration.py
+  - backend/tests/test_system_filesystem_routes.py
   - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -24,6 +33,10 @@ La fundació es reuneix tots els dominis en un procés, resol la configuració i
 `backend/server.py` Es mou la instància ràpidaAPI, gestió de l' excepció, muntatge de lectors estàtics, vida i encaminadors. L' ordre enrutador és explícit perquè el context de l' espai de treball i els prefixos amplis es poden sobreposen. L' ordre generat [Catàleg d' API](../generated/api-catalog.md) registren cada muntatge i ruta estàtica.
 
 L'startup de vida és la que fa aquestes classes de treball:
+
+El mòdul de cicle de vida manté `lifespan` com un orquestrador lineal. Funcions
+acotades gestionen connectors, agent, índexs, reparació de taules, correu i
+aturada, sense alterar l'ordre ni l'aïllament d'errors.
 
 1. Asert que un desplegament exposat no usa un desenvolupament públic JWT
 secret.
@@ -42,6 +55,23 @@ Els errors en l' inici opcional de la IA o d'integració s' han registrat i aïl
 `load_params()` Combina l' aplicació YAL amb la configuració actual o activa de la sortida. Els valors del diccionari es fusionaran recursivament. La volta activa `.gnosi/params.yaml` Es converteix en l' objectiu persisteix per a les configuracions de la volta. La resolució del camí s' aplica després als valors de l' entorn de desplegament explícits.
 
 Reforçament de la configuració de l' IA. Un entorn antic credential pot crear un proveïdor una vegada, però una làpida persisteixda evita reaparèixer després de l' eliminació deliberació.
+
+La frontera d'escriptura de Configuració valida agents gestionats i estratègies
+de model, desa contrasenyes i claus fora del YAML, tracta el mapa de proveïdors
+com a estat desitjat perquè les eliminacions persisteixin, escriu de manera
+atòmica i invalida els agents compilats només després d'un canvi d'IA.
+
+La migració de dades locals és una màquina d'estats amb diari. La verificació
+de l'origen, el moviment atòmic al mateix volum, l'staging entre volums, la
+verificació del destí i el rollback automàtic són fases separades. Cada base
+SQLite passa checkpoint i `integrity_check`, i les còpies es comparen amb un
+inventari amb hash abans de substituir una estructura buida.
+
+Les rutes del sistema separen l'orquestració HTTP dels ajudants acotats de
+navegació i cerca. La cerca prioritza el vault actiu i les carpetes habituals,
+inclosa l'arrel neutral `Library/CloudStorage` que fan servir OneDrive, Google
+Drive, Dropbox, Box i altres proveïdors de fitxers de macOS. Els camins locals i
+Docker es mapen sense incorporar cap proveïdor al model de dades.
 
 ## Àrea de treball per a la interfície
 

@@ -1,12 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/graph
   - backend/api/vault_graph_routes.py
   - backend/services/graph_service.py
   - frontend/src/pages/GraphPage.jsx
   - frontend/src/components/GraphViewer.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
   - backend/tests/test_graph_similarity_suggestions.py
   - backend/tests/test_graph_wedged_dirs.py
@@ -16,6 +18,10 @@ tests:
 # Gràfic coneixement
 
 ## Reversió
+
+`backend/domains/graph/` gestiona l'escaneig, els nodes, les arestes, la projecció,
+els adaptadors i l'orquestració. `graph_service.py` és la façana estable que fan
+servir l'API, l'agent i el planificador.
 
 El gràfic projectes de relacions explícites del coneixement i suggeriments opcionals semàntics en una xarxa interactiva. Permet la navegació i el descobriment; es deriva de la Vaulta i no és una font de veritat separada.
 

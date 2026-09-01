@@ -1,9 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/notebooks
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
+  - backend/domains/agent/routes/checkpoints.py
+  - backend/domains/agent/routes/shared.py
   - backend/services/durable_job_worker.py
   - backend/agent/agent_context.py
   - backend/agent/factory.py
@@ -12,6 +15,7 @@ source_paths:
   - frontend/src/components/Notebooks
   - frontend/src/components/AgentChat.jsx
 tests:
+  - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
@@ -23,6 +27,10 @@ tests:
 # Cuadernos fundamentados en fuentes
 
 ## Responsabilidad
+
+`backend/domains/notebooks/` gestiona ahora el repositorio, el catálogo, las
+fuentes, la ingestión, las evidencias, el análisis, el chat y el estado. El
+servicio histórico queda como fachada compatible para la API y los workers.
 
 Los cuadernos fundamentados ofrecen un espacio `/notebooks` dedicado a
 preguntar sobre los adjuntos y las URL de los registros seleccionados en la
@@ -163,6 +171,12 @@ historiales: volver a un modo anterior restaura su espacio de nombres.
 Eliminar un cuaderno borra los threads de checkpoint derivados antes de
 eliminar en cascada índices, revisiones y análisis. Los datos originales del
 Vault quedan fuera de este límite.
+
+Las rutas HTTP de cuadernos están estrictamente tipadas y consumen helpers
+públicos de checkpoints del dominio Agent en lugar de símbolos privados de la
+fachada compatible. La ausencia de Vault activo o almacenamiento de checkpoints
+falla explícitamente; el borrado y lectura de conversaciones conserva los mismos
+hilos aislados y las respuestas OpenAPI congeladas.
 
 ## Contratos HTTP
 

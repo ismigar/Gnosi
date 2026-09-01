@@ -23,11 +23,14 @@ resulting record through the normal page-creation pipeline.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, TypeAlias, cast
 
 from backend.services import option_catalogs
 
 PLUGIN_ID = "web-clipper"
+JsonMap: TypeAlias = dict[str, Any]
+Property: TypeAlias = dict[str, Any]
+TableSchema: TypeAlias = dict[str, Any]
 
 # Explicit "leave this role unmapped" marker. Distinguishes «the user has not
 # chosen» (empty → auto-detect) from «the user does not want this column fed».
@@ -49,15 +52,18 @@ _CONTENT_NAME_HINTS = {"nota", "notes", "note", "resum", "resumen", "summary", "
                        "descripció", "descripcion", "description", "comentari", "comment"}
 
 
-def _props(table: Optional[dict]) -> List[dict]:
-    return [p for p in ((table or {}).get("properties") or []) if isinstance(p, dict)]
+def _props(table: TableSchema | None) -> list[Property]:
+    raw = (table or {}).get("properties") or []
+    if not isinstance(raw, list):
+        return []
+    return [cast(Property, prop) for prop in raw if isinstance(prop, dict)]
 
 
 def _norm(name: Any) -> str:
     return str(name or "").strip().lower()
 
 
-def find_property(table: Optional[dict], key: Any) -> Optional[dict]:
+def find_property(table: TableSchema | None, key: Any) -> Property | None:
     """Resolves a property by id, current name or alias (never by position)."""
     k = str(key or "").strip()
     if not k:
@@ -75,11 +81,11 @@ def find_property(table: Optional[dict], key: Any) -> Optional[dict]:
     return None
 
 
-def is_promptable(prop: dict) -> bool:
+def is_promptable(prop: Property) -> bool:
     return str(prop.get("type") or "") in PROMPTABLE_TYPES
 
 
-def suggest_mapping(table: Optional[dict]) -> Dict[str, str]:
+def suggest_mapping(table: TableSchema | None) -> dict[str, str]:
     """Best-guess `url`/`tags`/`content` columns for a freshly picked table.
 
     The tags column reuses the semantic role from `option_catalogs` (explicit
@@ -104,7 +110,10 @@ def suggest_mapping(table: Optional[dict]) -> Dict[str, str]:
     return {"url_property": url_id, "tags_property": tags_id, "content_property": content_id}
 
 
-def effective_mapping(table: Optional[dict], cfg: Optional[dict]) -> Dict[str, Optional[dict]]:
+def effective_mapping(
+    table: TableSchema | None,
+    cfg: JsonMap | None,
+) -> dict[str, Property | None]:
     """Resolves the url/tags/content roles to actual properties.
 
     An empty setting means "auto" (the heuristic above), NOT "unmapped": the
@@ -114,7 +123,7 @@ def effective_mapping(table: Optional[dict], cfg: Optional[dict]) -> Dict[str, O
     """
     cfg = cfg if isinstance(cfg, dict) else {}
     suggested = suggest_mapping(table)
-    out: Dict[str, Optional[dict]] = {}
+    out: dict[str, Property | None] = {}
     for key in ("url_property", "tags_property", "content_property"):
         raw = str(cfg.get(key) or "").strip()
         if raw == NO_MAPPING:
@@ -125,10 +134,10 @@ def effective_mapping(table: Optional[dict], cfg: Optional[dict]) -> Dict[str, O
 
 
 def form_fields(
-    table: Optional[dict],
-    cfg: Optional[dict],
-    catalogs: Optional[dict] = None,
-) -> List[Dict[str, Any]]:
+    table: TableSchema | None,
+    cfg: JsonMap | None,
+    catalogs: JsonMap | None = None,
+) -> list[JsonMap]:
     """Descriptors of the columns the extension must render, in schema order.
 
     Only the columns whitelisted in `settings.fields` are returned, minus the
@@ -144,8 +153,8 @@ def form_fields(
         str((p or {}).get("id") or "")
         for p in effective_mapping(table, cfg).values()
     }
-    out: List[Dict[str, Any]] = []
-    seen: set = set()
+    out: list[JsonMap] = []
+    seen: set[str] = set()
     for key in wanted:
         prop = find_property(table, key)
         if not prop or not is_promptable(prop):
@@ -154,7 +163,7 @@ def form_fields(
         if not pid or pid in seen or pid in auto:
             continue
         seen.add(pid)
-        entry: Dict[str, Any] = {
+        entry: JsonMap = {
             "id": pid,
             "name": prop.get("name") or pid,
             "type": str(prop.get("type") or "text"),
@@ -167,7 +176,7 @@ def form_fields(
     return out
 
 
-def coerce_value(prop: dict, value: Any) -> Any:
+def coerce_value(prop: Property, value: Any) -> Any:
     """Normalizes a value coming from the extension to what the column stores.
 
     The extension can only send strings (HTML inputs), so multi_select arrives
@@ -200,14 +209,14 @@ def coerce_value(prop: dict, value: Any) -> Any:
 
 
 def build_record(
-    table: dict,
-    cfg: Optional[dict],
+    table: TableSchema,
+    cfg: JsonMap | None,
     *,
     url: str,
     content: str = "",
-    tags: Optional[List[str]] = None,
-    fields: Optional[Dict[str, Any]] = None,
-) -> Tuple[Dict[str, Any], str]:
+    tags: list[str] | None = None,
+    fields: JsonMap | None = None,
+) -> tuple[JsonMap, str]:
     """Builds the (metadata, body) of the record to create in `table`.
 
     The page title is NOT part of this: the caller passes it to `create_page`,
@@ -218,7 +227,7 @@ def build_record(
     frontmatter.
     """
     cfg = cfg if isinstance(cfg, dict) else {}
-    metadata: Dict[str, Any] = {"table_id": str(table.get("id") or "")}
+    metadata: JsonMap = {"table_id": str(table.get("id") or "")}
     tags = [t for t in (tags or []) if str(t).strip()]
 
     for key, value in (fields or {}).items():

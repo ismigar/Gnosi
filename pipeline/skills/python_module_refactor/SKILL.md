@@ -16,6 +16,9 @@ they do not decide domain ownership or change runtime contracts.
   graph in `gnosi-python-symbol-graph-v1` format.
 - `scripts/replace_top_level_function.py` replaces exactly one named top-level
   sync or async function, including all its decorators.
+- `scripts/extract_top_level_symbols.py` moves explicitly named top-level
+  functions, classes or simple assignments to a new module and inserts an
+  explicit compatibility import at the first removed extent.
 
 Both tools require explicit source and output or replacement paths. Generated
 reports and temporary replacement snippets belong under `.tmp/` and must not be
@@ -49,6 +52,11 @@ uv run python pipeline/skills/python_module_refactor/scripts/replace_top_level_f
    OpenAPI artifact. Mechanical equivalence is not sufficient without runtime
    contract tests.
 
+For a multi-symbol extraction, prepare a destination preamble and source-import
+snippet under `.tmp/`, then pass both files explicitly to
+`extract_top_level_symbols.py`. Run it twice and require the second call to be a
+no-op before deleting the temporary snippets.
+
 ## Restrictions and edge cases
 
 - The graph contains top-level definitions only. Dynamic imports, attribute
@@ -58,6 +66,8 @@ uv run python pipeline/skills/python_module_refactor/scripts/replace_top_level_f
   `cyclic_components`; an empty list is valid.
 - The replacement must contain exactly one top-level function with the requested
   name. Helper definitions belong in their destination module.
+- Multi-symbol extraction accepts only a new destination. A mixture of present
+  and already-moved symbols is rejected as an unsafe partial state.
 - Decorators are part of the replacement extent. Preserve their order because
   repeated FastAPI decorators are applied bottom-up and can affect route order.
 - Never infer safety from `__globals__` identity tests. Verify public exports,

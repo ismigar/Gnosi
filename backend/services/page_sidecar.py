@@ -16,7 +16,7 @@ import json
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Optional
 
 from backend.config.logger_config import get_logger
 from backend.utils.safe_io import safe_write_json
@@ -28,6 +28,7 @@ SIDECAR_STATIC_KEYS = frozenset({"is_template", "is_default_template"})
 
 # Subfolder inside `.gnosi/` for the sidecars.
 SIDECAR_SUBDIR = "page_meta"
+Metadata = dict[str, Any]
 
 
 def is_sidecar_key(key: str) -> bool:
@@ -40,17 +41,17 @@ def is_sidecar_key(key: str) -> bool:
     return key.endswith("_manual")
 
 
-def split_metadata(metadata: dict) -> Tuple[dict, dict]:
+def split_metadata(metadata: Metadata) -> tuple[Metadata, Metadata]:
     """Splits the dict into (frontmatter_meta, sidecar_meta).
 
     The frontmatter contains everything semantic for the user; the sidecar
     only the internal flags. The original dict is not modified.
-    
+
     """
     if not isinstance(metadata, dict):
         return {}, {}
-    fm: dict = {}
-    sc: dict = {}
+    fm: Metadata = {}
+    sc: Metadata = {}
     for k, v in metadata.items():
         if is_sidecar_key(k):
             sc[k] = v
@@ -67,7 +68,7 @@ def _find_vault_root(start: Path) -> Optional[Path]:
     typically few vaults per process and the search is cheap, but doing it
     3000+ times in a scan does show up. The cache keys on the ancestor (a
     Path), not the file; that's enough.
-    
+
     """
     try:
         current = start.resolve() if start else None
@@ -108,7 +109,7 @@ def sidecar_path_for(vault_root: Path, page_id: str) -> Path:
     return Path(vault_root) / ".gnosi" / SIDECAR_SUBDIR / f"{page_id}.json"
 
 
-def read_sidecar(vault_root: Path, page_id: str) -> dict:
+def read_sidecar(vault_root: Path, page_id: str) -> Metadata:
     """Reads the sidecar JSON. Returns `{}` if it doesn't exist or is corrupt."""
     if not vault_root or not page_id:
         return {}
@@ -142,12 +143,12 @@ def read_sidecar(vault_root: Path, page_id: str) -> dict:
         return {}
 
 
-def write_sidecar(vault_root: Path, page_id: str, sidecar_meta: dict) -> None:
+def write_sidecar(vault_root: Path, page_id: str, sidecar_meta: Metadata) -> None:
     """Writes or removes the sidecar depending on the content.
 
     - If `sidecar_meta` is empty: removes the file if it exists.
     - Otherwise: writes the JSON atomically.
-    
+
     """
     if not vault_root or not page_id:
         return
@@ -177,13 +178,13 @@ def delete_sidecar(vault_root: Path, page_id: str) -> None:
             log.warning(f"Could not delete sidecar {path}: {e}")
 
 
-def apply_sidecar_to(metadata: dict, file_path: Optional[Path]) -> dict:
+def apply_sidecar_to(metadata: Metadata, file_path: Optional[Path]) -> Metadata:
     """Given metadata just parsed from the frontmatter, merges in the
     corresponding sidecar if the vault root can be derived and the page has an id.
 
     ALWAYS returns a dict (possibly the same as the input if nothing was
     merged). Does not modify the input in place.
-    
+
     """
     if not isinstance(metadata, dict) or not metadata:
         return metadata if isinstance(metadata, dict) else {}
@@ -205,14 +206,14 @@ def apply_sidecar_to(metadata: dict, file_path: Optional[Path]) -> dict:
     return merged
 
 
-def persist_sidecar_from(metadata: dict, file_path: Optional[Path]) -> dict:
+def persist_sidecar_from(metadata: Metadata, file_path: Optional[Path]) -> Metadata:
     """Given the full metadata of a page, writes the sidecar and returns the
     clean metadata (without the sidecar keys) to persist in the frontmatter.
 
     If the vault root cannot be derived or there is no page_id, it **does
     not** write a sidecar and returns the full metadata (fallback to the old
     behavior).
-    
+
     """
     fm, sc = split_metadata(metadata)
     page_id = metadata.get("id") if isinstance(metadata, dict) else None

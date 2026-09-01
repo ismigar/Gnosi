@@ -28,6 +28,7 @@ Configured via environment:
     APERTIUM_PUBLIC_API_URL    Override the public Apertium APy endpoint.
     OPUS_IDLE_TIMEOUT_S        Seconds before unloading the OPUS-MT model.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,11 +38,29 @@ import re
 import sys
 import threading
 import time
-from typing import Optional
+from typing import Any, Optional, Protocol, cast
 
 import requests
 
 log = logging.getLogger(__name__)
+
+
+class OpusTokenizer(Protocol):
+    def __call__(
+        self,
+        texts: list[str],
+        *,
+        return_tensors: str,
+        truncation: bool,
+        max_length: int,
+    ) -> dict[str, Any]: ...
+
+    def decode(self, token_ids: Any, *, skip_special_tokens: bool) -> str: ...
+
+
+class OpusModel(Protocol):
+    def generate(self, **inputs: Any) -> Any: ...
+
 
 DEFAULT_DEEPL_URL = "https://api-free.deepl.com/v2/translate"
 
@@ -90,13 +109,13 @@ def detect_source_lang(text: str) -> str:
     if not text:
         return "en"
     sample = text.lower()[:500]
-    scores = {}
+    scores: dict[str, int] = {}
     for code, (words_re, chars_re) in _LANG_HINTS.items():
         score = len(re.findall(words_re, sample))
         if chars_re:
             score += len(re.findall(chars_re, sample))
         scores[code] = score
-    best = max(scores, key=scores.get)
+    best = max(scores, key=lambda code: scores[code])
     return best if scores[best] > 0 else "en"
 
 
@@ -123,7 +142,7 @@ def _protect_acronyms(text: str) -> tuple[str, dict[str, str]]:
     mapping: dict[str, str] = {}
     counter = [0]
 
-    def repl(match):
+    def repl(match: re.Match[str]) -> str:
         original = match.group(0)
         token = f"XACRN{counter[0]:03d}ZZZ"
         mapping[token] = original
@@ -185,7 +204,7 @@ def _to_iso3(code: str) -> str:
 _SOFTCATALA_APERTIUM_LANGS = {"es", "en", "fr", "pt", "it", "oc", "ro", "de", "nl"}
 
 
-def _parse_apertium_response(data) -> str:
+def _parse_apertium_response(data: object) -> str:
     """Extract translatedText from a Softcatalà or Apertium APy response.
 
     Both endpoints share the envelope:
@@ -237,16 +256,30 @@ def translate(
         other = (pair - {"ca"}).pop() if pair != {"ca"} else "ca"
         if pair == {"en", "ca"}:
             try:
-                return _translate_softcatala_nmt(text, source_lang, target_lang, softcatala_url), "softcatala_nmt"
+                return _translate_softcatala_nmt(
+                    text, source_lang, target_lang, softcatala_url
+                ), "softcatala_nmt"
             except Exception as exc:
-                log.warning("Softcatalà NMT failed (%s→%s): %s — trying DeepL", source_lang, target_lang, exc)
+                log.warning(
+                    "Softcatalà NMT failed (%s→%s): %s — trying DeepL",
+                    source_lang,
+                    target_lang,
+                    exc,
+                )
         elif other in _SOFTCATALA_APERTIUM_LANGS:
             try:
                 protected, acro = _protect_acronyms(text)
-                translated = _translate_softcatala_apertium(protected, source_lang, target_lang, softcatala_url)
+                translated = _translate_softcatala_apertium(
+                    protected, source_lang, target_lang, softcatala_url
+                )
                 return _restore_acronyms(translated, acro), "softcatala_apertium"
             except Exception as exc:
-                log.warning("Softcatalà Apertium failed (%s→%s): %s — trying DeepL", source_lang, target_lang, exc)
+                log.warning(
+                    "Softcatalà Apertium failed (%s→%s): %s — trying DeepL",
+                    source_lang,
+                    target_lang,
+                    exc,
+                )
         # If we get here, Apertium doesn't cover the pair (or it failed) →
         # we continue to the DeepL fallback below.
         api_key = (deepl_api_key or os.environ.get("DEEPL_API_KEY", "")).strip()
@@ -264,7 +297,12 @@ def translate(
         try:
             return _translate_opus_mt(text, source_lang, target_lang), "opus_mt"
         except Exception as exc:
-            log.warning("OPUS-MT translation failed (%s→%s): %s — falling back", source_lang, target_lang, exc)
+            log.warning(
+                "OPUS-MT translation failed (%s→%s): %s — falling back",
+                source_lang,
+                target_lang,
+                exc,
+            )
             # Falls back to public Apertium as a last free resort.
 
     # 3. Remaining pairs without Catalan: public Apertium APy + acronym fix.
@@ -291,18 +329,22 @@ def translate(
 # ---------------------------------------------------------------------------
 
 
-def _translate_softcatala_nmt(text: str, source_lang: str, target_lang: str, override_url: Optional[str] = None) -> str:
+def _translate_softcatala_nmt(
+    text: str, source_lang: str, target_lang: str, override_url: Optional[str] = None
+) -> str:
     """Translate via Softcatalà's neural en↔ca endpoint."""
-    url = (override_url or os.environ.get("SOFTCATALA_API_URL") or DEFAULT_SOFTCATALA_NMT_URL)
+    url = override_url or os.environ.get("SOFTCATALA_API_URL") or DEFAULT_SOFTCATALA_NMT_URL
     params = {"langpair": f"{source_lang}|{target_lang}", "q": text}
     response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT_S)
     response.raise_for_status()
     return _parse_apertium_response(response.json())
 
 
-def _translate_softcatala_apertium(text: str, source_lang: str, target_lang: str, override_url: Optional[str] = None) -> str:
+def _translate_softcatala_apertium(
+    text: str, source_lang: str, target_lang: str, override_url: Optional[str] = None
+) -> str:
     """Translate via Softcatalà's Apertium endpoint (cat↔ regional langs)."""
-    url = (override_url or os.environ.get("SOFTCATALA_API_URL") or DEFAULT_SOFTCATALA_APERTIUM_URL)
+    url = override_url or os.environ.get("SOFTCATALA_API_URL") or DEFAULT_SOFTCATALA_APERTIUM_URL
     src, tgt = _to_iso3(source_lang), _to_iso3(target_lang)
     params = {"langpair": f"{src}|{tgt}", "q": text, "markUnknown": "no"}
     response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT_S)
@@ -326,7 +368,7 @@ def _translate_apertium_public(text: str, source_lang: str, target_lang: str) ->
 
 # In-process cache for Marian models. Each entry: (model, tokenizer, last_used_ts).
 # Keyed by "src-tgt" pair.
-_opus_cache: dict[str, tuple[object, object, float]] = {}
+_opus_cache: dict[str, tuple[OpusModel, OpusTokenizer, float]] = {}
 _opus_lock = threading.Lock()
 
 
@@ -364,8 +406,14 @@ def _translate_opus_mt(text: str, source_lang: str, target_lang: str) -> str:
                 ) from exc
             model_name = f"Helsinki-NLP/opus-mt-{pair_key}"
             log.info("Loading OPUS-MT model: %s", model_name)
-            tokenizer = MarianTokenizer.from_pretrained(model_name)
-            model = MarianMTModel.from_pretrained(model_name)
+            tokenizer = cast(
+                OpusTokenizer,
+                MarianTokenizer.from_pretrained(model_name),
+            )
+            model = cast(
+                OpusModel,
+                MarianMTModel.from_pretrained(model_name),
+            )
             _opus_cache[pair_key] = (model, tokenizer, now)
         else:
             model, tokenizer, _ = cached
@@ -373,6 +421,7 @@ def _translate_opus_mt(text: str, source_lang: str, target_lang: str) -> str:
 
     # Inference. Defer torch import for the same reason.
     import torch
+
     inputs = tokenizer([text], return_tensors="pt", truncation=True, max_length=512)
     with torch.no_grad():
         outputs = model.generate(**inputs, max_length=512, num_beams=4, early_stopping=True)
@@ -411,7 +460,9 @@ def _translate_deepl(text: str, source_lang: str, target_lang: str, api_key: str
 def _main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Translate text via the translate_row skill")
     parser.add_argument("--text", required=True, help="Text to translate")
-    parser.add_argument("--source", default="", help="Source language (ISO 639-1). Auto-detect if empty.")
+    parser.add_argument(
+        "--source", default="", help="Source language (ISO 639-1). Auto-detect if empty."
+    )
     parser.add_argument("--target", required=True, help="Target language (ISO 639-1)")
     args = parser.parse_args(argv)
 

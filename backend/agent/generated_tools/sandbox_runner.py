@@ -8,7 +8,8 @@ import subprocess
 import sys
 from contextlib import redirect_stdout
 from pathlib import Path
-from typing import Any, Optional, Type
+from collections.abc import Callable
+from typing import Any, cast
 
 from pydantic import BaseModel, Field, create_model
 from langchain_core.tools import BaseTool
@@ -20,16 +21,16 @@ DEFAULT_TIMEOUT_SECONDS = 30
 APP_ROOT = Path(__file__).resolve().parents[3]
 
 
-def schema_model(input_schema: dict[str, Any], name: str) -> Type[BaseModel]:
+def schema_model(input_schema: dict[str, Any], name: str) -> type[BaseModel]:
     """Create a permissive Pydantic shell from the approved JSON schema."""
     properties = input_schema.get("properties") if isinstance(input_schema, dict) else {}
     properties = properties if isinstance(properties, dict) else {}
     required = set(input_schema.get("required") or []) if isinstance(input_schema, dict) else set()
-    fields = {
+    fields: dict[str, Any] = {
         str(field_name): (Any, ... if field_name in required else Field(default=None))
         for field_name in list(properties)[:64]
     }
-    return create_model(f"{name[:40]}Args", **fields)
+    return cast(type[BaseModel], create_model(f"{name[:40]}Args", **fields))
 
 
 class SandboxedGeneratedTool(BaseTool):
@@ -39,7 +40,7 @@ class SandboxedGeneratedTool(BaseTool):
     description: str = ""
     code: str = Field(repr=False)
     timeout_seconds: int = 30
-    args_schema: Optional[Type[BaseModel]] = None
+    args_schema: type[BaseModel] | None = None
 
     def _run(self, **kwargs: Any) -> Any:
         response = run_process(
@@ -51,7 +52,7 @@ class SandboxedGeneratedTool(BaseTool):
         return response.get("result")
 
 
-def _preexec_limits(timeout_seconds: int):
+def _preexec_limits(timeout_seconds: int) -> Callable[[], None] | None:
     try:
         import resource
 
@@ -79,7 +80,7 @@ def run_process(
     code: str,
     *,
     action: str,
-    arguments: Optional[dict[str, Any]] = None,
+    arguments: dict[str, Any] | None = None,
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Describe or invoke code in a separate process with a clean environment."""
