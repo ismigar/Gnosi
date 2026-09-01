@@ -64,6 +64,8 @@ let root: Root;
 
 
 beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-29T12:00:00Z'));
     vi.resetAllMocks();
     mocks.fetchUsageHistory.mockResolvedValue(HISTORY);
     container = document.createElement('div');
@@ -77,6 +79,7 @@ afterEach(() => {
         root.unmount();
     });
     container.remove();
+    vi.useRealTimers();
 });
 
 

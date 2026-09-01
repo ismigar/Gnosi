@@ -12,8 +12,6 @@ proxying `/api` to FastAPI on port 5002.
 - `src/shared/api/transports.ts` is the only ordinary browser-fetch boundary.
 - `src/shared/api/specialized-transports.ts` owns SSE, WebSocket, streaming and
   download boundaries.
-- `src/shared/api/legacy-http.ts` temporarily preserves the established response
-  and interceptor contract while feature modules move to generated operations.
 
 Production code must not import Axios or call `fetch` directly. The deterministic
 guard and its reviewed exceptions are defined by `../scripts/check_frontend_api_boundary.py`

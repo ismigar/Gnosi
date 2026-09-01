@@ -34,7 +34,7 @@
     "audit:backend": "uv run python scripts/audit-backend-architecture.py",
     "audit:frontend": "uv run python scripts/check_frontend_guardrails.py --report .tmp/frontend-guardrails.json",
     "guardrails:backend": "uv run python scripts/check-source-guardrails.py --require-pruned",
-    "guardrails:frontend": "uv run python scripts/check_frontend_guardrails.py --require-pruned",
+    "guardrails:frontend": "uv run python scripts/check_frontend_guardrails.py --require-zero",
     "typecheck:backend-boundaries": "uv run mypy --strict --exclude '^backend/tests/' backend",
     "test": "pnpm test:frontend && pnpm test:desktop && pnpm test:python",
     "test:frontend": "pnpm --filter @gnosi/frontend test",

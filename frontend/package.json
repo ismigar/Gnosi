@@ -20,7 +20,7 @@
     "generate:api": "openapi-typescript ../openapi/openapi.json --alphabetize -o src/generated/openapi.ts",
     "check:api": "openapi-typescript ../openapi/openapi.json --alphabetize -o src/generated/openapi.ts --check",
     "check:api-boundary": "uv run python ../scripts/check_frontend_api_boundary.py",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

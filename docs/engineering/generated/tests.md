@@ -10,9 +10,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
-| Playwright | 24 | 80 |
+| Playwright | 20 | 74 |
 | Vitest | 482 | 1971 |
-| pytest | 418 | 2948 |
+| pytest | 428 | 3036 |
 
 ## Files
 
@@ -37,10 +37,6 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Playwright | [`tests/e2e/tests/e2e/vault-entrypoints.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/vault-entrypoints.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/vault-title-edit.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/vault-title-edit.spec.ts) | 3 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/vault.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/vault.spec.ts) | 3 | call-pattern estimate |
-| Playwright | [`tests/e2e/tests/legacy/account-management.spec.js`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/legacy/account-management.spec.js) | 1 | call-pattern estimate |
-| Playwright | [`tests/e2e/tests/legacy/rich-link-insert.spec.js`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/legacy/rich-link-insert.spec.js) | 3 | call-pattern estimate |
-| Playwright | [`tests/e2e/tests/legacy/vault-design-regression.spec.js`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/legacy/vault-design-regression.spec.js) | 1 | call-pattern estimate |
-| Playwright | [`tests/e2e/tests/legacy/vault-routing.spec.js`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/legacy/vault-routing.spec.js) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/visual/regression.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/visual/regression.spec.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/app/bootstrap.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/bootstrap.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/app/composition.contract.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/composition.contract.test.ts) | 3 | call-pattern estimate |
@@ -788,7 +784,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_resource_lookup_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_resource_lookup_response_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_restore_index_symlink_vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_restore_index_symlink_vault.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_rollup_percent_checked_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rollup_percent_checked_parity.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_root_typecheck_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_root_typecheck_contract.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_root_typecheck_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_root_typecheck_contract.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_rule_engine_derived_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rule_engine_derived_order.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_rule_engine_open_metadata_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rule_engine_open_metadata_contract.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_safe_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_safe_io.py) | 7 | Python AST |
@@ -853,11 +849,19 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_vault_delete_purge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_delete_purge.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_drawings_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_drawings_domain_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_export_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_export_domain_contract.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_vault_files_open_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_files_open_composition.py) | 14 | Python AST |
+| pytest | [`backend/tests/test_vault_files_open_owner_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_files_open_owner_contracts.py) | 9 | Python AST |
+| pytest | [`backend/tests/test_vault_files_open_trash.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_files_open_trash.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_vault_formula_recalculation_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_formula_recalculation_domain_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_icon_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_icon_response_contract.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_vault_knowledge_open_config_owners.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_knowledge_open_config_owners.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_vault_knowledge_open_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_knowledge_open_routes.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_vault_knowledge_open_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_knowledge_open_schema.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_vault_legacy_facade.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_legacy_facade.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_link_document_cache_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_link_document_cache_domain_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_link_document_inventory_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_link_document_inventory_domain_contract.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_vault_links_open_relations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_links_open_relations.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_vault_links_open_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_links_open_runtime.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_vault_local_open_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_local_open_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_mail_sync_service.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_markdown_writer_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_markdown_writer_domain_contract.py) | 1 | Python AST |
@@ -881,6 +885,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_vault_registry_tables_views_route_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_registry_tables_views_route_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_relation_sync_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_relation_sync_domain_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_rename.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_rename.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_vault_runtime_calendar_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_runtime_calendar_contract.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_vault_runtime_open_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_runtime_open_cache.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_vault_status_options_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_status_options_domain_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_summary_plugin.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_summary_plugin.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_summary_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_summary_response_contract.py) | 2 | Python AST |

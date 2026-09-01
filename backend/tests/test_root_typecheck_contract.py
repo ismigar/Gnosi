@@ -98,6 +98,22 @@ def test_e2e_contract_gate_checks_all_active_typescript_sources() -> None:
     assert "run: pnpm test:e2e:contracts" in workflow
 
 
+def test_frontend_lint_and_guardrails_fail_closed() -> None:
+    frontend_manifest: object = json.loads((ROOT / "frontend/package.json").read_text())
+    assert isinstance(frontend_manifest, dict)
+    frontend_scripts: object = frontend_manifest["scripts"]
+    assert isinstance(frontend_scripts, dict)
+    assert shlex.split(frontend_scripts["lint"]) == [
+        "eslint", ".", "--max-warnings=0",
+    ]
+    assert shlex.split(_scripts()["guardrails:frontend"]) == [
+        "uv", "run", "python", "scripts/check_frontend_guardrails.py", "--require-zero",
+    ]
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    assert "run: pnpm guardrails:frontend" in workflow
+    assert "run: pnpm lint:frontend" in workflow
+
+
 @pytest.mark.parametrize(("script_name", "commands", "failure_at"), [
     ("typecheck", EXPECTED_COMMANDS, failure_at) for failure_at in range(5)
 ] + [

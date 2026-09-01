@@ -8,15 +8,15 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Domini | Estat | Guia | Fitxers font | Fitxers de proves | Directives trobades |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 584 | 187 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 978 | 233 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 584 | 188 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 980 | 243 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 435 | 103 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 59 | 26 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 126 | 47 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 199 | 72 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 81 | 32 | 0 |
-| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 79 | 25 | 0 |
+| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 79 | 26 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 25 | 7 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 68 | 18 | 0 |
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 130 | 36 | 0 |

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-01
 source_paths:
   - backend/server.py
   - backend/services/active_vault_middleware.py
@@ -34,7 +34,6 @@ tests:
   - frontend/src/shared/api/transports.test.ts
   - backend/tests/test_openapi_generation.py
   - pipeline/tests/test_frontend_api_boundary.py
-  - tests/e2e/tests/legacy/vault-routing.spec.js
 ---
 
 # Fluxos transversals
