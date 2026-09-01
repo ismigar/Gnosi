@@ -136,6 +136,23 @@ def test_universal_lock_covers_every_release_environment() -> None:
         assert all("macosx" in str(wheel.get("url")) for wheel in wheels)
         assert all("x86_64" in str(wheel.get("url")) for wheel in wheels)
 
+    numpy_candidates = [package for package in packages if package.get("name") == "numpy"]
+    intel_numpy = [
+        package
+        for package in numpy_candidates
+        if package.get("resolution-markers") == intel_marker
+    ]
+    modern_numpy = [
+        package
+        for package in numpy_candidates
+        if package.get("resolution-markers")
+        == ["platform_machine != 'x86_64' or sys_platform != 'darwin'"]
+    ]
+    assert len(intel_numpy) == 1
+    assert str(intel_numpy[0]["version"]).startswith("1.26.")
+    assert len(modern_numpy) == 1
+    assert int(str(modern_numpy[0]["version"]).split(".", 1)[0]) >= 2
+
 
 def test_unselected_local_state_is_never_read_or_collected(
     repository: Path,
@@ -649,6 +666,9 @@ elif args[:2] == ['-m', 'PyInstaller']:
         (bundle / 'backend/data/model_catalog.json').unlink()
 elif args and args[0].endswith('smoke-packaged-backend.py'):
     # Deliberately do not execute the real smoke script or any application.
+    pass
+elif args and args[0].endswith('probe-python-abi.py'):
+    # The synthetic interpreter has no release dependencies or target ABI.
     pass
 else:
     sys.argv = args

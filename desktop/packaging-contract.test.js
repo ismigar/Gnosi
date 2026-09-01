@@ -142,6 +142,7 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.match(buildScript, /GNOSI_PYTHON_CMD/);
   assert.match(buildScript, /requested Python command not found/);
   assert.match(buildScript, /mktemp -d .*gnosi-python-venv\.XXXXXX/);
+  assert.match(buildScript, /scripts\/probe-python-abi\.py/);
   assert.doesNotMatch(buildScript, /pip install/);
   assert.doesNotMatch(buildScript, /requirements[^\s]*\.txt/);
   assert.doesNotMatch(buildScript, /VENV_DIR="\$ELECTRON_DIR\/\.venv-python"/);
@@ -151,6 +152,10 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.doesNotMatch(resourcePolicy, /excludes=\[[^\]]*['"]unittest['"]/s);
   assert.doesNotMatch(resourcePolicy, /excludes=\[[^\]]*['"]PIL['"]/s);
   assert.match(pyproject, /"defusedxml>=0\.7\.1"/);
+  assert.match(
+    pyproject,
+    /numpy>=1\.26\.4,<2; sys_platform == 'darwin' and platform_machine == 'x86_64'/,
+  );
 });
 
 test('the Docker backend installs CPU-only Torch before runtime requirements', () => {
