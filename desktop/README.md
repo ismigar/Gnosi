@@ -127,11 +127,20 @@ and artifact validation. It uses the SemVer implementation locked with
 whitespace, `v` prefixes and invalid or non-canonical versions. Do not add a
 second parser in packaging or update code.
 
-The current **Build Release Candidate** workflow checks tag/commit identity,
-runs the shared CI and then builds the four target groups. Its collector verifies
+The current **Build Release Candidate** workflow checks tag/commit identity
+before any project install and requires the tag version to match the root,
+frontend, desktop and Python manifests. It then runs the shared CI before
+building the four target groups. Its collector verifies
 versions, manifest references and SHA-512 hashes before combining macOS update
 metadata and generating indexes and notes. The final Actions artifact is named
 `candidate-<tag>-<sha>-<attempt>` and retained for five days.
+
+Marketplace generation is fail-closed: the CI signing key must correspond to
+the bundled `gnosi-official` public key, and both plugin and Vault-template
+indexes are always generated. Before upload, an independent verifier checks
+detached index signatures, package signatures, SHA-256 hashes, exact announced
+ZIP sets and nonempty release notes. The workflow remains read-only and does
+not publish the candidate.
 
 The workflow has read-only repository permissions. It does not publish or modify
 GitHub releases or public updater channels. Candidate artifacts must not contain

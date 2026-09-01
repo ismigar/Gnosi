@@ -128,3 +128,42 @@ def test_default_configuration_contains_no_maintainer_layout_or_old_source_paths
         source = (ROOT / name).read_text(encoding="utf-8")
         for forbidden in ("OneDrive-UNED", "$HOME", "/Users/", "monorepo/", "docker.sock"):
             assert forbidden not in source, (name, forbidden)
+
+
+def test_ci_smoke_starts_built_images_without_env_files_or_external_services() -> None:
+    smoke = load(".github/docker-compose.smoke.yml")
+    definitions = mapping(smoke["services"])
+    assert set(definitions) == {"backend", "frontend"}
+    backend = mapping(definitions["backend"])
+    frontend = mapping(definitions["frontend"])
+    assert backend["image"] == "gnosi-backend:ci"
+    assert frontend["image"] == "gnosi-frontend:ci"
+    assert "build" not in backend and "build" not in frontend
+    assert "env_file" not in backend and "env_file" not in frontend
+    assert mapping(backend["environment"])["GNOSI_DATA_DIR"] == "/data"
+    assert backend["volumes"] == [
+        "gnosi_smoke_data:/data", "gnosi_smoke_vaults:/vaults",
+    ]
+    assert mapping(frontend["depends_on"])["backend"] == {
+        "condition": "service_healthy",
+    }
+
+
+def test_ci_runs_docker_http_and_volume_persistence_smoke_after_both_builds() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    docker_job = workflow.split("\n  docker:\n", 1)[1]
+    frontend_build = docker_job.index("docker build --file Dockerfile.frontend")
+    backend_build = docker_job.index("docker build --file Dockerfile.backend")
+    smoke = docker_job.index("scripts/smoke_docker.sh")
+    assert frontend_build < smoke and backend_build < smoke
+    script = (ROOT / "scripts/smoke_docker.sh").read_text(encoding="utf-8")
+    for required in (
+        "compose up --detach --no-build backend frontend",
+        "/api/health",
+        "/vault",
+        "/data/.gnosi-smoke-persistence",
+        "compose down --remove-orphans",
+        "compose down --volumes --remove-orphans",
+    ):
+        assert required in script
+    assert script.count("compose up --detach --no-build backend frontend") == 2

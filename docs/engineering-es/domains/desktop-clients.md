@@ -356,6 +356,9 @@ formadas, las etiquetas ausentes, los destinos que no son commits o las
 discrepancias detienen el proceso antes de instalar dependencias. La herramienta
 de identidad usa Git local y no mueve referencias ni descarga referencias por
 sí sola. La protección de etiquetas remotas sigue siendo un requisito aparte.
+El mismo preflight también exige que la versión de la etiqueta coincida con
+los manifiestos de la raíz, del frontend, del escritorio y de Python antes de
+iniciar la CI o cualquier compilación por arquitectura.
 
 A continuación, el flujo invoca la CI existente en el mismo commit sin heredar
 secretos. Las compilaciones por arquitectura requieren que la CI finalice
@@ -373,6 +376,11 @@ SHA-512, rechaza los archivos ausentes o en conflicto y combina los dos
 manifiestos de actualización de macOS. La generación de índices, la
 presentación de las notas de versión y la subida del candidato se realizan
 después de la validación.
+La generación del marketplace es obligatoria y falla de forma cerrada: la
+clave de firma debe corresponder a la clave pública `gnosi-official` incluida.
+Un verificador independiente previo a la subida comprueba las dos firmas
+separadas de los índices, todas las firmas y huellas SHA-256 de los paquetes,
+el conjunto exacto de ZIP anunciados y unas notas de versión no vacías.
 
 El artefacto final de Actions es `candidate-<tag>-<sha>-<attempt>` y se conserva
 durante cinco días. Contiene instaladores, metadatos de actualización, índices

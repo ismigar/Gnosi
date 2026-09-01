@@ -1,6 +1,6 @@
 {
   "name": "gnosi",
-  "version": "2.0.6",
+  "version": "3.0.0-rc.1",
   "private": true,
   "description": "Gnosi — local-first, open-source knowledge workspace",
   "license": "AGPL-3.0-or-later",

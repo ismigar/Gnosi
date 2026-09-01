@@ -7,22 +7,21 @@ import base64
 import hashlib
 import io
 import json
-import os
 import zipfile
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from extensions.marketplace.signing_policy import (
+    OFFICIAL_PUBLIC_KEY_B64,
+    load_official_private_key,
+)
+
 SCHEMA_VERSION = 1
 
 
-def _private_key() -> Ed25519PrivateKey:
-    raw = os.environ.get("GNOSI_PLUGIN_SIGNING_KEY", "").strip()
-    if not raw:
-        raise RuntimeError("GNOSI_PLUGIN_SIGNING_KEY is required for official templates")
-    if raw.startswith("{"):
-        raw = json.loads(raw)["private"]
-    return Ed25519PrivateKey.from_private_bytes(base64.b64decode(raw))
+def _private_key(expected_public_key: str) -> Ed25519PrivateKey:
+    return load_official_private_key(expected_public_key=expected_public_key)
 
 
 def _sign(key: Ed25519PrivateKey, payload: bytes) -> str:
@@ -265,10 +264,15 @@ def _starter_package() -> tuple[bytes, dict]:
     return buffer.getvalue(), manifest
 
 
-def build(out: Path, base_url: str) -> dict:
+def build(
+    out: Path,
+    base_url: str,
+    *,
+    expected_public_key: str = OFFICIAL_PUBLIC_KEY_B64,
+) -> dict:
     """Write the starter package, signed index, and detached index signature."""
 
-    key = _private_key()
+    key = _private_key(expected_public_key)
     out.mkdir(parents=True, exist_ok=True)
     package, manifest = _starter_package()
     package_name = f"{manifest['id']}-{manifest['version']}.gnosi-vault.zip"

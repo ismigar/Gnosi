@@ -1,6 +1,6 @@
 # Gnosi community release kit
 
-[English](community-release.md) · [Català](community-release.ca.md) · [Español](community-release.es.md)
+[English](community-release.md) · [Català](community-release.ca.md) · [Español](community-release.es.md) · [Français](community-release.fr.md)
 
 These texts are ready to adapt or publish. Replace only the bracketed optional
 context; keep the beta and unsigned-build disclosure.
@@ -121,4 +121,3 @@ group use before relying on it for critical shared work.
 Current beta desktop builds are unsigned. Use right-click → Open for the first
 launch and verify that the download came from the official GitHub Releases
 page. Signing and notarization remain distribution work.
-

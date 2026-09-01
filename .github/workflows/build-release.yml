@@ -61,10 +61,10 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            local_runner: [self-hosted, macOS, ARM64]
+            runner: macos-15
           - arch: x64
-            local_runner: [self-hosted, macOS, X64]
-    runs-on: ${{ matrix.local_runner }}
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -126,7 +126,7 @@ jobs:
 
   build-linux:
     needs: [preflight, quality]
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -175,7 +175,7 @@ jobs:
 
   build-windows:
     needs: [preflight, quality, build-macos]
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: windows-2025
     defaults:
       run:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
@@ -311,17 +311,19 @@ jobs:
           uv run --frozen --no-default-groups python extensions/examples/build_index.py \
             --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
             --out artifacts/plugins
-          if [ -n "$GNOSI_PLUGIN_SIGNING_KEY" ]; then
-            test -s artifacts/plugins/plugins-index.sig
-            uv run --frozen --no-default-groups python extensions/marketplace/build_vault_templates.py \
-              --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
-              --out artifacts/vault-templates
-          fi
+          uv run --frozen --no-default-groups python extensions/marketplace/build_vault_templates.py \
+            --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
+            --out artifacts/vault-templates
       - name: Render public release notes
         run: |
           node frontend/scripts/release-notes.mjs \
             --version "${{ steps.release_tag.outputs.tag }}" \
             --output artifacts/release-notes.md
+      - name: Verify complete signed candidate
+        run: >-
+          uv run --frozen --no-default-groups python
+          extensions/marketplace/verify_release_candidate.py
+          --artifacts artifacts
       # These artifacts are review inputs, not approval of the complete native,
       # Docker, installer and 2.x upgrade matrix. No public release is mutated.
       - name: Upload validated release candidate

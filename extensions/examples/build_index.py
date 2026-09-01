@@ -7,7 +7,7 @@ private key (from the environment), and writes:
 
   <out>/<id>.zip            — each plugin's artifact
   <out>/plugins-index.json  — the index (list of `source:"url"` entries with
-                              `url`, `sha256`, and, if a key is present, `signature`)
+                              `url`, `sha256`, and `signature`)
 
 This index is published as a release asset; the app consumes it via
 `registry_url` (e.g. `.../releases/latest/download/plugins-index.json`) and
@@ -15,7 +15,9 @@ verifies each signature against the bundled `gnosi-official` key.
 
 The private key is NEVER written to disk or to the repo: it arrives via the
 `GNOSI_PLUGIN_SIGNING_KEY` environment variable (base64 of the raw Ed25519 key, like the one in the keyfile).
-If it's absent, an index is generated WITHOUT a signature (which the app will mark "unverified").
+Official output fails closed if the key is absent or does not match the public
+`gnosi-official` key bundled with the application. `--allow-unsigned` exists
+only for disposable local fixtures that will never be published.
 
 Depends only on `cryptography` (does not import Gnosi's backend).
 
@@ -29,15 +31,14 @@ import base64
 import hashlib
 import io
 import json
-import os
 import sys
 import zipfile
 from pathlib import Path
 
-try:
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-except Exception:  # noqa: BLE001
-    Ed25519PrivateKey = None
+from extensions.marketplace.signing_policy import (
+    OFFICIAL_PUBLIC_KEY_B64,
+    load_official_private_key,
+)
 
 
 def _zip_dir(src: Path) -> bytes:
@@ -49,22 +50,28 @@ def _zip_dir(src: Path) -> bytes:
     return buf.getvalue()
 
 
-def _load_signer():
-    """Returns a signing function (bytes→sig b64), or None if there's no key."""
-    key_b64 = os.environ.get("GNOSI_PLUGIN_SIGNING_KEY", "").strip()
-    if not key_b64:
+def _load_signer(*, allow_unsigned: bool, expected_public_key: str):
+    """Return the official signer, or an explicitly requested local unsigned mode."""
+
+    if allow_unsigned:
         return None
-    if Ed25519PrivateKey is None:
-        raise RuntimeError("cryptography no instal·lada però hi ha clau de signatura")
-    # Accepts both the raw base64 key and a JSON {"private": "..."} (keyfile).
-    if key_b64.startswith("{"):
-        key_b64 = json.loads(key_b64)["private"]
-    priv = Ed25519PrivateKey.from_private_bytes(base64.b64decode(key_b64))
+    priv = load_official_private_key(expected_public_key=expected_public_key)
     return lambda data: base64.b64encode(priv.sign(data)).decode()
 
 
-def build(plugins_dir: Path, base_url: str, out: Path, include: list) -> dict:
-    signer = _load_signer()
+def build(
+    plugins_dir: Path,
+    base_url: str,
+    out: Path,
+    include: list[str],
+    *,
+    allow_unsigned: bool = False,
+    expected_public_key: str = OFFICIAL_PUBLIC_KEY_B64,
+) -> dict:
+    signer = _load_signer(
+        allow_unsigned=allow_unsigned,
+        expected_public_key=expected_public_key,
+    )
     out.mkdir(parents=True, exist_ok=True)
     entries = []
     for name in include:
@@ -110,9 +117,20 @@ def main() -> int:
     p.add_argument("--out", default=str(Path(__file__).parent / "dist-plugins"))
     p.add_argument("--include", default="hello-command,clone-logger,vault-stats",
                    help="ids de plugins a incloure, separats per comes")
+    p.add_argument(
+        "--allow-unsigned",
+        action="store_true",
+        help="només per a artefactes locals no publicables; la release oficial falla sense clau",
+    )
     args = p.parse_args()
     include = [s.strip() for s in args.include.split(",") if s.strip()]
-    build(Path(args.plugins_dir), args.base_url, Path(args.out), include)
+    build(
+        Path(args.plugins_dir),
+        args.base_url,
+        Path(args.out),
+        include,
+        allow_unsigned=args.allow_unsigned,
+    )
     return 0
 
 
