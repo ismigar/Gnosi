@@ -1,6 +1,7 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
+from _thread import LockType
 from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -164,10 +165,10 @@ def build_id_title_index() -> dict[str, str]:
 
 
 _iter_docs_cache: DocumentCache = {}
-_iter_docs_lock = _legacy.threading.Lock()
+_iter_docs_lock: LockType = _legacy.threading.Lock()
 _ITER_DOCS_TTL = 60.0
 _body_cache: dict[str, tuple[int, str]] = {}
-_body_cache_lock = _legacy.threading.Lock()
+_body_cache_lock: LockType = _legacy.threading.Lock()
 _BODY_CACHE_PERSIST_DEBOUNCE = 10.0
 _parsed_doc_cache: ParsedDocumentCache = {}
 _parsed_doc_lock = _legacy.threading.Lock()
@@ -330,7 +331,7 @@ _LINK_INDEX_DEPENDENCIES = _legacy.link_index_service.LinkIndexDependencies(
     parse_frontmatter=_legacy.parse_frontmatter,
     write_text=_legacy.safe_write_text,
 )
-_LINK_API_DEPENDENCIES = LinkApiDependencies(
+_LINK_API_DEPENDENCIES: LinkApiDependencies = LinkApiDependencies(
     read_state=_legacy._link_index_view,
     build_id_title_index=build_id_title_index,
     build_alias_index=_build_alias_index,
