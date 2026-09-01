@@ -298,7 +298,10 @@ def _safe_open_target(target: str) -> None:
         subprocess.Popen(["open", target])
         return
     if os.name == "nt":
-        os.startfile(target)
+        startfile: object = getattr(os, "startfile")
+        if not callable(startfile):
+            raise TypeError("os.startfile is not callable")
+        startfile(target)
         return
     subprocess.Popen(["xdg-open", target])
 
