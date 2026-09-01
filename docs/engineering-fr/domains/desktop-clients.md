@@ -367,6 +367,9 @@ une divergence interrompt le processus avant l’installation des dépendances.
 L’outil de vérification d’identité utilise Git local et ne déplace pas de
 références ni n’en récupère de lui-même. La protection des tags distants reste
 une exigence distincte.
+Le même contrôle préliminaire exige aussi que la version du tag corresponde
+aux manifestes de la racine, du frontend, de l’application de bureau et de
+Python avant de lancer la CI ou toute compilation d’architecture.
 
 Le workflow appelle ensuite la CI existante sur le même commit sans hériter
 des secrets. Les compilations par architecture exigent sa réussite. La CI
@@ -383,6 +386,12 @@ cycle de vie désactivés, vérifie la version, les références et les empreint
 SHA-512, rejette les fichiers manquants ou en conflit et fusionne les deux
 manifestes de mise à jour macOS. La génération des index, le rendu des notes
 de version et le dépôt du candidat suivent la validation.
+La génération de la place de marché est obligatoire et échoue de manière
+fermée : la clé de signature doit correspondre à la clé publique
+`gnosi-official` intégrée. Un vérificateur indépendant avant le dépôt contrôle
+les deux signatures détachées des index, toutes les signatures et empreintes
+SHA-256 des paquets, l’ensemble exact des ZIP annoncés et des notes de version
+non vides.
 
 L’artefact Actions final est `candidate-<tag>-<sha>-<attempt>`, conservé pendant
 cinq jours. Il contient les installateurs, les métadonnées de mise à jour, les

@@ -51,6 +51,7 @@ test('release downloads only named architectures before validated candidate coll
   const collect = find('Validate and collect release artifacts');
   const indexes = find('Build signed public indexes');
   const notes = find('Render public release notes');
+  const verify = find('Verify complete signed candidate');
   const upload = find('Upload validated release candidate');
   assert.equal(collect.step.run,
     'node desktop/scripts/release-artifacts.cjs collect artifacts-incoming artifacts "$RELEASE_TAG"');
@@ -58,9 +59,17 @@ test('release downloads only named architectures before validated candidate coll
   for (const group of GROUPS) {
     assert.ok(find(`Download ${group} artifacts`).index < collect.index);
   }
-  assert.ok(collect.index < indexes.index && indexes.index < notes.index && notes.index < upload.index);
+  assert.ok(collect.index < indexes.index && indexes.index < notes.index
+    && notes.index < verify.index && verify.index < upload.index);
+  assert.equal(indexes.step.env.GNOSI_PLUGIN_SIGNING_KEY,
+    '${{ secrets.GNOSI_PLUGIN_SIGNING_KEY }}');
+  assert.match(indexes.step.run, /extensions\/examples\/build_index\.py/);
+  assert.match(indexes.step.run, /extensions\/marketplace\/build_vault_templates\.py/);
+  assert.doesNotMatch(indexes.step.run, /if \[|-n \"\$GNOSI_PLUGIN_SIGNING_KEY\"/);
+  assert.equal(verify.step.run,
+    'uv run --frozen --no-default-groups python extensions/marketplace/verify_release_candidate.py --artifacts artifacts');
   assert.equal(upload.index, steps.length - 1, 'candidate upload must be the final step');
-  for (const { step } of [collect, indexes, notes, upload]) {
+  for (const { step } of [collect, indexes, notes, verify, upload]) {
     assert.equal(step['continue-on-error'], undefined);
     assert.equal(step.if, undefined);
   }

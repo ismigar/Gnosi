@@ -1,0 +1,42 @@
+services:
+  backend:
+    image: gnosi-backend:ci
+    init: true
+    ports:
+      - "127.0.0.1:${GNOSI_BACKEND_PORT:-15002}:5002"
+    volumes:
+      - gnosi_smoke_data:/data
+      - gnosi_smoke_vaults:/vaults
+    environment:
+      GNOSI_JWT_SECRET: ${GNOSI_JWT_SECRET:?set a synthetic smoke-test secret}
+      GNOSI_REQUIRE_AUTH: "1"
+      GNOSI_DATA_DIR: /data
+      GNOSI_VAULTS_ROOT: /vaults
+      DIGITAL_BRAIN_VAULT_PATH: /vaults/default
+      GNOSI_SHARED_ENV_FILE: ""
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      TRANSLATION_SERVER_URL: http://127.0.0.1:9
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5002/api/health', timeout=3)"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  frontend:
+    image: gnosi-frontend:ci
+    init: true
+    ports:
+      - "127.0.0.1:${GNOSI_FRONTEND_PORT:-15173}:5173"
+    environment:
+      VITE_BACKEND_HOST: backend
+      VITE_BACKEND_PORT: "5002"
+      VITE_DEV_HTTPS: "false"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  gnosi_smoke_data:
+  gnosi_smoke_vaults:

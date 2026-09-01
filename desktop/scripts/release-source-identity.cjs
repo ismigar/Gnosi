@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 
 // Match the existing release tag grammar; Git additionally validates ref syntax.
 const RELEASE_TAG = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
@@ -15,6 +17,58 @@ function git(args) {
     throw new Error('Cannot run local Git identity checks. Ensure Git is available and retry.');
   }
   return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function releaseManifestVersions(root) {
+  const versions = new Map();
+  for (const relative of ['package.json', 'frontend/package.json', 'desktop/package.json']) {
+    let document;
+    try {
+      document = JSON.parse(fs.readFileSync(path.join(root, relative), 'utf8'));
+    } catch (error) {
+      throw new Error(`Cannot read release version from ${relative}.`);
+    }
+    if (!document || Array.isArray(document) || typeof document.version !== 'string') {
+      throw new Error(`Missing release version in ${relative}.`);
+    }
+    versions.set(relative, document.version);
+  }
+  let pyproject;
+  try {
+    pyproject = fs.readFileSync(path.join(root, 'pyproject.toml'), 'utf8');
+  } catch (error) {
+    throw new Error('Cannot read release version from pyproject.toml.');
+  }
+  let inProject = false;
+  const assignments = [];
+  for (const line of pyproject.split(/\r?\n/)) {
+    const header = line.match(/^\s*\[([^\]]+)\]\s*(?:#.*)?$/);
+    if (header) {
+      inProject = /^(?:project|"project"|'project')$/.test(header[1].trim());
+      continue;
+    }
+    if (!inProject) continue;
+    const assignment = line.match(
+      /^\s*(?:version|"version"|'version')\s*=\s*(["'])([^"'\r\n]+)\1\s*(?:#.*)?$/,
+    );
+    if (assignment) assignments.push(assignment[2]);
+  }
+  if (assignments.length !== 1) {
+    throw new Error('Expected exactly one [project].version in pyproject.toml.');
+  }
+  versions.set('pyproject.toml', assignments[0]);
+  return versions;
+}
+
+function verifyReleaseVersions(tag) {
+  const expected = tag.slice(1);
+  for (const [file, version] of releaseManifestVersions(process.cwd())) {
+    if (version !== expected) {
+      throw new Error(
+        `Release tag ${tag} does not match ${file} version ${version}. Synchronize versions before tagging.`,
+      );
+    }
+  }
 }
 
 function verifySourceIdentity() {
@@ -56,6 +110,7 @@ function verifySourceIdentity() {
   if (commit !== EXPECTED_SHA) {
     throw new Error('Release tag does not match EXPECTED_SHA. Dispatch from the same commit as the existing tag.');
   }
+  verifyReleaseVersions(tag);
   process.stdout.write(`Verified release source ${tag} at ${commit}.\n`);
 }
 

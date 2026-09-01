@@ -75,6 +75,7 @@ exit 1'''.splitlines(),
         "docker compose config --quiet",
         "docker build --file Dockerfile.frontend --tag gnosi-frontend:ci .",
         "docker build --file Dockerfile.backend --tag gnosi-backend:ci .",
+        "scripts/smoke_docker.sh",
     ],
 }
 

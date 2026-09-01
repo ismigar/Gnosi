@@ -156,7 +156,11 @@ def test_release_builder_emits_signed_valid_starter(tmp_path, monkeypatch):
     monkeypatch.setenv("GNOSI_PLUGIN_SIGNING_KEY", keypair["private"])
     output = tmp_path / "release"
 
-    result = build_vault_templates.build(output, "https://example.test/assets")
+    result = build_vault_templates.build(
+        output,
+        "https://example.test/assets",
+        expected_public_key=keypair["public"],
+    )
 
     assert result["templates"] == 1
     index_bytes = (output / "vault-templates-index.json").read_bytes()

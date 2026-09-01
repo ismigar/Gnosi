@@ -91,7 +91,7 @@ for (const [label, mutate] of [
   });
 }
 
-function fixture(t, objectFormat = 'sha1') {
+function fixture(t, objectFormat = 'sha1', version = '3.0.0') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gnosi-source-identity-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const env = {
@@ -121,6 +121,18 @@ function fixture(t, objectFormat = 'sha1') {
   const first = git(['commit-tree', tree, '-m', 'Synthetic first commit']);
   const second = git(['commit-tree', tree, '-p', first, '-m', 'Synthetic second commit']);
   git(['update-ref', 'HEAD', first]);
+  const writeVersion = (relative, nextVersion) => {
+    const target = path.join(root, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    if (relative === 'pyproject.toml') {
+      fs.writeFileSync(target, `[project]\nname = "fixture"\nversion = "${nextVersion}"\n`);
+    } else {
+      fs.writeFileSync(target, `${JSON.stringify({ name: 'fixture', version: nextVersion })}\n`);
+    }
+  };
+  for (const relative of ['package.json', 'frontend/package.json', 'desktop/package.json', 'pyproject.toml']) {
+    writeVersion(relative, version);
+  }
   const tag = (name = 'v3.0.0', target = first, annotated = false) => {
     git(['-c', 'tag.gpgSign=false', 'tag', ...(annotated ? ['-a', '-m', 'Synthetic tag'] : []),
       name, target]);
@@ -141,7 +153,7 @@ function fixture(t, objectFormat = 'sha1') {
     assert.equal(fs.existsSync(path.join(root, 'injected')), false);
     return result;
   };
-  return { git, tag, probe, first, second, tree, root };
+  return { git, tag, probe, first, second, tree, root, writeVersion };
 }
 
 function reject(result, message) {
@@ -155,6 +167,10 @@ for (const event of ['push', 'workflow_dispatch']) {
     test(`accepts ${event} ${annotated ? 'annotated' : 'lightweight'} tag at exact source`, (t) => {
       const f = fixture(t);
       const tag = 'v3.0.0-rc.1+build.5';
+      f.writeVersion('package.json', tag.slice(1));
+      f.writeVersion('frontend/package.json', tag.slice(1));
+      f.writeVersion('desktop/package.json', tag.slice(1));
+      f.writeVersion('pyproject.toml', tag.slice(1));
       f.tag(tag, f.first, annotated);
       const result = f.probe({
         RELEASE_EVENT: event, REF_TYPE: event === 'push' ? 'tag' : 'branch',
@@ -166,6 +182,15 @@ for (const event of ['push', 'workflow_dispatch']) {
       assert.equal(result.stdout, `Verified release source ${tag} at ${f.first}.\n`);
     });
   }
+}
+
+for (const relative of ['package.json', 'frontend/package.json', 'desktop/package.json', 'pyproject.toml']) {
+  test(`rejects a release tag that differs from ${relative}`, (t) => {
+    const f = fixture(t);
+    f.tag();
+    f.writeVersion(relative, '3.0.1');
+    reject(f.probe(), new RegExp(`does not match ${relative.replace('.', '\\.')}`));
+  });
 }
 
 for (const tag of [

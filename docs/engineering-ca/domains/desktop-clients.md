@@ -347,6 +347,9 @@ destinacions que no siguin commits o discrepàncies aturen el procés abans
 d’instal·lar dependències. L’eina auxiliar d’identitat utilitza Git local i no
 mou referències ni recupera dades remotes pel seu compte. La protecció de les
 etiquetes remotes continua sent un requisit separat.
+El mateix preflight també exigeix que la versió de l’etiqueta coincideixi amb
+els manifests de l’arrel, del frontend, de l’escriptori i de Python abans
+d’iniciar la CI o qualsevol construcció per arquitectura.
 
 A continuació, el workflow crida la CI existent al mateix commit sense heretar
 secrets. Les construccions per arquitectura exigeixen que aquesta CI passi.
@@ -363,6 +366,11 @@ vida desactivats, comprova la versió, les referències i els resums SHA-512,
 rebutja fitxers absents o amb col·lisions i fusiona els dos manifests
 d’actualització de macOS. La generació d’índexs, la generació de les notes de
 versió i la pujada del candidat es fan després de la validació.
+La generació del marketplace és obligatòria i falla tancada: la clau de
+signatura ha de correspondre a la clau pública `gnosi-official` inclosa. Un
+verificador independent previ a la pujada comprova les dues signatures
+separades dels índexs, totes les signatures i els resums SHA-256 dels paquets,
+el conjunt exacte de ZIP anunciats i unes notes de versió no buides.
 
 L’artefacte final d’Actions és `candidate-<tag>-<sha>-<attempt>` i es conserva
 durant cinc dies. Conté instal·ladors, metadades d’actualització, índexs i notes

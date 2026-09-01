@@ -1,6 +1,6 @@
 # Kit de publicació comunitària de Gnosi
 
-[English](community-release.md) · [Català](community-release.ca.md) · [Español](community-release.es.md)
+[English](community-release.md) · [Català](community-release.ca.md) · [Español](community-release.es.md) · [Français](community-release.fr.md)
 
 Aquests textos estan preparats per adaptar-los o publicar-los. Substitueix només
 el context opcional entre claudàtors i conserva l’avís de beta i versions sense
@@ -127,4 +127,3 @@ compartida crítica.
 Les versions beta actuals no estan signades. Utilitza clic dret → Obrir en el
 primer inici i verifica que la descàrrega provingui de la pàgina oficial de
 GitHub Releases. La signatura i la notarització continuen pendents.
-

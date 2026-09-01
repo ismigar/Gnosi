@@ -308,6 +308,8 @@ the exact checked-out `github.sha`, for both tag pushes and manual dispatch.
 Malformed input, missing tags, non-commit targets or mismatches stop before
 dependency installation. The identity helper uses local Git and does not move
 refs or fetch by itself. Remote tag protection remains a separate requirement.
+The same preflight also requires the tag version to match the root, frontend,
+desktop and Python manifests before CI or any architecture build starts.
 
 The workflow then calls the existing CI at the same commit without inheriting
 secrets. Architecture builds require its success. CI includes documentation,
@@ -320,6 +322,10 @@ previous candidates on reruns. It installs frozen collector dependencies with
 lifecycle scripts disabled, checks version, references and SHA-512 hashes,
 rejects missing/colliding files and merges both macOS update manifests.
 Index generation, release-note rendering and candidate upload follow validation.
+Marketplace generation is mandatory and fail-closed: the signing key must match
+the bundled `gnosi-official` public key. A separate pre-upload verifier checks
+both detached index signatures, every package signature and SHA-256 digest, the
+exact announced ZIP sets and nonempty release notes.
 
 The final Actions artifact is `candidate-<tag>-<sha>-<attempt>`, retained for
 five days. It contains installers, update metadata, indexes and release notes.

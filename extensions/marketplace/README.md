@@ -4,17 +4,21 @@ Gnosi fetches marketplace indexes at runtime. Template and plugin ZIP files are
 GitHub Release assets and are not tracked Git objects, so cloning the application
 does not download marketplace packages.
 
-The current release workflow publishes the official plugin index, the generated
+The current candidate workflow assembles the official plugin index, the generated
 Starter Vault package, the Vault template index, and detached index signatures
-to `ismigar/Gnosi` releases. The long-term catalog can move to a separate
+as a short-lived review artifact. It does not publish or modify an
+`ismigar/Gnosi` release. The long-term catalog can move to a separate
 `ismigar/Gnosi-Marketplace` repository without changing the package or API
 contracts; deployments can override the two index URLs with
 `GNOSI_PLUGIN_REGISTRY_URL` and `GNOSI_VAULT_TEMPLATES_INDEX_URL`.
 
 Official indexes and packages use detached Ed25519 signatures over their exact
 bytes. The private signing key is supplied to CI as
-`GNOSI_PLUGIN_SIGNING_KEY`; it must never be committed. Gnosi verifies indexes
-and package bytes against the bundled official public key before installation.
+`GNOSI_PLUGIN_SIGNING_KEY`; it must never be committed. Candidate creation
+fails if the key is absent or does not match the bundled official public key.
+An independent pre-upload verifier checks both indexes, all package bytes,
+signatures, hashes and announced filenames; Gnosi verifies them again before
+installation.
 
 Vault template submissions are privacy-filtered locally and can be sent only to
 an explicitly configured moderation broker. Set

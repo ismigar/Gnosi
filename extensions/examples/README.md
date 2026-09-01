@@ -82,8 +82,10 @@ The release job in `.github/workflows/build-release.yml` builds and signs the
 official plugin index through `build_index.py`:
 
 - The raw base64 Ed25519 private key comes from
-  `GNOSI_PLUGIN_SIGNING_KEY` and never touches the repository. Without this
-  secret, the index is unsigned and the app marks its plugins unverified.
+  `GNOSI_PLUGIN_SIGNING_KEY` and never touches the repository. Candidate
+  generation fails if this secret is absent, malformed or does not correspond
+  to the bundled `gnosi-official` public key. Unsigned output requires the
+  explicit local-only `--allow-unsigned` flag and is not releaseable.
 - Each official plugin ZIP and `plugins-index.json` are published as release
   assets under `ismigar/Gnosi`. Entries include `url`, `sha256`, and
   `signature`.
@@ -101,4 +103,7 @@ The default gallery URL is:
 
 `https://github.com/ismigar/Gnosi/releases/latest/download/plugins-index.json`
 
-Gnosi verifies its signature against `gnosi-official` before installation.
+Before a candidate is uploaded, the release verifier independently checks the
+detached index signature, every package signature, every SHA-256 digest and the
+exact set of announced ZIP files against `gnosi-official`. Gnosi repeats trust
+verification before installation.
