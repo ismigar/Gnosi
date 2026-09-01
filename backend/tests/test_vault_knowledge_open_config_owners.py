@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -13,8 +14,8 @@ from backend.domains.vault.registry.state import RegistryData
 
 
 @pytest.fixture(autouse=True)
-def require_isolation() -> None:
-    assert validation_runtime_enabled(), "Run through verify_typed_drawings.py"
+def require_isolation(isolated_validation_runtime: Path) -> None:
+    assert isolated_validation_runtime.is_dir() and validation_runtime_enabled()
 
 
 def test_normalized_config_retains_original_coercions_and_deduplication() -> None:

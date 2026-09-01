@@ -8,6 +8,7 @@ piling up in the vault sidebar over time.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 import requests
@@ -24,6 +25,33 @@ RUN_LIVE_E2E = os.environ.get("GNOSI_RUN_LIVE_E2E", "").strip().lower() in {
 # unchanged.
 _API_TOKEN = os.environ.get("GNOSI_API_TOKEN", "").strip()
 AUTH_HEADERS = {"Authorization": f"Bearer {_API_TOKEN}"} if _API_TOKEN else {}
+
+
+@pytest.fixture
+def isolated_validation_runtime(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Path:
+    """Provide a disposable, credential-free runtime only to tests that request it."""
+    root = tmp_path / "validation-runtime"
+    paths = {
+        "GNOSI_DATA_DIR": root / "data",
+        "DIGITAL_BRAIN_VAULT_PATH": root / "vault",
+        "VAULT_HOST_PATH": root / "vault",
+        "HOME_HOST_PATH": root / "host",
+    }
+    for path in {root, *paths.values()}:
+        path.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("GNOSI_VALIDATION_ROOT", str(root))
+    for name, path in paths.items():
+        monkeypatch.setenv(name, str(path))
+    monkeypatch.setenv("GNOSI_RUN_LIVE_E2E", "0")
+    monkeypatch.setenv("GNOSI_DISABLE_SCHEDULER", "1")
+    monkeypatch.delenv("GNOSI_SHARED_ENV_FILE", raising=False)
+
+    from backend.config.validation_runtime import validation_runtime_enabled
+
+    assert validation_runtime_enabled()
+    return root
 
 
 def _backend_alive() -> bool:

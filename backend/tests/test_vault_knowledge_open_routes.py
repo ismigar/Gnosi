@@ -15,8 +15,8 @@ from backend.domains.vault.registry.state import RegistryData
 
 
 @pytest.fixture(autouse=True)
-def require_isolation() -> None:
-    assert validation_runtime_enabled(), "Run through verify_typed_drawings.py"
+def require_isolation(isolated_validation_runtime: Path) -> None:
+    assert isolated_validation_runtime.is_dir() and validation_runtime_enabled()
 
 
 def test_process_uses_late_action_and_preserves_result_identity(
