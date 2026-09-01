@@ -12,6 +12,8 @@ import json
 import os
 import sys
 import tokenize
+from collections.abc import Callable, Iterator
+from typing import TypedDict
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 
@@ -22,10 +24,19 @@ EXCLUDE_DIR_PARTS = {
 }
 EXCLUDE_SUFFIX = (".min.js", ".bundle.js", ".map")
 
-NONASCII = lambda s: any(ord(c) > 127 for c in s)
+NONASCII: Callable[[str], bool] = lambda s: any(ord(c) > 127 for c in s)
 
 
-def iter_files():
+class InventoryEntry(TypedDict):
+    path: str
+    ext: str
+    comment_hits: int
+    docstring_hits: int
+    doc_hits: int
+    string_hits: int
+
+
+def iter_files() -> Iterator[str]:
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIR_PARTS]
         for fn in filenames:
@@ -36,7 +47,7 @@ def iter_files():
                 yield os.path.join(dirpath, fn)
 
 
-def scan_python(path, src):
+def scan_python(path: str, src: str) -> tuple[int, int, int]:
     """Return (comment_hits, docstring_hits, string_hits) line counts with non-ASCII."""
     comment = docstring = other = 0
     # Comments via tokenize
@@ -67,7 +78,32 @@ def scan_python(path, src):
     return comment, docstring, other
 
 
-def scan_cstyle(src):
+def _scan_line_comment(src: str, start: int) -> tuple[int, bool]:
+    """Return the first newline or EOF and whether the comment contains non-ASCII."""
+    j, n = start + 2, len(src)
+    has = False
+    while j < n and src[j] != "\n":
+        if ord(src[j]) > 127:
+            has = True
+        j += 1
+    return j, has
+
+
+def _scan_block_comment(
+    src: str, start: int, line: int, comment_nonascii_lines: set[int],
+) -> tuple[int, int]:
+    """Accumulate comment line hits, preserving unterminated-block advancement."""
+    j, n = start + 2, len(src)
+    while j < n and not (src[j] == "*" and j + 1 < n and src[j + 1] == "/"):
+        if src[j] == "\n":
+            line += 1
+        elif ord(src[j]) > 127:
+            comment_nonascii_lines.add(line)
+        j += 1
+    return j + 2, line
+
+
+def scan_cstyle(src: str) -> tuple[int, int]:
     """Char-scanner for JS/TS: separate // and /* */ (and /** */) comments from strings.
 
     Returns (comment_hits, string_hits) — approximate line counts with non-ASCII.
@@ -77,7 +113,6 @@ def scan_cstyle(src):
     string_has = 0
     line = 1
     STRING = None  # current quote char or None
-    template_expr_depth = 0
     while i < n:
         c = src[i]
         nxt = src[i + 1] if i + 1 < n else ""
@@ -97,25 +132,13 @@ def scan_cstyle(src):
             continue
         # not in string
         if c == "/" and nxt == "/":
-            j = i + 2
-            has = False
-            while j < n and src[j] != "\n":
-                if ord(src[j]) > 127:
-                    has = True
-                j += 1
+            j, has = _scan_line_comment(src, i)
             if has:
                 comment_nonascii_lines.add(line)
             i = j
             continue
         if c == "/" and nxt == "*":
-            j = i + 2
-            while j < n and not (src[j] == "*" and j + 1 < n and src[j + 1] == "/"):
-                if src[j] == "\n":
-                    line += 1
-                elif ord(src[j]) > 127:
-                    comment_nonascii_lines.add(line)
-                j += 1
-            i = j + 2
+            i, line = _scan_block_comment(src, i, line, comment_nonascii_lines)
             continue
         if c in ("'", '"', "`"):
             STRING = c
@@ -125,8 +148,8 @@ def scan_cstyle(src):
     return len(comment_nonascii_lines), string_has
 
 
-def main():
-    inventory = []
+def main() -> None:
+    inventory: list[InventoryEntry] = []
     for path in iter_files():
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -156,7 +179,7 @@ def main():
     inventory.sort(key=lambda x: (-x["doc_hits"], x["path"]))
     print(json.dumps(inventory, ensure_ascii=False, indent=None))
     # summary
-    by_top = {}
+    by_top: dict[str, dict[str, int]] = {}
     total_hits = 0
     for it in inventory:
         top = "/".join(it["path"].split("/")[:2])

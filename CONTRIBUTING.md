@@ -79,6 +79,10 @@ Then open `http://localhost:5173`.
 
 ### Run with Docker (optional)
 
+First set `GNOSI_JWT_SECRET` in the process or an untracked local `.env`.
+The bundle uses named data/vault volumes and requires authentication; see the
+[Docker quick start](README.md#run-with-docker-optional) for existing host vaults.
+
 ```bash
 pnpm docker:up
 ```

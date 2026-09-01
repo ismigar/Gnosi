@@ -33,8 +33,8 @@ def _status() -> CatalogStatus:
     try:
         from backend.api.vault_routes import _llm_wiki_enabled, _load_plugins_state
 
-        load_state = cast(Callable[[], dict[str, Any]], _load_plugins_state)
-        is_enabled = cast(Callable[[dict[str, Any]], bool], _llm_wiki_enabled)
+        load_state = _load_plugins_state
+        is_enabled = _llm_wiki_enabled
         return (
             CatalogStatus.AVAILABLE
             if is_enabled(load_state())

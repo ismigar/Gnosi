@@ -1,3 +1,12 @@
+import {
+  defineStorageKey,
+  readStorage,
+  removeStorage,
+  stringStorageCodec,
+  writeStorage,
+} from '../platform/browser-storage';
+
+
 export const ACTIVE_VAULT_ID_KEY = 'gnosi_active_vault';
 export const ACTIVE_VAULT_NAME_KEY = 'gnosi_active_vault_name';
 export const ACTIVE_VAULT_SLUG_KEY = 'gnosi_active_vault_slug';
@@ -43,33 +52,29 @@ const LEGACY_API_RULES: readonly LegacyApiRule[] = [
 ];
 
 
+const activeVaultIdStorageKey = defineStorageKey(ACTIVE_VAULT_ID_KEY, stringStorageCodec);
+const activeVaultSlugStorageKey = defineStorageKey(ACTIVE_VAULT_SLUG_KEY, stringStorageCodec);
+
+
 export function storageGet(key: string): string {
-  try {
-    return typeof localStorage === 'undefined' ? '' : localStorage.getItem(key) ?? '';
-  } catch {
-    return '';
-  }
+  return readStorage(defineStorageKey(key, stringStorageCodec)) ?? '';
 }
 
 
 export function storageSet(key: string, value: string): void {
-  try {
-    if (typeof localStorage === 'undefined') return;
-    if (value) localStorage.setItem(key, value);
-    else localStorage.removeItem(key);
-  } catch {
-    // Storage can be unavailable in hardened browser contexts.
-  }
+  const storageKey = defineStorageKey(key, stringStorageCodec);
+  if (value) writeStorage(storageKey, value);
+  else removeStorage(storageKey);
 }
 
 
 export function getActiveVaultId(): string {
-  return storageGet(ACTIVE_VAULT_ID_KEY);
+  return readStorage(activeVaultIdStorageKey) ?? '';
 }
 
 
 export function getActiveVaultSlug(): string {
-  return storageGet(ACTIVE_VAULT_SLUG_KEY);
+  return readStorage(activeVaultSlugStorageKey) ?? '';
 }
 
 

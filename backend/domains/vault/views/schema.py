@@ -11,6 +11,7 @@ from typing import Protocol
 
 from fastapi import HTTPException
 
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 
 
@@ -63,7 +64,7 @@ async def get_schema(
         return {}
     try:
         raw: object = json.loads(schema_path.read_text(encoding="utf-8"))
-        return raw if isinstance(raw, dict) else {}
+        return raw if is_record(raw) else {}
     except (json.JSONDecodeError, OSError) as error:
         dependencies.logger.warning("Schema %s corrupte o no llegible: %s", schema_path, error)
         return {}

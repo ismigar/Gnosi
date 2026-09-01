@@ -8,11 +8,42 @@ import re
 import shutil
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict, cast
+
+if TYPE_CHECKING:
+    from torch import LongTensor, Tensor
+    from transformers.generation.utils import GenerateOutput
+
+    class _MarianGenerator(Protocol):
+        """The batch-generation call supported by Marian's GenerationMixin."""
+
+        def generate(
+            self, *, max_length: int, num_beams: int, **inputs: Tensor,
+        ) -> GenerateOutput | LongTensor: ...
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+from pipeline.skills.technical_documentation.scripts.generated_localization import (
+    localize_generated_reference,
+)
+from pipeline.skills.technical_documentation.scripts.reviewed_contracts import compare_reviewed
+
+
+class LocaleConfig(TypedDict):
+    """Separate filesystem paths from optional reviewed-prose model settings."""
+
+    docs_root: Path
+    config: Path
+    site_name: str
+    site_description: str
+    model: NotRequired[str]
+    target_prefix: NotRequired[str]
 
 
 APP_ROOT = Path(__file__).resolve().parents[4]
 SOURCE_ROOT = APP_ROOT / "docs" / "engineering"
-LOCALES = {
+LOCALES: dict[str, LocaleConfig] = {
     "ca": {
         "docs_root": APP_ROOT / "docs" / "engineering-ca",
         "config": APP_ROOT / "mkdocs-ca.yml",
@@ -32,7 +63,6 @@ LOCALES = {
         "site_description": "Architecture, implémentation, opérations et référence du code source de Gnosi",
         "model": "Helsinki-NLP/opus-mt-en-ROMANCE",
         "target_prefix": ">>fr<<",
-        "translate_generated": False,
     },
 }
 NAV_LABELS = {
@@ -138,7 +168,12 @@ class OfflineTranslator:
                 batch = [f"{self.target_prefix} {text}" for text in batch]
             inputs = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True, max_length=512)
             with torch.no_grad():
-                outputs = self.model.generate(**inputs, max_length=512, num_beams=1)
+                # Transformers' internal mixin self protocol is broader than
+                # Marian's declared attributes. Keep its bound-method dispatch
+                # and exact return union while typing only the call we use.
+                outputs = cast("_MarianGenerator", self.model).generate(
+                    **inputs, max_length=512, num_beams=1,
+                )
             results.extend(self.tokenizer.batch_decode(outputs, skip_special_tokens=True))
         return results
 
@@ -297,7 +332,8 @@ def generate_locale(
     if destination.exists() and not partial:
         shutil.rmtree(destination)
     translator: OfflineTranslator | None = None
-    for source in sorted(SOURCE_ROOT.rglob("*")):
+    scan_root = SOURCE_ROOT / "generated" if generated_only else SOURCE_ROOT
+    for source in sorted(scan_root.rglob("*")):
         relative = source.relative_to(SOURCE_ROOT)
         if selected_paths and relative not in selected_paths:
             continue
@@ -308,10 +344,14 @@ def generate_locale(
         output = destination / relative
         if source.is_dir():
             output.mkdir(parents=True, exist_ok=True)
-        elif source.suffix == ".md" and not (
-            relative.parts[0] == "generated"
-            and not LOCALES[target].get("translate_generated", True)
-        ):
+        elif relative.parts[0] == "generated":
+            expected = localize_generated_reference(
+                source.read_bytes(), target, relative.relative_to("generated").as_posix(),
+            )
+            output.parent.mkdir(parents=True, exist_ok=True)
+            if not output.is_file() or output.read_bytes() != expected:
+                output.write_bytes(expected)
+        elif source.suffix == ".md":
             if translator is None:
                 translator = OfflineTranslator(target)
             output.parent.mkdir(parents=True, exist_ok=True)
@@ -319,27 +359,79 @@ def generate_locale(
         else:
             output.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, output)
-    write_locale_config(target)
+    if not generated_only:
+        write_locale_config(target)
 
 
-def check_locale(target: str) -> list[str]:
-    """Verify that a locale mirrors the English tree and has no leaked markers."""
+def _check_output(source: Path, relative: Path, destination: Path, target: str) -> list[str]:
+    """Validate one existing or missing output without changing either tree."""
+    localized = destination / relative
+    if not localized.is_file():
+        return [f"missing {relative}"]
+    if relative.parts[0] == "generated":
+        expected = localize_generated_reference(
+            source.read_bytes(), target, relative.relative_to("generated").as_posix(),
+        )
+        return [] if localized.read_bytes() == expected else [f"stale generated reference {relative}"]
+    failures: list[str] = []
+    if localized.suffix == ".md":
+        content = localized.read_text(encoding="utf-8")
+        if "XGNOSI" in content or "\uE000" in content:
+            failures.append(f"translation marker in {relative}")
+        differences = compare_reviewed(source.read_text(encoding="utf-8"), content)
+        if differences:
+            failures.append(f"reviewed technical drift {relative}: {', '.join(differences)}")
+    return failures
+
+
+def _unexpected_outputs(
+    destination: Path, *, generated: bool, selected_paths: set[Path] | None,
+) -> list[str]:
+    """Report orphan outputs; never delete them as a side effect of checking."""
+    scan_root = destination / "generated" if generated else destination
+    pattern = "*" if generated else "*.md"
+    category = "generated reference" if generated else "reviewed page"
+    failures: list[str] = []
+    for localized in sorted(scan_root.rglob(pattern)):
+        relative = localized.relative_to(destination)
+        if not generated and relative.parts[0] in {"generated", "assets"}:
+            continue
+        if selected_paths and relative not in selected_paths:
+            continue
+        if localized.is_file() and not (SOURCE_ROOT / relative).is_file():
+            failures.append(f"unexpected {category} {relative}")
+    return failures
+
+
+def check_locale(
+    target: str,
+    reviewed_only: bool = False,
+    generated_only: bool = False,
+    selected_paths: set[Path] | None = None,
+) -> list[str]:
+    """Check generated bytes and protected reviewed content without writing."""
     destination = LOCALES[target]["docs_root"]
     failures: list[str] = []
-    for source in SOURCE_ROOT.rglob("*"):
+    scan_root = SOURCE_ROOT / "generated" if generated_only else SOURCE_ROOT
+    for source in sorted(scan_root.rglob("*")):
         if not source.is_file():
             continue
-        localized = destination / source.relative_to(SOURCE_ROOT)
-        if not localized.is_file():
-            failures.append(f"missing {source.relative_to(SOURCE_ROOT)}")
-        elif localized.suffix == ".md" and ("XGNOSI" in localized.read_text(encoding="utf-8") or "\uE000" in localized.read_text(encoding="utf-8")):
-            failures.append(f"translation marker in {source.relative_to(SOURCE_ROOT)}")
-    if not LOCALES[target]["config"].is_file():
+        relative = source.relative_to(SOURCE_ROOT)
+        if selected_paths and relative not in selected_paths:
+            continue
+        if reviewed_only and relative.parts[0] == "generated":
+            continue
+        failures.extend(_check_output(source, relative, destination, target))
+    if not reviewed_only:
+        failures.extend(_unexpected_outputs(destination, generated=True, selected_paths=selected_paths))
+    if not generated_only:
+        failures.extend(_unexpected_outputs(destination, generated=False, selected_paths=selected_paths))
+    if not generated_only and not LOCALES[target]["config"].is_file():
         failures.append(f"missing {LOCALES[target]['config'].name}")
     return failures
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--locale", choices=sorted(LOCALES), action="append")
     parser.add_argument("--check", action="store_true")
@@ -351,7 +443,7 @@ def main() -> int:
         default=[],
         help="Refresh one repository-relative documentation path; may be repeated.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.reviewed_only and args.generated_only:
         parser.error("--reviewed-only and --generated-only are mutually exclusive")
     selected_paths: set[Path] = set()
@@ -364,7 +456,10 @@ def main() -> int:
         selected_paths.add(path)
     targets = args.locale or sorted(LOCALES)
     if args.check:
-        failures = {target: check_locale(target) for target in targets}
+        failures = {
+            target: check_locale(target, args.reviewed_only, args.generated_only, selected_paths)
+            for target in targets
+        }
         failures = {target: values for target, values in failures.items() if values}
         if failures:
             for target, values in failures.items():

@@ -3,7 +3,21 @@ status: implemented
 last_verified: 2026-08-02
 source_paths:
   - backend/server.py
-  - frontend/src/App.jsx
+  - frontend/src/app/App.tsx
+  - frontend/src/app/routes.tsx
+  - frontend/src/app/bootstrap.tsx
+  - frontend/src/app/AppProviders.tsx
+  - frontend/src/app/navigation
+  - frontend/src/app/integration
+  - frontend/src/shared/ui
+  - frontend/src/shared/hooks
+  - frontend/src/features
+  - frontend/src/shared/auth
+  - frontend/src/shared/routing
+  - frontend/src/generated
+  - frontend/src/app/main.tsx
+  - frontend/src/app/styles/index.css
+  - frontend/feature-public-entries.json
   - frontend/vite.config.js
   - docker-compose.yml
   - desktop/main.js
@@ -14,47 +28,77 @@ tests:
 
 # Contexte du système
 
-## Vue du conteneur
+## Vue des conteneurs
 
 ```mermaid
 flowchart LR
-    User["Utilisateur ou membre de l'équipe"] --> UI["Réagir et passer la tête"]
+    User["Utilisateur ou membre de l'équipe"] --> UI["Frontend React et Vite"]
     UI -->|HTTP /api and WebSocket| API["backend FastAPI"]
-    API --> Vault["Bâtiment et biens"]
-    API --> Local["SQLite, index, caches, secrets, secrets"]
+    API --> Vault["Vault Markdown et ressources"]
+    API --> Local["SQLite, index, caches et secrets strictement locaux"]
     API --> MCP["Serveurs MCP et fournisseurs d'IA"]
     API --> Comms["Fournisseurs de courrier, de calendrier, de contacts"]
     API --> Zotero["Zotero, serveur de traduction"]
     API --> Publish["Notion, Drupal et services sociaux"]
-    Desktop["Shell de bureau électronique"] --> UI
+    Desktop["Shell de bureau Electron"] --> UI
     Desktop --> API
-    Office["Compléments et clippers pour bureau"] --> API
+    Office["Compléments bureautiques et extension de capture web"] --> API
 ```
 
-## Frontière
+## Frontière du frontend
 
-La façade est une application React à une seule page. `App.jsx` possède les routes de navigateur de haut niveau, portail d'authentification, shell global, chargement de route paresseux, toasts, chat agent, palette de commandes, enregistreur de réunion, rappels, et avis de mise à jour de bureau. `/api` et le trafic WebSocket vers le backend pendant le développement natif.
+Le frontend est une application React à page unique. `app/App.tsx` gère
+l'authentification et le shell global ; `app/routes.tsx` compose les routes,
+le périmètre du Vault, les redirections et le chargement différé des pages,
+tandis que Home est chargé au démarrage. `app/bootstrap.tsx` prépare le routage
+et la langue ; `app/AppProviders.tsx` conserve l'ordre
+StrictMode → API → router → authentification. Le déplacement place l'entrée CSS
+et l'appel à bootstrap dans `app/main.tsx`, avec les styles ordonnés dans
+`app/styles/index.css`. Vite relaie `/api` et WebSocket en développement natif.
 
-Les pages composent des composants réutilisables; les composants appellent le moteur par des aides partagées ou des appels directs de recherche. Le frontend n'est pas fiable pour autoriser un espace de travail, un coffre, un utilisateur ou une opération destructrice.
+### Répartition des modules
 
-## Limites de l'arrière-pays
+Le déplacement révisé attribue la composition, la navigation et l'intégration
+globale à `app/` ; les domaines du produit à `features/` ; l'infrastructure,
+l'UI, les enregistrements, le routage et les adaptateurs API réutilisables à
+`shared/` ; et les contrats générés à `generated/`. Ces contrats sont régénérés,
+jamais modifiés à la main. Le fournisseur d'authentification appartient à
+`features/auth/context/AuthProvider.tsx` et son contexte réutilisable à
+`shared/auth/auth-context.ts`.
 
-`backend/server.py` crée l'application FastAPI et enregistre les routeurs de domaine. Les modules de route traduisent les contrats HTTP en appels de service. `backend/services/`; les entités relationnelles persistantes vivent dans `backend/models/`; L'orchestration de l'IA vit dans `backend/agent/`; vie professionnelle prévue dans `backend/scheduler/` et des compétences en cours d'exécution.
+Le manifeste `frontend/feature-public-entries.json` recense les chemins
+publics exacts révisés et leurs justifications. Les entrées `index` à la racine
+des features restent autorisées ; un module voisin non répertorié reste privé.
+Les consommateurs utilisent directement une entrée racine ou explicitement
+révisée, avec des imports différés distincts, sans introduire d'agrégateur
+chargé au démarrage. Le manifeste décrit l'accès ; il n'importe aucun module.
 
-La durée de vie de l'application démarre l'infrastructure partagée, construit des capacités d'agent, réchauffe des index de sécurité, démarre les travailleurs IDLE du courrier, et ferme plus tard ces ressources.
+Les dépendances peuvent aller d'`app` vers les features et l'infrastructure
+partagée. Les features ne dépendent pas d'`app` ; `shared` ne dépend ni des
+features ni d'`app`, même pour les imports de types. Déplacer la prévisualisation
+Markdown/wikilink dans l'infrastructure partagée ne résout pas son cycle interne.
+Le déplacement doit préserver chargement différé, styles, routes et payloads ;
+la structure seule ne prouve pas que l'intégration ou la release est terminée.
+
+Les composants appellent le backend via les adaptateurs API typés de `shared/api/`.
+Le backend reste responsable des autorisations des utilisateurs, workspaces,
+vaults et opérations destructrices.
+
+## Frontière du backend
+
+`backend/server.py` crée l'application FastAPI et enregistre les routeurs des domaines. Les modules de routes traduisent les contrats HTTP en appels de services. La logique métier réside dans `backend/services/`, les entités relationnelles persistées dans `backend/models/`, l'orchestration IA dans `backend/agent/` et les tâches planifiées dans `backend/scheduler/` et les compétences d'exécution.
+
+Le cycle de vie de l'application démarre l'infrastructure partagée, construit les capacités de l'agent, précharge les index pouvant l'être sans risque, lance les workers IDLE du courrier, puis ferme ces ressources. Le démarrage des intégrations facultatives est isolé : l'indisponibilité d'un fournisseur n'interrompt pas tout le serveur.
 
 ## Limites de stockage
 
-La voûte et les données locales ont délibérément différentes propriétés de durabilité et de synchronisation:
+Le vault et les données locales ont délibérément des propriétés différentes de durabilité et de synchronisation :
 
-- Vault: contenu portable de l'utilisateur; peut être installé sur un disque local ou un fichier nuage
-Le fournisseur.
-- Données locales : SQLite, index, caches, secrets, journaux, points de contrôle et sorties;
-jamais synchronisé dans le nuage.
-- Configuration : fusionné à partir des paramètres par défaut de l'application, utilisateur ou coffre,
-les surcharges d'environnement et les magasins locaux de titres de compétence.
+- Vault : contenu utilisateur portable, sur disque local ou chez un fournisseur de fichiers cloud.
+- Données locales : SQLite, index, caches, secrets, journaux, points de contrôle et sorties ; jamais synchronisés dans le cloud.
+- Configuration : fusion des valeurs par défaut de l'application, des paramètres utilisateur ou du vault, des valeurs prioritaires de l'environnement et des magasins locaux d'identifiants.
 
-Voir [données et stockage](data-and-storage.md) pour la propriété et la reconstruction des règles.
+Consultez [données et stockage](data-and-storage.md) pour les responsabilités et les règles de reconstruction.
 
 ## Systèmes externes
 
@@ -64,5 +108,5 @@ Tous les services externes sont des dépendances de domaine optionnelles. OAuth 
 
 - [Catalogue API](../generated/api-catalog.md)
 - [Catalogue Frontend](../generated/frontend-catalog.md)
-- [Catalogue du module de l'arrière-pays](../generated/backend-modules.md)
+- [Catalogue des modules du backend](../generated/backend-modules.md)
 - [Catalogue de configuration](../generated/configuration.md)

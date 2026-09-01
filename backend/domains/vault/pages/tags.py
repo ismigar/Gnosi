@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, TypedDict
+from typing import TypedDict
 
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
 
 
-Metadata = dict[str, Any]
+Metadata = RegistryData
 TagField = tuple[str | None, str | None]
 
 
@@ -34,8 +36,8 @@ class TagQueryDependencies:
     """Ports required to aggregate frontmatter and semantic table tags."""
 
     page_snapshot: Callable[[], list[PageInfo]]
-    load_registry: Callable[[], Metadata]
-    find_role_property: Callable[[Metadata, str], Metadata | None]
+    load_registry: Callable[[], RegistryData]
+    find_role_property: Callable[[RegistryData, str], RegistryData | None]
     tags_role: str
     table_id: Callable[[Metadata], str | None]
 
@@ -61,7 +63,7 @@ def extract_tags(raw: object) -> list[str]:
     """Normalize a frontmatter tag list or comma-separated string."""
     if isinstance(raw, str):
         return [tag.strip() for tag in raw.split(",") if tag.strip()]
-    if isinstance(raw, list):
+    if is_object_list(raw):
         return [str(tag).strip() for tag in raw if str(tag).strip()]
     return []
 
@@ -70,10 +72,10 @@ def _table_tag_fields() -> dict[str, TagField]:
     dependencies = _deps()
     try:
         raw_tables = dependencies.load_registry().get("tables", [])
-        tables = raw_tables if isinstance(raw_tables, list) else []
+        tables = raw_tables if is_object_list(raw_tables) else []
         result: dict[str, TagField] = {}
         for table in tables:
-            if not isinstance(table, dict):
+            if not is_record(table):
                 continue
             prop = dependencies.find_role_property(table, dependencies.tags_role)
             if prop and table.get("id"):

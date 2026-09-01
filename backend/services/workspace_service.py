@@ -1,5 +1,6 @@
 import json
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 from backend.config.app_config import load_params
 from backend.config.logger_config import get_logger
 from backend.data.management_db import get_mgmt_db
-from backend.models.management import Workspace, Membership, User, Vault, VaultAccess
+from backend.models.management import Membership, User, Vault, VaultAccess, Workspace
 from backend.services.auth_service import get_current_user_id
 from backend.services.context_vars import active_vault_path
 
@@ -36,6 +37,23 @@ class WorkspaceContext:
 ROLE_WEIGHTS = {"owner": 3, "admin": 2, "editor": 1, "viewer": 0}
 
 
+@dataclass(frozen=True)
+class WorkspaceMembershipContext:
+    """Authenticated membership, independent of whether a vault exists."""
+
+    workspace_id: str
+    user_id: str
+    role: str
+
+
+def _check_role(role: str, min_role: str) -> None:
+    if ROLE_WEIGHTS.get(role.lower(), 0) < ROLE_WEIGHTS.get(min_role.lower(), 0):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Insufficient permission. Role {min_role} is required (you have {role})",
+        )
+
+
 def require_role(min_role: str) -> Callable[[WorkspaceContext], WorkspaceContext]:
     """
     Returns a dependency that validates whether the user has the minimum required role.
@@ -45,14 +63,51 @@ def require_role(min_role: str) -> Callable[[WorkspaceContext], WorkspaceContext
     def role_checker(
         context: WorkspaceContext = Depends(get_workspace_context),
     ) -> WorkspaceContext:
-        user_weight = ROLE_WEIGHTS.get(context.role.lower(), 0)
-        required_weight = ROLE_WEIGHTS.get(min_role.lower(), 0)
+        _check_role(context.role, min_role)
+        return context
 
-        if user_weight < required_weight:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Insufficient permission. Role {min_role} is required (you have {context.role})",
-            )
+    return role_checker
+
+
+def get_workspace_membership(
+    x_workspace_id: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None),
+    x_vault_id: Optional[str] = Header(None),
+    db: Session = Depends(get_mgmt_db),
+    auth_uid: Optional[str] = Depends(get_current_user_id),
+) -> WorkspaceMembershipContext:
+    """Authorize workspace operations which must work before the first vault.
+
+    Legacy headers remain declared for HTTP compatibility. X-User-ID cannot
+    identify a caller, and X-Vault-ID cannot grant workspace permissions.
+    Existing-vault operations must continue using get_workspace_context.
+    """
+    from backend.services.auth_service import resolve_effective_user_id
+
+    params = load_params(strict_env=False)
+    if params.paths.get("PROJECT_DIR") is None:
+        raise HTTPException(status_code=500, detail="PROJECT_DIR no configurat")
+    default_vault_path = params.paths.get("VAULT")
+    if default_vault_path is None:
+        raise HTTPException(status_code=500, detail="VAULT_PATH no configurat")
+    user_id = resolve_effective_user_id(auth_uid, db)
+    if params.gnosi_mode == "personal":
+        workspace_id = _ensure_personal_exists(db, user_id, default_vault_path)
+        return WorkspaceMembershipContext(workspace_id, user_id, "owner")
+    workspace_id, membership = _organization_membership(
+        db, user_id, x_workspace_id, default_vault_path,
+    )
+    return WorkspaceMembershipContext(workspace_id, user_id, str(membership.role))
+
+
+def require_workspace_role(
+    min_role: str,
+) -> Callable[[WorkspaceMembershipContext], WorkspaceMembershipContext]:
+    """Require a membership role without selecting or touching existing storage."""
+    def role_checker(
+        context: WorkspaceMembershipContext = Depends(get_workspace_membership),
+    ) -> WorkspaceMembershipContext:
+        _check_role(context.role, min_role)
         return context
 
     return role_checker

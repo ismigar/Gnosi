@@ -1,0 +1,128 @@
+/* AppSidebar - Reference Match */
+.app-sidebar {
+  width: var(--app-sidebar-width);
+  height: 100dvh;
+  background-color: var(--sidebar-bg);
+  border-inline-end: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0;
+  z-index: var(--z-sidebar);
+  flex-shrink: 0;
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+.app-sidebar__header {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 1.2rem;
+}
+
+.app-sidebar__logo-wrapper {
+  margin-bottom: 0;
+}
+
+.app-sidebar__logo {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #0066ff, #00d4ff);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-sidebar__nav {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  align-items: center;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  padding: 0.2rem 0 0.55rem;
+}
+
+.app-sidebar__item {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--sidebar-text);
+  transition: all 0.2s ease;
+  position: relative;
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-decoration: none;
+}
+
+.app-sidebar__item--active {
+  background-color: var(--sidebar-item-active);
+  color: var(--sidebar-item-active-text);
+}
+
+.app-sidebar__item:focus {
+  outline: none;
+}
+
+.app-sidebar__item:focus-visible {
+  outline: none;
+  background-color: var(--sidebar-item-hover);
+  box-shadow: 0 0 0 2px var(--gnosi-primary);
+}
+
+.app-sidebar__tooltip {
+  position: absolute;
+  inset-inline-start: 66px;
+  top: 50%;
+  transform: translateY(-50%) translateX(-10px);
+  background-color: var(--tooltip-bg);
+  color: var(--tooltip-text);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  box-shadow: var(--tooltip-shadow);
+  border: 1px solid var(--tooltip-border);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-sidebar__item:hover .app-sidebar__tooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.app-sidebar__tooltip-kbd {
+  background: var(--tooltip-kbd-bg);
+  border: 1px solid var(--tooltip-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.68rem;
+  font-family: inherit;
+  color: var(--tooltip-muted);
+  letter-spacing: 0.02em;
+}

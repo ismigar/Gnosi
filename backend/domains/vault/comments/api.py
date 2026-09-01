@@ -8,12 +8,12 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Protocol
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.params import Depends as DependsParameter
 
-from backend.domains.vault.comments.repository import Comment, PageCommentMap
+from backend.domains.vault.comments.repository import Comment, InlineComments, PageCommentMap
+from backend.domains.vault.comments.repository import JsonWriter as JsonWriter
 from backend.domains.vault.comments.schemas import (
     CommentDeleteResponse,
     CommentCreateRequest,
@@ -28,15 +28,18 @@ from backend.domains.vault.comments.state import (
     inline_comments_mutation_lock,
     page_comments_mutation_lock,
 )
-
-
-class JsonWriter(Protocol):
-    def __call__(self, path: Path, data: object, **kwargs: object) -> None: ...
+from backend.utils.open_values import (
+    append_value,
+    get_value,
+    iterable_values,
+    length_value,
+    set_value,
+)
 
 
 PageLoader = Callable[[], PageCommentMap]
 PageSaver = Callable[[PageCommentMap], None]
-InlineLoader = Callable[[str], list[Comment]]
+InlineLoader = Callable[[str], InlineComments]
 InlinePathResolver = Callable[[str], Path]
 
 
@@ -85,7 +88,7 @@ def register_page_comment_routes(
         }
         async with page_comments_mutation_lock:
             data = await asyncio.to_thread(dependencies.resolve_page_loader())
-            data.setdefault(page_id, []).append(comment)
+            append_value(data.setdefault(page_id, []), comment)
             await asyncio.to_thread(dependencies.resolve_page_saver(), data)
         return comment
 
@@ -93,13 +96,16 @@ def register_page_comment_routes(
         page_id: str,
         comment_id: str,
         request: CommentUpdateRequest,
-    ) -> Comment:
+    ) -> object:
         """Edits a comment's body and/or toggles its resolved flag."""
         async with page_comments_mutation_lock:
             data = await asyncio.to_thread(dependencies.resolve_page_loader())
             thread = data.get(page_id) or []
             target = next(
-                (comment for comment in thread if comment.get("id") == comment_id),
+                (
+                    comment for comment in iterable_values(thread)
+                    if get_value(comment, "id") == comment_id
+                ),
                 None,
             )
             if not target:
@@ -112,10 +118,10 @@ def register_page_comment_routes(
                         status_code=422,
                         detail="Comment body cannot be empty",
                     )
-                target["body"] = new_body
+                set_value(target, "body", new_body)
             if request.resolved is not None:
-                target["resolved"] = bool(request.resolved)
-            target["updated_at"] = datetime.now(timezone.utc).isoformat()
+                set_value(target, "resolved", bool(request.resolved))
+            set_value(target, "updated_at", datetime.now(timezone.utc).isoformat())
             await asyncio.to_thread(dependencies.resolve_page_saver(), data)
         return target
 
@@ -124,8 +130,11 @@ def register_page_comment_routes(
         async with page_comments_mutation_lock:
             data = await asyncio.to_thread(dependencies.resolve_page_loader())
             thread = data.get(page_id) or []
-            new_thread = [comment for comment in thread if comment.get("id") != comment_id]
-            if len(new_thread) == len(thread):
+            new_thread = [
+                comment for comment in iterable_values(thread)
+                if get_value(comment, "id") != comment_id
+            ]
+            if len(new_thread) == length_value(thread):
                 raise HTTPException(status_code=404, detail="Comment not found")
             if new_thread:
                 data[page_id] = new_thread
@@ -179,7 +188,7 @@ def register_inline_comment_routes(
     workspace_context_dependency: Callable[..., object],
     dependencies: CommentDependencies,
 ) -> tuple[Callable[..., object], ...]:
-    async def list_inline_comments(page_id: str) -> list[Comment]:
+    async def list_inline_comments(page_id: str) -> InlineComments:
         return dependencies.resolve_inline_loader()(page_id)
 
     async def create_inline_comment(
@@ -209,16 +218,16 @@ def register_inline_comment_routes(
         page_id: str,
         comment_id: str,
         body: InlineCommentPatch,
-    ) -> Comment:
+    ) -> object:
         async with inline_comments_mutation_lock:
             comments = dependencies.resolve_inline_loader()(page_id)
-            found: Comment | None = None
+            found: object = None
             for comment in comments:
-                if comment.get("id") == comment_id:
+                if get_value(comment, "id") == comment_id:
                     if body.comment is not None:
-                        comment["comment"] = body.comment
+                        set_value(comment, "comment", body.comment)
                     if body.resolved is not None:
-                        comment["resolved"] = bool(body.resolved)
+                        set_value(comment, "resolved", bool(body.resolved))
                     found = comment
                     break
             if not found:
@@ -232,7 +241,7 @@ def register_inline_comment_routes(
     async def delete_inline_comment(page_id: str, comment_id: str) -> dict[str, str]:
         async with inline_comments_mutation_lock:
             comments = dependencies.resolve_inline_loader()(page_id)
-            new_comments = [comment for comment in comments if comment.get("id") != comment_id]
+            new_comments = [comment for comment in comments if get_value(comment, "id") != comment_id]
             if len(new_comments) == len(comments):
                 raise HTTPException(status_code=404, detail="Comentari no trobat")
             dependencies.resolve_json_writer()(

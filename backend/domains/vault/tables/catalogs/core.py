@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import unicodedata
-from typing import cast
+from backend.domains.vault.registry.records import RecordReader, is_record
+from backend.utils.open_values import set_value
 
 from backend.domains.vault.tables.catalogs.types import Metadata, Option
 
@@ -78,14 +79,16 @@ def option_names(options: object) -> list[str]:
     return [str(option["name"]) for option in normalize_options(options)]
 
 
-def get_prop_config(prop: Metadata) -> Metadata:
+def get_prop_config(prop: RecordReader) -> Metadata:
     config = prop.get("config")
-    return cast(Metadata, config) if isinstance(config, dict) else {}
+    if is_record(config):
+        return config
+    return {}
 
 
 def get_prop_options(
-    prop: Metadata,
-    option_catalogs: Metadata | None = None,
+    prop: RecordReader,
+    option_catalogs: object = None,
 ) -> list[Option]:
     """Return effective shared, nested or legacy property options."""
     config = get_prop_config(prop)
@@ -108,8 +111,7 @@ def is_global_status_prop(prop: Metadata) -> bool:
 def set_prop_options(prop: Metadata, options: list[Option]) -> None:
     """Write normalized options to their canonical nested location."""
     config = prop.setdefault("config", {})
-    typed_config = cast(Metadata, config)
-    typed_config["options"] = normalize_options(options)
+    set_value(config, "options", normalize_options(options))
     prop.pop("options", None)
 
 

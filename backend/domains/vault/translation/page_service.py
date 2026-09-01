@@ -7,10 +7,10 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
 
+from backend.domains.vault.registry.records import is_object_list
 from backend.domains.vault.schemas.pages import PagePatchRequest, PageSaveRequest
 from backend.domains.vault.translation.adapters import DetectLanguage
 from backend.domains.vault.translation.types import (
@@ -33,19 +33,19 @@ class PageTranslationDependencies:
     find_page: Callable[[str], Path | None]
     parse_frontmatter: Callable[[str, Path], tuple[Metadata, str]]
     detect_record_source_lang: Callable[[Metadata], str]
-    existing_translations: Callable[[str], Awaitable[dict[str, Any]]]
+    existing_translations: Callable[[str], Awaitable[dict[str, object]]]
     create_page: CreatePage
     patch_page: PatchPage
     logger: logging.Logger
 
 
-def _validated_payload(payload: dict[str, Any]) -> tuple[str, list[object]]:
+def _validated_payload(payload: dict[str, object]) -> tuple[str, list[object]]:
     page_id = str(payload.get("page_id") or "").strip()
     target_languages = payload.get("target_languages") or []
     button_action = payload.get("button_action") or "translate_page"
     if not page_id:
         raise HTTPException(status_code=400, detail="page_id is required")
-    if not isinstance(target_languages, list) or not target_languages:
+    if not is_object_list(target_languages) or not target_languages:
         raise HTTPException(
             status_code=400,
             detail="target_languages must be a non-empty list",
@@ -109,17 +109,17 @@ async def _persist_page_translation(
     body: str,
     providers: set[str],
     metadata: Metadata,
-    existing: Any,
+    existing: object,
     background_tasks: BackgroundTasks,
     dependencies: PageTranslationDependencies,
 ) -> tuple[str, Result]:
-    existing_id = getattr(existing, "id", None) if existing is not None else None
+    existing_id: object = getattr(existing, "id", None) if existing is not None else None
     if existing_id:
-        patch_request = PagePatchRequest(
-            title=title,
-            content=body,
-            metadata=metadata,
-        )
+        patch_request = PagePatchRequest.model_validate({
+            "title": title,
+            "content": body,
+            "metadata": metadata,
+        })
         await dependencies.patch_page(
             str(existing_id),
             patch_request,
@@ -131,12 +131,12 @@ async def _persist_page_translation(
             "providers": sorted(providers),
             "title": title,
         }
-    create_request = PageSaveRequest(
-        title=title,
-        content=body,
-        parent_id=page_id,
-        metadata=metadata,
-    )
+    create_request = PageSaveRequest.model_validate({
+        "title": title,
+        "content": body,
+        "parent_id": page_id,
+        "metadata": metadata,
+    })
     created = await dependencies.create_page(create_request, background_tasks)
     return "created", {
         "id": created.get("id"),
@@ -148,7 +148,7 @@ async def _persist_page_translation(
 
 async def translate_page(
     background_tasks: BackgroundTasks,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     dependencies: PageTranslationDependencies,
 ) -> Result:
     """Translate one Vault page into idempotent per-language children."""

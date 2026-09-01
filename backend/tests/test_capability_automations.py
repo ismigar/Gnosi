@@ -8,6 +8,19 @@ import pytest
 from backend.services import capability_automations
 
 
+@pytest.fixture(autouse=True)
+def isolated_automation_runtime(tmp_path, monkeypatch):
+    """Keep the real configuration/SQLite path inside this test's probe."""
+    for child in ("data", "vault", "host"):
+        (tmp_path / child).mkdir()
+    monkeypatch.setenv("GNOSI_VALIDATION_ROOT", str(tmp_path))
+    for name, child in (
+        ("GNOSI_DATA_DIR", "data"), ("DIGITAL_BRAIN_VAULT_PATH", "vault"),
+        ("VAULT_HOST_PATH", "vault"), ("HOME_HOST_PATH", "host"),
+    ):
+        monkeypatch.setenv(name, str(tmp_path / child))
+
+
 def _scope(**overrides):
     scope = {
         "vault_scope": "vault-a",
@@ -36,7 +49,6 @@ def _payload(**overrides):
 
 
 def test_automation_crud_is_revision_and_scope_bound(tmp_path, monkeypatch):
-    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     created = capability_automations.save_automation(
         _scope(), vault_path=tmp_path / "vault", payload=_payload()
     )
@@ -64,7 +76,6 @@ def test_automation_crud_is_revision_and_scope_bound(tmp_path, monkeypatch):
 
 
 def test_daily_budget_blocks_additional_runs(tmp_path, monkeypatch):
-    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     created = capability_automations.save_automation(
         _scope(),
         vault_path=tmp_path / "vault",
@@ -86,7 +97,6 @@ def test_daily_budget_blocks_additional_runs(tmp_path, monkeypatch):
 
 
 def test_active_run_blocks_overlap_and_stale_run_is_recovered(tmp_path, monkeypatch):
-    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     created = capability_automations.save_automation(
         _scope(), vault_path=tmp_path / "vault", payload=_payload()
     )
@@ -113,7 +123,6 @@ def test_active_run_blocks_overlap_and_stale_run_is_recovered(tmp_path, monkeypa
 
 
 def test_due_runner_is_bounded_to_ten(tmp_path, monkeypatch):
-    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     ids = []
     for index in range(12):
         item = capability_automations.save_automation(

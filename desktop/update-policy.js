@@ -1,14 +1,21 @@
+const { isCanonicalReleaseVersion } = require('./release-version');
+
 const RELEASE_DOWNLOAD_BASE_URL = 'https://github.com/ismigar/Gnosi/releases/download';
 
 const SUPPORTED_MAC_ARCHITECTURES = new Set(['arm64', 'x64']);
-const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
+/** @param {NodeJS.Platform} [platform] @returns {'manual' | 'automatic'} */
 function getUpdateInstallMode(platform = process.platform) {
   return platform === 'darwin' ? 'manual' : 'automatic';
 }
 
+/**
+ * @param {string} version
+ * @param {string} [architecture]
+ * @returns {string}
+ */
 function buildMacInstallerUrl(version, architecture = process.arch) {
-  if (!SEMVER_PATTERN.test(version)) {
+  if (!isCanonicalReleaseVersion(version)) {
     throw new Error('Cannot build an update URL for an invalid version');
   }
 

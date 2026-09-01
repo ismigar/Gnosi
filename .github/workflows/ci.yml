@@ -4,16 +4,50 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_call:
+    inputs:
+      release_candidate:
+        description: Validate candidate documentation as well as the shared CI checks
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
+  documentation:
+    if: github.event_name == 'pull_request' || inputs.release_candidate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.9.15'
+      - run: uv sync --frozen --group docs
+      - name: Check documentation against the exact PR base or candidate SHA
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          test -n "$PR_BASE_SHA"
+          git cat-file -e "${PR_BASE_SHA}^{commit}"
+          uv run --frozen --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
+
   frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
           submodules: recursive
       - uses: pnpm/action-setup@v6
         with:
@@ -33,19 +67,26 @@ jobs:
       - run: uv sync --frozen
       - name: Check deterministic OpenAPI and generated frontend client
         run: pnpm check:api-client
+      - name: Enforce frontend migration guardrails
+        run: pnpm guardrails:frontend
       - run: pnpm lint:frontend
       - run: pnpm --filter @gnosi/frontend typecheck
+      - name: Validate authenticated E2E setup without live credentials
+        run: pnpm test:e2e:contracts
       - run: pnpm test:frontend
       - run: pnpm build:frontend
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - run: pnpm test:desktop
+      - run: pnpm --filter @gnosi/desktop typecheck:ipc
 
   backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
           submodules: recursive
       - uses: actions/setup-python@v7
         with:
@@ -55,10 +96,23 @@ jobs:
           version: '0.9.15'
           enable-cache: true
       - run: uv sync --frozen
+      - name: Reject private tools and generated pipeline state
+        run: uv run python scripts/check_public_pipeline.py
+      - name: Enforce public pipeline size and complexity limits
+        run: uv run python scripts/check_public_pipeline.py --structure
+      - name: Reject retired host operations and local runtime state
+        run: uv run python scripts/check_public_runtime.py
       - run: uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy
       - run: uv run python scripts/check-source-guardrails.py --require-pruned
       - name: Strict type-check of the complete backend
         run: uv run mypy --strict --exclude '^backend/tests/' backend
+      - name: Strict type-check of every public pipeline Python file
+        run: uv run python scripts/check_public_pipeline.py --typecheck
+      - name: Validate frozen backend resource policy
+        run: |
+          uv run ruff check --select E,F,I desktop/scripts/backend_resources.py desktop/tests/test_backend_resources.py
+          uv run mypy --strict --explicit-package-bases desktop/scripts/backend_resources.py desktop/tests/test_backend_resources.py
+          uv run python desktop/scripts/backend_resources.py check-source --repository .
       - run: uv run python -m compileall -q backend pipeline scripts extensions
       - run: uv run pytest
 
@@ -67,6 +121,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
           submodules: recursive
       - uses: pnpm/action-setup@v6
         with:
@@ -110,6 +166,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
           submodules: recursive
       - run: docker compose config --quiet
         env:

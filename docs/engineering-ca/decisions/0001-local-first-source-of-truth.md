@@ -10,39 +10,49 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
 ---
 
-# DR 0001: Markdown Vult com a font de coneixement de la veritat
+# ADR 0001: El vault Markdown com a font de veritat del coneixement
 
 - Estat: Acceptat
-- Data de decisió: 2026- 08- 02 (formada de l' arquitectura existent)
+- Data de decisió: 2026-08-02 (formalitzada a partir de l'arquitectura existent)
 
 ## Context
 
-El Gnosi necessita edició estructurada, cerca, gràfica traversal, col· laboració, i automatització mentre es preserva el propietari de l' usuari i la interoperabilitat. Fent una base de dades d' aplicacions l' única representació crearia un bloqueig i faria còpia de seguretat normal de fitxers, sincronització i edició externa.
+Gnosi necessita edició estructurada, cerca, recorregut del graf, col·laboració
+i automatització, tot preservant la propietat de l'usuari i la interoperabilitat.
+Fer d'una base de dades d'aplicació l'única representació crearia dependència
+del producte i relegaria les còpies de seguretat de fitxers, la sincronització
+i l'edició externa a un paper secundari.
 
-## DecisióStencils
+## Decisió
 
-El coneixement d' usuari es desa com a Markdown, YALM davant de la matèria, i els actius dins d' una consola controlada per l' usuari. Les bases de dades relacionals emmagatzemen l' aplicació que no és la representació del coneixement autor. Els índexs i la memòria cau derivats del contingut de laulta es poden reconstruir.
+El coneixement de l'usuari es desa com a Markdown, frontmatter YAML i recursos
+dins d'un vault controlat per l'usuari. Les bases de dades relacionals desen
+estat de l'aplicació que no és la representació del coneixement escrit. Els
+índexs i les memòries cau derivats del contingut del vault es poden reconstruir.
 
-## Consseqüències
+## Conseqüències
 
-- Els fitxers segueixen inspeccionats i portàtils sense el Gnosi.
-- Les escrius requereixen la atòmica, l'EPags, la normalització de la identitat i la refrescació d' índex.
-- Els editors externs i proveïdors de núvol introdueixen una gran part de la capacitat i disponibilitat
-Errors que els serveis han de tolerar.
-- Les vistes a l' estil de la base de dades són projeccions sobre fitxers, així que s' escriuen avaluació i
-La consistència de registre són responsabilitats de l' aplicació.
-- SQLite i secrets segueixen sols locals perquè tenen diferents opcions
-i la sincronització semàntica.
+- Els fitxers continuen sent inspeccionables i portables sense Gnosi.
+- Les escriptures requereixen atomicitat, ETags, normalització d'identitat i actualització dels índexs.
+- Els editors externs i els proveïdors del núvol introdueixen problemes de
+  concurrència i disponibilitat que els serveis han de tolerar.
+- Les vistes de tipus base de dades són projeccions sobre fitxers; per tant,
+  l'avaluació tipada i la coherència del registre són responsabilitat de l'aplicació.
+- SQLite i els secrets es mantenen exclusivament locals perquè tenen una
+  semàntica de persistència i sincronització diferent.
 
-## alternatives rebutjades
+## Alternatives rebutjades
 
-- SQL com a únic visor de coneixement: transaccions més fortes però pèrdua de portable
-propietat del fitxer.
-- Núvol SaaS com a font obligatori: col·laboració més fàcil descentralitzada però
-incompatible amb la primera sobirania local.
-- Tractant el SQLite sincronitzat com a magatzem portàtil: insegur perquè la sincronització de fitxers
-No proporciona el bloqueig de bases de dades o replicació atòmica.
+- SQL com a únic magatzem de coneixement: transaccions més fortes, però pèrdua
+  de la propietat portable dels fitxers.
+- SaaS al núvol com a font obligatòria: col·laboració centralitzada més senzilla,
+  però incompatible amb la sobirania local-first.
+- SQLite sincronitzat com a emmagatzematge portable: insegur perquè la
+  sincronització de fitxers no proporciona bloqueig de base de dades ni replicació atòmica.
 
-## impact de verificació
+## Impacte en la verificació
 
-Prova els viatges de cobertura, escriu atòmics, conflictes ETag, identificador i comportament d' enllaç, índex reconstrueix, contenidor de ruta, fracassos del proveïdor i l'aïllament de dades locals.
+Les proves cobreixen els cicles d'anada i tornada de Markdown, les escriptures
+atòmiques, els conflictes ETag, el comportament d'identificadors i enllaços,
+la reconstrucció d'índexs, el confinament de rutes, les fallades dels proveïdors
+i l'aïllament de les dades locals.

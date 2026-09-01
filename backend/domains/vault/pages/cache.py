@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, cast
-
-from backend.domains.vault.pages.state import page_state
+from backend.domains.vault.pages.state import PreviewPayload, page_state
+from backend.domains.vault.schemas.pages import PageInfo
 
 PAGES_RESPONSE_CACHE_TTL = 1.5
 PREVIEW_CACHE_MAX = 1000
@@ -24,7 +23,7 @@ async def get_page_write_lock(page_id: str) -> asyncio.Lock:
         return lock
 
 
-def get_cached_page_response(key: str) -> list[Any] | None:
+def get_cached_page_response(key: str) -> list[PageInfo] | None:
     """Return one non-expired page-response cache entry."""
     now = time.monotonic()
     with page_state.response_cache_lock:
@@ -38,7 +37,7 @@ def get_cached_page_response(key: str) -> list[Any] | None:
         return value
 
 
-def set_cached_page_response(key: str, value: list[Any]) -> None:
+def set_cached_page_response(key: str, value: list[PageInfo]) -> None:
     """Store one page-response cache entry."""
     with page_state.response_cache_lock:
         page_state.response_cache[key] = (time.monotonic(), value)
@@ -66,7 +65,7 @@ def set_indexer_status(vault_key: str, **fields: object) -> None:
         current.update(fields)
 
 
-def get_indexer_status(vault_key: str) -> dict[str, Any]:
+def get_indexer_status(vault_key: str) -> dict[str, object]:
     """Return a detached status snapshot for one vault."""
     with page_state.indexer_status_lock:
         return dict(
@@ -87,7 +86,7 @@ def get_cached_preview(
     page_id: str,
     mtime: float,
     full: bool,
-) -> dict[str, Any] | None:
+) -> PreviewPayload | None:
     """Return a matching short or full preview and refresh its LRU position."""
     with page_state.preview_cache_lock:
         cached = page_state.preview_cache.get(page_id)
@@ -97,14 +96,14 @@ def get_cached_preview(
         value = cached.get("full" if full else "short")
         if not isinstance(value, dict):
             return None
-        return cast(dict[str, Any], value)
+        return value
 
 
 def set_cached_preview(
     page_id: str,
     mtime: float,
-    short: dict[str, Any],
-    full: dict[str, Any],
+    short: PreviewPayload,
+    full: PreviewPayload,
 ) -> None:
     """Store both preview variants and enforce the LRU size limit."""
     with page_state.preview_cache_lock:

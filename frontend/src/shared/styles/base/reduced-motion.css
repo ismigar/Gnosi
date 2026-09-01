@@ -1,0 +1,15 @@
+@media (prefers-reduced-motion: reduce) {
+  .vault-feed,
+  .vault-view-skeleton,
+  .vault-skeleton-block {
+    animation: none;
+  }
+  .vault-page-compact-header {
+    transition: none;
+  }
+  .home-card,
+  .home-card__icon-wrap,
+  .home-card__arrow {
+    transition: none;
+  }
+}

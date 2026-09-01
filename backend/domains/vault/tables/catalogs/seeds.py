@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import cast
+from backend.domains.vault.registry.records import is_record
+from backend.utils.open_values import get_value, set_value
 
 from backend.domains.vault.tables.catalogs.core import (
     OPTION_TYPES,
@@ -37,7 +38,7 @@ def _properties(table: Metadata) -> list[Metadata]:
     raw_properties = table.get("properties") or []
     if not isinstance(raw_properties, list):
         return []
-    return [cast(Metadata, prop) for prop in raw_properties if isinstance(prop, dict)]
+    return [prop for prop in raw_properties if is_record(prop)]
 
 
 def ensure_options_exist(prop: Metadata, wanted: list[Seed]) -> bool:
@@ -80,11 +81,11 @@ def _wanted_statuses(table: Metadata) -> list[Seed]:
 def _ensure_status_groups(prop: Metadata) -> bool:
     if prop.get("type") != "status":
         return False
-    config = cast(Metadata, prop.setdefault("config", {}))
-    groups = config.get("option_groups")
+    config = prop.setdefault("config", {})
+    groups = get_value(config, "option_groups")
     if isinstance(groups, list) and groups:
         return False
-    config["option_groups"] = list(DEFAULT_STATUS_GROUPS)
+    set_value(config, "option_groups", list(DEFAULT_STATUS_GROUPS))
     return True
 
 

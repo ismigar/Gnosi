@@ -18,9 +18,18 @@ test('builds the official architecture-specific macOS DMG URL', () => {
     buildMacInstallerUrl('1.2.0-rc.1', 'x64'),
     'https://github.com/ismigar/Gnosi/releases/download/v1.2.0-rc.1/Gnosi-1.2.0-rc.1-x64.dmg',
   );
+  assert.equal(
+    buildMacInstallerUrl('1.2.0-rc.1+desktop.7', 'arm64'),
+    'https://github.com/ismigar/Gnosi/releases/download/v1.2.0-rc.1+desktop.7/Gnosi-1.2.0-rc.1+desktop.7-arm64.dmg',
+  );
 });
 
 test('rejects untrusted versions and unsupported macOS architectures', () => {
-  assert.throws(() => buildMacInstallerUrl('../latest', 'arm64'), /invalid version/);
+  for (const version of [
+    '../latest', 'v1.2.0', '01.2.0', '1.2.0-01', '1.2.0-a..b',
+    '1.2.0+build..1', '1.2.0\n', ' 1.2.0',
+  ]) {
+    assert.throws(() => buildMacInstallerUrl(version, 'arm64'), /invalid version/);
+  }
   assert.throws(() => buildMacInstallerUrl('1.2.0', 'ia32'), /Unsupported macOS architecture/);
 });

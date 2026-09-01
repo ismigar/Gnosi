@@ -11,16 +11,19 @@ source_paths:
   - backend/agent/agent_context.py
   - backend/agent/factory.py
   - backend/api/agent_routes.py
-  - frontend/src/pages/NotebooksPage.jsx
-  - frontend/src/components/Notebooks
-  - frontend/src/components/AgentChat.jsx
+  - frontend/src/features/notebooks
+  - frontend/src/shared/api/notebooks.ts
+  - frontend/src/features/agent
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
-  - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
-  - frontend/src/pages/NotebooksPage.test.jsx
-  - frontend/src/lib/notebookTableActions.test.js
+  - frontend/src/features/notebooks/create/NotebookCreateDialog.test.tsx
+  - frontend/src/features/notebooks/NotebooksPage.test.tsx
+  - frontend/src/features/notebooks/detail/NotebookDetail.behavior.test.tsx
+  - frontend/src/features/notebooks/public-entry.test.ts
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/features/notebooks/model/notebookTableActions.test.ts
   - tests/e2e/tests/e2e/notebooks.spec.ts
 ---
 
@@ -37,6 +40,13 @@ questions about the attachments and URLs held by selected records in the
 configured References table. They combine a searchable notebook library, a
 paginated source panel, settings, and the same streaming chat transport used by
 the floating assistant.
+
+The embedded conversation imports the agent feature's public `AgentChat` export,
+never its private session or stream modules. The application shell loads that
+same public entry dynamically. Both consumers use the complete typed props
+contract, including immutable context references, notebook identity, and read-only
+mode. Only the outgoing HTTP payload receives a mutable array copy; reference
+contents, source selection, storage keys, and authorization remain unchanged.
 
 The record body, title, tags, and other metadata are not evidence. Gnosi reads
 record metadata only to locate values in fields whose table schema is an
@@ -214,6 +224,14 @@ attachments, mentions, and skill overrides.
 
 ## User interface behavior
 
+The strictly typed `frontend/src/features/notebooks/` domain owns the library,
+detail panels, resource selectors, creation dialog, styles, and their tests.
+Application composition consumes its public `index.ts` entry only. The page
+and creation dialog retain independent lazy imports, so opening one does not
+eagerly load the other. Domain internals use direct local imports; shared HTTP
+adapters retain the existing canonical Vault-scoped contracts. This ownership
+change does not alter routes, source selection, polling, or conversation state.
+
 The multi-select action appears only when the open table identity equals the
 configured References table identity. It is never enabled by a fixed name or
 ID. The creation dialog accepts a title, visibility, conversation mode, and up
@@ -256,9 +274,10 @@ error until a new refresh succeeds.
 
 Operators can inspect the notebook SQLite repository and durable job queue
 below `LOCAL_DATA`, but must not move either into a shared Vault. Backend code
-reloads in native development; dependency changes still require a backend
-LaunchAgent restart. The same configuration-derived paths are used in native
-and Docker deployments.
+reloads in native development, but dependency changes require updating the locked
+environment and restarting the backend process. Restart its LaunchAgent only
+when that optional macOS arrangement is used. The same configuration-derived
+paths are used in native and Docker deployments.
 
 ## Verification boundaries
 

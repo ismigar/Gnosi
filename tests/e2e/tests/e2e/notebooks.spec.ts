@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { requireJsonObject, requireStringList } from '../../support/json-value.ts';
+import { chatStreamRoute } from '../../support/api-routes.ts';
+
 const createNotebookPattern = /(crea un quadern|create notebook|crear cuaderno|créer un carnet)/i;
 const chatPlaceholderPattern = /(pregunta.*fonts|question.*sources|pregunta.*fuentes|question.*sources)/i;
 
@@ -10,7 +13,7 @@ async function dismissReleaseNotes(page: Page) {
   if (await close.isVisible()) await close.click();
 }
 
-test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ page, context }) => {
+test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ page, context }, testInfo) => {
   test.setTimeout(90_000);
   let sourceVersion = 1;
   let detailReads = 0;
@@ -20,6 +23,7 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
   let chatRequest: Record<string, unknown> | null = null;
   const selectedResourceIds: string[] = [];
   const retriedResourceIds: string[] = [];
+  const chatSourceVersions: number[] = [];
 
   await page.route('**/api/health', (route) => route.fulfill({
     json: { status: 'ok', gnosi_mode: 'personal', require_auth: false },
@@ -82,8 +86,8 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
       return;
     }
     if (url.pathname === '/api/notebooks' && method === 'POST') {
-      const payload = request.postDataJSON();
-      selectedResourceIds.push(...payload.resource_ids);
+      const payload = requireJsonObject(request.postDataJSON());
+      selectedResourceIds.push(...requireStringList(payload.resource_ids));
       notebookCreated = true;
       detailReads = 0;
       await route.fulfill({
@@ -111,11 +115,12 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
       });
       return;
     }
-    if (url.pathname === '/api/notebooks/notebook-tests/e2e/conversation') {
+    if (url.pathname === '/api/notebooks/notebook-e2e/conversation') {
       await route.fulfill({ json: { messages: [], session_id: 'notebook-e2e-private' } });
       return;
     }
-    if (url.pathname === '/api/notebooks/notebook-tests/e2e/chat-sources') {
+    if (url.pathname === '/api/notebooks/notebook-e2e/chat-sources') {
+      chatSourceVersions.push(sourceVersion);
       await route.fulfill({
         json: {
           notebook_id: 'notebook-e2e',
@@ -129,7 +134,7 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
       });
       return;
     }
-    if (url.pathname === '/api/notebooks/notebook-tests/e2e/refresh/cancel' && method === 'POST') {
+    if (url.pathname === '/api/notebooks/notebook-e2e/refresh/cancel' && method === 'POST') {
       cancelRequests += 1;
       detailReads = Math.max(detailReads, 1);
       await route.fulfill({
@@ -153,12 +158,13 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
       return;
     }
     const retryMatch = url.pathname.match(/^\/api\/notebooks\/notebook-e2e\/sources\/([^/]+)\/refresh$/);
-    if (retryMatch && method === 'POST') {
-      retriedResourceIds.push(decodeURIComponent(retryMatch[1]));
+    const retryResource = retryMatch?.[1];
+    if (retryResource !== undefined && method === 'POST') {
+      retriedResourceIds.push(decodeURIComponent(retryResource));
       await route.fulfill({ status: 202, json: { state: 'queued', revision: sourceVersion + 1 } });
       return;
     }
-    if (url.pathname === '/api/notebooks/notebook-tests/e2e/sources') {
+    if (url.pathname === '/api/notebooks/notebook-e2e/sources') {
       const ready = cancelRequests > 0;
       const activeRevision = ready ? sourceVersion : (sourceVersion > 1 ? sourceVersion - 1 : null);
       await route.fulfill({
@@ -219,8 +225,8 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
     await route.fallback();
   });
 
-  await page.route('**/api/chat', async (route) => {
-    chatRequest = route.request().postDataJSON();
+  await page.route(chatStreamRoute, async (route) => {
+    chatRequest = requireJsonObject(route.request().postDataJSON());
     await route.fulfill({
       status: 200,
       contentType: 'application/x-ndjson',
@@ -271,26 +277,28 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
   await expect.poll(() => retriedResourceIds).toEqual(['resource-web']);
   const textarea = page.getByPlaceholder(chatPlaceholderPattern);
   await expect(textarea).toBeVisible({ timeout: 10_000 });
-  const chooseSources = page.getByRole('button', { name: /Choose sources|Tria les fonts|Elegir fuentes|Choisir les sources/i });
-  await chooseSources.click();
-  await expect(page.getByRole('dialog', { name: /conversation sources|fonts de la conversa|fuentes de la conversación|sources de la conversation/i })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: /conversation sources|fonts de la conversa|fuentes de la conversación|sources de la conversation/i })).toHaveCount(0);
-  await chooseSources.click();
-  const contextDialog = page.getByRole('dialog', { name: /conversation sources|fonts de la conversa|fuentes de la conversación|sources de la conversation/i });
-  await contextDialog.getByLabel(`evidence-v${sourceVersion}.pdf`).uncheck();
-  await contextDialog.getByLabel('Related notebook').check();
-  await contextDialog.getByRole('button', { name: /Apply|Aplica|Aplicar|Appliquer/i }).click();
-  await expect(page.getByText(/5 sources · 2 notebooks|5 fonts · 2 quaderns|5 fuentes · 2 cuadernos|5 sources · 2 carnets/i)).toBeVisible();
+  const pdfSource = page.getByRole('checkbox', { name: 'PDF evidence', exact: true });
+  const webSource = page.getByRole('checkbox', { name: 'Web evidence', exact: true });
+  await expect(pdfSource).toBeChecked();
+  await expect(webSource).toBeChecked();
+  await pdfSource.uncheck();
+  await webSource.uncheck();
+  await expect(page.getByRole('heading', {
+    name: /Choose at least one source|Tria almenys una font|Elige al menos una fuente|Choisissez au moins une source/i,
+  })).toBeVisible();
+  await expect(textarea).toHaveCount(0);
+  await webSource.check();
+  await expect(page.locator('.notebook-chat-context-bar')).toHaveText(/1 (?:sources?|fonts?|fuentes?)/i);
+  await expect(textarea).toBeVisible();
   await textarea.fill('What do both sources support?');
   await textarea.press('Enter');
+  await expect.poll(() => chatRequest).not.toBeNull();
 
   await expect(page.getByText('The notebook evidence supports this grounded answer.')).toBeVisible();
   expect(chatRequest).toMatchObject({
     notebook_id: 'notebook-e2e',
     context_refs: [
       { type: 'notebook', ref: 'notebook-e2e', scope: { selection: 'sources', source_ids: ['web-1'] } },
-      { type: 'notebook', ref: 'notebook-related', scope: { selection: 'all', source_ids: [] } },
     ],
   });
   await expect(page.getByRole('link', { name: 'Web evidence' })).toBeVisible();
@@ -299,12 +307,16 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
   const openedSource = await sourcePopup;
   await expect(openedSource).toHaveTitle('Grounded web source');
   await openedSource.close();
+  await page.screenshot({ path: testInfo.outputPath('grounded-answer.png') });
 
   sourceVersion = 2;
   detailReads = 0;
   await page.goto('/notebooks', { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.getByRole('button', { name: /Grounded E2E notebook/i }).click();
   await expect(page.getByText(/Revision 2|Revisió 2|Revisión 2|Révision 2/i)).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText('evidence-v2.pdf')).toBeVisible();
+  await expect.poll(() => chatSourceVersions.at(-1)).toBe(2);
+  await expect(pdfSource).toBeChecked();
+  await expect(webSource).toBeChecked();
   expect(openRefreshRequests).toBeGreaterThanOrEqual(2);
+  await page.screenshot({ path: testInfo.outputPath('refreshed-notebook.png') });
 });

@@ -8,10 +8,10 @@ from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
 
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.schemas.pages import PagePatchRequest, PageSaveRequest
 from backend.domains.vault.translation.adapters import DetectLanguage
 from backend.domains.vault.translation.types import (
@@ -22,6 +22,7 @@ from backend.domains.vault.translation.types import (
     TranslateMarkdown,
     TranslateText,
 )
+from backend.utils.open_values import iterable_values, list_values
 
 
 @dataclass(frozen=True)
@@ -33,27 +34,27 @@ class RowTranslationDependencies:
     check_requires: Callable[[Metadata, str, Metadata], tuple[bool, str | None]]
     action_translate: str
     detect_record_source_lang: Callable[[Metadata], str]
-    is_composite_image_value: Callable[[Any], bool]
-    is_image_field_name: Callable[[Any], bool]
+    is_composite_image_value: Callable[[object], bool]
+    is_image_field_name: Callable[[object], bool]
     translate_image_field: Callable[
-        [Any, Callable[[str], tuple[str, str]]],
-        tuple[Any, set[str], bool],
+        [object, Callable[[str], tuple[str, str]]],
+        tuple[object, set[str], bool],
     ]
     language_field_assignment: Callable[
-        [Iterable[Any], str, Metadata],
-        tuple[str | None, Any],
+        [Iterable[object], str, Metadata],
+        tuple[str | None, str | list[str] | None],
     ]
     status_effect: Callable[
         [Metadata, str, str],
         tuple[Metadata | None, str | None, bool],
     ]
     effect_write_key: Callable[[Metadata, Metadata], str | None]
-    persist_status_options: Callable[[str, list[Any]], None]
-    write_metadata_key: Callable[[str, Path, str, Any], bool]
-    existing_translations: Callable[[str], Awaitable[dict[str, Any]]]
+    persist_status_options: Callable[[str, list[object]], None]
+    write_metadata_key: Callable[[str, Path, str, object], bool]
+    existing_translations: Callable[[str], Awaitable[dict[str, object]]]
     recover_translations: Callable[
         [str, Path, Iterable[object]],
-        Awaitable[dict[str, Any]],
+        Awaitable[dict[str, object]],
     ]
     materialize: Callable[[Path, str], Awaitable[object]]
     known_translations: Callable[[str], dict[str, str]]
@@ -74,7 +75,7 @@ class FieldTranslation:
     any_translated: bool = False
 
 
-def _read_property(metadata: Metadata, prop: Metadata) -> Any:
+def _read_property(metadata: Metadata, prop: Metadata) -> object:
     is_title = prop.get("type") == "title" or prop.get("name") == "title"
     candidate_keys: list[str] = []
     if is_title:
@@ -87,7 +88,7 @@ def _read_property(metadata: Metadata, prop: Metadata) -> Any:
         candidate_keys.append(str(prop_name))
     if is_title:
         candidate_keys.append("title")
-    fallback: Any = None
+    fallback: object = None
     for key in candidate_keys:
         if key not in metadata:
             continue
@@ -232,7 +233,7 @@ async def _translate_body(
 
 def _apply_language_and_status(
     result: FieldTranslation,
-    properties: list[Metadata],
+    properties: list[object],
     target_language: str,
     parent_metadata: Metadata,
     table: Metadata,
@@ -277,7 +278,7 @@ async def _merge_known_translations(
     target_languages: list[object],
     table_directory: Path,
     dependencies: RowTranslationDependencies,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     existing = await dependencies.existing_translations(item_id)
     requested = {
         language.strip().lower()
@@ -316,11 +317,11 @@ async def _persist_translation(
     body: str,
     metadata: Metadata,
     providers: set[str],
-    existing: Any,
+    existing: object,
     background_tasks: BackgroundTasks,
     dependencies: RowTranslationDependencies,
 ) -> tuple[str, Result]:
-    existing_id = getattr(existing, "id", None) if existing is not None else None
+    existing_id: object = getattr(existing, "id", None) if existing is not None else None
     if existing_id:
         existing_path = await asyncio.to_thread(dependencies.find_page, str(existing_id))
         if existing_path:
@@ -328,11 +329,11 @@ async def _persist_translation(
                 existing_path,
                 f"translate-patch/{existing_id}",
             )
-        patch_request = PagePatchRequest(
-            title=title,
-            metadata=metadata,
-            content=body if body and body.strip() else None,
-        )
+        patch_request = PagePatchRequest.model_validate({
+            "title": title,
+            "metadata": metadata,
+            "content": body if body and body.strip() else None,
+        })
         await dependencies.patch_page(
             str(existing_id),
             patch_request,
@@ -350,12 +351,12 @@ async def _persist_translation(
             "providers": sorted(providers),
             "title": title,
         }
-    create_request = PageSaveRequest(
-        title=title,
-        content=body or "",
-        parent_id=item_id,
-        metadata=metadata,
-    )
+    create_request = PageSaveRequest.model_validate({
+        "title": title,
+        "content": body or "",
+        "parent_id": item_id,
+        "metadata": metadata,
+    })
     created = await dependencies.create_page(create_request, background_tasks)
     new_id = created.get("id")
     if new_id:
@@ -446,8 +447,8 @@ async def translate_row(
         )
     properties = [
         prop
-        for prop in (table.get("properties") or [])
-        if isinstance(prop, dict) and prop.get("translatable") is True
+        for prop in iterable_values(table.get("properties") or [])
+        if is_record(prop) and prop.get("translatable") is True
     ]
     if not properties:
         raise HTTPException(
@@ -518,7 +519,7 @@ async def translate_row(
         fields.metadata.update(translated_metadata)
         _apply_language_and_status(
             fields,
-            list(table.get("properties") or []),
+            list_values(table.get("properties") or []),
             language,
             metadata,
             table,

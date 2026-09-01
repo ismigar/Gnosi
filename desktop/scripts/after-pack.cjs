@@ -1,7 +1,7 @@
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
-const { verifyPackagedRuntime } = require('./packaging-contract.cjs');
+const { verifyPackagedRuntime, verifyPackagedBackendResources } = require('./packaging-contract.cjs');
 
 /**
  * Seal unsigned macOS bundles so Gatekeeper does not report them as damaged.
@@ -90,6 +90,7 @@ function depth(target) {
 
 exports.default = async function afterPack(context) {
   verifyPackagedRuntime(context);
+  verifyPackagedBackendResources(context);
 
   if (context.electronPlatformName !== 'darwin') return;
 

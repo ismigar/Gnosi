@@ -16,6 +16,7 @@ from backend.models.scheduler import TaskExecutionHistory
 from backend.scheduler import task_handlers as scheduler_task_handlers
 from backend.scheduler.contracts import ScheduledTask, TaskSpec
 from backend.scheduler.notifications import notify
+from backend.utils.open_values import get_value, iterable_values
 
 
 class SchedulerManager:
@@ -38,7 +39,7 @@ class SchedulerManager:
             "default_interval": 1440,  # 24 hours
         },
         "system_maintenance": {
-            "description": "System maintenance (logs, mailbox, sandbox)",
+            "description": "System maintenance (application log and memory cache)",
             "default_interval": 1440,  # 24 hours
         },
         "llm_wiki_maintenance": {
@@ -705,8 +706,8 @@ class SchedulerManager:
         from backend.api.vault_routes import _llm_wiki_enabled, _load_plugins_state
         from backend.services import llm_wiki_config, llm_wiki_indices, llm_wiki_lint
 
-        is_enabled = cast(Callable[[dict[str, Any]], bool], _llm_wiki_enabled)
-        load_plugins_state = cast(Callable[[], dict[str, Any]], _load_plugins_state)
+        is_enabled = _llm_wiki_enabled
+        load_plugins_state = _load_plugins_state
         if not is_enabled(load_plugins_state()):
             return {"skipped": True, "reason": "plugin_disabled"}
         config = llm_wiki_config.load_config()
@@ -714,9 +715,9 @@ class SchedulerManager:
         if not brain_table_id:
             return {"skipped": True, "reason": "brain_not_configured"}
         source_ids = [
-            str(item.get("table_id") or "")
-            for item in config.get("source_tables") or []
-            if item.get("table_id")
+            str(get_value(item, "table_id") or "")
+            for item in iterable_values(config.get("source_tables") or [])
+            if get_value(item, "table_id")
         ]
         return {
             "indexes": llm_wiki_indices.rebuild_indexes(brain_table_id, config),
@@ -736,7 +737,7 @@ class SchedulerManager:
         return queue_due_review_updates()
 
     def _task_system_maintenance(self) -> dict[str, Any]:
-        """Comprehensive system cleanup: logs, mailbox, sandbox, and caches."""
+        """Clear the canonical application log and RAM cache, never source or user data."""
         return scheduler_task_handlers.system_maintenance()
 
     def _task_suggest_connections(self) -> dict[str, Any]:
@@ -745,8 +746,8 @@ class SchedulerManager:
         from backend.api.vault_routes import _llm_wiki_enabled, _load_plugins_state
         from backend.services.llm_wiki_actions import run_maintenance
 
-        is_enabled = cast(Callable[[dict[str, Any]], bool], _llm_wiki_enabled)
-        load_plugins_state = cast(Callable[[], dict[str, Any]], _load_plugins_state)
+        is_enabled = _llm_wiki_enabled
+        load_plugins_state = _load_plugins_state
         if not is_enabled(load_plugins_state()):
             return {
                 "success": True,

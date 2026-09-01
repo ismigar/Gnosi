@@ -11,16 +11,19 @@ source_paths:
   - backend/agent/agent_context.py
   - backend/agent/factory.py
   - backend/api/agent_routes.py
-  - frontend/src/pages/NotebooksPage.jsx
-  - frontend/src/components/Notebooks
-  - frontend/src/components/AgentChat.jsx
+  - frontend/src/features/notebooks
+  - frontend/src/shared/api/notebooks.ts
+  - frontend/src/features/agent
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
-  - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
-  - frontend/src/pages/NotebooksPage.test.jsx
-  - frontend/src/lib/notebookTableActions.test.js
+  - frontend/src/features/notebooks/create/NotebookCreateDialog.test.tsx
+  - frontend/src/features/notebooks/NotebooksPage.test.tsx
+  - frontend/src/features/notebooks/detail/NotebookDetail.behavior.test.tsx
+  - frontend/src/features/notebooks/public-entry.test.ts
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/features/notebooks/model/notebookTableActions.test.ts
   - tests/e2e/tests/e2e/notebooks.spec.ts
 ---
 
@@ -37,6 +40,14 @@ questions portant sur les pièces jointes et les URL des enregistrements
 sélectionnés dans la table Références configurée. Ils réunissent une bibliothèque
 de carnets interrogeable, un panneau de sources paginé, les paramètres et le même
 transport de conversation en streaming que l'assistant flottant.
+
+La conversation intégrée importe l'export public `AgentChat` de la fonctionnalité
+agent, jamais ses modules privés de session ou de streaming. Le shell charge
+dynamiquement la même entrée publique. Les deux consommateurs utilisent le
+contrat typé complet des propriétés, notamment les références de contexte
+immuables, l'identité du carnet et le mode lecture seule. Seul le payload HTTP
+sortant reçoit une copie mutable du tableau ; le contenu des références, la
+sélection des sources, les clés de stockage et l'autorisation restent inchangés.
 
 Le corps, le titre, les étiquettes et les autres métadonnées de l'enregistrement
 ne constituent pas des preuves. Gnosi ne lit les métadonnées que pour localiser
@@ -97,7 +108,7 @@ sans changement est enregistrée, mais n'active pas de nouvelle révision de
 preuves.
 
 YouTube, Vimeo et les autres adaptateurs de streaming compatibles effectuent
-une vérification des métadonnées sans télécharger le contenu. Gnosi compare une
+une vérification des métadonnées sans télécharger le contenu, après le même TTL. Gnosi compare une
 empreinte déterministe de l'identité, de la durée, des horodatages, de l'état
 en direct et de la taille; le média n'est téléchargé et transcrit à nouveau que
 si elle change. Une nouvelle tentative par Ressource force uniquement la cible
@@ -106,6 +117,10 @@ et copie les autres preuves depuis la révision active.
 Retirer une Ressource supprime immédiatement son appartenance au carnet. La
 recherche et l'analyse globale vérifient l'ensemble actuel des membres; les
 preuves retirées sont donc exclues avant même qu'une nouvelle révision soit prête.
+Les adaptateurs de catalogue et d'actualisation lisent directement les composants
+canoniques du vault responsables des pages, tables et références. Ils n'appellent
+pas la façade dynamique de compatibilité HTTP, ce qui maintient une direction
+explicite des dépendances du domaine.
 
 ## Persistance et reprise
 
@@ -122,7 +137,11 @@ après le redémarrage du processus. L'activation d'une révision est
 transactionnelle. Si le rafraîchissement d'une source déjà indexée échoue, sa
 dernière version valide reste disponible avec l'état `stale`; une nouvelle
 source en échec est signalée et exclue.
+L'admission d'une analyse résout un vault actif concret avant la mise en file.
+L'absence de contexte de requête provoque un échec avant qu'un payload durable
+puisse contenir un chemin ambigu ou propre à une machine.
 
+Les nouvelles révisions sont soumises à la politique de rétention.
 Le nettoyage conserve la révision active, les trois dernières révisions
 complètes et les vingt derniers résultats d'audit par défaut, toutes les
 révisions épinglées par une conversation et celles utilisées par les analyses
@@ -143,6 +162,8 @@ La barre de contexte permet de choisir des pièces jointes ou URL précises dans
 le carnet actuel et d'ajouter d'autres carnets accessibles. Un carnet ajouté
 apporte toutes ses sources disponibles, tandis que le carnet actuel reste
 propriétaire de l'historique partagé ou privé.
+Les carnets joints restent des sources en lecture seule et ne fusionnent
+jamais leurs historiques de conversation.
 
 Chaque tour épingle côté serveur une révision positive et complète de chaque
 carnet sélectionné. Les identifiants de source sont validés par rapport à la
@@ -194,7 +215,7 @@ les mêmes fils isolés et les réponses OpenAPI gelées.
 
 ## Contrats HTTP
 
-| Point final | Objet |
+| Endpoint | Objet |
 | --- | --- |
 | `GET/POST /api/notebooks` | Bibliothèque paginée et création à partir d'identifiants de Ressources |
 | `GET/PATCH/DELETE /api/notebooks/{id}` | Détail, paramètres et suppression des données dérivées |
@@ -202,7 +223,7 @@ les mêmes fils isolés et les réponses OpenAPI gelées.
 | `GET/POST /api/notebooks/{id}/sources` | Inspecter ou ajouter des Ressources |
 | `GET /api/notebooks/{id}/chat-sources` | Choix autorisés de sources et de carnets pour le contexte de conversation |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Exclure immédiatement une ressource |
-| `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Réessayer uniquement une Ressource |
+| `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Réessayer uniquement une Ressource en réutilisant les autres preuves |
 | `POST /api/notebooks/{id}/refresh` | Rafraîchissement explicite fusionné du carnet |
 | `POST /api/notebooks/{id}/refresh/cancel` | Annuler coopérativement l'ingestion active |
 | `GET /api/notebooks/{id}/evidence/{chunk_id}?revision={revision}` | Résoudre une citation autorisée dans sa révision immuable |
@@ -218,12 +239,22 @@ mentions et les surcharges de compétences.
 
 ## Comportement de l'interface utilisateur
 
+Le domaine strictement typé `frontend/src/features/notebooks/` gère la
+bibliothèque, les panneaux de détail, les sélecteurs de ressources, le dialogue
+de création, les styles et leurs tests. La composition de l'application utilise
+uniquement son entrée publique `index.ts`. La page et le dialogue gardent des
+imports différés indépendants : ouvrir l'un ne charge pas immédiatement l'autre.
+Les modules internes utilisent des imports locaux directs ; les adaptateurs
+HTTP partagés conservent les contrats canoniques propres au vault. Ce déplacement
+ne modifie ni les routes, ni la sélection des sources, ni les interrogations
+périodiques, ni l'état de conversation.
+
 L'action de sélection multiple n'apparaît que si l'identité de la table ouverte
 correspond à celle de la table Références configurée. Elle n'est jamais activée
 par un nom ou un identifiant fixe. La boîte de dialogue accepte un titre, une
 visibilité, un mode de conversation et jusqu'à mille identifiants de Ressources.
 Les sélecteurs de création et d'ajout trient tout le catalogue par ordre
-alphabétique avant pagination et proposent des filtres de type, d'auteur et
+alphabétique sans distinction d'accents avant pagination et proposent des filtres de type, d'auteur et
 d'étiquettes dérivés du schéma. Ces métadonnées servent uniquement à la
 sélection et n'entrent jamais dans les preuves. Les pages marquées comme
 modèles de table sont exclues du sélecteur, de la validation des requêtes et
@@ -240,10 +271,10 @@ tant qu'une tâche est active, et un intervalle borné actualise la conversation
 collaborative. Les carnets inactifs ne sont pas interrogés.
 
 La progression indique la Ressource en cours et permet au créateur d'annuler
-l'indexation. Chaque Ressource affiche la dernière vérification et la raison
+l'indexation. Chaque Ressource affiche la dernière vérification réussie et la raison
 bornée de l'erreur; les sources en échec affichent aussi leur propre raison. La
-nouvelle tentative individuelle est désactivée lorsqu'une autre révision est
-active.
+nouvelle tentative individuelle est désactivée lorsqu'une autre révision
+d'ingestion est active.
 
 Les lecteurs de l'espace de travail voient la conversation canonique dans un
 chat clairement en lecture seule, sans zone de saisie ni actions de nouvelle
@@ -259,17 +290,20 @@ sont `pending`, `indexing`, `available`, `stale` et `error`; le rafraîchissemen
 manuel permet une nouvelle tentative. Une erreur ne remplace jamais une
 révision active complète.
 
-L'annulation est coopérative et durable : le worker vérifie l'état avant chaque
+L'annulation est coopérative : la file passe à l'état durable `cancelled` et
+le worker vérifie cet état avant chaque
 Ressource et avant l'activation atomique. La transaction en cours est annulée
 et la dernière révision complète reste disponible; si la première ingestion
-est annulée, la conversation reste bloquée jusqu'à la réussite d'un nouveau
+est annulée, la conversation reste bloquée avec une erreur visible jusqu'à la réussite d'un nouveau
 rafraîchissement.
 
 Les opérateurs peuvent inspecter le dépôt SQLite et la file de tâches durable
 sous `LOCAL_DATA`, mais ne doivent jamais les déplacer dans un Vault partagé.
-Le code backend se recharge en développement natif; les changements de
-dépendances exigent toujours un redémarrage du LaunchAgent backend. Les mêmes
-chemins dérivés de la configuration fonctionnent en déploiement natif et Docker.
+Le code backend se recharge en développement natif, mais les changements de
+dépendances exigent une mise à jour de l'environnement fixé par le lock et un
+redémarrage du processus backend. Ne redémarrez son LaunchAgent que si cette
+configuration macOS optionnelle est utilisée. Les mêmes chemins dérivés de la
+configuration fonctionnent en déploiement natif et Docker.
 
 ## Limites de vérification
 
@@ -280,7 +314,8 @@ des révisions, les outils en lecture seule et l'analyse durable épinglée. Ils
 couvrent également PDF, URL, OCR, grands fragments, reprise des baux expirés,
 validation web conditionnelle et ingestion réelle de 300 Ressources. Vitest et
 Playwright vérifient les permissions en lecture seule, l'exclusion des
-Ressources vides, la conversation fondée, une citation navigable et le
+Ressources vides, l'action en lot de la table configurée, les sélecteurs,
+la conversation fondée, une citation navigable et le
 rafraîchissement automatique. La validation de livraison exige aussi un
 démarrage backend propre, le build frontend et un parcours navigateur sur
 ordinateur et mobile.

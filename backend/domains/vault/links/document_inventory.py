@@ -7,12 +7,23 @@ from collections.abc import Callable, Iterable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import TypeGuard, TypedDict
+
+from backend.domains.vault.pages.foundation_values import PageMetadata
 
 
-Metadata = dict[str, object]
+Metadata = PageMetadata
 LinkableDocument = tuple[Path, Metadata, str, bool]
-DocumentCache = dict[str, dict[str, object]]
+
+
+class DocumentCacheEntry(TypedDict, total=False):
+    """Envelope written by the document inventory and patched in place."""
+
+    docs: list[LinkableDocument]
+    ts: float
+
+
+DocumentCache = dict[str, DocumentCacheEntry]
 
 
 @dataclass(frozen=True)
@@ -40,9 +51,7 @@ def _cached_documents(
     if not entry:
         return None, 0.0
     raw_documents = entry.get("docs")
-    documents = (
-        cast(list[LinkableDocument], raw_documents) if isinstance(raw_documents, list) else None
-    )
+    documents = raw_documents if isinstance(raw_documents, list) else None
     raw_timestamp = entry.get("ts", 0.0)
     timestamp = float(raw_timestamp) if isinstance(raw_timestamp, (int, float)) else 0.0
     return documents, timestamp
@@ -52,7 +61,7 @@ def _is_fresh(
     documents: list[LinkableDocument] | None,
     timestamp: float,
     dependencies: DocumentInventoryDependencies,
-) -> bool:
+) -> TypeGuard[list[LinkableDocument]]:
     return documents is not None and dependencies.now() - timestamp < dependencies.cache_ttl
 
 
@@ -116,11 +125,11 @@ def linkable_documents(
     vault_key = dependencies.current_vault_key()
     cached, timestamp = _cached_documents(vault_key, dependencies)
     if _is_fresh(cached, timestamp, dependencies):
-        return cast(list[LinkableDocument], cached)
+        return cached
     with dependencies.cache_lock:
         cached, timestamp = _cached_documents(vault_key, dependencies)
         if _is_fresh(cached, timestamp, dependencies):
-            return cast(list[LinkableDocument], cached)
+            return cached
         documents = _vault_documents(dependencies)
         documents.extend(_dashboard_documents(dependencies))
         dependencies.cache[vault_key] = {

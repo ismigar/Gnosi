@@ -15,5 +15,10 @@ patchedDependencies:
   emscripten-wasm-loader@3.0.3: patches/emscripten-wasm-loader@3.0.3.patch
 
 allowBuilds:
-  electron: true
+  # Electron 43 uses the explicit desktop install:runtime command.
+  electron: false
+  # Squirrel.Windows is a transitive builder dependency; Gnosi ships NSIS.
+  electron-winstaller: false
   esbuild: true
+  # Supported desktop targets use Koffi's prebuilt Node-API artifacts only.
+  koffi: false

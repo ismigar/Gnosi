@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from backend.domains.vault.links.index_service import Document
 from backend.domains.vault.links.state import LinkIndexView
+from backend.domains.vault.pages.foundation_values import PageMetadata
 
 
 class DashboardWriter(Protocol):
@@ -18,7 +19,7 @@ class DashboardWriter(Protocol):
         file_path: Path,
         page_id: str,
         title: str,
-        metadata: dict[str, Any],
+        metadata: PageMetadata,
         content: str,
         parent_id: object,
         is_database: bool,
@@ -35,11 +36,11 @@ class LinkApiDependencies:
     iter_documents: Callable[[], list[Document]]
     find_page: Callable[[str], Path | None]
     is_dashboard: Callable[[Path], bool]
-    read_dashboard: Callable[[Path], tuple[dict[str, Any], str]]
-    parse_frontmatter: Callable[[str, Path], tuple[dict[str, Any], str]]
+    read_dashboard: Callable[[Path], tuple[PageMetadata, str]]
+    parse_frontmatter: Callable[[str, Path], tuple[PageMetadata, str]]
     resolve_create_page_version: Callable[[], Callable[[str, Path], object]]
     write_dashboard: DashboardWriter
-    save_page: Callable[[Path, dict[str, Any], str], object]
+    save_page: Callable[[Path, PageMetadata, str], object]
     resolve_update_index: Callable[[], Callable[[Path], None]]
     is_safe_external_url: Callable[[str], tuple[bool, str]]
     build_browser_path: Callable[[str, str], str]

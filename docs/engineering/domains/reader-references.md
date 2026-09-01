@@ -23,10 +23,10 @@ source_paths:
   - backend/services/references_io.py
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
-  - frontend/src/pages/ReaderDashboard.jsx
-  - frontend/src/pages/LiteraturePage.jsx
-  - frontend/src/components/ResourcesPluginConfig.jsx
-  - frontend/src/components/Vault/ZoteroReaderTab.jsx
+  - frontend/src/features/reader
+  - frontend/src/features/literature
+  - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
+  - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
@@ -44,11 +44,21 @@ tests:
   - backend/tests/test_literature_service.py
   - backend/tests/test_literature_import_service.py
   - backend/tests/test_literature_review_service.py
-  - frontend/src/pages/LiteraturePage.test.jsx
-  - frontend/src/components/ResourcesPluginConfig.test.jsx
+  - frontend/src/features/reader/ReaderDashboard.test.tsx
+  - frontend/src/features/reader/public-entry.test.ts
+  - frontend/src/features/literature/LiteraturePage.test.tsx
+  - frontend/src/features/literature/public-entry.test.ts
+  - frontend/src/features/literature/settings/ResourcesPluginConfig.test.tsx
 ---
 
 # Reader, references, and citations
+
+The strictly typed `features/reader/` and `features/literature/` frontend
+domains own their respective pages, local components, state, and tests.
+Each exposes a public lazy entry, keeping feed reading and bibliographic
+search independently loaded. Literature styles retain their existing cascade
+order under the feature. Shared request adapters, Zotero integration, provider
+configuration and citation rendering are not duplicated into these domains.
 
 Reader routing, storage, analysis, and source access now live in
 `backend/domains/reader/`; literature repositories, search, synchronization and

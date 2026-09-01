@@ -21,10 +21,20 @@ away when no provider is configured; this module is the always-available core.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
 
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import legacy_ports
+from backend.domains.llm_wiki.lint_contracts import (
+    BrokenCitation,
+    DuplicateManagedKey,
+    LintNote,
+    LintReport,
+    MissingCrossReference,
+    NoteFinding,
+    ReprocessCandidate,
+    ResourceIndexDrift,
+    StaleFinding,
+)
 
 logger = get_logger(__name__)
 
@@ -55,7 +65,7 @@ def _outbound_targets(body: str) -> tuple[set[str], set[str]]:
     return ids, titles
 
 
-def _read_body(path: Optional[str]) -> str:
+def _read_body(path: str | None) -> str:
     if not path:
         return ""
     try:
@@ -72,10 +82,10 @@ def _read_body(path: Optional[str]) -> str:
     return raw
 
 
-def _load_notes(brain_table_id: str) -> List[Dict[str, Any]]:
+def _load_notes(brain_table_id: str) -> list[LintNote]:
     from backend.services import llm_wiki_config, llm_wiki_storage
 
-    notes: List[Dict[str, Any]] = []
+    notes: list[LintNote] = []
     for p in legacy_ports.table_pages(brain_table_id):
         meta = llm_wiki_storage.page_metadata(p)
         if meta.get("is_template"):
@@ -107,7 +117,7 @@ def _load_notes(brain_table_id: str) -> List[Dict[str, Any]]:
     return notes
 
 
-def _days_since(iso_date: str) -> Optional[int]:
+def _days_since(iso_date: str) -> int | None:
     if not iso_date:
         return None
     import datetime
@@ -119,7 +129,7 @@ def _days_since(iso_date: str) -> Optional[int]:
     return (datetime.date.today() - d).days
 
 
-def _inbound_note_ids(notes: List[Dict[str, Any]]) -> set[str]:
+def _inbound_note_ids(notes: list[LintNote]) -> set[str]:
     """Collect note ids referenced by another note's id or title."""
     canon_to_id = {_canonical_id(note["id"]): note["id"] for note in notes}
     title_to_id = {note["title"].strip().lower(): note["id"] for note in notes}
@@ -136,7 +146,7 @@ def _inbound_note_ids(notes: List[Dict[str, Any]]) -> set[str]:
     return inbound
 
 
-def _orphan_findings(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _orphan_findings(notes: list[LintNote]) -> list[NoteFinding]:
     """Return managed knowledge notes with no inbound link."""
     inbound = _inbound_note_ids(notes)
     return [
@@ -146,9 +156,9 @@ def _orphan_findings(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ]
 
 
-def _stale_findings(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _stale_findings(notes: list[LintNote]) -> list[StaleFinding]:
     """Return knowledge notes whose review date is missing or old."""
-    stale: List[Dict[str, Any]] = []
+    stale: list[StaleFinding] = []
     for note in notes:
         days = _days_since(note["review"])
         if note["note_type"] not in {"lectura", "permanent"}:
@@ -165,9 +175,9 @@ def _stale_findings(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return stale
 
 
-def _missing_cross_references(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _missing_cross_references(notes: list[LintNote]) -> list[MissingCrossReference]:
     """Find prose title mentions that are not explicit wiki links."""
-    findings: List[Dict[str, Any]] = []
+    findings: list[MissingCrossReference] = []
     for note in notes:
         body = note["body"].lower()
         for other in notes:
@@ -191,9 +201,9 @@ def _missing_cross_references(notes: List[Dict[str, Any]]) -> List[Dict[str, Any
     return findings
 
 
-def _duplicate_managed_keys(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _duplicate_managed_keys(notes: list[LintNote]) -> list[DuplicateManagedKey]:
     """Group managed notes that share one provenance key."""
-    grouped_by_key: Dict[str, List[Dict[str, Any]]] = {}
+    grouped_by_key: dict[str, list[LintNote]] = {}
     for note in notes:
         if note["managed_key"]:
             grouped_by_key.setdefault(note["managed_key"], []).append(note)
@@ -207,7 +217,7 @@ def _duplicate_managed_keys(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     ]
 
 
-def _resource_index_drift(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _resource_index_drift(notes: list[LintNote]) -> list[ResourceIndexDrift]:
     """Return active reading resources that lack a managed index note."""
     indexed = {
         (note["source_table_id"], note["resource_id"])
@@ -230,8 +240,8 @@ def _resource_index_drift(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def run_lint(
     brain_table_id: str,
-    reference_table_id: Optional[str | List[str]] = None,
-) -> Dict[str, Any]:
+    reference_table_id: str | list[str] | None = None,
+) -> LintReport:
     """Run the deterministic Brain health checks and return a report."""
     notes = _load_notes(brain_table_id)
     orphans = _orphan_findings(notes)
@@ -246,7 +256,7 @@ def run_lint(
     reprocess = [item for source_id in source_ids for item in _reprocess_candidates(source_id)]
 
     duplicate_keys = _duplicate_managed_keys(notes)
-    stale_managed = [
+    stale_managed: list[NoteFinding] = [
         {"id": note["id"], "title": note["title"]} for note in notes if note["managed_stale"]
     ]
     broken_cites = _broken_citations(notes)
@@ -276,7 +286,7 @@ def run_lint(
     }
 
 
-def _reprocess_candidates(reference_table_id: str) -> List[Dict[str, Any]]:
+def _reprocess_candidates(reference_table_id: str) -> list[ReprocessCandidate]:
     """Resources whose file was modified after they were processed into the
     Brain (the `Processat pel Cervell` date is older than the file mtime)."""
     import datetime
@@ -284,7 +294,7 @@ def _reprocess_candidates(reference_table_id: str) -> List[Dict[str, Any]]:
 
     from backend.api.vault_routes import LLM_WIKI_PROCESSED_COL
 
-    out: List[Dict[str, Any]] = []
+    out: list[ReprocessCandidate] = []
     for p in legacy_ports.table_pages(reference_table_id):
         meta = getattr(p, "metadata", None) or {}
         processed = str(meta.get(LLM_WIKI_PROCESSED_COL) or "").strip()
@@ -315,12 +325,12 @@ _CITE_RE = re.compile(
 )
 
 
-def _broken_citations(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _broken_citations(notes: list[LintNote]) -> list[BrokenCitation]:
     from urllib.parse import unquote
 
     from backend.services.llm_wiki_storage import load_evidence
 
-    out = []
+    out: list[BrokenCitation] = []
     for note in notes:
         for match in _CITE_RE.finditer(note["body"]):
             resource_id, snapshot_id, segment_id = (unquote(value) for value in match.groups())

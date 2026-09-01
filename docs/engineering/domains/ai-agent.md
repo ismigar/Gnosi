@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/configuration/plugin_state.py
@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_assist.py
   - backend/services/llm_wiki_suggestions.py
   - backend/services/llm_wiki_storage.py
@@ -50,12 +51,20 @@ source_paths:
   - backend/mcp/client.py
   - pipeline/ai_client.py
   - pipeline/skills/translate_row
-  - frontend/src/components/AgentChat.jsx
-  - frontend/src/components/AI
+  - frontend/src/features/agent
+  - frontend/src/features/settings/AI
+  - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_observability_contracts.py
+  - backend/tests/test_agent_observability_policy.py
+  - frontend/src/features/agent/public-entry.test.ts
+  - frontend/src/features/agent/chat/AgentChat.transport.test.tsx
+  - frontend/src/features/agent/chat/submitChatTurn.test.ts
+  - frontend/src/features/agent/chat/chat-message-actions.test.ts
   - backend/tests/test_capability_automations.py
   - backend/tests/test_llm_wiki_extraction_domains.py
   - backend/tests/test_llm_wiki_lint.py
+  - backend/tests/test_llm_wiki_lint_edge_contracts.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
   - backend/tests/test_llm_wiki_processing_domain_contract.py
   - backend/tests/test_llm_wiki_configuration_domain_contract.py
@@ -95,6 +104,20 @@ tests:
 ---
 
 # AI agents, models, tools, and skills
+
+## Frontend conversation ownership
+
+`features/agent` owns chat composition, sessions, confirmations, message actions,
+and stream presentation. Its public entry exports `AgentChat` and the complete
+props contract. The application loads this entry dynamically; notebooks import
+the same component inside their optional route chunk. No caller reaches private
+chat modules or casts the component to a narrower type.
+
+Context-reference arrays remain read-only through the UI and are copied only
+when constructing the existing HTTP request. This preserves source metadata,
+notebook scoping, payloads, stream replay, and persistence keys. Generic HTTP and
+NDJSON adapters remain under `shared/api`; composed feedback-and-transport tests
+belong to the agent feature so shared code does not depend on UI internals.
 
 ## Capability model
 
@@ -348,7 +371,7 @@ than an instruction.
 Exhaustive inventories reuse the locally persisted parsed-document and link
 indexes. Relation ids are expanded to indexed target titles, so a record linked
 to a matching project or source remains discoverable without reopening every
-OneDrive document. Normal Gnosi writes update these indexes; periodic index
+cloud-synced document. Normal Gnosi writes update these indexes; periodic index
 maintenance reconciles external edits. Records absent from the cache fall back
 to a direct bounded read. Semantic top-k search remains the evidence-discovery
 path for lookups and analyses and is never presented as a complete inventory.
@@ -633,16 +656,25 @@ rebuild and incremental upsert paths retain their cache invalidation behaviour.
 The same late-bound path port owns Vault, `.gnosi` and local-data resolution for
 the personal dictation glossary, connection queue and durable Brain jobs,
 snapshots, manifests and synchronized page sidecars. Queue and lint scans use
-the typed table-page port, preserving existing runtime replacements while
-preventing dynamic facade values from escaping into persistence logic.
-The ingestion facade also consumes these typed late-bound ports for Brain page
-enumeration, table lookup and processed-state updates, preserving runtime plugin
-replacement while keeping domain dependency contracts statically checked.
+the late-bound table-page port, preserving existing runtime replacements.
+That input port still returns dynamically typed pages; its metadata contract
+remains separate typing debt.
+The ingestion facade uses the same late-bound ports for Brain page enumeration,
+table lookup and processed-state updates. Runtime plugin replacement is preserved,
+but the broad `Any` annotations in these ports do not prove complete typing.
 
 Deterministic Brain lint is split into bounded checks for orphan notes, stale
 reviews, missing cross-references, duplicate provenance keys, retained managed
 notes, broken evidence citations, reprocessing and resource-index drift. The
 report shape and finding limits remain stable and require no model provider.
+
+`backend/domains/llm_wiki/lint_contracts.py` defines the normalized note projection,
+all eight finding categories, counts and complete report at their producer.
+These are ordinary dictionaries with precise static types, not runtime models
+or schemas asserted over arbitrary stored metadata. The HTTP route may add
+optional suggestion totals; pure lint does not emit them. Output order,
+date handling, citation decoding and truncation are unchanged. The legacy
+page-input boundary and route composition still require separate typing work.
 
 Grounded PDF citations use a separate deterministic persistence boundary. It
 resolves quote geometry with one cached document handle per attachment, upserts
@@ -678,7 +710,8 @@ removes only obsolete Gnosi-managed entries.
 Run model routing, provider deletion, reliability, timeouts, MCP retry and
 resilience, skill catalog/runtime/API, generated-tool validation, context
 containment, confirmation race/expiry, chat ordering, and browser chat flows.
-# Universal agent runtime
+
+## Universal agent runtime
 
 Gnosi routes every turn through a bounded, provider-neutral contract. Before
 capability selection, the semantic interpreter normalizes multilingual intent,
@@ -692,8 +725,9 @@ analysis retains its JSON snapshots and batch checkpoints, while the queue is
 the source of truth for orchestration.
 
 Every model and tool operation emits a bounded span correlated by the turn
-`trace_id`. Span attributes are allowlisted and redacted; prompts, sources,
-arguments and raw provider output are never persisted as telemetry. Tool calls
+`trace_id`. Span attribute names are allowlisted; callers must not place prompts,
+sources, arguments or raw provider output under those allowed names. This filter
+does not inspect arbitrary text for secrets. Tool calls
 also pass through argument-size validation, descriptor timeouts, output limits
 and the existing role/confirmation policy.
 
@@ -704,7 +738,7 @@ the JSON cache remains a safe fallback.
 
 Explicit turn identifiers are claimed durably in the workspace/user/session
 scope. A duplicate request is rejected instead of executing the same action or
-background job twice. The SSE stream emits `progress` events with node, phase,
+background job twice. The NDJSON stream emits `progress` events with node, phase,
 elapsed time and bounded call counters so clients can render responsive
 progress without reading internal prompts.
 
@@ -820,3 +854,28 @@ the request language instead of guessing a capability.
 
 Verification uses the deterministic universal-turn corpus, focused phase-two
 tests, the full `backend/tests` suite and the documentation gate.
+
+## Local diagnostic span contracts
+
+`agent_observability.py` accepts arbitrary attribute values and a mutable context
+holder. Its produced `SpanRecord` maps string keys to `SpanValue` primitives:
+strings, integers, floats and booleans. The contract is not a rigid event schema:
+allowed attributes can override status and duration. Typing preserves the existing
+value conversions, exception behavior and shared record identity.
+
+The service examines the first 32 input entries before filtering by `SAFE_KEYS`.
+Strings are whitespace-normalized and limited to 240 characters; booleans and
+numeric values retain their existing representation. Unknown keys are dropped.
+Filtering by name is not content redaction: never hide private content under an
+allowed provider, model or status key.
+
+The in-memory buffer holds at most 2,000 spans; a query returns at most 200 and
+shares the stored dictionaries. This is not a size or retention cap on the
+append-only `agent_spans.jsonl` file. An `OSError` during append does not block the
+operation or discard the in-memory record; other exceptions retain their normal
+propagation. Context-manager errors record the exception class, not its message.
+
+Tests use disposable logs, controlled clocks and owned threads. The real policy
+wrapper is exercised with an inert model to verify response/exception identity
+and absence of synthetic prompt/error content in diagnostics. No provider call
+or real user log is required for these checks.

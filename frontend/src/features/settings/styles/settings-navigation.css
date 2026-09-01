@@ -1,0 +1,44 @@
+/* Settings Overlay & Centering */
+/* Estils de modal eliminats per evitar conflictes amb GlobalSettingsModal.css */
+
+.settings-theme-preview--light {
+    background-color: #ffffff !important;
+}
+
+.settings-theme-preview--dark {
+    background-color: #000000 !important;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Settings Sidebar Items */
+.settings-sidebar__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.9rem;
+    background: transparent;
+    color: var(--text-primary);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0.8;
+}
+
+.settings-sidebar__item.active {
+    background: var(--settings-sidebar-active) !important;
+    color: var(--settings-sidebar-active-text) !important;
+    opacity: 1;
+    font-weight: 600;
+}

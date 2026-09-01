@@ -1,0 +1,20 @@
+# Explicit host-folder deployment. Both existing directories must be selected.
+# docker compose -f docker-compose.yml -f compose.vaults.yml up -d --build
+# This overrides the /vaults volume by container target; /data remains unchanged.
+services:
+  backend:
+    volumes:
+      - type: bind
+        source: ${VAULT_HOST_PATH:?select the existing active vault directory}
+        target: /vault
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${VAULTS_ROOT_HOST_PATH:?select the existing parent directory of vaults}
+        target: /vaults
+        bind:
+          create_host_path: false
+    environment:
+      DIGITAL_BRAIN_VAULT_PATH: /vault
+      VAULT_HOST_PATH: ${VAULT_HOST_PATH:?select the existing active vault directory}
+      VAULTS_ROOT_HOST_PATH: ${VAULTS_ROOT_HOST_PATH:?select the existing parent directory of vaults}

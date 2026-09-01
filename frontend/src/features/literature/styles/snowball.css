@@ -1,0 +1,96 @@
+.literature-candidates {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.literature-candidates article {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 13px;
+    border: 1px solid var(--border-primary);
+    border-radius: 11px;
+}
+
+.literature-candidate-main {
+    min-width: 0;
+}
+
+.literature-seed-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.literature-snowball-action {
+    display: inline-flex;
+    align-items: stretch;
+}
+
+.literature-snowball-action select {
+    max-width: 130px;
+    border: 1px solid var(--border-primary);
+    border-right: 0;
+    border-radius: 8px 0 0 8px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.literature-snowball-action button {
+    border-radius: 0 8px 8px 0;
+}
+
+.literature-snowball-results {
+    margin: 0 0 14px;
+    padding: 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+}
+
+.literature-snowball-results > header,
+.literature-snowball-results > header > div,
+.literature-snowball-results > div label,
+.literature-snowball-results > div label span {
+    display: flex;
+}
+
+.literature-snowball-results > header {
+    align-items: center;
+    justify-content: space-between;
+}
+
+.literature-snowball-results > header > div,
+.literature-snowball-results > div label span {
+    flex-direction: column;
+}
+
+.literature-snowball-results small {
+    color: var(--text-tertiary);
+    font-size: 10px;
+}
+
+.literature-snowball-results > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    max-height: 280px;
+    margin: 9px 0;
+    overflow: auto;
+}
+
+.literature-snowball-results > div label {
+    gap: 7px;
+    padding: 7px;
+    border: 1px solid var(--border-primary);
+    border-radius: 7px;
+    background: var(--bg-primary);
+    font-size: 11px;
+}
+
+.literature-snowball-results > button + small {
+    margin-left: 8px;
+}

@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
+from backend.app.desktop_instance import DesktopInstanceMiddleware
 from backend.services.active_vault_middleware import ActiveVaultMiddleware
 
 
@@ -28,3 +29,4 @@ def register_middleware(app: FastAPI) -> None:
     )
     app.add_middleware(GZipMiddleware, minimum_size=1024)
     app.add_middleware(ActiveVaultMiddleware)
+    app.add_middleware(DesktopInstanceMiddleware)

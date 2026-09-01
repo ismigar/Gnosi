@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-01
 source_paths:
   - backend/server.py
   - backend/services/active_vault_middleware.py
@@ -8,11 +8,14 @@ source_paths:
   - backend/services/vault_routing.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
-  - frontend/src/App.jsx
-  - frontend/src/context/AuthContext.jsx
-  - frontend/src/hooks/useModalKeyboard.js
-  - frontend/src/index.css
-  - frontend/src/lib/vaultRouting.js
+  - frontend/src/app/App.tsx
+  - frontend/src/app/routes.tsx
+  - frontend/src/app/bootstrap.tsx
+  - frontend/src/features/auth/context/AuthProvider.tsx
+  - frontend/src/shared/auth/auth-context.ts
+  - frontend/src/shared/hooks/useModalKeyboard.ts
+  - frontend/src/app/styles/index.css
+  - frontend/src/shared/routing/vaultRouting.ts
   - frontend/src/shared/api/client.ts
   - frontend/src/shared/api/request-context.ts
   - frontend/src/shared/api/transports.ts
@@ -20,17 +23,17 @@ source_paths:
   - frontend/api-boundaries.json
   - openapi/openapi.json
   - scripts/generate_openapi.py
+  - frontend/src/app/main.tsx
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - tests/e2e/tests/accessibility/accessibility.spec.ts
-  - frontend/src/lib/vaultRouting.test.js
+  - frontend/src/shared/routing/vaultRouting.test.ts
   - frontend/src/shared/api/client.test.ts
   - frontend/src/shared/api/transports.test.ts
   - backend/tests/test_openapi_generation.py
   - pipeline/tests/test_frontend_api_boundary.py
-  - tests/e2e/tests/legacy/vault-routing.spec.js
 ---
 
 # Cross-cutting flows

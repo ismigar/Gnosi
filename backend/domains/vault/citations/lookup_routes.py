@@ -1,23 +1,37 @@
 """Typed Vault domain extracted from the historical route facade."""
 
-import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
+import asyncio
+import os
+import re
+import uuid
+from collections.abc import Iterable, Mapping
+from logging import getLogger as get_logger
 from typing import Literal, TypeAlias
-from typing import cast as _strict_cast
 
-from fastapi import APIRouter
+from fastapi import Body, Depends, File, UploadFile
 from pydantic import BaseModel
 
+from backend.api import vault_routes as _vault
+from backend.api.vault_routes import router as router
+from backend.domains.vault.citations import io_api as citation_io_api
+from backend.domains.vault.citations import keys_api as citation_keys_api
+from backend.domains.vault.citations import metadata_lookup
+from backend.domains.vault.citations import pdf_fallback as citation_pdf_fallback
+from backend.domains.vault.citations import search as citation_search
+from backend.domains.vault.citations import web_capture as citation_web_capture
+from backend.domains.vault.citations.authors import MetadataKey
+from backend.domains.vault.pages import metadata_mutations
 from backend.domains.vault.schemas.pages import (
     BulkApplyTemplateRequest,
     BulkPageMutationResponse,
 )
+from backend.platform import translation_server as translation_server_transport
+from backend.services.workspace_service import require_role
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
+_log = get_logger("backend.api.vault_routes")
 
 
-ResourceMetadata: TypeAlias = dict[str, _LegacyAny]
+ResourceMetadata: TypeAlias = dict[str, object]
 MetadataLookupSource: TypeAlias = Literal[
     "crossref",
     "arxiv",
@@ -59,7 +73,7 @@ class ZoteroExtraPromotionResponse(BaseModel):
     """Summary of promoting one dynamic Zotero extra field."""
 
     column_created: bool
-    column_id: _LegacyAny
+    column_id: object
     column_name: str
     migrated: int
     migrated_ids: list[str]
@@ -70,11 +84,11 @@ class ZoteroExtraPromotionResponse(BaseModel):
 
 
 def _ensure_recursos_citation_key(
-    metadata: dict[_LegacyAny, _LegacyAny],
-    table: dict[_LegacyAny, _LegacyAny] | None = None,
+    metadata: dict[MetadataKey, object],
+    table: Mapping[str, object] | Mapping[object, object] | None = None,
     *,
     regenerate: bool = False,
-) -> dict[_LegacyAny, _LegacyAny]:
+) -> dict[MetadataKey, object]:
     """Guarantees that a page in the REFERENCES TABLE carries a `Citation Key`.
 
     Previously the key was only generated in the metadata lookup; a new entry
@@ -93,30 +107,28 @@ def _ensure_recursos_citation_key(
     and (3) there is some bibliographic data (Authors/Any/Title), so as not to
     stamp junk keys on completely empty rows. The key is unique against the
     ones already existing in the vault. Mutates and returns `metadata`."""
-    ref_id = _legacy.get_reference_table_id()
-    if not ref_id or _legacy.get_table_id(metadata) != ref_id:
+    ref_id = _vault.get_reference_table_id()
+    if not ref_id or _vault.get_table_id(metadata) != ref_id:
         return metadata
     if table is None:
-        table = _legacy._table_by_id(ref_id)
-    ck_name = _legacy._citation_key_prop_name(table) or "Citation Key"
+        table = _vault._table_by_id(ref_id)
+    ck_name = _vault._citation_key_prop_name(table) or "Citation Key"
     if not regenerate and str(metadata.get(ck_name) or "").strip():
         return metadata
-    authors = _legacy._find_structured_authors(metadata) or metadata.get("Authors")
+    authors = _vault._find_structured_authors(metadata) or metadata.get("Authors")
     year, title = (metadata.get("Any"), metadata.get("Title"))
     has_authors = bool(authors) if isinstance(authors, list) else bool(str(authors or "").strip())
     if not (has_authors or str(year or "").strip() or str(title or "").strip()):
         return metadata
-    ck = _legacy.generate_citation_key(
-        authors, year, title or "", _legacy._existing_citation_keys()
-    )
+    ck = _vault.generate_citation_key(authors, year, title or "", _vault._existing_citation_keys())
     if ck:
         metadata[ck_name] = ck
     return metadata
 
 
 def _dedupe_citation_key(
-    metadata: dict[_LegacyAny, _LegacyAny], page_id: str
-) -> dict[_LegacyAny, _LegacyAny]:
+    metadata: dict[MetadataKey, object], page_id: str
+) -> dict[MetadataKey, object]:
     """Keeps a hand-typed `Citation Key` unique across the references table.
 
     The key is the CSL-JSON `id`: two records sharing one means citeproc only
@@ -128,10 +140,10 @@ def _dedupe_citation_key(
     value is visible immediately in the PATCH response. Best-effort: the check
     reads the cite key index, so a sibling created milliseconds ago may not be
     visible yet. Mutates and returns `metadata`."""
-    ref_id = _legacy.get_reference_table_id()
-    if not ref_id or _legacy.get_table_id(metadata) != ref_id:
+    ref_id = _vault.get_reference_table_id()
+    if not ref_id or _vault.get_table_id(metadata) != ref_id:
         return metadata
-    ck_name = _legacy._citation_key_prop_name(_legacy._table_by_id(ref_id)) or "Citation Key"
+    ck_name = _vault._citation_key_prop_name(_vault._table_by_id(ref_id)) or "Citation Key"
     ck = str(metadata.get(ck_name) or "").strip()
     if not ck:
         return metadata
@@ -141,7 +153,7 @@ def _dedupe_citation_key(
         v_path = get_active_vault_path()
         if not v_path:
             return metadata
-        idx = _legacy._ensure_cite_key_index(str(v_path))
+        idx = _vault._ensure_cite_key_index(str(v_path))
     except Exception:
         return metadata
     holder = idx.get(ck)
@@ -149,7 +161,7 @@ def _dedupe_citation_key(
         return metadata
     i = 0
     while True:
-        cand = f"{ck}{_legacy._alpha_suffix(i)}"
+        cand = f"{ck}{_vault._alpha_suffix(i)}"
         holder = idx.get(cand)
         if not holder or str(holder.get("id")) == str(page_id):
             metadata[ck_name] = cand
@@ -158,17 +170,24 @@ def _dedupe_citation_key(
 
 
 def _reference_autoria_prop(
-    table: dict[_LegacyAny, _LegacyAny] | None,
-) -> dict[_LegacyAny, _LegacyAny] | None:
+    table: dict[str, object] | None,
+) -> Mapping[object, object] | None:
     """Returns the table's first `autoria`-type property (structured author
     list), or None when the table doesn't have one."""
-    for p in (table or {}).get("properties", []) or []:
+    properties = (table or {}).get("properties", []) or []
+    if not isinstance(properties, Iterable):
+        raise TypeError("Table properties must be iterable")
+    raw_property: object
+    for raw_property in properties:
+        if not isinstance(raw_property, Mapping):
+            raise AttributeError("Table property does not support get")
+        p: Mapping[object, object] = raw_property
         if p.get("type") == "autoria":
-            return _strict_cast(dict[_LegacyAny, _LegacyAny] | None, p)
+            return p
     return None
 
 
-def _authors_string_to_autoria(authors: str) -> list[_LegacyAny]:
+def _authors_string_to_autoria(authors: str) -> list[dict[str, str]]:
     """`"Cognom, Nom; …"` (canonical Recursos author string) → structured
     `autoria` list `[{"nom","cognom1","cognom2"}]`.
 
@@ -176,7 +195,7 @@ def _authors_string_to_autoria(authors: str) -> list[_LegacyAny]:
     the family name(s) (first token → `cognom1`, the rest → `cognom2`) and the
     text after the comma is the given name(s) → `nom`. An author without a comma
     is treated as a single family/institution name (`cognom1`)."""
-    out: list[_LegacyAny] = []
+    out: list[dict[str, str]] = []
     for part in str(authors or "").split(";"):
         part = part.strip()
         if not part:
@@ -197,8 +216,8 @@ def _authors_string_to_autoria(authors: str) -> list[_LegacyAny]:
 
 
 def _fill_autoria_from_authors(
-    metadata: dict[_LegacyAny, _LegacyAny], table: dict[_LegacyAny, _LegacyAny] | None
-) -> dict[_LegacyAny, _LegacyAny]:
+    metadata: dict[str, object], table: dict[str, object] | None
+) -> dict[str, object]:
     """Routes an imported `Authors` string into the table's `autoria` field.
 
     Create-from-source (PDF/DOI/ISBN/arXiv/PubMed/…) runs metadata through the
@@ -214,14 +233,18 @@ def _fill_autoria_from_authors(
     `autoria` cell is empty and an `Authors` value is present, and drops the
     consumed `Authors` key so the legacy column is left untouched (empty).
     Mutates and returns `metadata`."""
-    ref_id = _legacy.get_reference_table_id()
-    if not ref_id or _legacy.get_table_id(metadata) != ref_id:
+    ref_id = _vault.get_reference_table_id()
+    if not ref_id or _vault.get_table_id(metadata) != ref_id:
         return metadata
     prop = _reference_autoria_prop(table)
     if not prop:
         return metadata
     name = prop.get("name")
-    if not name or metadata.get(name) not in (None, "", []):
+    if not name:
+        return metadata
+    if not isinstance(name, str):
+        raise TypeError("Structured author property name must be text")
+    if metadata.get(name) not in (None, "", []):
         return metadata
     parsed = _authors_string_to_autoria(str(metadata.get("Authors") or ""))
     if not parsed:
@@ -236,7 +259,7 @@ def _normalize_pmid(raw: str) -> str | None:
     confusing it with ISBN/other numbers: the field arrives already labeled as PMID."""
     if not raw:
         return None
-    m = _legacy.re.match("^\\s*(?:pmid:?\\s*)?(\\d{1,8})\\s*$", str(raw), _legacy.re.IGNORECASE)
+    m = re.match("^\\s*(?:pmid:?\\s*)?(\\d{1,8})\\s*$", str(raw), re.IGNORECASE)
     return m.group(1) if m else None
 
 
@@ -247,29 +270,27 @@ def _pubmed_author_to_canonical(name: str) -> str:
     if not name or "," in name:
         return name
     toks = name.split()
-    if len(toks) >= 2 and _legacy.re.fullmatch("[A-Za-z]{1,4}", toks[-1]):
+    if len(toks) >= 2 and re.fullmatch("[A-Za-z]{1,4}", toks[-1]):
         return f"{' '.join(toks[:-1])}, {toks[-1]}"
     return name
 
 
-def _pubmed_to_recursos(doc: dict[_LegacyAny, _LegacyAny]) -> dict[_LegacyAny, _LegacyAny]:
+def _pubmed_to_recursos(doc: dict[str, object]) -> dict[str, object]:
     """Map a PubMed summary to Resources through the L3 normalizer and central mapper."""
     from backend.services.lookup_normalizers import pubmed_to_zotero_item
     from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
 
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny], zotero_item_to_recursos(pubmed_to_zotero_item(doc))
-    )
+    return zotero_item_to_recursos(pubmed_to_zotero_item(doc))
 
 
 @router.post(
     "/lookup-metadata",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=MetadataLookupResponse,
 )
 async def lookup_metadata(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> ResourceMetadata:
+    payload: dict[str, object] = Body(...),
+) -> metadata_lookup.LookupResponse:
     """Resolves external metadata for a given identifier.
 
     Body (accepts all and picks the best; priority DOI > arXiv > PMID > ISBN > URL):
@@ -288,29 +309,26 @@ async def lookup_metadata(
     modifies the Vault: it only suggests; the frontend accepts fields individually.
 
     """
-    dependencies = _legacy.metadata_lookup.MetadataLookupDependencies(
-        normalize_doi=lambda raw: _legacy._normalize_doi(raw),
-        normalize_arxiv=lambda raw: _legacy._normalize_arxiv(raw),
+    dependencies = metadata_lookup.MetadataLookupDependencies(
+        normalize_doi=lambda raw: _vault._normalize_doi(raw),
+        normalize_arxiv=lambda raw: _vault._normalize_arxiv(raw),
         normalize_pmid=lambda raw: _normalize_pmid(raw),
-        normalize_isbn=lambda raw: _legacy._normalize_isbn(raw),
-        http_get=lambda url: _legacy._http_get(url),
-        http_get_public=lambda url: _legacy._http_get_public(url),
-        crossref_to_metadata=lambda work: _legacy._crossref_to_recursos(work),
-        arxiv_to_metadata=lambda body: _legacy._arxiv_to_recursos(body),
+        normalize_isbn=lambda raw: _vault._normalize_isbn(raw),
+        http_get=lambda url: _vault._http_get(url),
+        http_get_public=lambda url: _vault._http_get_public(url),
+        crossref_to_metadata=lambda work: _vault._crossref_to_recursos(work),
+        arxiv_to_metadata=lambda body: _vault._arxiv_to_recursos(body),
         pubmed_to_metadata=lambda document: _pubmed_to_recursos(document),
-        openlibrary_to_metadata=lambda book: _legacy._openlibrary_to_recursos(book),
-        html_to_metadata=lambda body, url: _legacy._html_meta_to_recursos(body, url),
-        inject_citation_key=lambda metadata: _legacy._inject_citation_key(metadata),
-        normalize_item_type=lambda metadata: _legacy._normalize_suggested_item_type(metadata),
+        openlibrary_to_metadata=lambda book: _vault._openlibrary_to_recursos(book),
+        html_to_metadata=lambda body, url: _vault._html_meta_to_recursos(body, url),
+        inject_citation_key=lambda metadata: _vault._inject_citation_key(metadata),
+        normalize_item_type=lambda metadata: _vault._normalize_suggested_item_type(metadata),
     )
-    return _strict_cast(
-        ResourceMetadata,
-        await _legacy.metadata_lookup.resolve_metadata(payload, dependencies),
-    )
+    return await metadata_lookup.resolve_metadata(payload, dependencies)
 
 
-generate_citation_key_endpoint = _legacy.citation_keys_api.register_route(
-    router, lambda: _legacy._existing_citation_keys
+generate_citation_key_endpoint = citation_keys_api.register_route(
+    router, lambda: _vault._existing_citation_keys
 )
 
 
@@ -320,7 +338,7 @@ def _extract_text_from_pdf(data: bytes, max_pages: int = 5) -> str:
     try:
         from pypdf import PdfReader
     except ImportError:
-        _legacy.log.warning("pypdf not installed: PDF recognition disabled")
+        _log.warning("pypdf not installed: PDF recognition disabled")
         return ""
     import io
 
@@ -334,24 +352,24 @@ def _extract_text_from_pdf(data: bytes, max_pages: int = 5) -> str:
                 continue
         return "\n".join(parts)
     except Exception as e:
-        _legacy.log.warning(f"PDF il·legible: {e}")
+        _log.warning(f"PDF il·legible: {e}")
         return ""
 
 
-def _identifiers_from_text(text: str) -> dict[_LegacyAny, _LegacyAny]:
+def _identifiers_from_text(text: str) -> dict[str, object]:
     """First DOI (and arXiv if there's an explicit prefix) found in a PDF's text."""
-    found: dict[_LegacyAny, _LegacyAny] = {}
-    doi = _legacy._normalize_doi(text or "")
+    found: dict[str, object] = {}
+    doi = _vault._normalize_doi(text or "")
     if doi:
         found["doi"] = doi
-    if _legacy.re.search("arxiv\\s*[:.]", text or "", _legacy.re.IGNORECASE):
-        arx = _legacy._normalize_arxiv(text)
+    if re.search("arxiv\\s*[:.]", text or "", re.IGNORECASE):
+        arx = _vault._normalize_arxiv(text)
         if arx:
             found["arxiv"] = arx
     return found
 
 
-def _pdf_embedded_metadata(data: bytes) -> dict[_LegacyAny, _LegacyAny]:
+def _pdf_embedded_metadata(data: bytes) -> dict[str, object]:
     """Best-effort bibliographic metadata from a PDF's document-info dictionary.
 
     Reads `/Title`, `/Author` and the year from `/CreationDate`. These fields
@@ -368,11 +386,11 @@ def _pdf_embedded_metadata(data: bytes) -> dict[_LegacyAny, _LegacyAny]:
     try:
         info = PdfReader(io.BytesIO(data)).metadata
     except Exception as e:
-        _legacy.log.warning(f"PDF metadata unreadable: {e}")
+        _log.warning(f"PDF metadata unreadable: {e}")
         return {}
     if not info:
         return {}
-    out: dict[_LegacyAny, _LegacyAny] = {}
+    out: dict[str, object] = {}
     try:
         title = (info.title or "").strip()
         if title:
@@ -380,11 +398,11 @@ def _pdf_embedded_metadata(data: bytes) -> dict[_LegacyAny, _LegacyAny]:
         author = (info.author or "").strip()
         if author:
             out["author"] = author
-        m = _legacy.re.search("\\d{4}", str(info.creation_date_raw or ""))
+        m = re.search("\\d{4}", str(info.creation_date_raw or ""))
         if m:
             out["year"] = m.group(0)
     except Exception as e:
-        _legacy.log.warning(f"PDF metadata fields unreadable: {e}")
+        _log.warning(f"PDF metadata fields unreadable: {e}")
     return out
 
 
@@ -398,14 +416,14 @@ def _title_from_filename(filename: str) -> str:
     if not filename:
         return ""
     stem = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
-    stem = _legacy.re.sub("\\.pdf$", "", stem, flags=_legacy.re.IGNORECASE)
-    stem = _legacy.re.sub("_+", " ", stem)
-    return _strict_cast(str, _legacy.re.sub("\\s+", " ", stem).strip())
+    stem = re.sub("\\.pdf$", "", stem, flags=re.IGNORECASE)
+    stem = re.sub("_+", " ", stem)
+    return re.sub("\\s+", " ", stem).strip()
 
 
 def _pdf_fallback_to_recursos(
-    data: bytes, filename: str, ids: dict[_LegacyAny, _LegacyAny] | None = None
-) -> dict[_LegacyAny, _LegacyAny]:
+    data: bytes, filename: str, ids: dict[str, object] | None = None
+) -> dict[str, object]:
     """Minimal Recursos record for a PDF whose external lookup yielded nothing.
 
     Builds a Zotero `document` item from the PDF's embedded metadata (falling
@@ -416,26 +434,23 @@ def _pdf_fallback_to_recursos(
     the record so it is not lost when the online source is unreachable. Returns
     `{}` when not even a title can be derived.
     """
-    dependencies = _legacy.citation_pdf_fallback.PdfFallbackDependencies(
+    dependencies = citation_pdf_fallback.PdfFallbackDependencies(
         embedded_metadata=lambda payload: _pdf_embedded_metadata(payload),
         title_from_filename=lambda value: _title_from_filename(value),
-        parse_authors=lambda value: _legacy._parse_authors_to_csl(value),
+        parse_authors=lambda value: _vault._parse_authors_to_csl(value),
         map_zotero_item=lambda item: _zotero_item_to_recursos(item),
-        inject_citation_key=lambda metadata: _legacy._inject_citation_key(metadata),
+        inject_citation_key=lambda metadata: _vault._inject_citation_key(metadata),
     )
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny],
-        _legacy.citation_pdf_fallback.pdf_fallback_metadata(data, filename, ids, dependencies),
-    )
+    return citation_pdf_fallback.pdf_fallback_metadata(data, filename, ids, dependencies)
 
 
 @router.post(
     "/recognize-pdf",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=PdfRecognitionResponse,
 )
 async def recognize_pdf(
-    file: _legacy.UploadFile = _legacy.File(...),
+    file: UploadFile = File(...),
 ) -> ResourceMetadata:
     """Detects a PDF's reference, with a metadata fallback for id-less sources.
 
@@ -451,7 +466,7 @@ async def recognize_pdf(
     carries a `Citation Key`. Never writes anything to the Vault.
     """
     data = await file.read()
-    text = await _legacy.asyncio.to_thread(_extract_text_from_pdf, data)
+    text = await asyncio.to_thread(_extract_text_from_pdf, data)
     ids = _identifiers_from_text(text) if text.strip() else {}
     if ids:
         result = await lookup_metadata(ids)
@@ -462,14 +477,12 @@ async def recognize_pdf(
                 "suggested": result.get("suggested", {}),
                 "error": result.get("error"),
             }
-    fallback = await _legacy.asyncio.to_thread(
-        _pdf_fallback_to_recursos, data, file.filename or "", ids
-    )
+    fallback = await asyncio.to_thread(_pdf_fallback_to_recursos, data, file.filename or "", ids)
     if fallback:
         return {
             "identifiers": ids,
             "source": "pdf",
-            "suggested": _legacy._normalize_suggested_item_type(fallback),
+            "suggested": _vault._normalize_suggested_item_type(fallback),
             "error": None,
         }
     return {
@@ -480,10 +493,13 @@ async def recognize_pdf(
     }
 
 
-def _zotero_creators_to_authors(creators: _LegacyAny) -> str:
+def _zotero_creators_to_authors(creators: object) -> str:
     """Map Zotero creators to a `"Surname, Name; …"` Resources string."""
     parts = []
-    for c in creators or []:
+    values = creators or []
+    if not isinstance(values, Iterable):
+        raise TypeError("Zotero creators must be iterable")
+    for c in values:
         if not isinstance(c, dict) or (c.get("creatorType") or "author") != "author":
             continue
         last = (c.get("lastName") or "").strip()
@@ -498,7 +514,7 @@ def _zotero_creators_to_authors(creators: _LegacyAny) -> str:
     return "; ".join(parts)
 
 
-def _zotero_item_to_recursos(item: dict[_LegacyAny, _LegacyAny]) -> dict[_LegacyAny, _LegacyAny]:
+def _zotero_item_to_recursos(item: dict[str, object]) -> dict[str, object]:
     """Zotero item (translation-server output) → Recursos fields.
 
     Thin wrapper around the central declarative mapper
@@ -509,17 +525,17 @@ def _zotero_item_to_recursos(item: dict[_LegacyAny, _LegacyAny]) -> dict[_Legacy
     """
     from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
 
-    return _strict_cast(dict[_LegacyAny, _LegacyAny], zotero_item_to_recursos(item))
+    return zotero_item_to_recursos(item)
 
 
 @router.post(
     "/translate-url",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=UrlTranslationResponse,
     response_model_exclude_unset=True,
 )
 async def translate_url(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
+    payload: dict[str, object] = Body(...),
 ) -> ResourceMetadata:
     """Captures a reference from a URL via Zotero translation-server.
 
@@ -527,79 +543,68 @@ async def translate_url(
     { source:'web', identifier, suggested (with Citation Key), count, error }.
 
     """
-    dependencies = _legacy.citation_web_capture.WebCaptureDependencies(
-        server_url=lambda: _legacy.os.environ.get(
+    dependencies = citation_web_capture.WebCaptureDependencies(
+        server_url=lambda: os.environ.get(
             "TRANSLATION_SERVER_URL", "http://translation-server:1969"
         ),
-        post_web=lambda server_url, body, content_type: (
-            _legacy.translation_server_transport.post_web(
-                server_url, body, content_type, _legacy.log
-            )
+        post_web=lambda server_url, body, content_type: translation_server_transport.post_web(
+            server_url, body, content_type, _log
         ),
         map_zotero_item=lambda item: _zotero_item_to_recursos(item),
-        inject_citation_key=lambda metadata: _legacy._inject_citation_key(metadata),
-        normalize_item_type=lambda metadata: _legacy._normalize_suggested_item_type(metadata),
+        inject_citation_key=lambda metadata: _vault._inject_citation_key(metadata),
+        normalize_item_type=lambda metadata: _vault._normalize_suggested_item_type(metadata),
     )
-    return _strict_cast(
-        ResourceMetadata,
-        await _legacy.citation_web_capture.capture_url(payload, dependencies),
-    )
+    return await citation_web_capture.capture_url(payload, dependencies)
 
 
-def _build_dedup_indexes(v_str: str) -> dict[_LegacyAny, _LegacyAny]:
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny],
-        _legacy.citation_io_api.build_dedup_indexes(v_str, _legacy._REFERENCES_IO_DEPENDENCIES),
-    )
+def _build_dedup_indexes(v_str: str) -> dict[str, dict[str, str]]:
+    return citation_io_api.build_dedup_indexes(v_str, _vault._REFERENCES_IO_DEPENDENCIES)
 
 
-import_references = _legacy.citation_io_api.register_import_route(
+import_references = citation_io_api.register_import_route(
     router,
-    editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    dependencies=_legacy._REFERENCES_IO_DEPENDENCIES,
+    editor_dependencies=[Depends(require_role("editor"))],
+    dependencies=_vault._REFERENCES_IO_DEPENDENCIES,
 )
 
 
 def _collect_table_reference_metas(
-    table_id: str, wanted: set[_LegacyAny] | None
-) -> list[dict[_LegacyAny, _LegacyAny]]:
-    return _strict_cast(
-        list[dict[_LegacyAny, _LegacyAny]],
-        _legacy.citation_io_api.collect_table_reference_metas(
-            table_id, wanted, _legacy._REFERENCES_IO_DEPENDENCIES
-        ),
+    table_id: str, wanted: set[str] | None
+) -> list[dict[str, object]]:
+    return citation_io_api.collect_table_reference_metas(
+        table_id, wanted, _vault._REFERENCES_IO_DEPENDENCIES
     )
 
 
-def _metadata_mutation_dependencies() -> _legacy.metadata_mutations.MetadataMutationDependencies:
-    return _legacy.metadata_mutations.MetadataMutationDependencies(
-        registry_mutation=lambda: _legacy.registry_mutation(),
-        load_registry=lambda: _legacy.load_registry(),
-        save_registry=lambda registry: _legacy.save_registry(registry),
-        new_id=lambda: str(_legacy.uuid.uuid4()),
-        page_snapshot=lambda: _legacy._get_pages_snapshot(),
-        find_page=lambda page_id: _legacy.find_page_path(page_id),
-        parse_frontmatter=lambda content, path: _legacy.parse_frontmatter(content, path),
-        save_page=lambda path, metadata, body: _legacy.save_page_md(path, metadata, body),
-        file_etag=lambda path: _legacy.file_etag(path),
-        refresh_page_index=lambda path, metadata, body: _legacy._refresh_page_index_entry(
+def _metadata_mutation_dependencies() -> metadata_mutations.MetadataMutationDependencies:
+    return metadata_mutations.MetadataMutationDependencies(
+        registry_mutation=lambda: _vault.registry_mutation(),
+        load_registry=lambda: _vault.load_registry(),
+        save_registry=lambda registry: _vault.save_registry(registry),
+        new_id=lambda: str(uuid.uuid4()),
+        page_snapshot=lambda: _vault._get_pages_snapshot(),
+        find_page=lambda page_id: _vault.find_page_path(page_id),
+        parse_frontmatter=lambda content, path: _vault.parse_frontmatter(content, path),
+        save_page=lambda path, metadata, body: _vault.save_page_md(path, metadata, body),
+        file_etag=lambda path: _vault.file_etag(path),
+        refresh_page_index=lambda path, metadata, body: _vault._refresh_page_index_entry(
             path, metadata, body
         ),
         invalidate_citation_index=lambda: _invalidate_cite_key_index(),
-        invalidate_page_cache=lambda: _legacy._pages_cache_invalidate_all(),
-        table_id=lambda metadata: _legacy.get_table_id(metadata),
-        table_by_id=lambda table_id: _legacy._table_by_id(table_id),
-        page_write_lock=lambda page_id: _legacy._get_page_write_lock(page_id),
+        invalidate_page_cache=lambda: _vault._pages_cache_invalidate_all(),
+        table_id=lambda metadata: _vault.get_table_id(metadata),
+        table_by_id=lambda table_id: _vault._table_by_id(table_id),
+        page_write_lock=lambda page_id: _vault._get_page_write_lock(page_id),
     )
 
 
 @router.post(
     "/promote-zotero-extra",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=ZoteroExtraPromotionResponse,
 )
 async def promote_zotero_extra(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
+    payload: dict[str, object] = Body(...),
 ) -> ResourceMetadata:
     """Promotes a `Zotero Extras` field to its own registry column.
 
@@ -623,22 +628,17 @@ async def promote_zotero_extra(
       4. Rewrites via `save_page_md`.
 
     """
-    return _strict_cast(
-        ResourceMetadata,
-        await _legacy.metadata_mutations.promote_zotero_extra(
-            payload, _metadata_mutation_dependencies()
-        ),
-    )
+    return await metadata_mutations.promote_zotero_extra(payload, _metadata_mutation_dependencies())
 
 
 @router.post(
     "/bulk-update-metadata",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=None,
 )
 async def bulk_update_metadata(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[str, object] = Body(...),
+) -> ResourceMetadata:
     """Applies the same metadata patch to a collection of pages.
 
     Body:
@@ -671,85 +671,78 @@ async def bulk_update_metadata(
     with the new etag.
 
     """
-    return await _legacy.metadata_mutations.bulk_update_metadata(
-        payload, _metadata_mutation_dependencies()
-    )
+    return await metadata_mutations.bulk_update_metadata(payload, _metadata_mutation_dependencies())
 
 
 @router.post(
     "/bulk-apply-template",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=BulkPageMutationResponse,
 )
 async def bulk_apply_template(
-    payload: BulkApplyTemplateRequest = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: BulkApplyTemplateRequest = Body(...),
+) -> ResourceMetadata:
     """Apply a table template body and declared properties to selected rows."""
     payload_data = (
         payload.model_dump(exclude_unset=True)
         if isinstance(payload, BulkApplyTemplateRequest)
         else payload
     )
-    return await _legacy.metadata_mutations.bulk_apply_template(
+    return await metadata_mutations.bulk_apply_template(
         payload_data, _metadata_mutation_dependencies()
     )
 
 
 list_csl_styles, upload_csl_style, export_references = (
-    _legacy.citation_io_api.register_catalog_export_routes(
+    citation_io_api.register_catalog_export_routes(
         router,
-        upload_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-        export_dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-        dependencies=_legacy._REFERENCES_IO_DEPENDENCIES,
+        upload_dependencies=[Depends(require_role("editor"))],
+        export_dependencies=[Depends(require_role("editor"))],
+        dependencies=_vault._REFERENCES_IO_DEPENDENCIES,
     )
 )
-search_citations, resolve_by_citation_key = _legacy.citation_search.register_routes(
-    router, _legacy._CITATION_SEARCH_DEPENDENCIES
+search_citations, resolve_by_citation_key = citation_search.register_routes(
+    router, _vault._CITATION_SEARCH_DEPENDENCIES
 )
 
 
-def _fold_accents(s: _LegacyAny) -> str:
-    return _strict_cast(str, _legacy.citation_search.fold_accents(s))
+def _fold_accents(s: object) -> str:
+    return citation_search.fold_accents(s)
 
 
-def _format_one_author(a: _LegacyAny) -> str:
-    return _strict_cast(str, _legacy.citation_search.format_one_author(a))
+def _format_one_author(a: object) -> str:
+    return citation_search.format_one_author(a)
 
 
-def _cite_author_from_metadata(md: dict[_LegacyAny, _LegacyAny]) -> _LegacyAny:
-    return _legacy.citation_search.cite_author_from_metadata(md)
+def _cite_author_from_metadata(md: dict[str, object]) -> str | None:
+    return citation_search.cite_author_from_metadata(md)
 
 
-def _cite_year_from_metadata(md: dict[_LegacyAny, _LegacyAny]) -> _LegacyAny:
-    return _legacy.citation_search.cite_year_from_metadata(md)
+def _cite_year_from_metadata(md: dict[str, object]) -> str | None:
+    return citation_search.cite_year_from_metadata(md)
 
 
 def _cite_search_blob(
-    title: _LegacyAny, ck: _LegacyAny, author: _LegacyAny, year: _LegacyAny, md: _LegacyAny
+    title: object, ck: object, author: object, year: object, md: dict[str, object] | None
 ) -> str:
-    return _strict_cast(str, _legacy.citation_search.cite_search_blob(title, ck, author, year, md))
+    return citation_search.cite_search_blob(title, ck, author, year, md)
 
 
-def _enrich_cite_entry(entry: dict[_LegacyAny, _LegacyAny]) -> dict[_LegacyAny, _LegacyAny]:
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny], _legacy.citation_search.enrich_cite_entry(entry)
-    )
+def _enrich_cite_entry(entry: dict[str, object]) -> dict[str, object]:
+    return citation_search.enrich_cite_entry(entry)
 
 
-def _ensure_cite_key_index(v_str: str) -> dict[_LegacyAny, _LegacyAny]:
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny],
-        _legacy.citation_search.ensure_citation_index(
-            v_str, _legacy.citation_index_state, _legacy._CITATION_SEARCH_DEPENDENCIES
-        ),
+def _ensure_cite_key_index(v_str: str) -> dict[str, ResourceMetadata]:
+    return citation_search.ensure_citation_index(
+        v_str, _vault.citation_index_state, _vault._CITATION_SEARCH_DEPENDENCIES
     )
 
 
 def _invalidate_cite_key_index(v_str: str | None = None) -> None:
-    _legacy.citation_search.invalidate_citation_index(_legacy.citation_index_state, v_str)
+    citation_search.invalidate_citation_index(_vault.citation_index_state, v_str)
 
 
-def normalize_aliases(val: _LegacyAny) -> list[str]:
+def normalize_aliases(val: object) -> list[str]:
     """Normalize the `aliases` field of the frontmatter into a list of strings.
 
     Accepts a YAML list (`aliases: [a, b]`), a scalar, or a comma-separated

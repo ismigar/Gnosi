@@ -6,14 +6,16 @@ import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
+from backend.utils.open_values import iterable_values
 
 
 ViewRows = list[RegistryData]
-SnapshotTable = dict[str, list[Any]]
+SnapshotTable = RegistryData
 PageDocument = tuple[Path, RegistryData, str, bool]
 
 
@@ -23,10 +25,10 @@ class RematerializeMarkdown(Protocol):
         markdown: str,
         page_id: str,
         *,
-        resolve_ids: Callable[[str, str | None], list[str]],
+        resolve_ids: Callable[[str, object], list[str]],
         id_to_title: Callable[[str], str | None],
         config_for: Callable[[str], RegistryData],
-        resolve_table: Callable[[str, str | None], SnapshotTable | None],
+        resolve_table: Callable[[str, object], SnapshotTable | None],
     ) -> str: ...
 
 
@@ -39,11 +41,11 @@ class SnapshotDependencies:
         object,
     ]
     virtual_page_loader: Callable[[str], list[PageInfo]]
-    response_names: Callable[[RegistryData, RegistryData], RegistryData]
+    response_names: Callable[[object, RegistryData], RegistryData]
     load_registry: Callable[[], RegistryData]
-    apply_joins: Callable[[ViewRows, list[RegistryData], Callable[[str], ViewRows]], ViewRows]
-    resolve_row_ids: Callable[[ViewRows, RegistryData, str | None], list[str]]
-    resolve_rows: Callable[[ViewRows, RegistryData, str | None], ViewRows]
+    apply_joins: Callable[[ViewRows, list[object], Callable[[str], ViewRows]], ViewRows]
+    resolve_row_ids: Callable[[ViewRows, RegistryData, object], list[str]]
+    resolve_rows: Callable[[ViewRows, RegistryData, object], ViewRows]
     decorate_relation: Callable[[str], str]
     link_title: Callable[[str], str | None]
     default_limit: int
@@ -56,7 +58,7 @@ class SnapshotDependencies:
 
 def _registry_items(registry: RegistryData, key: str) -> list[RegistryData]:
     raw_items = registry.get(key, [])
-    return [item for item in raw_items if isinstance(item, dict)]
+    return [item for item in iterable_values(raw_items) if is_record(item)]
 
 
 def load_table_rows(
@@ -90,7 +92,7 @@ def load_table_rows(
 
 def resolve_view_and_candidates(
     view_id: str,
-    host_page_id: str | None,
+    host_page_id: object,
     dependencies: SnapshotDependencies,
 ) -> tuple[RegistryData | None, ViewRows]:
     """Resolve one saved view and its joined candidate rows."""
@@ -114,7 +116,7 @@ def resolve_view_and_candidates(
         return view, []
     rows = load_table_rows(table_id, dependencies)
     raw_joins = view.get("joins")
-    if isinstance(raw_joins, list) and raw_joins:
+    if is_object_list(raw_joins) and raw_joins:
         try:
             rows = dependencies.apply_joins(
                 rows,
@@ -128,7 +130,7 @@ def resolve_view_and_candidates(
 
 def resolve_view_row_ids(
     view_id: str,
-    host_page_id: str | None,
+    host_page_id: object,
     dependencies: SnapshotDependencies,
 ) -> list[str]:
     """Return the ordered page IDs produced by one view."""
@@ -151,13 +153,13 @@ def format_snapshot_cell(
     if value is None or value == "":
         return ""
     if field_type == "relation":
-        values = value if isinstance(value, list) else [value]
+        values = value if is_object_list(value) else [value]
         return ", ".join(
             dependencies.decorate_relation(str(item)) for item in values if item not in (None, "")
         )
-    if isinstance(value, list):
+    if is_object_list(value):
         return ", ".join(str(item) for item in value if item not in (None, ""))
-    if isinstance(value, dict):
+    if is_record(value):
         return str(value.get("src") or value.get("title") or value.get("name") or "")
     rendered = str(value)
     return rendered[:200] + "…" if len(rendered) > 200 else rendered
@@ -172,13 +174,13 @@ def normalize_visible_properties(
         "tableId": base_table_id,
         "fieldKey": "title",
     }
-    if not visible or not isinstance(visible, list):
+    if not visible or not is_object_list(visible):
         return [fallback]
     output: list[RegistryData] = []
     for entry in visible:
         if isinstance(entry, str):
             output.append({"tableId": base_table_id, "fieldKey": entry})
-        elif isinstance(entry, dict) and entry.get("fieldKey"):
+        elif is_record(entry) and entry.get("fieldKey"):
             output.append(
                 {
                     "tableId": entry.get("tableId") or base_table_id,
@@ -276,7 +278,7 @@ def _snapshot_column_header(
 def _snapshot_rows(
     rows: ViewRows,
     view: RegistryData,
-    host_page_id: str | None,
+    host_page_id: object,
     base_table_id: str | None,
     columns: list[RegistryData],
     type_by_name: dict[str, str],
@@ -286,7 +288,7 @@ def _snapshot_rows(
     for row in dependencies.resolve_rows(rows, view, host_page_id):
         cells = [dependencies.decorate_relation(str(row.get("id")))]
         raw_metadata = row.get("metadata") or {}
-        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+        metadata = raw_metadata if is_record(raw_metadata) else {}
         for column in columns:
             table_id = str(column.get("tableId") or "")
             field_key = str(column.get("fieldKey") or "")
@@ -300,8 +302,8 @@ def _snapshot_rows(
                 )
                 continue
             raw_joined = metadata.get(f"_join:{table_id}") or []
-            joined = raw_joined if isinstance(raw_joined, list) else []
-            first = joined[0] if joined and isinstance(joined[0], dict) else {}
+            joined = raw_joined if is_object_list(raw_joined) else []
+            first = joined[0] if joined and is_record(joined[0]) else {}
             cells.append(format_snapshot_cell(first.get(field_key), None, dependencies))
         output.append(cells)
     return output
@@ -309,7 +311,7 @@ def _snapshot_rows(
 
 def resolve_view_table(
     view_id: str,
-    host_page_id: str | None,
+    host_page_id: object,
     dependencies: SnapshotDependencies,
 ) -> SnapshotTable | None:
     """Resolve a table/list view into headers and concrete Markdown rows."""

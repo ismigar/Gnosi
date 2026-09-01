@@ -14,6 +14,8 @@ from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import index_rendering as llm_wiki_index_rendering
 from backend.domains.llm_wiki import legacy_ports as llm_wiki_legacy_ports
 from backend.domains.llm_wiki import search_index as llm_wiki_search_index
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_record
 from backend.services import llm_wiki_config, llm_wiki_storage
 from backend.utils.safe_io import safe_write_json
 
@@ -52,7 +54,7 @@ SYSTEM_TITLES = {
 }
 
 
-def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str, str]:
+def ensure_system_pages(brain_table_id: object, config: dict[str, Any]) -> dict[str, str]:
     """Create the three system pages without adopting same-title manual pages."""
     migrate_managed_frontmatter(brain_table_id)
     brain_table = _table(brain_table_id) or {}
@@ -97,7 +99,7 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
     }
 
 
-def migrate_managed_frontmatter(brain_table_id: str) -> int:
+def migrate_managed_frontmatter(brain_table_id: object) -> int:
     """Move legacy managed metadata from Brain Markdown files to sidecars."""
     migrated = 0
     for page in _brain_pages(brain_table_id):
@@ -576,7 +578,7 @@ def _set_visible_note_type(
 
 
 def _upsert_managed_page(
-    brain_table_id: str,
+    brain_table_id: object,
     title: str,
     role: str,
     managed_key: str,
@@ -585,7 +587,7 @@ def _upsert_managed_page(
     selector: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     page = _find_managed_page(brain_table_id, role, selector=selector)
-    metadata = {
+    metadata: object = {
         "title": title,
         "table_id": brain_table_id,
         "note_type": "index"
@@ -596,6 +598,8 @@ def _upsert_managed_page(
         **(selector or {}),
         **(extra_metadata or {}),
     }
+    # The literal owns this dictionary; keep its unpacking protocol and identity.
+    assert is_record(metadata)
     if page:
         path = _path(page)
         old_meta, body = _read_page(path)
@@ -628,7 +632,7 @@ def _upsert_managed_page(
 
 
 def _find_managed_page(
-    brain_table_id: str,
+    brain_table_id: object,
     role: str,
     *,
     selector: Optional[dict[str, Any]] = None,
@@ -663,7 +667,7 @@ def _managed_content(body: str, key: str) -> str:
     return match.group(1).strip() if match else ""
 
 
-def _save_existing_page(path: Path, metadata: dict[str, Any], body: str) -> None:
+def _save_existing_page(path: Path, metadata: PageMetadata, body: str) -> None:
     llm_wiki_legacy_ports.save_page(
         path,
         llm_wiki_storage.prepare_managed_markdown(metadata),
@@ -672,7 +676,7 @@ def _save_existing_page(path: Path, metadata: dict[str, Any], body: str) -> None
     llm_wiki_legacy_ports.register_page(path)
 
 
-def _read_page(path: Optional[Path]) -> tuple[dict[str, Any], str]:
+def _read_page(path: Optional[Path]) -> tuple[PageMetadata, str]:
     if not path or not path.exists():
         return {}, ""
     return llm_wiki_legacy_ports.parse_frontmatter(
@@ -680,15 +684,15 @@ def _read_page(path: Optional[Path]) -> tuple[dict[str, Any], str]:
     )
 
 
-def _brain_pages(brain_table_id: str) -> list[Any]:
+def _brain_pages(brain_table_id: object) -> list[Any]:
     return llm_wiki_legacy_ports.table_pages(brain_table_id)
 
 
-def _table(table_id: str) -> Optional[dict[str, Any]]:
+def _table(table_id: object) -> Optional[dict[str, Any]]:
     return llm_wiki_legacy_ports.table_by_id(table_id)
 
 
-def _meta(page: Any) -> dict[str, Any]:
+def _meta(page: object) -> PageMetadata:
     return llm_wiki_storage.page_metadata(page)
 
 

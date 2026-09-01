@@ -1,7 +1,28 @@
 ---
 status: implemented
-last_verified: 2026-08-24
+last_verified: 2026-08-31
 source_paths:
+  - desktop/README.md
+  - desktop/profile-startup.js
+  - desktop/profile-preservation.js
+  - desktop/cookie-migration.js
+  - desktop/cookie-rollback.js
+  - desktop/scripts/sync-release-version.cjs
+  - frontend/vite.config.js
+  - frontend/public/word-addin
+  - desktop/scripts/release-source-identity.cjs
+  - scripts/generate_openapi.py
+  - backend/app/desktop_instance.py
+  - desktop/backend-process.js
+  - desktop/ipc-handlers.js
+  - desktop/startup-errors.js
+  - desktop/build-python.sh
+  - desktop/scripts/backend_resources.py
+  - .github/workflows/build-release.yml
+  - desktop/scripts/release-artifacts.cjs
+  - backend/config/validation_runtime.py
+  - backend/security/keychain_manager.py
+  - .github/workflows/ci.yml
   - backend/config/env_config.py
   - backend/server.py
   - desktop/application-menu.js
@@ -15,13 +36,34 @@ source_paths:
   - desktop/scripts/after-pack.cjs
   - desktop/scripts/packaging-contract.cjs
   - desktop/scripts/smoke-packaged-backend.py
+  - desktop/scripts/generate-icons.py
+  - desktop/assets/icon.icns
   - pnpm-workspace.yaml
+  - frontend/public/favicon.svg
   - frontend/package.json
-  - frontend/src/content/releases.json
+  - frontend/src/features/control-center/releases/releases.json
+  - frontend/src/app/desktop
+  - frontend/src/features/control-center/releases
   - extensions/web-clipper
   - extensions/office/libreoffice-cite
   - extensions/office/word-cite
 tests:
+  - desktop/release-version-sync.test.js
+  - desktop/release-candidate-policy.test.js
+  - desktop/release-source-identity.test.js
+  - backend/tests/test_openapi_generation.py
+  - backend/tests/test_desktop_instance.py
+  - desktop/backend-process.test.js
+  - desktop/main-startup.test.js
+  - desktop/ipc-handlers.test.js
+  - desktop/packaging-resources.test.js
+  - desktop/tests/test_backend_resources.py
+  - desktop/release-artifacts.test.js
+  - desktop/release-workflow-collection.test.js
+  - backend/tests/test_packaged_backend_smoke.py
+  - backend/tests/test_validation_runtime.py
+  - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
+  - frontend/src/app/desktop/desktopMenu.test.ts
   - backend/tests/test_env_config_runtime.py
   - desktop/application-menu.test.js
   - desktop/backend-launch.test.js
@@ -30,157 +72,372 @@ tests:
   - extensions/office/libreoffice-cite/tests
 ---
 
-# Clients d'escriptori i company
+# Clients d’escriptori i complementaris
 
-## Escriptori electrònica
+## Responsabilitats i modes de desenvolupament
 
-Paquets electrònica Gnosi com a aplicació d' escriptori. El procés principal propietari del dorsal en engegar, s' està netejant, ferm, rutes de vida de finestra, paquetd- font, actualitzacions de comprovacions, descàrregues, instal· lació i accions d' escriptori privilegiades. El renderitzador rep un API estret en comptes de l' accés directe al node.js.
+Electron empaqueta el frontend React i el backend Python en una sola aplicació
+d’escriptori. El procés principal gestiona el procés fill del backend, les finestres,
+el protocol de l’aplicació, l’estat de les actualitzacions i les accions privilegiades.
+El renderer utilitza una API de preload limitada, mai accés sense restriccions a
+Node.js o al sistema de fitxers.
 
-El dorsal per al Python embalat ha d' estar llest abans que el renderitzador tracta l' aplicació com usable. Els errors d' inici estan en superfície amb diagnòstics i la neteja impedeixen processos de dorsal orfes després de sortir de la finestra.
+El desenvolupament natiu al navegador i el desenvolupament amb Electron tenen
+punts d’entrada diferents:
 
-## Actualitza la màquina d' estat
+| Mode | Frontend | Responsable del backend |
+| --- | --- | --- |
+| Navegador natiu | Vite a `http://localhost:5173` | `pnpm dev`, des de l’arrel, inicia Vite i uvicorn |
+| Desenvolupament amb Electron | Vite iniciat de manera independent a `http://localhost:5173` | `pnpm desktop:dev` inicia el seu propi procés fill d’uvicorn al port 5002 |
+| Electron empaquetat | Frontend inclòs al paquet a `app://gnosi/index.html` | `python/cervell_backend` inclòs al paquet, o `cervell_backend.exe` a Windows |
+
+No executis el backend natiu alhora que el desenvolupament amb Electron: el
+supervisor d’escriptori no adopta cap altre procés al port 5002. El desenvolupament
+amb Electron no inicia Vite ni sol·licita la recàrrega d’uvicorn. Inicia’l amb
+`uv run --frozen --no-sync pnpm desktop:dev` després de sincronitzar l’entorn
+Python, perquè el seu `python3`, o `python` a Windows, es resolgui dins d’aquest
+entorn. L’origen de confiança per al desenvolupament és localhost:5173 amb HTTP;
+configura `VITE_DEV_HTTPS=false` per a aquella sessió de Vite. Una sessió HTTPS
+del complement de Word és una configuració separada i no és intercanviable amb
+l’origen d’escriptori.
+
+El [README d’escriptori](https://github.com/ismigar/Gnosi/blob/main/desktop/README.md)
+conté instruccions de configuració i recuperació. Les vinculacions dels menús
+React i l’avís d’actualització pertanyen a `frontend/src/app/desktop/`; la
+presentació de les notes de versió pertany a la funcionalitat del centre de
+control. Canviar la distribució interna de responsabilitats no ha d’alterar els
+noms IPC, les accions d’actualització ni les destinacions de descàrrega.
+
+## Arrencada, finestres i IPC
+
+Abans d’obrir Chromium o iniciar serveis, `profile-startup.js` obté el bloqueig
+d’instància única i prepara el perfil existent. Un conflicte o un estat de
+recuperació ambigu atura l’arrencada; no autoritza a esborrar fitxers.
+
+Cada arrencada del backend proporciona un valor nou de `GNOSI_DESKTOP_INSTANCE`.
+El supervisor exigeix que el procés fill propi continuï actiu i que la resposta
+de salut sigui completa, acotada i satisfactòria, amb una capçalera
+`x-gnosi-desktop-instance` coincident. Aquesta capçalera permet correlacionar el
+procés; no autentica cap usuari ni modifica el JSON públic de salut. Els temps
+d’espera exhaurits, les redireccions, les respostes malformades, la finalització
+prematura i les respostes HTTP 200 alienes fan fallar l’arrencada i provoquen
+l’aturada i la neteja del procés fill propi. Si falta l’executable empaquetat,
+mai no es recorre al Python del sistema.
+
+Nova finestra, Configuració, l’activació des del Dock i la visualització diferida
+de finestres no poden eludir la comprovació que el backend estigui preparat ni
+l’aturada. Tancar l’última finestra a macOS no tanca l’aplicació; sortir de
+l’aplicació atura el seu backend. A les altres plataformes, tancar totes les
+finestres tanca l’aplicació. Els missatges d’error d’arrencada estan disponibles
+en anglès, català, castellà i francès abans que es carregui React; els detalls
+tècnics queden als registres.
+
+Les finestres principals utilitzen `contextIsolation: true`, `sandbox: true` i
+`nodeIntegration: false`. Només el marc de nivell superior actual d’una finestra
+registrada, a l’origen de confiança de desenvolupament o del paquet, pot invocar
+IPC privilegiat. La navegació i les redireccions no poden conservar aquest pont
+en un altre origen. Els enllaços HTTP(S) que se sol·liciten en una finestra nova
+s’obren externament.
+
+L’emplenament de formularis només accepta una URL inicial HTTPS sense
+credencials i en fixa l’origen exacte abans de carregar-la. Els controls de
+navegació i redirecció s’instal·len abans d’iniciar la càrrega; es bloquegen les
+destinacions sense xifrar i les d’un altre origen. La URL final de `webContents`
+es torna a comprovar immediatament abans de cada injecció del perfil sintètic,
+de manera que el contingut redirigit no rep cap byte del perfil.
+
+El protocol del paquet serveix els recursos del frontend i fa de proxy de
+`/api/` cap al backend local. Valida l’autoritat de l’aplicació, impedeix recórrer
+el sistema de fitxers fora de les rutes permeses i utilitza el magatzem de galetes
+de la sessió en lloc de reenviar les capçaleres de galetes en brut del renderer.
+Conserva aquest comportament quan canviïs l’encaminament o els adaptadors de
+transmissió en continu.
+
+Els vuit gestors extrets tenen contractes de petició i resposta comprovats.
+L'emplenament de formularis és a `ipc-handlers.js`, que ja s'empaquetava; el procés
+principal aporta la fàbrica nativa de finestres i el registre de missatges.
+La validació de l'emissor continua precedint l'accés al payload i l'obertura d'una
+finestra separada i aïllada sense pont de preload. La validació d'URL, l'ordre dels
+esdeveniments, la serialització del perfil i el programa injectat no canvien i
+tenen proves diferencials sintètiques. El programa dins la cadena no es comprova
+estàticament. Això no acredita el comportament en webs reals, el tipatge complet
+del procés principal, l'acceptació d'instal·ladors ni l'autorització de destinacions
+arbitràries de formularis.
+Les subscripcions de preload retornen funcions de cancel·lació
+idempotents; els mètodes de cancel·lació per compatibilitat continuen disponibles
+per als renderers antics.
+
+## Dades locals i recuperació del perfil
+
+El backend empaquetat selecciona el primer valor no buit en aquest ordre:
+`GNOSI_DATA_DIR`, `GNOSI_LOCAL_DATA`, `LOCAL_DATA_DIR` i, finalment, el directori
+`userData` existent d’Electron. Estableix la variable canònica i conserva un àlies
+de compatibilitat existent. El valor per defecte d’escriptori no és necessàriament
+el valor natiu de Python per a la plataforma i no trasllada una instal·lació
+antiga. Utilitza rutes absolutes per als valors explícits i conserva tant el perfil
+d’Electron com qualsevol directori separat de dades del backend abans d’una
+actualització.
+
+El nom de paquet amb àmbit `@gnosi/desktop` es torna a mapar al nom històric
+d’execució `gnosi`; les ubicacions explícites de perfil i sessió es continuen
+utilitzant. L’identificador del paquet continua sent `com.gnosi.cervell-digital`.
+
+La protecció del perfil conserva els directoris obsolets `databases` com a bytes
+opacs a `.<profile-name>.gnosi-electron-recovery/databases.saved`, al costat de
+cada perfil. Els moviments atòmics sense substitució i els registres de
+recuperació impedeixen sobreescriure una destinació existent. Es comproven els
+perfils separats de dades d’usuari i de sessió. Les operacions primitives del
+sistema de fitxers no compatibles, els mòduls natius absents, les rutes de dades
+superposades o els registres de recuperació ambigus aturen l’arrencada. Això
+conserva els bytes, no la funcionalitat WebSQL eliminada. No restauris aquest
+arbre amb el nom antic mentre executis una versió més nova d’Electron, ni
+esborris els registres de recuperació per forçar l’arrencada.
+
+Per als esquemes de galetes coneguts 19–22, la migració prepara només la base de
+dades de galetes, en valida la integritat, l’esquema, el nombre de files i un
+resum criptogràfic de la projecció que té en compte els bytes, i després activa
+l’esquema 23 abans que Chromium l’obri. L’original exacte es conserva a
+`.Cookies.gnosi-cookie-recovery/original.sqlite`, al costat de `Cookies`.
+Els magatzems desconeguts, corruptes, amb conflictes o amb xifratge personalitzat
+provoquen una aturada segura. No es copia tot el perfil, no s’endevina cap clau
+de desxifratge ni es recorre a text en clar.
+
+La reversió explícita de galetes exigeix que els clients estiguin aturats i que
+la migració inicial s’hagi completat. Conserva les galetes més noves a
+`rollback.current.sqlite`, restaura un original verificat mitjançant el seu
+propi registre de recuperació i impedeix que es repeteixi automàticament la
+migració. Conserva tots els fitxers de recuperació fins a l’acceptació; no forcis
+mai els números de versió dels esquemes ni esborris bases de dades de galetes.
+El README descriu la recuperació interrompuda i les proves aïllades
+antiga → objectiu → objectiu. L’èxit amb dades de prova no demostra la migració
+real del perfil, del magatzem de secrets del sistema operatiu o de la base de
+dades de l’aplicació en una altra màquina.
+
+## Actualitzacions i accions de l’usuari
+
+`update-policy.js` selecciona la instal·lació manual a macOS i el flux de
+descàrrega i instal·lació automàtiques a les altres plataformes. En
+desenvolupament es desactiven les comprovacions d’actualització. En producció
+es comprova si hi ha actualitzacions després d’una arrencada correcta, però tant
+`autoDownload` com `autoInstallOnAppQuit` són false: que hi hagi una versió nova
+disponible o que es tanqui l’aplicació no inicia cap instal·lació no sol·licitada.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Checking: renderer ready
+    Idle --> Checking: backend preparat
     Checking --> Available
     Checking --> Current
     Checking --> Error
-    Available --> Downloading: user confirms download
+    Available --> ManualDownload: l’usuari obre el DMG de macOS
+    Available --> Downloading: l’usuari sol·licita una descàrrega compatible
+    ManualDownload --> [*]: navegador extern
     Downloading --> Ready
     Downloading --> Error
-    Ready --> Installing: user confirms restart
+    Ready --> Installing: l’usuari confirma el reinici
 ```
 
-Les comprovacions estan deshabilitades en el desenvolupament. Les baixades mai comencen simplement perquè existeix un alliberament. El procés principal desa l' estat d' actualització, de manera que un renderitzador que subscripti fins tard es pot recuperar a través del PCPC.
+A macOS, l’acció explícita obre l’URL del DMG oficial de l’arquitectura
+corresponent. L’empaquetatge actual utilitza signatura ad hoc; el reinici i la
+instal·lació automàtics continuen desactivats fins que es revisi una configuració
+estable de Developer ID i notarització. Una verificació correcta amb `codesign`
+no constitueix, per si sola, l’acceptació del sistema d’actualització.
+La política de Windows/Linux tampoc no demostra que la instal·lació funcioni
+amb tots els formats d’artefacte; prova la destinació real instal·lada.
 
-Els artefactes de llançament inclouen instal· lats i metadades actualitzadores per a MacOS, Windows i Linux. La versió de preparació manté la Frontal i els manifests electrònica alineats; les etiquetes només es creen des de revisades. `main` Comencions.
+El procés principal conserva l’estat d’actualització més recent per als renderers
+que s’hi subscriuen tard. Les comprovacions en segon pla no obren l’historial de
+versions. Els usuaris l’obren explícitament des del centre de control; els canvis
+de versió no l’obren durant l’arrencada.
 
-El workflow privat de release empaqueta macOS Intel i Apple Silicon en jobs
-separats d'una matriu. Cada job s'executa sobre l'arquitectura corresponent de
-macOS 15 i construeix un únic backend natiu amb PyInstaller abans d'invocar
-electron-builder per al mateix objectiu. Això evita copiar un executable Python
-natiu del host dins l'aplicació de l'altra arquitectura.
-La matriu de macOS està tancada per arquitectura: cada runner local passa una
-única arquitectura per CLI i els objectius compartits de macOS
-d'electron-builder no poden declarar cap llista d'arquitectures. Això evita
-empaquetar un backend Python congelat natiu del host dins una aplicació Electron
-de l'arquitectura contrària.
-Les releases manuals fan checkout del commit de l'execució (`github.sha`); el
-tag sol·licitat només aporta la versió semàntica i la destinació de la release
-pública. Això incorpora als binaris les correccions d'empaquetatge fusionades
-després de preparar la versió sense moure un tag immutable. El job de Windows
-exposa la instal·lació estàndard `Program Files\\Git\\cmd` abans del checkout si
-el servei del runner no l'hereta mitjançant `PATH`, i evita el fallback al ZIP
-REST.
-Els scripts generats del job fan servir una excepció de política d'execució de
-PowerShell limitada al job. Així, els valors restrictius del servei no rebutgen
-els `.ps1` efímers i no es debilita la política global de la VM.
-La release de Linux també queda tancada per arquitectura: el runner local i el
-backend de PyInstaller són ARM64, i electron-builder rep `--arm64`
-explícitament. Aquest runner no pot generar cap paquet etiquetat com a x64,
-perquè contindria un executable de backend de l'arquitectura contrària.
-Els runners de release estan fixats en comptes d'usar `macos-latest`, perquè la seva migració a macOS 26
-va canviar la creació del DMG a APFS i va trencar la fase de muntatge i
-personalització d'electron-builder.
-Cada job de release també passa explícitament al constructor del backend el
-comandament Python proporcionat per `actions/setup-python`. Això manté les
-extensions binàries i les biblioteques OpenSSL recopilades sobre un únic ABI
-d'intèrpret i evita que un Python més nou del runner substitueixi l'entorn de
-release.
-Com que `cryptography` 49 i posteriors ja no publiquen wheels macOS x86_64, el
-paquet Intel usa l'última línia universal2 compatible (`48.0.1`) i la resta de
-plataformes mantenen el requisit actual. L'instal·lador del backend congelat
-exigeix una distribució binària de `cryptography`: ha de fallar en comptes de
-compilar contra un OpenSSL del runner que pugui col·lidir amb la biblioteca
-recopilada per PyInstaller.
+## Cadena d’eines i límits de l’empaquetatge
 
-La llista de fitxers del constructor d'Electron és un límit explícit del runtime.
-El hook multiplataforma `afterPack` inspecciona l'`app.asar` final i rebutja un
-paquet que ometi el procés principal, el preload, el mòdul del menú natiu,
-l'iniciador del backend o la política d'actualització. Aquesta comprovació de l'artefacte instal·lat
-complementa les proves de codi font i evita que un arbre de fonts vàlid produeixi
-una aplicació que falla abans d'obrir la primera finestra.
+L’espai de treball fixa Node 22.22.2 i pnpm 11.19.0. Les dependències
+d’escriptori fixen actualment Electron 43.4.1, electron-builder 26.15.3 i
+ASAR 4.3.0. L’entorn d’execució Node integrat a Electron és independent de
+l’entorn de construcció de l’espai de treball. La comanda explícita
+`install:runtime` instal·la el binari d’Electron; no habilitis tots els scripts
+d’instal·lació de dependències per corregir l’absència de l’entorn d’execució.
 
-El camí del backend empaquetat resol l'executable de PyInstaller mateix a macOS
-i Linux, i el seu equivalent `.exe` a Windows. El procés principal executa
-directament aquest fitxer resolt i no el tracta com un nivell de directori més.
-La construcció neta instal·la els requisits canònics del runtime E2E, incloses
-les dependències de proveïdors i API, i inicia l'executable congelat com a prova
-de fum multiplataforma abans de continuar amb el paquet d'escriptori.
+Construeix el frontend abans d’empaquetar l’aplicació d’escriptori.
+`build-python.sh` exigeix exactament Python 3.11, accepta `GNOSI_PYTHON_CMD`
+quan es configura explícitament i crea un entorn temporal únic amb el fitxer
+`uv.lock` congelat de l’arrel i el grup de dependències `desktop`. Genera una
+especificació de PyInstaller, valida l’anàlisi i el paquet, copia el resultat
+verificat a `desktop/dist-python/` i executa la prova bàsica aïllada del backend
+empaquetat. No utilitza cap fitxer de requisits separat ni l’entorn existent del
+desenvolupador.
 
-El procés d'escriptori instal·lat defineix `GNOSI_LOCAL_DATA` dins la carpeta de
-dades d'aplicació de l'usuari que proporciona Electron, tret que hi hagi una
-sobreescriptura explícita. Això evita que els paquets natius utilitzin el camí
-exclusiu de Docker `/app/data`. La comprovació d'arrencada consulta el punt
-públic `/api/health` i no queda bloquejada per un punt protegit de l'aplicació.
-El backend congelat desactiva el vigilant de recàrrega de fitxers d'Uvicorn; el
-desenvolupament natiu des del codi font conserva la recàrrega.
+La política de recursos llegeix el codi font sense importar l’aplicació. Conserva
+els recursos d’Alembic, les instruccions dels agents, les skills de traducció
+dinàmiques, els complements d’exemple i els estils de citació. Rebutja recursos
+absents, modificats, no revisats o insegurs, en lloc d’incloure recursivament
+vaults, bases de dades, configuració, secrets o eines generades. El hook
+`afterPack` comprova l’ASAR i els recursos Python reals abans de signar.
+Els recursos gràfics pertanyen a `desktop/assets/`; els paquets generats
+pertanyen a `desktop/dist/` i `desktop/dist-python/`.
 
-## Preparació de versions
+| Destinació configurada | Arquitectura del runner | Instal·lador i artefactes d’actualització |
+| --- | --- | --- |
+| macOS arm64 | macOS ARM64 autoallotjat | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml` |
+| macOS x64 | macOS X64 autoallotjat | `Gnosi-<version>-x64.dmg`, ZIP, `latest-mac.yml` |
+| Linux arm64 | Linux ARM64 autoallotjat | AppImage, DEB, `latest-linux-arm64.yml` |
+| Windows x64 | Windows X64 autoallotjat | `Gnosi-<version>-Setup.exe`, `latest.yml` |
 
-`frontend/src/content/releases.json` és l'historial canònic de versions inclòs
-al paquet. El sincronitzador manté idèntiques les versions del manifest del
-frontend, del manifest d'Electron i de l'entrada del frontend al lockfile del
-monorepo. Una entrada estable preparada abans de publicar-se omet expressament
-`downloadUrl`; aquest camp només s'afegeix quan existeixen l'etiqueta immutable
-i els artefactes de cada plataforma.
-Com que la versió del manifest del frontend és un límit d'escriptori d'alt
-impacte, cada pull request de preparació d'una release també actualitza aquest
-contracte revisat i els seus miralls localitzats, encara que el patch no canviï
-el comportament en temps d'execució.
-La validació del changelog normalitza els finals de línia abans de comparar-los,
-de manera que un checkout Windows amb CRLF equivalent no faci fallar el gate
-d'empaquetatge multiplataforma.
+Fes que el backend congelat coincideixi amb l’arquitectura de destinació. Les
+destinacions macOS no han d’empaquetar silenciosament totes dues arquitectures
+amb un únic backend natiu de l’amfitrió. Linux passa `--arm64`; Windows utilitza
+NSIS x64. Aquests jobs no fixen cap versió del sistema operatiu macOS i no
+cobreixen Linux x64 ni Windows arm64. Els dos jobs de macOS s’executen en sèrie;
+Windows espera macOS, mentre que Linux pot executar-se alhora. La concurrència
+es limita per referència Git, no mitjançant un bloqueig global que acrediti la
+capacitat de l’amfitrió.
 
-Abans de crear l'etiqueta, la PR de release ha de superar la validació del
-frontend, els tests backend, la QA nativa al navegador i la porta de
-documentació d'enginyeria. Després del merge, el workflow de sincronització ha
-de portar el commit revisat al repositori públic, on ha de superar el release
-readiness. El workflow del repositori privat és l'únic propietari de les
-etiquetes oficials, els artefactes multiplataforma, els catàlegs signats, les
-notes i l'esborrany del repositori públic. El workflow d'escriptori sincronitzat
-al repositori públic només s'executa manualment, de manera que pot validar
-l'empaquetatge sense competir amb un build oficial. Els artefactes de macOS,
-Windows i Linux es revisen abans de publicar-los.
+Windows rep una excepció de la política d’execució de PowerShell limitada al
+job i prepara Git abans del checkout quan cal; no debilitis la política de tota
+la màquina. La construcció del backend utilitza arguments de l’intèrpret entre
+cometes, estructures d’entorns virtuals temporals específiques de cada plataforma
+i una neteja que s’intenta fer sense garantir-ne l’èxit. El manifest Python
+restringeix actualment `cryptography` a la sèrie 48.x per a macOS x86_64; la
+invocació actual d’uv no imposa una instal·lació exclusivament binària. Verifica
+la procedència dels wheels i de l’ABI al runner real, en lloc de donar per feta
+aquesta restricció o substituir-ne el Python/OpenSSL.
 
-La preparació de la v2.0.0 segueix aquest límit: les notes localitzades
-incloses i el changelog generat es publiquen amb els manifests sincronitzats,
-mentre que l'etiqueta immutable i l'enllaç de descàrrega de cada plataforma
-només s'afegeixen després que el commit revisat de main superi el workflow
-oficial de release.
+Tots els scripts de construcció d’escriptori, inclosos els àlies
+`package:desktop` i `build:desktop` de l’arrel, desactiven la publicació del
+constructor amb `--publish never`. Preparen artefactes locals; no certifiquen
+ni publiquen cap versió.
 
-El patch v2.0.1 manté completes les dependències canòniques del backend
-congelat i envia els tags oficials a la matriu de runners locals configurada.
-Així el workflow valida els mateixos entorns que generen els artefactes.
+## Preparació de versions i distribució només de candidats
 
-La preparació de la v2.0.5 afegeix una comprovació obligatòria de metadades
-abans de l'empaquetatge per plataforma. Rebutja un tag si els manifests
-d'Electron i del frontend, el lockfile del monorepo, els quatre catàlegs de
-release localitzats i el changelog generat no descriuen la mateixa versió.
+L’historial inclòs al paquet és
+`frontend/src/features/control-center/releases/releases.json`.
+Els manifests de l’arrel, del frontend i de l’escriptori, les metadades Python,
+els fitxers de bloqueig, les notes localitzades i el registre de canvis han de
+coincidir abans de publicar una versió. `sync-release-version.cjs` prepara les
+quatre entrades abans d’escriure només els camps de versió. Les entrades
+il·legibles, les assignacions no compatibles i els duplicats ambigus provoquen
+un error abans de qualsevol escriptura. Es conserven les versions dins d’objectes
+JSON, els comentaris i els finals de línia; una versió idèntica no reescriu cap
+fitxer. El localitzador TOML admet `[project].version` entre cometes en una sola
+línia, però no valida tot el TOML. L’actualització del fitxer de bloqueig encara
+ha de validar el projecte Python. Les escriptures separades no són una
+transacció resistent a interrupcions: un error d’entrada/sortida o un tall pot
+deixar canvis parcials. Revisa les diferències respecte de la base registrada
+de la branca de preparació abans de reintentar-ho. Encara cal validar el catàleg
+i el registre de canvis i revisar els fitxers de bloqueig actualitzats.
 
-## clipper web
+`desktop/release.sh` prepara les versions i els artefactes locals. No crea cap
+etiqueta ni publica cap versió. Utilitza una branca de preparació explícita i
+mantén-ne fora els canvis que no hi estiguin relacionats. Les noves correccions
+d’empaquetatge exigeixen una etiqueta nova revisada, no codi font diferent
+publicat sota una etiqueta antiga. Afegeix enllaços de descàrrega per plataforma
+només quan els artefactes públics immutables corresponents existeixin realment.
 
-L' extensió del navegador extraieu el títol de la pàgina actual, URL, seleccionat o llegibles, i les metadades acceptades, després envia una sol· licitud limitada a l' API del Gnosi. El dorsal realitza autenticació, sanitització, desuplicació i Vault escriu. L' extensió no rep accés a sistema de fitxers arbitraris.
+`desktop/release-version.js` és la frontera compartida de versió de release per
+a l’actualitzador i el col·lector d’artefactes. Utilitza la implementació SemVer
+fixada amb `electron-updater`, accepta metadades de build canòniques i rebutja
+espais adjacents, prefixos `v` i versions invàlides o no canòniques. La política
+d’actualització i l’empaquetatge no han d’introduir un segon parser.
 
-## Clients de citació de LibreOffice i Words
+`Build Release Candidate` verifica que l’etiqueta sol·licitada existeixi i es
+resolgui al commit exacte del checkout, `github.sha`, tant en enviaments
+d’etiquetes com en execucions manuals. Una entrada malformada, etiquetes absents,
+destinacions que no siguin commits o discrepàncies aturen el procés abans
+d’instal·lar dependències. L’eina auxiliar d’identitat utilitza Git local i no
+mou referències ni recupera dades remotes pel seu compte. La protecció de les
+etiquetes remotes continua sent un requisit separat.
 
-L' extensió LibreOffice registra un gestor de protocol i crida als punts finals de citació del Gnosi del procés d' oficina. El Word helper manté el paginador de tasques i l' estat requerit per accedir al mateix servei local. Ambdós clients tracten la inserció de cita i la bibliografia com a mutacions explícites del document.
+A continuació, el workflow crida la CI existent al mateix commit sense heretar
+secrets. Les construccions per arquitectura exigeixen que aquesta CI passi.
+La CI inclou documentació, frontend, backend, proves bàsiques natives i
+construcció d’imatges Docker. La documentació de les PR es comprova contra la
+base exacta de la PR; els candidats comproven els catàlegs actuals i tots els
+portals d’idioma en mode estricte al seu propi SHA, no una revisió fictícia de
+l’impacte d’una PR.
 
-Les API específiques de l' oficina estan aïllats darrere dels traverals i les seves transversions per tal que les proves puguin simular el límit de l'ONU o afegir-ne sense necessitat de l'aplicació completa de cada prova d'unitat.
+La recollida baixa només els quatre artefactes d’arquitectura identificats pel
+nom i exclou els candidats anteriors en les reexecucions. Instal·la les
+dependències congelades del procés de recollida amb els scripts de cicle de
+vida desactivats, comprova la versió, les referències i els resums SHA-512,
+rebutja fitxers absents o amb col·lisions i fusiona els dos manifests
+d’actualització de macOS. La generació d’índexs, la generació de les notes de
+versió i la pujada del candidat es fan després de la validació.
 
-## Invariants
+L’artefacte final d’Actions és `candidate-<tag>-<sha>-<attempt>` i es conserva
+durant cinc dies. Conté instal·ladors, metadades d’actualització, índexs i notes
+de versió. No és un emmagatzematge confidencial i no ha de contenir mai dades
+d’usuari ni secrets. El workflow té permisos de només lectura sobre el
+repositori i no crea esborranys de GitHub, no publica versions ni modifica
+recursos públics existents o canals d’actualització.
 
-- El codi Render no té cap capacitat de nocicle.js o sistema de fitxers.
-- El PCP expos les operacions amb entrades validades.
-- Actualitza les baixades i instal·lacions requereix accions explícites d' usuari.
-- Els camins de recursos empaquetats difereixen dels camins del desenvolupament i es resolen a
-Temps d' espera.
-- Autenticació de clients de composició per al dorsal i segueixen- lo en el seu estret
-Captura o àmbit de citació.
-- Els esborranys de llançament estan inspeccionats abans de publicar-los.
+La distribució pública continua desactivada fins a completar l’acceptació
+nativa, de Docker, dels instal·ladors i de l’actualització des de 2.x, i fins
+que es revisi separadament un procés de publicació. Un candidat correcte no
+autoritza a publicar 3.0.0.
 
-## Concentrat de verificació
+## Clients web i ofimàtics
 
-Executa les comprovacions de sintaxi electrònica/build, proves de fum de dorsal empaquetades, proves d' estat actualitzats, validació de l' extensió, proves de citació i plataforma CI. local de MacOS no poden provar defectes de Windows o Linux.
+El capturador web envia `POST /api/public/clip` amb un token d’accés personal
+i llegeix la configuració dels camps sol·licitats i del destí des de
+`GET /api/public/clip/config`. El backend tria la destinació al vault;
+l’extensió no obté accés arbitrari al sistema de fitxers. El seu token i l’URL
+del backend es desen a l’emmagatzematge local de l’extensió. L’empaquetatge per
+al navegador i l’acceptació a les botigues són independents de l’acceptació
+dels instal·ladors d’escriptori.
+
+El panell de tasques de Word és a `frontend/public/word-addin/` i utilitza
+Office.js. Les seves crides a l’API utilitzen l’origen del panell i un token
+bearer configurat explícitament; un endpoint públic que respon correctament no
+demostra que l’accés a les citacions estigui autoritzat. L’origen HTTPS del
+manifest i el certificat de confiança han de coincidir amb el desplegament.
+Les eines d’`extensions/office/word-cite/` modifiquen les referències del
+document o del paquet, o la plantilla de Word de l’usuari, per permetre la
+persistència opcional del panell. Són modificacions explícites de documents
+o de configuració, no una acció normal d’arrencada de Gnosi.
+
+El client de LibreOffice és un gestor de protocol Python/UNO que utilitza
+`urllib` de la biblioteca estàndard. Llegeix `api_token` de la seva pròpia
+configuració o de `GNOSI_API_TOKEN`; no pressuposis que comparteix la sessió
+del navegador. Tots dos clients utilitzen els endpoints de format de citacions
+del vault i el pipeline Pandoc/CSL del backend. El format sensible al context
+requereix les claus del document en ordre, incloses les citacions repetides.
+L’actualització de Writer recorre les taules imbricades; les capçaleres i els
+peus de pàgina aporten claus bibliogràfiques, però l’actualització ordenada no
+els reescriu. El comportament d’Office s’ha de provar a l’aplicació amfitriona
+real compatible, no deduir-lo de les dades de prova dels recorreguts.
+
+## Acceptació i resolució de problemes
+
+La prova bàsica del backend empaquetat exigeix una resposta de salut HTTP 200
+acotada, amb `status: ok`, `mode: FastAPI` i la identitat nova de la prova a
+`gnosi_mode`. Utilitza rutes de dades i de vault d’un sol ús, desactiva les
+automatitzacions operatives i finalitza i recull el seu procés fill tant si
+té èxit com si falla. `GNOSI_VALIDATION_ROOT` valida tots els selectors i
+bloqueja els fitxers d’entorn locals i compartits i l’accés als magatzems de
+credencials. La generació d’OpenAPI utilitza el mateix aïllament. No estableixis
+mai aquest indicador per al desenvolupament normal ni per a aplicacions
+instal·lades.
+
+Els contractes del codi font, els amfitrions simulats i una execució de FastAPI
+des del codi font no acrediten un instal·lador amb el backend congelat ni una
+actualització real. Abans de la distribució pública, verifica en cada
+destinació real la instal·lació, la primera arrencada, l’IPC, la conservació de
+galetes i perfils, la integritat de la base de dades, el procés d’actualització
+i la recuperació, a més dels fluxos autenticats del navegador i l’arrencada i
+la persistència de Docker. L’èxit local a macOS no pot certificar cap altra
+destinació.
+
+| Símptoma | Què cal revisar a continuació | Què no s’ha de fer |
+| --- | --- | --- |
+| El desenvolupament amb Electron es queda en blanc | Origen HTTP de Vite, PATH de l’entorn Python congelat, registre d’arrencada del backend propi | Iniciar un segon backend al port 5002 |
+| La protecció del perfil atura l’arrencada | Error exacte, rutes originals i de recuperació, clients aturats | Esborrar registres de recuperació, galetes o dades antigues |
+| Falta el backend empaquetat | Resultat de PyInstaller i política final de recursos | Recórrer al Python del sistema |
+| macOS ofereix un DMG | Política actual d’instal·lació manual i arquitectura | Tractar la verificació de la signatura com a acceptació de l’actualització automàtica |
+| Office arriba a l’endpoint de salut però fallen les citacions | Token bearer, origen de l’API i resposta protegida real | Desactivar l’autenticació per amagar una fallada del client |
+
+Executa les proves de contracte d’escriptori del repositori, la comprovació
+estricta d’IPC, el control de documentació i les comandes pertinents de proves
+bàsiques aïllades. Inspecciona el resultat al navegador i a l’escriptori i els
+registres, no només els codis de sortida. Mantén separades les evidències de
+cada plataforma de destinació i les proves sintètiques.

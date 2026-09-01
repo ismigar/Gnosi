@@ -1,0 +1,6 @@
+/* Persisted agent icons keep their corporate-blue descriptor for storage and
+   neutral surfaces. The floating blue chat action always needs white artwork. */
+.premium-chat-trigger svg {
+    color: #fff;
+    stroke: #fff;
+}

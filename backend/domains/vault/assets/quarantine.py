@@ -11,10 +11,12 @@ from collections.abc import Callable, Iterable
 from contextlib import AbstractContextManager
 from contextvars import ContextVar
 from dataclasses import dataclass
+from operator import itemgetter, methodcaller
 from pathlib import Path
-from typing import cast
 
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import get_value, iterable_values
 
 AssetMoves = list[tuple[Path, Path]]
 
@@ -192,22 +194,33 @@ def _delete_table_asset_quarantine(quarantine: Path, vault_root: Path) -> None:
     shutil.rmtree(target, ignore_errors=True)
 
 
-def _read_manifest(path: Path) -> RegistryData:
-    return cast(RegistryData, json.loads(path.read_text(encoding="utf-8")))
+def _read_manifest(path: Path) -> object:
+    value: object = json.loads(path.read_text(encoding="utf-8"))
+    return value
+
+
+def _manifest_item(entry: object, key: str) -> object:
+    """Keep native subscription errors inside the original recovery scope.
+
+    Invoke the actual builtin getter on opaque JSON values. A direct
+    __getitem__ lookup would turn the native TypeError into AttributeError
+    for scalar roots, bypassing the established recovery handler.
+    """
+    value: object = methodcaller("__call__", entry)(itemgetter(key))
+    return value
 
 
 def _planned_restore_moves(
-    manifest: RegistryData,
+    manifest: object,
     quarantine: Path,
     vault_root: Path,
 ) -> AssetMoves | None:
     planned: AssetMoves = []
-    for raw_entry in manifest.get("entries") or []:
-        entry = cast(RegistryData, raw_entry)
+    for entry in iterable_values(get_value(manifest, "entries") or []):
         try:
-            source = (vault_root / str(entry["source"])).resolve()
+            source = (vault_root / str(_manifest_item(entry, "source"))).resolve()
             source.relative_to(vault_root)
-            destination = (quarantine / str(entry["destination"])).resolve()
+            destination = (quarantine / str(_manifest_item(entry, "destination"))).resolve()
             if source == vault_root or destination.parent != quarantine.resolve():
                 raise ValueError
         except (KeyError, OSError, TypeError, ValueError):
@@ -259,8 +272,8 @@ def _cleanup_registry_table_ids(vault_root: Path) -> set[str] | None:
         registry_path = _deps().get_path("REGISTRY").resolve()
         registry_path.relative_to(root)
         registry = _read_manifest(registry_path)
-        tables: object = registry["tables"]
-        if not isinstance(tables, list):
+        tables = _manifest_item(registry, "tables")
+        if not is_object_list(tables):
             raise TypeError
     except (KeyError, OSError, TypeError, ValueError):
         _deps().logger.error(
@@ -268,13 +281,13 @@ def _cleanup_registry_table_ids(vault_root: Path) -> set[str] | None:
             root,
         )
         return None
-    return {str(table.get("id") or "") for table in tables if isinstance(table, dict)}
+    return {str(table.get("id") or "") for table in tables if is_record(table)}
 
 
 def _quarantine_table_id(candidate: Path) -> str | None:
     try:
         manifest = _read_manifest(candidate / "_manifest.json")
-        table_id = str(manifest.get("table_id") or "")
+        table_id = str(get_value(manifest, "table_id") or "")
         if not table_id:
             raise ValueError
     except (OSError, ValueError, TypeError):

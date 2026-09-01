@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
+  - frontend/src/features/vault/dashboard/useContentCreation.ts
+  - frontend/src/features/vault/dashboard/DashboardWelcome.tsx
+  - frontend/src/features/vault/dashboard/DashboardSidebar.tsx
   - backend/data/db.py
   - backend/api/vault_routes.py
   - backend/domains/vault/tables/catalogs
@@ -24,15 +27,18 @@ source_paths:
   - backend/services/project_planning.py
   - backend/services/planning_scheduler.py
   - pipeline/scripts/migrate_table_system_dates.py
-  - frontend/src/components/Vault/VaultTable.jsx
-  - frontend/src/components/Vault/BlockEditor.jsx
-  - frontend/src/components/Vault/VaultDateProperty.jsx
-  - frontend/src/components/Vault/VaultTimeline.jsx
-  - frontend/src/pages/VaultDashboard.jsx
-  - frontend/src/pages/ProjectPlanningPage.jsx
-  - frontend/src/utils/projectPlanning.js
-  - frontend/src/utils/vaultFilters.js
+  - frontend/src/features/vault/views/VaultTable.tsx
+  - frontend/src/features/vault/editor/BlockEditor.tsx
+  - frontend/src/features/vault/properties/VaultDateProperty.ts
+  - frontend/src/shared/record-views/VaultTimeline.tsx
+  - frontend/src/features/vault/VaultDashboard.tsx
+  - frontend/src/features/planning
+  - frontend/src/shared/dates/projectPlanning.ts
+  - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/dashboard/creationFlow.test.tsx
+  - frontend/src/features/planning/ProjectPlanningPage.test.tsx
+  - frontend/src/features/planning/public-entry.test.ts
   - backend/tests/test_action_rules.py
   - backend/tests/test_database_rules_views_domain_contract.py
   - backend/tests/test_rule_engine_derived_order.py
@@ -51,7 +57,7 @@ tests:
   - backend/tests/test_project_planning.py
   - backend/tests/test_virtual_fields_graph_projection.py
   - backend/tests/test_pipeline_naming.py
-  - frontend/src/utils/projectPlanning.test.js
+  - frontend/src/shared/dates/projectPlanning.test.ts
   - tests/e2e/tests/e2e/dashboards.spec.ts
 ---
 
@@ -73,6 +79,18 @@ Vault storage.
 At least one main view is an invariant. Startup and read-time repair paths
 restore it when legacy or interrupted writes leave a table without a valid
 view.
+
+## Creating database groups
+
+The welcome screen's Create a DB button and the sidebar's Add database control
+share one creation action. Both create a registry database group through
+`/api/vault/databases`, refresh the registry and leave page documents unchanged.
+The name is trimmed; cancel and blank names do not write, and a failed request
+keeps the group prompt available for retry.
+
+A table is a separate object created inside a selected group, with its main
+view. Legacy pages marked `is_database: true` remain supported by the page API;
+they are not silently converted, deleted or reinterpreted by the welcome action.
 
 ## System audit dates
 
@@ -108,6 +126,14 @@ section keeps its own persisted state and all labels go through the frontend
 localization catalog.
 
 ## View pipeline
+
+`VaultTable.tsx` delegates to the typed `vault-table` controller and layout.
+The shared `VaultViewBody` table adapter preserves valid row-array identity,
+unknown metadata extensions and selection callbacks. Cell editing, keyboard
+navigation, virtualized rows and schema-option updates remain separate modules
+with regression tests. `SchemaConfigModal.tsx` delegates schema editing and
+autosave to `schema-config`, retaining field IDs, option colors and defaults.
+These internal changes do not alter saved views or portable page metadata.
 
 ```mermaid
 flowchart LR
@@ -215,6 +241,11 @@ selected, and recurrence materialization uses bounded iterator consumption for
 RRULE occurrences while preserving stable task identifiers and ETag checks.
 
 ## Project planning
+
+The strictly typed `features/planning/` frontend owns the planning page and
+its behavior tests behind a public lazy entry. The timeline renderer remains
+shared with Vault views. Route ownership does not alter scheduling requests,
+baseline creation, work logs, or explicit leveling-proposal approval.
 
 Planning consumes structured task fields and produces an authoritative schedule
 rather than duplicating scheduling logic in the UI. The engine normalizes

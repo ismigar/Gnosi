@@ -21,6 +21,7 @@ from typing import Optional, Dict, List
 from cryptography.fernet import Fernet
 
 from backend.config.data_dir import resolve_data_dir
+from backend.config.validation_runtime import validation_runtime_enabled
 
 
 def _get_logger() -> logging.Logger:
@@ -343,6 +344,8 @@ class KeychainManager:
 
     def save_credential(self, key: str, value: str) -> bool:
         """Save a credential to the secure storage."""
+        if validation_runtime_enabled():
+            return False
         if self._is_docker:
             existing = self._docker_get(key)
             # Only short-circuit when the value is UNCHANGED. Returning True for
@@ -365,6 +368,8 @@ class KeychainManager:
 
     def get_credential(self, key: str) -> Optional[str]:
         """Get a credential from the secure storage."""
+        if validation_runtime_enabled():
+            return None
         if self._is_docker:
             from_docker_secret = self._docker_get(key)
             if from_docker_secret is not None:
@@ -384,6 +389,8 @@ class KeychainManager:
 
     def delete_credential(self, key: str) -> bool:
         """Delete a credential from the secure storage."""
+        if validation_runtime_enabled():
+            return False
         if self._is_docker:
             return self._file_delete(key)
 
@@ -396,6 +403,8 @@ class KeychainManager:
 
     def list_credentials(self) -> List[str]:
         """List all stored credential keys (values not returned)."""
+        if validation_runtime_enabled():
+            return []
         keys = []
 
         if self.system == "Darwin" and not self._is_docker:

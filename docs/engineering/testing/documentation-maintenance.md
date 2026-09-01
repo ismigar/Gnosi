@@ -7,15 +7,56 @@ source_paths:
   - pipeline/skills/technical_documentation/scripts/check_change_impact.py
   - pipeline/skills/technical_documentation/scripts/generate.py
   - pipeline/skills/technical_documentation/scripts/localize.py
+  - pipeline/skills/technical_documentation/scripts/reviewed_contracts.py
   - mkdocs.yml
   - mkdocs-ca.yml
   - mkdocs-es.yml
   - mkdocs-fr.yml
+  - scripts/check_public_pipeline.py
+  - pipeline/README.md
 tests:
   - pipeline/skills/technical_documentation/tests
+  - pipeline/tests/test_public_pipeline.py
 ---
 
 # Documentation maintenance
+
+## Public and private tooling
+
+Gnosi is the canonical public source repository. Private machine provisioning,
+backups, Drupal operations and personal-vault maintenance belong in a separate
+private workspace repository, never in a mirrored public export. Reviewed old
+copies are preserved with hashes before removal; this source cleanup neither
+rewrites history nor deletes user data or installed services.
+
+`pnpm check:pipeline` checks the Git index, including ignored files that were
+force-added. It rejects known private packages, caches, data and environment
+files, and external code links. Stage intended removals before checking: an
+unstaged deletion is still public in the index. The checker reads metadata only;
+it does not execute skills or inspect secrets. Passing it is not a complete
+secret audit or proof that every public tool has completed its portability review.
+
+After staging, `pnpm typecheck:pipeline` runs strict mypy on every indexed Python
+file in the public pipeline, including tests and ignored directories. There are
+no directory exclusions; an empty source set or missing file fails. CI runs this
+in addition to the backend check. It does not execute providers or migrations.
+
+Public translation, notifications, host-helper support, social publishing and
+backend scheduling keep their existing application contracts. The retired
+development orchestrator and personal publishing instructions are not runtime
+dependencies. Public skill classification is checked against the actual packages.
+
+Run `pnpm check:pipeline:structure` after staging to enforce 800 lines per indexed
+Python module and cyclomatic complexity at most 15, including tests and ignored
+files. It rejects missing or external sources; local Ruff exclusions and
+suppression comments cannot bypass it. This explicit mode reads source, while
+the default boundary check remains metadata-only. CI runs all three checks.
+
+The catalog generator separates common source primitives, API discovery, backend
+metrics, data models, frontend routes, configuration and inventories into leaf
+modules. `generate.py` retains CLI orchestration, coverage diagnostics and explicit
+compatibility imports. Extraction tests preserve all nine catalog outputs; static
+generation never imports the application or runs providers.
 
 ## Reviewed versus generated content
 
@@ -31,8 +72,18 @@ manually duplicate a 400-operation API table in a reviewed guide.
 
 From `Gnosi/`:
 
+Run the complete gate before staging the final change and again after staging.
+The second run must leave no generated diff:
+
+```bash
+uv run --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
+```
+
+Individual steps for diagnosis, using the same Python environment:
+
 ```bash
 python pipeline/skills/technical_documentation/scripts/generate.py
+python pipeline/skills/technical_documentation/scripts/localize.py --generated-only
 python pipeline/skills/technical_documentation/scripts/generate.py --check
 python pipeline/skills/technical_documentation/scripts/validate.py
 python pipeline/skills/technical_documentation/scripts/localize.py --check
@@ -109,19 +160,38 @@ prose documentation edit when the existing contract remains accurate. They
 still require documentation when they change an invariant, trust boundary,
 lifecycle, storage owner, failure constraint, or other durable system fact.
 
+After relocation, the gate protects `frontend/src/app/`,
+`frontend/src/features/auth/`, `frontend/src/shared/auth/`,
+`frontend/src/shared/routing/`, `frontend/src/shared/ui/layout/`, the shared
+API provider/authentication hooks and `frontend/feature-public-entries.json`.
+Legacy sensitive paths remain recognized for deletion and rename diffs.
+Colocated `*.test.*`, `*.spec.*`, `__tests__/`, `tests/` and CSS-only changes
+remain exempt. Routine feature UI does not become high-impact merely by moving.
+English documentation evidence is still required for sensitive changes;
+Catalan, Spanish and French reviewed mirrors retain matching technical paths.
+Historical synthetic fixtures may keep legacy paths; add new-path regressions
+without treating those fixtures as current source locations.
+
 ## Anti-drift validation
 
 The validator checks generated notices, metadata, source/test paths, internal
 links, required domain guides, local absolute paths, and obvious secret
 material. `generate.py --check` independently compares committed output to the
 current tree. `localize.py --check` requires Catalan, Spanish, and French tree
-parity. MkDocs strict mode validates navigation and documentation links in all
+parity and protects technical content in reviewed guides: exact front matter,
+code-span multiplicity, fenced examples, Mermaid IDs/arrows/order, link targets
+and URLs. Prose, diagram captions and localized heading fragments may differ;
+changed identifiers, commands or source paths fail with the page and category,
+without echoing document values. This read-only check does not initialize a
+translation model. MkDocs strict mode validates navigation and documentation links in all
 four portals.
 
-Reviewed guides are localized in every portal. French keeps deterministic
-generated source catalogs in canonical English because route names, code
-identifiers, and extracted source descriptions are reference evidence rather
-than reviewed prose; its navigation and surrounding portal remain localized.
+Reviewed guides are localized in every portal. Generated catalogs localize known
+headings and fixed labels deterministically in Catalan, Spanish and French;
+source-derived cells, identifiers, paths and code remain byte-identical to
+English. Run `localize.py --generated-only` to refresh these catalogs without
+models or application imports. Never run full machine translation for a catalog
+refresh.
 
 These controls cannot prove prose semantics. Reviewers must compare claims with
 the linked source and tests.

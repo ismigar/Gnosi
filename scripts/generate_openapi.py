@@ -20,6 +20,7 @@ DEFAULT_OUTPUT = REPOSITORY_ROOT / "openapi" / "openapi.json"
 
 def _configure_isolated_runtime(runtime_root: Path) -> None:
     """Point every application-owned data selector at an ephemeral runtime."""
+    runtime_root = runtime_root.resolve()
     vault_path = runtime_root / "vault"
     data_path = runtime_root / "data"
     host_path = runtime_root / "host"
@@ -31,6 +32,7 @@ def _configure_isolated_runtime(runtime_root: Path) -> None:
     vault_config_path.write_text("{}\n", encoding="utf-8")
 
     isolated_values = {
+        "GNOSI_VALIDATION_ROOT": str(runtime_root),
         "DIGITAL_BRAIN_VAULT_PATH": str(vault_path),
         "VAULT_HOST_PATH": str(vault_path),
         "HOME_HOST_PATH": str(host_path),

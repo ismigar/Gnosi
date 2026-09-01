@@ -1,0 +1,175 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Theme color variables - Light Mode (Default) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --border-primary: #e5e7eb;
+  --gnosi-blue: #3b82f6;
+  --gnosi-action-bg: #1d4ed8;
+  --gnosi-action-rgb: 29, 78, 216;
+  --accent-primary: var(--gnosi-blue);
+  --border-color: var(--border-primary);
+  --surface-elevated: #ffffff;
+  --surface-muted: #f3f4f6;
+  --tooltip-bg: #ffffff;
+  --tooltip-text: #1f2937;
+  --tooltip-color: var(--tooltip-text);
+  --tooltip-muted: #6b7280;
+  --tooltip-border: #d1d5db;
+  --tooltip-kbd-bg: #f3f4f6;
+  --tooltip-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+
+  /* Shared geometry */
+  --app-sidebar-width: 52px;
+  --app-header-height: 52px;
+  --control-height-sm: 32px;
+  --control-height-md: 40px;
+  --control-height-touch: 44px;
+  --content-max-width: 1200px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow-raised: 0 16px 40px rgba(15, 23, 42, 0.12);
+  --focus-outline-color: #1d4ed8;
+  --focus-ring: 0 0 0 3px var(--focus-outline-color);
+  --floating-action-size: 44px;
+  --floating-action-gap: 8px;
+
+  /* Sidebar Light */
+  --sidebar-bg: #f8fafc;
+  --sidebar-border: #e2e8f0;
+  --sidebar-item-hover: rgba(0, 0, 0, 0.05);
+  --sidebar-item-active: rgba(59, 130, 246, 0.1);
+  --sidebar-item-active-text: #1d4ed8;
+  --sidebar-text: #64748b;
+
+  /* Settings Light */
+  --settings-bg: #ffffff;
+  --settings-header-bg: #f9fafb;
+  --settings-sidebar-bg: #f3f4f6;
+  --settings-border: #e5e7eb;
+  --settings-title: #111827;
+  --settings-sidebar-active: rgba(59, 130, 246, 0.1);
+  --settings-sidebar-active-text: #3b82f6;
+  --settings-input-bg: #ffffff;
+  --settings-btn-bg: #f3f4f6;
+
+  /* Home Page Light */
+  --home-bg: #f9fafb;
+  --home-card-bg: rgba(255, 255, 255, 0.8);
+  --home-card-border: rgba(0, 0, 0, 0.05);
+
+  /* Status Colors Light */
+  --status-success: #10b981;
+  --status-error: #ef4444;
+  --status-warning: #f59e0b;
+  --status-info: #3b82f6;
+
+  /* Mail Components */
+  --reply-box-bg: #fbfcff;
+  --mail-row-selected: rgba(59, 130, 246, 0.05);
+  --mail-row-hover: rgba(249, 250, 251, 0.8);
+
+  /* Brand Colors */
+  --gnosi-primary: #3b82f6;
+  --gnosi-primary-rgb: 59, 130, 246;
+
+  color-scheme: light;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+
+  /* Z-Index Stack */
+  --z-sidebar: 50;
+  --z-floating: 900;
+  --z-overlay: 1000;
+  --z-popover: 1100;
+  --z-notification: 9000;
+  --z-modal: 10000;
+  --z-modal-dropdown: 10050;
+  --z-confirm-modal: 20000;
+  --z-command: 30000;
+  --z-presentation: 40000;
+  --z-tooltip: 45000;
+  --z-toast: 50000;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark Mode Overrides */
+.dark {
+  --bg-primary: #000000;
+  --bg-secondary: #18181b;
+  --bg-tertiary: #27272a;
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #a1a1aa;
+  --border-primary: #27272a;
+  --border-color: var(--border-primary);
+  --surface-elevated: #111113;
+  --surface-muted: #27272a;
+  --tooltip-bg: #1a1a1c;
+  --tooltip-text: #f9fafb;
+  --tooltip-color: var(--tooltip-text);
+  --tooltip-muted: #a1a1aa;
+  --tooltip-border: #3f3f46;
+  --tooltip-kbd-bg: #27272a;
+  --tooltip-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
+  color-scheme: dark;
+
+  /* Sidebar Dark */
+  --sidebar-bg: #000000;
+  --sidebar-border: #1c1c1f;
+  --sidebar-item-hover: rgba(255, 255, 255, 0.05);
+  --sidebar-item-active: rgba(0, 102, 255, 0.15);
+  --sidebar-item-active-text: #93c5fd;
+  --sidebar-text: #939393;
+
+  /* Settings Dark */
+  --settings-bg: #000000;
+  --settings-header-bg: #1c1c1f;
+  --settings-sidebar-bg: #000000;
+  --settings-border: #27272a;
+  --settings-title: #f4f4f5;
+  --settings-sidebar-active: rgba(59, 130, 246, 0.1);
+  --settings-sidebar-active-text: #60a5fa;
+  --settings-input-bg: #000000;
+  --settings-btn-bg: #27272a;
+
+  /* Home Page Dark */
+  --home-bg: #000000;
+  --home-card-bg: rgba(255, 255, 255, 0.03);
+  --home-card-border: rgba(255, 255, 255, 0.05);
+
+  /* Status Colors Dark */
+  --status-success: #059669;
+  --status-error: #dc2626;
+  --status-warning: #d97706;
+  --status-info: #2563eb;
+
+  /* Mail Components Dark */
+  --reply-box-bg: #1c1c1f;
+  --mail-row-selected: rgba(59, 130, 246, 0.08);
+  --mail-row-hover: rgba(24, 24, 27, 0.8);
+
+  /* Brand Colors Dark Overrides (if any) */
+  --gnosi-primary: #3b82f6;
+  --gnosi-primary-rgb: 59, 130, 246;
+  --focus-outline-color: #93c5fd;
+
+  /* AI Provider Specifics */
+  --provider-card-bg: rgba(255, 255, 255, 0.03);
+  --provider-card-border: rgba(255, 255, 255, 0.08);
+  --provider-card-hover: rgba(255, 255, 255, 0.06);
+}

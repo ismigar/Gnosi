@@ -3,6 +3,7 @@ import os
 from typing import Dict, Optional
 
 from .data_dir import resolve_data_dir
+from .validation_runtime import validation_runtime_enabled
 
 # --- Early Boot Paths (Safe Fallbacks) ---
 # This allows logger_config to import LOG_DIR safely before get_paths() is called.
@@ -99,7 +100,8 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
             project_root / "pipeline" / "private_skills" / "secrets" / "integrations.json"
         )
         _new_secrets = secrets_dir / "integrations.json"
-        if _old_secrets.exists() and not _new_secrets.exists():
+        if (not validation_runtime_enabled()
+                and _old_secrets.exists() and not _new_secrets.exists()):
             import shutil
 
             shutil.copy2(_old_secrets, _new_secrets)

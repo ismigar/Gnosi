@@ -1,10 +1,11 @@
+import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchLinkPreview } from './links';
 
 
 afterEach(() => {
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 

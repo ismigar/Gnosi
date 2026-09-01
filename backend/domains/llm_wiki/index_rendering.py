@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from backend.domains.vault.registry.records import RecordReader
+
 
 class UpsertManagedPage(Protocol):
     def __call__(
@@ -24,7 +26,7 @@ class UpsertManagedPage(Protocol):
 class RenderingDependencies:
     """Late-bound compatibility seams used while rendering index pages."""
 
-    metadata: Callable[[Any], dict[str, Any]]
+    metadata: Callable[[object], RecordReader]
     note_kind: Callable[[Any], str]
     page_wikilink: Callable[[Any], str]
     sortable_integer: Callable[[Any], int]

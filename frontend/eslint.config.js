@@ -4,11 +4,15 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import tseslint from 'typescript-eslint'
+import { fileURLToPath } from 'node:url'
+import featureBoundaries from './eslint/feature-boundaries.js'
+import publicFeatureEntries from './feature-public-entries.json' with { type: 'json' }
 
 export default defineConfig([
   globalIgnores([
     'dist',
     '.vite',
+    '.tmp/**',
     'vendor',
     'public/zotero-reader',
     'src/generated',
@@ -68,7 +72,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'scripts/**/*.ts'],
     extends: [
       js.configs.recommended,
       tseslint.configs.strictTypeChecked,
@@ -100,7 +104,35 @@ export default defineConfig([
     },
   },
   {
-    files: ['vite.config.js', 'test_*.js', 'tests/**/*.js'],
+    files: ['src/**/*.{js,jsx,ts,tsx}', 'tests/**/*.{ts,tsx}'],
+    plugins: { gnosi: { rules: { 'feature-boundaries': featureBoundaries } } },
+    rules: {
+      'gnosi/feature-boundaries': ['error', {
+        sourceRoot: fileURLToPath(new URL('./src', import.meta.url)),
+        publicEntries: Object.keys(publicFeatureEntries),
+      }],
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          regex: '(^|/)shared/api(/index([.][^/]+)?)?/?$',
+          message: 'Importa l’adaptador del domini concret; no recreïs un agregador global d’API.',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/**/*.tsx'],
+    ignores: ['src/**/*.test.tsx', 'src/**/*.spec.tsx', 'src/**/__tests__/**'],
+    rules: {
+      'max-lines-per-function': ['error', {
+        max: 300,
+        skipBlankLines: true,
+        skipComments: true,
+        IIFEs: true,
+      }],
+    },
+  },
+  {
+    files: ['vite.config.js', 'test_*.js', 'tests/**/*.{js,ts,tsx}', 'eslint/**/*.js'],
     languageOptions: {
       globals: globals.node,
     },

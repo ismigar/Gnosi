@@ -45,15 +45,37 @@ test('electron-builder packages every required runtime file', () => {
   }
 });
 
-test('the runtime contract covers every local main-process require', () => {
-  const mainSource = fs.readFileSync(path.join(electronRoot, 'main.js'), 'utf8');
-
-  for (const runtimeFile of localRuntimeRequires(mainSource)) {
-    assert.ok(
-      REQUIRED_RUNTIME_FILES.includes(runtimeFile),
-      `${runtimeFile} must be part of the packaged runtime contract`,
-    );
+test('the runtime contract covers transitive local main-process requires', () => {
+  for (const sourceFile of REQUIRED_RUNTIME_FILES) {
+    const source = fs.readFileSync(path.join(electronRoot, sourceFile), 'utf8');
+    for (const runtimeFile of localRuntimeRequires(source)) {
+      assert.ok(
+        REQUIRED_RUNTIME_FILES.includes(runtimeFile),
+        `${sourceFile} requires ${runtimeFile}, which must be in the packaged runtime contract`,
+      );
+    }
   }
+});
+
+test('the native no-replace adapter uses pinned prebuilt modules outside ASAR', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(electronRoot, 'package.json'), 'utf8'));
+  const builderConfig = fs.readFileSync(path.join(electronRoot, 'electron-builder.yml'), 'utf8');
+  const workspace = fs.readFileSync(path.join(gnosiRoot, 'pnpm-workspace.yaml'), 'utf8');
+  assert.equal(manifest.dependencies.koffi, '3.1.6');
+  assert.match(builderConfig, /asarUnpack:\n  - node_modules\/koffi\/\*\*\/\*\n  - node_modules\/@koromix\/\*\*\/\*/);
+  assert.match(workspace, /koffi: false/);
+});
+
+test('Electron43 tooling stays pinned and binary installation is explicit', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(electronRoot, 'package.json'), 'utf8'));
+  const workspace = fs.readFileSync(path.join(gnosiRoot, 'pnpm-workspace.yaml'), 'utf8');
+  assert.equal(manifest.devDependencies.electron, '43.4.1');
+  assert.equal(manifest.devDependencies['electron-builder'], '26.15.3');
+  assert.equal(manifest.devDependencies['@electron/asar'], '4.3.0');
+  assert.equal(manifest.scripts['install:runtime'], 'install-electron');
+  assert.match(workspace, /electron: false/);
+  assert.match(workspace, /electron-winstaller: false/);
+  assert.doesNotMatch(workspace, /set this to true or false/);
 });
 
 test('the packaged archive check rejects a missing runtime module', () => {
@@ -71,8 +93,22 @@ test('the packaged archive check accepts normalized Windows entries', () => {
   assert.doesNotThrow(() => assertPackagedRuntimeEntries([
     '\\main.js',
     '\\preload.js',
+    '\\ipc-security.js',
+    '\\ipc-handlers.js',
+    '\\backend-process.js',
+    '\\startup-errors.js',
+    '\\profile-startup.js',
+    '\\cookie-schema-guard.js',
+    '\\cookie-schema.js',
+    '\\cookie-profile-migration.js',
+    '\\cookie-migration.js',
+    '\\cookie-migration-files.js',
+    '\\cookie-rollback.js',
+    '\\profile-preservation.js',
+    '\\exclusive-rename.js',
     '\\application-menu.js',
     '\\backend-launch.js',
+    '\\release-version.js',
     '\\update-policy.js',
   ]));
 });
@@ -97,6 +133,7 @@ test('the resources directory follows each platform layout', () => {
 
 test('the frozen backend keeps required standard-library and media modules', () => {
   const buildScript = fs.readFileSync(path.join(__dirname, 'build-python.sh'), 'utf8');
+  const resourcePolicy = fs.readFileSync(path.join(__dirname, 'scripts/backend_resources.py'), 'utf8');
   const pyproject = fs.readFileSync(path.join(gnosiRoot, 'pyproject.toml'), 'utf8');
 
   assert.match(buildScript, /uv sync/);
@@ -108,11 +145,11 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.doesNotMatch(buildScript, /pip install/);
   assert.doesNotMatch(buildScript, /requirements[^\s]*\.txt/);
   assert.doesNotMatch(buildScript, /VENV_DIR="\$ELECTRON_DIR\/\.venv-python"/);
-  assert.match(buildScript, /repository_dir = os\.path\.dirname\(backend_dir\)/);
-  assert.match(buildScript, /pathex=\['\{repository_dir\}'\]/);
-  assert.doesNotMatch(buildScript, /pathex=\['\{backend_dir\}'\]/);
-  assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]unittest['"]/s);
-  assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]PIL['"]/s);
+  assert.match(buildScript, /"\$PYTHON_VENV" "\$RESOURCE_POLICY" spec/);
+  assert.match(buildScript, /--repository "\$GNOSI_DIR" --output/);
+  assert.match(resourcePolicy, /pathex=\[\{str\(repository\)!r\}\]/);
+  assert.doesNotMatch(resourcePolicy, /excludes=\[[^\]]*['"]unittest['"]/s);
+  assert.doesNotMatch(resourcePolicy, /excludes=\[[^\]]*['"]PIL['"]/s);
   assert.match(pyproject, /"defusedxml>=0\.7\.1"/);
 });
 

@@ -6,7 +6,6 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from backend.domains.vault.translation.types import Metadata
 
@@ -67,7 +66,7 @@ def write_metadata_key_on_disk(
     page_id: str,
     file_path: Path,
     key: str,
-    value: Any,
+    value: object,
     dependencies: TranslationMetadataDependencies,
 ) -> bool:
     """Write one metadata key directly, avoiding recursive action hooks."""
@@ -91,7 +90,7 @@ def write_metadata_key_on_disk(
 def set_translation_stale_on_disk(
     page_id: str,
     file_path: Path,
-    stale_status: tuple[Metadata, Any] | None,
+    stale_status: tuple[Metadata, object] | None,
     dependencies: TranslationMetadataDependencies,
 ) -> bool:
     """Idempotently mark one translation stale with an optional status effect."""

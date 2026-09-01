@@ -18,6 +18,7 @@ from backend.config.app_config import load_params
 from backend.config.mcp_config import MCP_SERVERS
 from backend.mcp.client import MultiServerMCPClient
 from backend.scheduler.manager import scheduler_manager
+from backend.utils.open_values import get_value, iterable_values
 
 
 log = logging.getLogger(__name__)
@@ -213,12 +214,12 @@ def _repair_main_views() -> None:
         with registry_mutation():
             registry = load_registry()
             repaired: list[str] = []
-            for table in registry.get("tables", []):
-                table_id = table.get("id")
+            for table in iterable_values(registry.get("tables", [])):
+                table_id = get_value(table, "id")
                 if not table_id:
                     continue
                 if _ensure_main_view(registry, table_id):
-                    repaired.append(str(table.get("name") or table_id))
+                    repaired.append(str(get_value(table, "name") or table_id))
             if repaired:
                 save_registry(registry)
                 log.info(
@@ -279,7 +280,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from backend.migrations.coordinator import migrate_existing_databases
     from backend.services.auth_service import assert_signing_secret_safe
     from backend.services.durable_job_worker import durable_job_worker
+    from backend.services.reference_table_config import assert_reference_config_ready
 
+    assert_reference_config_ready()
     migrated_databases = migrate_existing_databases(resolve_data_dir())
     log.info("Database schema verification complete (%s stores).", len(migrated_databases))
     assert_signing_secret_safe()

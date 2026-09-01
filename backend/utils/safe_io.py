@@ -158,7 +158,7 @@ def sanitize_filename_component(value: str) -> str:
     return guard_windows_reserved(cleaned)
 
 
-def sanitize_path_segment(value: str, fallback: str) -> str:
+def sanitize_path_segment(value: object, fallback: str) -> str:
     """Return `value` cleaned for use as ONE path segment (album, file).
 
     Unlike `sanitize_filename_component`, it keeps the interior
@@ -183,7 +183,7 @@ def sanitize_path_segment(value: str, fallback: str) -> str:
     return guard_windows_reserved(cleaned)
 
 
-def sanitize_vault_title(title: str, fallback: str = "Sense títol", max_len: int = 120) -> str:
+def sanitize_vault_title(title: object, fallback: str = "Sense títol", max_len: int = 120) -> str:
     """Human title → OneDrive/Windows-safe filename base, WITHOUT slugifying.
 
     Preserves accents, case and interior spaces (cf. test_pipeline_naming:
@@ -202,7 +202,7 @@ def sanitize_vault_title(title: str, fallback: str = "Sense títol", max_len: in
     return guard_windows_reserved(safe)
 
 
-def sanitize_rel_folder(path: str, fallback: str = "") -> str:
+def sanitize_rel_folder(path: object, fallback: str = "") -> str:
     """Relative multi-segment path (`A/B/C`) → every segment OneDrive-safe.
 
     Each segment goes through the same rules as `sanitize_vault_title` (an

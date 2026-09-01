@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import glob
 import logging
 import os
-import shutil
-from collections.abc import Callable
-from datetime import datetime
+import stat
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Protocol
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 from backend.config.logger_config import get_logger
 from backend.data.management_db import get_mgmt_session
-
 
 TaskResult = dict[str, Any]
 
@@ -173,137 +171,113 @@ def fetch_contacts() -> TaskResult:
     return results
 
 
-def _purge_logs(
-    log_directory: Path | None,
-    pipeline_base: Path,
-    logger: logging.Logger,
-) -> tuple[int, int]:
-    count = 0
-    freed_bytes = 0
-    if log_directory and log_directory.exists():
-        log_patterns = [
-            str(log_directory / "*.log"),
-            str(log_directory.parent / "*.log"),
-            str(pipeline_base / "sandbox" / "*.log"),
-            str(pipeline_base / ".tmp" / "*.log"),
-        ]
-        for pattern in log_patterns:
-            for file_name in glob.glob(pattern):
-                try:
-                    size = os.path.getsize(file_name)
-                    if size > 0:
-                        Path(file_name).write_text(
-                            f"# Log purged at {datetime.now().isoformat()}\n",
-                            encoding="utf-8",
-                        )
-                        count += 1
-                        freed_bytes += size
-                except Exception as error:
-                    logger.warning("Failed to purge log %s: %s", file_name, error)
-    return count, freed_bytes
+# LOCAL_DATA is resolved by the same canonical resolver as paths_config. Only
+# this known application log is eligible, and only when the real logger selects
+# it. External/early-boot logs and arbitrary files in the logs folder are not.
+_MAINTENANCE_LOG = Path("logs") / "gnosi.log"
 
 
-def _mailbox_archive_path() -> Path:
-    repository_root = os.environ.get("REPO_ROOT")
-    if repository_root:
-        project_root = Path(repository_root)
-    else:
-        host_home = os.environ.get("HOME_HOST_PATH") or str(Path.home())
-        project_root = Path(host_home) / "Projectes"
-    return project_root / ".antigravity" / "team" / "mailbox" / "archive"
+def _descriptor_cleanup_supported() -> bool:
+    """Fail closed on platforms without no-follow, directory-relative IO."""
+    return (
+        hasattr(os, "O_NOFOLLOW")
+        and hasattr(os, "O_DIRECTORY")
+        and os.open in os.supports_dir_fd
+    )
 
 
-def _purge_mailbox_archive(logger: logging.Logger) -> tuple[int, int]:
-    mailbox_archive = _mailbox_archive_path()
-    count = 0
-    freed_bytes = 0
-    if mailbox_archive.exists():
-        for message_file in glob.glob(str(mailbox_archive / "*")):
+@contextmanager
+def _maintenance_directory(directory: Path) -> Iterator[int]:
+    """Pin each directory component without resolving or following symlinks."""
+    if not directory.is_absolute() or ".." in directory.parts:
+        raise ValueError("Maintenance requires an absolute path without traversal")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    descriptor = os.open(directory.anchor, flags)
+    try:
+        for component in directory.parts[1:]:
+            child = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+        yield descriptor
+    finally:
+        os.close(descriptor)
+
+
+def _maintenance_data_root() -> Path:
+    """Use the existing resolver, without config migration or directory creation."""
+    # The resolver normalizes '..'; reject it before that information is lost.
+    for key in ("GNOSI_DATA_DIR", "GNOSI_LOCAL_DATA", "LOCAL_DATA_DIR"):
+        configured = os.environ.get(key)
+        if configured:
+            candidate = Path(configured).expanduser()
+            if not candidate.is_absolute() or ".." in candidate.parts:
+                raise ValueError("Maintenance data selector must be absolute without traversal")
+            break
+    root = resolve_data_dir(create=False)
+    if root == root.parent:
+        raise ValueError("Maintenance must not use a filesystem root")
+    return root
+
+
+def _purge_logs(data_root: Path, logger: logging.Logger) -> tuple[int, int]:
+    """Truncate the real log only at its canonical location; preserve its inode."""
+    from backend.config.logger_config import LOG_FILE
+
+    if LOG_FILE != data_root / _MAINTENANCE_LOG:
+        return 0, 0
+    try:
+        with _maintenance_directory(data_root / _MAINTENANCE_LOG.parent) as directory:
+            descriptor = os.open(
+                _MAINTENANCE_LOG.name,
+                os.O_WRONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                dir_fd=directory,
+            )
             try:
-                freed_bytes += os.path.getsize(message_file)
-                os.remove(message_file)
-                count += 1
-            except Exception as error:
-                logger.warning(
-                    "Failed to delete message %s: %s",
-                    message_file,
-                    error,
-                )
-    return count, freed_bytes
-
-
-def _purge_temporary_files(
-    pipeline_base: Path,
-    logger: logging.Logger,
-) -> tuple[int, int]:
-    count = 0
-    freed_bytes = 0
-    for directory in (pipeline_base / "sandbox", pipeline_base / ".tmp"):
-        if not directory.exists():
-            continue
-        for item in directory.iterdir():
-            if item.name == "__init__.py":
-                continue
-            try:
-                if item.is_file():
-                    freed_bytes += item.stat().st_size
-                    item.unlink()
-                    count += 1
-                elif item.is_dir():
-                    shutil.rmtree(item)
-                    count += 1
-            except Exception as error:
-                logger.warning("Failed to delete %s: %s", item, error)
-    return count, freed_bytes
-
-
-def _purge_pycaches(gnosi_root: Path, pipeline_base: Path) -> int:
-    count = 0
-    for code_directory in (gnosi_root / "backend", pipeline_base):
-        if not code_directory.exists():
-            continue
-        for root, directories, _files in os.walk(code_directory):
-            for directory_name in directories:
-                if directory_name != "__pycache__":
-                    continue
-                try:
-                    shutil.rmtree(Path(root) / directory_name)
-                    count += 1
-                except Exception:
-                    pass
-    return count
+                info = os.fstat(descriptor)
+                # Hard links can alias a DB, credential or external user log.
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not info.st_size:
+                    return 0, 0
+                os.ftruncate(descriptor, 0)
+                return 1, info.st_size
+            finally:
+                os.close(descriptor)
+    except FileNotFoundError:
+        pass
+    except (OSError, ValueError) as error:
+        logger.warning("Application log cleanup skipped: %s", error)
+    return 0, 0
 
 
 def system_maintenance() -> TaskResult:
-    """Clean bounded logs, private mailbox archives, temporary files, and caches."""
+    """Clear the bounded real app log and RAM cache, never source or user data.
+
+    Source sandbox/.tmp, pycache and private mailbox cleanup is retired. No
+    reviewed producer exposes disposable local temporaries, so their legacy
+    counter stays zero; no replacement directory or filename contract is added.
+    """
     logger = get_logger(__name__)
-    details: dict[str, Any] = {}
-    config = load_params(strict_env=False)
-    gnosi_root = Path(__file__).resolve().parents[2]
-    pipeline_base = gnosi_root / "pipeline"
-    logs_cleared, log_bytes = _purge_logs(
-        config.paths.get("LOG_DIR"),
-        pipeline_base,
-        logger,
-    )
-    mailbox_purged, mailbox_bytes = _purge_mailbox_archive(logger)
-    temporary_deleted, temporary_bytes = _purge_temporary_files(
-        pipeline_base,
-        logger,
-    )
-    details["logs_cleared"] = logs_cleared
-    details["mailbox_archive_purged"] = mailbox_purged
-    details["temporary_files_deleted"] = temporary_deleted
-    details["pycache_dirs_removed"] = _purge_pycaches(gnosi_root, pipeline_base)
+    logs_cleared = log_bytes = 0
+    try:
+        if not _descriptor_cleanup_supported():
+            raise ValueError("Safe directory-relative cleanup is unavailable on this platform")
+        data_root = _maintenance_data_root()
+        logs_cleared, log_bytes = _purge_logs(data_root, logger)
+    except (OSError, ValueError) as error:
+        logger.warning("Disk maintenance skipped: %s", error)
 
     from backend.utils.cache import global_cache
 
     global_cache.clear()
-    details["global_cache_cleared"] = True
     return {
         "message": "System maintenance completed successfully",
-        "freed_bytes": log_bytes + mailbox_bytes + temporary_bytes,
-        "details": details,
+        "freed_bytes": log_bytes,
+        "details": {
+            "logs_cleared": logs_cleared,
+            "mailbox_archive_purged": 0,
+            "temporary_files_deleted": 0,
+            "pycache_dirs_removed": 0,
+            "global_cache_cleared": True,
+        },
     }
 
 

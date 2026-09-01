@@ -15,15 +15,18 @@ from fastapi import HTTPException
 from backend.domains.notebooks.catalog import _selectable_reference_pages
 from backend.domains.notebooks.repository import _bounded_text, _connect, _now
 from backend.domains.notebooks.state import _WRITE_LOCK
+from backend.domains.vault.registry.records import RecordReader
+from backend.domains.vault.registry.state import RegistryData
 from backend.services import llm_wiki_config, llm_wiki_extractors
+from backend.utils.open_values import iterable_values
 
 
 def _property_values(
-    metadata: dict[str, Any], table: dict[str, Any], source_config: dict[str, Any]
+    metadata: RecordReader, table: RecordReader, source_config: dict[str, Any]
 ) -> list[tuple[str, str]]:
     props_by_id = {
         str(prop.get("id") or ""): prop
-        for prop in table.get("properties") or []
+        for prop in iterable_values(table.get("properties") or [])
         if isinstance(prop, dict)
     }
     values: list[tuple[str, str]] = []
@@ -42,8 +45,8 @@ def _property_values(
 
 
 def resource_fingerprint(
-    metadata: dict[str, Any],
-    table: dict[str, Any],
+    metadata: RecordReader,
+    table: RecordReader,
     source_config: dict[str, Any],
     vault_root: Path,
 ) -> tuple[str, bool]:
@@ -98,8 +101,8 @@ def _url_refresh_due(resource: sqlite3.Row | dict[str, Any], has_url: bool) -> b
 
 
 def _url_values(
-    metadata: dict[str, Any],
-    table: dict[str, Any],
+    metadata: RecordReader,
+    table: RecordReader,
     source_config: dict[str, Any],
 ) -> list[str]:
     return [
@@ -214,7 +217,7 @@ def _url_validators_from_origins(
 
 def _current_resource_snapshot(
     notebook: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any], list[Any]]:
+) -> tuple[RegistryData, dict[str, Any], list[Any]]:
     from backend.domains.vault.pages.foundation import _get_pages_for_table
     from backend.domains.vault.tables.legacy_composition import _table_by_id
 

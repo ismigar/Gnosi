@@ -1,3 +1,4 @@
+import { resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -9,7 +10,7 @@ import {
 
 
 afterEach(() => {
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 
@@ -84,7 +85,7 @@ describe('system API', () => {
 
 
   it('creates a notification with request context and compatibility defaults', async () => {
-    localStorage.setItem('gnosi_workspace_id', 'workspace-1');
+    writeApiTestStorage('gnosi_workspace_id', 'workspace-1');
     const payload = {
       created_at: '2026-08-29T10:00:00Z',
       id: 'notification-1',

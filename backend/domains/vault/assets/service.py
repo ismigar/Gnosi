@@ -10,12 +10,14 @@ import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import requests
 from fastapi import BackgroundTasks, HTTPException, UploadFile
 
-Metadata = dict[str, Any]
+from backend.domains.vault.registry.state import RegistryData
+
+Metadata = RegistryData
 TableResolver = Callable[
     [str, Metadata],
     tuple[Metadata | None, Metadata | None],

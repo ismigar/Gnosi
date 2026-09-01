@@ -1,3 +1,4 @@
+import { resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { transportFetch } from './transports';
@@ -5,19 +6,19 @@ import { persistVaultCatalog } from './vault-context';
 
 
 beforeEach(() => {
-  localStorage.clear();
+  resetApiTestStorage();
   persistVaultCatalog([
     { id: 'vault-a', name: 'Història', slug: 'historia' },
   ]);
-  localStorage.setItem('gnosi_active_vault', 'vault-a');
-  localStorage.setItem('gnosi_active_vault_slug', 'historia');
-  localStorage.setItem('gnosi_workspace_id', 'workspace-a');
-  localStorage.setItem('gnosi_user_id', 'user-a');
+  writeApiTestStorage('gnosi_active_vault', 'vault-a');
+  writeApiTestStorage('gnosi_active_vault_slug', 'historia');
+  writeApiTestStorage('gnosi_workspace_id', 'workspace-a');
+  writeApiTestStorage('gnosi_user_id', 'user-a');
 });
 
 
 afterEach(() => {
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 

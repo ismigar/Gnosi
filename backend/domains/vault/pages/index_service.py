@@ -11,15 +11,17 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from fastapi import BackgroundTasks
 
+from backend.domains.vault.pages.index_entries import PageCacheEntry as PageCacheEntry
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
+from backend.utils.open_values import float_value, integer_value
 
 
-Metadata = dict[str, Any]
-PageCacheEntry = dict[str, Any]
+Metadata = RegistryData
 
 SKIP_DIRECTORIES = frozenset({"assets", "drawings", "mail", ".history", ".trash"})
 ALLOWED_HIDDEN_DIRECTORIES = frozenset({".dashboards"})
@@ -41,20 +43,20 @@ class PageIndexDependencies:
     vault_cache_key: Callable[[], str]
     cache_get: Callable[[str], list[PageInfo] | None]
     cache_set: Callable[[str, list[PageInfo]], None]
-    load_registry: Callable[[], Metadata]
-    table_vault_dir: Callable[[Metadata, Metadata], Path | None]
-    build_table_folder_index: Callable[[Metadata], dict[str, str]]
+    load_registry: Callable[[], RegistryData]
+    table_vault_dir: Callable[[RegistryData, RegistryData], Path | None]
+    build_table_folder_index: Callable[[RegistryData], dict[str, str]]
     resolve_table_id: Callable[[Metadata, str, dict[str, str], list[str] | None], str | None]
     enabled_calendar_tables: Callable[[], list[str]]
     hidden_event_ids: Callable[[], set[str]]
     sync_calendars: Callable[[], object]
-    update_path_resolver: Callable[[Path, dict[str, str], list[Path]], None]
+    update_path_resolver: Callable[[Path, dict[object, str], list[Path]], None]
     get_last_vault_sync: Callable[[], float]
     set_last_vault_sync: Callable[[float], None]
     index_lock: LockType
     index_entries: dict[str, dict[str, PageCacheEntry]]
     index_initialized: dict[str, bool]
-    id_to_path: dict[str, dict[str, str]]
+    id_to_path: dict[str, dict[object, str]]
     index_version: dict[str, int]
     body_cache_lock: LockType
     body_cache: dict[str, tuple[int, str]]
@@ -155,7 +157,7 @@ def refresh_table_pages_metadata(pages: list[PageInfo]) -> None:
         if entry is None or entry.pop("_parse_failed", False):
             continue
         raw_metadata = entry.get("metadata")
-        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+        metadata = raw_metadata if is_record(raw_metadata) else {}
         if dependencies.is_metadata_stub(metadata):
             continue
         page.metadata = metadata
@@ -285,7 +287,7 @@ def _updated_entries(
         built = dependencies.build_entry(file_path, stat_result)
         parse_failed = bool(built.pop("_parse_failed", False))
         cached_metadata = cached.get("metadata") if cached else None
-        cached_metadata = cached_metadata if isinstance(cached_metadata, dict) else {}
+        cached_metadata = cached_metadata if is_record(cached_metadata) else {}
         if parse_failed and cached and not dependencies.is_metadata_stub(cached_metadata):
             updated[path_key] = cached
         else:
@@ -298,8 +300,8 @@ def _entry_mtime(entry: PageCacheEntry) -> float:
     return float(raw_value) if isinstance(raw_value, (int, float)) else 0.0
 
 
-def _reverse_id_map(entries: dict[str, PageCacheEntry]) -> dict[str, str]:
-    result: dict[str, str] = {}
+def _reverse_id_map(entries: dict[str, PageCacheEntry]) -> dict[object, str]:
+    result: dict[object, str] = {}
     for path_key, entry in entries.items():
         raw_page_id = entry.get("id")
         if not raw_page_id:
@@ -380,7 +382,7 @@ def get_cached_page_entries(
 
 def _calendar_scope(
     only_calendar: bool,
-    registry: Metadata,
+    registry: RegistryData,
 ) -> tuple[list[Path] | None, set[str]]:
     if not only_calendar:
         return None, set()
@@ -388,9 +390,9 @@ def _calendar_scope(
     enabled_tables = set(dependencies.enabled_calendar_tables())
     search_paths = [dependencies.get_path("CALENDAR")]
     raw_tables = registry.get("tables", [])
-    tables = raw_tables if isinstance(raw_tables, list) else []
+    tables = raw_tables if is_object_list(raw_tables) else []
     for raw_table in tables:
-        if not isinstance(raw_table, dict) or raw_table.get("id") not in enabled_tables:
+        if not is_record(raw_table) or raw_table.get("id") not in enabled_tables:
             continue
         table_directory = dependencies.table_vault_dir(raw_table, registry)
         if table_directory:
@@ -486,7 +488,7 @@ def _page_from_entry(
 ) -> tuple[str, Metadata, PageInfo]:
     dependencies = _deps()
     raw_metadata = entry.get("metadata")
-    metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+    metadata = raw_metadata if is_record(raw_metadata) else {}
     folder = str(entry.get("folder") or "")
     resolved_table_id = dependencies.resolve_table_id(
         metadata,
@@ -495,9 +497,9 @@ def _page_from_entry(
         sorted_folders,
     )
     page_id = str(entry["id"])
-    modified = float(entry["mtime"])
+    modified = float_value(entry["mtime"])
     raw_created = entry.get("created_mtime") or modified
-    created = float(raw_created)
+    created = float_value(raw_created)
     page = PageInfo.model_construct(
         id=page_id,
         title=str(entry["title"]),
@@ -506,7 +508,7 @@ def _page_from_entry(
         metadata=metadata,
         last_modified=datetime.fromtimestamp(modified).isoformat(),
         created_time=datetime.fromtimestamp(created).isoformat(),
-        size=int(entry["size"]),
+        size=integer_value(entry["size"]),
         folder=folder,
         path=str(entry.get("path")) if entry.get("path") else None,
         resolved_table_id=resolved_table_id,
@@ -516,7 +518,7 @@ def _page_from_entry(
 
 def _build_pages(
     entries: list[PageCacheEntry],
-    registry: Metadata,
+    registry: RegistryData,
     only_calendar: bool,
     enabled_tables: set[str],
 ) -> list[PageInfo]:

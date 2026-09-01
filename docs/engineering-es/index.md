@@ -13,7 +13,7 @@ tests:
 
 # Documentación de ingeniería de Gnosi
 
-Este portal explica Gnosi desde la intención del producto hasta la implementación a nivel de fuente. Está escrito para ingenieros que necesitan operar, revisar, ampliar o auditar el sistema sin depender de la historia oral.
+Este portal explica Gnosi desde el propósito del producto hasta su implementación en el código fuente. Está dirigido a ingenieros que necesitan operar, revisar, ampliar o auditar el sistema sin depender del conocimiento transmitido oralmente.
 
 ## Qué es Gnosi
 
@@ -24,7 +24,7 @@ backend FastAPI añaden edición, vistas de base de datos, navegación por el gr
 referencias y lectura, comunicaciones, automatización, trabajo asistido por IA,
 integraciones y controles multiusuario opcionales.
 
-El sistema soporta tres superficies de entrega:
+El sistema admite tres modalidades de distribución:
 
 - Desarrollo y operación nativos: uvicorn en el puerto `5002` y Vite en el `5173`.
 - Autoalojamiento con Docker: backend, frontend y servidor de traducción de Zotero.
@@ -37,7 +37,7 @@ flowchart LR
     A["Finalidad del producto"] --> B["Arquitectura del sistema"]
     B --> C["Guía de dominio"]
     C --> D["Catálogos de API y módulos generados"]
-    D --> E["Fuente y pruebas"]
+    D --> E["Código fuente y pruebas"]
     C --> F["Operaciones y seguridad"]
 ```
 
@@ -54,14 +54,14 @@ La documentación utiliza esta precedencia cuando las fuentes no están de acuer
 1. Código fuente ejecutable y esquemas de ejecución.
 2. Pruebas que demuestran comportamiento observable.
 3. Definiciones de despliegue y configuración actuales.
-4. Directivas de ingeniería activa.
-5. Historia de Git para la motivación y la cronología.
+4. Directivas de ingeniería vigentes.
+5. Historial de Git para conocer la motivación y la cronología.
 
-Las páginas revisadas explican las responsabilidades y decisiones. Las páginas generadas describen lo que está presente estáticamente. Tampoco sustituyen la ejecución de las pruebas pertinentes y los flujos de tiempo de ejecución.
+Las páginas revisadas explican las responsabilidades y decisiones. Las páginas generadas describen lo que se detecta mediante análisis estático. Ninguna sustituye la ejecución de las pruebas y los flujos pertinentes en el entorno de ejecución.
 
 ## Índice de la implementación actual
 
-- [Inventario de repositorios](generated/repository-inventory.md)
+- [Inventario del repositorio](generated/repository-inventory.md)
 - [Operaciones FastAPI](generated/api-catalog.md)
 - [Módulos del backend](generated/backend-modules.md)
 - [Rutas y componentes del frontend](generated/frontend-catalog.md)

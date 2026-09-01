@@ -22,9 +22,19 @@ import subprocess
 import tempfile
 import unicodedata
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Optional
 
 import httpx
+
+from backend.domains.mail.connectors._drupal_values import (
+    copy_attributes,
+    get_default,
+    method_value,
+    sort_rows,
+    sorted_values,
+    unpack_pair,
+)
+from backend.utils.open_values import contains_value, get_value, item_value, iterable_values
 
 log = logging.getLogger(__name__)
 
@@ -104,100 +114,106 @@ def _raise_for(resp: httpx.Response, ctx: str) -> None:
         raise DrupalSyncError(f"{ctx}: {resp.status_code} {resp.text[:300]}")
 
 
-def _node_url(base: str, attrs: dict[str, Any]) -> Optional[str]:
+def _node_url(base: str, attrs: object) -> Optional[str]:
     """Public node URL derived from ``path.alias`` or, if there isn't one, ``/node/<nid>``."""
-    alias = (attrs.get("path") or {}).get("alias")
+    alias = get_value(get_value(attrs, "path") or {}, "alias")
     if alias:
         return f"{base}{alias}"
-    nid = attrs.get("drupal_internal__nid")
+    nid = get_value(attrs, "drupal_internal__nid")
     return f"{base}/node/{nid}" if nid else None
 
 
 # --- Descoberta (lectura) --------------------------------------------------
 
 
-async def list_content_types() -> list[dict[str, Any]]:
+async def list_content_types() -> list[dict[str, object]]:
     """Drupal content types: ``[{machine, label, uuid}]`` (sorted by label)."""
     async with _client() as c:
         r = await c.get("/jsonapi/node_type/node_type")
     _raise_for(r, "list_content_types")
-    out: list[dict[str, Any]] = []
-    for t in r.json().get("data", []):
-        a = t.get("attributes", {})
-        machine = a.get("drupal_internal__type")
+    out: list[dict[str, object]] = []
+    document: object = r.json()
+    for t in iterable_values(get_default(document, "data", [])):
+        a = get_default(t, "attributes", {})
+        machine = get_value(a, "drupal_internal__type")
         if not machine:
             continue
         out.append(
             {
                 "machine": machine,
-                "label": a.get("name") or machine,
-                "uuid": t.get("id"),
+                "label": get_value(a, "name") or machine,
+                "uuid": get_value(t, "id"),
             }
         )
-    out.sort(key=lambda x: (x["label"] or "").lower())
+    sort_rows(out, key=lambda x: method_value(x["label"] or "", "lower"))
     return out
 
 
-def _label_from_machine(name: str) -> str:
+def _label_from_machine(name: object) -> object:
     """Readable label derived from a field's machine name (``field_editorial`` →
     ``Editorial``). Fallback for when we don't have the real ``label`` from ``field_config``."""
-    base = re.sub(r"^field_", "", name or "").replace("_", " ").strip()
+    # re owns input validation. Do not use an arg-type exception here: object
+    # fails overload selection (call-overload); narrowing it would change errors.
+    base = re.sub(r"^field_", "", name or "").replace("_", " ").strip()  # type: ignore[call-overload]
     return (base[:1].upper() + base[1:]) if base else (name or "")
 
 
-def _target_bundles(attributes: dict[str, Any]) -> list[Any]:
-    settings = attributes.get("settings")
+def _target_bundles(attributes: object) -> list[object]:
+    settings = get_value(attributes, "settings")
     settings = settings if isinstance(settings, dict) else {}
-    handler = settings.get("handler_settings")
+    handler: object = settings.get("handler_settings")
     handler = handler if isinstance(handler, dict) else {}
-    bundles = handler.get("target_bundles")
+    bundles: object = handler.get("target_bundles")
     if isinstance(bundles, dict):
         return list(bundles)
     return bundles if isinstance(bundles, list) else []
 
 
 def _append_config_fields(
-    fields: list[dict[str, Any]], seen: set[str], document: dict[str, Any], bundle: str
+    fields: list[dict[str, object]], seen: set[object], document: object, bundle: str
 ) -> None:
-    for item in document.get("data", []):
-        attributes = item.get("attributes", {})
-        field_name = attributes.get("field_name")
-        if attributes.get("bundle") != bundle or not field_name or field_name in seen:
+    for item in iterable_values(get_default(document, "data", [])):
+        attributes = get_default(item, "attributes", {})
+        field_name = get_value(attributes, "field_name")
+        if get_value(attributes, "bundle") != bundle or not field_name or field_name in seen:
             continue
         seen.add(field_name)
         fields.append(
             {
                 "field_name": field_name,
-                "label": attributes.get("label") or field_name,
-                "field_type": attributes.get("field_type"),
+                "label": get_value(attributes, "label") or field_name,
+                "field_type": get_value(attributes, "field_type"),
                 "target_bundles": _target_bundles(attributes),
             }
         )
 
 
-def _reference_targets(nodes: list[dict[str, Any]]) -> dict[str, set[str]]:
-    targets: dict[str, set[str]] = {}
-    for node in nodes:
-        for field_name, relation in (node.get("relationships") or {}).items():
-            if not field_name.startswith("field_"):
+def _reference_targets(nodes: object) -> dict[object, set[object]]:
+    targets: dict[object, set[object]] = {}
+    for node in iterable_values(nodes):
+        for pair in iterable_values(method_value(get_value(node, "relationships") or {}, "items")):
+            field_name, relation = unpack_pair(pair)
+            if not method_value(field_name, "startswith", "field_"):
                 continue
-            data = (relation or {}).get("data")
-            items = data if isinstance(data, list) else ([data] if data else [])
+            data = get_value(relation or {}, "data")
+            items: list[object] = data if isinstance(data, list) else ([data] if data else [])
             for item in items:
-                resource_type = (item or {}).get("type") or ""
-                if "--" in resource_type:
-                    targets.setdefault(field_name, set()).add(resource_type.split("--", 1)[1])
+                resource_type = get_value(item or {}, "type") or ""
+                if contains_value(resource_type, "--"):
+                    targets.setdefault(field_name, set()).add(
+                        item_value(method_value(resource_type, "split", "--", 1), 1)
+                    )
     return targets
 
 
 def _append_inferred_fields(
-    fields: list[dict[str, Any]], seen: set[str], nodes: list[dict[str, Any]]
+    fields: list[dict[str, object]], seen: set[object], nodes: object
 ) -> None:
-    base = nodes[0] if nodes else {}
-    attributes = base.get("attributes") or {}
-    relationships = base.get("relationships") or {}
+    base = item_value(nodes, 0) if nodes else {}
+    attributes = get_value(base, "attributes") or {}
+    relationships = get_value(base, "relationships") or {}
     targets = _reference_targets(nodes)
-    if "body" in attributes and "body" not in seen:
+    if contains_value(attributes, "body") and "body" not in seen:
         seen.add("body")
         fields.append(
             {
@@ -207,8 +223,8 @@ def _append_inferred_fields(
                 "target_bundles": [],
             }
         )
-    for field_name in attributes:
-        if field_name.startswith("field_") and field_name not in seen:
+    for field_name in iterable_values(attributes):
+        if method_value(field_name, "startswith", "field_") and field_name not in seen:
             seen.add(field_name)
             fields.append(
                 {
@@ -218,8 +234,8 @@ def _append_inferred_fields(
                     "target_bundles": [],
                 }
             )
-    for field_name in relationships:
-        if not field_name.startswith("field_") or field_name in seen:
+    for field_name in iterable_values(relationships):
+        if not method_value(field_name, "startswith", "field_") or field_name in seen:
             continue
         seen.add(field_name)
         fields.append(
@@ -227,12 +243,12 @@ def _append_inferred_fields(
                 "field_name": field_name,
                 "label": _label_from_machine(field_name),
                 "field_type": "entity_reference",
-                "target_bundles": sorted(targets.get(field_name, set())),
+                "target_bundles": sorted_values(targets.get(field_name, set())),
             }
         )
 
 
-async def list_fields(bundle: str) -> list[dict[str, Any]]:
+async def list_fields(bundle: str) -> list[dict[str, object]]:
     """Fields of a bundle: ``[{field_name, label, field_type}]``.
 
     Includes the base ``title`` field (doesn't appear in ``field_config``) and walks
@@ -245,18 +261,19 @@ async def list_fields(bundle: str) -> list[dict[str, Any]]:
     but it allows viewing and editing the mapping in the UI.
 
     """
-    fields: list[dict[str, Any]] = [
+    fields: list[dict[str, object]] = [
         {"field_name": "title", "label": "Títol", "field_type": "string"},
     ]
-    seen = {"title"}
-    url: Optional[str] = f"/jsonapi/field_config/field_config?filter[bundle]={bundle}"
+    seen: set[object] = {"title"}
+    url: object = f"/jsonapi/field_config/field_config?filter[bundle]={bundle}"
     async with _client() as c:
         while url:
-            r = await c.get(url)
+            # HTTPX owns URL validation; preserve opaque href and native failures.
+            r = await c.get(url)  # type: ignore[arg-type]
             _raise_for(r, "list_fields")
-            doc = r.json()
+            doc: object = r.json()
             _append_config_fields(fields, seen, doc, bundle)
-            url = (doc.get("links", {}).get("next") or {}).get("href")
+            url = get_value(get_value(get_default(doc, "links", {}), "next") or {}, "href")
 
         # Fallback via real nodes when `field_config` hasn't exposed any field.
         # We request several nodes (not just one): the target bundle/vocabulary of a
@@ -266,7 +283,8 @@ async def list_fields(bundle: str) -> list[dict[str, Any]]:
             try:
                 rn = await c.get(f"/jsonapi/node/{bundle}?page[limit]=50")
                 if rn.status_code < 400:
-                    nodes = (rn.json() or {}).get("data") or []
+                    node_document: object = rn.json()
+                    nodes = get_value(node_document or {}, "data") or []
                     _append_inferred_fields(fields, seen, nodes)
             except Exception as exc:  # best effort: if it fails, we fall back to `title`
                 log.warning(
@@ -275,7 +293,7 @@ async def list_fields(bundle: str) -> list[dict[str, Any]]:
     return fields
 
 
-def _norm_title(s: Any) -> str:
+def _norm_title(s: object) -> str:
     """Robust title-comparison key: lowercase, no accents, no
     punctuation or special characters, collapsed spaces. So that matching between
     Gnosi and Drupal tolerates differences in spacing/case/accents/punctuation."""
@@ -285,7 +303,7 @@ def _norm_title(s: Any) -> str:
     return " ".join(s.split())  # col·lapsa espais
 
 
-async def find_nodes_by_title(bundle: str, title: str, limit: int = 5) -> list[dict[str, Any]]:
+async def find_nodes_by_title(bundle: str, title: str, limit: int = 5) -> list[dict[str, object]]:
     """Bundle nodes with the EXACT title given: ``[{uuid, nid, url, title}]``.
 
     Used to link Gnosi rows to existing Drupal nodes without
@@ -314,17 +332,18 @@ async def find_nodes_by_title(bundle: str, title: str, limit: int = 5) -> list[d
         )
     _raise_for(r, "find_nodes_by_title")
     base = _base_url()
-    out: list[dict[str, Any]] = []
-    for d in r.json().get("data", []):
-        a = d.get("attributes", {})
-        if _norm_title(a.get("title")) != norm:
+    out: list[dict[str, object]] = []
+    document: object = r.json()
+    for d in iterable_values(get_default(document, "data", [])):
+        a = get_default(d, "attributes", {})
+        if _norm_title(get_value(a, "title")) != norm:
             continue  # CONTAINS can return longer titles: we require a normalized match
         out.append(
             {
-                "uuid": d.get("id"),
-                "nid": a.get("drupal_internal__nid"),
+                "uuid": get_value(d, "id"),
+                "nid": get_value(a, "drupal_internal__nid"),
                 "url": _node_url(base, a),
-                "title": a.get("title"),
+                "title": get_value(a, "title"),
             }
         )
     return out
@@ -335,21 +354,22 @@ async def find_nodes_by_title(bundle: str, title: str, limit: int = 5) -> list[d
 
 async def create_node(
     bundle: str,
-    attributes: dict[str, Any],
-    relationships: Optional[dict[str, Any]] | None = None,
-    langcode: Optional[str] | None = None,
-) -> dict[str, Any]:
+    attributes: object,
+    relationships: object = None,
+    langcode: object = None,
+) -> dict[str, object]:
     """Creates a new node via JSON:API (``POST``, not blocked by the WAF).
 
     Returns ``{uuid, nid, url, title}``.
 
     """
-    attrs = dict(attributes or {})
+    attrs = copy_attributes(attributes or {})
     if langcode:
         attrs.setdefault("langcode", langcode)
-    payload: dict[str, Any] = {"data": {"type": f"node--{bundle}", "attributes": attrs}}
+    data: dict[str, object] = {"type": f"node--{bundle}", "attributes": attrs}
+    payload: dict[str, object] = {"data": data}
     if relationships:
-        payload["data"]["relationships"] = relationships
+        data["relationships"] = relationships
     async with _client() as c:
         r = await c.post(
             f"/jsonapi/node/{bundle}",
@@ -357,23 +377,24 @@ async def create_node(
             headers={"Content-Type": JSONAPI},
         )
     _raise_for(r, "create_node")
-    d = r.json().get("data", {})
-    a = d.get("attributes", {})
+    document: object = r.json()
+    d = get_default(document, "data", {})
+    a = get_default(d, "attributes", {})
     base = _base_url()
     return {
-        "uuid": d.get("id"),
-        "nid": a.get("drupal_internal__nid"),
+        "uuid": get_value(d, "id"),
+        "nid": get_value(a, "drupal_internal__nid"),
         "url": _node_url(base, a),
-        "title": a.get("title"),
+        "title": get_value(a, "title"),
     }
 
 
 async def update_node(
-    uuid: str,
+    uuid: object,
     bundle: str,
-    attributes: dict[str, Any],
-    relationships: Optional[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+    attributes: object,
+    relationships: object = None,
+) -> object:
     """Updates an existing node via the custom endpoint (POST, bypasses the WAF).
 
     Raises ``DrupalNotFound`` if the node no longer exists (stale uuid) → the
@@ -393,10 +414,11 @@ async def update_node(
             headers={"Accept": "application/json"},
         )
     _raise_for(r, "update_node")
-    return cast(dict[str, Any], r.json())
+    result: object = r.json()
+    return result
 
 
-async def add_translation(uuid: str, langcode: str, fields: dict[str, Any]) -> dict[str, Any]:
+async def add_translation(uuid: object, langcode: object, fields: object) -> object:
     """Creates or updates the ``langcode`` translation of a node (idempotent).
 
     Pushes only attributes (text/body): in Drupal, shared fields (tags,
@@ -411,15 +433,16 @@ async def add_translation(uuid: str, langcode: str, fields: dict[str, Any]) -> d
             headers={"Accept": "application/json"},
         )
     _raise_for(r, "add_translation")
-    return cast(dict[str, Any], r.json())
+    result: object = r.json()
+    return result
 
 
 async def upload_image(
     bundle: str,
-    field_name: str,
+    field_name: object,
     filename: str,
     data: bytes,
-) -> str:
+) -> object:
     """Uploads a binary file to an image/file field and returns the file's UUID.
 
     JSON:API file-upload endpoint: ``POST /jsonapi/node/<bundle>/<camp>``
@@ -442,13 +465,14 @@ async def upload_image(
     async with _client() as c:
         r = await c.post(f"/jsonapi/node/{bundle}/{field_name}", content=data, headers=headers)
     _raise_for(r, "upload_image")
-    fid = r.json().get("data", {}).get("id")
+    document: object = r.json()
+    fid = get_value(get_default(document, "data", {}), "id")
     if not fid:
         raise DrupalSyncError(f"upload_image: response has no file UUID ({r.text[:200]})")
-    return cast(str, fid)
+    return fid
 
 
-async def find_existing_file(filename: str, filesize: Optional[int] | None = None) -> Optional[str]:
+async def find_existing_file(filename: str, filesize: Optional[int] | None = None) -> object:
     """UUID of a file already uploaded to Drupal with the same name (and size), to
     reuse it instead of creating a new copy on every re-sync.
 
@@ -483,20 +507,24 @@ async def find_existing_file(filename: str, filesize: Optional[int] | None = Non
         if r.status_code >= 400:
             log.warning("drupal: find_existing_file HTTP %s per «%s»", r.status_code, ascii_name)
             return None
-        for row in (r.json() or {}).get("data", []):
-            if filesize is None or (row.get("attributes") or {}).get("filesize") == filesize:
-                return cast(Optional[str], row.get("id"))
+        document: object = r.json()
+        for row in iterable_values(get_default(document or {}, "data", [])):
+            if (
+                filesize is None
+                or get_value(get_value(row, "attributes") or {}, "filesize") == filesize
+            ):
+                return get_value(row, "id")
     except Exception as exc:
         log.warning("drupal: find_existing_file ha fallat (%s): %s", filename, exc)
     return None
 
 
 async def resolve_or_create_term(
-    vocabulary: str,
+    vocabulary: object,
     name: str,
     *,
-    cache: Optional[dict[str, str]] | None = None,
-) -> str:
+    cache: dict[str, object] | None = None,
+) -> object:
     """UUID of the taxonomy term ``name`` within ``vocabulary``; creates it if missing.
 
     ``cache`` (optional) avoids repeating searches/creations within the same run.
@@ -513,9 +541,10 @@ async def resolve_or_create_term(
             params={"filter[name]": name, "page[limit]": 1},
         )
         _raise_for(r, "resolve_term:get")
-        rows = r.json().get("data", [])
+        document: object = r.json()
+        rows = get_default(document, "data", [])
         if rows:
-            tid = rows[0].get("id")
+            tid = get_value(item_value(rows, 0), "id")
         else:
             body = {"data": {"type": f"taxonomy_term--{vocabulary}", "attributes": {"name": name}}}
             rc = await c.post(
@@ -524,12 +553,13 @@ async def resolve_or_create_term(
                 headers={"Content-Type": JSONAPI},
             )
             _raise_for(rc, "resolve_term:create")
-            tid = rc.json().get("data", {}).get("id")
+            created_document: object = rc.json()
+            tid = get_value(get_default(created_document, "data", {}), "id")
     if not tid:
         raise DrupalSyncError(f"resolve_or_create_term: sense UUID per «{name}»")
     if cache is not None:
         cache[name] = tid
-    return cast(str, tid)
+    return tid
 
 
 # --- Body conversion ------------------------------------------------------

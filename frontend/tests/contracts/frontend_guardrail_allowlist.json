@@ -1,0 +1,13 @@
+{
+  "allowlist": {
+    "direct_storage": {},
+    "global_events": {},
+    "legacy_js_jsx": {},
+    "oversized_files": {}
+  },
+  "format": "gnosi-frontend-guardrails-v1",
+  "limits": {
+    "component_lines": 300,
+    "handwritten_file_lines": 500
+  }
+}

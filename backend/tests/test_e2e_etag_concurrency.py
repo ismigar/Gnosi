@@ -18,6 +18,9 @@ import pytest
 import requests
 
 BACKEND = os.environ.get("GNOSI_BACKEND_URL", "http://127.0.0.1:5002")
+RUN_LIVE_E2E = os.environ.get("GNOSI_RUN_LIVE_E2E", "").strip().lower() in {
+    "1", "true", "yes",
+}
 
 
 def _alive() -> bool:
@@ -27,7 +30,10 @@ def _alive() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(not _alive(), reason="backend not reachable")
+pytestmark = pytest.mark.skipif(
+    not RUN_LIVE_E2E or not _alive(),
+    reason="live E2E not enabled or backend not reachable",
+)
 
 
 @pytest.fixture

@@ -1,12 +1,17 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
-import { unwrapApiResult } from './errors';
+import { assertApiSuccess, unwrapApiResult } from './errors';
 
 export type AiCatalog = components['schemas']['AiCatalogResponse'];
 export type AiModelCatalog = components['schemas']['ModelCatalogResponse'];
 export type AiModelComparison =
   components['schemas']['ModelComparisonResponse'];
+export type AiModelComparisonEntry =
+  components['schemas']['ModelComparisonEntry'];
+export type AiModelCatalogProvider =
+  components['schemas']['ModelCatalogProvider'];
 export type AiModelRegistry = components['schemas']['ModelRegistryResponse'];
+export type AiModelRegistryEntry = components['schemas']['ModelRegistryEntry'];
 export type AiModelsPayload = components['schemas']['ModelsPayload'];
 export type AiModelRegistryUpdate =
   components['schemas']['ModelRegistryUpdateResponse'];
@@ -14,6 +19,10 @@ export type AiModelReliability =
   components['schemas']['ModelReliabilityResponse'];
 export type AiUsage = components['schemas']['AiUsageResponse'];
 export type AiUsageHistory = components['schemas']['AiUsageHistoryResponse'];
+export type AiProviderCredentialInput =
+  components['schemas']['ProviderCredentialPayload'];
+export type AiProviderStatusInput =
+  components['schemas']['ProviderStatusPayload'];
 export type AiGenerateInput = components['schemas']['GeneratePayload'];
 export type AiGenerateResult = components['schemas']['GenerateContentResponse'];
 export type AiCorrectionInput = components['schemas']['CorrectPayload'];
@@ -61,6 +70,34 @@ export async function updateAiModels(
 ): Promise<AiModelRegistryUpdate> {
   return unwrapApiResult<AiModelRegistryUpdate, unknown>(
     await apiClient.PUT('/api/ai/models', { body: payload, signal }),
+  );
+}
+
+export async function setAiProviderCredentials(
+  providerId: string,
+  payload: AiProviderCredentialInput,
+  signal?: AbortSignal,
+): Promise<void> {
+  assertApiSuccess(
+    await apiClient.POST('/api/ai/providers/{provider_id}/credentials', {
+      body: payload,
+      params: { path: { provider_id: providerId } },
+      signal,
+    }),
+  );
+}
+
+export async function setAiProviderStatus(
+  providerId: string,
+  payload: AiProviderStatusInput,
+  signal?: AbortSignal,
+): Promise<void> {
+  assertApiSuccess(
+    await apiClient.PATCH('/api/ai/providers/{provider_id}/status', {
+      body: payload,
+      params: { path: { provider_id: providerId } },
+      signal,
+    }),
   );
 }
 

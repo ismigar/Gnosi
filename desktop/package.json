@@ -11,10 +11,14 @@
   "license": "MIT",
   "scripts": {
     "test": "node --test *.test.js",
+    "typecheck:ipc": "pnpm --filter @gnosi/frontend exec tsc --project ../desktop/tsconfig.ipc.json",
+    "test:ipc:smoke": "electron scripts/smoke-ipc.cjs",
+    "test:profile:smoke": "node scripts/smoke-profile.cjs",
+    "install:runtime": "install-electron",
     "build:icons": "python3 scripts/generate-icons.py",
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "pnpm run build:python && electron-builder",
+    "build": "pnpm run build:python && electron-builder --publish never",
     "build:python": "bash build-python.sh",
     "build:mac": "pnpm run build:python && electron-builder --mac --publish never",
     "build:linux": "pnpm run build:python && electron-builder --linux --publish never",
@@ -23,11 +27,12 @@
   },
   "dependencies": {
     "electron-log": "^5.4.4",
-    "electron-updater": "^6.1.7"
+    "electron-updater": "^6.1.7",
+    "koffi": "3.1.6"
   },
   "devDependencies": {
-    "@electron/asar": "^3.4.1",
-    "electron": "^28.1.0",
-    "electron-builder": "^24.9.1"
+    "@electron/asar": "4.3.0",
+    "electron": "43.4.1",
+    "electron-builder": "26.15.3"
   }
 }

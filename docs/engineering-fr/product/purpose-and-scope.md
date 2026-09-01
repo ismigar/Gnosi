@@ -11,54 +11,54 @@ tests: []
 
 ## Objectif du produit
 
-Gnosi transforme un dossier contrôlé par l'utilisateur de Markdown en un espace de travail connecté sans faire d'une base de données hébergée opaque le propriétaire des connaissances de l'utilisateur. Il combine la portabilité des fichiers avec le comportement d'application de niveau supérieur : vues structurées, édition, recherche, traversée graphique, références, communication, automatisation, publication et assistance d'IA.
+Gnosi transforme un dossier de fichiers Markdown contrôlé par l'utilisateur en un espace de travail connecté, sans confier ses connaissances à une base hébergée opaque. Il combine la portabilité des fichiers avec des fonctions applicatives de plus haut niveau : vues structurées, édition, recherche, parcours de graphe, références, communication, automatisation, publication et assistance par IA.
 
 L'objectif principal de l'ingénierie est la souveraineté des données avec une collaboration et une automatisation utiles. Les utilisateurs doivent être en mesure d'inspecter, sauvegarder, synchroniser et récupérer leurs connaissances indépendamment de Gnosi.
 
 ## Principes de conception
 
-### Persistance au premier rang local
+### Persistance privilégiant le stockage local
 
-Les indices et caches accélèrent l'accès mais doivent être reconstituables. L'état d'application de l'application de la base de données relationnelles n'appartient pas naturellement à une note, comme les identités, les membres, les index de messages et l'historique d'exécution.
+Markdown et le frontmatter YAML constituent la représentation principale des connaissances. Les index et les caches accélèrent l'accès, mais doivent pouvoir être reconstruits. Les bases relationnelles stockent l'état applicatif qui ne relève pas naturellement d'une note, comme les identités, les appartenances, les index de messages et l'historique d'exécution.
 
-### Mode personnel sans frais généraux de compte
+### Mode personnel sans gestion de compte imposée
 
-La valeur par défaut `personal` mode peut fonctionner comme une application locale à un seul utilisateur sans écran de connexion. `org` le mode permet d'authentifier le comportement multi-utilisateurs, les espaces de travail, les rôles et les contrôles d'accès. Les déploiements sensibles à la sécurité peuvent forcer l'authentification même en conservant la sémantique en mode personnel.
+Le mode par défaut `personal` permet une utilisation locale à un seul utilisateur sans écran de connexion. Le mode `org` active le fonctionnement multiutilisateur authentifié, les espaces de travail, les rôles et les contrôles d'accès. Les déploiements sensibles à la sécurité peuvent imposer l'authentification tout en conservant la sémantique du mode personnel.
 
 ### Déploiement portable
 
-Le code de base doit fonctionner nativement et dans Docker. La détection du déploiement peut sélectionner les défauts appropriés, mais le code de domaine ne doit pas supposer les noms d'hôte Docker uniquement ou les chemins absolus natifs uniquement.
+Le code principal doit fonctionner nativement et dans Docker. La détection du déploiement peut sélectionner des valeurs par défaut adaptées, mais le code des domaines ne doit présupposer ni noms d'hôte propres à Docker ni chemins absolus propres à une installation native.
 
 ### Effets externes explicites
 
-Ouvrir des fichiers, envoyer des messages, publier du contenu, supprimer des données, invoquer des outils générés et appeler des services à distance qui dépassent les frontières de la confiance. Ces opérations utilisent des services mis en œuvre et, le cas échéant, des contrôles de rôle ou des politiques de confirmation explicites.
+Ouvrir des fichiers, envoyer des messages, publier du contenu, supprimer des données, invoquer des outils générés et appeler des services distants franchissent des frontières de confiance. Ces opérations utilisent des services à périmètre limité et, selon le cas, des contrôles de rôle ou des politiques de confirmation explicites.
 
-### Dégradation gracieuse
+### Dégradation contrôlée
 
-Les fournisseurs optionnels et les intégrations doivent échouer localement. Un fournisseur d'IA manquant, un service de sidecar de traduction, un compte de courrier ou un service d'hydratation de fichiers cloud ne doivent pas rendre les opérations de coffre-fort non liées indisponibles.
+Les échecs des fournisseurs et intégrations facultatifs doivent rester isolés. L'absence d'un fournisseur d'IA, d'un service auxiliaire de traduction, d'un compte de courrier ou d'un service d'hydratation de fichiers cloud ne doit pas rendre indisponibles les opérations du vault sans rapport avec eux.
 
-## Surfaces de produits
+## Fonctions du produit
 
-- Connaissances : Pages de marquage, édition de blocs, pièces jointes, vues, recherche, graphique.
-- Recherche : références, citations de la LSC, lecture PDF/EPUB, annotations, flux.
+- Connaissances : pages Markdown, édition par blocs, pièces jointes, vues, recherche, graphe.
+- Recherche : références, citations CSL, lecture PDF/EPUB, annotations, flux.
 - Communication : courrier, calendriers, réunions, contacts.
-- Intelligence : registre modèle, agents, outils MCP, compétences en temps de fonctionnement, sources de contexte.
+- Intelligence : registre de modèles, agents, outils MCP, compétences d'exécution, sources de contexte.
 - Automatisation : tâches programmées, formules, rollups, rappels, publication.
-- Intégration: Google, Microsoft, Notion, Drupal, réseaux sociaux, add-ins de bureau.
-- Distribution: Native web runtime, Docker auto-hosting, Electron application de bureau,
-et les clients de votre navigateur/de votre bureau.
+- Intégration : Google, Microsoft, Notion, Drupal, réseaux sociaux, compléments bureautiques.
+- Distribution : exécution web native, auto-hébergement Docker, application de bureau Electron
+  et clients complémentaires pour navigateurs et suites bureautiques.
 
 ## Non-objectifs et limites
 
 - Gnosi n'exige pas une base de données cloud propriétaire comme source de vérité.
-- Les indices dérivés ne sont pas des substituts durables pour la voûte.
-- La collaboration en temps réel fournit actuellement une base de relais/de présence; elle est
-non documenté comme édition complète de CRDT jusqu'à ce que ce comportement soit implémenté.
-- Le code de lecteur Zotero vendu n'est pas la propriété de la logique d'application Gnosi.
-la construction, la limite d'intégration, les changements locaux et les flux de données autour de celui-ci.
-- Une proposition de fonctionnalité dans une directive n'est pas expédié comportement avant que vérifié dans
-Source et tests.
+- Les index dérivés ne remplacent pas durablement le vault.
+- La collaboration en temps réel fournit actuellement une base de relais/de présence; elle n'est pas
+  décrite comme une édition CRDT complète tant que ce comportement n'est pas implémenté.
+- Le code du lecteur Zotero intégré au dépôt n'est pas de la logique applicative propre à Gnosi.
+  Gnosi gère sa compilation, la frontière d'intégration, les modifications locales et les flux de données associés.
+- Une proposition de fonctionnalité dans une directive ne décrit pas un comportement livré
+  tant que celui-ci n'est pas vérifié dans le code et les tests.
 
-## Conséquence de la délivrance des licences
+## Conséquence de la licence
 
-Gnosi est AGPL-3.0-ou-plus tard. Les versions modifiées offertes sur un réseau doivent rendre leur source correspondante disponible sous la même licence. Les intervenants doivent conserver la source, la documentation technique et les instructions opérationnelles appropriées pour l'examen par des tiers.
+Gnosi est sous licence AGPL-3.0-or-later. Les versions modifiées proposées sur un réseau doivent rendre leur code source correspondant disponible sous la même licence. Les contributeurs doivent maintenir un code source, une documentation technique et des instructions opérationnelles permettant un examen par des tiers.

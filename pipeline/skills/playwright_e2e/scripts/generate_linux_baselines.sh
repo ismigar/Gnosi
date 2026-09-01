@@ -1,68 +1,165 @@
 #!/usr/bin/env bash
 #
-# generate_linux_baselines.sh — Generate Linux visual baselines.
-#
-# OFFICIAL APPROACH (recommended):
-#   Trigger the GitHub Actions workflow `e2e-update-baselines.yml` manually:
-#     1. GitHub UI → Actions → "E2E — Update Linux Visual Baselines (manual)" → Run.
-#     2. Download the artifact "visual-baselines-linux".
-#     3. Extract into tests/e2e/tests/visual/regression.spec.ts-snapshots/.
-#     4. Commit + push.
-#   Why: matches the exact CI environment (Ubuntu, glibc, font-config) byte-for-byte.
-#
-# LOCAL FALLBACK (best-effort, may fail):
-#   This script attempts the same via Docker against the LOCAL Vite dev server.
-#   Known issues: Vite HMR websocket + base path "./" can prevent React from
-#   bootstrapping when accessed via host.docker.internal. If it fails, use the
-#   official approach instead — don't fight Vite dev locally.
-#
-# Prereqs:
-#   - Docker daemon running.
-#   - gnosi_frontend container UP on :5173.
-#   - host.docker.internal in vite.config.js `server.allowedHosts` (already set).
+# Generate candidate Linux snapshots explicitly, without mounting the checkout.
+# Requires an existing local image with Node 22.22.2, pnpm 11.19.0 and the locked
+# Playwright browsers. Nothing is pulled; dependency installation is container-only.
+# See ../SKILL.md for the temporary Linux opt-in and authentication limitations.
 
+# Do not expand credential checks into inherited shell tracing output.
+set +x
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-E2E_DIR="$REPO_DIR/tests/e2e"
-PLAYWRIGHT_VERSION="$(cd "$E2E_DIR" && node -p "require('./node_modules/@playwright/test/package.json').version")"
-IMAGE="mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy"
+fail() { echo "✗ $*" >&2; exit 2; }
 
-cat <<EOF
-╔══════════════════════════════════════════════════════════════╗
-║ Local Linux baseline generation (best-effort).               ║
-║ If this fails, use the GitHub Actions workflow instead:      ║
-║   .github/workflows/e2e-update-baselines.yml                 ║
-╚══════════════════════════════════════════════════════════════╝
-EOF
+if [ "$#" -ne 3 ] || [ "$1" != --update-snapshots ] || [ "$2" != --output-dir ]; then
+  fail 'Usage: generate_linux_baselines.sh --update-snapshots --output-dir /new/output-directory'
+fi
+[ -n "${GNOSI_PLAYWRIGHT_IMAGE:-}" ] || fail 'Set GNOSI_PLAYWRIGHT_IMAGE to a prepared local image.'
+[ -n "${GNOSI_BASE_URL:-}" ] || fail 'Set GNOSI_BASE_URL to the existing frontend URL reachable from the container.'
+[[ "${GNOSI_TEST_EMAIL:-}" =~ [^[:space:]] ]] || fail 'Set GNOSI_TEST_EMAIL for an existing disposable test account.'
+[[ "${GNOSI_TEST_PASSWORD:-}" =~ [^[:space:]] ]] || fail 'Set GNOSI_TEST_PASSWORD for an existing disposable test account.'
+URL_PATTERN='^https?://([^/?#@[:space:]]+)([/?#][^[:space:]]*)?$'
+[[ "$GNOSI_BASE_URL" =~ $URL_PATTERN ]] || fail 'GNOSI_BASE_URL must be HTTP(S), without credentials or whitespace.'
+PROBE_URL="${GNOSI_BASE_URL%%://*}://${BASH_REMATCH[1]}/"
 
-echo "→ Using Playwright Docker image: $IMAGE"
-
-echo "→ Verifying frontend is reachable..."
-if ! curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:5173/ | grep -qE "^[23]"; then
-  echo "✗ Frontend not reachable at http://localhost:5173/ — start it first:"
-  echo "    docker-compose up -d frontend"
-  exit 2
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd -P)"
+case "$3" in /*) ;; *) fail 'Output directory must be an absolute path.' ;; esac
+OUTPUT_NAME="$(basename "$3")"
+case "$OUTPUT_NAME" in ''|.|..|/) fail 'Choose a new, named output directory.' ;; esac
+OUTPUT_PARENT="$(cd "$(dirname "$3")" && pwd -P)"
+OUTPUT_DIR="$OUTPUT_PARENT/$OUTPUT_NAME"
+case "$OUTPUT_DIR/" in
+  "$REPO_DIR/"*|*/node_modules/*|*/.git/*|*/.venv/*|*/.pnpm-store/*)
+    fail 'Output must be outside the checkout and dependency directories.' ;;
+esac
+if [ -e "$OUTPUT_DIR" ] || [ -L "$OUTPUT_DIR" ]; then
+  fail 'Output already exists; choose a new directory. Existing baselines are never overwritten.'
 fi
 
-echo "→ Pulling $IMAGE (cached if present)..."
-docker pull "$IMAGE" >/dev/null
+TASK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gnosi-linux-baselines.XXXXXXXX")"
+cleanup() { rm -rf -- "$TASK_DIR"; }
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+case "$TASK_DIR" in *,*) fail 'Temporary directory cannot contain a comma (Docker mount syntax).' ;; esac
+mkdir -p "$TASK_DIR/source" "$TASK_DIR/output"
 
-echo "→ Running visual project inside Linux container..."
-docker run --rm \
+# Copy only the reviewed inputs: no source mount, host node_modules, auth state,
+# certificates, .npmrc, .env, vaults or existing snapshots enter the container.
+INPUTS=(
+  package.json pnpm-lock.yaml pnpm-workspace.yaml .node-version
+  frontend/package.json desktop/package.json tests/e2e/package.json
+  scripts/verify-toolchain.mjs patches/emscripten-wasm-loader@3.0.3.patch
+  tests/e2e/playwright.config.ts tests/e2e/tests/setup/auth.setup.ts
+  tests/e2e/support/auth-state.ts tests/e2e/support/auth-playwright.ts
+  tests/e2e/tests/visual/regression.spec.ts
+)
+for INPUT in "${INPUTS[@]}"; do
+  WALK="$REPO_DIR"
+  IFS=/ read -r -a PARTS <<< "$INPUT"
+  for PART in "${PARTS[@]}"; do
+    WALK="$WALK/$PART"
+    [ ! -L "$WALK" ] || fail "Refusing symlink input: $INPUT"
+  done
+  [ -f "$WALK" ] || fail "Missing required input: $INPUT"
+  mkdir -p "$TASK_DIR/source/$(dirname "$INPUT")"
+  cp "$WALK" "$TASK_DIR/source/$INPUT"
+done
+
+echo '→ Explicit Linux generation: frozen dependencies and visual tests run only in the container.'
+echo '→ The Darwin-only guard is removed only in the disposable copy; source baselines remain untouched.'
+if docker run --rm --pull=never --init --cap-drop=ALL \
+  --security-opt=no-new-privileges --shm-size=1g \
   --add-host=host.docker.internal:host-gateway \
-  -v "$REPO_DIR":/work \
-  -w /work \
-  -e GNOSI_BASE_URL=http://host.docker.internal:5173 \
-  -e CI=1 \
-  "$IMAGE" \
-  sh -c "corepack enable && corepack prepare pnpm@11.19.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @gnosi/e2e exec playwright test --project=visual --update-snapshots"
+  --mount "type=bind,src=$TASK_DIR/source,dst=/source,readonly" \
+  --mount "type=bind,src=$TASK_DIR/output,dst=/export" \
+  --env "GNOSI_BASE_URL=$GNOSI_BASE_URL" --env "GNOSI_PROBE_URL=$PROBE_URL" \
+  --env GNOSI_TEST_EMAIL --env GNOSI_TEST_PASSWORD \
+  --env GNOSI_TEST_WORKSPACE_ID --env GNOSI_TEST_VAULT_ID \
+  --env CI=1 --env PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 --env COREPACK_ENABLE_NETWORK=0 \
+  --entrypoint /bin/bash -i -- "$GNOSI_PLAYWRIGHT_IMAGE" -s <<'CONTAINER_SCRIPT'
+set +x
+set -euo pipefail
+fail() { echo "✗ $*" >&2; exit 2; }
+[[ "${GNOSI_TEST_EMAIL:-}" =~ [^[:space:]] ]] || fail 'Container requires GNOSI_TEST_EMAIL for a disposable account.'
+[[ "${GNOSI_TEST_PASSWORD:-}" =~ [^[:space:]] ]] || fail 'Container requires GNOSI_TEST_PASSWORD for a disposable account.'
+[ "$(node --version)" = v22.22.2 ] || fail 'Container requires Node 22.22.2.'
+[ "$(pnpm --version)" = 11.19.0 ] || fail 'Container requires pnpm 11.19.0.'
+if ! STATUS="$(curl --disable --fail --silent --show-error --location \
+  --max-redirs 5 --max-time 3 --proto '=http,https' --proto-redir '=http,https' \
+  --insecure --globoff --output /dev/null --write-out '%{http_code}' "$GNOSI_PROBE_URL")"; then
+  fail 'Container cannot reach the selected frontend; no tests ran.'
+fi
+[[ "$STATUS" =~ ^2[0-9][0-9]$ ]] || fail 'Frontend must return a final HTTP 2xx.'
 
-echo ""
-echo "✓ Linux baselines generated at:"
-echo "    $E2E_DIR/tests/visual/regression.spec.ts-snapshots/*-linux.png"
-echo ""
-echo "Next steps:"
-echo "  git add tests/e2e/tests/visual/regression.spec.ts-snapshots/"
-echo "  git commit -m 'chore(e2e): refresh Linux visual baselines'"
+WORK_DIR="$(mktemp -d /tmp/gnosi-linux-work.XXXXXXXX)"
+cp -R /source/. "$WORK_DIR/"
+cd "$WORK_DIR"
+# Never inherit a host state destination or copy an existing session. The real
+# setup owns this container-local file and restricts it to mode 600 before writing.
+export GNOSI_TEST_STORAGE_STATE="$WORK_DIR/.auth/state.json"
+# Skip package lifecycle scripts: only Playwright tests are needed, not Electron
+# native builds. Browser binaries must already match the locked Playwright version.
+pnpm install --frozen-lockfile --ignore-scripts
+node scripts/verify-toolchain.mjs
+cmp pnpm-lock.yaml /source/pnpm-lock.yaml
+cmp pnpm-workspace.yaml /source/pnpm-workspace.yaml
+
+# This is generation-only opt-in, never a change to the shared test contract.
+# Fail on a changed guard instead of silently rewriting unfamiliar source.
+SPEC=tests/e2e/tests/visual/regression.spec.ts
+DARWIN_GUARD="test.skip(process.platform !== 'darwin', 'Visual baselines are recorded on macOS only.');"
+if ! awk -v guard="$DARWIN_GUARD" '
+  $0 == guard { count++; next }
+  { print }
+  END { if (count != 1) exit 2 }
+' "$SPEC" > "$SPEC.tmp"; then
+  fail 'Visual platform guard changed; review the generation-only Linux opt-in before retrying.'
+fi
+mv "$SPEC.tmp" "$SPEC"
+pnpm --filter @gnosi/e2e exec playwright test --project=visual --update-snapshots --workers=1 --retries=0
+
+SNAPSHOTS=tests/e2e/tests/visual/regression.spec.ts-snapshots
+[ ! -L "$SNAPSHOTS" ] || fail 'Snapshot directory must not be a symlink.'
+for ROUTE in home vault calendar contacts; do
+  for VIEWPORT in desktop mobile; do
+    FILE="$SNAPSHOTS/$ROUTE-$VIEWPORT-visual-linux.png"
+    [ -f "$FILE" ] && [ ! -L "$FILE" ] || fail "Missing regular snapshot: $FILE"
+    [ "$(od -An -tx1 -N8 "$FILE" | tr -d ' \n')" = 89504e470d0a1a0a ] || fail "Invalid PNG: $FILE"
+  done
+done
+# Copy only the eight reviewed names, after validating the entire set.
+for ROUTE in home vault calendar contacts; do
+  for VIEWPORT in desktop mobile; do
+    FILE="$ROUTE-$VIEWPORT-visual-linux.png"
+    cp "$SNAPSHOTS/$FILE" "/export/$FILE"
+    chmod 644 "/export/$FILE"
+  done
+done
+CONTAINER_SCRIPT
+then
+  :
+else
+  STATUS=$?
+  echo '✗ Linux generation failed; no candidates exported to the requested directory.' >&2
+  exit "$STATUS"
+fi
+
+# A successful container exit alone is insufficient (all tests may have skipped).
+for ROUTE in home vault calendar contacts; do
+  for VIEWPORT in desktop mobile; do
+    FILE="$TASK_DIR/output/$ROUTE-$VIEWPORT-visual-linux.png"
+    [ -f "$FILE" ] && [ ! -L "$FILE" ] || fail "Missing regular Linux candidate: $ROUTE/$VIEWPORT"
+    [ "$(od -An -tx1 -N8 "$FILE" | tr -d ' \n')" = 89504e470d0a1a0a ] || fail "Invalid Linux candidate: $ROUTE/$VIEWPORT"
+  done
+done
+mkdir "$OUTPUT_DIR"
+for ROUTE in home vault calendar contacts; do
+  for VIEWPORT in desktop mobile; do
+    FILE="$ROUTE-$VIEWPORT-visual-linux.png"
+    cp "$TASK_DIR/output/$FILE" "$OUTPUT_DIR/$FILE"
+  done
+done
+echo "✓ Eight Linux candidates exported to $OUTPUT_DIR"
+echo 'Review the images explicitly; no tracked baselines were updated and CI does not run Linux visual comparisons.'

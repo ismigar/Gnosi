@@ -140,14 +140,16 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), httpToHttpsRedirectPlugin()],
-    base: env.VITE_BASE_PATH || "./",
+    // Web and packaged app://gnosi both serve from the origin root. Relative
+    // assets break direct BrowserRouter entries and reloads below nested paths.
+    base: env.VITE_BASE_PATH || "/",
     resolve: {
       alias: {
         "@": path.join(rootDir, "src"),
       },
     },
     // App version injected into the UI (shown in the Control Center). Source
-    // single source: frontend/package.json → see src/lib/version.js and
+    // single source: frontend/package.json → see src/features/control-center/releases/version.ts and
     // scripts/bump-version.sh. It's read here (not above) to pick up the
     // most recent value on every (re)build with no memory between processes.
     define: {
@@ -167,14 +169,15 @@ export default defineConfig(({ mode }) => {
       // We separate large vendors into their own chunks because (1) the chunk
       // main doesn't grow unchecked and trigger the 500 kB warning, and
       // (2) each library is cached independently across deployments.
-      // Heavy routes are already loaded with React.lazy (see src/App.jsx);
+      // Heavy routes are already loaded with React.lazy (see src/app/routes.tsx);
       // these groups ensure that dependencies shared between routes
       // (p.ex. blocknote a Vault i a MailComposer) no es dupliquin.
       // Chunks that still exceed 500 kB (editor-vendor ~1.4 MB,
       // tldraw-vendor ~1.1 MB) are heavy vendors loaded ONLY on demand
       // (Vault editor / tldraw drawing), not at startup. We raise the threshold
-      // so the warning doesn't create noise over the expected lazy chunks; the chunk
-      // initial (index) has already dropped from ~7 MB to ~1 MB.
+      // so the warning remains focused on exceptional lazy chunks. Exact entry,
+      // route and vendor growth limits are enforced by check-bundle-size.ts;
+      // the initial index has already dropped from ~7 MB to ~1.3 MB.
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {

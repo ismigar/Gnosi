@@ -6,16 +6,16 @@ echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ELECTRON_DIR="$SCRIPT_DIR"
-
-cd "$ELECTRON_DIR"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+FRONTEND_DIST="$REPO_ROOT/frontend/dist"
 
 echo "1. Installing frozen workspace dependencies..."
-cd "$(dirname "$ELECTRON_DIR")"
+cd "$REPO_ROOT"
 pnpm install --frozen-lockfile
 
 echo ""
-echo "2. Building frontend (if not already built)..."
-if [ ! -d "../frontend/dist" ]; then
+echo "2. Checking frontend build..."
+if [ ! -d "$FRONTEND_DIST" ]; then
     echo "Frontend not built. Run 'pnpm build:frontend' from the Gnosi root first."
     exit 1
 fi
@@ -23,7 +23,7 @@ echo "Frontend dist found."
 
 echo ""
 echo "3. Running electron-builder..."
-cd "$(dirname "$ELECTRON_DIR")"
+cd "$REPO_ROOT"
 pnpm --filter @gnosi/desktop build
 
 echo ""

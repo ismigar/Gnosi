@@ -6,11 +6,17 @@
     "source_globs": [
       "backend/server.py",
       "backend/config/**/*.py",
+      "frontend/src/app/**/*",
+      "frontend/src/shared/**/*",
+      "frontend/src/generated/**/*",
+      "frontend/src/features/control-center/**/*",
+      "frontend/src/features/settings/**/*",
+      "frontend/feature-public-entries.json",
       "scripts/runtime/run_native_*.sh",
       "docker-compose.yml",
       "Dockerfile.*"
     ],
-    "test_globs": ["backend/tests/test_*config*.py", "backend/tests/test_*health*.py"],
+    "test_globs": ["backend/tests/test_*config*.py", "backend/tests/test_*health*.py", "frontend/src/app/**/*.test.*", "frontend/src/shared/**/*.test.*", "frontend/src/features/control-center/**/*.test.*", "frontend/src/features/settings/**/*.test.*", "frontend/tests/contracts/**/*.test.*"],
     "directives": ["environment_integrity.md", "gnosi_ecosystem_architecture.md"]
   },
   {
@@ -22,10 +28,13 @@
       "backend/domains/vault/**/*.py",
       "backend/services/**/*vault*.py",
       "backend/services/files_provider/*.py",
-      "frontend/src/pages/Vault*.jsx",
-      "frontend/src/components/Vault/**/*"
+      "frontend/src/features/vault/**/*",
+      "frontend/src/features/vault-management/**/*",
+      "frontend/src/shared/editor/**/*",
+      "frontend/src/shared/page-search/**/*",
+      "frontend/src/shared/resources/**/*"
     ],
-    "test_globs": ["backend/tests/test_vault*.py", "tests/e2e/tests/e2e/vault*.spec.ts"],
+    "test_globs": ["backend/tests/test_vault*.py", "backend/tests/test_translation_provider_contracts.py", "backend/tests/test_table_workspace_security_contract.py", "frontend/src/features/vault/**/*.test.*", "frontend/src/features/vault-management/**/*.test.*", "frontend/src/shared/editor/**/*.test.*", "frontend/src/shared/page-search/**/*.test.*", "frontend/src/shared/resources/**/*.test.*", "tests/e2e/tests/e2e/vault*.spec.ts"],
     "directives": [
       "vault_database_architecture.md",
       "files_provider_abstraction.md",
@@ -47,11 +56,19 @@
       "backend/domains/vault/tables/catalogs/**/*.py",
       "backend/domains/vault/tables/rules/**/*.py",
       "backend/domains/vault/views/**/*.py",
-      "frontend/src/components/Vault/*Table*",
-      "frontend/src/components/Vault/*View*",
-      "frontend/src/pages/ProjectPlanningPage.jsx"
+      "frontend/src/features/vault/dashboard/**/*",
+      "frontend/src/features/vault/views/**/*",
+      "frontend/src/features/vault/view-config/**/*",
+      "frontend/src/features/vault/schema/**/*",
+      "frontend/src/features/vault/properties/**/*",
+      "frontend/src/features/planning/**/*",
+      "frontend/src/shared/records/**/*",
+      "frontend/src/shared/record-views/**/*",
+      "frontend/src/shared/filtering/**/*",
+      "frontend/src/shared/schema/**/*",
+      "frontend/src/shared/dates/**/*"
     ],
-    "test_globs": ["backend/tests/test_*view*.py", "backend/tests/test_planning*.py", "backend/tests/test_*rule*.py", "backend/tests/test_*rollup*.py", "backend/tests/test_*option_catalogs.py", "backend/tests/test_snapshot_sort*.py", "backend/tests/test_database_rules_views_domain_contract.py", "tests/e2e/tests/e2e/dashboards.spec.ts"],
+    "test_globs": ["backend/tests/test_*view*.py", "backend/tests/test_planning*.py", "backend/tests/test_*rule*.py", "backend/tests/test_*rollup*.py", "backend/tests/test_*option_catalogs.py", "backend/tests/test_snapshot_sort*.py", "backend/tests/test_database_rules_views_domain_contract.py", "frontend/src/features/vault/dashboard/**/*.test.*", "frontend/src/features/vault/views/**/*.test.*", "frontend/src/features/vault/view-config/**/*.test.*", "frontend/src/features/vault/schema/**/*.test.*", "frontend/src/features/vault/properties/**/*.test.*", "frontend/src/features/planning/**/*.test.*", "frontend/src/shared/records/**/*.test.*", "frontend/src/shared/record-views/**/*.test.*", "frontend/src/shared/filtering/**/*.test.*", "frontend/src/shared/schema/**/*.test.*", "frontend/src/shared/dates/**/*.test.*", "tests/e2e/tests/e2e/dashboards.spec.ts"],
     "directives": [
       "automations_and_formulas.md",
       "project_planning_authoritative_engine.md",
@@ -65,11 +82,12 @@
     "source_globs": [
       "backend/api/vault_graph_routes.py",
       "backend/services/graph*.py",
-      "frontend/src/pages/GraphPage.jsx",
-      "frontend/src/components/Graph*",
-      "frontend/src/components/**/*Graph*"
+      "frontend/src/features/graph/**/*",
+      "frontend/src/shared/graph/**/*",
+      "frontend/src/features/vault/views/VaultGraph.tsx",
+      "frontend/src/features/vault/editor/PageLinksGraph.tsx"
     ],
-    "test_globs": ["backend/tests/test_*graph*.py", "frontend/src/**/*graph*.test.*"],
+    "test_globs": ["backend/tests/test_*graph*.py", "frontend/src/features/graph/**/*.test.*", "frontend/src/shared/graph/**/*.test.*", "frontend/src/features/vault/views/VaultGraph.test.tsx", "frontend/src/features/vault/editor/PageLinksGraph.test.tsx"],
     "directives": ["knowledge_graph_architecture.md", "frontend_graph_physics.md", "page_links_live_graph.md"]
   },
   {
@@ -87,12 +105,11 @@
       "backend/api/literature_routes.py",
       "backend/services/**/*literature*.py",
       "backend/services/academic_connectors.py",
-      "frontend/src/pages/ReaderDashboard.jsx",
-      "frontend/src/pages/LiteraturePage.jsx",
-      "frontend/src/components/ResourcesPluginConfig.jsx",
-      "frontend/src/components/Vault/ZoteroReaderTab.jsx"
+      "frontend/src/features/reader/**/*",
+      "frontend/src/features/literature/**/*",
+      "frontend/src/shared/citations/**/*"
     ],
-    "test_globs": ["backend/tests/test_*citation*.py", "backend/tests/test_*reader*.py", "backend/tests/test_*literature*.py", "backend/tests/test_academic_connectors.py", "backend/tests/test_lookup_normalizers.py", "backend/tests/test_html_meta_attr_order.py", "backend/tests/test_database_rules_views_domain_contract.py", "frontend/src/**/*Literature*.test.*", "frontend/src/**/*ResourcesPluginConfig*.test.*", "tests/e2e/tests/e2e/*citation*.spec.ts"],
+    "test_globs": ["backend/tests/test_*citation*.py", "backend/tests/test_*reader*.py", "backend/tests/test_*literature*.py", "backend/tests/test_academic_connectors.py", "backend/tests/test_lookup_normalizers.py", "backend/tests/test_html_meta_attr_order.py", "backend/tests/test_database_rules_views_domain_contract.py", "frontend/src/features/reader/**/*.test.*", "frontend/src/features/literature/**/*.test.*", "frontend/src/shared/citations/**/*.test.*", "tests/e2e/tests/e2e/*citation*.spec.ts"],
     "directives": ["academic_literature_search_and_review.md", "gnosi_native_reference_manager.md", "pdf_quote_capture.md", "zotero_reader_translation_contribution.md"]
   },
   {
@@ -105,11 +122,29 @@
       "backend/api/ai_routes.py",
       "backend/api/tools_routes.py",
       "backend/services/ai*.py",
-      "frontend/src/components/Agent*",
-      "frontend/src/components/AI/**/*"
+      "frontend/src/features/agent/**/*",
+      "frontend/src/features/agent-context/**/*",
+      "frontend/src/features/settings/AI/**/*",
+      "frontend/src/features/settings/AI*.ts*",
+      "frontend/src/features/settings/*Comparison*.ts*",
+      "frontend/src/features/settings/model-comparison/**/*"
     ],
-    "test_globs": ["backend/tests/test_agent*.py", "backend/tests/test_ai*.py", "backend/tests/test_generated_tool*.py"],
+    "test_globs": ["backend/tests/test_agent*.py", "backend/tests/test_ai*.py", "backend/tests/test_generated_tool*.py", "frontend/src/features/agent/**/*.test.*", "frontend/src/features/agent-context/**/*.test.*", "frontend/src/features/settings/AI/**/*.test.*", "frontend/src/features/settings/AI*.test.*", "frontend/src/features/settings/*Comparison*.test.*"],
     "directives": ["agent_skills_runtime.md", "ai_provider_model_config.md", "generated_tools_approval_policy.md", "agent_action_confirmations.md"]
+  },
+  {
+    "id": "notebooks",
+    "name": "Source-grounded notebooks",
+    "guide": "docs/engineering/domains/notebooks.md",
+    "source_globs": [
+      "backend/domains/notebooks/**/*.py",
+      "backend/api/notebook_routes.py",
+      "backend/services/notebook_service.py",
+      "frontend/src/features/notebooks/**/*",
+      "frontend/src/shared/api/notebooks.ts"
+    ],
+    "test_globs": ["backend/tests/test_notebook*.py", "frontend/src/features/notebooks/**/*.test.*", "frontend/src/shared/api/notebooks.test.ts", "tests/e2e/tests/e2e/notebooks.spec.ts"],
+    "directives": []
   },
   {
     "id": "mail",
@@ -119,10 +154,10 @@
       "backend/api/mail_routes.py",
       "backend/models/mail.py",
       "backend/services/mail*.py",
-      "frontend/src/pages/MailPage.jsx",
-      "frontend/src/components/Mail/**/*"
+      "frontend/src/features/mail/**/*",
+      "frontend/src/shared/api/mail*.ts"
     ],
-    "test_globs": ["backend/tests/test_mail*.py", "tests/e2e/tests/e2e/mail*.spec.ts"],
+    "test_globs": ["backend/tests/test_mail*.py", "frontend/src/features/mail/**/*.test.*", "frontend/src/shared/api/mail*.test.ts", "tests/e2e/tests/e2e/mail*.spec.ts"],
     "directives": ["mail_smart_extraction.md", "mail_tags.md", "mail_inline_images_cid.md", "mail_imap_xoauth2_migration.md"]
   },
   {
@@ -135,10 +170,10 @@
       "backend/models/calendar.py",
       "backend/services/**/*calendar*.py",
       "backend/services/**/*meeting*.py",
-      "frontend/src/pages/CalendarPage.jsx",
-      "frontend/src/components/Meeting*"
+      "frontend/src/features/calendar/**/*",
+      "frontend/src/features/meetings/**/*"
     ],
-    "test_globs": ["backend/tests/test_*calendar*.py", "backend/tests/test_*meeting*.py", "tests/e2e/tests/e2e/calendar.spec.ts"],
+    "test_globs": ["backend/tests/test_*calendar*.py", "backend/tests/test_*meeting*.py", "frontend/src/features/calendar/**/*.test.*", "frontend/src/features/meetings/**/*.test.*", "tests/e2e/tests/e2e/calendar.spec.ts"],
     "directives": ["ai_meeting_notetaker.md", "calendar_hover_popup.md", "hide_calendar_events.md"]
   },
   {
@@ -149,10 +184,9 @@
       "backend/api/contacts_routes.py",
       "backend/models/contact.py",
       "backend/services/**/*contact*.py",
-      "frontend/src/pages/ContactsPage.jsx",
-      "frontend/src/components/Contacts/**/*"
+      "frontend/src/features/contacts/**/*"
     ],
-    "test_globs": ["backend/tests/test_contact*.py", "tests/e2e/tests/e2e/contacts.spec.ts"],
+    "test_globs": ["backend/tests/test_contact*.py", "frontend/src/features/contacts/**/*.test.*", "tests/e2e/tests/e2e/contacts.spec.ts"],
     "directives": ["contacts-sync.md", "contacts_design_unification.md"]
   },
   {
@@ -162,10 +196,10 @@
     "source_globs": [
       "backend/api/social_routes.py",
       "backend/services/social*.py",
-      "frontend/src/pages/SocialDashboard.jsx",
-      "frontend/src/pages/MediaCenter.jsx"
+      "frontend/src/features/social/**/*",
+      "frontend/src/features/media/**/*"
     ],
-    "test_globs": ["backend/tests/test_social*.py", "frontend/src/**/*social*.test.*"],
+    "test_globs": ["backend/tests/test_social*.py", "frontend/src/features/social/**/*.test.*", "frontend/src/features/media/**/*.test.*"],
     "directives": ["social_publish_skill.md", "social_network_tabs_and_brand_icons.md", "media_views.md"]
   },
   {
@@ -181,11 +215,15 @@
       "backend/services/notion_*.py",
       "backend/services/plugin*.py",
       "backend/services/academic_connectors.py",
+      "frontend/src/features/integrations/**/*",
+      "frontend/src/features/plugin-management/**/*",
+      "frontend/src/features/notion-import/**/*",
+      "frontend/src/shared/plugins/**/*",
       "extensions/**/*",
       "extensions/examples/**/*",
       "extensions/mcp/**/*"
     ],
-    "test_globs": ["backend/tests/test_integration*.py", "backend/tests/test_notion*.py", "backend/tests/test_plugin*.py", "extensions/**/tests/**/*"],
+    "test_globs": ["backend/tests/test_integration*.py", "backend/tests/test_notion*.py", "backend/tests/test_plugin*.py", "frontend/src/features/integrations/**/*.test.*", "frontend/src/features/plugin-management/**/*.test.*", "frontend/src/features/notion-import/**/*.test.*", "frontend/src/shared/plugins/**/*.test.*", "extensions/**/tests/**/*"],
     "directives": ["academic_literature_search_and_review.md", "plugin_system.md", "integrations_persistence.md", "skill_vs_tool_architecture.md"]
   },
   {
@@ -201,10 +239,14 @@
       "backend/api/public_routes.py",
       "backend/models/management.py",
       "backend/services/auth*.py",
-      "frontend/src/context/AuthContext.jsx",
-      "frontend/src/components/Auth/**/*"
+      "frontend/src/features/auth/**/*",
+      "frontend/src/features/workspaces/**/*",
+      "frontend/src/features/sharing/**/*",
+      "frontend/src/shared/auth/**/*",
+      "frontend/src/shared/routing/**/*",
+      "frontend/src/shared/api/auth.ts"
     ],
-    "test_globs": ["backend/tests/test_auth*.py", "backend/tests/test_workspace*.py", "backend/tests/test_share*.py", "backend/tests/test_public*.py"],
+    "test_globs": ["backend/tests/test_auth*.py", "backend/tests/test_workspace*.py", "backend/tests/test_share*.py", "backend/tests/test_public*.py", "frontend/src/features/auth/**/*.test.*", "frontend/src/features/workspaces/**/*.test.*", "frontend/src/features/sharing/**/*.test.*", "frontend/src/shared/auth/**/*.test.*", "frontend/src/shared/routing/**/*.test.*", "frontend/src/shared/api/auth.test.ts"],
     "directives": ["auth_multiuser_design.md", "auth_remove_legacy_fallback.md", "workspace_management.md"]
   },
   {
@@ -217,10 +259,10 @@
       "backend/models/scheduler.py",
       "backend/services/durable_job_worker.py",
       "backend/services/literature_service.py",
-      "frontend/src/pages/SchedulerPage.jsx",
+      "frontend/src/features/automations/**/*",
       "pipeline/skills/scheduler/**/*"
     ],
-    "test_globs": ["backend/tests/test_schedul*.py", "backend/tests/test_literature_service.py", "tests/e2e/tests/e2e/automation*.spec.ts"],
+    "test_globs": ["backend/tests/test_schedul*.py", "backend/tests/test_literature_service.py", "frontend/src/features/automations/**/*.test.*", "tests/e2e/tests/e2e/automation*.spec.ts"],
     "directives": ["academic_literature_search_and_review.md", "scheduler_config_resilience.md", "autonomous_quality_loop.md", "automations_and_formulas.md"]
   },
   {

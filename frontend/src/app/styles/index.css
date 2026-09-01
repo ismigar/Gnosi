@@ -1,0 +1,35 @@
+/* Ordered cascade: keep these imports in legacy source order.
+ * Base/layout/feature rules intentionally interleave; late overrides stay late.
+ * Tailwind stays beside this entrypoint so @source resolves unchanged. */
+@import "./index.tailwind.css";
+@import "../../shared/styles/tokens/theme.css";
+@import "../../shared/styles/base/document.css";
+@import "./layout/sidebar-type.css";
+@import "../../features/vault/styles/app-vault-shell.css";
+@import "../../features/vault/styles/vault-page.css";
+@import "../../features/vault/views/styles/vault-feed-card.css";
+@import "../../shared/record-views/styles/vault-view-toolbar.css";
+@import "../../features/vault/views/styles/vault-feed.css";
+@import "../../features/vault/styles/vault-floating.css";
+@import "../../features/workspaces/styles/workspaces.css";
+@import "./layout/app-header.css";
+@import "../../shared/styles/base/controls-loading.css";
+@import "../../features/settings/styles/settings-navigation.css";
+@import "../../shared/styles/base/scrollbars.css";
+@import "../../shared/styles/base/surfaces.css";
+@import "./layout/app-sidebar.css";
+@import "../../shared/styles/base/tooltips.css";
+@import "./layout/quick-access.css";
+@import "../../features/calendar/styles/calendar-responsive.css";
+@import "../../features/vault/styles/vault-responsive.css";
+@import "./layout/mobile.css";
+@import "./home.css";
+@import "../../shared/styles/base/reduced-motion.css";
+@import "../../shared/styles/base/buttons.css";
+@import "../../features/settings/styles/provider-cards.css";
+@import "../../features/settings/styles/settings-controls.css";
+@import "../../features/vault/editor/styles/editor-embeds.css";
+@import "../../shared/styles/tokens/area-headings.css";
+@import "../../shared/editor/styles/markdown-preview.css";
+@import "../../features/vault/editor/styles/spelling.css";
+@import "./chat-trigger.css";

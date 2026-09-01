@@ -44,7 +44,9 @@ import shutil
 import sys
 import time
 from collections import Counter
+from collections.abc import Hashable
 from pathlib import Path
+from typing import TypeGuard
 
 import yaml
 
@@ -56,13 +58,52 @@ if str(_ROOT) not in sys.path:
 
 from backend.services import action_rules  # noqa: E402
 from backend.services import option_catalogs as oc  # noqa: E402
+from backend.domains.vault.registry.records import RecordReader, is_record  # noqa: E402
 
 # Frontmatter regex (same form as parse_frontmatter, without depending on the
 # full backend).
 _FM_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
-def read_frontmatter(path: Path) -> dict:
+def _is_record(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(isinstance(key, str) for key in value)
+
+
+def _record(value: object, context: str) -> dict[str, object]:
+    if not _is_record(value):
+        raise ValueError(f"{context} must be an object with text keys; nothing was written")
+    return value
+
+
+def _records(value: object, context: str) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise ValueError(f"{context} must be a list of objects; nothing was written")
+    return [_record(item, context) for item in value]
+
+
+def _field_keys(prop: dict[str, object]) -> list[Hashable]:
+    aliases = prop.get("aliases") or []
+    if not isinstance(aliases, list):
+        raise ValueError("Property aliases must be a list; nothing was written")
+    keys: list[Hashable] = []
+    for key in [prop.get("id"), prop.get("name"), *aliases]:
+        if key:
+            if not isinstance(key, Hashable):
+                raise ValueError("Property lookup keys must be hashable; nothing was written")
+            keys.append(key)
+    return keys
+
+
+def _validate_registry(registry: dict[str, object]) -> None:
+    """Check traversed structure without copying or discarding opaque fields."""
+    _records(registry.get("databases", []), "Registry databases")
+    for table in _records(registry.get("tables", []), "Registry tables"):
+        for prop in _records(table.get("properties") or [], "Table properties"):
+            if not isinstance(prop.get("type"), Hashable):
+                raise ValueError("Property type must be hashable; nothing was written")
+
+
+def read_frontmatter(path: Path) -> dict[object, object]:
     """YAML frontmatter of a .md file, or {} if it can't be read (online-only…)."""
     try:
         raw = path.read_text(encoding="utf-8")
@@ -73,19 +114,18 @@ def read_frontmatter(path: Path) -> dict:
     if not match:
         return {}
     try:
-        data = yaml.safe_load(match.group(1))
+        data: object = yaml.safe_load(match.group(1))
     except Exception as exc:
         print(f"    [warning] invalid frontmatter in {path.name}: {exc}")
         return {}
-    return data if isinstance(data, dict) else {}
+    return dict(data) if isinstance(data, dict) else {}
 
 
-def collect_field_values(folder: Path, prop: dict) -> Counter:
+def collect_field_values(folder: Path, prop: dict[str, object]) -> Counter[str]:
     """Count of values of a property across the rows (.md files) in a folder."""
-    keys = [k for k in [prop.get("id"), prop.get("name")] if k]
-    keys.extend(a for a in (prop.get("aliases") or []) if a)
+    keys = _field_keys(prop)
     is_multi = prop.get("type") == "multi_select"
-    counts: Counter = Counter()
+    counts: Counter[str] = Counter()
     if not folder.is_dir():
         return counts
     for md_file in sorted(folder.glob("*.md")):
@@ -107,7 +147,9 @@ def collect_field_values(folder: Path, prop: dict) -> Counter:
     return counts
 
 
-def resolve_table_folder(table: dict, registry: dict, vault_root: Path) -> Path:
+def resolve_table_folder(
+    table: dict[str, object], registry: dict[str, object], vault_root: Path
+) -> Path:
     """REAL folder for a table's rows.
 
     Tables live under ``<vault>/BD/<database name>/<folder>``
@@ -121,7 +163,7 @@ def resolve_table_folder(table: dict, registry: dict, vault_root: Path) -> Path:
     db = next(
         (
             d
-            for d in registry.get("databases", [])
+            for d in _records(registry.get("databases", []), "Registry databases")
             if str(d.get("id")) == str(table.get("database_id"))
         ),
         None,
@@ -139,14 +181,16 @@ def resolve_table_folder(table: dict, registry: dict, vault_root: Path) -> Path:
     return candidates[0] if candidates else vault_root / folder
 
 
-def merge_values_into_catalogs(table: dict, registry: dict, vault_root: Path) -> list:
+def merge_values_into_catalogs(
+    table: dict[str, object], registry: dict[str, object], vault_root: Path
+) -> list[tuple[object, list[str]]]:
     """Step 2: incorporates into the catalog ALL values existing in the rows
     (directive §6: nothing is lost; cleanup is done afterward by the user via
     delete+reassign). Idempotent: only adds the ones that are missing, at the
     end of the catalog and sorted by frequency; it never removes or reorders any."""
-    merged = []
+    merged: list[tuple[object, list[str]]] = []
     folder = resolve_table_folder(table, registry, vault_root)
-    for prop in table.get("properties") or []:
+    for prop in _records(table.get("properties") or [], "Table properties"):
         if prop.get("type") not in oc.OPTION_TYPES:
             continue
         cfg = oc.get_prop_config(prop)
@@ -160,14 +204,16 @@ def merge_values_into_catalogs(table: dict, registry: dict, vault_root: Path) ->
         missing = [name for name, _n in counts.most_common() if name not in have]
         if not missing:
             continue
+        # The strict JSON check above remains authoritative; retain its object.
+        assert is_record(prop)
         oc.set_prop_options(
-            prop, oc.normalize_options(existing + missing)
+            prop, oc.normalize_options([*existing, *missing])
         )
         merged.append((prop.get("name"), missing))
     return merged
 
 
-def promote_status_type(table: dict) -> bool:
+def promote_status_type(table: RecordReader) -> bool:
     """Step 4b: the field with the status role (select) becomes `type: status`."""
     prop = oc.find_role_prop(table, oc.ROLE_STATUS)
     if not prop or prop.get("type") == "status":
@@ -178,12 +224,11 @@ def promote_status_type(table: dict) -> bool:
     return True
 
 
-def migrate(registry_path: Path, apply: bool) -> int:
-    registry = json.loads(registry_path.read_text(encoding="utf-8"))
-    vault_root = registry_path.parent.parent  # <vault>/BD/registry.json
+def _migrate_tables(registry: dict[str, object], vault_root: Path) -> int:
+    """Plan all changes in memory; leave opaque, unconsumed configs untouched."""
     total_changes = 0
 
-    for table in registry.get("tables", []):
+    for table in _records(registry.get("tables", []), "Registry tables"):
         name = table.get("name") or table.get("id")
         report = []
 
@@ -194,12 +239,14 @@ def migrate(registry_path: Path, apply: bool) -> int:
                 f"existing values added to the '{field_name}' catalog ({len(missing)}): {shown}"
             )
 
+        # _records has validated text keys; setters mutate that same dictionary.
+        assert is_record(table)
         if oc.normalize_table_options(table):
             report.append("catalogs normalized to the rich format")
         if oc.assign_roles(table):
             roles = {
                 p.get("name"): oc.prop_role(p)
-                for p in table.get("properties") or []
+                for p in _records(table.get("properties") or [], "Table properties")
                 if oc.prop_role(p)
             }
             report.append(f"roles assigned: {roles}")
@@ -210,13 +257,31 @@ def migrate(registry_path: Path, apply: bool) -> int:
             names = [o["name"] for o in oc.get_prop_options(prop)] if prop else []
             report.append(f"status seed ensured: {names}")
         if action_rules.ensure_action_rules(table):
-            report.append(f"action_rules seeded: {sorted((table.get('action_rules') or {}).keys())}")
+            rules = _record(table.get("action_rules") or {}, "Table action rules")
+            report.append(f"action_rules seeded: {sorted(rules.keys())}")
 
         if report:
             total_changes += len(report)
             print(f"\n■ {name}")
             for line in report:
                 print(f"  - {line}")
+
+    return total_changes
+
+
+def migrate(registry_path: Path, apply: bool) -> int:
+    try:
+        raw_registry: object = json.loads(registry_path.read_text(encoding="utf-8"))
+        registry = _record(raw_registry, "Registry")
+        _validate_registry(registry)
+        vault_root = registry_path.parent.parent  # <vault>/BD/registry.json
+        # Some legacy backend setters require a mutable config only when they
+        # actually change a property. Surface their shape errors before the
+        # backup/write phase, without rejecting opaque configs they never use.
+        total_changes = _migrate_tables(registry, vault_root)
+    except (ValueError, OSError, TypeError, AttributeError) as exc:
+        print(f"ERROR: {exc}. Nothing was written.", file=sys.stderr)
+        return 1
 
     if not total_changes:
         print("\nNothing to migrate: the registry is already up to date (idempotent).")

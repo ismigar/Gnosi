@@ -27,6 +27,7 @@ from backend.domains.agent.context_storage import (
     _table_entry,
     _table_rows,
 )
+from backend.utils.open_values import get_value
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +103,8 @@ class ContextCoreTools:
             if selected_fields:
                 metadata = row.get("metadata") or {}
                 record["fields"] = {
-                    field: _bounded_context_value(metadata.get(field)) for field in selected_fields
+                    field: _bounded_context_value(get_value(metadata, field))
+                    for field in selected_fields
                 }
             records.append(record)
         payload = {

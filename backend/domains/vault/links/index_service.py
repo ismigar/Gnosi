@@ -10,24 +10,29 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
+from backend.domains.vault.links.document_cache import ParsedDocumentCache
+from backend.domains.vault.links.document_inventory import LinkableDocument
 from backend.domains.vault.links.parsing import (
     extract_outlinks_with_kinds,
     resolve_page_id,
     tokenize_body,
 )
 from backend.domains.vault.links.state import LinkIndexState, LinkIndexView
+from backend.domains.vault.pages.foundation_values import PageMetadata
 
 
 log = logging.getLogger(__name__)
 LINK_INDEX_SCHEMA_VERSION = 2
 LINK_INDEX_PERSIST_DEBOUNCE = 5.0
-Document = tuple[Path, dict[str, Any], str, bool]
+Document = LinkableDocument
 
 
 class JsonWriter(Protocol):
-    def __call__(self, path: Path, data: object, **kwargs: object) -> None: ...
+    def __call__(
+        self, path: Path, data: object, /, *, indent: int | None, ensure_ascii: bool
+    ) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -38,8 +43,8 @@ class LinkIndexDependencies:
     current_vault_key: Callable[[], str]
     get_body: Callable[[Path], str]
     is_dashboard: Callable[[Path], bool]
-    read_dashboard: Callable[[Path], tuple[dict[str, Any], str]]
-    parse_frontmatter: Callable[[str, Path], tuple[dict[str, Any], str]]
+    read_dashboard: Callable[[Path], tuple[PageMetadata, str]]
+    parse_frontmatter: Callable[[str, Path], tuple[PageMetadata, str]]
     write_text: Callable[[Path, str], None]
 
 
@@ -303,7 +308,7 @@ def get_cached_document_texts(
     paths: Iterable[str],
     *,
     ensure_loaded: Callable[[], bool],
-    read_cache: Callable[[], dict[str, tuple[int, dict[str, Any], str]]],
+    read_cache: Callable[[], ParsedDocumentCache],
 ) -> dict[str, str]:
     cache = read_cache()
     if not cache:

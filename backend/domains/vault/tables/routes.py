@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends
 
@@ -190,12 +190,12 @@ def _rename_table_locked(
     )
 
 
-def _rename_field_in_filter_tree(node: Any, old: str, new: str) -> bool:
+def _rename_field_in_filter_tree(node: object, old: str, new: str) -> bool:
     """Recursively rewrite a field reference inside a filter tree."""
     return table_schema.rename_field_in_filter_tree(node, old, new)
 
 
-def _rename_field_refs_in_view_like(container: Any, old: str, new: str) -> bool:
+def _rename_field_refs_in_view_like(container: object, old: str, new: str) -> bool:
     """Rewrite field-name references in a view or embedded section."""
     return table_schema.rename_field_refs_in_view_like(container, old, new)
 
@@ -244,7 +244,7 @@ async def patch_table_property(
     return await table_schema.patch_table_property(
         table_id,
         field_id,
-        data.model_dump(exclude_unset=True)
+        {key: value for key, value in data.model_dump(exclude_unset=True).items()}
         if isinstance(data, TablePropertyPatchRequest)
         else data,
         _configured().properties,
@@ -393,13 +393,13 @@ async def delete_option_catalog(name: str) -> RegistryData:
 
 def _view_payload(view: VaultViewInput | RegistryData) -> RegistryData:
     if isinstance(view, VaultViewInput):
-        return view.model_dump(exclude_unset=True)
+        return {key: value for key, value in view.model_dump(exclude_unset=True).items()}
     return view
 
 
 def _view_reorder_payload(body: ViewReorderRequest | RegistryData) -> RegistryData:
     if isinstance(body, ViewReorderRequest):
-        return body.model_dump()
+        return {key: value for key, value in body.model_dump().items()}
     return body
 
 

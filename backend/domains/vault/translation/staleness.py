@@ -6,34 +6,52 @@ import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Protocol
 
+from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.schemas.pages import PageInfo
 from backend.domains.vault.translation.types import Metadata
+from backend.utils.open_values import iterable_values, list_values
+
+
+class ContentChanged(Protocol):
+    """The named arguments of translation_helpers.translatable_content_changed."""
+
+    def __call__(
+        self,
+        translatable_keys: Iterable[str],
+        old_md: Metadata | None,
+        new_md: Metadata | None,
+        old_body: str | None = None,
+        new_body: str | None = None,
+        *,
+        title_matters: bool = False,
+    ) -> bool: ...
 
 
 @dataclass(frozen=True)
 class TranslationStalenessDependencies:
     table_id: Callable[[Metadata], str | None]
     table_by_id: Callable[[str | None], Metadata | None]
-    content_changed: Callable[..., bool]
-    find_translations: Callable[[str, Iterable[Any]], dict[str, Any]]
-    page_snapshot: Callable[[], list[Any]]
+    content_changed: ContentChanged
+    find_translations: Callable[[str, Iterable[object]], dict[str, object]]
+    page_snapshot: Callable[[], list[PageInfo]]
     on_stale_effect: Callable[[Metadata], tuple[Metadata | None, str | None, bool]]
-    persist_status_options: Callable[[str, list[Any]], None]
+    persist_status_options: Callable[[str, list[object]], None]
     find_page: Callable[[str], Path | None]
-    set_stale: Callable[[str, Path, tuple[Metadata, Any] | None], bool]
+    set_stale: Callable[[str, Path, tuple[Metadata, object] | None], bool]
     logger: logging.Logger
 
 
 def _translatable_keys(table: Metadata) -> tuple[list[str], bool]:
     properties = [
         prop
-        for prop in (table.get("properties") or [])
-        if isinstance(prop, dict) and prop.get("translatable") is True
+        for prop in iterable_values(table.get("properties") or [])
+        if is_record(prop) and prop.get("translatable") is True
     ]
     keys: list[str] = []
     for prop in properties:
-        for key in (prop.get("id"), prop.get("name"), *(prop.get("aliases") or [])):
+        for key in (prop.get("id"), prop.get("name"), *list_values(prop.get("aliases") or [])):
             if key:
                 keys.append(str(key))
     title_matters = any(
@@ -71,7 +89,7 @@ def _content_changed(
 def _stale_status(
     table: Metadata | None,
     dependencies: TranslationStalenessDependencies,
-) -> tuple[Metadata, Any] | None:
+) -> tuple[Metadata, object] | None:
     if not table:
         return None
     prop, value, changed = dependencies.on_stale_effect(table)
@@ -82,10 +100,10 @@ def _stale_status(
     return prop, value
 
 
-def _translation_location(page: Any) -> tuple[str | None, object | None]:
-    page_id = getattr(page, "id", None)
-    page_path = getattr(page, "path", None)
-    if page_id is None and isinstance(page, dict):
+def _translation_location(page: object) -> tuple[str | None, object | None]:
+    page_id: object = getattr(page, "id", None)
+    page_path: object = getattr(page, "path", None)
+    if page_id is None and is_record(page):
         page_id = page.get("id")
         page_path = page.get("path")
     return str(page_id) if page_id else None, page_path

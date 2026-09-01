@@ -111,7 +111,7 @@ def _invalidate_imap_state(emails: set[str]) -> None:
         from backend.api.vault_routes import _load_plugins_state
         from backend.services import builtin_plugins
 
-        load_plugins_state = cast(Callable[[], dict[str, Any]], _load_plugins_state)
+        load_plugins_state = _load_plugins_state
         mail_enabled = builtin_plugins.is_enabled(load_plugins_state(), "mail")
         for email in emails:
             try:

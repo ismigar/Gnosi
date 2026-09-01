@@ -1,0 +1,405 @@
+/* GlobalSettingsModal.css */
+
+.app-menu-settings { display: flex; flex-direction: column; gap: 20px; }
+.app-menu-settings__header { display: flex; align-items: flex-start; gap: 14px; }
+.app-menu-settings__header h2 { margin: 0; color: var(--text-primary); font-size: 1.2rem; }
+.app-menu-settings__header p { max-width: 42rem; margin: 5px 0 0; color: var(--text-secondary); font-size: 0.86rem; line-height: 1.55; }
+.app-menu-settings__search { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-secondary); }
+.app-menu-settings__search:focus-within { border-color: var(--gnosi-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gnosi-primary) 16%, transparent); }
+.app-menu-settings__search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text-primary); font: inherit; }
+.app-menu-settings__list { overflow: hidden; border: 1px solid var(--settings-border); border-radius: 14px; background: var(--bg-primary); }
+.app-menu-settings__row { min-height: 58px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 8px 12px; border-bottom: 1px solid var(--settings-border); }
+.app-menu-settings__row:last-child { border-bottom: 0; }
+.app-menu-settings__row:hover { background: var(--sidebar-item-hover); }
+.app-menu-settings__identity { min-width: 0; display: flex; align-items: center; gap: 12px; color: var(--text-primary); font-weight: 650; }
+.app-menu-settings__icon { width: 34px; height: 34px; flex: 0 0 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--sidebar-item-active); color: var(--sidebar-item-active-text); }
+.app-menu-settings__status { padding: 4px 9px; border-radius: 999px; background: var(--settings-sidebar-bg); color: var(--text-secondary); font-size: 0.72rem; font-weight: 700; }
+.app-menu-settings__actions { display: flex; align-items: center; gap: 3px; }
+.app-menu-settings__actions button { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 9px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.app-menu-settings__actions button:hover:not(:disabled) { background: var(--sidebar-item-active); color: var(--text-primary); }
+.app-menu-settings__actions button[aria-pressed="true"] { color: var(--gnosi-primary); }
+.app-menu-settings__actions button:disabled { opacity: 0.3; cursor: default; }
+.app-menu-settings__empty { margin: 0; padding: 28px; color: var(--text-secondary); text-align: center; }
+
+@media (max-width: 700px) {
+    .app-menu-settings__row { grid-template-columns: minmax(0, 1fr) auto; }
+    .app-menu-settings__status { display: none; }
+}
+
+.settings-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    z-index: var(--z-modal);
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.settings-overlay.active {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.settings-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    width: 95vw;
+    max-width: 1240px;
+    height: 88vh;
+    background: var(--settings-bg);
+    border-radius: 40px;
+    z-index: var(--z-modal);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--settings-border);
+    backdrop-filter: blur(40px);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.settings-modal.active {
+    display: flex;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.settings-inner {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Sidebar */
+.settings-sidebar {
+    width: 295px;
+    min-height: 0;
+    background: var(--settings-sidebar-bg);
+    border-inline-end: 1px solid var(--settings-border);
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    outline: none;
+}
+
+.settings-sidebar-header {
+    padding: 0 10px 32px 10px;
+}
+
+.settings-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-brand-icon-wrap {
+    width: 36px;
+    height: 36px;
+    background: var(--gnosi-blue);
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.settings-sidebar-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+}
+
+.settings-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.settings-sidebar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-sidebar-group__title {
+    margin: 0 10px 5px;
+}
+
+.settings-sidebar-group__toggle {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    margin: 0 10px 5px;
+    padding: 0;
+    text-align: start;
+}
+
+.settings-sidebar-group__toggle:hover,
+.settings-sidebar-group__toggle:focus-visible {
+    color: var(--text-primary);
+}
+
+.settings-sidebar-group__content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Main Content */
+.settings-main {
+    flex: 1;
+    min-height: 0;
+    padding: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--settings-bg);
+    position: relative;
+    /* No `scroll-behavior: smooth`: it makes every programmatic scroll an
+       animation, so jumping to a section lands late and `scrollTop` reads the
+       old value right after being set. Section changes should land at once. */
+    outline: none;
+}
+
+.settings-content-wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 80px 40px;
+}
+
+/* Close Button Positioning */
+.settings-close-btn {
+    position: absolute;
+    top: 32px;
+    inset-inline-end: 32px;
+    z-index: 100;
+}
+
+/* Section Styling */
+.settings-section {
+    margin-bottom: 64px;
+}
+
+.settings-section-title-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.settings-section-icon-wrap {
+    color: var(--gnosi-blue);
+    display: flex;
+    padding: 10px;
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 14px;
+}
+
+.settings-section-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+}
+
+.settings-configurable-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--settings-configurable-gap, 12px);
+}
+
+.settings-filter-tabs {
+    display: flex;
+    gap: 6px;
+    margin: -6px 0 14px;
+}
+
+.settings-filter-tabs button {
+    padding: 6px 11px;
+    border: 1px solid var(--settings-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.settings-filter-tabs button.is-active {
+    border-color: var(--gnosi-blue);
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--gnosi-blue);
+}
+
+.social-network-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.social-network-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 50px;
+    padding: 10px 14px;
+    border: 1px solid var(--settings-border);
+    border-radius: 14px 14px 6px 6px;
+    background: var(--settings-sidebar-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+.social-network-tab:hover,
+.social-network-tab:focus-visible {
+    border-color: var(--gnosi-blue);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.social-network-tab:focus-visible {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.social-network-tab.is-enabled {
+    background: color-mix(in srgb, var(--gnosi-blue) 12%, var(--settings-sidebar-bg));
+    border-color: var(--gnosi-blue);
+    color: var(--text-primary);
+}
+
+.social-network-tab .gnosi-toggle {
+    margin-left: 3px;
+}
+
+.social-network-tab__fallback {
+    font-size: 1.4rem;
+}
+
+.settings-configurable-item {
+    border-radius: 24px;
+    background: var(--settings-sidebar-bg) !important;
+    transition: all 0.2s !important;
+}
+
+.settings-configurable-item.is-editing {
+    border-color: var(--gnosi-blue) !important;
+    border-bottom-width: 0 !important;
+    border-radius: 24px 24px 0 0 !important;
+}
+
+.settings-configurable-item.is-editing:hover,
+.settings-plugin-item.is-expanded:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Match the AI agent-list affordance across configurable Settings rows. */
+.settings-configurable-item:hover:not(.is-editing),
+.settings-plugin-item:hover:not(.is-expanded),
+.settings-hover-card:hover {
+    transform: scale(1.01) translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.settings-hover-card {
+    transition: all 0.2s !important;
+}
+
+.settings-hover-card.is-selected:hover {
+    border-color: var(--gnosi-blue) !important;
+}
+
+.settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {
+    margin-top: calc(-1 * var(--settings-configurable-gap, 12px));
+}
+
+.settings-inline-editor {
+    box-sizing: border-box;
+    padding: 28px;
+    border: 1px solid var(--gnosi-blue);
+    border-radius: 24px;
+    background: var(--bg-primary);
+}
+
+.settings-inline-editor.is-create {
+    margin-bottom: 32px;
+}
+
+.settings-inline-editor.is-attached {
+    border-top: 0;
+    border-radius: 0 0 24px 24px;
+    background: var(--bg-primary);
+}
+
+.settings-inline-editor-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    color: var(--gnosi-blue);
+    font-size: 0.85rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-inline-editor-heading,
+.ai-agent-form-title {
+    margin: 0 0 30px;
+    font-size: 1.4rem;
+    font-weight: 900;
+}
+
+.settings-inline-editor-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    background: var(--settings-bg);
+}
+
+.ai-agent-form.is-attached {
+    background: var(--bg-primary);
+}
+
+.settings-inline-editor-compact .settings-inline-editor-heading {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.settings-plugin-item.is-expanded {
+    border-color: var(--gnosi-blue) !important;
+}
+
+.settings-plugin-item {
+    transition: all 0.2s;
+}

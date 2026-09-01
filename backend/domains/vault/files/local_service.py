@@ -46,8 +46,8 @@ class LinkFileDependencies:
     resolve_target: Callable[[str], Path | None]
     materialize: Callable[[Path, str], Awaitable[None]]
     sanitize_filename: Callable[[str], str]
-    library_roots: Callable[[Path], Sequence[Path]]
-    active_vault_path: Callable[[], Path]
+    library_roots: Callable[[Path | None], Sequence[Path]]
+    active_vault_path: Callable[[], Path | None]
     get_path: Callable[[str], Path]
     host_home_path: Callable[[], Path]
 

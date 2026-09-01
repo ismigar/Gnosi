@@ -10,12 +10,13 @@ import pytest
 from fastapi import FastAPI
 
 import backend.app.lifespan as lifespan_module
-from backend.app.lifespan import lifespan as application_lifespan
 from backend.api import vault_routes
+from backend.app.lifespan import lifespan as application_lifespan
 from backend.config import app_config, data_dir
 from backend.migrations import coordinator
 from backend.scheduler.manager import scheduler_manager
-from backend.server import app, lifespan as legacy_lifespan
+from backend.server import app
+from backend.server import lifespan as legacy_lifespan
 from backend.services import (
     auth_service,
     durable_job_worker,
@@ -23,6 +24,7 @@ from backend.services import (
     llm_wiki_agent,
     plugin_ai_contributions,
     plugin_dispatcher,
+    reference_table_config,
     vault_file_index,
 )
 
@@ -51,20 +53,28 @@ def test_scheduler_remains_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -
 
 def test_lifespan_preserves_startup_and_shutdown_order(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     events: list[str] = []
+    fixture_data = tmp_path / "data"
+    fixture_data.mkdir()
 
     def record(event: str) -> None:
         events.append(event)
 
     def resolve_data_dir() -> Path:
         record("data.resolve")
-        return Path("/isolated-gnosi-data")
+        return fixture_data
 
     def migrate_existing_databases(_data_dir: Path) -> list[object]:
         record("migrations")
         return []
 
+    monkeypatch.setattr(
+        reference_table_config,
+        "assert_reference_config_ready",
+        lambda: record("references.ready"),
+    )
     monkeypatch.setattr(data_dir, "resolve_data_dir", resolve_data_dir)
     monkeypatch.setattr(
         coordinator,
@@ -81,6 +91,9 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "start",
         lambda: record("scheduler.start"),
     )
+    # Test the default startup path only after replacing the scheduler itself.
+    # Other tests and the outer validation process retain their disabled policy.
+    monkeypatch.delenv("GNOSI_DISABLE_SCHEDULER", raising=False)
     monkeypatch.setattr(
         durable_job_worker.durable_job_worker,
         "start",
@@ -175,6 +188,7 @@ def test_lifespan_preserves_startup_and_shutdown_order(
     asyncio.run(exercise())
 
     assert events == [
+        "references.ready",
         "data.resolve",
         "migrations",
         "auth.secret",

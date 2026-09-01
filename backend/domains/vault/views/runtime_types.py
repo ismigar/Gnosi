@@ -3,26 +3,28 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
-Metadata: TypeAlias = dict[str, Any]
-Row: TypeAlias = dict[str, Any]
+from backend.domains.vault.registry.state import RegistryData
+
+Metadata: TypeAlias = RegistryData
+Row: TypeAlias = RegistryData
 Rows: TypeAlias = list[Row]
-View: TypeAlias = dict[str, Any]
-Filter: TypeAlias = dict[str, Any]
-ResolveIds: TypeAlias = Callable[[str, str | None], list[str] | None]
-ResolveTable: TypeAlias = Callable[[str, str | None], dict[str, Any] | None]
+View: TypeAlias = RegistryData
+Filter: TypeAlias = RegistryData
+ResolveIds: TypeAlias = Callable[[str, object], list[str] | None]
+ResolveTable: TypeAlias = Callable[[str, object], RegistryData | None]
 ResolveTitle: TypeAlias = Callable[[str], str | None]
-SnapshotConfig: TypeAlias = Callable[[str], dict[str, Any] | None]
+SnapshotConfig: TypeAlias = Callable[[str], RegistryData | None]
 
 
 DecorateItem: TypeAlias = Callable[
-    [Any, ResolveTitle | None, ResolveTitle | None],
-    Any,
+    [object, ResolveTitle | None, ResolveTitle | None],
+    object,
 ]
 
 
-Sorts: TypeAlias = Sequence[dict[str, Any]]
+Sorts: TypeAlias = Sequence[object]
 
 __all__ = [
     "DecorateItem",

@@ -1,0 +1,174 @@
+.vault-page-title {
+  font-size: clamp(2rem, 2.5vw, 2.375rem);
+  font-weight: 750;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.vault-page-hero {
+  margin-top: 1rem;
+}
+
+.vault-page-cover {
+  height: 3rem;
+}
+
+.vault-page-hero--covered .vault-page-cover {
+  height: 16rem;
+}
+
+.vault-page-hero--bare {
+  margin-top: 0.25rem;
+}
+
+.vault-page-hero--bare .vault-page-cover {
+  height: 0.75rem;
+  overflow: visible;
+}
+
+.vault-page-hero--bare .vault-page-icon {
+  bottom: -4.75rem;
+}
+
+.vault-page-cover-actions {
+  bottom: 1rem;
+}
+
+.vault-page-hero--bare .vault-page-cover-actions {
+  top: 0.75rem;
+  bottom: auto;
+}
+
+.vault-page-icon img {
+  margin-top: 0.75rem;
+}
+
+.vault-page-overview--with-icon {
+  padding-top: 3.5rem;
+}
+
+.vault-page-overview--bare.vault-page-overview--with-icon {
+  padding-top: 5.75rem;
+}
+
+.vault-page-overview--without-icon {
+  padding-top: 1.5rem;
+}
+
+.vault-page-overview--bare.vault-page-overview--without-icon {
+  /* Bare pages keep cover actions above the title; reserve their row so it
+     cannot overlap the title actions or the hover-revealed icon frame below. */
+  padding-top: 5.75rem;
+}
+
+.vault-page-overview--bare > div:first-child {
+  margin-bottom: 0.5rem;
+}
+
+.vault-page-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.vault-page-summary-meta {
+  color: var(--text-secondary);
+}
+
+.vault-page-summary-badges {
+  display: none;
+}
+
+.vault-page-link-chip {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
+.vault-summary-chevron,
+.vault-view-action {
+  display: inline-flex;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  transition: all 0.2s ease;
+}
+
+.vault-summary-chevron:hover,
+.vault-view-action:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.vault-new-split {
+  display: inline-flex;
+  min-height: var(--control-height-sm);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--gnosi-primary);
+  color: #fff;
+}
+
+.vault-new-split__create,
+.vault-new-split__menu {
+  display: inline-flex;
+  min-height: var(--control-height-sm);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #fff !important;
+}
+
+.vault-new-split__create svg,
+.vault-new-split__menu svg {
+  color: #fff;
+}
+
+.vault-new-split__create {
+  gap: 0.375rem;
+  padding-inline: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.vault-new-split__menu {
+  width: var(--control-height-sm);
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.vault-new-split__create:hover,
+.vault-new-split__menu:hover,
+.vault-new-split__create:hover span,
+.vault-new-split__create:hover svg,
+.vault-new-split__menu:hover svg {
+  font-weight: 800 !important;
+  letter-spacing: 0.3px !important;
+  stroke-width: 2.5px !important;
+}
+
+.vault-new-split button:focus-visible,
+.vault-summary-chevron:focus-visible,
+.vault-view-action:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
+
+/* Keep the create menu opaque and above the embedded view content. The header
+ * is a stacking context because the view cards can contain their own layers. */
+.vault-views-header {
+  z-index: var(--z-popover);
+}
+
+.vault-new-record-menu {
+  z-index: var(--z-popover);
+  border-color: var(--border-primary);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  opacity: 1;
+  max-height: min(70vh, 34rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

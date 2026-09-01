@@ -11,12 +11,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
+from backend.utils.safe_io import PathLike
+
 PluginState = dict[str, Any]
 NormalizeState = Callable[[Any], tuple[PluginState, bool]]
 
 
 class JsonWriter(Protocol):
-    def __call__(self, path: Path, payload: Any, **options: Any) -> None: ...
+    def __call__(self, path: PathLike, obj: Any, **dumps_kwargs: Any) -> None: ...
 
 
 @dataclass(frozen=True)

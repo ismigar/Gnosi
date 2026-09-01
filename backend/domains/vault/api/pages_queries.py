@@ -8,11 +8,13 @@ import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.params import Depends as DependsParameter
 
+from backend.domains.vault.pages.state import PreviewDocument, PreviewPayload
+from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import (
     BulkPreviewWarmResponse,
     PageDetailResponse,
@@ -53,21 +55,21 @@ class PageQueryDependencies:
     enrich_table_pages: Callable[[str, list[PageInfo]], None]
     visible_table_pages: Callable[[str, list[PageInfo]], list[PageInfo]]
     active_vault_path: Callable[[], Path | None]
-    get_indexer_status: Callable[[str], dict[str, Any]]
+    get_indexer_status: Callable[[str], dict[str, object]]
     cached_entry_count: Callable[[str], int]
     find_page: PageFinder
     materialize_page: Callable[[Path, str], Awaitable[None]]
-    read_dashboard: Callable[[Path], tuple[dict[str, Any], str]]
+    read_dashboard: Callable[[Path], tuple[RegistryData, str]]
     is_dashboard: Callable[[Path], bool]
-    parse_frontmatter: Callable[[str, Path | None], tuple[dict[str, Any], str]]
+    parse_frontmatter: Callable[[str, Path | None], tuple[RegistryData, str]]
     enrich_single_page: Callable[
-        [dict[str, Any], str, Path],
-        tuple[dict[str, Any], str, str | None],
+        [RegistryData, str, Path],
+        tuple[RegistryData, str, str | None],
     ]
-    file_etag: Callable[[Path], str]
+    file_etag: Callable[[Path], str | None]
     fetch_preview: Callable[
         [Path, str],
-        Awaitable[tuple[dict[str, Any], dict[str, Any], float]],
+        Awaitable[PreviewDocument],
     ]
     warm_preview: Callable[[str], Awaitable[str]]
     preview_concurrency: int
@@ -185,7 +187,7 @@ async def list_pages_by_table_snapshot(table_id: str) -> TablePagesSnapshot:
     )
 
 
-async def get_indexer_status_endpoint() -> dict[str, Any]:
+async def get_indexer_status_endpoint() -> dict[str, object]:
     """Expose the page-index warmup status so the UI can show 'indexing…'.
 
     States:
@@ -208,16 +210,16 @@ async def get_indexer_status_endpoint() -> dict[str, Any]:
 async def list_sidebar_summary() -> list[SidebarPageInfo]:
     """Returns a lightweight summary of pages for the sidebar."""
     return [
-        SidebarPageInfo(
-            id=page.id,
-            title=page.title,
-            parent_id=page.parent_id,
-            is_database=page.is_database,
-            metadata=page.metadata,
-            last_modified=page.last_modified,
-            folder=page.folder,
-            resolved_table_id=page.resolved_table_id,
-        )
+        SidebarPageInfo.model_validate({
+            "id": page.id,
+            "title": page.title,
+            "parent_id": page.parent_id,
+            "is_database": page.is_database,
+            "metadata": page.metadata,
+            "last_modified": page.last_modified,
+            "folder": page.folder,
+            "resolved_table_id": page.resolved_table_id,
+        })
         for page in _deps().get_pages_snapshot()
     ]
 
@@ -233,7 +235,7 @@ async def get_page(page_id: str) -> dict[str, object]:
         )
     await dependencies.materialize_page(file_path, page_id)
 
-    def _read_and_parse() -> tuple[dict[str, Any], str]:
+    def _read_and_parse() -> tuple[RegistryData, str]:
         if dependencies.is_dashboard(file_path):
             return dependencies.read_dashboard(file_path)
         delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
@@ -273,7 +275,7 @@ async def get_page(page_id: str) -> dict[str, object]:
         raise HTTPException(status_code=500, detail="Error reading target file") from exc
 
 
-async def get_page_preview(page_id: str, full: bool = False) -> dict[str, Any]:
+async def get_page_preview(page_id: str, full: bool = False) -> PreviewPayload:
     """Preview of a page (title + excerpt/body + icon/cover + images).
 
     By default returns only `excerpt` (for wikilink tooltips).
@@ -301,7 +303,7 @@ async def get_page_preview(page_id: str, full: bool = False) -> dict[str, Any]:
         return full_response if full else short
     except OSError as exc:
         if exc.errno == 35:
-            response: dict[str, Any] = {
+            response: PreviewPayload = {
                 "id": page_id,
                 "title": "",
                 "excerpt": "",

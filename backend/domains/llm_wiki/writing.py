@@ -7,13 +7,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import integer_value, iterable_values
 
 class SavePage(Protocol):
     def __call__(
         self,
         path: Path,
-        metadata: dict[str, Any],
+        metadata: PageMetadata,
         body: str,
+        /,
     ) -> object: ...
 
 
@@ -22,7 +27,7 @@ class NoteTypeValue(Protocol):
         self,
         kind: str,
         config: dict[str, Any],
-        prop: dict[str, Any] | None = None,
+        prop: RegistryData | None = None,
     ) -> Any: ...
 
 
@@ -32,21 +37,21 @@ class WritingDependencies:
 
     get_pages_for_table: Callable[[str], Iterable[Any]]
     get_unique_filepath: Callable[[Path, str, str], Path]
-    resolve_table_folder: Callable[[dict[str, Any]], Path | None]
-    table_by_id: Callable[[str], dict[str, Any] | None]
-    parse_frontmatter: Callable[[str, Path], tuple[dict[str, Any], str]]
+    resolve_table_folder: Callable[[PageMetadata], Path | None]
+    table_by_id: Callable[[str], RegistryData | None]
+    parse_frontmatter: Callable[[str, Path], tuple[PageMetadata, str]]
     register_page_in_index: Callable[[Path], object]
     save_page_md: SavePage
     load_config: Callable[[], dict[str, Any]]
     note_type_value: NoteTypeValue
-    page_metadata: Callable[[Any], dict[str, Any]]
-    merge_page_metadata: Callable[[dict[str, Any], str], dict[str, Any]]
-    prepare_managed_markdown: Callable[[dict[str, Any]], dict[str, Any]]
-    base_note_metadata: Callable[[dict[str, Any], str, str, int | None], dict[str, Any]]
-    fonts_ids: Callable[[dict[str, Any]], list[str]]
+    page_metadata: Callable[[Any], PageMetadata]
+    merge_page_metadata: Callable[[PageMetadata, str], PageMetadata]
+    prepare_managed_markdown: Callable[[PageMetadata], PageMetadata]
+    base_note_metadata: Callable[[dict[str, Any], str, str, int | None], PageMetadata]
+    fonts_ids: Callable[[PageMetadata], list[str]]
     page_path: Callable[[Any], Path | None]
     apply_dimensions: Callable[
-        [dict[str, Any], dict[str, Any], dict[str, dict[str, Any]]],
+        [PageMetadata, dict[str, Any], dict[str, RegistryData]],
         None,
     ]
     effective_dimensions: Callable[[Any, Any], dict[str, Any]]
@@ -73,7 +78,7 @@ class _WriteContext:
     brain_dir: Path
     config: dict[str, Any]
     source_dimensions: dict[str, Any]
-    props_by_id: dict[str, dict[str, Any]]
+    props_by_id: dict[str, RegistryData]
     role_names: dict[str, str]
     relation_name: str
     existing: _ExistingNotes
@@ -202,7 +207,7 @@ def _build_note_metadata(
     title: str,
     managed_key: str,
     context: _WriteContext,
-) -> dict[str, Any]:
+) -> PageMetadata:
     position = int(note.get("position") or 0)
     metadata = context.dependencies.base_note_metadata(
         note,
@@ -233,7 +238,7 @@ def _build_note_metadata(
 
 
 def _replace_role_metadata(
-    metadata: dict[str, Any],
+    metadata: PageMetadata,
     note: dict[str, Any],
     position: int,
     context: _WriteContext,
@@ -259,7 +264,7 @@ def _replace_role_metadata(
 
 
 def _apply_role_values(
-    metadata: dict[str, Any],
+    metadata: PageMetadata,
     note: dict[str, Any],
     position: int,
     context: _WriteContext,
@@ -296,7 +301,7 @@ def _collect_existing_notes(
             and str(metadata.get("note_type") or "").casefold() == "lectura"
         ):
             try:
-                position = int(metadata.get("Posició") or 0)
+                position = integer_value(metadata.get("Posició") or 0)
             except (TypeError, ValueError):
                 continue
             existing.legacy_by_position.setdefault(position, []).append(page)
@@ -321,7 +326,7 @@ def _existing_page(
 
 def _update_existing_page(
     page: Any,
-    metadata: dict[str, Any],
+    metadata: PageMetadata,
     managed_key: str,
     managed_body: str,
     dependencies: WritingDependencies,
@@ -374,18 +379,18 @@ def _mark_stale_notes(context: _WriteContext, active_keys: set[str]) -> None:
         context.dependencies.register_page_in_index(path)
 
 
-def _properties_by_id(table: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def _properties_by_id(table: RegistryData) -> dict[str, RegistryData]:
     raw_properties = table.get("properties") or []
     return {
         str(prop.get("id") or ""): dict(prop)
-        for prop in raw_properties
-        if isinstance(prop, dict) and prop.get("id")
+        for prop in iterable_values(raw_properties)
+        if is_record(prop) and prop.get("id")
     }
 
 
 def _role_names(
     config: dict[str, Any],
-    props_by_id: dict[str, dict[str, Any]],
+    props_by_id: dict[str, RegistryData],
 ) -> dict[str, str]:
     return {
         str(role): str((props_by_id.get(str(prop_id)) or {}).get("name") or "")
@@ -396,7 +401,7 @@ def _role_names(
 def _relation_name(
     config: dict[str, Any],
     source_config: dict[str, Any],
-    props_by_id: dict[str, dict[str, Any]],
+    props_by_id: dict[str, RegistryData],
 ) -> str:
     relation_prop = props_by_id.get(str(source_config.get("relation_property_id") or ""))
     locale = str(config.get("ui_locale") or "en").split("-", 1)[0].lower()

@@ -9344,8 +9344,9 @@ export interface paths {
         post?: never;
         /**
          * Delete Vault
-         * @description Deletes a vault's ROW from the registry. With `delete_files=true` it also DELETES the
-         *     folder from disk (to discard a whole clone). The active vault and the main vault can't be deleted.
+         * @description Delete a vault registration and optionally its files with `delete_files=true`.
+         *
+         *     The active vault and the main vault cannot be deleted.
          */
         delete: operations["delete_vault_api_vaults__vault_id__delete"];
         options?: never;

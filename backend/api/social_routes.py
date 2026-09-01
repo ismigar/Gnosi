@@ -5,11 +5,11 @@ import json
 import logging
 import re
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Callable, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
+from backend.domains.vault.registry.state import RegistryData
 from backend.domains.social.schemas import (
     CancelScheduledPostResponse,
     ComposeRequest,
@@ -439,7 +439,7 @@ async def compose_posts(request: ComposeRequest) -> ComposeResponse:
 
 async def _load_source_row(
     source_page_id: str,
-) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+) -> tuple[RegistryData | None, RegistryData | None]:
     """(table, metadata) of the Vault source row, or (None, None).
 
     Lazy import of vault_routes to avoid the social↔vault cycle (same
@@ -449,17 +449,15 @@ async def _load_source_row(
         return None, None
     from backend.api import vault_routes as vr
 
-    find_page_path = cast(Callable[[str], Path | None], vr.find_page_path)
+    find_page_path = vr.find_page_path
     fp = await asyncio.to_thread(find_page_path, sid)
     if not fp or not fp.exists():
         return None, None
     raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
-    parse_frontmatter = cast(
-        Callable[[str, Path], tuple[dict[str, Any], str]], vr.parse_frontmatter
-    )
+    parse_frontmatter = vr.parse_frontmatter
     metadata, _body = parse_frontmatter(raw, fp)
-    get_table_id = cast(Callable[[dict[str, Any]], str], vr.get_table_id)
-    table_by_id = cast(Callable[[str], dict[str, Any] | None], vr._table_by_id)
+    get_table_id = vr.get_table_id
+    table_by_id = vr._table_by_id
     table = table_by_id(get_table_id(metadata))
     return table, metadata
 

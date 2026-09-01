@@ -1,0 +1,107 @@
+.literature-review-workspace {
+    display: grid;
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    min-height: 650px;
+    overflow: hidden;
+    border: 1px solid var(--border-primary);
+    border-radius: 16px;
+    background: var(--bg-primary);
+}
+
+.literature-review-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    border-right: 1px solid var(--border-primary);
+    background: var(--bg-secondary);
+}
+
+.literature-review-list h2 {
+    margin: 0 0 4px;
+    font-size: 16px;
+}
+
+.literature-review-list__items {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 8px;
+    overflow: auto;
+}
+
+.literature-review-list__items button {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 9px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+}
+
+.literature-review-list__items button.is-active {
+    border-color: var(--border-primary);
+    background: var(--bg-primary);
+}
+
+.literature-review-list__items span {
+    color: var(--text-tertiary);
+    font-size: 10px;
+}
+
+.literature-review-detail {
+    min-width: 0;
+    padding: 18px;
+}
+
+.literature-review-detail > header {
+    align-items: flex-start;
+}
+
+.literature-review-detail h2 {
+    margin: 4px 0;
+    font-size: 20px;
+}
+
+.literature-export-menu {
+    justify-content: flex-start;
+    padding: 5px 7px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+}
+
+.literature-export-menu button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--gnosi-blue);
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.literature-review-phases {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+    margin: 18px 0;
+}
+
+.literature-review-phases span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-tertiary);
+    font-size: 9px;
+}
+
+.literature-review-phases strong {
+    color: var(--text-primary);
+    font-size: 16px;
+}

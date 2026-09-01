@@ -1,11 +1,23 @@
 """Typed Vault domain extracted from the historical route facade."""
 
-import importlib as _legacy_importlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.parse
+from http.client import HTTPResponse
+from fastapi import Body, Depends, HTTPException
+from backend.config.env_config import default_host_helper_url
+from backend.services.path_resolver import path_resolver
+from backend.services.workspace_service import require_role
+from collections.abc import Iterator
+from pathlib import Path
 from contextlib import contextmanager
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
 
-from fastapi import APIRouter
+from backend.domains.vault.registry.state import RegistryData
+from backend.domains.vault.registry.records import is_record
 
 from backend.domains.vault.registry.contracts import (
     LocalPathOpenRequest,
@@ -16,8 +28,9 @@ from backend.domains.vault.registry.contracts import (
     VaultRegistryUpdateRequest,
 )
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
+from backend.api import vault_routes as _legacy
+from backend.domains.vault.pages.runtime import OpenResourceRequest
+router = _legacy.router
 _registry_cache = _legacy.registry_state.cache
 _registry_cache_mtime = _legacy.registry_state.cache_mtime
 _registry_cache_ts = _legacy.registry_state.cache_timestamp
@@ -26,22 +39,22 @@ _registry_ensured_tables = _legacy.registry_state.ensured_tables
 _registry_seen_nondegenerate = _legacy.registry_state.seen_nondegenerate
 
 
-def _registry_is_degenerate(data: _LegacyAny) -> bool:
+def _registry_is_degenerate(data: object) -> bool:
     """True when the registry carries no database or table structure."""
-    return _strict_cast(bool, _legacy.registry_repository.is_degenerate(data))
+    return _legacy.registry_repository.is_degenerate(data)
 
 
-def _degenerate_overwrite_is_risky(reg_path: _LegacyAny) -> bool:
+def _degenerate_overwrite_is_risky(reg_path: Path) -> bool:
     """Return whether an empty write could clobber an existing registry."""
-    return _strict_cast(bool, _legacy.registry_repository.degenerate_overwrite_is_risky(reg_path))
+    return _legacy.registry_repository.degenerate_overwrite_is_risky(reg_path)
 
 
 _registry_mutation_lock = _legacy.registry_state.mutation_lock
-_TABLE_VIEW_EMOJI_RE = _legacy.re.compile(
+_TABLE_VIEW_EMOJI_RE = re.compile(
     "[\\U0001F000-\\U0001FAFF\\U0001FC00-\\U0001FFFD\\u2122\\u2139\\u2300-\\u23FF\\u2600-\\u27BF\\u2B00-\\u2BFF\\u3030\\u303D\\u3297\\u3299]"
 )
-_TABLE_VIEW_KEYCAP_RE = _legacy.re.compile("[0-9#*]\\uFE0F?\\u20E3")
-_TABLE_VIEW_EMOJI_CONTROL_RE = _legacy.re.compile("[\\u200D\\u20E3\\uFE0E\\uFE0F]")
+_TABLE_VIEW_KEYCAP_RE = re.compile("[0-9#*]\\uFE0F?\\u20E3")
+_TABLE_VIEW_EMOJI_CONTROL_RE = re.compile("[\\u200D\\u20E3\\uFE0E\\uFE0F]")
 _LEGACY_MAIN_VIEW_NAMES = frozenset(
     {"main table", "taula principal", "vista principal", "tableau principal"}
 )
@@ -49,49 +62,49 @@ _LEGACY_MAIN_VIEW_NAMES = frozenset(
 
 def _normalize_table_view_name(value: object, fallback: str) -> str:
     """Return a compact table/view label without decorative emoji."""
-    return _strict_cast(str, _legacy.registry_normalize_table_view_name(value, fallback))
+    return _legacy.registry_normalize_table_view_name(value, fallback)
 
 
-def _table_name_from_registry(registry: dict[_LegacyAny, _LegacyAny], table_id: object) -> str:
+def _table_name_from_registry(registry: RegistryData, table_id: object) -> str:
     """Return the normalized display name for a table ID."""
-    return _strict_cast(str, _legacy.registry_table_name(registry, table_id))
+    return _legacy.registry_table_name(registry, table_id)
 
 
-def _main_view_fields(registry: dict[_LegacyAny, _LegacyAny], table_id: object) -> list[str]:
+def _main_view_fields(registry: RegistryData, table_id: object) -> list[str]:
     """Return the canonical visible fields for a table's main view."""
-    return _strict_cast(list[str], _legacy.registry_main_view_fields(registry, table_id))
+    return _legacy.registry_main_view_fields(registry, table_id)
 
 
-def _is_main_or_locked_view(view: dict[_LegacyAny, _LegacyAny]) -> bool:
+def _is_main_or_locked_view(view: RegistryData) -> bool:
     """Return whether a view is protected as a table's main view."""
-    return _strict_cast(bool, _legacy.registry_is_main_or_locked_view(view))
+    return _legacy.registry_is_main_or_locked_view(view)
 
 
 def _normalize_main_view_configuration(
-    registry: dict[_LegacyAny, _LegacyAny], view: dict[_LegacyAny, _LegacyAny]
+    registry: RegistryData, view: RegistryData
 ) -> bool:
     """Enforce the immutable configuration of a main or locked view."""
-    return _strict_cast(bool, _legacy.registry_normalize_main_view_configuration(registry, view))
+    return _legacy.registry_normalize_main_view_configuration(registry, view)
 
 
-def _normalize_registry_table_view_names(registry: dict[_LegacyAny, _LegacyAny]) -> bool:
+def _normalize_registry_table_view_names(registry: RegistryData) -> bool:
     """Normalize persisted table/view labels and canonicalize main view names."""
-    return _strict_cast(bool, _legacy.registry_normalize_table_view_names(registry))
+    return _legacy.registry_normalize_table_view_names(registry)
 
 
 @contextmanager
-def registry_mutation() -> _LegacyAny:
+def registry_mutation() -> Iterator[None]:
     """Wrap an entire load, modify and save registry cycle."""
     with _legacy.registry_repository.mutation():
         yield
 
 
-def _update_registry_cache(reg_path: _LegacyAny, data: _LegacyAny) -> None:
+def _update_registry_cache(reg_path: Path, data: RegistryData) -> None:
     """Synchronize the canonical per-vault registry cache after a write."""
     _legacy.registry_repository.update_cache(reg_path, data)
 
 
-def load_registry() -> _LegacyAny:
+def load_registry() -> RegistryData:
     """Read the central registry through its canonical repository."""
     return _legacy.registry_repository.load()
 
@@ -118,7 +131,7 @@ def _sync_vault_calendars() -> object:
 
 
 def _get_last_vault_sync_time() -> float:
-    return _strict_cast(float, _legacy.page_state.last_vault_sync_time)
+    return _legacy.page_state.last_vault_sync_time
 
 
 def _set_last_vault_sync_time(value: float) -> None:
@@ -160,7 +173,7 @@ _legacy.page_index_service.configure(
         enabled_calendar_tables=_enabled_vault_calendar_tables,
         hidden_event_ids=_hidden_calendar_event_ids,
         sync_calendars=_sync_vault_calendars,
-        update_path_resolver=_legacy.path_resolver.update_index,
+        update_path_resolver=path_resolver.update_index,
         get_last_vault_sync=_get_last_vault_sync_time,
         set_last_vault_sync=_set_last_vault_sync_time,
         index_lock=_legacy._page_index_lock,
@@ -181,12 +194,12 @@ _legacy.page_resolver.configure(
     _legacy.page_resolver.PageResolverDependencies(
         active_vault_path=lambda: _legacy.get_active_vault_path(),
         get_path=lambda name: _legacy.get_p(name),
-        path_factory=lambda value: _legacy.Path(value),
+        path_factory=lambda value: Path(value),
         parse_frontmatter=lambda content, path: _legacy.parse_frontmatter(content, path),
         canonicalize_id=lambda value: _legacy._canonicalize_id(value),
         bump_index_version=lambda vault_key: _legacy._bump_page_index_version(vault_key),
         set_last_vault_sync=_set_last_vault_sync_time,
-        monotonic=lambda: _legacy.time.monotonic(),
+        monotonic=lambda: time.monotonic(),
         stale_check_ttl=_legacy._STALE_CHECK_TTL,
         last_stale_check=_legacy._last_stale_check,
         index_lock=_legacy._page_index_lock,
@@ -209,36 +222,33 @@ _legacy.tags_query.configure(
 )
 
 
-def _load_registry_from_disk(registry_path: _LegacyAny, _ck: str, now: float) -> _LegacyAny:
+def _load_registry_from_disk(registry_path: Path, _ck: str, now: float) -> RegistryData:
     """Read and normalize a registry while holding the mutation lock."""
     return _legacy.registry_repository.load_from_disk(registry_path, _ck, now)
 
 
-def save_registry(data: _LegacyAny) -> _LegacyAny:
+def save_registry(data: RegistryData) -> None:
     """Persist the registry through its canonical repository."""
     _legacy.registry_repository.save(data)
 
 
-def _sort_key_name(item: _LegacyAny) -> _LegacyAny:
+def _sort_key_name(item: RegistryData) -> tuple[int, str]:
     """Sort by explicit order, then accent-insensitive display name."""
     return _legacy.registry_sort_key_name(item)
 
 
-_HOST_OPEN_HELPER_URL = _legacy.os.environ.get(
+_HOST_OPEN_HELPER_URL = os.environ.get(
     "GNOSI_HOST_OPEN_HELPER_URL"
-) or _legacy.default_host_helper_url("/open")
-_HOST_TRASH_HELPER_URL = _legacy.os.environ.get(
+) or default_host_helper_url("/open")
+_HOST_TRASH_HELPER_URL: str = os.environ.get(
     "GNOSI_HOST_TRASH_HELPER_URL", _HOST_OPEN_HELPER_URL.rsplit("/", 1)[0] + "/trash"
 )
 
 
 def _try_host_trash_helper(target: str, timeout: float = 20.0) -> "tuple[bool, str]":
-    return _strict_cast(
-        "tuple[bool, str]",
-        _legacy.file_host_trash.try_host_trash_helper(
+    return _legacy.file_host_trash.try_host_trash_helper(
             target, timeout, helper_url=_HOST_TRASH_HELPER_URL
-        ),
-    )
+        )
 
 
 def _try_host_open_helper(target: str, timeout: float = 2.0) -> bool:
@@ -260,12 +270,15 @@ def _try_host_open_helper(target: str, timeout: float = 2.0) -> bool:
 
         req = urllib.request.Request(
             _HOST_OPEN_HELPER_URL,
-            data=_legacy.json.dumps({"path": target}).encode("utf-8"),
+            data=json.dumps({"path": target}).encode("utf-8"),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return _strict_cast(bool, 200 <= resp.status < 300)
+        # urllib's HTTP transport is dynamically annotated; its native response
+        # owns the integer status rather than the legacy facade namespace.
+        response: HTTPResponse = urllib.request.urlopen(req, timeout=timeout)
+        with response as resp:
+            return 200 <= resp.status < 300
     except Exception:
         return False
 
@@ -281,13 +294,16 @@ def _safe_open_target(target: str) -> None:
     """
     if _try_host_open_helper(target):
         return
-    if _legacy.sys.platform == "darwin":
-        _legacy.subprocess.Popen(["open", target])
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", target])
         return
-    if _legacy.os.name == "nt":
-        _legacy.os.startfile(target)
+    if os.name == "nt":
+        startfile: object = getattr(os, "startfile")
+        if not callable(startfile):
+            raise TypeError("os.startfile is not callable")
+        startfile(target)
         return
-    _legacy.subprocess.Popen(["xdg-open", target])
+    subprocess.Popen(["xdg-open", target])
 
 
 def _extract_attachment_paths(attachments: object) -> list[str]:
@@ -301,16 +317,16 @@ def _extract_attachment_paths(attachments: object) -> list[str]:
         text = attachments.strip()
         if not text:
             return []
-        parts = _legacy.re.split("[\\n;,]", text)
+        parts = re.split("[\\n;,]", text)
         raw_values = [p.strip() for p in parts if p.strip()]
     candidates: list[str] = []
     for item in raw_values:
-        match = _legacy.re.search("\\(([^)]+)\\)", item)
+        match = re.search("\\(([^)]+)\\)", item)
         if match:
             item = match.group(1).strip()
         if item.startswith("file://"):
-            item = _legacy.urllib.parse.unquote(item[7:])
-        expanded = str(_legacy.Path(_expand_host_tilde(item)).expanduser())
+            item = urllib.parse.unquote(item[7:])
+        expanded = str(Path(_expand_host_tilde(item)).expanduser())
         candidates.append(expanded)
     return candidates
 
@@ -320,12 +336,12 @@ def _pick_existing_path(file_path: str | None, attachments: object | None) -> st
     if isinstance(file_path, str) and file_path.strip():
         fp = file_path.strip()
         if fp.lower().startswith("file://"):
-            fp = _legacy.urllib.parse.unquote(fp[7:])
-        candidates.append(str(_legacy.Path(_expand_host_tilde(fp)).expanduser()))
+            fp = urllib.parse.unquote(fp[7:])
+        candidates.append(str(Path(_expand_host_tilde(fp)).expanduser()))
     candidates.extend(_extract_attachment_paths(attachments))
     for candidate in candidates:
         try:
-            path = _legacy.Path(candidate)
+            path = Path(candidate)
             if path.exists() and path.is_file():
                 return str(path)
         except Exception:
@@ -338,17 +354,17 @@ def _pick_existing_path(file_path: str | None, attachments: object | None) -> st
 
 
 @router.get("/registry", response_model=VaultRegistryResponse)
-async def get_registry() -> _LegacyAny:
+async def get_registry() -> RegistryData:
     """Returns the full registry of databases, tables, and views (sorted alphabetically)."""
     return await _legacy.registry_api.get_registry(_legacy.registry_api_dependencies)
 
 
 @router.post(
     "/registry",
-    dependencies=[_legacy.Depends(_legacy.require_role("admin"))],
+    dependencies=[Depends(require_role("admin"))],
     response_model=RegistryMutationResponse,
 )
-async def update_registry(data: VaultRegistryUpdateRequest = _legacy.Body(...)) -> _LegacyAny:
+async def update_registry(data: VaultRegistryUpdateRequest = Body(...)) -> RegistryData:
     """Updates the entire registry (use with care).
 
     Auth: admin-only. Overwrites the ENTIRE registry at once, so an
@@ -356,16 +372,22 @@ async def update_registry(data: VaultRegistryUpdateRequest = _legacy.Body(...)) 
     databases/tables/views of a workspace in a single call.
 
     """
-    payload = data.model_dump() if isinstance(data, VaultRegistryUpdateRequest) else data
+    if isinstance(data, VaultRegistryUpdateRequest):
+        payload: object = data.model_dump()
+        # Validate the actual Pydantic result without copying its dictionary.
+        assert is_record(payload), "Registry model_dump must return a dictionary"
+    else:
+        # Retain direct legacy calls with their original mutable record.
+        payload = data
     return await _legacy.registry_api.update_registry(payload, _legacy.registry_api_dependencies)
 
 
 @router.post(
     "/open-resource",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=ResourceOpenResponse,
 )
-async def open_resource(payload: _legacy.OpenResourceRequest) -> _LegacyAny:
+async def open_resource(payload: OpenResourceRequest) -> dict[str, str]:
     """Open a Zotero URI or local attachment path with the OS default handler.
 
     Auth gate: same as /open-local-path. This endpoint ends up invoking
@@ -377,39 +399,39 @@ async def open_resource(payload: _legacy.OpenResourceRequest) -> _LegacyAny:
     zotero_uri = (payload.zotero_uri or "").strip()
     if zotero_uri:
         if not zotero_uri.startswith("zotero://"):
-            raise _legacy.HTTPException(status_code=400, detail="Invalid Zotero URI")
+            raise HTTPException(status_code=400, detail="Invalid Zotero URI")
         try:
             _safe_open_target(zotero_uri)
             return {"status": "ok", "opened_with": "zotero_uri", "target": zotero_uri}
         except Exception as e:
-            raise _legacy.HTTPException(status_code=500, detail=f"Could not open Zotero URI: {e}")
+            raise HTTPException(status_code=500, detail=f"Could not open Zotero URI: {e}")
     existing_path = _pick_existing_path(payload.file_path, payload.attachments)
     if not existing_path:
-        raise _legacy.HTTPException(status_code=404, detail="No valid local attachment found")
+        raise HTTPException(status_code=404, detail="No valid local attachment found")
     try:
         _safe_open_target(existing_path)
         return {"status": "ok", "opened_with": "file_path", "target": existing_path}
     except Exception as e:
-        raise _legacy.HTTPException(status_code=500, detail=f"Could not open local file: {e}")
+        raise HTTPException(status_code=500, detail=f"Could not open local file: {e}")
 
 
-def _host_home_path() -> _legacy.Path:
+def _host_home_path() -> Path:
     """HOST's HOME (not the container's). Inside Docker the process's HOME is
     /root, so `Path.expanduser()` does NOT work to resolve `~/...` values.
     Order: HOME_HOST_PATH (docker-compose) → home derived from LIBRARY
     (/Users/<actual>/Library/...) → process home (local environment without Docker).
 
     """
-    env_home = (_legacy.os.environ.get("HOME_HOST_PATH") or "").strip()
+    env_home = (os.environ.get("HOME_HOST_PATH") or "").strip()
     if env_home:
-        return _legacy.Path(env_home)
+        return Path(env_home)
     try:
         b = _legacy.get_p("LIBRARY")
         if len(b.parts) >= 3 and b.parts[1] == "Users":
-            return _legacy.Path(b.parts[0]) / b.parts[1] / b.parts[2]
+            return Path(b.parts[0]) / b.parts[1] / b.parts[2]
     except Exception:
         pass
-    return _legacy.Path.home()
+    return Path.home()
 
 
 def _expand_host_tilde(value: str) -> str:
@@ -423,14 +445,14 @@ def _expand_host_tilde(value: str) -> str:
     return s
 
 
-def _library_route_attachment(value: str) -> tuple[bool, _legacy.Path | None]:
-    match = _legacy.re.match("^/api/vault/library/(.+)$", value)
+def _library_route_attachment(value: str) -> tuple[bool, Path | None]:
+    match = re.match("^/api/vault/library/(.+)$", value)
     if not match:
         return False, None
     try:
         from backend.services.context_vars import get_active_vault_path
 
-        relative = _legacy.urllib.parse.unquote(match.group(1))
+        relative = urllib.parse.unquote(match.group(1))
         for library_root in _legacy._library_roots(get_active_vault_path()):
             candidate = library_root / relative
             if candidate.exists():
@@ -445,17 +467,17 @@ def _decode_attachment_uri(value: str) -> str:
         return value
     remainder = value[7:]
     encoded_path = remainder if remainder.startswith("/") else "//" + remainder
-    return str(_legacy.urllib.parse.unquote(encoded_path))
+    return str(urllib.parse.unquote(encoded_path))
 
 
-def _attachment_cloud_root() -> _legacy.Path | None:
+def _attachment_cloud_root() -> Path | None:
     try:
-        vaults_root = (_legacy.os.environ.get("VAULTS_ROOT_HOST_PATH") or "").strip()
+        vaults_root = (os.environ.get("VAULTS_ROOT_HOST_PATH") or "").strip()
         if vaults_root:
-            return _legacy.Path(vaults_root).parent
-        vault_host = (_legacy.os.environ.get("VAULT_HOST_PATH") or "").strip()
+            return Path(vaults_root).parent
+        vault_host = (os.environ.get("VAULT_HOST_PATH") or "").strip()
         if vault_host:
-            return _legacy.Path(vault_host).parent.parent
+            return Path(vault_host).parent.parent
         from backend.services.context_vars import get_active_vault_path
 
         active_vault = get_active_vault_path()
@@ -464,22 +486,22 @@ def _attachment_cloud_root() -> _legacy.Path | None:
         return None
 
 
-def _attachment_candidates(value: str, cloud_root: _legacy.Path) -> list[_legacy.Path]:
-    candidates: list[_legacy.Path] = []
+def _attachment_candidates(value: str, cloud_root: Path) -> list[Path]:
+    candidates: list[Path] = []
     cloud_anchor = f"/{cloud_root.name}/"
     anchor_index = value.rfind(cloud_anchor)
     if anchor_index != -1:
         relative = value[anchor_index + len(cloud_anchor) :].lstrip("/")
         if relative:
             candidates.append(cloud_root / relative)
-    home_match = _legacy.re.match("^/Users/[^/]+/(.+)$", value)
+    home_match = re.match("^/Users/[^/]+/(.+)$", value)
     if home_match and len(cloud_root.parts) >= 3 and cloud_root.parts[1] == "Users":
-        host_home = _legacy.Path(cloud_root.parts[0]) / cloud_root.parts[1] / cloud_root.parts[2]
+        host_home = Path(cloud_root.parts[0]) / cloud_root.parts[1] / cloud_root.parts[2]
         candidates.append(host_home / home_match.group(1))
     return candidates
 
 
-def _first_existing_attachment(candidates: list[_legacy.Path]) -> _legacy.Path | None:
+def _first_existing_attachment(candidates: list[Path]) -> Path | None:
     for candidate in candidates:
         try:
             if candidate.exists():
@@ -489,7 +511,7 @@ def _first_existing_attachment(candidates: list[_legacy.Path]) -> _legacy.Path |
     return None
 
 
-def _reroot_attachment_under_current_host(raw: str) -> _legacy.Path | None:
+def _reroot_attachment_under_current_host(raw: str) -> Path | None:
     """Re-roots an attachment path/URI under THIS machine's roots, so that
     links saved on another Mac (a different macOS user) keep
     resolving here.
@@ -516,7 +538,7 @@ def _reroot_attachment_under_current_host(raw: str) -> _legacy.Path | None:
         return library_candidate
     decoded_value = _decode_attachment_uri(value)
     if decoded_value == "~" or decoded_value.startswith("~/"):
-        candidate = _legacy.Path(_expand_host_tilde(decoded_value))
+        candidate = Path(_expand_host_tilde(decoded_value))
         return candidate if candidate.exists() else None
     cloud_root = _attachment_cloud_root()
     if cloud_root is None:
@@ -524,7 +546,7 @@ def _reroot_attachment_under_current_host(raw: str) -> _legacy.Path | None:
     return _first_existing_attachment(_attachment_candidates(decoded_value, cloud_root))
 
 
-def _resolve_stored_file_target(raw: str) -> _legacy.Path | None:
+def _resolve_stored_file_target(raw: str) -> Path | None:
     """Resolves the SAVED VALUE of a files field to a local path on THIS
     machine, accepting all historical and new formats: `file://`
     (URL-encoded or not), `~/<rel>` (host HOME), absolute path (from this or
@@ -543,11 +565,11 @@ def _resolve_stored_file_target(raw: str) -> _legacy.Path | None:
     direct = s
     if direct.lower().startswith("file://"):
         rest = direct[7:]
-        direct = _legacy.urllib.parse.unquote(rest if rest.startswith("/") else "//" + rest)
+        direct = urllib.parse.unquote(rest if rest.startswith("/") else "//" + rest)
     direct = _expand_host_tilde(direct)
     if not direct.startswith("/api/"):
         try:
-            p = _legacy.Path(direct)
+            p = Path(direct)
             if p.exists():
                 return p
         except OSError:
@@ -564,10 +586,10 @@ def _resolve_stored_file_target(raw: str) -> _legacy.Path | None:
 
 @router.post(
     "/open-local-path",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=LocalPathOpenResponse,
 )
-async def open_local_path(payload: LocalPathOpenRequest) -> _LegacyAny:
+async def open_local_path(payload: LocalPathOpenRequest) -> dict[str, str]:
     """
         Opens a local path (file or folder) with the system's default app.
     Accepts an absolute path or file:// URL. Useful for file:// links inserted
@@ -577,32 +599,32 @@ async def open_local_path(payload: LocalPathOpenRequest) -> _LegacyAny:
     raw = payload.path or payload.url or ""
     raw = str(raw).strip()
     if not raw:
-        raise _legacy.HTTPException(status_code=400, detail="Missing 'path'")
+        raise HTTPException(status_code=400, detail="Missing 'path'")
     if raw.lower().startswith("file://"):
         without_scheme = raw[7:]
         if without_scheme.startswith("/"):
-            target = _legacy.urllib.parse.unquote(without_scheme)
+            target = urllib.parse.unquote(without_scheme)
         else:
-            target = "//" + _legacy.urllib.parse.unquote(without_scheme)
+            target = "//" + urllib.parse.unquote(without_scheme)
     else:
         target = raw
     try:
-        path = _legacy.Path(_expand_host_tilde(target)).expanduser()
+        path = Path(_expand_host_tilde(target)).expanduser()
     except Exception:
-        raise _legacy.HTTPException(status_code=400, detail="Invalid path")
+        raise HTTPException(status_code=400, detail="Invalid path")
     if not path.exists():
         rerooted = _reroot_attachment_under_current_host(raw)
         if rerooted is not None:
             path = rerooted
         else:
-            raise _legacy.HTTPException(status_code=404, detail=f"Path not found: {path}")
+            raise HTTPException(status_code=404, detail=f"Path not found: {path}")
     if path.is_file():
         await _legacy._materialize_if_online_only(path, "open-local-path")
     try:
         _safe_open_target(str(path))
         return {"status": "ok", "target": str(path), "kind": "dir" if path.is_dir() else "file"}
     except Exception as e:
-        raise _legacy.HTTPException(status_code=500, detail=f"Could not open: {e}")
+        raise HTTPException(status_code=500, detail=f"Could not open: {e}")
 
 
 _legacy.table_routes.register_routes(router)

@@ -1,22 +1,40 @@
 import type { Middleware } from 'openapi-fetch';
 
+import {
+  defineStorageKey,
+  readStorage,
+  stringStorageCodec,
+  type BrowserStorageKey,
+} from '../platform/browser-storage';
 import { setActiveVaultCookie } from './vault-context';
 
 
-const STORAGE_KEYS = {
-  userEmail: 'gnosi_user_email',
-  userId: 'gnosi_user_id',
-  vaultId: 'gnosi_active_vault',
-  workspaceId: 'gnosi_workspace_id',
-} as const;
+export const USER_EMAIL_STORAGE_KEY = defineStorageKey(
+  'gnosi_user_email',
+  stringStorageCodec,
+);
+export const USER_ID_STORAGE_KEY = defineStorageKey(
+  'gnosi_user_id',
+  stringStorageCodec,
+);
+export const USER_ROLE_STORAGE_KEY = defineStorageKey(
+  'gnosi_role',
+  stringStorageCodec,
+);
+export const VAULT_ID_STORAGE_KEY = defineStorageKey(
+  'gnosi_active_vault',
+  stringStorageCodec,
+);
+export const WORKSPACE_ID_STORAGE_KEY = defineStorageKey(
+  'gnosi_workspace_id',
+  stringStorageCodec,
+);
 
 
-function readStorage(key: string): string {
-  try {
-    return typeof localStorage === 'undefined' ? '' : localStorage.getItem(key) ?? '';
-  } catch {
-    return '';
-  }
+function readContextStorage(
+  key: BrowserStorageKey<string>,
+): string {
+  return readStorage(key) ?? '';
 }
 
 
@@ -30,10 +48,10 @@ export interface RequestContext {
 
 export function currentRequestContext(): RequestContext {
   return {
-    userEmail: readStorage(STORAGE_KEYS.userEmail),
-    userId: readStorage(STORAGE_KEYS.userId) || 'ismael-legacy',
-    vaultId: readStorage(STORAGE_KEYS.vaultId),
-    workspaceId: readStorage(STORAGE_KEYS.workspaceId) || 'personal',
+    userEmail: readContextStorage(USER_EMAIL_STORAGE_KEY),
+    userId: readContextStorage(USER_ID_STORAGE_KEY) || 'ismael-legacy',
+    vaultId: readContextStorage(VAULT_ID_STORAGE_KEY),
+    workspaceId: readContextStorage(WORKSPACE_ID_STORAGE_KEY) || 'personal',
   };
 }
 

@@ -7,10 +7,10 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from backend.domains.vault.registry.state import RegistryData
 
 
-Metadata = dict[str, Any]
+Metadata = RegistryData
 
 
 @dataclass(frozen=True)
@@ -25,8 +25,8 @@ class MarkdownWriterDependencies:
     table_by_id: Callable[[str], Metadata | None]
     to_storage_names: Callable[[Metadata, Metadata], Metadata]
     strip_virtual_keys: Callable[[Metadata, Metadata], Metadata]
-    relation_keys: Callable[[Metadata | None], object]
-    decorate_relations: Callable[[Metadata, object | None], Metadata]
+    relation_keys: Callable[[Metadata | None], set[str]]
+    decorate_relations: Callable[[Metadata, set[str] | None], Metadata]
     persist_sidecar: Callable[[Metadata, Path], Metadata]
     dump_yaml: Callable[[Metadata], str]
     inject_view_snapshots: Callable[[str, object | None], str]

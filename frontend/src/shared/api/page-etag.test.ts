@@ -1,4 +1,6 @@
+import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { subscribeAppEvent, type AppEvent } from '../platform/app-events';
 
 import { clearPageEtag, getCachedPageEtag } from './page-etag';
 import { fetchVaultPage, patchVaultPage, saveVaultPage } from './vaults';
@@ -51,7 +53,7 @@ function conflictResponse(
 
 afterEach(() => {
   clearPageEtag('page-1');
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 
@@ -63,11 +65,10 @@ describe('page ETag middleware', () => {
       .mockResolvedValueOnce(pageResponse('etag-1'))
       .mockResolvedValueOnce(pageResponse('etag-2'));
     vi.stubGlobal('fetch', fetchMock);
-    const invalidations: CustomEvent<{ pageId: string }>[] = [];
-    const onInvalidate = (event: Event) => {
-      invalidations.push(event as CustomEvent<{ pageId: string }>);
-    };
-    window.addEventListener('gnosi:invalidatePreview', onInvalidate);
+    const invalidations: AppEvent<'gnosi:invalidatePreview'>[] = [];
+    const stopInvalidations = subscribeAppEvent('gnosi:invalidatePreview', (_detail, event) => {
+      invalidations.push(event);
+    });
 
     await fetchVaultPage('page-1');
     await patchVaultPage('page-1', { title: 'Updated' });
@@ -81,7 +82,7 @@ describe('page ETag middleware', () => {
     });
     expect(invalidations).toHaveLength(1);
     expect(invalidations[0]?.detail).toEqual({ pageId: 'page-1' });
-    window.removeEventListener('gnosi:invalidatePreview', onInvalidate);
+    stopInvalidations();
   });
 
 
@@ -120,9 +121,10 @@ describe('page ETag middleware', () => {
       .mockResolvedValueOnce(conflictResponse('etag-2', 'etag-1'))
       .mockResolvedValueOnce(pageResponse('etag-3'));
     vi.stubGlobal('fetch', fetchMock);
-    const conflicts: CustomEvent[] = [];
-    const onConflict = (event: Event) => conflicts.push(event as CustomEvent);
-    window.addEventListener('pageEtagConflict', onConflict);
+    const conflicts: AppEvent<'pageEtagConflict'>[] = [];
+    const stopConflicts = subscribeAppEvent('pageEtagConflict', (_detail, event) => {
+      conflicts.push(event);
+    });
 
     await fetchVaultPage('page-1');
     await expect(
@@ -148,6 +150,6 @@ describe('page ETag middleware', () => {
     await expect(requestAt(fetchMock.mock.calls, 2).json()).resolves.not.toHaveProperty(
       'expected_etag',
     );
-    window.removeEventListener('pageEtagConflict', onConflict);
+    stopConflicts();
   });
 });

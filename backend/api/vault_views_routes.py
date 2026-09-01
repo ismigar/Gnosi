@@ -94,11 +94,7 @@ def _registry_mutation() -> AbstractContextManager[None]:
     """
     from backend.api import vault_routes as _vr
 
-    mutation = cast(
-        Callable[[], AbstractContextManager[None]],
-        _vr.registry_mutation,
-    )
-    return mutation()
+    return _vr.registry_mutation()
 
 
 def _load_registry(vault_path: Path) -> tuple[dict[str, Any], Path]:

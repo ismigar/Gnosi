@@ -12,6 +12,7 @@ from typing import Any
 from dotenv import dotenv_values
 
 from backend.config.data_dir import is_docker_runtime
+from backend.config.validation_runtime import validation_runtime_enabled
 from backend.utils.safe_io import safe_write_text
 
 
@@ -219,6 +220,8 @@ def load_env(force_reload: bool = False) -> None:
     the explicitly configured shared file.
     """
     global _loaded, _keychain_loaded
+    if validation_runtime_enabled():
+        return
     if _loaded and not force_reload:
         return
     if force_reload:
@@ -240,7 +243,7 @@ def load_env(force_reload: bool = False) -> None:
 def get_env(name: str, default: Any = None, required: bool = False) -> Any:
     load_env()
     value = os.environ.get(name)
-    if not value:
+    if not value and not validation_runtime_enabled():
         secure_key = keychain_key_for_env(name)
         if secure_key:
             try:

@@ -9,6 +9,9 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol
 
 import yaml
 
+from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.registry.state import RegistryData
+
 JsonMap = Dict[str, Any]
 
 
@@ -23,9 +26,9 @@ class VerificationDependencies:
     active_vault_path: Callable[[], Optional[Path]]
     client_factory: Callable[[str], VerificationClient]
     clone_table_id: Callable[[str], str]
-    load_registry: Callable[[], JsonMap]
+    load_registry: Callable[[], RegistryData]
     relation_ids: Callable[[object], List[str]]
-    relation_keys_from_table: Callable[[JsonMap], set[str]]
+    relation_keys_from_table: Callable[[RegistryData], set[str]]
     sanitize_folder: Callable[[str], str]
     verify_clone: Callable[[Dict[str, int], List[JsonMap]], JsonMap]
 
@@ -62,7 +65,7 @@ def _relation_keys(dependencies: VerificationDependencies) -> Dict[str, set[str]
     return {
         str(table.get("id") or ""): dependencies.relation_keys_from_table(table)
         for table in tables
-        if isinstance(table, dict)
+        if is_record(table)
     }
 
 

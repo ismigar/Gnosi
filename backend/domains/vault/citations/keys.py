@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
 
 from backend.domains.vault.citations.authors import parse_authors_to_csl
-
+from backend.domains.vault.citations.title_regex import title_tokens
 
 ORG_KEY_STOPWORDS = {
     "de",
@@ -46,7 +45,7 @@ def normalize_key_part(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", normalized.lower())
 
 
-def first_author_family(authors: Any) -> str:
+def first_author_family(authors: object) -> str:
     if isinstance(authors, list):
         for author in authors:
             if not isinstance(author, dict):
@@ -87,7 +86,10 @@ def organization_acronym(family: str) -> str:
     return acronym if len(acronym) >= 2 else ""
 
 
-def title_token(title: str) -> str:
+def title_token(title: object) -> str:
+    # Validate only at the fallback boundary: an author family can make an
+    # invalid raw title irrelevant, and falsey metadata historically means "".
+    source = title or ""
     stopwords = {
         "the",
         "a",
@@ -111,7 +113,7 @@ def title_token(title: str) -> str:
         "i",
         "y",
     }
-    for token in re.findall(r"[a-zA-ZÀ-ÿ0-9]+", title or ""):
+    for token in title_tokens(source):
         if normalize_key_part(token) and normalize_key_part(token) not in stopwords:
             return str(token)
     return ""
@@ -127,9 +129,9 @@ def alpha_suffix(index: int) -> str:
 
 
 def generate_citation_key(
-    authors: Any,
-    year: Any,
-    title: str = "",
+    authors: object,
+    year: object,
+    title: object = "",
     existing: set[str] | None = None,
 ) -> str:
     raw_family = first_author_family(authors)
@@ -156,7 +158,7 @@ def generate_citation_key(
 
 def existing_citation_keys(
     active_vault_path: Callable[[], str | Path | None],
-    ensure_index: Callable[[str], dict[str, object]],
+    ensure_index: Callable[[str], Mapping[str, object]],
 ) -> set[str]:
     try:
         vault_path = active_vault_path()
@@ -168,9 +170,9 @@ def existing_citation_keys(
 
 
 def inject_citation_key(
-    suggested: dict[str, Any],
+    suggested: dict[str, object],
     occupied: set[str],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     if not suggested or suggested.get("Citation Key"):
         return suggested
     citation_key = generate_citation_key(

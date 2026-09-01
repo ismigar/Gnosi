@@ -1,8 +1,17 @@
 """Page API schemas owned by the vault domain."""
 
-from typing import Any, List, Literal, Optional
+from typing import Annotated, Any, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, GetPydanticSchema
+
+
+# Index construction and assignment retain open YAML keys. Validated HTTP
+# input keeps the exact original string-key dictionary core schema, including
+# strict-mode errors and serialization. This is not a key coercion validator.
+IndexedPageMetadata = Annotated[
+    dict[object, object],
+    GetPydanticSchema(lambda _source, handler: handler.generate_schema(dict[str, object])),
+]
 
 
 class PageSaveRequest(BaseModel):
@@ -20,7 +29,7 @@ class PageInfo(BaseModel):
     title: str
     parent_id: Optional[str] = None
     is_database: bool = False
-    metadata: dict[str, Any] = {}
+    metadata: IndexedPageMetadata = {}
     last_modified: str
     created_time: Optional[str] = None
     size: int

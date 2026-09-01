@@ -8,7 +8,6 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.params import Depends as DependsParameter
@@ -20,6 +19,9 @@ from backend.domains.vault.schemas.trash import (
     TrashListResponse,
     TrashPurgeResponse,
 )
+from backend.domains.vault.trash.purge import PurgeResult
+from backend.domains.vault.trash.repository import TrashMetadata
+from backend.utils.open_values import item_value
 
 PageWriteLock = Callable[[str], Awaitable[asyncio.Lock]]
 
@@ -34,18 +36,18 @@ class TrashDependencies:
     validate_page_id: Callable[[str], str]
     get_page_write_lock: PageWriteLock
     find_page: Callable[[str], Path | None]
-    move_page: Callable[[str, Path], dict[str, Any]]
+    move_page: Callable[[str, Path], TrashMetadata]
     remove_link_index: Callable[[str], None]
     remove_page_index: Callable[[str, Path | None], None]
     emit_page_deleted: Callable[[str], None]
     materialize_sidecar: Callable[[str], Awaitable[None]]
     materialize_all_sidecars: Callable[[], Awaitable[None]]
-    restore_page: Callable[[str], dict[str, Any]]
+    restore_page: Callable[[str], TrashMetadata]
     add_page_index: Callable[[Path], None]
     vault_root: Callable[[], Path]
-    read_entries: Callable[[], list[dict[str, Any]]]
+    read_entries: Callable[[], list[TrashMetadata]]
     trash_root: Callable[[], Path]
-    purge_entry: Callable[[str], dict[str, Any]]
+    purge_entry: Callable[[str], PurgeResult]
     safe_error_detail: Callable[[Exception, str], str]
 
 
@@ -266,8 +268,8 @@ def purge_expired_trash(now: datetime | None = None) -> dict[str, object]:
         try:
             import json
 
-            data = json.loads(sidecar_path.read_text(encoding="utf-8"))
-            deleted_at = datetime.fromisoformat(str(data["deleted_at"]))
+            data: object = json.loads(sidecar_path.read_text(encoding="utf-8"))
+            deleted_at = datetime.fromisoformat(str(item_value(data, "deleted_at")))
             if deleted_at.tzinfo is None:
                 deleted_at = deleted_at.replace(tzinfo=timezone.utc)
         except (OSError, ValueError, KeyError, TypeError):

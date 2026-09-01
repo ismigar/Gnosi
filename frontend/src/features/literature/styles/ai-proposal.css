@@ -1,0 +1,115 @@
+.literature-ai-proposal {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--gnosi-blue) 25%, var(--border-primary));
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--gnosi-blue) 4%, var(--bg-primary));
+}
+
+.literature-ai-proposal header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.literature-ai-proposal header span {
+    margin-left: auto;
+    color: var(--text-tertiary);
+    font-size: 10px;
+}
+
+.literature-ai-proposal header button {
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.literature-ai-proposal pre {
+    max-height: 240px;
+    overflow: auto;
+    white-space: pre-wrap;
+    color: var(--text-secondary);
+    font: 11px/1.5 ui-monospace, monospace;
+}
+
+.literature-ai-proposal small {
+    display: block;
+    margin-top: 8px;
+    color: var(--text-tertiary);
+}
+
+.literature-ai-proposal__concepts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.literature-ai-proposal__concepts div,
+.literature-ai-proposal__synonyms,
+.literature-ai-proposal__query,
+.literature-ai-proposal__cautions {
+    padding: 9px 10px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-primary);
+}
+
+.literature-ai-proposal__concepts dt,
+.literature-ai-proposal__synonyms strong,
+.literature-ai-proposal__query > span {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.literature-ai-proposal__concepts dd,
+.literature-ai-proposal__synonyms p {
+    margin: 4px 0 0;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.literature-ai-proposal__synonyms {
+    margin: 10px 0;
+}
+
+.literature-ai-proposal__synonyms p span {
+    margin-right: 6px;
+    color: var(--text-tertiary);
+    font-weight: 700;
+}
+
+.literature-ai-proposal__query {
+    display: block;
+    margin: 10px 0;
+}
+
+.literature-ai-proposal__query textarea {
+    width: 100%;
+    min-height: 68px;
+    margin-top: 6px;
+    resize: vertical;
+    font: 12px/1.45 ui-monospace, monospace;
+}
+
+.literature-ai-proposal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.literature-ai-proposal__cautions {
+    margin: 10px 0;
+    padding-left: 28px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.literature-ai-proposal__technical {
+    margin-top: 10px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+}

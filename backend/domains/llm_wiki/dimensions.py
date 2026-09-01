@@ -6,14 +6,17 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-TableLookup = Callable[[str], dict[str, Any] | None]
+from backend.domains.vault.registry.records import RecordReader
+from backend.utils.open_values import iterable_values
+
+TableLookup = Callable[[str], RecordReader | None]
 PagesForTable = Callable[[str], Iterable[Any]]
 CanonicalValue = Callable[[dict[str, Any], Any, list[dict[str, Any]]], Any]
 DimensionOptions = Callable[
     [dict[str, Any], PagesForTable],
     list[dict[str, Any]],
 ]
-MetadataValue = Callable[[dict[str, Any], dict[str, Any]], Any]
+MetadataValue = Callable[[RecordReader, dict[str, Any]], object]
 
 
 @dataclass(frozen=True)
@@ -31,7 +34,7 @@ def build_dimension_context(
     config: dict[str, Any],
     source_table: dict[str, Any],
     source_config: dict[str, Any],
-    metadata: dict[str, Any],
+    metadata: RecordReader,
     *,
     dependencies: DimensionDependencies,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -143,9 +146,9 @@ def dimension_options(
 
 
 def metadata_property_value(
-    metadata: dict[str, Any],
+    metadata: RecordReader,
     prop: dict[str, Any],
-) -> Any:
+) -> object:
     """Resolve a source value by visible property name and stable identifier."""
     for key in (str(prop.get("name") or ""), str(prop.get("id") or "")):
         if key and metadata.get(key) not in (None, "", [], {}):
@@ -160,7 +163,7 @@ def _copy_configured_dimension(
     mode: str,
     options: list[dict[str, Any]],
     source_props: dict[str, dict[str, Any]],
-    metadata: dict[str, Any],
+    metadata: RecordReader,
     mapped: dict[str, Any],
     dependencies: DimensionDependencies,
 ) -> bool:
@@ -183,11 +186,11 @@ def _copy_configured_dimension(
     return True
 
 
-def _properties_by_id(table: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def _properties_by_id(table: RecordReader) -> dict[str, dict[str, Any]]:
     raw_properties = table.get("properties") or []
     return {
         str(prop.get("id") or ""): dict(prop)
-        for prop in raw_properties
+        for prop in iterable_values(raw_properties)
         if isinstance(prop, dict) and prop.get("id")
     }
 

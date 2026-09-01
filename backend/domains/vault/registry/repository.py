@@ -10,9 +10,10 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from backend.domains.vault.registry.names import normalize_registry_table_view_names
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData, RegistryState
 
 
@@ -21,6 +22,7 @@ class JsonWriter(Protocol):
         self,
         path: Path,
         data: object,
+        /,
         *,
         indent: int,
         ensure_ascii: bool,
@@ -145,8 +147,8 @@ class RegistryRepository:
         cache_key: str,
         now: float,
     ) -> RegistryData:
-        raw_data: Any = json.loads(registry_path.read_text(encoding="utf-8"))
-        if not isinstance(raw_data, dict):
+        raw_data: object = json.loads(registry_path.read_text(encoding="utf-8"))
+        if not is_record(raw_data):
             raise ValueError("Registry root must be an object")
         data: RegistryData = raw_data
         if not self.is_degenerate(data):
@@ -172,11 +174,11 @@ class RegistryRepository:
 
     def _drop_default_table(self, data: RegistryData) -> bool:
         raw_tables = data.get("tables", [])
-        tables = raw_tables if isinstance(raw_tables, list) else []
+        tables = raw_tables if is_object_list(raw_tables) else []
         filtered = [
             table
             for table in tables
-            if not isinstance(table, dict) or table.get("name") != "taula_1"
+            if not is_record(table) or table.get("name") != "taula_1"
         ]
         if len(filtered) == len(tables):
             return False
@@ -186,21 +188,21 @@ class RegistryRepository:
 
     def _drop_legacy_wiki(self, data: RegistryData) -> bool:
         raw_tables = data.get("tables", [])
-        tables = raw_tables if isinstance(raw_tables, list) else []
+        tables = raw_tables if is_object_list(raw_tables) else []
         filtered_tables = [
             table
             for table in tables
-            if not isinstance(table, dict) or str(table.get("id") or "").strip().lower() != "wiki"
+            if not is_record(table) or str(table.get("id") or "").strip().lower() != "wiki"
         ]
         if len(filtered_tables) == len(tables):
             return False
         raw_views = data.get("views", [])
-        views = raw_views if isinstance(raw_views, list) else []
+        views = raw_views if is_object_list(raw_views) else []
         data["tables"] = filtered_tables
         data["views"] = [
             view
             for view in views
-            if not isinstance(view, dict)
+            if not is_record(view)
             or str(view.get("table_id") or "").strip().lower() != "wiki"
         ]
         self._log.info("🧹 Removed legacy wiki table and its views from registry.")
@@ -208,10 +210,10 @@ class RegistryRepository:
 
     def _ensure_view_ids(self, data: RegistryData) -> bool:
         raw_views = data.get("views", [])
-        views = raw_views if isinstance(raw_views, list) else []
+        views = raw_views if is_object_list(raw_views) else []
         changed = False
         for view in views:
-            if not isinstance(view, dict) or view.get("id"):
+            if not is_record(view) or view.get("id"):
                 continue
             view["id"] = str(uuid.uuid4())
             changed = True
@@ -223,10 +225,10 @@ class RegistryRepository:
 
     def _normalize_table_folders(self, data: RegistryData) -> bool:
         raw_tables = data.get("tables", [])
-        tables = raw_tables if isinstance(raw_tables, list) else []
+        tables = raw_tables if is_object_list(raw_tables) else []
         changed = False
         for raw_table in tables:
-            if not isinstance(raw_table, dict):
+            if not is_record(raw_table):
                 continue
             table: RegistryData = raw_table
             changed = self._normalize_one_table_folder(table) or changed

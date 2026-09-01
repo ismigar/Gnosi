@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict
@@ -19,11 +18,11 @@ from backend.domains.vault.citations.state import CitationIndexState
 @dataclass(frozen=True)
 class CitationSearchDependencies:
     page_entry_count: Callable[[str], int]
-    page_entries: Callable[[str], list[dict[str, Any]]]
+    page_entries: Callable[[str], Sequence[Mapping[str, object]]]
     resolve_reference_table_id: Callable[[], str | None]
     canonicalize_id: Callable[[str], str]
     active_vault_path: Callable[[], str | Path | None]
-    resolve_ensure_index: Callable[[], Callable[[str], dict[str, dict[str, Any]]]]
+    resolve_ensure_index: Callable[[], Callable[[str], dict[str, dict[str, object]]]]
 
 
 class CitationSearchItemResponse(BaseModel):
@@ -60,7 +59,7 @@ def format_one_author(author: object) -> str:
     return str(author or "").strip()
 
 
-def cite_author_from_metadata(metadata: dict[str, Any]) -> str | None:
+def cite_author_from_metadata(metadata: dict[str, object]) -> str | None:
     structured = find_structured_authors(metadata)
     if structured:
         joined = ", ".join(
@@ -82,7 +81,7 @@ def cite_author_from_metadata(metadata: dict[str, Any]) -> str | None:
     return None
 
 
-def cite_year_from_metadata(metadata: dict[str, Any]) -> str | None:
+def cite_year_from_metadata(metadata: dict[str, object]) -> str | None:
     for key in ("Any", "Year", "Data", "Date"):
         value = metadata.get(key)
         if value in (None, ""):
@@ -98,7 +97,7 @@ def cite_search_blob(
     citation_key: object,
     author: object,
     year: object,
-    metadata: dict[str, Any] | None,
+    metadata: dict[str, object] | None,
 ) -> str:
     parts = [str(title or ""), str(citation_key or ""), str(author or ""), str(year or "")]
     if metadata:
@@ -126,7 +125,7 @@ def cite_search_blob(
     return " ".join(parts).lower()
 
 
-def enrich_cite_entry(entry: dict[str, Any]) -> dict[str, Any]:
+def enrich_cite_entry(entry: dict[str, object]) -> dict[str, object]:
     result = {
         "id": entry.get("id"),
         "title": entry.get("title"),
@@ -179,11 +178,11 @@ def _matches_reference_table(
 
 
 def _metadata_citation_entry(
-    entry: dict[str, Any],
-    metadata: dict[str, Any],
+    entry: Mapping[str, object],
+    metadata: dict[str, object],
     canonical_reference: str | None,
     dependencies: CitationSearchDependencies,
-) -> tuple[str, dict[str, Any]] | None:
+) -> tuple[str, dict[str, object]] | None:
     citation_key = str(metadata.get("Citation Key") or "").strip()
     if not citation_key:
         return None
@@ -211,10 +210,10 @@ def _metadata_citation_entry(
 
 
 def _file_citation_entry(
-    entry: dict[str, Any],
+    entry: Mapping[str, object],
     canonical_reference: str | None,
     dependencies: CitationSearchDependencies,
-) -> tuple[str, dict[str, Any]] | None:
+) -> tuple[str, dict[str, object]] | None:
     path_value = entry.get("path")
     if not path_value:
         return None
@@ -268,12 +267,12 @@ def ensure_citation_index(
     vault_key: str,
     state: CitationIndexState,
     dependencies: CitationSearchDependencies,
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     with state.lock:
         current_size = dependencies.page_entry_count(vault_key)
         if vault_key in state.indexes and state.sizes_at_build.get(vault_key) == current_size:
             return state.indexes[vault_key]
-        index: dict[str, dict[str, Any]] = {}
+        index: dict[str, dict[str, object]] = {}
         reference_id = dependencies.resolve_reference_table_id()
         canonical_reference = dependencies.canonicalize_id(reference_id) if reference_id else None
         for entry in dependencies.page_entries(vault_key):
@@ -317,7 +316,7 @@ def invalidate_citation_index(
 def _build_search_citations(
     dependencies: CitationSearchDependencies,
 ) -> Callable[..., object]:
-    async def search_citations(q: str = "", limit: int = 30) -> list[dict[str, Any]]:
+    async def search_citations(q: str = "", limit: int = 30) -> list[dict[str, object]]:
         """Searches Recursos pages for the CitePicker (Cmd+Shift+I).
 
         Free-text filter that searches ALL fields cached in page_index:
@@ -341,7 +340,7 @@ def _build_search_citations(
                 key=lambda item: str(item.get("citation_key") or "").lower(),
             )[:limit]
             return [enrich_cite_entry(item) for item in items]
-        candidates: list[tuple[int, dict[str, Any]]] = []
+        candidates: list[tuple[int, dict[str, object]]] = []
         for entry in index.values():
             citation_key = fold_accents(entry.get("citation_key"))
             title = fold_accents(entry.get("title"))
@@ -371,7 +370,7 @@ def _build_search_citations(
 def _build_resolve_by_citation_key(
     dependencies: CitationSearchDependencies,
 ) -> Callable[..., object]:
-    async def resolve_by_citation_key(key: str) -> dict[str, Any]:
+    async def resolve_by_citation_key(key: str) -> dict[str, object]:
         """Resolves a citation key (like `smith2020`) to UUID + title by querying
         the pages of the Recursos table.
 

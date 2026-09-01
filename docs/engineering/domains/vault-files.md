@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
+  - backend/domains/mail/connectors/drupal.py
+  - backend/api/public_routes.py
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
   - backend/domains/vault
@@ -17,11 +19,48 @@ source_paths:
   - backend/services/relation_sync.py
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
-  - frontend/src/pages/VaultDashboard.jsx
-  - frontend/src/components/Vault
+  - frontend/src/features/vault/VaultDashboard.tsx
+  - frontend/src/features/vault
+  - frontend/src/shared/editor
+  - frontend/src/shared/records
+  - frontend/src/shared/record-views
+  - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_drupal_connector_discovery_contract.py
+  - backend/tests/test_drupal_connector_http_contract.py
+  - backend/tests/test_drupal_connector_native_contract.py
+  - backend/tests/test_drupal_native_mapping_contract.py
+  - backend/tests/test_drupal_open_core_fields.py
+  - backend/tests/test_drupal_open_languages_markdown.py
+  - backend/tests/test_drupal_open_media.py
+  - backend/tests/test_drupal_service_contract.py
+  - backend/tests/test_translation_http_open_contract.py
+  - backend/tests/test_sync_comment_open_contract.py
+  - backend/tests/test_sync_comment_bootstrap.py
+  - backend/tests/test_translation_open_helpers_contract.py
+  - backend/tests/test_translation_open_io_contract.py
+  - backend/tests/test_translation_open_services_contract.py
+  - backend/tests/test_translation_open_effects_contract.py
+  - backend/tests/test_translation_lifecycle_binding_contract.py
+  - backend/tests/test_translation_request_validation_contract.py
+  - backend/tests/test_public_clip_receipt_contract.py
+  - backend/tests/test_translation_provider_contracts.py
+  - backend/tests/test_table_workspace_security_contract.py
+  - backend/tests/test_vault_page_foundation_typed_composition.py
+  - backend/tests/test_vault_core_typed_composition.py
+  - backend/tests/test_vault_media_typed_composition.py
+  - backend/tests/test_vault_citation_export_typed_composition.py
+  - backend/tests/test_vault_citation_lookup_typed_composition.py
+  - backend/tests/test_citation_shared_lookup_contracts.py
+  - backend/tests/test_drawing_typed_composition.py
+  - backend/tests/test_pdf_annotation_typed_composition.py
   - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_vault_page_write_helpers_domain_contract.py
+  - backend/tests/test_page_preview_contract.py
+  - backend/tests/test_page_write_inventory_contract.py
+  - backend/tests/test_page_write_open_contract.py
+  - backend/tests/test_page_write_open_cache_contract.py
+  - backend/tests/test_page_write_citation_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -44,6 +83,50 @@ tests:
 ---
 
 # Vault and files
+
+## Comment and translation contracts
+
+Comment persistence validates only the stored dictionary/list root; unknown keys,
+nested values and record identity remain intact. HTTP models still validate
+responses. `comments/composition.py` builds late-bound dependencies at the original
+registration point and supports facade-first or comment-first imports. Markdown
+imports preserve native ID slicing for filename collisions. SSE subscriptions
+remain vault-scoped and remove their own queues on cancellation.
+
+Translation helpers, lookup, metadata effects and row/page services use open
+metadata without asserting string-only YAML keys. The lifecycle checks actual
+callback owners and a lazy connector protocol; captured dependencies stay
+captured and replaceable members stay late-bound. Page creation receipts use a
+read-only named-field contract, distinct from mutable metadata. Registered write
+handlers retain their asynchronous return and optional injected context. Web
+Clipper receipts pass through the existing response model without field coercion.
+
+These changes preserve provider error boundaries, sorted disk recovery, duplicate
+target-language behavior and status-write ordering. Synthetic tests exercise
+provider doubles, not live cloud accounts. Drupal composition and translation HTTP
+now check actual dependency owners; this does not certify the entire backend,
+a real Drupal server or a cloud-provider migration.
+
+## Drupal transport and HTTP contracts
+
+Drupal field mapping, media preparation, language discovery, title matching and
+row synchronization retain open metadata and opaque connector identifiers.
+Constructed response envelopes have explicit types; decoded transport values are
+not assumed to have an application schema. Field order, partial errors, cached
+identifier identity and native malformed-input errors are preserved. Dependency
+factories capture the connector and error classes, but resolve replaceable
+members when called. Pillow remains an optional, lazily loaded dependency.
+
+Translation routes preserve existing request and response schemas. Drupal bulk
+publishing stringifies every identifier and keeps duplicates; bulk translation
+filters non-text identifiers and deduplicates trimmed strings. Single-row
+publishing still defaults to pushing media. Text inputs retain their false-value
+fallbacks and native errors for malformed JSON. Non-JSON Python callers whose
+custom strip operation returns a non-string receive an explicit type error;
+this HTTP-only check does not normalize YAML or plugin metadata. Generated valid
+JSON with the wrong response shape reaches HTTP validation, not the provider-error
+fallback. Synthetic transports and temporary files verify these contracts without
+reading credentials, publishing content or calling an external provider.
 
 ## Responsibility
 
@@ -108,6 +191,42 @@ document caches. The eight historical private helper names remain thin
 compatibility facades, and every replaceable collaborator or mutable cache is
 resolved through a late-bound typed port.
 
+## Open metadata and validated HTTP
+
+Internal registry and page documents use `dict[object, object]`: historic YAML
+can contain non-text keys and extension values without a declared schema.
+Dictionary guards preserve identity; sidecar merges and storage-name mapping
+retain unknown fields. This is distinct from public HTTP validation.
+`PageInfo` retains its original string-key validation and OpenAPI schema while
+index construction and assignment preserve the open document. Page-response
+caches store the existing page objects without cloning their metadata or locks.
+
+`backend/utils/open_values.py` isolates native operations on opaque inputs.
+Its input-only typing exceptions preserve Python's iteration, numeric, length
+and mapping protocols and their errors; they never assert a returned record
+shape. Tests compare callback timing, legacy sequences, malformed values and
+shared-object identity. This removes broad dynamic namespaces from registry
+and page-foundation composition, not every remaining legacy type in the backend.
+
+## Preview and write contracts
+
+`pages/preview_routes.py` checks facade dependencies against their actual owners.
+Short and full preview payloads share one typed cache envelope and preserve opaque
+title, icon and cover values. Materialization precedes reading; only errno 35
+uses the existing retry schedule. Concurrent requests share the same result,
+and cache storage precedes notification of waiting requests.
+
+Complete and partial saves retain open metadata, nullable ETags, shallow-copy
+timing and callback lookup before argument evaluation. Citation helpers preserve
+dictionary identity for both textual and non-textual keys. The document inventory
+and path resolver retain their original mutation and malformed-input behavior.
+
+Two historical edge cases are characterized, not changed by this refactor:
+a PATCH helper ETag conflict reaches the existing 404 before the service's 409
+branch; cancelling a preview owner removes its in-flight entry without completing
+its shared future. These are compatibility limitations, not successful concurrency
+acceptance. Public schemas and normal write behavior remain unchanged.
+
 ## Backend boundary
 
 Page reads and writes, previews, duplication, history, and trash are implemented
@@ -132,23 +251,30 @@ extraction, and stable file serialization. `backend/services/media_service.py`
 remains the compatible Python facade: it preserves the historical class,
 singleton, callable shape, descriptors, state and errors while resolving
 mutable state and replaceable collaborators late. Its internal constructor now
-has an explicit `None` return annotation, removing the final handwritten
-backend typing exception without changing construction behavior. The facade
+has an explicit `None` return annotation, removing its former constructor
+typing exception without changing construction behavior. The facade
 validates that an active vault exists before crossing a filesystem boundary and
 uses the typed media contracts for roots, scans, queries, uploads, EXIF data and
 serialized file information. Domain modules never import the HTTP router or
 the compatibility facade.
 
-The transitional media HTTP module narrows the dynamically imported legacy
-router once to a concrete `APIRouter`. Route decorators and delegated asset,
-file, icon and property registrations all use that same typed instance, keeping
-registration order and the OpenAPI contract stable without scattering type
-exceptions across individual handlers.
+Media HTTP routes import the shared router and stable services directly.
+`media/composition.py` preserves late lookup of the service and duplicate-page
+callbacks through named ports; file tokens and locks retain their canonical
+owners. The concrete media service is checked against its route-side contract
+without casting results. Provider JSON leaves remain unchanged for direct
+callers, while the existing HTTP models validate the public response. The single
+facade cast and upstream legacy metadata annotations remain explicit debt.
 
-The drawings boundary applies the same single-router narrowing to drawing CRUD
-and delegated history registration. Drawing backups, soft deletion, recovery
-windows, permissions and route ordering remain owned by their existing domain
-services while the HTTP composition surface is strict.
+Drawing routes import the shared router and typed drawing/history services
+directly. `drawings/composition.py` limits remaining late-bound collaborators to
+`DrawingVaultPort`: paths, trash, serialization and history callbacks. The port
+has no `Any` members; its single compatibility cast remains transitional until
+the legacy providers are independently composed. It does not prove complete
+typing of the wider facade or the shared historical request model. Return values
+are not normalized merely for typing: direct callers retain the original drawing
+data, while HTTP response models enforce the existing contract. Backups, recovery,
+permissions, callback timing, metadata values and route ordering are preserved.
 
 Page preview and save composition likewise share one narrowed router for title
 resolution and delegated preview/write registration. Cache identity, alias
@@ -178,7 +304,7 @@ from the table domain on the broad legacy authentication composition. The
 legacy router registers the domain routes flat for compatibility with route
 inventory consumers and re-exports the supported Python callables.
 
-`backend/api/vault_routes.py` is now a 283-line compatibility bootstrap rather
+`backend/api/vault_routes.py` is a compatibility bootstrap rather
 than an implementation owner. Typed modules under `backend/domains/vault`
 own the remaining API, annotation, citation, drawing, Drupal, file, knowledge,
 link, media, page, registry, table, and translation behavior. The bootstrap
@@ -187,6 +313,15 @@ loads and registers those owners in historical source order, while
 monkeypatch seams. The parent router still exposes the same flat `APIRoute`
 inventory and byte-identical deterministic OpenAPI. The facade therefore needs
 no source-guardrail allowance.
+
+`pages/foundation.py` declares its functions before loading the facade. Its
+`initialize_foundation` entry point binds the existing providers once at the
+original bootstrap position, including when the page module is imported first.
+Repeated calls retain the same dependency records, captured callbacks and route
+order; binding another facade is rejected. Isolated tests compare both import
+orders, resolved annotations and complete Vault OpenAPI, and exercise legacy
+YAML keys, sidecars and file relocation. This removes an initialization cycle;
+it does not claim that the remaining legacy metadata contracts are fully typed.
 
 Translation lifecycle behavior is owned by `backend/domains/vault/translation`:
 optional provider loading, cloud-file recovery, row and whole-page translation,
@@ -201,6 +336,21 @@ synchronization. The compatibility router retains the original FastAPI
 decorators, route docstrings and late-bound Python seams, while the Drupal
 connector remains the external transport boundary. These moves do not change
 paths, payloads, status codes, background tasks or route order.
+
+Translation providers are loaded inside their existing request-time error
+boundaries through imports of their actual typed owners, without module-shaped
+type assertions. The returned functions retain identity, native keyword APIs
+and late replacement behavior. The page-provider protocols describe the shared
+positional content/language contract and keyword-only credential argument.
+Missing modules or members retain the same HTTP errors; unavailable credentials
+retain the existing empty-key fallback. Loading these adapters does not load
+translation models or read credentials at application startup.
+
+Table authorization uses the real `workspace_service` types. The initially
+captured `get_workspace_context` dependency and later `require_role` lookups
+retain their original identity and timing; role checks return the same
+`WorkspaceContext` instance or the same permission error. No role thresholds,
+authentication rules or workspace-selection behavior are changed.
 
 ## Indexes and caches
 
@@ -236,35 +386,59 @@ semantic table tags, including per-page deduplication. The
 compatibility router injects the active-vault, registry, calendar and cache
 ports, so none of these services imports the HTTP facade.
 
-The registry runtime narrows its late-bound router once, uses the typed standard
-context-manager decorator for mutation cycles and treats a missing active Vault
+The registry runtime references the actual typed callback and state owners,
+uses the standard context-manager decorator for mutation cycles and treats a missing active Vault
 as an absent cloud attachment root. Registry/table route order, locking, caches
 and provider-specific attachment candidates remain unchanged.
 
-The core Vault API reuses one typed router for virtual fields, index status,
-daily notes and tag aggregation. User display labels cross the legacy ORM
-descriptor boundary as concrete strings, preserving the existing fallback from
-name to email to identifier.
+The core Vault API imports its router and services directly and limits remaining
+late-bound collaborators to `CoreVaultPort`. Page creation accepts open metadata
+without coercion; index insertion updates the existing cache owner. User labels
+retain the name, email and identifier fallback. Daily-note creation carries the
+already-authorized workspace user into the canonical page service, rather than
+calling an HTTP handler with an unresolved dependency default. Explicit plugin
+overrides retain their historical two-argument signature. Role and plugin checks,
+existing-note retrieval, the creation lock and public HTTP schemas are unchanged.
 
-Citation formatting and export registration now cross one typed router, while
-reference format detection, serialization and normalization return their native
-strict string contracts directly. Export formats, citation resolution and
-Pandoc error behavior remain stable.
+Citation formatting, search, catalog and export composition use explicit record
+and callable contracts without result casts. Registry properties retain their
+identity; read-only consumers accept mapping/sequence interfaces. Imported
+references receive the authorized user's context when using the canonical page
+handler, while late two-argument overrides remain supported. Deduplication,
+formats, downloads and Pandoc error behavior are unchanged. All runtimes store the
+references-table designation at `GNOSI_DATA_DIR/config/references.json`. Existing
+source-tree settings require `scripts/migrate-reference-config.py`: its explicit
+no-clobber migration preserves exact bytes, unknown fields and the original, with
+a private journal and recoverable rollback. Startup checks readiness before
+database migrations or workers. Disposable validation never consults legacy files.
 
 Metadata lookup, PDF recognition, URL translation, Zotero promotion, bulk
 updates and citation catalog/search registration share that same narrowed HTTP
 boundary. Provider fallbacks, editor permissions and citation-key uniqueness
 remain late-bound and behavior-compatible.
 
+Citation lookup uses direct service imports and checked aliases of the actual
+callback owners under `TYPE_CHECKING`; runtime overrides remain late-bound. No
+module or result cast is needed for this composition. Tests verify both import
+orders, exact HTTP schemas, callback replacement during a lookup and preservation
+of unknown metadata. Citation title fallback retains Python's native errors via
+`citations/title_regex.py`; its single documented type-check exception applies
+only to native validation of invalid input, never to returned application data.
+Remaining legacy types in upstream registry/page providers are separate debt.
+
 Markdown import, inline comments, synchronized blocks, link navigation and
 unlinked mentions share a typed page-synchronization router. Request models use
 Pydantic directly while retaining their historical module identity, preserving
 schema names, SSE behavior and OpenAPI output.
 
-PDF annotation CRUD follows the same model: direct Pydantic request bases and a
-single typed router, with historical schema identity retained. Source URI
-filtering, page ordering, editor permissions and annotation serialization are
-unchanged.
+PDF annotation CRUD imports the shared router, authorization and persistence
+dependencies directly. Named `TypedDict` payloads describe the dictionaries
+returned to Python callers without casts or `Any`. Stored rectangles retain
+the original JSON decoding behavior; HTTP response models still validate their
+shape. Request and response schema identities, source URI filtering, page and
+creation-time ordering, editor permissions, null/omitted update semantics and
+the SQLite schema remain unchanged. Isolated SQLite and HTTP tests cover both
+facade-first and domain-first import order.
 
 Vault administration now fails explicitly with a service-unavailable response
 when the primary Vault path is absent, rather than constructing a path from
@@ -406,6 +580,24 @@ gallery, board, calendar, timeline, feed, or reader surfaces. `VaultShell`
 provides the frame; specialized components implement editors and views. The
 frontend caches interaction state but treats backend page content and ETags as
 authoritative.
+
+The reviewed relocation places `VaultDashboard.tsx` and its orchestration in
+`features/vault/dashboard/` (the entry itself is at the feature root).
+Table composition and cell editing live in `features/vault/views/vault-table/`;
+schema fields and options in `features/vault/schema/schema-config/`; and page
+properties, rich documents, effects and persistence in
+`features/vault/editor/block-editor/`. Reusable rendering, record hooks and
+view controls belong to `shared/editor/`, `shared/records/` and
+`shared/record-views/`; they never import Vault UI. A module is public only
+through the feature root or its exact reviewed manifest entry; being a
+composition file does not make it public. These ownership changes preserve API
+routes and storage formats; integration verification remains separate.
+
+Markdown-to-visual transitions publish pending drafts before mounting the rich
+editor, preventing stale parent content from replacing an unsaved edit.
+Metadata-only saves omit the body; default formulas preserve nested relation
+and plugin values. Regression tests cover these handoffs alongside schema
+option identifiers, table row identity and unknown metadata extensions.
 
 ## Verification focus
 

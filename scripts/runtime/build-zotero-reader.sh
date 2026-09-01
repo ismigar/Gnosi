@@ -53,8 +53,8 @@ cp -R "$READER_DIR/build/web" "$PUBLIC_TARGET"
 
 # Cal preservar el host.html nostre (que no ve del build de Zotero).
 # El guardem versionat al repo principal i el copiem aquí; vegeu
-# `Gnosi/frontend/src/components/Vault/zotero-host.html`.
-HOST_TEMPLATE="$FRONTEND_DIR/src/components/Vault/zotero-host.html"
+# `Gnosi/frontend/src/features/reader/zotero/zotero-host.html`.
+HOST_TEMPLATE="$FRONTEND_DIR/src/features/reader/zotero/zotero-host.html"
 if [ -f "$HOST_TEMPLATE" ]; then
     cp "$HOST_TEMPLATE" "$PUBLIC_TARGET/host.html"
     echo "→ host.html copiat des de $HOST_TEMPLATE"
@@ -120,7 +120,7 @@ fi
 # createReader perquè Fluent dona prioritat al primer bundle que té la
 # clau, així aquestes traduccions guanyen sense patchejar res del repo
 # de Zotero.
-OVERLAYS_DIR="$FRONTEND_DIR/src/components/Vault/zotero-locale-overlays"
+OVERLAYS_DIR="$FRONTEND_DIR/src/features/reader/zotero/zotero-locale-overlays"
 if [ -d "$OVERLAYS_DIR" ]; then
     for overlay in "$OVERLAYS_DIR"/*.ftl; do
         [ -f "$overlay" ] || continue

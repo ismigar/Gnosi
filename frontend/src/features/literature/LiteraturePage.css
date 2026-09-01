@@ -1,0 +1,15 @@
+/* Ordered literature cascade. Responsive rules precede the historical
+ * schedule additions; shared selectors stay with their original rule. */
+@import "./styles/layout.css";
+@import "./styles/search.css";
+@import "./styles/manual-capture.css";
+@import "./styles/filters-sources.css";
+@import "./styles/ai-proposal.css";
+@import "./styles/search-feedback.css";
+@import "./styles/results.css";
+@import "./styles/preview.css";
+@import "./styles/reviews.css";
+@import "./styles/snowball.css";
+@import "./styles/review-decisions.css";
+@import "./styles/responsive.css";
+@import "./styles/review-schedule.css";

@@ -1,0 +1,122 @@
+/* Styles added for Settings Modal Premium UI */
+.gnosi-input, .gnosi-select {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--settings-border);
+    background: var(--settings-input-bg);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.gnosi-input:focus, .gnosi-select:focus {
+    border-color: var(--gnosi-blue);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.gnosi-toggle {
+    width: 48px;
+    height: 26px;
+    background: var(--settings-border);
+    border-radius: 20px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gnosi-toggle.active {
+    background: var(--gnosi-blue);
+}
+
+/* Anell de focus visible per a navegació amb teclat (role="switch"). */
+.gnosi-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--gnosi-blue);
+}
+
+/* Contenidor-switch (toggle + etiqueta) enfocable: anell al voltant de la fila. */
+.gnosi-switch-row:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--gnosi-blue);
+    border-radius: 8px;
+}
+
+.gnosi-toggle-handle {
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    inset-inline-start: 3px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.gnosi-toggle.active .gnosi-toggle-handle {
+    inset-inline-start: 25px;
+}
+
+.segmented-control button {
+    font-family: inherit;
+}
+
+.animate-in {
+    animation: fadeInSlide 0.4s cubic-bezier(0, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeInSlide {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.spinner-small {
+    width: 18px;
+    height: 18px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.account-row button.icon-btn {
+    opacity: 0.5;
+    transition: all 0.2s;
+}
+
+.account-row:hover button.icon-btn {
+    opacity: 1;
+}
+
+.btn-gnosi-secondary {
+    background: var(--settings-sidebar-bg);
+    border: 1px solid var(--settings-border);
+    color: var(--text-primary);
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* Feedback d'enfocament per teclat (a11y): mirall del hover amb un anell
+   primary. `:focus-visible` només casa amb el focus de teclat, així que els
+   clics de ratolí no mostren l'anell. */
+.settings-sidebar__item:focus-visible,
+.gnosi-close-btn:focus-visible,
+.btn-gnosi-primary:focus-visible,
+.btn-gnosi-primary7:focus-visible,
+.btn-gnosi-danger:focus-visible,
+.btn-gnosi-secondary:focus-visible,
+.provider-card:focus-visible,
+.gnosi-toggle:focus-visible {
+    outline: 2px solid var(--gnosi-primary);
+    outline-offset: 2px;
+}

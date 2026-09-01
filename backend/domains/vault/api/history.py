@@ -6,7 +6,6 @@ import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.params import Depends as DependsParameter
@@ -18,10 +17,10 @@ from backend.domains.vault.schemas.history import (
     PageHistoryVersion,
 )
 
-FrontmatterParser = Callable[[str, Path | None], tuple[dict[str, Any], str]]
+FrontmatterParser = Callable[[str, Path | None], tuple[dict[str, object], str]]
 PageFinder = Callable[[str], Path | None]
 PageVersionWriter = Callable[[str, Path, bool], None]
-TableIdReader = Callable[[dict[str, Any]], str | None]
+TableIdReader = Callable[[dict[str, object]], str | None]
 FormulaRecompute = Callable[[str, str], object]
 
 log = logging.getLogger(__name__)

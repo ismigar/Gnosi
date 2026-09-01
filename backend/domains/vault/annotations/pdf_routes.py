@@ -1,19 +1,16 @@
 """Typed Vault domain extracted from the historical route facade."""
 
-import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+import json
+from typing import TypedDict
 
-from fastapi import APIRouter
+from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel
-
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
-
 from sqlalchemy.orm import Session as _AnnSession
 
+from backend.api.vault_routes import router as router
 from backend.data.db import get_db as _ann_get_db
 from backend.models.pdf_annotation import PdfAnnotation as _PdfAnnotation
+from backend.services.workspace_service import require_role
 
 
 class _PdfAnnotationCreate(BaseModel):
@@ -21,20 +18,20 @@ class _PdfAnnotationCreate(BaseModel):
     source_uri: str
     page: int
     type: str
-    color: _legacy.Optional[str] = "#ffeb3b"
-    rects: _legacy.Optional[_legacy.List[_legacy.Dict[str, float]]] = None
-    text: _legacy.Optional[str] = None
-    comment: _legacy.Optional[str] = None
-    tags: _legacy.Optional[str] = None
+    color: str | None = "#ffeb3b"
+    rects: list[dict[str, float]] | None = None
+    text: str | None = None
+    comment: str | None = None
+    tags: str | None = None
 
 
 class _PdfAnnotationUpdate(BaseModel):
     __module__ = "backend.api.vault_routes"
-    color: _legacy.Optional[str] = None
-    rects: _legacy.Optional[_legacy.List[_legacy.Dict[str, float]]] = None
-    text: _legacy.Optional[str] = None
-    comment: _legacy.Optional[str] = None
-    tags: _legacy.Optional[str] = None
+    color: str | None = None
+    rects: list[dict[str, float]] | None = None
+    text: str | None = None
+    comment: str | None = None
+    tags: str | None = None
 
 
 class PdfAnnotationResponse(BaseModel):
@@ -56,14 +53,35 @@ class PdfAnnotationDeletedResponse(BaseModel):
     id: int
 
 
-def _pdf_annotation_to_dict(ann: _PdfAnnotation) -> _legacy.Dict[str, _legacy.Any]:
+class PdfAnnotationPayload(TypedDict):
+    id: int
+    source_uri: str
+    page: int
+    type: str
+    color: str | None
+    # Persisted JSON is not validated here. The existing HTTP response model
+    # owns rectangle validation; direct callers retain json.loads semantics.
+    rects: object
+    text: str | None
+    comment: str | None
+    tags: str | None
+    created_at: str | None
+    updated_at: str | None
+
+
+class PdfAnnotationDeletedPayload(TypedDict):
+    status: str
+    id: int
+
+
+def _pdf_annotation_to_dict(ann: _PdfAnnotation) -> PdfAnnotationPayload:
     return {
         "id": ann.id,
         "source_uri": ann.source_uri,
         "page": ann.page,
         "type": ann.type,
         "color": ann.color,
-        "rects": _legacy.json.loads(ann.rects_json) if ann.rects_json else [],
+        "rects": json.loads(ann.rects_json) if ann.rects_json else [],
         "text": ann.text,
         "comment": ann.comment,
         "tags": ann.tags,
@@ -74,9 +92,9 @@ def _pdf_annotation_to_dict(ann: _PdfAnnotation) -> _legacy.Dict[str, _legacy.An
 
 @router.get("/pdf-annotations", response_model=list[PdfAnnotationResponse])
 def list_pdf_annotations(
-    source_uri: str = _legacy.Query(..., min_length=1),
-    db: _AnnSession = _legacy.Depends(_ann_get_db),
-) -> _LegacyAny:
+    source_uri: str = Query(..., min_length=1),
+    db: _AnnSession = Depends(_ann_get_db),
+) -> list[PdfAnnotationPayload]:
     """Lists all annotations associated with a PDF (by `source_uri`).
 
     Sorted by ascending page + creation date, so the sidebar
@@ -94,12 +112,12 @@ def list_pdf_annotations(
 
 @router.post(
     "/pdf-annotations",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=PdfAnnotationResponse,
 )
 def create_pdf_annotation(
-    body: _PdfAnnotationCreate, db: _AnnSession = _legacy.Depends(_ann_get_db)
-) -> _LegacyAny:
+    body: _PdfAnnotationCreate, db: _AnnSession = Depends(_ann_get_db)
+) -> PdfAnnotationPayload:
     if body.type not in {
         "highlight",
         "underline",
@@ -111,7 +129,7 @@ def create_pdf_annotation(
         "ink",
         "image",
     }:
-        raise _legacy.HTTPException(
+        raise HTTPException(
             status_code=400, detail=f"Unsupported annotation type: {body.type}"
         )
     ann = _PdfAnnotation(
@@ -119,7 +137,7 @@ def create_pdf_annotation(
         page=body.page,
         type=body.type,
         color=body.color or "#ffeb3b",
-        rects_json=_legacy.json.dumps(body.rects) if body.rects else None,
+        rects_json=json.dumps(body.rects) if body.rects else None,
         text=body.text,
         comment=body.comment,
         tags=body.tags,
@@ -132,15 +150,15 @@ def create_pdf_annotation(
 
 @router.patch(
     "/pdf-annotations/{ann_id}",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=PdfAnnotationResponse,
 )
 def update_pdf_annotation(
-    ann_id: int, body: _PdfAnnotationUpdate, db: _AnnSession = _legacy.Depends(_ann_get_db)
-) -> _LegacyAny:
+    ann_id: int, body: _PdfAnnotationUpdate, db: _AnnSession = Depends(_ann_get_db)
+) -> PdfAnnotationPayload:
     ann = db.query(_PdfAnnotation).filter(_PdfAnnotation.id == ann_id).first()
     if not ann:
-        raise _legacy.HTTPException(status_code=404, detail="Annotation not found")
+        raise HTTPException(status_code=404, detail="Annotation not found")
     if body.color is not None:
         ann.color = body.color
     if body.comment is not None:
@@ -150,7 +168,7 @@ def update_pdf_annotation(
     if body.text is not None:
         ann.text = body.text
     if body.rects is not None:
-        ann.rects_json = _legacy.json.dumps(body.rects)
+        ann.rects_json = json.dumps(body.rects)
     db.commit()
     db.refresh(ann)
     return _pdf_annotation_to_dict(ann)
@@ -158,15 +176,15 @@ def update_pdf_annotation(
 
 @router.delete(
     "/pdf-annotations/{ann_id}",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(require_role("editor"))],
     response_model=PdfAnnotationDeletedResponse,
 )
 def delete_pdf_annotation(
-    ann_id: int, db: _AnnSession = _legacy.Depends(_ann_get_db)
-) -> _LegacyAny:
+    ann_id: int, db: _AnnSession = Depends(_ann_get_db)
+) -> PdfAnnotationDeletedPayload:
     ann = db.query(_PdfAnnotation).filter(_PdfAnnotation.id == ann_id).first()
     if not ann:
-        raise _legacy.HTTPException(status_code=404, detail="Annotation not found")
+        raise HTTPException(status_code=404, detail="Annotation not found")
     db.delete(ann)
     db.commit()
     return {"status": "ok", "id": ann_id}

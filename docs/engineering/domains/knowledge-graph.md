@@ -5,14 +5,20 @@ source_paths:
   - backend/domains/graph
   - backend/api/vault_graph_routes.py
   - backend/services/graph_service.py
-  - frontend/src/pages/GraphPage.jsx
-  - frontend/src/components/GraphViewer.jsx
+  - frontend/src/features/graph
+  - frontend/src/shared/graph
+  - frontend/src/shared/graph/filtering
+  - frontend/src/shared/filtering
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_graph_unresolved_nodes.py
   - backend/tests/test_graph_similarity_suggestions.py
   - backend/tests/test_graph_wedged_dirs.py
-  - frontend/src/utils/graphViewGeometry.test.js
+  - frontend/src/shared/graph/model/graphViewGeometry.test.ts
+  - frontend/src/shared/graph/viewer/GraphViewer.test.tsx
+  - frontend/src/features/vault/views/VaultGraph.test.tsx
+  - frontend/src/features/graph/GraphPage.test.tsx
+  - frontend/src/features/graph/public-entry.test.ts
 ---
 
 # Knowledge graph
@@ -26,6 +32,17 @@ used by the API, agent, and scheduler.
 The graph projects explicit knowledge relationships and optional semantic
 suggestions into an interactive network. It supports navigation and discovery;
 it is derived from the Vault and is not a separate source of truth.
+
+The strictly typed `features/graph/` owns route state, filters and page
+composition behind a public lazy entry. Its panels and model modules are private.
+`shared/graph/` owns the reusable renderer, minimap, geometry, keyboard
+navigation, edge presentation and semantic overlay. Graph routes and embedded
+Vault graphs import the same renderer directly, without an eager aggregate.
+The reviewed relocation places reusable graph filters in
+`shared/graph/filtering/` and Vault filters in `shared/filtering/`.
+Shared code must not depend on feature or app modules, even through type imports.
+Projections, configuration keys, navigation, camera handles and styles remain
+unchanged contracts; source relocation still requires integration verification.
 
 ## Graph construction
 

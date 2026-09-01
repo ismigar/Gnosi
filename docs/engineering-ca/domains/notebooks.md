@@ -11,16 +11,19 @@ source_paths:
   - backend/agent/agent_context.py
   - backend/agent/factory.py
   - backend/api/agent_routes.py
-  - frontend/src/pages/NotebooksPage.jsx
-  - frontend/src/components/Notebooks
-  - frontend/src/components/AgentChat.jsx
+  - frontend/src/features/notebooks
+  - frontend/src/shared/api/notebooks.ts
+  - frontend/src/features/agent
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
-  - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
-  - frontend/src/pages/NotebooksPage.test.jsx
-  - frontend/src/lib/notebookTableActions.test.js
+  - frontend/src/features/notebooks/create/NotebookCreateDialog.test.tsx
+  - frontend/src/features/notebooks/NotebooksPage.test.tsx
+  - frontend/src/features/notebooks/detail/NotebookDetail.behavior.test.tsx
+  - frontend/src/features/notebooks/public-entry.test.ts
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/features/notebooks/model/notebookTableActions.test.ts
   - tests/e2e/tests/e2e/notebooks.spec.ts
 ---
 
@@ -37,6 +40,15 @@ sobre els adjunts i els URL dels registres seleccionats a la taula Referències
 configurada. Combinen una biblioteca cercable, un panell de fonts paginat, la
 configuració i el mateix transport de conversa en streaming que l'assistent
 flotant.
+
+La conversa incrustada importa l'exportació pública `AgentChat` del domini
+d'agent, mai els seus mòduls privats de sessió o streaming. La carcassa de
+l'aplicació carrega la mateixa entrada dinàmicament. Tots dos consumidors
+utilitzen el contracte complet de props tipades, incloses les referències de
+context immutables, la identitat del quadern i el mode de només lectura.
+Només el payload HTTP de sortida rep una còpia mutable de l'array; no canvien
+el contingut de les referències, la selecció de fonts, les claus d'emmagatzematge
+ni l'autorització.
 
 El cos, el títol, les etiquetes i la resta de metadades del registre no són
 evidència. Gnosi només llegeix les metadades per localitzar camps definits com
@@ -101,6 +113,10 @@ activa.
 Retirar un Recurs n'elimina immediatament la pertinença. La recuperació i
 l'anàlisi global comproven els membres actuals, de manera que l'evidència
 retirada queda exclosa abans que una revisió nova estigui preparada.
+Els adaptadors de catàleg i refresc de Recursos llegeixen directament els
+responsables canònics de pàgines, taules i referències del Vault. No passen per
+la façana dinàmica de compatibilitat HTTP; la direcció de dependències del
+domini es manté explícita.
 
 ## Persistència i recuperació
 
@@ -115,6 +131,9 @@ treballs pendents o amb el lloguer caducat es reprenen després de reiniciar el
 procés. L'activació d'una revisió és transaccional. Si falla el refresc d'una
 font ja indexada, l'última versió vàlida continua disponible amb l'estat
 `stale`; una font nova fallida mostra l'error i queda exclosa.
+L'admissió d'una anàlisi resol un Vault actiu concret abans d'encuar el treball;
+si manca el context de petició, falla abans que el payload durable pugui
+contenir una ruta ambigua o dependent de la màquina.
 
 La neteja conserva la revisió activa, les tres revisions completes i els vint
 resultats d'auditoria més recents per defecte, totes les revisions fixades per
@@ -134,6 +153,8 @@ La barra de context permet triar fonts concretes d'adjunts o URL del quadern
 actual i afegir altres quaderns accessibles. Un quadern afegit aporta totes les
 seves fonts disponibles, però el quadern actual continua sent el propietari de
 l'historial compartit o privat.
+Els quaderns afegits només aporten evidència de lectura i no fusionen mai els
+seus historials de conversa.
 
 Cada torn fixa al servidor una revisió positiva i completa de cada quadern
 seleccionat. Els identificadors de font es validen contra la revisió immutable,
@@ -199,10 +220,19 @@ siguin de quadern, adjunts, mencions i substitucions d'habilitats.
 
 ## Comportament de la interfície d'usuari
 
+El domini estrictament tipat `frontend/src/features/notebooks/` gestiona la
+biblioteca, els panells de detall, els selectors de Recursos, el diàleg de
+creació, els estils i les proves. La composició de l'aplicació consumeix només
+la seva entrada pública `index.ts`. La pàgina i el diàleg conserven imports
+diferits independents perquè obrir-ne un no carregui immediatament l'altre.
+Els mòduls interns utilitzen imports locals directes; els adaptadors HTTP
+compartits mantenen els contractes canònics delimitats pel Vault. Aquest canvi
+de responsabilitat no altera rutes, selecció de fonts, sondeig ni estat de conversa.
+
 L'acció múltiple només apareix quan la identitat de la taula oberta coincideix
 amb la de Referències; mai per un nom o ID fix. El diàleg accepta títol,
 visibilitat, mode de conversa i fins a mil identificadors de Recursos. Els
-selectors de creació i d'addició ordenen alfabèticament tot el catàleg abans de
+selectors de creació i d'addició ordenen alfabèticament tot el catàleg sense distingir accents abans de
 paginar i ofereixen filtres de tipus, autor i etiquetes derivats de l'esquema.
 Aquestes metadades només serveixen per seleccionar i mai entren a l'evidència.
 Les pàgines marcades com a plantilles de taula s'exclouen del selector, de la
@@ -225,28 +255,40 @@ només lectura, sense compositor ni accions de reintent, edició o rebobinat.
 Només els editors poden enviar torns i només el creador veu el refresc manual i
 la resta de controls de gestió.
 
-## Errors, operacions i verificació
+## Errors i operacions
 
 La primera conversa queda bloquejada fins que una revisió activa completa conté
 una font. Els estats són `pending`, `indexing`, `available`, `stale` i
 `error`; el refresc manual permet reintentar. Un error mai no substitueix una
 revisió completa.
 
-La cancel·lació és cooperativa i durable: el worker comprova l'estat abans de
+La cancel·lació és cooperativa: la cua passa a l'estat durable `cancelled` i el
+worker comprova l'estat abans de
 cada Recurs i abans de l'activació atòmica. La transacció en curs es desfà i
 l'última revisió completa continua disponible; si es cancel·la la primera
 ingestió, la conversa resta bloquejada fins que un refresc acabi correctament.
 
 El repositori SQLite i la cua durable romanen sota `LOCAL_DATA`, mai dins d'un
-Vault compartit. Els mateixos camins funcionen en desplegaments natius i Docker.
+Vault compartit. El codi del backend es recarrega en desenvolupament natiu,
+però canviar dependències requereix actualitzar l'entorn fixat pel lock i
+reiniciar el procés del backend. Només cal reiniciar el seu LaunchAgent si
+s'utilitza aquesta configuració opcional de macOS. Els mateixos camins derivats
+de la configuració funcionen en desplegaments natius i Docker.
+
+## Límits de la verificació
 
 Les proves cobreixen exclusió de camps no font, reutilització incremental,
-retirada immediata, citacions, ACL, checkpoints, eines de només lectura,
+retirada immediata, identitat de citacions, aïllament d'ACL, espais de noms de
+checkpoints, validació de revisions positives, eines de només lectura,
 filtres del selector i anàlisi durable. També cobreixen PDF, URL, OCR, fragments
 grans, recuperació de lloguers caducats, validació web condicional i una
 ingestió real de 300 Recursos. Vitest i Playwright verifiquen els permisos de
-només lectura, l'exclusió de Recursos buits, la conversa fonamentada, una cita
-navegable i el refresc automàtic. Els límits actuals són mil Recursos per petició, dues-centes
+només lectura, l'exclusió de Recursos buits, l'acció múltiple de la taula
+configurada, els selectors, la conversa fonamentada, una cita navegable i el
+refresc automàtic. La verificació de release també exigeix una arrencada neta
+del backend, el build del frontend i el flux de navegador d'escriptori i mòbil.
+
+Els límits actuals són mil Recursos per petició, dues-centes
 files de selector per pàgina, cinquanta resultats de recuperació i lots
 d'anàlisi acotats. La configuració i els índexs són locals a una instància i no
 se sincronitzen entre instal·lacions.

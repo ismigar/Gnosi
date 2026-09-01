@@ -1,3 +1,8 @@
+---
+name: zotero-schema
+description: Generate Gnosi's Python and TypeScript item-type constants from the repository-pinned Zotero schema, or perform an explicitly requested pinned schema refresh. Use for mapping or generated-constant maintenance, not runtime downloads.
+---
+
 # Skill: Zotero Schema
 
 The source of truth for Gnosi item types and fields, derived from Zotero's
@@ -18,9 +23,9 @@ runtime download, and writes:
 | Generated file | Consumer |
 |---|---|
 | `backend/services/zotero_schema.py` | `vault_routes.py`, replacing hard-coded `_RECURSOS_TYPE_TO_CSL` |
-| `frontend/src/components/Vault/zoteroSchema.js` | `cslEngine.js`, replacing hard-coded `ITEM_TYPE_MAP` |
+| `frontend/src/generated/zoteroSchema.ts` | Typed frontend consumers through `components/Vault/zoteroSchema.ts` |
 
-Both Python and JavaScript expose the same constants:
+Both Python and TypeScript expose the same constants:
 
 - `SCHEMA_VERSION`: current schema version, currently `42`.
 - `SCHEMA_SOURCE_SHA`: first 16 characters of the pinned file SHA-256.
@@ -54,7 +59,7 @@ After `refresh_schema.py`, always run `build_constants.py` and update the
 
 1. **Build idempotency:** rebuilding from the current schema exactly matches
    committed output.
-2. **Python/JavaScript consistency:** both outputs have identical
+2. **Python/TypeScript consistency:** both outputs have identical
    `ALL_ITEM_TYPES` and `ZOTERO_TO_CSL_TYPE` keys.
 3. **Coverage:** every current Vault `Item Type` resolves either directly
    through `ZOTERO_TO_CSL_TYPE` or through
@@ -81,9 +86,14 @@ frontmatter value fails test 3 and lists orphaned values.
   as `"Article de revista acadèmica"` rather than `"journalArticle"`.
   `LABEL_TO_ZOTERO_TYPE['ca-AD']` supports those persisted values without a
   frontmatter migration.
+- **Frontend output:** generate the large catalogue inside
+  `frontend/src/generated/` so source guardrails recognize it as generated.
+  Keep `components/Vault/zoteroSchema.ts` as a small stable re-export for
+  existing consumers. Never regenerate production JavaScript.
 
 ## Learning history
 
 | Date | Learning | Resolution |
 |---|---|---|
 | 2026-05-28 | Python and JavaScript maintained separate hard-coded type maps, so new Zotero types drifted. | Added this skill as a single pinned schema source with deterministic Python and JavaScript generation. |
+| 2026-08-29 | The generated frontend catalogue remained a 517-line production JavaScript file during the strict TypeScript migration. | Moved deterministic output to `frontend/src/generated/zoteroSchema.ts`, added explicit readonly types and retained a small stable TypeScript facade. |

@@ -1,42 +1,61 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-08-31
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
   - backend/scheduler/contracts.py
   - backend/scheduler/notifications.py
+  - backend/platform/notifications.py
   - backend/scheduler/task_handlers.py
+  - backend/scheduler/literature_tasks.py
   - backend/models/scheduler.py
   - backend/services/durable_job_worker.py
   - backend/services/literature_service.py
-  - frontend/src/pages/SchedulerPage.jsx
+  - frontend/src/features/automations
+  - frontend/src/features/control-center
   - pipeline/skills/scheduler
 tests:
+  - frontend/src/features/automations/SchedulerPage.test.tsx
+  - frontend/src/features/control-center/dashboard/Dashboard.test.tsx
   - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
+  - backend/tests/test_scheduler_maintenance_scope.py
   - backend/tests/test_connection_scheduler_alignment.py
+  - backend/tests/test_platform_notifications.py
   - backend/tests/test_planning_scheduler.py
   - backend/tests/test_literature_service.py
+  - backend/tests/test_scheduler_literature_tasks.py
+  - backend/tests/test_durable_job_worker.py
   - tests/e2e/tests/e2e/automation-scout.spec.ts
 ---
+# Automatització i planificació
 
-# automatització i planificació
+## Responsabilitat
 
-## Reversió
+El planificador executa les tasques configurades recurrents o d'una sola execució,
+conserva l'historial i exposa
+l'estat operatiu de la sincronització, publicació, ingestió, manteniment i
+actualització de la planificació.
 
-El planificador executa tasques recurrents i úniques, registres historial, exposen les tasques operatives, i les coordenades de domini, com ara la sincronització, la publicació, la ingestió, el manteniment i la planificació de refresc.
+La funcionalitat d'automatitzacions conté la pantalla del planificador i la
+conversió d'intervals. El centre de control conté el tauler operatiu, l'historial,
+els membres i els diàlegs de directives. Les entrades de ruta es carreguen sota
+demanda i els adaptadors compartits preserven identificadors, unitats, permisos i
+payloads. Moure una pantalla no habilita tasques ni inicia treballs.
 
-Les metadades de tasca, l'estat d'execució persistent i la frontera opcional de
-notificacions estan tipats estrictament en mòduls dedicats. El gestor es manté
-per sota del guardrail de mida i valida els diccionaris de tasques heretats
-abans de construir tasques d'execució.
+Les metadades, l'estat persistent i la frontera opcional de notificacions tenen
+contractes tipats. El gestor valida les definicions heretades abans de construir
+tasques d'execució i es manté dins del límit de mida de codi.
 
 ## Model de tasca
 
-Una definició de tasca té una identitat estable, l' estat habilitat, la planificació, l' operació, la política d' execució i la política d' execució. Els registres de la història de la tasca comencen, la compleció, l' estat, el missatge i la durada. Els paràmetres de definició i la connexió s' alinearan abans d' executar per tant un treball no pot usar una integració eliminada o diferent.
+Cada definició té identitat estable, estat habilitat, planificació, operació,
+configuració i política d'execució. L'historial registra inici, finalització,
+estat, missatge i durada. Les definicions s'alineen amb les connexions abans
+d'executar-se per evitar utilitzar integracions eliminades o equivocades.
 
-## Flux d' execució
+## Flux d'execució
 
 ```mermaid
 sequenceDiagram
@@ -52,46 +71,105 @@ sequenceDiagram
     Manager->>History: Persist status, message, duration
 ```
 
-Les funcions de tasques han de ser impotents on es pot fer la repetició. Els guàrdies de gestió s' sobreposen d' instàncies d' acord amb la política de tasques i usen contexts de bases de dades o proveïdors. Un procés es torna a iniciar les planificacions des de la configuració persisteixda en lloc de confiança només en estat d' amamictor.
+Les operacions han de ser idempotents quan es puguin repetir. El gestor controla
+els solapaments segons la política de tasca i utilitza contextos nous de base de
+dades o proveïdor. Després d'un reinici, reconcilia la configuració persistent.
 
-El gestor conserva el cicle de vida del planificador, la persistència, el control
-de solapaments i l'historial. `task_handlers.py` conté la política de despatx i
-les tasques operatives grans, inclòs el manteniment acotat. Això permet tipar i
-reutilitzar l'execució sense acoblar-la al fil del planificador.
+L'arrencada nativa activa el planificador per defecte. Les proves deterministes
+i els diagnòstics amb dades locals poden establir `GNOSI_DISABLE_SCHEDULER=1`
+per comprovar API i interfície sense executar integracions pendents. Aquest
+interruptor no modifica la configuració desada.
 
-## Sincronització de l'Adecamic i les actualitzacions de revisió
+El gestor conserva el cicle de vida, la persistència, els solapaments i
+l'historial; `task_handlers.py` conté el despatx i les operacions grans,
+inclòs el manteniment acotat. Això permet reutilitzar l'execució amb tipatge
+estricte sense acoblar-la al cicle de vida del fil del planificador.
 
-`academic_repository_sync` és un treball durable, resuperable per als índexs locals OAI. El cursor, compta, error, estat de cancel· lació, i l' última sincronització correcta es persisteix fora del procés de sol· licitud. Un administrador s' inicia explícitament la primera collita, després que finalitzi, la planificació diària rep un seguiment del darrer punt de comprovació complet del repositori i s' aplica OAJes.
+Les notificacions passen per una frontera de plataforma independent del
+proveïdor. La persistència en base de dades i Markdown funciona a tots els hosts;
+les alertes natives de macOS s'intenten sense garantir-ne el lliurament.
+Els logs Markdown viuen sota
+`GNOSI_DATA_DIR`, no dins d'un Vault de OneDrive, Google Drive, Nextcloud,
+Dropbox o altres proveïdors. La fallada d'un canal no bloqueja els altres.
+L'antic camí de l'habilitat de notificacions és una façana de compatibilitat.
 
-Les estratègies de revisió desades també poden planificar- se `academic_review_update` Tasques. Una execució de repetició fa la funcionalitat de l' estratègia versió, registre exacta d' activitat per font i errors parcials, i només registra els candidats que determinen la identitat determinanta és nova per a aquesta revisió. La següent execució es persisteix amb la configuració de revisió enlloc de tenir només per el procés del planificador.
+## Sincronització acadèmica i actualitzacions de revisions
 
-## Automulació
+`academic_repository_sync` és un treball persistent i reprenable per als índexs
+OAI locals. Conserva cursor, recomptes, error, cancel·lació i darrera sincronització
+correcta fora de la petició. Un administrador inicia la primera recol·lecció;
+després, la tasca incremental diària continua des del darrer punt complet i
+aplica les marques d'eliminació OAI.
 
-Les regles d' automulació combinades, les condicions i accions. Les fórmules de camp derivats i les ràfiques són una avaluació determinant, no l' execució de codi arbitrari. Les accions externes o destructives usen les mateixes accions d' autorització i límits de confirmació que són accions interactius.
+Les estratègies desades poden programar `academic_review_update`. Cada execució
+reprodueix l'estratègia versionada, registra activitat i errors parcials per font
+i afegeix només candidats amb una identitat nova per a aquella revisió. La
+propera execució es desa amb la configuració de la revisió.
 
-## Treball de qualitat autònoma
+La cua exigeix una arrel `LOCAL_DATA` explícita i falla abans d'obrir SQLite si
+falta configuració. Els adaptadors validen els payloads abans de despatxar-los i
+rebutgen registres sense una funció executable. La sincronització de contactes
+passa explícitament base de dades, workspace i integració per evitar confondre
+els arguments.
 
-Els cicles de manteniment i qualitat estan lligats a tasques operatives. Poden diagnosticar, generar informes, aplicar canvis en el seu àmbit declarat. No guanyen un sistema de fitxers més ampli, secret, Git, o publicar l' autoritat perquè estan programats.
+Els treballs acadèmics resolen el Vault actiu abans d'accedir a literatura. Sense
+Vault, registren una omissió estructurada considerada correcta, amb zero treballs, en lloc de construir
+`Path(None)`. La recuperació de la cua del Reader comprova que el document del
+treball del proveïdor encara existeix abans de reclamar-lo; els registres orfes
+es rebutgen una vegada i no creen fils que fallaran repetidament.
+
+## Automatitzacions del Vault
+
+Les regles combinen desencadenants, condicions i accions. Les fórmules i els
+rollups s'avaluen de manera determinista, no com a codi arbitrari. Les accions
+externes o destructives mantenen els mateixos límits d'autorització i confirmació
+que les accions interactives.
+
+## Treball autònom de qualitat
+
+Les tasques programades poden diagnosticar, generar informes o aplicar canvis
+dins del seu àmbit. La programació no amplia els permisos sobre fitxers, secrets,
+Git o publicacions.
+
+## Límit del manteniment per dispositiu
+
+`system_maintenance` buida la memòria cau de l'aplicació i trunca únicament el
+fitxer ordinari `logs/gnosi.log`, amb un sol enllaç físic, sota el
+`GNOSI_DATA_DIR` canònic, només si és el `LOG_FILE` configurat.
+Conserva l'inode perquè el logger continuï escrivint.
+Ni els directoris ni el fitxer poden ser enllaços simbòlics. Si el camí és invàlid
+o la plataforma no disposa d'operacions segures relatives a un directori, omet la
+neteja de disc.
+
+No neteja codi font, bytecode, logs configurats en altres ubicacions, bústies
+privades del workspace, bases de dades, secrets, documents del Vault ni carpetes
+sincronitzades. Els comptadors heretats de bústia, temporals i bytecode es
+conserven amb valor zero. Retirar checkouts antics és una operació separada i
+revisada del workspace, no una tasca programada de l'aplicació.
 
 ## Generació diària d'àudio
 
-El servei de podcast del Reader utilitza selecció tipada de model i idioma,
-treballadors TTS acotats per frase i substitució atòmica de l'MP3. La generació
-en segon pla captura explícitament el Vault seleccionat i no s'inicia si no n'hi
-ha cap d'actiu, de manera que la sortida no pot acabar en un camí local ambigu.
+El servei de pòdcast del Reader selecciona model i idioma amb contractes tipats,
+limita els treballadors TTS per frase i substitueix l'MP3 atòmicament. Captura el
+Vault seleccionat abans de començar i rebutja l'arrencada sense Vault actiu,
+per evitar escriure la sortida en una ruta local ambigua.
 
 ## Invariants
 
-- Les tasques deshabilitades o no vàlides no s' executen.
-- Una tasca que s' executa té un resultat d' historial durable.
-- Les reintents no duplicades efectes externs sense una estratègia d' idiempotència.
-- S' estan eliminant o reassignant les actualitzacions dependents de la connexió.
-- La planificació utilitza la semàntica horària explícita.
-- Les excepcions de treball estan aïllats del bucle del planificador.
-- El treball de fons no torna a usar sessions de base de dades de sol· licitudscopades.
-- Una collita cancel· lar l' OAI manté el seu cursor dur i es pot continuar.
-- Les actualitzacions de revisió planificades són idipotents per al mateix treball desproporcionat.
+- Les tasques deshabilitades o invàlides no s'executen.
+- Cada execució té un resultat persistent a l'historial.
+- Els reintents no dupliquen efectes externs sense una estratègia d'idempotència.
+- Eliminar o reassignar connexions actualitza les planificacions dependents.
+- Les zones horàries tenen semàntica explícita.
+- Les excepcions no interrompen el bucle del planificador.
+- Els treballs no reutilitzen sessions de base de dades d'una petició.
+- Cancel·lar una recol·lecció OAI conserva el cursor per reprendre-la.
+- Repetir una revisió no duplica resultats ja identificats.
 
-## Concentrat de verificació
+## Verificació
 
-Comprova la resistència de la configuració, l' alineació de la connexió, la planificació, la història de la tasca, la prevenció de la brillantor, les zones horàries, la reempaquetació i la cancel· lació, les glepes i la detecció de noves, i el escolta automàtic de la Playwright. Una integració processada hauria d' executar- se per acabar amb una seguretat de resolució o un compte de proves.
+Comproveu configuració, connexions, intervals, historial, solapaments, zones
+horàries, reintents, represa i cancel·lació OAI, marques d'eliminació, detecció de
+nous resultats i confinament del manteniment. Executeu també les proves
+d'automatització de Playwright i una integració representativa de principi a fi
+amb dades sintètiques o un compte de proves.

@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 from backend.domains.llm_wiki import legacy_ports
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_record
+from backend.utils.open_values import get_value
 from backend.utils.safe_io import safe_write_json
 
 _LOCK = threading.RLock()
@@ -50,8 +53,8 @@ def page_state_path(page_id: str) -> Path:
     return synced_root() / "pages" / f"{_safe_component(page_id)}.json"
 
 
-def _legacy_page_state(metadata: Optional[dict[str, Any]]) -> dict[str, Any]:
-    source = metadata if isinstance(metadata, dict) else {}
+def _legacy_page_state(metadata: object) -> dict[str, object]:
+    source = metadata if is_record(metadata) else {}
     state = {
         str(key): deepcopy(value)
         for key, value in source.items()
@@ -83,7 +86,7 @@ def _read_page_state(path: Path) -> dict[str, Any]:
 
 def load_page_state(
     page_id: str,
-    legacy_metadata: Optional[dict[str, Any]] = None,
+    legacy_metadata: object = None,
 ) -> dict[str, Any]:
     """Load managed metadata, falling back to legacy Markdown frontmatter."""
     try:
@@ -94,29 +97,29 @@ def load_page_state(
 
 
 def merge_page_metadata(
-    metadata: Optional[dict[str, Any]],
+    metadata: object,
     page_id: str = "",
-) -> dict[str, Any]:
+) -> PageMetadata:
     """Overlay synchronized managed state onto portable page metadata."""
-    merged = deepcopy(metadata) if isinstance(metadata, dict) else {}
+    merged = deepcopy(metadata) if is_record(metadata) else {}
     resolved_id = str(page_id or merged.get("id") or "")
     if resolved_id:
         merged.update(load_page_state(resolved_id, merged))
     return merged
 
 
-def page_metadata(page: Any) -> dict[str, Any]:
+def page_metadata(page: object) -> PageMetadata:
     """Return one page's visible metadata plus its managed sidecar state."""
-    raw = (
-        page.get("metadata") if isinstance(page, dict) else getattr(page, "metadata", None)
+    raw: object = (
+        page.get("metadata") if is_record(page) else getattr(page, "metadata", None)
     ) or {}
-    page_id = (page.get("id") if isinstance(page, dict) else getattr(page, "id", "")) or raw.get(
-        "id"
+    page_id = (page.get("id") if is_record(page) else getattr(page, "id", "")) or get_value(
+        raw, "id"
     )
     return merge_page_metadata(raw, str(page_id or ""))
 
 
-def prepare_managed_markdown(metadata: dict[str, Any]) -> dict[str, Any]:
+def prepare_managed_markdown(metadata: PageMetadata) -> PageMetadata:
     """Persist managed state and return portable Markdown frontmatter.
 
     The sidecar is written before the caller rewrites the Markdown file. A

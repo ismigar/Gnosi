@@ -13,16 +13,16 @@ tests:
 
 # Documentation technique Gnosi
 
-Ce portail explique Gnosi de l'intention du produit à la mise en oeuvre au niveau de la source. Il est écrit pour les ingénieurs qui doivent exploiter, examiner, étendre ou vérifier le système sans dépendre de l'historique oral.
+Ce portail présente Gnosi, de l'intention du produit à son implémentation dans le code source. Il s'adresse aux ingénieurs qui doivent exploiter, examiner, étendre ou auditer le système sans dépendre de connaissances transmises oralement.
 
 ## Qu'est-ce que Gnosi
 
-Gnosi est un espace de travail local et autonome. Les fichiers de marquage dans un coffre-fort contrôlé par l'utilisateur sont la source durable de vérité pour les notes et les connaissances structurées. Un frontend React et le backend FastAPI ajoutent l'édition, les vues de type base de données, la navigation graphique, les références et la lecture, les communications, l'automatisation, le travail assisté par l'IA, les intégrations et les commandes multiutilisateurs optionnelles.
+Gnosi est un espace de connaissances auto-hébergeable qui privilégie le stockage local. Les fichiers Markdown d'un vault contrôlé par l'utilisateur constituent la source de vérité durable des notes et des connaissances structurées. Un frontend React et un backend FastAPI ajoutent l'édition, les vues de type base de données, la navigation dans le graphe, les références et la lecture, les communications, l'automatisation, le travail assisté par l'IA, les intégrations et les contrôles multiutilisateurs facultatifs.
 
-Le système supporte trois surfaces de livraison:
+Le système propose trois modes de distribution :
 
-- Développement et exploitation des autochtones : uvivirne sur le port `5002` et de la `5173`.
-- Auto-hébergement de Docker : backend, frontend et serveur de traduction Zotero.
+- Développement et exploitation natifs : uvicorn sur le port `5002` et Vite sur `5173`.
+- Auto-hébergement avec Docker : backend, frontend et translation-server de Zotero.
 - Paquets de bureau Electron : le frontend plus un backend local géré.
 
 ## Comment lire ce portail
@@ -31,32 +31,32 @@ Le système supporte trois surfaces de livraison:
 flowchart LR
     A["Objet du produit"] --> B["Architecture du système"]
     B --> C["Guide du domaine"]
-    C --> D["Génération de catalogues d'API et de modules"]
-    D --> E["Source et essais"]
+    C --> D["Catalogues générés d'API et de modules"]
+    D --> E["Code source et tests"]
     C --> F["Opérations et sécurité"]
 ```
 
-Commencer par [Objet et portée](product/purpose-and-scope.md), puis lire le [contexte du système](architecture/system-context.md). Sélectionnez un guide de domaine pour la capacité que vous changez. Les catalogues générés fournissent une navigation exhaustive vers les itinéraires, modules, noms d'environnement, tests et compétences.
+Commencez par [l'objet et la portée](product/purpose-and-scope.md), puis lisez le [contexte du système](architecture/system-context.md). Sélectionnez le guide du domaine correspondant à la capacité que vous modifiez. Les catalogues générés permettent de parcourir les routes, modules, noms de variables d'environnement, tests et compétences.
 
 ## Modèle de preuve
 
-La documentation utilise cette préséance lorsque les sources ne sont pas d'accord :
+Lorsque les sources divergent, la documentation applique cet ordre de priorité :
 
-1. Les schémas de source et d'exécution exécutables.
+1. Code source exécutable et schémas d'exécution.
 2. Tests démontrant un comportement observable.
 3. Définitions actuelles de déploiement et de configuration.
 4. Directives actives en matière d'ingénierie.
-5. Git histoire pour la motivation et la chronologie.
+5. Historique Git pour les motivations et la chronologie.
 
-Les pages examinées expliquent les responsabilités et les décisions. Les pages générées décrivent ce qui est présent statiquement.
+Les pages révisées expliquent les responsabilités et les décisions. Les pages générées décrivent ce qui est présent statiquement. Ni les unes ni les autres ne remplacent l'exécution des tests et des parcours pertinents.
 
-## Indice de mise en œuvre actuel
+## Index de l'implémentation actuelle
 
-- [Inventaire des dépôts](generated/repository-inventory.md)
+- [Inventaire du dépôt](generated/repository-inventory.md)
 - [Opérations FastAPI](generated/api-catalog.md)
-- [Modules de gestion de l'arrière-pays](generated/backend-modules.md)
-- [Itinéraires et composants frontaliers](generated/frontend-catalog.md)
-- [Tableaux et colonnes relatifs](generated/data-model.md)
+- [Modules du backend](generated/backend-modules.md)
+- [Routes et composants du frontend](generated/frontend-catalog.md)
+- [Tables et colonnes relationnelles](generated/data-model.md)
 - [Noms de configuration et consommateurs](generated/configuration.md)
 - [Fichiers de test](generated/tests.md)
 - [Compétences en cours d'exécution](generated/skills.md)
@@ -64,4 +64,4 @@ Les pages examinées expliquent les responsabilités et les décisions. Les page
 
 ## Règle de modification
 
-Un changement est incomplet lorsqu'il modifie un contrat visible externe, une limite architecturale, un invariant, une clé de configuration, une procédure opérationnelle ou un mode de défaillance sans mettre à jour le guide examiné et régénérer les catalogues de référence.
+Un changement est incomplet lorsqu'il modifie un contrat visible de l'extérieur, une frontière architecturale, un invariant, une clé de configuration, une procédure opérationnelle ou un mode de défaillance sans actualiser le guide révisé correspondant et régénérer les catalogues de référence.

@@ -1,55 +1,28 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+from typing import TYPE_CHECKING
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-
-
-def _get_comments_path() -> _legacy.Path:
-    return _legacy.comments_repository.comments_path(_legacy.get_p)
-
-
-def _load_comments() -> dict[_LegacyAny, _LegacyAny]:
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny],
-        _legacy.comments_repository.load_page_comments(_get_comments_path),
-    )
-
-
-def _save_comments(data: dict[_LegacyAny, _LegacyAny]) -> None:
-    _legacy.comments_repository.save_page_comments(
-        _get_comments_path, _legacy.safe_write_json, data
-    )
-
-
-_COMMENTS_DEPENDENCIES = _legacy.comments_api.CommentDependencies(
-    resolve_page_loader=lambda: _legacy._load_comments,
-    resolve_page_saver=lambda: _legacy._save_comments,
-    resolve_inline_loader=lambda: _legacy._load_inline_comments,
-    resolve_inline_path=lambda: _legacy._inline_comments_path,
-    resolve_json_writer=lambda: _legacy.safe_write_json,
+from backend.domains.configuration.plugin_state import PluginState
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import RecordReader
+from backend.domains.vault.comments import composition as _comment_composition
+from backend.domains.vault.comments.api import CommentDependencies as _typed_CommentDependencies
+from backend.domains.vault.comments.composition import (
+    _get_comments_path as _get_comments_path,
+    _load_comments as _load_comments,
+    _save_comments as _save_comments,
 )
+
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
+
+
+_COMMENTS_DEPENDENCIES: _typed_CommentDependencies = _comment_composition.build_dependencies()
 list_page_comments, add_page_comment, update_page_comment, delete_page_comment = (
-    _legacy.comments_api.register_page_comment_routes(
-        _legacy.router,
-        get_dependencies=[_legacy.Depends(_legacy.require_plugins("page-comments"))],
-        post_dependencies=[
-            _legacy.Depends(_legacy.require_role("editor")),
-            _legacy.Depends(_legacy.require_plugins("page-comments")),
-        ],
-        patch_dependencies=[
-            _legacy.Depends(_legacy.require_role("editor")),
-            _legacy.Depends(_legacy.require_plugins("page-comments")),
-        ],
-        delete_dependencies=[
-            _legacy.Depends(_legacy.require_role("editor")),
-            _legacy.Depends(_legacy.require_plugins("page-comments")),
-        ],
-        workspace_context_dependency=_legacy.get_workspace_context,
-        dependencies=_COMMENTS_DEPENDENCIES,
-    )
+    _comment_composition.register_page_comments(_COMMENTS_DEPENDENCIES)
 )
 from backend.domains.configuration import llm_wiki as llm_wiki_configuration
 from backend.domains.configuration import llm_wiki_records, llm_wiki_schema, plugin_state
@@ -73,23 +46,23 @@ _plugins_lock = plugin_state.store().lock
 _plugins_mutation_lock = plugin_state.store().mutation_lock
 
 
-def _load_plugins_state() -> dict[str, _LegacyAny]:
+def _load_plugins_state() -> PluginState:
     return plugin_state.store().load()
 
 
-def _save_plugins_state(state: dict[str, _LegacyAny]) -> dict[str, _LegacyAny]:
+def _save_plugins_state(state: PluginState) -> PluginState:
     return plugin_state.store().save(state)
 
 
-def _llm_wiki_enabled(state: dict[str, _LegacyAny]) -> bool:
+def _llm_wiki_enabled(state: PluginState) -> bool:
     return plugins_api.llm_wiki_enabled(state)
 
 
-def _reconcile_plugin_ai_contributions() -> dict[str, _LegacyAny]:
+def _reconcile_plugin_ai_contributions() -> PluginState:
     return plugins_api.reconcile_plugin_ai_contributions()
 
 
-async def _refresh_plugin_runtime(request: _legacy.Request, state: dict[str, _LegacyAny]) -> None:
+async def _refresh_plugin_runtime(request: _legacy.Request, state: PluginState) -> None:
     await plugin_lifecycle.refresh_plugin_runtime(request, state, _legacy.log)
 
 
@@ -107,7 +80,7 @@ def _plugin_lifecycle_dependencies() -> plugin_lifecycle.PluginLifecycleDependen
 
 async def _change_plugin_lifecycle(
     plugin_id: str, payload: plugin_models.PluginLifecycleRequest, request: _legacy.Request
-) -> dict[str, _LegacyAny]:
+) -> PluginState:
     return await plugin_lifecycle.change_plugin_lifecycle(
         plugin_id, payload, request, _plugin_lifecycle_dependencies()
     )
@@ -117,7 +90,7 @@ def _configured_summary_model() -> tuple[str, str]:
     return plugins_api.configured_summary_model()
 
 
-def _plugin_ai_configuration() -> dict[str, _LegacyAny]:
+def _plugin_ai_configuration() -> PluginState:
     return dict(_legacy.load_params(strict_env=False).get("ai", {}) or {})
 
 
@@ -185,7 +158,7 @@ plugins_api.register_routes(
 )
 
 
-def get_table_id(metadata: dict[_LegacyAny, _LegacyAny] | None) -> str | None:
+def get_table_id(metadata: RecordReader | None) -> str | None:
     """Returns the table_id of a record, looking at both alias keys.
 
     The codebase has historically written both `database_table_id` (newer,
@@ -199,7 +172,7 @@ def get_table_id(metadata: dict[_LegacyAny, _LegacyAny] | None) -> str | None:
     return str(val) if val else None
 
 
-def _canonicalize_id(page_id: _LegacyAny) -> str:
+def _canonicalize_id(page_id: object) -> str:
     """Returns the canonical form of a UUID-ish id for comparisons.
 
     Notion exports IDs as 32-char no-dash hex (`df3614865ff34a1490055d9b7b456492`).
@@ -329,4 +302,4 @@ def _build_preview_excerpt(body: str, max_chars: int = 320) -> str:
         if last_space > max_chars * 0.7:
             cut = cut[:last_space]
         excerpt = cut.rstrip(".,;:") + "…"
-    return _strict_cast(str, excerpt)
+    return excerpt

@@ -6,6 +6,8 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, cast
 
+from backend.domains.vault.pages.foundation_values import PageMetadata
+
 
 def path_for(key: str) -> Path:
     """Resolve one historical Vault path through its late-bound facade seam."""
@@ -39,13 +41,10 @@ def unique_filepath(directory: Path, title: str, suffix: str) -> Path:
     return resolve(directory, title, suffix)
 
 
-def save_page(path: Path, metadata: dict[str, Any], body: str) -> None:
+def save_page(path: Path, metadata: PageMetadata, body: str) -> None:
     from backend.api import vault_routes
 
-    save = cast(
-        Callable[[Path, dict[str, Any], str], None],
-        vault_routes.save_page_md,
-    )
+    save = vault_routes.save_page_md
     save(path, metadata, body)
 
 
@@ -56,28 +55,25 @@ def register_page(path: Path) -> None:
     register(path)
 
 
-def parse_frontmatter(raw: str, path: Path) -> tuple[dict[str, Any], str]:
+def parse_frontmatter(raw: str, path: Path) -> tuple[PageMetadata, str]:
     from backend.api import vault_routes
 
-    parse = cast(
-        Callable[[str, Path], tuple[dict[str, Any], str]],
-        vault_routes.parse_frontmatter,
-    )
+    parse = vault_routes.parse_frontmatter
     return parse(raw, path)
 
 
-def table_pages(table_id: str) -> list[Any]:
+def table_pages(table_id: object) -> list[Any]:
     from backend.api import vault_routes
 
-    get_pages = cast(Callable[[str], Iterable[Any]], vault_routes._get_pages_for_table)
+    get_pages = cast(Callable[[object], Iterable[Any]], vault_routes._get_pages_for_table)
     return list(get_pages(table_id) or [])
 
 
-def table_by_id(table_id: str) -> dict[str, Any] | None:
+def table_by_id(table_id: object) -> dict[str, Any] | None:
     from backend.api import vault_routes
 
     get_table = cast(
-        Callable[[str], dict[str, Any] | None],
+        Callable[[object], dict[str, Any] | None],
         vault_routes._table_by_id,
     )
     return get_table(table_id)

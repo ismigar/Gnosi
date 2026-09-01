@@ -1,0 +1,62 @@
+@media (max-width: 1023px) {
+  .gnosi-app-content {
+    width: 100%;
+  }
+
+  .vault-shell__sidebar,
+  .vault-shell__sidebar.is-open {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: calc(var(--z-overlay) + 1);
+    width: min(82vw, 300px);
+    border-inline-end-width: 1px;
+    box-shadow: var(--shadow-raised);
+    transform: translateX(-105%);
+  }
+
+  [dir="rtl"] .vault-shell__sidebar,
+  [dir="rtl"] .vault-shell__sidebar.is-open {
+    transform: translateX(105%);
+  }
+
+  .vault-shell__sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .vault-shell__sidebar-content {
+    height: 100%;
+    width: min(82vw, 300px);
+  }
+
+  .vault-shell__drawer-close {
+    position: absolute;
+    inset-block-start: 0.5rem;
+    inset-inline-end: 0.5rem;
+    z-index: 2;
+    width: var(--control-height-touch);
+    height: var(--control-height-touch);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+  }
+
+  .vault-sidebar__identity {
+    min-height: 3.75rem;
+    margin-inline: 0 !important;
+    padding-block-start: 0.75rem !important;
+    padding-inline-start: 3.75rem !important;
+    padding-inline-end: 3.75rem !important;
+  }
+
+  .vault-shell__backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-overlay);
+    display: block;
+    border: 0;
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(2px);
+  }
+
+  .vault-shell__header { min-height: 48px; }
+}

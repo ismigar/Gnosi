@@ -1,0 +1,287 @@
+.bn-editor {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    background: transparent !important;
+    /* BlockNote/Mantine uses #3F3F3F by default (gray). We force
+       the text color to the theme's primary token (--text-primary)
+       so the content shows as black in light mode and
+       contrasted white in dark mode. Applied with !important
+       because the Mantine theme's cascade is very specific. */
+    color: var(--text-primary) !important;
+}
+.bn-editor *,
+.bn-editor [data-content-type] {
+    /* We inherit the color in all blocks (paragraph, heading,
+       list, table cells, etc.). We exclude nodes with their own
+       color managed by BlockNote (text colors, link colors). */
+    color: inherit;
+}
+.bn-container,
+.bn-mantine,
+.bn-root {
+    background: transparent !important;
+}
+
+/* Separate prose paragraphs by more than one text line. The
+   paragraph block type excludes headings and list items. */
+.bn-editor .bn-block-content[data-content-type="paragraph"] {
+    margin-bottom: 26.5px !important;
+}
+
+.bn-editor [data-content-type="heading"] h1,
+.bn-editor .bn-block-content[data-content-type="heading"] [data-level="1"] h1,
+.bn-editor h1.bn-inline-content {
+    font-size: 1.75rem !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
+    margin: 0.6em 0 0.3em !important;
+}
+.bn-editor [data-content-type="heading"] h2,
+.bn-editor .bn-block-content[data-content-type="heading"] [data-level="2"] h2,
+.bn-editor h2.bn-inline-content {
+    font-size: 1.4rem !important;
+    line-height: 1.3 !important;
+    font-weight: 600 !important;
+    margin: 0.5em 0 0.25em !important;
+}
+.bn-editor [data-content-type="heading"] h3,
+.bn-editor .bn-block-content[data-content-type="heading"] [data-level="3"] h3,
+.bn-editor h3.bn-inline-content {
+    font-size: 1.15rem !important;
+    line-height: 1.4 !important;
+    font-weight: 600 !important;
+    margin: 0.4em 0 0.2em !important;
+}
+
+/* An h1 immediately followed by an h2 (subtitle) or by an
+   embedded view (gnosi_view) shouldn't leave so much space
+   below: the subtitle/content is part of the same group. The
+   heading's level is given by the tag (> h1 / > h2), not any
+   data-level; the view hangs under a .react-renderer wrapper
+   (that's why it's reached via descendant selector). The next
+   sibling can be a regular .bn-block-outer or a
+   .bn-block-column-list (h2s inside columns), which is why the
+   combinator is "+ *". */
+.bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1):has(+ * .bn-block-content[data-content-type="heading"] > h2) > .bn-block > .bn-block-content[data-content-type="heading"] > h1,
+.bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1):has(+ * .bn-block-content[data-content-type="gnosi_view"]) > .bn-block > .bn-block-content[data-content-type="heading"] > h1 {
+    margin-bottom: 0 !important;
+}
+/* When the next block is an embedded view, also reduce the top
+   margin of its container (my-4 = 1rem). */
+.bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1) + * .bn-block-content[data-content-type="gnosi_view"] > div {
+    margin-top: 0.25rem !important;
+}
+
+.gnosi-view-embed-container {
+    border: 1px solid transparent;
+    padding: 8px;
+    border-radius: 12px;
+    transition: all 0.2s ease-in-out;
+}
+.bn-editor .bn-block:has(> .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode) .gnosi-view-embed-container,
+.bn-editor .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode .gnosi-view-embed-container {
+    border-color: var(--gnosi-primary) !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+    background-color: var(--bg-secondary)/5;
+}
+
+/* BlockNote's core stylesheet paints block backgrounds on the
+   full .bn-block. Keep that behavior instead of replacing it
+   with an inline text chip, so Markdown such as
+   <div style="background-color: pink">…</div> fills the block. */
+/* Colored heading blocks should keep the full width without
+   carrying the editor's 18px heading offset into the background. */
+.bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) > .bn-block-content[data-content-type="heading"] {
+    padding-block: 2px !important;
+}
+.bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) > .bn-block-content[data-content-type="heading"] :is(h1, h2, h3, h4, h5, h6) {
+    margin-block: 0.1em !important;
+}
+
+/* Table headers use theme tokens so text and background keep
+   sufficient contrast in both light and dark modes. */
+.bn-editor [data-content-type="table"] th {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    font-weight: 700 !important;
+}
+.bn-editor [data-content-type="table"] th *,
+.bn-editor [data-content-type="table"] th .bn-inline-content,
+.bn-editor [data-content-type="table"] th p,
+.bn-editor [data-content-type="table"] th a,
+.bn-editor [data-content-type="table"] th span {
+    font-weight: 700 !important;
+}
+/* When a cell (header or normal) has an assigned color, paint it
+   directly on the cell and keep it bold if it's a <th>.
+   We also cancel the inline "highlight" to avoid a double background. */
+.bn-editor [data-content-type="table"] th[data-background-color="gray"],
+.bn-editor [data-content-type="table"] td[data-background-color="gray"] { background-color: #ebeced !important; }
+.bn-editor [data-content-type="table"] th[data-background-color="brown"],
+.bn-editor [data-content-type="table"] td[data-background-color="brown"] { background-color: #e9e5e3 !important; }
+.bn-editor [data-content-type="table"] th[data-background-color="red"],
+.bn-editor [data-content-type="table"] td[data-background-color="red"] { background-color: #fbe4e4 !important; }
+.bn-editor [data-content-type="table"] th[data-background-color="orange"],
+.bn-editor [data-content-type="table"] td[data-background-color="orange"] { background-color: #f6e9d9 !important; }
+.bn-editor [data-content-type="table"] th[data-background-color="yellow"],
+.bn-editor [data-content-type="table"] td[data-background-color="yellow"] { background-color: #fbf3db !important; }
+.bn-editor [data-content-type="table"] th[data-background-color="green"],
+.bn-editor [data-content-type="table"] td[data-background-color="green"] { background-color: #ddedea !important; }
+.bn-editor [data-content-type="table"] th[data-background-color="blue"],
+.bn-editor [data-content-type="table"] td[data-background-color="blue"] { background-color: #ddebf1 !important; }
+.bn-editor [data-content-type="table"] th[data-background-color="purple"],
+.bn-editor [data-content-type="table"] td[data-background-color="purple"] { background-color: #eae4f2 !important; }
+.bn-editor [data-content-type="table"] th[data-background-color="pink"],
+.bn-editor [data-content-type="table"] td[data-background-color="pink"] { background-color: #f4dfeb !important; }
+.bn-editor [data-content-type="table"] th[data-background-color] .bn-inline-content,
+.bn-editor [data-content-type="table"] td[data-background-color] .bn-inline-content {
+    background-color: transparent !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+}
+
+[data-content-type="columnList"] {
+    gap: 1.5rem !important;
+}
+[data-content-type="column"] + [data-content-type="column"] {
+    border-left: 1px dashed rgba(var(--gnosi-primary-rgb), 0.1);
+    padding-left: 1.5rem !important;
+}
+
+/* Callouts are structural containers: the marker block and its
+   complete child block group share one visual shell. Children
+   keep their native BlockNote behavior, including columns,
+   files, embeds, tables, and further nested callouts. */
+.bn-editor .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]),
+.bn-container .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) {
+    position: relative;
+    margin-block: 0.75rem;
+    border: 1px solid var(--border-primary);
+    border-inline-start: 4px solid var(--gnosi-primary);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem 0.7rem 2.35rem;
+    background: var(--bg-secondary);
+}
+.bn-editor .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .react-renderer,
+.bn-container .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .react-renderer {
+    position: absolute;
+    inset-block-start: 0.9rem;
+    inset-inline-start: 0.75rem;
+    width: 1.25rem;
+    min-height: 1.25rem;
+}
+.bn-editor .bn-block-content[data-content-type="alert"],
+.bn-container .bn-block-content[data-content-type="alert"] {
+    padding: 0 !important;
+    background: transparent !important;
+}
+.bn-alert {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gnosi-primary);
+}
+.bn-editor .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .bn-block-group,
+.bn-container .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .bn-block-group {
+    margin-inline-start: 0 !important;
+}
+.bn-editor .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .bn-block-group > .bn-block-outer:last-child,
+.bn-container .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .bn-block-group > .bn-block-outer:last-child {
+    margin-bottom: 0 !important;
+}
+
+.bn-editor .bn-block-group .bn-block-group > .bn-block-outer::before,
+.bn-container .bn-block-group .bn-block-group > .bn-block-outer::before {
+    border-left: none !important;
+    background: none !important;
+}
+
+.bn-editor .bn-inline-content a,
+.bn-editor .bn-block-content a,
+.bn-container .bn-inline-content a,
+.bn-container .bn-block-content a {
+    font-weight: 600 !important;
+    text-decoration-line: underline !important;
+    text-decoration-thickness: 1.5px !important;
+    text-underline-offset: 2px !important;
+    transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+.bn-editor .bn-inline-content a:hover,
+.bn-editor .bn-block-content a:hover,
+.bn-container .bn-inline-content a:hover,
+.bn-container .bn-block-content a:hover {
+    text-decoration-thickness: 2px !important;
+}
+
+.bn-editor .bn-inline-content a[href^="/"],
+.bn-editor .bn-inline-content a[href^="#"],
+.bn-editor .bn-inline-content a[href*="localhost:5173"],
+.bn-editor .bn-inline-content a[href*="127.0.0.1:5173"],
+.bn-editor .bn-inline-content a[href*="gnosi-cite.local"],
+.bn-editor .bn-inline-content a[href*="/vault/page/"],
+.bn-editor .bn-inline-content a[href*="/knowledge/page/"],
+.bn-container .bn-inline-content a[href^="/"],
+.bn-container .bn-inline-content a[href^="#"],
+.bn-container .bn-inline-content a[href*="localhost:5173"],
+.bn-container .bn-inline-content a[href*="127.0.0.1:5173"],
+.bn-container .bn-inline-content a[href*="gnosi-cite.local"],
+.bn-container .bn-inline-content a[href*="/vault/page/"],
+.bn-container .bn-inline-content a[href*="/knowledge/page/"] {
+    color: var(--gnosi-primary) !important;
+    text-decoration-color: color-mix(in srgb, var(--gnosi-primary) 70%, transparent) !important;
+}
+
+.bn-editor .bn-inline-content a[href*="/vault/page/"],
+.bn-editor .bn-inline-content a[href*="/knowledge/page/"],
+.bn-editor .bn-inline-content a[href*="localhost:5173/vault/page/"],
+.bn-editor .bn-inline-content a[href*="127.0.0.1:5173/vault/page/"],
+.bn-container .bn-inline-content a[href*="/vault/page/"],
+.bn-container .bn-inline-content a[href*="/knowledge/page/"],
+.bn-container .bn-inline-content a[href*="localhost:5173/vault/page/"],
+.bn-container .bn-inline-content a[href*="127.0.0.1:5173/vault/page/"] {
+    color: #38bdf8 !important;
+    background: color-mix(in srgb, #38bdf8 14%, transparent) !important;
+    border-radius: 6px !important;
+    padding: 0 0.2em !important;
+    text-decoration-style: solid !important;
+    text-decoration-color: color-mix(in srgb, #38bdf8 75%, transparent) !important;
+}
+
+.bn-editor .bn-inline-content a[href*="localhost:4771"],
+.bn-container .bn-inline-content a[href*="localhost:4771"] {
+    color: #22c55e !important;
+    text-decoration-style: dashed !important;
+    text-decoration-color: color-mix(in srgb, #22c55e 70%, transparent) !important;
+}
+
+.bn-editor .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]):not([href*="gnosi-cite.local"]),
+.bn-container .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]):not([href*="gnosi-cite.local"]) {
+    color: #f59e0b !important;
+    text-decoration-style: wavy !important;
+    text-decoration-color: color-mix(in srgb, #f59e0b 70%, transparent) !important;
+}
+.bn-editor .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]):not([href*="gnosi-cite.local"])::after,
+.bn-container .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]):not([href*="gnosi-cite.local"])::after {
+    content: " ↗";
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+.bn-toggle summary::-webkit-details-marker { display: none; }
+
+/* Toggle highlighted while dragging a block over it: the drop
+   will nest the block inside instead of reordering it. The
+   whole row lights up — the header itself shrinks to the width
+   of its title, which is too small a hint to notice. */
+.bn-block-outer.gnosi-toggle-drop-target {
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 2px var(--color-accent, #8b5cf6);
+    background: color-mix(in srgb, var(--color-accent, #8b5cf6) 12%, transparent);
+}
+
+/* While nesting, ProseMirror's drop cursor would contradict the
+   highlight by announcing a sibling placement. */
+body.gnosi-toggle-nesting .prosemirror-dropcursor-block,
+body.gnosi-toggle-nesting .prosemirror-dropcursor-inline {
+    display: none !important;
+}

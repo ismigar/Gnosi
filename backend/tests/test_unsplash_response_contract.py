@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+import requests
 from fastapi.routing import APIRoute
 
 
@@ -43,7 +44,10 @@ def test_unsplash_handler_preserves_search_shape(
                 "results": [
                     {
                         "id": "photo-1",
-                        "urls": {"regular": "https://img.test/full", "small": "https://img.test/thumb"},
+                        "urls": {
+                            "regular": "https://img.test/full",
+                            "small": "https://img.test/thumb",
+                        },
                         "user": {
                             "name": "Ada",
                             "links": {"html": "https://unsplash.test/ada"},
@@ -53,7 +57,7 @@ def test_unsplash_handler_preserves_search_shape(
             }
 
     monkeypatch.setenv("UNSPLASH_ACCESS_KEY", "test-key")
-    monkeypatch.setattr(routes._legacy.requests, "get", lambda *_args, **_kwargs: FakeResponse())
+    monkeypatch.setattr(requests, "get", lambda *_args, **_kwargs: FakeResponse())
 
     result = asyncio.run(routes.unsplash_search("knowledge", page=2))
     expected = {

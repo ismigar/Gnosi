@@ -7,13 +7,15 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import BackgroundTasks, HTTPException
 
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.schemas.pages import PageSaveRequest
 
-Metadata = dict[str, Any]
+Metadata = PageMetadata
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ class PageFinder(Protocol):
 @dataclass(frozen=True)
 class SavePageDependencies:
     find_page: PageFinder
-    file_etag: Callable[[Path], str]
+    file_etag: Callable[[Path], str | None]
     get_page_write_lock: Callable[[str], Awaitable[asyncio.Lock]]
     prepare_metadata: Callable[[Metadata, Path | None], tuple[Metadata, Metadata | None]]
     locate_file: Callable[[str, str, Metadata, Path | None], Path]
@@ -43,16 +45,27 @@ class SavePageDependencies:
     write_with_version: Callable[[str, Path, Metadata, str], None]
     refresh_page_index: Callable[[Path, Metadata, str], None]
     invalidate_page_responses: Callable[[], None]
-    update_link_index: Callable[[], Callable[[Path], object]]
-    rewrite_wikilinks: Callable[[], Callable[[str, str, str], object]]
+    update_link_index: Callable[[], Callable[[Path], None]]
+    rewrite_wikilinks: Callable[[], Callable[[str, str, str], int]]
     get_table_id: Callable[[Metadata], str | None]
-    recompute_formulas: Callable[[], Callable[[str, str], object]]
+    recompute_formulas: Callable[[], Callable[[str, str], None]]
     sync_calendar: Callable[[Metadata, BackgroundTasks], None]
     propagate_translation: Callable[
         [],
-        Callable[[str, Metadata, Metadata, str, str], object],
+        Callable[[str, Metadata, Metadata, str, str], None],
     ]
     resolve_page_context: Callable[[Metadata, Path], tuple[str, str | None]]
+
+
+def _copy_request_metadata(request: PageSaveRequest) -> Metadata:
+    """Validate the one native copy without replacing its open dictionary.
+
+    Do not hoist this call before prepare_metadata's argument slot: copy()
+    can replace that dependency, and Python must capture the original first.
+    """
+    copied_metadata: object = request.metadata.copy()
+    assert is_record(copied_metadata)
+    return copied_metadata
 
 
 async def save_page(
@@ -93,7 +106,7 @@ async def save_page(
 
     async with await dependencies.get_page_write_lock(page_id):
         metadata, table = dependencies.prepare_metadata(
-            request.metadata.copy(),
+            _copy_request_metadata(request),
             file_path,
         )
         metadata["id"] = page_id

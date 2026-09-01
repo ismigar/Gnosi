@@ -7,6 +7,8 @@ source_paths:
   - backend/security/keychain_manager.py
   - backend/security/ai_credentials.py
   - backend/services/plugin_sandbox.py
+  - backend/services/vault_templates.py
+  - backend/services/marketplace_http.py
   - backend/agent/generated_tools/validator.py
   - backend/api/share_routes.py
 tests:
@@ -19,78 +21,114 @@ tests:
 
 # Model de confiança
 
-## Protegit dels actius
+## Actius protegits
 
-- Pàgina Vulta, adjunts, metadades internes, històries i escombraries.
-- Identitats d'usuari, accions, rols, subvencions de cambres, PAT téhes i accions.
-- Outh refresh fitxes, credencials de correu, claus de l'AI, claus de signatura i connectors
-secrets.
-- Base de dades local, índexs, punts de comprovació de l' agent, registres i accions planificades.
-- El sistema de fitxers i aplicacions d' escriptori de la màquina abasten les API de l' auxiliar.
-- comptes externs capaços d' enviar, publicar, esborrar o modificar
-Dades remotes.
+- Pàgines, adjunts, metadades internes, historials i paperera del vault.
+- Identitats, pertinences, rols, permisos de vault, hashes de PAT i comparticions.
+- Tokens de renovació OAuth, credencials de correu, claus d'IA, claus de
+  signatura i secrets dels connectors.
+- Bases de dades locals, índexs, punts de control d'agent, registres i accions programades.
+- Sistema de fitxers del host i aplicacions d'escriptori accessibles a través d'API auxiliars.
+- Comptes externs amb capacitat d'enviar, publicar, eliminar o modificar dades remotes.
 
 ## Límits de confiança
 
 ```mermaid
 flowchart TB
-    Browser["Navegador / renderitzador\ no fiable d' entrada"] --> API["Validació i autorització ràpidaAPI"]
-    API --> Vault["Arrel autoritzada Vault"]
-    API --> Local["Dades i secrets locals"]
-    API --> Helper["Visualitzador d'ajuda per al remot per al telescopi"]
+    Browser["Navegador / renderer\nentrades no fiables"] --> API["Validació i autorització FastAPI"]
+    API --> Vault["Arrel autoritzada del vault"]
+    API --> Local["Dades i secrets exclusivament locals"]
+    API --> Helper["Servei auxiliar del host amb àmbit delimitat"]
     API --> External["Adaptadors del proveïdor"]
-    Agent["Sortida del model\ no fiable de les instruccions"] --> Tools["Catàleg d' eines, validació, confirmació"]
+    Agent["Sortida del model\ninstruccions no fiables"] --> Tools["Catàleg d'eines, validació i confirmació"]
     Tools --> API
-    Plugin["Paquet de connectors\ no fiable fins validades"] --> Sandbox["Minoest, signatura, permisos, proves"]
+    Plugin["Paquet de connector\nno fiable fins que es valida"] --> Sandbox["Manifest, signatura, permisos i sandbox"]
     Sandbox --> API
 ```
 
-Entrada del navegador, la sortida de model, fitxers importats, HTML remot, respostes de proveïdor, paquets de connectors i descripcions de l' aplicació MCP no són de confiança. Un usuari no fa rutes, HTML, arguments d' eina, o identificadors de l' espai de treball segurs.
+Les entrades del navegador, la sortida del model, els fitxers importats, l'HTML
+remot, les respostes dels proveïdors, els paquets de connectors i les descripcions
+MCP no són de confiança. Iniciar sessió no fa segurs els camins, l'HTML, els
+arguments d'eines ni els identificadors d'espai de treball.
 
 ## Autenticació i autorització
 
-Les sessions JWT usen una galeta Htp Només, els mecanismes de suport als clients API. La seguretat secreta de la signatura es comprova en iniciar- se per a desplegaments. Les contrasenyes són resumides; el text pla mai es persisteix.
+Les sessions JWT utilitzen una galeta HttpOnly; els mecanismes bearer donen
+suport als clients API. La seguretat del secret de signatura es comprova en
+arrencar els desplegaments exposats. Les contrasenyes es desen com a hashes;
+el text en clar dels PAT no es desa mai.
 
-L' autorització combina una identitat efectiva, l' afiliació de l' espai de treball, el rol ordenat, la volta i l' operació. Les dependències de ruta fan que els requisits amples; els serveis repetien el contenidor i les comprovacions de propietat on el recurs determina l' àmbit.
+L'autorització combina la identitat efectiva, la pertinença a l'espai de
+treball, el rol ordenat, el permís de vault i l'operació. Les dependències de
+ruta imposen els requisits generals; els serveis repeteixen les comprovacions
+de confinament i propietat quan el mateix recurs determina l'àmbit.
 
-## Contenidor del sistema de fitxers
+## Confinament del sistema de fitxers
 
-Els camins es resolen abans de comparar i comprovar- se contra les arrels permeses. Pujades, importacions, peticions de lector, accés al fitxer generat, accés de fitxer obert, de cerca nativa i operacions de brossa usen límits dedicats. Symlinks, `..`, URL de fitxer, mapatges de camins en núvol, i la codificació del percentatge no ha d' escapar de l' arrel autoritzada.
+Les rutes es resolen abans de comparar-les i es comproven respecte de les arrels
+permeses. Les pujades, importacions, exportacions, peticions del lector, accessos
+a fitxers d'eines generades, obertura nativa, cerca i paperera utilitzen límits
+específics. Els enllaços simbòlics, `..`, els URL de fitxer, els mapatges de rutes
+del núvol i la codificació percentual no poden sortir de l'arrel autoritzada.
 
-L' eliminació de la recuperació és preferida. Es purga i elimina permanentment de la caixa forta són operacions explícites separades.
+Es prefereix l'eliminació recuperable. La purga permanent i l'eliminació física
+del vault són operacions explícites separades.
 
 ## Seguretat de la xarxa
 
-URL ingestió i una recuperació de context externa usa un guàrdia SSRF. Resolu les màquines, redireccionats, esquemes i mides de resposta es constren; els objectius privats o locals d' enllaç es rebutja a menys que una integració específica posseeix el punt final. L' HTML remot és saquititzada abans de renderitzar o convertir- se.
+La ingestió d'URL i la recuperació de context extern utilitzen una protecció
+contra SSRF. Es limiten els hosts resolts, les redireccions, els esquemes i les
+mides de resposta; es rebutgen destinacions privades o link-local, tret que una
+integració de confiança específica sigui responsable de l'endpoint. L'HTML
+remot es saneja abans de renderitzar-lo o convertir-lo.
 
-Els clients del proveïdor usen temps d' espera i reintents lligats. Les respostes d' error mostrades a les credencials del navegador exclouen i detalles rutes internes.
+Els clients dels proveïdors utilitzen temps d'espera i reintents acotats. Les
+respostes d'error mostrades al navegador exclouen credencials i rutes internes
+detallades.
 
-## Seguretat de l'AI i l' eina
+## Seguretat de la IA i les eines
 
-La sortida del model és de dades fins que s' accepta una eina validada en la provocació. L' origen d' eina, l' esquema, la compatibilitat de l' habilitat i la política de confirmació es catalogen. Genera eines que passen font i no poden accedir als valors d' entorn, les importacions arbitràries, els sistema de fitxers amb restriccions, escriu o la introspectició perillosa.
+La sortida del model és una dada fins que s'accepta una invocació d'eina validada.
+Es cataloguen l'origen de l'eina, l'esquema, l'efecte, la compatibilitat amb
+habilitats i la política de confirmació. Les eines generades passen una validació
+del codi i no poden accedir a valors d'entorn, imports arbitraris, escriptures
+sense restriccions al sistema de fitxers ni introspecció perillosa.
 
-Un registre de confirmació es vincula a arguments exactes i expiren. El sistema no reutilitza cap confirmació després de la mutació, desaparellat per l' usuari/session, o el temps d' espera.
+Un registre de confirmació vincula arguments exactes i caduca. El sistema no
+reutilitza una confirmació si hi ha canvis, si l'usuari o la sessió no coincideixen
+o si s'ha exhaurit el termini.
 
-## cicle de vida secreta
+## Cicle de vida dels secrets
 
-Els secrets es desen en el directori de secrets de l' OSM credential o local de dades. Les variables d' entorn estan implementades per a desplegament les botes i la migració heretata. Les respostes de l' API emetències de l' estat secret; catàlegs de documentació i consumidors però per omissió redacts.
+Els secrets es desen al magatzem de credencials del sistema operatiu o al
+directori de secrets de les dades locals. Les variables d'entorn s'admeten per
+a l'arrencada del desplegament i les migracions antigues. Les respostes API
+emmascaren l'estat dels secrets; la documentació en cataloga noms i consumidors,
+però oculta els valors predeterminats.
 
-Els secrets no han de viure a la G., la caixa de seguretat de Markdown, documentació generada, instantànies, registres, fixtures, o paquets de connectors compartits.
+Els secrets no han de ser a Git, al vault Markdown, a la documentació generada,
+a captures de pantalla, registres, dades de prova ni paquets de connectors compartits.
 
-## Controls d' amenaça primària
+## Controls principals d'amenaces
 
-| Amenaç | Controls primaris |
+| Amenaça | Controls principals |
 | --- | --- |
-| Accés a dades a l' espai de treball Cross- workspace | dependència d' autorització, cerca d' afiliació, context de la caixa forta, comprovacions de propietat del servei. |
-| escape dels traversals de camins o de l' enllaç simbòlic | Resolució canonònica, arrels permeses, mapatge de proveïdors, proves de contenció. |
-| XSS des del contingut del correu/web/ importat | El statitzador HTML, react escapar, recursos lector baixos. |
-| SSRF | Esquema/ validació de màquina/IP, comprovacions redireccionats, límits de mida/ hora. |
-| Diferential revelació | Emmagatzematge local d' un secret, màscara, errors genèrics, disciplina de registre. |
-| L' agent realitza acció no volguda | Eina de permet llista, classificació d' efecte, validació d' arguments, confirmació. |
-| Connector de MaliciósName | Comprovacions de mifest/signatura, permisos, instal· lació de root, carpeta local, temps d' espera. |
-| Sobreescriu l' Stale | ETags, revisions d' esquema, com a atòmics, respostes de conflicte. |
-| corrupció SQLite | Emmagatzematge local de només fitxers; sense sincronització en núvol. |
+| Accés a dades d'altres espais de treball | Dependència d'autenticació, consulta de pertinences, context de vault i comprovacions de propietat als serveis. |
+| Sortida dels límits mitjançant rutes o enllaços simbòlics | Resolució canònica, arrels permeses, mapatge del proveïdor i proves de confinament. |
+| XSS des de correu, web o contingut importat | Sanejament d'HTML, escapament de React i recursos del lector restringits. |
+| SSRF | Validació d'esquema, host i IP, comprovació de redireccions i límits de mida i temps. |
+| Revelació de credencials | Magatzem local de secrets, emmascarament, errors genèrics i disciplina de registre. |
+| Acció no desitjada de l'agent | Llista d'eines permeses, classificació d'efectes, validació d'arguments i confirmacions. |
+| Connector maliciós | Comprovacions de manifest i signatura, permisos, arrel d'instal·lació delimitada, sandbox i temps d'espera. |
+| Paquet maliciós del marketplace | Índex signat, suma de verificació, signatura de l'editor, extracció provisional acotada i publicació atòmica. |
+| Filtració de dades privades a través d'una plantilla | Llista d'exportació permesa, exclusions obligatòries, cerca de possibles secrets, previsualització, confirmació i enviament administratiu. |
+| Sobreescriptura amb dades obsoletes | ETags, revisions d'esquema, escriptures atòmiques i respostes de conflicte. |
+| Corrupció SQLite | Emmagatzematge exclusivament local, sense sincronització al núvol. |
 
 ## Verificació de seguretat
 
-Els canvis sensibles a la seguretat executen una autorització central, espai de treball, PAT, share, contenidor de ruta, XS, SSRF, l' eina generada, la carpeta local dels connectors i les proves d' ortografia. El navegador QA usa una sessió autenticat i un context anònim net quan les superfícies públiques canvien.
+Els canvis sensibles a la seguretat requereixen proves d'autenticació central,
+espais de treball, PAT, compartició, confinament de rutes, XSS, SSRF, eines
+generades, sandbox de connectors i concurrència. Quan canvien superfícies
+públiques, la QA al navegador utilitza una sessió autenticada i un context
+anònim net.

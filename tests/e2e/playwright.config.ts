@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { authStorageStatePath } from './support/auth-state.ts';
+
 // Replicates the vite.config detection (frontend/vite.config.js): the dev server
 // serves HTTPS if the mkcert certs exist at frontend/certs/, otherwise HTTP.
 // So local-with-certs uses https and CI/other-Mac (without certs) uses http, without
@@ -15,19 +17,21 @@ const DEFAULT_BASE_URL = fs.existsSync(CERT_FILE)
  * Playwright config for Gnosi E2E tests.
  *
  * Architecture:
- * - Frontend runs natively through the Gnosi LaunchAgent on localhost:5173.
- * - Tests run on the host (macOS) and connect over HTTP or local mkcert HTTPS.
+ * - Frontend/backend are started separately in a chosen disposable environment.
+ * - Tests connect to the configured frontend over HTTP or local mkcert HTTPS.
  * - We do NOT start a webServer here — anti-ghosting (see environment_integrity.md):
  *   if 5173 is not up, tests fail by design instead of spinning a second instance.
  * - Docker remains a supported deployment target, but it is not the local fallback.
  *
  * Projects:
- * - setup: prepares localStorage state for authenticated runs (cached at .auth/state.json).
+ * - setup: verifies password login, an HttpOnly cookie and auth/me membership;
+ *   caches the real session at .auth/state.json. Its file-level setup.use disables
+ *   trace/video/screenshots before authentication, including retries.
  * - chromium-anon: smoke tests that don't need auth.
  * - chromium-auth: feature tests that need workspace context.
  */
 
-const STORAGE_STATE = 'tests/.auth/state.json';
+const STORAGE_STATE = authStorageStatePath(process.env.GNOSI_TEST_STORAGE_STATE, __dirname);
 
 export default defineConfig({
   testDir: './tests',
@@ -66,6 +70,7 @@ export default defineConfig({
     {
       name: 'setup',
       testMatch: /.*\.setup\.ts/,
+      use: { trace: 'off', video: 'off', screenshot: 'off' },
     },
     {
       name: 'chromium-anon',

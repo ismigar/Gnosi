@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Mail composer paste E2E:
@@ -18,7 +18,7 @@ const FAKE_ASSET_URL = '/api/vault/assets/Inline/pw-paste-test.png';
 const PNG_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP6z/AfAAUFAgBfyPHSAAAAAElFTkSuQmCC';
 
-async function openComposer(page) {
+async function openComposer(page: Page) {
   await page.goto('/mail', { waitUntil: 'domcontentloaded' });
   const composeBtn = page.getByRole('button', {
     name: /redactar|compose|nou missatge|new message/i,
@@ -32,7 +32,7 @@ async function openComposer(page) {
   return editor;
 }
 
-function pasteFile(editor, name: string, mime: string, base64: string) {
+function pasteFile(editor: Locator, name: string, mime: string, base64: string) {
   return editor.evaluate(
     (el, { name, mime, base64 }) => {
       const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));

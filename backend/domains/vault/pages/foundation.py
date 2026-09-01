@@ -1,13 +1,47 @@
 """Typed Vault domain extracted from the historical route facade."""
 
+from __future__ import annotations
+
 import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+from collections.abc import Callable
+from pathlib import Path
+from re import Pattern
+from types import ModuleType
+from typing import TYPE_CHECKING
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+from backend.domains.vault.pages.foundation_values import copy_metadata, metadata_value
+from backend.domains.vault.pages.markdown_writer import MarkdownWriterDependencies
+from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.registry.state import RegistryData
+from backend.domains.vault.schemas.pages import PageInfo
+from backend.domains.vault.tables.formula_recalculation import FormulaRecalculationDependencies
+from backend.utils.open_values import iterable_values
+
+_sanitize_asset_segment: Callable[[object, str], str]
+
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+
+    # Actual function owners; runtime assignments below retain captured overrides.
+    from backend.domains.vault.api import pages_queries as _typed_queries
+    from backend.services import frontmatter_fallback as _typed_frontmatter
+    from backend.utils import safe_io as _typed_safe_io
+
+    _parse_frontmatter_fallback = _typed_frontmatter.parse_frontmatter_fallback
+    _sanitize_asset_segment = _typed_safe_io.sanitize_path_segment
+    list_pages = _typed_queries.list_pages
+    list_pages_by_table = _typed_queries.list_pages_by_table
+    list_pages_by_table_snapshot = _typed_queries.list_pages_by_table_snapshot
+else:
+    _legacy: ModuleType
+
+_foundation_initialized = False
+_PAGE_MARKDOWN_WRITER_DEPENDENCIES: MarkdownWriterDependencies
+_FORMULA_RECALCULATION_DEPENDENCIES: FormulaRecalculationDependencies
+_ASSET_NAME_RE: Pattern[str]
 
 
-def _relation_keys_for_metadata(metadata: dict[_LegacyAny, _LegacyAny]) -> set[_LegacyAny] | None:
+def _relation_keys_for_metadata(metadata: RegistryData) -> set[str] | None:
     """`relation_keys` from the page's table schema, so that `strip` /
     `decorate` recognize relation fields by their current name. None if the
     table can't be resolved (→ `strip` strips by shape; `decorate` does nothing).
@@ -22,8 +56,8 @@ def _relation_keys_for_metadata(metadata: dict[_LegacyAny, _LegacyAny]) -> set[_
 
 
 def parse_frontmatter(
-    content: str, file_path: _legacy.Path | None = None, render_snapshots: bool = False
-) -> _LegacyAny:
+    content: str, file_path: Path | None = None, render_snapshots: bool = False
+) -> tuple[RegistryData, str]:
     """Parses a markdown file to extract the YAML frontmatter and body.
 
     If `file_path` allows deriving a vault root and the page has an `id`, it also
@@ -43,21 +77,21 @@ def parse_frontmatter(
             body = _legacy.restore_view_fences(body)
             body = _legacy.strip_view_snapshots(body)
         try:
-            metadata = _legacy.yaml.safe_load(yaml_content) or {}
-            metadata = _legacy.apply_sidecar_to(metadata, file_path)
-            metadata = _legacy.strip_relation_wikilinks(
-                metadata, _relation_keys_for_metadata(metadata)
-            )
+            decoded: object = _legacy.yaml.safe_load(yaml_content) or {}
+            metadata = _legacy.apply_sidecar_to(decoded, file_path)
+            strip_relations = _legacy.strip_relation_wikilinks
+            metadata = strip_relations(metadata, _relation_keys_for_metadata(metadata))
             return (metadata, body)
         except _legacy.yaml.YAMLError as e:
-            fallback_metadata = _parse_frontmatter_fallback(yaml_content)
-            if fallback_metadata:
+            fallback = _parse_frontmatter_fallback(yaml_content)
+            if fallback:
                 location = f" in {file_path}" if file_path else ""
                 _legacy.log.warning(
                     f"Malformed YAML frontmatter{location}; applying rescue parsing"
                 )
-                fallback_metadata = _legacy.apply_sidecar_to(fallback_metadata, file_path)
-                fallback_metadata = _legacy.strip_relation_wikilinks(
+                fallback_metadata = _legacy.apply_sidecar_to(fallback, file_path)
+                strip_fallback_relations = _legacy.strip_relation_wikilinks
+                fallback_metadata = strip_fallback_relations(
                     fallback_metadata, _relation_keys_for_metadata(fallback_metadata)
                 )
                 return (fallback_metadata, body)
@@ -67,10 +101,7 @@ def parse_frontmatter(
     return ({}, content)
 
 
-_parse_frontmatter_fallback = _legacy.parse_frontmatter_fallback
-
-
-def generate_frontmatter(metadata: dict[_LegacyAny, _LegacyAny]) -> str:
+def generate_frontmatter(metadata: RegistryData) -> str:
     """Generates YAML frontmatter string from a dictionary.
 
     Internal keys (`*_manual`, `is_template`, …) are filtered out here: they
@@ -92,137 +123,72 @@ def generate_frontmatter(metadata: dict[_LegacyAny, _LegacyAny]) -> str:
 
 
 def _link_index_title_for(page_id: str) -> str | None:
-    return _strict_cast(
-        str | None,
-        _legacy.link_index_service.link_index_title_for(page_id, _legacy._link_index_view()),
-    )
+    return _legacy.link_index_service.link_index_title_for(page_id, _legacy._link_index_view())
 
 
 def _link_index_unique_id_for_title(title: str) -> str | None:
-    return _strict_cast(
-        str | None,
-        _legacy.link_index_service.link_index_unique_id_for_title(
-            title, _legacy._link_index_view()
-        ),
+    return _legacy.link_index_service.link_index_unique_id_for_title(
+        title, _legacy._link_index_view()
     )
 
 
-def _load_table_rows(table_id: str) -> list[dict[_LegacyAny, _LegacyAny]]:
+def _load_table_rows(table_id: str) -> list[RegistryData]:
     """Load non-template rows with response-facing field names."""
-    return _strict_cast(
-        list[dict[_LegacyAny, _LegacyAny]],
-        _legacy.vault_view_snapshots.load_table_rows(
-            table_id, _legacy.vault_view_snapshot_dependencies
-        ),
+    return _legacy.vault_view_snapshots.load_table_rows(
+        table_id, _legacy.vault_view_snapshot_dependencies
     )
 
 
-def _resolve_view_and_candidates(view_id: str, host_page_id: str | None) -> _LegacyAny:
+def _resolve_view_and_candidates(
+    view_id: str, host_page_id: object
+) -> tuple[RegistryData | None, list[RegistryData]]:
     """Resolve one saved view and its candidate rows."""
     return _legacy.vault_view_snapshots.resolve_view_and_candidates(
         view_id, host_page_id, _legacy.vault_view_snapshot_dependencies
     )
 
 
-def _resolve_view_row_ids(view_id: str, host_page_id: str | None) -> list[str]:
+def _resolve_view_row_ids(view_id: str, host_page_id: object) -> list[str]:
     """Return the ordered page IDs produced by one saved view."""
-    return _strict_cast(
-        list[str],
-        _legacy.vault_view_snapshots.resolve_view_row_ids(
-            view_id, host_page_id, _legacy.vault_view_snapshot_dependencies
-        ),
+    return _legacy.vault_view_snapshots.resolve_view_row_ids(
+        view_id, host_page_id, _legacy.vault_view_snapshot_dependencies
     )
 
 
-def _format_snapshot_cell(value: _LegacyAny, ftype: str | None) -> str:
+def _format_snapshot_cell(value: object, ftype: str | None) -> str:
     """Format one value for a materialized Markdown table cell."""
-    return _strict_cast(
-        str,
-        _legacy.vault_view_snapshots.format_snapshot_cell(
-            value, ftype, _legacy.vault_view_snapshot_dependencies
-        ),
+    return _legacy.vault_view_snapshots.format_snapshot_cell(
+        value, ftype, _legacy.vault_view_snapshot_dependencies
     )
 
 
-def _normalize_visible_properties(
-    vis: _LegacyAny, base_table_id: str | None
-) -> list[dict[_LegacyAny, _LegacyAny]]:
+def _normalize_visible_properties(vis: object, base_table_id: str | None) -> list[RegistryData]:
     """Normalize visible property references for snapshot rendering."""
-    return _strict_cast(
-        list[dict[_LegacyAny, _LegacyAny]],
-        _legacy.vault_view_snapshots.normalize_visible_properties(vis, base_table_id),
-    )
+    return _legacy.vault_view_snapshots.normalize_visible_properties(vis, base_table_id)
 
 
-def _resolve_view_table(
-    view_id: str, host_page_id: str | None
-) -> dict[_LegacyAny, _LegacyAny] | None:
+def _resolve_view_table(view_id: str, host_page_id: object) -> RegistryData | None:
     """Resolve one table/list view into materialized headers and rows."""
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny] | None,
-        _legacy.vault_view_snapshots.resolve_view_table(
-            view_id, host_page_id, _legacy.vault_view_snapshot_dependencies
-        ),
+    return _legacy.vault_view_snapshots.resolve_view_table(
+        view_id, host_page_id, _legacy.vault_view_snapshot_dependencies
     )
 
 
-def _view_snapshot_config(view_id: str) -> dict[_LegacyAny, _LegacyAny]:
+def _view_snapshot_config(view_id: str) -> RegistryData:
     """Return persisted materialization settings for one view."""
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny],
-        _legacy.vault_view_snapshots.view_snapshot_config(
-            view_id, _legacy.vault_view_snapshot_dependencies
-        ),
+    return _legacy.vault_view_snapshots.view_snapshot_config(
+        view_id, _legacy.vault_view_snapshot_dependencies
     )
 
 
-def refresh_view_snapshots(dry_run: bool = False) -> dict[str, _LegacyAny]:
+def refresh_view_snapshots(dry_run: bool = False) -> RegistryData:
     """Materializes the snapshot of ALL pages with an embedded view."""
-    return _strict_cast(
-        dict[str, _LegacyAny],
-        _legacy.vault_view_snapshots.refresh_view_snapshots(
-            dry_run, _legacy.vault_view_snapshot_dependencies
-        ),
+    return _legacy.vault_view_snapshots.refresh_view_snapshots(
+        dry_run, _legacy.vault_view_snapshot_dependencies
     )
 
 
-_PAGE_MARKDOWN_WRITER_DEPENDENCIES = _legacy.page_markdown_writer.MarkdownWriterDependencies(
-    is_dashboard_file=lambda path: _is_dashboard_file_path(path),
-    read_dashboard_file=lambda path: _read_dashboard_file(path),
-    parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
-    new_uuid=lambda: str(_legacy.uuid.uuid4()),
-    get_table_id=lambda metadata: _legacy.get_table_id(metadata),
-    table_by_id=lambda table_id: _legacy._table_by_id(table_id),
-    to_storage_names=lambda metadata, table: _legacy.to_storage_names(metadata, table)[0],
-    strip_virtual_keys=lambda metadata, table: _strip_virtual_keys(metadata, table),
-    relation_keys=lambda table: _legacy.relation_keys_from_table(table),
-    decorate_relations=lambda metadata, relation_keys: _legacy.decorate_relation_wikilinks(
-        metadata,
-        relation_keys=relation_keys,
-        id_to_title=_link_index_title_for,
-        title_to_id=_link_index_unique_id_for_title,
-    ),
-    persist_sidecar=lambda metadata, path: _legacy.persist_sidecar_from(metadata, path),
-    dump_yaml=lambda metadata: _legacy.yaml.dump(
-        metadata, default_flow_style=False, sort_keys=False, allow_unicode=True, width=4096
-    ),
-    inject_view_snapshots=lambda body, page_id: _legacy.inject_view_snapshots(
-        body,
-        resolve_ids=_resolve_view_row_ids,
-        id_to_title=_link_index_title_for,
-        host_page_id=page_id,
-        config_for=_view_snapshot_config,
-        resolve_table=_resolve_view_table,
-    ),
-    compact_view_fences=lambda body: _legacy.compact_view_fences(body),
-    write_text=lambda path, content: _legacy.safe_write_text(path, content),
-    logger=_legacy.log,
-)
-
-
-def save_page_md(
-    file_path: _legacy.Path, metadata: dict[_LegacyAny, _LegacyAny], body: str
-) -> None:
+def save_page_md(file_path: Path, metadata: RegistryData, body: str) -> None:
     """Writes an .md page with frontmatter / sidecar separation.
 
     1. Persists internal keys (`*_manual`, `is_template`, …) to the JSON
@@ -238,21 +204,18 @@ def save_page_md(
     `vault_persist_by_name.md` directive.
 
     """
-    return _strict_cast(
-        None,
-        _legacy.page_markdown_writer.save_page_markdown(
-            file_path, metadata, body, _PAGE_MARKDOWN_WRITER_DEPENDENCIES
-        ),
+    return _legacy.page_markdown_writer.save_page_markdown(
+        file_path, metadata, body, _PAGE_MARKDOWN_WRITER_DEPENDENCIES
     )
 
 
-def normalize_metadata_ids(metadata: dict[_LegacyAny, _LegacyAny]) -> dict[_LegacyAny, _LegacyAny]:
+def normalize_metadata_ids(metadata: RegistryData) -> RegistryData:
     """
     Normalizes identification fields in frontmatter.
     Policy: the canonical field is 'id'. If legacy identifier keys exist,
     they are renamed to 'id' and deleted. If 'id' already exists, it's preserved.
     """
-    legacy_fields = ["source_id", "gnosi_id"]
+    legacy_fields: list[object] = ["source_id", "gnosi_id"]
     for key in list(metadata.keys()):
         normalized = _legacy.re.sub("[^a-z0-9]", "", str(key).lower())
         if normalized in {"sourceid", "gnosiid"}:
@@ -265,16 +228,12 @@ def normalize_metadata_ids(metadata: dict[_LegacyAny, _LegacyAny]) -> dict[_Lega
     return metadata
 
 
-def normalize_table_context(metadata: dict[_LegacyAny, _LegacyAny]) -> dict[_LegacyAny, _LegacyAny]:
+def normalize_table_context(metadata: RegistryData) -> RegistryData:
     """Keeps table context fields synchronized (canonical + legacy)."""
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny], _legacy.table_rows.normalize_table_context(metadata)
-    )
+    return _legacy.table_rows.normalize_table_context(metadata)
 
 
-def ensure_correct_page_location(
-    file_path: _legacy.Path, metadata: dict[_LegacyAny, _LegacyAny]
-) -> _legacy.Path:
+def ensure_correct_page_location(file_path: Path, metadata: RegistryData) -> Path:
     """Moves notes between Wiki/Templates/Calendar/BD based on metadata."""
     is_template = metadata.get("is_template") is True
     is_calendar = _legacy.is_calendar_entry(metadata)
@@ -310,7 +269,7 @@ def ensure_correct_page_location(
     return file_path
 
 
-def _process_metadata_paths(metadata: dict[_LegacyAny, _LegacyAny]) -> _LegacyAny:
+def _process_metadata_paths(metadata: RegistryData) -> RegistryData:
     """
     Transforms relative paths starting with Assets/
     into paths accessible via API /api/vault/assets/.
@@ -324,22 +283,19 @@ def _process_metadata_paths(metadata: dict[_LegacyAny, _LegacyAny]) -> _LegacyAn
     return metadata
 
 
-def _normalize_schema_key(value: str) -> str:
-    return _strict_cast(str, _legacy.re.sub("[^a-z0-9]", "", str(value or "").lower()))
-
-
-_sanitize_asset_segment = _legacy.sanitize_path_segment
+def _normalize_schema_key(value: object) -> str:
+    return _legacy.re.sub("[^a-z0-9]", "", str(value or "").lower())
 
 
 def _sanitize_filename_base(title: str) -> str:
     """Sanitize a title into a filesystem-safe filename base (without extension)."""
-    return _strict_cast(str, _legacy.sanitize_vault_title(title, fallback="Untitled", max_len=200))
+    return _legacy.sanitize_vault_title(title, fallback="Untitled", max_len=200)
 
 
 def _resolve_unique_filename(
-    target_dir: _legacy.Path,
+    target_dir: Path,
     base_name: str,
-    exclude_path: _legacy.Path | None = None,
+    exclude_path: Path | None = None,
     extension: str = ".md",
 ) -> str:
     """Returns a unique filename base in target_dir, optionally ignoring exclude_path."""
@@ -360,7 +316,7 @@ def _resolve_unique_filename(
         counter += 1
 
 
-def _rename_page_file_to_match_title(file_path: _legacy.Path, title: str) -> _legacy.Path:
+def _rename_page_file_to_match_title(file_path: Path, title: str) -> Path:
     """Renames page file so the filename matches title while preserving uniqueness."""
     target_dir = file_path.parent
     base_name = _sanitize_filename_base(title)
@@ -375,7 +331,7 @@ def _rename_page_file_to_match_title(file_path: _legacy.Path, title: str) -> _le
     return desired_path
 
 
-def _safe_filename(title: str, target_dir: _legacy.Path) -> str:
+def _safe_filename(title: str, target_dir: Path) -> str:
     """Generate a safe filename from a title, handling collisions.
 
     Returns the filename WITHOUT extension.
@@ -384,7 +340,7 @@ def _safe_filename(title: str, target_dir: _legacy.Path) -> str:
     return _resolve_unique_filename(target_dir, safe)
 
 
-def _is_dashboard_file_path(file_path: _legacy.Path) -> bool:
+def _is_dashboard_file_path(file_path: Path) -> bool:
     if not file_path or file_path.suffix.lower() != ".json" or (not _legacy.get_p("DASHBOARDS")):
         return False
     try:
@@ -394,39 +350,41 @@ def _is_dashboard_file_path(file_path: _legacy.Path) -> bool:
         return False
 
 
-def _read_dashboard_file(file_path: _legacy.Path) -> tuple[dict[_LegacyAny, _LegacyAny], str]:
-    data = _legacy.json.loads(file_path.read_text(encoding="utf-8"))
-    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
-    metadata = dict(metadata)
-    file_id = data.get("id") or metadata.get("id") or file_path.stem
-    title = data.get("title") or metadata.get("title") or file_path.stem
-    parent_id = data.get("parent_id")
+def _read_dashboard_file(file_path: Path) -> tuple[RegistryData, str]:
+    data: object = _legacy.json.loads(file_path.read_text(encoding="utf-8"))
+    raw_metadata = metadata_value(data, "metadata")
+    # Preserve the original second lookup when the first value was a dictionary.
+    raw_metadata = metadata_value(data, "metadata") if is_record(raw_metadata) else {}
+    metadata = copy_metadata(raw_metadata)
+    file_id = metadata_value(data, "id") or metadata.get("id") or file_path.stem
+    title = metadata_value(data, "title") or metadata.get("title") or file_path.stem
+    parent_id = metadata_value(data, "parent_id")
     metadata["id"] = file_id
     metadata["title"] = title
     if parent_id is not None:
         metadata["parent_id"] = parent_id
     metadata["is_dashboard"] = True
     metadata.setdefault("content_format", "json")
-    body = data.get("content")
-    if body is None:
+    raw_body = metadata_value(data, "content")
+    if raw_body is None:
         body = "{}"
-    elif not isinstance(body, str):
-        body = _legacy.json.dumps(body, ensure_ascii=False, indent=2)
+    elif not isinstance(raw_body, str):
+        body = _legacy.json.dumps(raw_body, ensure_ascii=False, indent=2)
     else:
-        body = _legacy.restore_view_fences(body)
+        body = _legacy.restore_view_fences(raw_body)
         body = _legacy.strip_view_snapshots(body)
     return (metadata, body)
 
 
 def _write_dashboard_file(
-    file_path: _legacy.Path,
+    file_path: Path,
     page_id: str,
     title: str,
-    metadata: dict[_LegacyAny, _LegacyAny],
+    metadata: RegistryData,
     content: str,
-    parent_id: str | None = None,
+    parent_id: object = None,
     is_database: bool = False,
-) -> _LegacyAny:
+) -> None:
     payload = {
         "id": page_id,
         "title": title,
@@ -438,7 +396,7 @@ def _write_dashboard_file(
     _legacy.safe_write_json(file_path, payload, indent=2, ensure_ascii=False)
 
 
-def _ensure_page_extension(file_path: _legacy.Path, is_dashboard: bool) -> _legacy.Path:
+def _ensure_page_extension(file_path: Path, is_dashboard: bool) -> Path:
     desired_extension = ".json" if is_dashboard else ".md"
     if file_path.suffix.lower() == desired_extension:
         return file_path
@@ -451,13 +409,7 @@ def _ensure_page_extension(file_path: _legacy.Path, is_dashboard: bool) -> _lega
     return desired_path
 
 
-_ASSET_NAME_RE = _legacy.re.compile(
-    "(^|[\\s_\\-])(image|imatge|imagen|foto|cover|thumbnail|thumb)([\\s_\\-]|$)",
-    _legacy.re.IGNORECASE,
-)
-
-
-def _is_asset_property(prop: dict[str, _LegacyAny]) -> bool:
+def _is_asset_property(prop: RegistryData) -> bool:
     p_type = str((prop or {}).get("type") or "").strip().lower()
     if p_type in {"files", "file", "image", "images", "attachment", "attachments", "media"}:
         return True
@@ -465,209 +417,114 @@ def _is_asset_property(prop: dict[str, _LegacyAny]) -> bool:
     return p_type == "url" and bool(_ASSET_NAME_RE.search(p_name))
 
 
-def _stable_value_revision(value: _LegacyAny) -> str:
-    return _strict_cast(
-        str,
-        _legacy.hashlib.sha256(
-            _legacy.json.dumps(
-                value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), default=str
-            ).encode("utf-8")
-        ).hexdigest(),
-    )
+def _stable_value_revision(value: object) -> str:
+    return _legacy.hashlib.sha256(
+        _legacy.json.dumps(
+            value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), default=str
+        ).encode("utf-8")
+    ).hexdigest()
 
 
-def _table_views_revision(registry: dict[str, _LegacyAny], table_id: str) -> str:
+def _table_views_revision(registry: RegistryData, table_id: str) -> str:
     views = sorted(
         (
             view
-            for view in registry.get("views", [])
-            if str(view.get("table_id") or "") == str(table_id)
+            for view in iterable_values(registry.get("views", []))
+            if str(metadata_value(view, "table_id") or "") == str(table_id)
         ),
-        key=lambda view: str(view.get("id") or ""),
+        key=lambda view: str(metadata_value(view, "id") or ""),
     )
     return _stable_value_revision(views)
 
 
-_legacy.table_asset_paths.configure(
-    _legacy.table_asset_paths.TableAssetPathDependencies(
-        get_path=lambda key: _legacy.get_p(key),
-        sanitize_segment=lambda value, fallback: _sanitize_asset_segment(value, fallback),
-        is_asset_property=lambda prop: _is_asset_property(prop),
-        property_assets_dir=lambda table, database, name: _legacy._property_assets_dir(
-            table, database, name
-        ),
-        table_assets_dir=lambda table, database: _legacy._table_assets_dir(table, database),
-        table_asset_paths=lambda table, database: _legacy._table_asset_paths(table, database),
-        segments_collide=lambda first, second: _legacy._asset_segments_collide(first, second),
-        revision=_legacy.path_collection_revision,
-        write_text=lambda path, content: _legacy.safe_write_text(path, content),
-        logger=_legacy.log,
-    )
-)
-_legacy.table_folders.configure(
-    _legacy.table_folders.TableFolderDependencies(
-        get_path=lambda key: _legacy.get_p(key),
-        normalize_folder=lambda value: _normalize_rel_folder(value),
-        move=lambda source, destination: _legacy.shutil.move(source, destination),
-        logger=_legacy.log,
-    )
-)
-_legacy.table_asset_persistence.configure(
-    _legacy.table_asset_persistence.TableAssetPersistenceDependencies(
-        get_path=lambda key: _legacy.get_p(key),
-        is_asset_property=lambda prop: _is_asset_property(prop),
-        sanitize_segment=lambda value, fallback: _sanitize_asset_segment(value, fallback),
-        sanitize_filename=lambda value: _sanitize_filename_base(value),
-        write_bytes=lambda path, payload: _legacy.safe_write_bytes(path, payload),
-        load_registry=lambda: _legacy.load_registry(),
-        resolve_table=lambda table_id, registry: _legacy._resolve_table_and_database_for_assets(
-            table_id, registry
-        ),
-        get_table_id=lambda metadata: _legacy.get_table_id(metadata),
-        property_config_value=lambda prop, key: _legacy._property_config_value(prop, key),
-        normalize_schema_key=lambda value: _normalize_schema_key(value),
-        property_assets_dir=lambda table, database, name: _legacy._property_assets_dir(
-            table, database, name
-        ),
-        copy_local_file=lambda source, target: _legacy._copy_local_file_to_assets(source, target),
-        save_data_url=lambda value, target: _legacy._save_data_url_image_to_assets(value, target),
-        persist_value=lambda value, target: _legacy._persist_asset_value(value, target),
-        logger=_legacy.log,
-    )
-)
-_legacy.table_asset_quarantine.configure(
-    _legacy.table_asset_quarantine.TableAssetQuarantineDependencies(
-        get_path=lambda key: _legacy.get_p(key),
-        table_asset_paths=lambda table, database: _legacy._table_asset_paths(table, database),
-        revision=_legacy.path_collection_revision,
-        write_json=lambda path, value: _legacy.safe_write_json(path, value, indent=2),
-        registry_mutation=lambda: _legacy.registry_mutation(),
-        active_vault_path=_legacy.active_vault_path,
-        logger=_legacy.log,
-    )
-)
-
-
-def _normalize_rel_folder(folder: str | None) -> str:
+def _normalize_rel_folder(folder: object) -> str:
     """Normalize a host/container folder to a vault-relative path."""
-    return _strict_cast(str, _legacy.table_rows.normalize_relative_folder(folder))
+    return _legacy.table_rows.normalize_relative_folder(folder)
 
 
 def _build_table_folder_index(
-    registry: dict[_LegacyAny, _LegacyAny],
-) -> dict[_LegacyAny, _LegacyAny]:
+    registry: RegistryData,
+) -> dict[str, str]:
     """Map canonical table folders to immutable table IDs."""
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny], _legacy.table_rows.build_table_folder_index(registry)
-    )
+    return _legacy.table_rows.build_table_folder_index(registry)
 
 
 def _resolve_table_id_from_context(
-    metadata: dict[_LegacyAny, _LegacyAny],
+    metadata: RegistryData,
     rel_folder: str,
-    folder_to_table: dict[_LegacyAny, _LegacyAny],
+    folder_to_table: dict[str, str],
     sorted_folders: list[str] | None = None,
 ) -> str | None:
-    return _strict_cast(
-        str | None,
-        _legacy.table_rows.resolve_table_id_from_context(
-            metadata, rel_folder, folder_to_table, sorted_folders
-        ),
+    return _legacy.table_rows.resolve_table_id_from_context(
+        metadata, rel_folder, folder_to_table, sorted_folders
     )
 
 
 def _resolve_table_folder_from_metadata(
-    metadata: dict[_LegacyAny, _LegacyAny],
-) -> _legacy.Path | None:
+    metadata: RegistryData,
+) -> Path | None:
     return _legacy.table_rows.resolve_table_folder_from_metadata(
         metadata, _legacy.table_row_query_dependencies
     )
 
 
 def _resolve_page_context_from_path(
-    metadata: dict[_LegacyAny, _LegacyAny], file_path: _legacy.Path
+    metadata: RegistryData, file_path: Path
 ) -> tuple[str, str | None]:
-    return _strict_cast(
-        tuple[str, str | None],
-        _legacy.table_rows.resolve_page_context_from_path(
-            metadata, file_path, _legacy.table_row_query_dependencies
-        ),
+    return _legacy.table_rows.resolve_page_context_from_path(
+        metadata, file_path, _legacy.table_row_query_dependencies
     )
-
-
-_FORMULA_RECALCULATION_DEPENDENCIES = (
-    _legacy.formula_recalculation.FormulaRecalculationDependencies(
-        lock=_legacy._table_recalc_lock,
-        states=_legacy._table_recalc_state,
-        monotonic=lambda: _legacy.time.monotonic(),
-        cooldown_seconds=_legacy._TABLE_RECALC_COOLDOWN_SECONDS,
-        vault_root=lambda: _legacy.get_p("VAULT"),
-        parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
-        table_has_cross_record_formulas=lambda table_id: (
-            _legacy.get_rule_engine().table_has_cross_record_formulas(table_id)
-        ),
-        process_updates=lambda page_id, old, new: _legacy.get_rule_engine().process_updates(
-            page_id, old, new
-        ),
-        save_page=lambda path, metadata, body: save_page_md(path, metadata, body),
-        refresh_page_index=lambda path, metadata, body: _legacy._refresh_page_index_entry(
-            path, metadata, body
-        ),
-        invalidate_pages_cache=lambda: _legacy._pages_cache_invalidate_all(),
-        logger=_legacy.log,
-    )
-)
 
 
 def _recompute_cross_record_formulas_for_table(
     table_id: str, exclude_page_id: str | None = None
-) -> _LegacyAny:
+) -> None:
     """Recomputes cross-record formulas for a table after changes in a row."""
     return _legacy.formula_recalculation.recompute_cross_record_formulas_for_table(
         table_id, exclude_page_id, _FORMULA_RECALCULATION_DEPENDENCIES
     )
 
 
-def _vf_page_loader(table_id: str) -> list[_legacy.PageInfo]:
+def _vf_page_loader(table_id: str) -> list[PageInfo]:
     """Load canonical table rows for virtual-field computations."""
-    return _strict_cast(
-        list[_legacy.PageInfo],
-        _legacy.table_rows.virtual_page_loader(table_id, _legacy.table_row_query_dependencies),
-    )
+    return _legacy.table_rows.virtual_page_loader(table_id, _legacy.table_row_query_dependencies)
 
 
-def _strip_virtual_keys(
-    metadata: dict[str, _LegacyAny], table: dict[str, _LegacyAny] | None
-) -> dict[str, _LegacyAny]:
+def _strip_virtual_keys(metadata: RegistryData, table: RegistryData | None) -> RegistryData:
     """Removes field keys with `type:'virtual'` from the metadata (by name or id)
     so the derived value (injected on READ) is never persisted to the `.md`."""
     if not table or not isinstance(metadata, dict):
         return metadata
     props = table.get("properties") or []
-    drop = {p.get("name") for p in props if p.get("type") == "virtual" and p.get("name")}
-    drop |= {p.get("id") for p in props if p.get("type") == "virtual" and p.get("id")}
+    drop = {
+        metadata_value(p, "name")
+        for p in iterable_values(props)
+        if metadata_value(p, "type") == "virtual" and metadata_value(p, "name")
+    }
+    drop |= {
+        metadata_value(p, "id")
+        for p in iterable_values(props)
+        if metadata_value(p, "type") == "virtual" and metadata_value(p, "id")
+    }
     if not drop:
         return metadata
     return {k: v for k, v in metadata.items() if k not in drop}
 
 
-def _get_pages_for_table(table_id: str) -> list[_legacy.PageInfo]:
+def _get_pages_for_table(table_id: object) -> list[PageInfo]:
     """Fast-path for pages belonging to one table."""
-    return _strict_cast(
-        list[_legacy.PageInfo],
-        _legacy.table_rows.get_pages_for_table(table_id, _legacy.table_row_query_dependencies),
-    )
+    return _legacy.table_rows.get_pages_for_table(table_id, _legacy.table_row_query_dependencies)
 
 
-def _enrich_table_query_pages(table_id: str, pages: list[_legacy.PageInfo]) -> None:
+def _enrich_table_query_pages(table_id: str, pages: list[PageInfo]) -> None:
     _legacy.table_rows.enrich_table_query_pages(
         table_id, pages, _legacy.table_row_query_dependencies
     )
 
 
 def _enrich_single_query_page(
-    metadata: dict[str, _LegacyAny], page_id: str, file_path: _legacy.Path
-) -> tuple[dict[str, _LegacyAny], str, str | None]:
+    metadata: RegistryData, page_id: str, file_path: Path
+) -> tuple[RegistryData, str, str | None]:
     folder, table_id = _resolve_page_context_from_path(metadata, file_path)
     table_obj = _legacy._table_by_id(table_id)
     _legacy._vf_inject_for_single_page(
@@ -679,35 +536,182 @@ def _enrich_single_query_page(
 
 
 def _cached_page_entry_count(vault_key: str) -> int:
-    return _strict_cast(int, _legacy.page_index_service.cached_page_entry_count(vault_key))
+    return _legacy.page_index_service.cached_page_entry_count(vault_key)
 
 
-_legacy.page_queries_api.configure(
-    _legacy.page_queries_api.PageQueryDependencies(
-        get_pages_snapshot=_legacy._get_pages_snapshot,
-        page_index_cache_path=lambda: _legacy.get_page_index_cache_path(),
-        get_pages_for_table=lambda table_id: _legacy._get_pages_for_table(table_id),
-        enrich_table_pages=_enrich_table_query_pages,
-        visible_table_pages=_legacy._canonical_visible_table_pages,
-        active_vault_path=_legacy.get_active_vault_path,
-        get_indexer_status=_legacy.get_indexer_status,
-        cached_entry_count=_cached_page_entry_count,
-        find_page=lambda page_id, *, allow_full_scan=True: _legacy.find_page_path(
-            page_id, allow_full_scan=allow_full_scan
+def initialize_foundation(legacy: ModuleType) -> None:
+    """Bind existing page providers once, at their ordered facade bootstrap slot.
+
+    Definitions must exist before loading the facade: other domains capture
+    these exact functions while constructing their dependency records.
+    """
+    global _legacy, _foundation_initialized
+    global _parse_frontmatter_fallback
+    global _PAGE_MARKDOWN_WRITER_DEPENDENCIES
+    global _sanitize_asset_segment
+    global _ASSET_NAME_RE
+    global _FORMULA_RECALCULATION_DEPENDENCIES
+    global list_pages
+    global list_pages_by_table
+    global list_pages_by_table_snapshot
+
+    if _foundation_initialized:
+        if _legacy is not legacy:
+            raise RuntimeError("Page foundation is already bound to another facade")
+        return
+    _legacy = legacy
+    _parse_frontmatter_fallback = _legacy.parse_frontmatter_fallback
+    _PAGE_MARKDOWN_WRITER_DEPENDENCIES = _legacy.page_markdown_writer.MarkdownWriterDependencies(
+        is_dashboard_file=lambda path: _is_dashboard_file_path(path),
+        read_dashboard_file=lambda path: _read_dashboard_file(path),
+        parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+        new_uuid=lambda: str(_legacy.uuid.uuid4()),
+        get_table_id=lambda metadata: _legacy.get_table_id(metadata),
+        table_by_id=lambda table_id: _legacy._table_by_id(table_id),
+        to_storage_names=lambda metadata, table: _legacy.to_storage_names(metadata, table)[0],
+        strip_virtual_keys=lambda metadata, table: _strip_virtual_keys(metadata, table),
+        relation_keys=lambda table: _legacy.relation_keys_from_table(table),
+        decorate_relations=lambda metadata, relation_keys: _legacy.decorate_relation_wikilinks(
+            metadata,
+            relation_keys=relation_keys,
+            id_to_title=_link_index_title_for,
+            title_to_id=_link_index_unique_id_for_title,
         ),
-        materialize_page=lambda path, label: _legacy._materialize_if_online_only(path, label),
-        read_dashboard=lambda path: _read_dashboard_file(path),
-        is_dashboard=lambda path: _is_dashboard_file_path(path),
-        parse_frontmatter=parse_frontmatter,
-        enrich_single_page=_enrich_single_query_page,
-        file_etag=_legacy.file_etag,
-        fetch_preview=lambda path, page_id: _legacy._fetch_preview_with_cache(path, page_id),
-        warm_preview=lambda page_id: _legacy._bulk_warm_one(page_id),
-        preview_concurrency=_legacy._PREVIEW_WARM_CONCURRENCY,
-        preview_timeout_seconds=_legacy._PREVIEW_WARM_PER_ITEM_TIMEOUT_S,
+        persist_sidecar=lambda metadata, path: _legacy.persist_sidecar_from(metadata, path),
+        dump_yaml=lambda metadata: _legacy.yaml.dump(
+            metadata, default_flow_style=False, sort_keys=False, allow_unicode=True, width=4096
+        ),
+        inject_view_snapshots=lambda body, page_id: _legacy.inject_view_snapshots(
+            body,
+            resolve_ids=_resolve_view_row_ids,
+            id_to_title=_link_index_title_for,
+            host_page_id=page_id,
+            config_for=_view_snapshot_config,
+            resolve_table=_resolve_view_table,
+        ),
+        compact_view_fences=lambda body: _legacy.compact_view_fences(body),
+        write_text=lambda path, content: _legacy.safe_write_text(path, content),
+        logger=_legacy.log,
     )
-)
-_legacy.page_queries_api.register_catalog_routes(_legacy.router)
-list_pages = _legacy.page_queries_api.list_pages
-list_pages_by_table = _legacy.page_queries_api.list_pages_by_table
-list_pages_by_table_snapshot = _legacy.page_queries_api.list_pages_by_table_snapshot
+    _sanitize_asset_segment = _legacy.sanitize_path_segment
+    _ASSET_NAME_RE = _legacy.re.compile(
+        "(^|[\\s_\\-])(image|imatge|imagen|foto|cover|thumbnail|thumb)([\\s_\\-]|$)",
+        _legacy.re.IGNORECASE,
+    )
+    _legacy.table_asset_paths.configure(
+        _legacy.table_asset_paths.TableAssetPathDependencies(
+            get_path=lambda key: _legacy.get_p(key),
+            sanitize_segment=lambda value, fallback: _sanitize_asset_segment(value, fallback),
+            is_asset_property=lambda prop: _is_asset_property(prop),
+            property_assets_dir=lambda table, database, name: _legacy._property_assets_dir(
+                table, database, name
+            ),
+            table_assets_dir=lambda table, database: _legacy._table_assets_dir(table, database),
+            table_asset_paths=lambda table, database: _legacy._table_asset_paths(table, database),
+            segments_collide=lambda first, second: _legacy._asset_segments_collide(first, second),
+            revision=_legacy.path_collection_revision,
+            write_text=lambda path, content: _legacy.safe_write_text(path, content),
+            logger=_legacy.log,
+        )
+    )
+    _legacy.table_folders.configure(
+        _legacy.table_folders.TableFolderDependencies(
+            get_path=lambda key: _legacy.get_p(key),
+            normalize_folder=lambda value: _normalize_rel_folder(value),
+            move=lambda source, destination: _legacy.shutil.move(source, destination),
+            logger=_legacy.log,
+        )
+    )
+    _legacy.table_asset_persistence.configure(
+        _legacy.table_asset_persistence.TableAssetPersistenceDependencies(
+            get_path=lambda key: _legacy.get_p(key),
+            is_asset_property=lambda prop: _is_asset_property(prop),
+            sanitize_segment=lambda value, fallback: _sanitize_asset_segment(value, fallback),
+            sanitize_filename=lambda value: _sanitize_filename_base(value),
+            write_bytes=lambda path, payload: _legacy.safe_write_bytes(path, payload),
+            load_registry=lambda: _legacy.load_registry(),
+            resolve_table=lambda table_id, registry: _legacy._resolve_table_and_database_for_assets(
+                table_id, registry
+            ),
+            get_table_id=lambda metadata: _legacy.get_table_id(metadata),
+            property_config_value=lambda prop, key: _legacy._property_config_value(prop, key),
+            normalize_schema_key=lambda value: _normalize_schema_key(value),
+            property_assets_dir=lambda table, database, name: _legacy._property_assets_dir(
+                table, database, name
+            ),
+            copy_local_file=lambda source, target: _legacy._copy_local_file_to_assets(
+                source, target
+            ),
+            save_data_url=lambda value, target: _legacy._save_data_url_image_to_assets(
+                value, target
+            ),
+            persist_value=lambda value, target: _legacy._persist_asset_value(value, target),
+            logger=_legacy.log,
+        )
+    )
+    _legacy.table_asset_quarantine.configure(
+        _legacy.table_asset_quarantine.TableAssetQuarantineDependencies(
+            get_path=lambda key: _legacy.get_p(key),
+            table_asset_paths=lambda table, database: _legacy._table_asset_paths(table, database),
+            revision=_legacy.path_collection_revision,
+            write_json=lambda path, value: _legacy.safe_write_json(path, value, indent=2),
+            registry_mutation=lambda: _legacy.registry_mutation(),
+            active_vault_path=_legacy.active_vault_path,
+            logger=_legacy.log,
+        )
+    )
+    _FORMULA_RECALCULATION_DEPENDENCIES = (
+        _legacy.formula_recalculation.FormulaRecalculationDependencies(
+            lock=_legacy._table_recalc_lock,
+            states=_legacy._table_recalc_state,
+            monotonic=lambda: _legacy.time.monotonic(),
+            cooldown_seconds=_legacy._TABLE_RECALC_COOLDOWN_SECONDS,
+            vault_root=lambda: _legacy.get_p("VAULT"),
+            parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+            table_has_cross_record_formulas=lambda table_id: (
+                _legacy.get_rule_engine().table_has_cross_record_formulas(table_id)
+            ),
+            process_updates=lambda page_id, old, new: _legacy.get_rule_engine().process_updates(
+                page_id, old, new
+            ),
+            save_page=lambda path, metadata, body: save_page_md(path, metadata, body),
+            refresh_page_index=lambda path, metadata, body: _legacy._refresh_page_index_entry(
+                path, metadata, body
+            ),
+            invalidate_pages_cache=lambda: _legacy._pages_cache_invalidate_all(),
+            logger=_legacy.log,
+        )
+    )
+    _legacy.page_queries_api.configure(
+        _legacy.page_queries_api.PageQueryDependencies(
+            get_pages_snapshot=_legacy._get_pages_snapshot,
+            page_index_cache_path=lambda: _legacy.get_page_index_cache_path(),
+            get_pages_for_table=lambda table_id: _legacy._get_pages_for_table(table_id),
+            enrich_table_pages=_enrich_table_query_pages,
+            visible_table_pages=_legacy._canonical_visible_table_pages,
+            active_vault_path=_legacy.get_active_vault_path,
+            get_indexer_status=_legacy.get_indexer_status,
+            cached_entry_count=_cached_page_entry_count,
+            find_page=lambda page_id, *, allow_full_scan=True: _legacy.find_page_path(
+                page_id, allow_full_scan=allow_full_scan
+            ),
+            materialize_page=lambda path, label: _legacy._materialize_if_online_only(path, label),
+            read_dashboard=lambda path: _read_dashboard_file(path),
+            is_dashboard=lambda path: _is_dashboard_file_path(path),
+            parse_frontmatter=parse_frontmatter,
+            enrich_single_page=_enrich_single_query_page,
+            file_etag=_legacy.file_etag,
+            fetch_preview=lambda path, page_id: _legacy._fetch_preview_with_cache(path, page_id),
+            warm_preview=lambda page_id: _legacy._bulk_warm_one(page_id),
+            preview_concurrency=_legacy._PREVIEW_WARM_CONCURRENCY,
+            preview_timeout_seconds=_legacy._PREVIEW_WARM_PER_ITEM_TIMEOUT_S,
+        )
+    )
+    _legacy.page_queries_api.register_catalog_routes(_legacy.router)
+    list_pages = _legacy.page_queries_api.list_pages
+    list_pages_by_table = _legacy.page_queries_api.list_pages_by_table
+    list_pages_by_table_snapshot = _legacy.page_queries_api.list_pages_by_table_snapshot
+    _foundation_initialized = True
+
+
+initialize_foundation(_legacy_importlib.import_module("backend.api.vault_routes"))

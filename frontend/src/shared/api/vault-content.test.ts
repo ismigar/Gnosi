@@ -1,3 +1,4 @@
+import { resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GnosiApiError } from './errors';
@@ -81,7 +82,7 @@ class FakeXMLHttpRequest extends FakeEventTarget {
 
 afterEach(() => {
   FakeXMLHttpRequest.instances = [];
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 
@@ -109,8 +110,8 @@ function requestAt(
 describe('Vault content API', () => {
   it('uploads property FormData with progress and an unbounded timeout', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest);
-    localStorage.setItem('gnosi_active_vault', 'vault-1');
-    localStorage.setItem('gnosi_active_vault_slug', 'main');
+    writeApiTestStorage('gnosi_active_vault', 'vault-1');
+    writeApiTestStorage('gnosi_active_vault_slug', 'main');
     const progress = vi.fn();
     const file = new File(['pdf'], 'paper.pdf', { type: 'application/pdf' });
 

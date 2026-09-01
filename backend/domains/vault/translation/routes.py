@@ -1,15 +1,21 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import Literal
-from typing import cast as _strict_cast
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.translation.http_values import stripped_request_text
+from backend.domains.vault.translation.types import Result
+from backend.utils.open_values import get_value, iterable_values
+
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
+router: APIRouter = _legacy.router
 
 
 class SyncDrupalRowResponse(BaseModel):
@@ -123,7 +129,7 @@ class GenerateButtonActionResponse(BaseModel):
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=DrupalContentTypesResponse,
 )
-async def drupal_content_types() -> _LegacyAny:
+async def drupal_content_types() -> Result:
     """Drupal content type for the table config dropdown."""
     from backend.services import drupal_sync_service as drupal
 
@@ -138,7 +144,7 @@ async def drupal_content_types() -> _LegacyAny:
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=DrupalContentTypeFieldsResponse,
 )
-async def drupal_content_type_fields(bundle: str) -> _LegacyAny:
+async def drupal_content_type_fields(bundle: str) -> Result:
     """Fields of a Drupal content type for the mapping editor."""
     from backend.services import drupal_sync_service as drupal
 
@@ -155,8 +161,8 @@ async def drupal_content_type_fields(bundle: str) -> _LegacyAny:
 )
 async def sync_drupal_row(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[str, object] = _legacy.Body(...),
+) -> Result:
     """Creates or updates a row's Drupal node (and its translations).
 
     Body: ``{ "item_id": "<uuid>", "button_action": "sync_drupal" }``.
@@ -164,7 +170,7 @@ async def sync_drupal_row(
     columns and the uuid to the hidden metadata.
 
     """
-    item_id = (payload.get("item_id") or "").strip()
+    item_id = stripped_request_text(payload.get("item_id") or "")
     button_action = payload.get("button_action") or "sync_drupal"
     if not item_id:
         raise _legacy.HTTPException(status_code=400, detail="item_id is required")
@@ -181,7 +187,7 @@ async def sync_drupal_row(
         item_id,
         background_tasks=background_tasks,
         publish=bool(publish),
-        scope=scope,
+        scope="lang_only" if scope == "lang_only" else "all",
         push_media=push_media,
     )
     return {"status": "ok", **result}
@@ -194,20 +200,20 @@ async def sync_drupal_row(
 )
 async def sync_drupal_rows(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[str, object] = _legacy.Body(...),
+) -> Result:
     """Bulk variant of sync-drupal-row. Each row is independent; per-row errors
     are reported in `errors` instead of aborting the batch."""
     item_ids = payload.get("item_ids") or []
-    if not isinstance(item_ids, list) or not item_ids:
+    if not is_object_list(item_ids) or not item_ids:
         raise _legacy.HTTPException(status_code=400, detail="item_ids must be a non-empty list")
     scope = payload.get("scope") or "all"
     if scope not in ("all", "lang_only"):
         scope = "all"
     publish = bool(payload.get("publish", True))
     push_media = bool(payload.get("push_media", True))
-    results: list[_LegacyAny] = []
-    errors: list[_LegacyAny] = []
+    results: list[Result] = []
+    errors: list[Result] = []
     for iid in item_ids:
         try:
             results.append(
@@ -215,7 +221,7 @@ async def sync_drupal_rows(
                     str(iid),
                     background_tasks=background_tasks,
                     publish=publish,
-                    scope=scope,
+                    scope="lang_only" if scope == "lang_only" else "all",
                     push_media=push_media,
                 )
             )
@@ -233,8 +239,8 @@ async def sync_drupal_rows(
 )
 async def match_drupal_rows(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[str, object] = _legacy.Body(...),
+) -> Result:
     """Links rows to **existing** Drupal nodes by title, without creating anything.
 
     Searches each row by exact title; if it finds exactly one, writes
@@ -259,8 +265,8 @@ async def match_drupal_rows(
 )
 async def translate_row(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[str, object] = _legacy.Body(...),
+) -> Result:
     """Translate the translatable fields of a row to one subitem per language.
 
     Body:
@@ -277,12 +283,12 @@ async def translate_row(
     the existing per-language subitem in place (idempotent) instead of
     duplicating it.
     """
-    item_id = (payload.get("item_id") or "").strip()
+    item_id = stripped_request_text(payload.get("item_id") or "")
     target_languages = payload.get("target_languages") or []
     button_action = payload.get("button_action") or "translate_row"
     if not item_id:
         raise _legacy.HTTPException(status_code=400, detail="item_id is required")
-    if not isinstance(target_languages, list) or not target_languages:
+    if not is_object_list(target_languages) or not target_languages:
         raise _legacy.HTTPException(
             status_code=400, detail="target_languages must be a non-empty list"
         )
@@ -313,8 +319,8 @@ async def translate_row(
 )
 async def translate_rows(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[str, object] = _legacy.Body(...),
+) -> Result:
     """Bulk variant of translate-row: translate many selected rows at once.
 
     Body:
@@ -331,9 +337,9 @@ async def translate_rows(
     item_ids = payload.get("item_ids") or []
     target_languages = payload.get("target_languages") or []
     button_action = payload.get("button_action") or "translate_row"
-    if not isinstance(item_ids, list) or not item_ids:
+    if not is_object_list(item_ids) or not item_ids:
         raise _legacy.HTTPException(status_code=400, detail="item_ids must be a non-empty list")
-    if not isinstance(target_languages, list) or not target_languages:
+    if not is_object_list(target_languages) or not target_languages:
         raise _legacy.HTTPException(
             status_code=400, detail="target_languages must be a non-empty list"
         )
@@ -343,9 +349,9 @@ async def translate_rows(
         )
     translate_fn, detect_fn = _legacy._load_translate_row_skill()
     deepl_api_key = _legacy._read_deepl_key()
-    results: list[_LegacyAny] = []
-    errors: list[_LegacyAny] = []
-    seen: set[_LegacyAny] = set()
+    results: list[Result] = []
+    errors: list[Result] = []
+    seen: set[str] = set()
     for raw_id in item_ids:
         item_id = raw_id.strip() if isinstance(raw_id, str) else ""
         if not item_id or item_id in seen:
@@ -375,10 +381,10 @@ async def translate_rows(
     response_model=GenerateButtonActionResponse,
 )
 async def generate_button_action(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[str, object] = _legacy.Body(...),
+) -> Result:
     """Generates structured button action configuration using LLM based on user prompt."""
-    user_prompt = (payload.get("prompt") or "").strip()
+    user_prompt = stripped_request_text(payload.get("prompt") or "")
     fields = payload.get("fields") or []
     if not user_prompt:
         raise _legacy.HTTPException(status_code=400, detail="Prompt is required")
@@ -388,7 +394,8 @@ async def generate_button_action(
     from backend.agent.factory import generate_text
 
     field_names = [
-        str(field["name"]) for field in fields if isinstance(field, dict) and field.get("name")
+        str(field["name"])
+        for field in iterable_values(fields) if is_record(field) and field.get("name")
     ]
     system_instruction = f"""You are an AI assistant helping configure table button actions in a database application.\nAvailable table fields: {(", ".join(field_names) if field_names else "Title")}\n\nGiven the user's natural language request, output ONLY a valid JSON object (no markdown wrapping) with these keys:\n{{\n  "button_label": "<Short button label max 20 characters>",\n  "button_action": "set_fields" | "ai_prompt" | "run_skill",\n  "button_config": {{\n    "assignments": [\n       {{ "field": "<field_name>", "value": "<literal or formula like today()>" }}\n    ],\n    "prompt": "<prompt text for ai_prompt>",\n    "target_field": "<target field_name for ai_prompt>",\n    "skill_id": "<skill id for run_skill>"\n  }}\n}}\n"""
     try:
@@ -399,7 +406,7 @@ async def generate_button_action(
         if cleaned.startswith("```"):
             cleaned = re.sub("^```[a-z]*\\n", "", cleaned)
             cleaned = re.sub("\\n```$", "", cleaned)
-        data = json.loads(cleaned.strip())
+        data: object = json.loads(cleaned.strip())
         return {"status": "ok", "result": data}
     except Exception as e:
         _legacy.log.error(f"Error generating button action: {e}")
@@ -422,11 +429,11 @@ async def generate_button_action(
     response_model=None,
 )
 async def execute_button_action(
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[str, object] = _legacy.Body(...),
+) -> Result:
     """Executes a custom AI prompt or Skill button action on a note/row."""
-    note_id = (payload.get("note_id") or "").strip()
-    button_action = (payload.get("button_action") or "").strip()
+    note_id = stripped_request_text(payload.get("note_id") or "")
+    button_action = stripped_request_text(payload.get("button_action") or "")
     button_config = payload.get("button_config") or {}
     if not note_id:
         raise _legacy.HTTPException(status_code=400, detail="note_id is required")
@@ -437,8 +444,8 @@ async def execute_button_action(
     metadata, body = _legacy.parse_frontmatter(raw_content, file_path)
     title = metadata.get("title") or file_path.stem
     if button_action == "ai_prompt":
-        user_prompt = (button_config.get("prompt") or "").strip()
-        target_field = (button_config.get("target_field") or "").strip()
+        user_prompt = stripped_request_text(get_value(button_config, "prompt") or "")
+        target_field = stripped_request_text(get_value(button_config, "target_field") or "")
         if not user_prompt:
             raise _legacy.HTTPException(
                 status_code=400, detail="Prompt is required for ai_prompt action"
@@ -484,8 +491,8 @@ async def execute_button_action(
 )
 async def translate_page(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[_LegacyAny, _LegacyAny] = _legacy.Body(...),
-) -> _LegacyAny:
+    payload: dict[str, object] = _legacy.Body(...),
+) -> Result:
     """Translate a Vault page (title + markdown body) into one child page per language.
 
     Body:

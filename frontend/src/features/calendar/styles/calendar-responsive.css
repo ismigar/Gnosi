@@ -1,0 +1,53 @@
+@media (max-width: 1023px) {
+  .calendar-workspace__sidebar,
+  .calendar-workspace__sidebar--left.is-open,
+  .calendar-workspace__sidebar--right.is-open {
+    position: absolute;
+    inset-block: 0;
+    z-index: calc(var(--z-overlay) + 1);
+    width: min(86vw, 320px);
+    opacity: 1;
+    box-shadow: var(--shadow-raised);
+  }
+
+  .calendar-workspace__sidebar--left {
+    inset-inline-start: 0;
+    border-inline-end-width: 1px;
+    transform: translateX(-105%);
+  }
+
+  .calendar-workspace__sidebar--right {
+    inset-inline-end: 0;
+    border-inline-start-width: 1px;
+    transform: translateX(105%);
+  }
+
+  [dir="rtl"] .calendar-workspace__sidebar--left {
+    transform: translateX(105%);
+  }
+
+  [dir="rtl"] .calendar-workspace__sidebar--right {
+    transform: translateX(-105%);
+  }
+
+  .calendar-workspace__sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .calendar-workspace__sidebar-content,
+  .calendar-workspace__sidebar-content--left,
+  .calendar-workspace__sidebar-content--right {
+    width: min(86vw, 320px);
+    min-width: min(86vw, 320px);
+  }
+
+  .calendar-workspace__backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-overlay);
+    display: block;
+    border: 0;
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(2px);
+  }
+}

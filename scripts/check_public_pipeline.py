@@ -1,0 +1,208 @@
+"""Reject private operations and generated state in the public pipeline index."""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import subprocess
+import sys
+from collections.abc import Iterable
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+
+LOG = logging.getLogger(__name__)
+ROOT = Path(__file__).resolve().parents[1]
+PRIVATE_PREFIXES = (
+    "pipeline/private_skills/",
+    "pipeline/backup_agents/",
+    "pipeline/skills/backup_projectes/",
+    "pipeline/brain/",
+    "pipeline/skills/autonomous_loop/",
+    "pipeline/skills/auto_improver/",
+    "pipeline/skills/proves_dataset/",
+    "pipeline/skills/publisher/",
+    "pipeline/skills/release_preflight/",
+    "pipeline/skills/vault_ai_assistant/",
+)
+PRIVATE_FILES = frozenset({
+    "pipeline/scripts/migrate_progres_to_virtual.py",
+    "pipeline/skills/host_open_helper/com.gnosi.host-open-helper.plist",
+})
+RETIRED_FILES = frozenset({
+    "pipeline/skills/maintenance/SKILL.md",
+    "pipeline/skills/team_manager/SKILL.md",
+    "pipeline/skills/ui_stability/SKILL.md",
+    "pipeline/parses/__init__.py",
+    "pipeline/parses/robust_ai_parser.py",
+    "pipeline/utils/ai_analysis_cache.py",
+    "pipeline/utils/json_sanitizer.py",
+    "pipeline/utils/tag_normalization.py",
+    "pipeline/utils/vault_loader.py",
+    "pipeline/utils/vault_writer.py",
+    "pipeline/scripts/index_vault.py",
+    "pipeline/legacy/import/notion/notion_to_gnosi_full_import.py",
+    "pipeline/skills/calendar_sync/scripts/ics_to_md.py",
+    "pipeline/skills/mail_sync/scripts/imap_to_md.py",
+})
+GENERATED_DIRECTORIES = frozenset(
+    {
+        "sandbox",
+        ".tmp",
+        "__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".vite",
+        "node_modules",
+        ".venv",
+        "local_data",
+        "secrets",
+    }
+)
+
+
+@dataclass(frozen=True)
+class IndexedFile:
+    mode: str
+    path: str
+
+
+def indexed_files(root: Path) -> list[IndexedFile]:
+    """Read index metadata only, including force-added ignored files."""
+    result = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "--stage", "-z", "--", "pipeline"],
+        check=True,
+        capture_output=True,
+    )
+    entries = []
+    for item in result.stdout.split(b"\0"):
+        if not item:
+            continue
+        metadata, name = item.split(b"\t", 1)
+        mode, _oid, stage = metadata.decode().split(" ")
+        if stage != "0":
+            raise ValueError("Resolve the pipeline index conflict before checking publication")
+        entries.append(IndexedFile(mode, name.decode("utf-8")))
+    return entries
+
+
+def violations(entries: Iterable[IndexedFile]) -> list[str]:
+    """Classify names and modes without opening source, secrets or symlinks."""
+    issues = []
+    for entry in entries:
+        path = PurePosixPath(entry.path)
+        if not entry.path.startswith("pipeline/"):
+            raise ValueError("Unexpected path outside pipeline")
+        if entry.mode not in {"100644", "100755"}:
+            issues.append(f"{entry.path}: external source link or unsupported file mode")
+        if entry.path.startswith(PRIVATE_PREFIXES) or entry.path in PRIVATE_FILES:
+            issues.append(f"{entry.path}: private operation belongs outside public Gnosi")
+        if entry.path in RETIRED_FILES:
+            issues.append(
+                f"{entry.path}: retired implementation must remain in historical archives"
+            )
+        if any(part in GENERATED_DIRECTORIES or part.endswith(".egg-info") for part in path.parts):
+            issues.append(f"{entry.path}: generated or local runtime state")
+        if path.name.startswith(".env") and not path.name.endswith((".example", ".template")):
+            issues.append(f"{entry.path}: environment values must not be published")
+        if path.suffix.lower() in {".pyc", ".pyo", ".sqlite", ".sqlite3", ".db", ".log"}:
+            issues.append(f"{entry.path}: generated or local data file")
+    return sorted(issues)
+
+
+def validated_python_sources(root: Path, entries: list[IndexedFile]) -> list[str]:
+    """Select the complete index and reject missing or escaping working-tree paths."""
+    if violations(entries):
+        raise ValueError("Resolve public source boundary violations before type-checking")
+    sources = sorted(entry.path for entry in entries if entry.path.endswith(".py"))
+    if not sources:
+        raise ValueError("Public pipeline Python source set is empty")
+    root = root.resolve(strict=True)
+    for source in sources:
+        target = root / source
+        if (
+            not target.is_file()
+            or target.is_symlink()
+            or not target.resolve(strict=True).is_relative_to(root)
+        ):
+            raise ValueError(f"Missing or external pipeline source: {source}")
+    return sources
+
+
+def typecheck_pipeline(root: Path, entries: list[IndexedFile]) -> int:
+    """Check every indexed Python source, including tests and ignored directories."""
+    sources = validated_python_sources(root, entries)
+    root = root.resolve(strict=True)
+    LOG.info("Strict type-check of all %s indexed pipeline Python files", len(sources))
+    result = subprocess.run(
+        [sys.executable, "-m", "mypy", "--strict", "--explicit-package-bases", *sources],
+        cwd=root,
+        check=False,
+    )
+    return result.returncode
+
+
+def check_pipeline_structure(root: Path, entries: list[IndexedFile]) -> int:
+    """Enforce 800 lines per indexed Python module and complexity at most 15."""
+    sources = validated_python_sources(root, entries)
+    root = root.resolve(strict=True)
+    oversized = []
+    for source in sources:
+        line_count = len((root / source).read_text(encoding="utf-8").splitlines())
+        if line_count > 800:
+            oversized.append(f"{source}: {line_count} lines exceeds 800")
+    for issue in oversized:
+        LOG.error("%s", issue)
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "ruff", "check", "--isolated", "--select", "C901",
+            "--config", "lint.mccabe.max-complexity=15", "--no-respect-gitignore",
+            "--ignore-noqa",
+            *sources,
+        ],
+        cwd=root,
+        check=False,
+    )
+    if result.returncode:
+        return result.returncode
+    if oversized:
+        return 1
+    LOG.info(
+        "Pipeline structure passed for %s indexed Python files (800 lines/15 complexity)",
+        len(sources),
+    )
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repository", type=Path, default=ROOT)
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument(
+        "--typecheck", action="store_true", help="Strictly check all indexed Python"
+    )
+    modes.add_argument(
+        "--structure", action="store_true", help="Check indexed Python module size and complexity"
+    )
+    args = parser.parse_args()
+    try:
+        entries = indexed_files(args.repository)
+        issues = violations(entries)
+        if not issues and args.typecheck:
+            return typecheck_pipeline(args.repository, entries)
+        if not issues and args.structure:
+            return check_pipeline_structure(args.repository, entries)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        LOG.error("Public pipeline check failed: %s", error)
+        return 1
+    for issue in issues:
+        LOG.error("%s", issue)
+    if issues:
+        LOG.error("The check reads Git's index; stage reviewed removals before rechecking")
+        return 1
+    LOG.info("Public pipeline boundary passed for %s indexed files", len(entries))
+    return 0
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    raise SystemExit(main())

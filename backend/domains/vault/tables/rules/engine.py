@@ -5,9 +5,11 @@ from __future__ import annotations
 import math
 import re
 import threading
+from datetime import datetime
+from operator import methodcaller
 from pathlib import Path
-from typing import Any, cast
 
+from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.tables.rules import automations, definitions, records, rollups
 from backend.domains.vault.tables.rules.types import (
     Definition,
@@ -29,6 +31,12 @@ def _average(value: object) -> object:
     return sum(value) / len(value) if isinstance(value, list) and value else 0
 
 
+def _manual_suffix(key: object) -> object:
+    """Retain the native endswith lookup, return value and errors of opaque keys."""
+    result: object = methodcaller("endswith", "_manual")(key)
+    return result
+
+
 class RuleEngine:
     """Evaluate formulas, rollups, lookups and automations for one Vault."""
 
@@ -42,8 +50,8 @@ class RuleEngine:
         self.evaluator = dependencies.new_evaluator()
         self._setup_evaluator()
         self.registry = self._load_registry()
-        self._lookup_cache: dict[tuple[str, str, str], Any] = {}
-        self._query_cache: dict[tuple[str, str, str | None], Any] = {}
+        self._lookup_cache: dict[tuple[str, str, str], object] = {}
+        self._query_cache: dict[tuple[str, str, str | None], object] = {}
         self._current_note_id: str | None = None
         self._eval_lock = threading.Lock()
 
@@ -98,15 +106,15 @@ class RuleEngine:
         if self._extract_rollup_definitions(table):
             return True
         raw_automations = table.get("automations") or []
-        if not isinstance(raw_automations, list):
+        if not is_object_list(raw_automations):
             return False
         return any(self._automation_has_cross_record_call(item) for item in raw_automations)
 
     def _automation_has_cross_record_call(self, automation: object) -> bool:
-        if not isinstance(automation, dict):
+        if not is_record(automation):
             return False
         action = automation.get("action")
-        expression = action.get("expression") if isinstance(action, dict) else None
+        expression = action.get("expression") if is_record(action) else None
         return self._expression_has_cross_record_calls(str(expression or ""))
 
     def _extract_formula_definitions(self, table: Metadata) -> list[Definition]:
@@ -140,7 +148,7 @@ class RuleEngine:
     def _is_missing(value: object) -> bool:
         return value is None or value == ""
 
-    def _evaluate_expression(self, expression: str) -> Any:
+    def _evaluate_expression(self, expression: str) -> object:
         parsed_expression = expression
         token_names: list[str] = []
         for index, raw_name in enumerate(re.findall(r"\{([^}]+)\}", expression)):
@@ -217,7 +225,7 @@ class RuleEngine:
         return definitions.is_truthy_checkbox(value)
 
     @staticmethod
-    def _as_datetime(value: object) -> Any:
+    def _as_datetime(value: object) -> datetime | None:
         return definitions.as_datetime(value)
 
     def _load_related_metadata(self, record_id: str) -> Metadata | None:
@@ -235,7 +243,7 @@ class RuleEngine:
         self,
         definition: Definition,
         updated_metadata: Metadata,
-    ) -> tuple[list[Metadata], list[Any]]:
+    ) -> tuple[list[Metadata], list[object]]:
         return rollups.collect_rollup_values(
             definition,
             updated_metadata,
@@ -248,7 +256,7 @@ class RuleEngine:
         self,
         definition: Definition,
         updated_metadata: Metadata,
-    ) -> Any:
+    ) -> object:
         rows, values = self._collect_rollup_values(definition, updated_metadata)
         return rollups.evaluate_rollup_definition(definition, rows, values)
 
@@ -274,10 +282,10 @@ class RuleEngine:
             updated_metadata[name] = definition.get("fallback_value")
             self.evaluator.names[name] = updated_metadata.get(name)
 
-    def _get_prop(self, name: str) -> Any:
+    def _get_prop(self, name: str) -> object:
         return self.evaluator.names.get(name)
 
-    def _lookup(self, table_id: str, record_ids: object, property_name: str) -> Any:
+    def _lookup(self, table_id: str, record_ids: object, property_name: str) -> object:
         return records.lookup(
             table_id,
             record_ids,
@@ -293,7 +301,7 @@ class RuleEngine:
         table_id: str,
         filter_expr: str,
         property_name: str | None = None,
-    ) -> Any:
+    ) -> object:
         return records.query(
             self.vault_path,
             table_id,
@@ -305,13 +313,13 @@ class RuleEngine:
             self.dependencies,
         )
 
-    def _current_table_id(self) -> str | None:
+    def _current_table_id(self) -> object:
         value = self.evaluator.names.get("database_table_id") or self.evaluator.names.get(
             "table_id"
         )
-        return cast(str | None, value)
+        return value
 
-    def _normalize_column_values(self, values: list[Any]) -> list[float]:
+    def _normalize_column_values(self, values: list[object]) -> list[float]:
         return records.normalize_column_values(values)
 
     def _collect_column_values(
@@ -319,7 +327,7 @@ class RuleEngine:
         property_name: str,
         table_id: str | None = None,
         filter_expr: str | None = None,
-    ) -> list[Any]:
+    ) -> list[object]:
         effective_table_id = table_id or self._current_table_id()
         if not effective_table_id:
             return []
@@ -368,7 +376,7 @@ class RuleEngine:
         property_name: str,
         table_id: str | None = None,
         filter_expr: str | None = None,
-    ) -> Any:
+    ) -> float | None:
         numbers = self._normalize_column_values(
             self._collect_column_values(property_name, table_id, filter_expr)
         )
@@ -379,7 +387,7 @@ class RuleEngine:
         property_name: str,
         table_id: str | None = None,
         filter_expr: str | None = None,
-    ) -> Any:
+    ) -> float | None:
         numbers = self._normalize_column_values(
             self._collect_column_values(property_name, table_id, filter_expr)
         )
@@ -424,7 +432,7 @@ class RuleEngine:
     @staticmethod
     def _preserve_manual_flags(old_metadata: Metadata, updated_metadata: Metadata) -> None:
         for key, value in old_metadata.items():
-            if key.endswith("_manual"):
+            if _manual_suffix(key):
                 updated_metadata[key] = value
 
     @staticmethod
@@ -440,7 +448,7 @@ class RuleEngine:
                 old_metadata[key]
             ) == definitions.canonical_for_compare(new_value):
                 continue
-            if not key.endswith("_manual") and key != "database_table_id":
+            if not _manual_suffix(key) and key != "database_table_id":
                 updated_metadata[f"{key}_manual"] = True
 
     def _run_automations(
@@ -450,10 +458,10 @@ class RuleEngine:
         updated_metadata: Metadata,
     ) -> None:
         raw_automations = table.get("automations") or []
-        if not isinstance(raw_automations, list):
+        if not is_object_list(raw_automations):
             return
         for raw_automation in raw_automations:
-            if not isinstance(raw_automation, dict):
+            if not is_record(raw_automation):
                 continue
             self._run_automation(raw_automation, old_metadata, updated_metadata)
 
@@ -465,15 +473,15 @@ class RuleEngine:
     ) -> None:
         try:
             trigger = automation.get("trigger")
-            typed_trigger = trigger if isinstance(trigger, dict) else {}
+            typed_trigger = trigger if is_record(trigger) else {}
             if not self._automation_triggered(typed_trigger, old_metadata, updated_metadata):
                 return
             raw_actions = automation.get("actions")
             actions = (
-                raw_actions if isinstance(raw_actions, list) else [automation.get("action", {})]
+                raw_actions if is_object_list(raw_actions) else [automation.get("action", {})]
             )
             for action in actions:
-                if isinstance(action, dict):
+                if is_record(action):
                     self._apply_automation_action(action, updated_metadata)
         except Exception as error:
             self.dependencies.logger.error(

@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.params import Depends as DependsParameter
 from pydantic import BaseModel, ConfigDict
-
 
 REFERENCE_SCHEMA: list[tuple[str, str]] = [
     ("Citation Key", "text"),
@@ -54,12 +52,12 @@ class ReferenceTableResponse(BaseModel):
 @dataclass(frozen=True)
 class ReferenceApiDependencies:
     resolve_get_table_id: Callable[[], Callable[[], str | None]]
-    resolve_primary_table: Callable[[], Callable[[str], dict[str, Any] | None]]
-    resolve_table: Callable[[], Callable[[str], dict[str, Any] | None]]
+    resolve_primary_table: Callable[[], Callable[[str], Mapping[str, object] | None]]
+    resolve_table: Callable[[], Callable[[str], Mapping[str, object] | None]]
     resolve_ensure_schema: Callable[[], Callable[[str], int]]
     resolve_set_table_id: Callable[[], Callable[[str | None], None]]
     resolve_invalidate_index: Callable[[], Callable[[], None]]
-    resolve_create_table: Callable[[], Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]]
+    resolve_create_table: Callable[[], Callable[[dict[str, object]], Awaitable[dict[str, object]]]]
 
 
 def register_routes(
@@ -83,7 +81,7 @@ def register_routes(
         }
 
     async def set_reference_table(
-        payload: dict[str, Any] = Body(...),
+        payload: dict[str, object] = Body(...),
     ) -> dict[str, object]:
         """Designates an existing table as the references table and guarantees
         its citable schema. The user doesn't need to know anything about 'Citation Key'."""
@@ -104,11 +102,11 @@ def register_routes(
         }
 
     async def create_reference_table(
-        payload: dict[str, Any] = Body(default=None),
+        payload: dict[str, object] = Body(default=None),
     ) -> dict[str, object]:
         """Creates a new, already-citable table and designates it as the references table."""
         name = str((payload or {}).get("name") or "").strip() or "Referències"
-        table = {
+        table: dict[str, object] = {
             "name": name,
             "database_id": "gnosi_vault_db",
             "properties": [

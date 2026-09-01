@@ -8,6 +8,8 @@ source_paths:
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
   - backend/api/vault_routes.py
+  - backend/domains/vault/pages/runtime.py
+  - backend/domains/vault/registry/state.py
   - backend/domains/notion
   - backend/domains/configuration/api/plugin_lifecycle.py
   - backend/domains/configuration/api/plugin_models.py
@@ -30,9 +32,12 @@ source_paths:
   - backend/services/notion_importer.py
   - backend/services/notion_view_recreator.py
   - extensions/examples
-  - frontend/src/plugins
+  - frontend/src/shared/plugins
   - extensions/mcp
   - extensions/office
+  - frontend/src/features/plugin-management
+  - frontend/src/features/notion-import
+  - frontend/src/features/integrations
 tests:
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
@@ -55,8 +60,8 @@ tests:
   - backend/tests/test_notion_importer.py
   - backend/tests/test_notion_view_recreator.py
   - backend/tests/test_openapi_contract.py
-  - frontend/src/plugins/host.test.js
-  - frontend/src/plugins/registry.test.js
+  - frontend/src/shared/plugins/host.test.ts
+  - frontend/src/shared/plugins/registry.test.ts
   - extensions/office/libreoffice-cite/tests
 ---
 
@@ -148,10 +153,12 @@ deterministic OpenAPI document remain byte-stable.
 legacy imports. It injects path, persistence, runtime, model-selection, and
 mutation-lock collaborators and re-exports the historical models and handlers.
 The load, save, lifecycle, summary-model, and mutation-lock seams remain
-dynamically replaceable for plugins and tests. Domain modules never import the
-facade. Route order, paths, methods, status codes, payload schemas, operation
-identifiers, and the generated OpenAPI contract remain frozen during this
-structural migration.
+dynamically replaceable for plugins and tests. Some extracted page modules still
+import that facade dynamically, and the page and registry boundaries retain
+typing escapes. Removing these legacy dependencies remains unfinished; a passing
+strict type-check does not prove complete typed separation. Route order, paths,
+methods, status codes, payload schemas, operation identifiers, and the generated
+OpenAPI contract remain frozen during this structural migration.
 
 The plugin domain and dispatcher share a typed two-argument host-handler
 contract: bounded arguments plus the calling plugin id. The historical sandbox
@@ -233,6 +240,22 @@ dynamic Extensions group, render inside the existing opaque-origin iframe
 sandbox and disappear as soon as the plugin is disabled, revoked or removed.
 Reading or writing the plugin's own configuration additionally requires the
 existing `settings` permission. The host API remains at major version 2.
+
+The UI bridge is split into a typed host, permission-gated method adapters,
+frame lifecycle ownership, and a standalone TypeScript sandbox runtime. The
+runtime is serialized only after compilation; tests also execute the minified
+Vite output to prevent captured host dependencies from breaking the iframe.
+Both sides verify the sending window, not just the message marker or opaque
+origin. Replies from retired frames or earlier document generations are dropped;
+mutations are never replayed to a replacement document.
+
+Moving a running iframe with ordinary DOM insertion reloads its document. The
+Settings host uses state-preserving movement when available, or waits for the
+requested panel to register again before rendering. Mount cleanup belongs to
+one panel instance, and contribution snapshot updates do not remount an
+unchanged panel. Tests cover both movement paths, permission denial, stale
+responses, and repeated registration. Real-browser QA must additionally check
+open/close/reopen and plugin replacement against an isolated fixture API.
 
 ## Marketplace distribution
 

@@ -7,13 +7,26 @@ source_paths:
   - backend/models/management.py
   - backend/api/vault_routes.py
   - backend/services/page_sidecar.py
+  - backend/services/reference_table_config.py
+  - backend/services/reference_config_migration.py
 tests:
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
+  - backend/tests/test_reference_config_migration.py
 ---
 
 # Data and storage
+
+## References configuration
+
+`GNOSI_DATA_DIR/config/references.json` owns the bibliographic table designation,
+its explicit disabled state and linked-attachment settings. Source-tree copies
+are migrated explicitly by `scripts/migrate-reference-config.py`, never by an
+API request or implicit startup copy. The migrator preserves the original and
+all unknown fields, verifies exact UTF-8 JSON bytes, publishes without replacing
+another file and keeps a private recovery journal. Startup refuses unmigrated
+legacy configuration before database upgrades and background workers.
 
 ## Ownership map
 

@@ -6,10 +6,13 @@ source_paths:
   - backend/services/social_clients.py
   - backend/services/social_store.py
   - backend/domains/social
-  - frontend/src/pages/SocialDashboard.jsx
-  - frontend/src/pages/MediaCenter.jsx
-  - pipeline/skills/publisher
+  - frontend/src/features/social
+  - frontend/src/features/media
 tests:
+  - frontend/src/features/social/SocialDashboard.test.tsx
+  - frontend/src/features/social/ContentCalendar.test.tsx
+  - frontend/src/features/social/components/socialComponents.test.tsx
+  - frontend/src/features/media/browser/MediaCenter.test.tsx
   - backend/tests/test_social_clients_contract.py
   - backend/tests/test_social_store.py
   - backend/tests/test_media_upload.py
@@ -23,6 +26,17 @@ tests:
 This domain prepares, schedules, publishes, and observes content across
 configured social networks. The media center provides reusable visual assets
 and metadata. Publishing is always an external effect.
+
+The historical maintainer-specific Drupal publishing instructions are not part
+of the public runtime. Removing that pipeline package does not remove social
+publishing: the routes and adapters listed above remain the supported path.
+
+The social feature owns its dashboard, composer, scheduled-content calendar,
+history, and private UI components. The media feature separately owns asset
+browsing, filters, saved views, and metadata. Both expose lazy route entries;
+importing the social entry does not evaluate either screen. The network icon
+remains shared with settings. HTTP adapters and publication permissions are
+unchanged, and cross-feature consumers never import private implementation files.
 
 ## Network adapters
 

@@ -1,3 +1,4 @@
+import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { apiClient } from './client';
@@ -11,7 +12,7 @@ import {
 
 afterEach(() => {
   clearPageEtag('page-1');
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 

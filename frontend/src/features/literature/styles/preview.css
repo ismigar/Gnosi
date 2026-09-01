@@ -1,0 +1,138 @@
+.literature-preview-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal, 1000);
+    display: flex;
+    justify-content: flex-end;
+    background: rgb(15 23 42 / 32%);
+    backdrop-filter: blur(3px);
+}
+
+.literature-preview {
+    display: flex;
+    flex-direction: column;
+    width: min(650px, 94vw);
+    height: 100%;
+    background: var(--bg-primary);
+    box-shadow: -18px 0 60px rgb(15 23 42 / 18%);
+}
+
+.literature-preview > header,
+.literature-preview > footer {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.literature-preview > footer {
+    align-items: center;
+    justify-content: flex-end;
+    border-top: 1px solid var(--border-primary);
+    border-bottom: 0;
+}
+
+.literature-preview h2 {
+    margin: 5px 0 0;
+    font-size: 19px;
+}
+
+.literature-icon-button {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.literature-preview__body {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+}
+
+.literature-preview__body section {
+    margin-top: 22px;
+}
+
+.literature-preview__body section h3 {
+    margin: 0 0 7px;
+    font-size: 13px;
+}
+
+.literature-preview__body section p {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.literature-metadata-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 0;
+}
+
+.literature-metadata-grid dt {
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.literature-metadata-grid dd {
+    margin: 3px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.literature-provenance,
+.literature-locations {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.literature-provenance > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 8px;
+    border-radius: 7px;
+    background: var(--bg-secondary);
+    font-size: 11px;
+}
+
+.literature-provenance span {
+    color: var(--text-secondary);
+}
+
+.literature-locations a {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-wrap: anywhere;
+    color: var(--gnosi-blue);
+    font-size: 11px;
+}
+
+.literature-conflict {
+    padding: 9px;
+    border: 1px solid color-mix(in srgb, var(--status-warning) 25%, var(--border-primary));
+    border-radius: 8px;
+}
+
+.literature-conflict p {
+    margin: 4px 0 0 !important;
+}
+
+.literature-conflict p span {
+    color: var(--status-warning);
+    font-weight: 700;
+}

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from typing import Any
 
+from backend.domains.vault.registry.records import is_object_list
 from backend.domains.vault.tables.rules.definitions import (
     as_datetime,
     is_truthy_checkbox,
@@ -17,6 +17,7 @@ from backend.domains.vault.tables.rules.types import (
     Metadata,
     RuleEngineDependencies,
 )
+from backend.utils.open_values import float_value
 
 
 def _passes_filter(
@@ -36,9 +37,9 @@ def _passes_filter(
 
 def _apply_limit(
     rows: list[Metadata],
-    values: list[Any],
+    values: list[object],
     raw_limit: object,
-) -> tuple[list[Metadata], list[Any]]:
+) -> tuple[list[Metadata], list[object]]:
     try:
         if raw_limit is None:
             return rows, values
@@ -56,14 +57,14 @@ def collect_rollup_values(
     load_related_metadata: Callable[[str], Metadata | None],
     functions: FunctionMap,
     dependencies: RuleEngineDependencies,
-) -> tuple[list[Metadata], list[Any]]:
+) -> tuple[list[Metadata], list[object]]:
     """Load, filter and bound rows referenced by one rollup field."""
     relation_field = str(definition.get("relation_field") or "")
     record_ids = normalize_record_ids(updated_metadata.get(relation_field))
     filter_expression = definition.get("filter_expression")
     target_property = definition.get("target_property")
     rows: list[Metadata] = []
-    values: list[Any] = []
+    values: list[object] = []
     for record_id in record_ids:
         metadata = load_related_metadata(record_id)
         if not metadata or not _passes_filter(
@@ -81,10 +82,10 @@ def collect_rollup_values(
     return _apply_limit(rows, values, definition.get("limit"))
 
 
-def _flatten(values: list[Any]) -> list[Any]:
-    flattened: list[Any] = []
+def _flatten(values: list[object]) -> list[object]:
+    flattened: list[object] = []
     for value in values:
-        flattened.extend(value if isinstance(value, list) else [value])
+        flattened.extend(value if is_object_list(value) else [value])
     return flattened
 
 
@@ -96,8 +97,8 @@ def _token(value: object) -> str:
     )
 
 
-def _unique(values: list[Any]) -> list[Any]:
-    unique: list[Any] = []
+def _unique(values: list[object]) -> list[object]:
+    unique: list[object] = []
     seen: set[str] = set()
     for value in values:
         token = _token(value)
@@ -107,7 +108,7 @@ def _unique(values: list[Any]) -> list[Any]:
     return unique
 
 
-def _fallback(definition: Definition, default: Any) -> Any:
+def _fallback(definition: Definition, default: object) -> object:
     provided = "fallback_value" in definition and definition.get("fallback_value") is not None
     return definition.get("fallback_value") if provided else default
 
@@ -115,10 +116,10 @@ def _fallback(definition: Definition, default: Any) -> Any:
 def _count_aggregation(
     aggregation: str,
     rows: list[Metadata],
-    flattened: list[Any],
-    non_empty: list[Any],
+    flattened: list[object],
+    non_empty: list[object],
     definition: Definition,
-) -> Any:
+) -> object:
     if aggregation == "count_all":
         return len(rows)
     if aggregation == "count_values":
@@ -139,9 +140,9 @@ def _count_aggregation(
 
 def _date_aggregation(
     aggregation: str,
-    non_empty: list[Any],
+    non_empty: list[object],
     definition: Definition,
-) -> Any:
+) -> object:
     dates = [date_value for value in non_empty if (date_value := as_datetime(value)) is not None]
     if not dates:
         return _fallback(definition, None)
@@ -149,11 +150,11 @@ def _date_aggregation(
     return selected.isoformat()
 
 
-def _numeric_values(values: list[Any]) -> list[float]:
+def _numeric_values(values: list[object]) -> list[float]:
     numbers: list[float] = []
     for value in values:
         try:
-            numbers.append(float(value))
+            numbers.append(float_value(value))
         except Exception:
             continue
     return numbers
@@ -163,7 +164,7 @@ def _numeric_aggregation(
     aggregation: str,
     values: list[float],
     definition: Definition,
-) -> Any:
+) -> object:
     if aggregation not in {"sum", "avg", "min", "max"}:
         return _fallback(definition, None)
     if not values:
@@ -183,8 +184,8 @@ def _numeric_aggregation(
 def evaluate_rollup_definition(
     definition: Definition,
     rows: list[Metadata],
-    values: list[Any],
-) -> Any:
+    values: list[object],
+) -> object:
     """Evaluate one supported rollup aggregation with legacy fallbacks."""
     aggregation = str(definition.get("aggregation", "count_values"))
     flattened = _flatten(values)

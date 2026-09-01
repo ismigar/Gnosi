@@ -2,10 +2,12 @@
 
 import importlib as _legacy_importlib
 from collections.abc import Callable
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+from typing import TYPE_CHECKING
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
 from backend.api.virtual_fields import inject_for_single_page as _vf_inject_for_single_page
 from backend.api.virtual_fields import inject_for_table as _vf_inject_for_table
 from backend.api.virtual_fields import list_virtual_field_specs as _vf_list_specs
@@ -102,7 +104,7 @@ from backend.domains.vault.registry.repository import (
     RegistryRepository,
     RegistryRepositoryDependencies,
 )
-from backend.domains.vault.registry.state import registry_state
+from backend.domains.vault.registry.state import RegistryData, registry_state
 from backend.domains.vault.schemas.pages import (
     PageInfo,
     PagePatchRequest,
@@ -224,7 +226,7 @@ from backend.services.view_snapshot import (
 )
 from backend.services.workspace_service import WorkspaceContext, get_workspace_context
 
-registry_repository = RegistryRepository(
+registry_repository: RegistryRepository = RegistryRepository(
     dependencies=RegistryRepositoryDependencies(
         registry_path=lambda: _legacy.get_p("REGISTRY"),
         normalize_folder=lambda value: _legacy._normalize_rel_folder(value),
@@ -237,7 +239,7 @@ registry_repository = RegistryRepository(
     state=registry_state,
     logger=_legacy.log,
 )
-registry_api_dependencies = registry_api.RegistryApiDependencies(
+registry_api_dependencies: registry_api.RegistryApiDependencies = registry_api.RegistryApiDependencies(
     load_registry=lambda: _legacy.load_registry(),
     save_registry=lambda data: _legacy.save_registry(data),
     sort_key=lambda item: _legacy._sort_key_name(item),
@@ -371,11 +373,11 @@ def _rematerialize_snapshot(
     markdown: str,
     page_id: str,
     *,
-    resolve_ids: Callable[[str, str | None], list[str]],
+    resolve_ids: Callable[[str, object], list[str]],
     id_to_title: Callable[[str], str | None],
-    config_for: Callable[[str], dict[str, _LegacyAny]],
+    config_for: Callable[[str], RegistryData],
     resolve_table: Callable[
-        [str, str | None], vault_view_snapshots.SnapshotTable | None
+        [str, object], vault_view_snapshots.SnapshotTable | None
     ],
 ) -> str:
     result = rematerialize_md(
@@ -461,7 +463,7 @@ _registry_seen_nondegenerate = registry_state.seen_nondegenerate
 _registry_mutation_lock = registry_state.mutation_lock
 
 
-def _ensure_registry_status_catalog(registry: dict[_LegacyAny, _LegacyAny]) -> bool:
+def _ensure_registry_status_catalog(registry: RegistryData) -> bool:
     """Run the optional legacy status-catalog migrator when it is available."""
     ensure_status_catalog = getattr(option_catalogs_service, "ensure_global_status_catalog", None)
     return bool(ensure_status_catalog(registry) if callable(ensure_status_catalog) else False)
@@ -475,7 +477,7 @@ def _configured_table_language() -> str:
 
 
 def _refresh_option_rewrite_cache(
-    file_path: _legacy.Path, metadata: dict[_LegacyAny, _LegacyAny], body: str, row: PageInfo
+    file_path: _legacy.Path, metadata: RegistryData, body: str, row: PageInfo
 ) -> None:
     """Refresh the existing page-index owner after an option row rewrite."""
     vault_path = _legacy.get_active_vault_path()
@@ -552,12 +554,9 @@ from backend.domains.vault.links.schemas import LinkMentionsRequest
 from backend.domains.vault.links.state import LinkIndexView, link_index_state
 
 
-def _table_by_id(table_id: str) -> dict[_LegacyAny, _LegacyAny] | None:
+def _table_by_id(table_id: object) -> RegistryData | None:
     """Return one table through the canonical registry domain."""
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny] | None,
-        registry_api.table_by_id(table_id, registry_api_dependencies),
-    )
+    return registry_api.table_by_id(table_id, registry_api_dependencies)
 
 
 from backend.services.library_paths import library_roots as _library_roots

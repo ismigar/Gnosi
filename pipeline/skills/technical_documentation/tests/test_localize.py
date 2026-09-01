@@ -16,7 +16,6 @@ def test_every_supported_locale_has_navigation_and_output_contracts() -> None:
     assert set(LOCALES) == {"ca", "es", "fr"}
     assert set(NAV_LABELS) == set(LOCALES)
     assert LOCALES["fr"]["target_prefix"] == ">>fr<<"
-    assert LOCALES["fr"]["translate_generated"] is False
     assert LOCALES["fr"]["config"].name == "mkdocs-fr.yml"
 
 

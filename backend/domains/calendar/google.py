@@ -236,7 +236,7 @@ def _restrict_birthday_patch(body: dict[str, Any], event: dict[str, Any]) -> dic
 
 def update_google_event(
     email: str,
-    event_uid: str,
+    event_uid: object,
     patch_data: dict[str, Any],
     *,
     service_factory: Any = get_google_calendar_service,

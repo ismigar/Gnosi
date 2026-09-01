@@ -11,16 +11,19 @@ source_paths:
   - backend/agent/agent_context.py
   - backend/agent/factory.py
   - backend/api/agent_routes.py
-  - frontend/src/pages/NotebooksPage.jsx
-  - frontend/src/components/Notebooks
-  - frontend/src/components/AgentChat.jsx
+  - frontend/src/features/notebooks
+  - frontend/src/shared/api/notebooks.ts
+  - frontend/src/features/agent
 tests:
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
-  - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
-  - frontend/src/pages/NotebooksPage.test.jsx
-  - frontend/src/lib/notebookTableActions.test.js
+  - frontend/src/features/notebooks/create/NotebookCreateDialog.test.tsx
+  - frontend/src/features/notebooks/NotebooksPage.test.tsx
+  - frontend/src/features/notebooks/detail/NotebookDetail.behavior.test.tsx
+  - frontend/src/features/notebooks/public-entry.test.ts
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/features/notebooks/model/notebookTableActions.test.ts
   - tests/e2e/tests/e2e/notebooks.spec.ts
 ---
 
@@ -37,6 +40,15 @@ preguntar sobre los adjuntos y las URL de los registros seleccionados en la
 tabla Referencias configurada. Combinan una biblioteca consultable, un panel de
 fuentes paginado, la configuración y el mismo transporte de conversación en
 streaming que el asistente flotante.
+
+La conversación integrada importa la exportación pública `AgentChat` de la
+feature del agente, nunca sus módulos privados de sesión o streaming. El shell
+de la aplicación carga dinámicamente esa misma entrada pública. Ambos consumidores
+utilizan el contrato completo de propiedades tipadas, incluidas las referencias
+inmutables de contexto, la identidad del cuaderno y el modo de solo lectura.
+Solo el payload HTTP saliente recibe una copia mutable del array; no cambian el
+contenido de las referencias, la selección de fuentes, las claves de almacenamiento
+ni la autorización.
 
 El cuerpo, el título, las etiquetas y los demás metadatos del registro no son
 evidencia. Gnosi solo lee los metadatos para localizar campos definidos como
@@ -92,7 +104,7 @@ validadores, compara un hash acotado del contenido. Una comprobación sin
 cambios queda registrada, pero no activa una revisión nueva de evidencia.
 
 YouTube, Vimeo y los demás adaptadores de streaming compatibles realizan una
-comprobación de metadatos sin descargar el contenido. Gnosi compara una huella
+comprobación de metadatos sin descargar el contenido tras el mismo TTL. Gnosi compara una huella
 determinista de identidad, duración, marcas temporales, estado en directo y
 tamaño; solo vuelve a descargar y transcribir cuando cambia. Un reintento por
 Recurso fuerza únicamente el Recurso seleccionado y copia el resto de la
@@ -101,12 +113,16 @@ revisión activa.
 Retirar un Recurso elimina inmediatamente su pertenencia. La recuperación y el
 análisis global comprueban los miembros actuales, de modo que la evidencia
 retirada queda excluida antes de que una revisión nueva esté preparada.
+Los adaptadores del catálogo de Recursos y de actualización leen directamente
+los responsables canónicos de páginas, tablas y referencias del vault. No llaman
+a través de la fachada dinámica de compatibilidad HTTP, por lo que la dirección
+de las dependencias del dominio permanece explícita.
 
 ## Persistencia y recuperación
 
 El estado es local a la instancia en `LOCAL_DATA/system/notebooks.sqlite3`.
 El repositorio contiene definiciones, ACL, pertenencia de Recursos, revisiones,
-fuentes, fragmentos, filas FTS5, análisis durables y los principales de
+fuentes, fragmentos, filas FTS5, análisis durables y los principales de seguridad de las
 conversación de cada modo. Las filas se aíslan mediante un hash de la ruta del
 Vault y el identificador del workspace.
 
@@ -116,8 +132,11 @@ el proceso. La activación de una revisión es transaccional. Si falla la
 actualización de una fuente ya indexada, su última versión válida sigue
 disponible con estado `stale`; una fuente nueva fallida muestra el error y
 queda excluida.
+La admisión de análisis resuelve un vault activo concreto antes de encolar el
+trabajo; si falta el contexto de la petición, falla antes de que el payload
+persistente pueda contener una ruta ambigua o dependiente de la máquina.
 
-La limpieza conserva la revisión activa, las tres revisiones completas y los
+Las revisiones nuevas están sujetas a la política de retención. La limpieza conserva la revisión activa, las tres revisiones completas y los
 veinte resultados de auditoría más recientes por defecto, todas las revisiones
 fijadas por conversaciones y las usadas por análisis durables. Las revisiones
 anteriores a esta política se protegen de forma conservadora. Los límites se
@@ -136,20 +155,25 @@ La barra de contexto permite elegir fuentes concretas de adjuntos o URL del
 cuaderno actual y añadir otros cuadernos accesibles. Un cuaderno añadido aporta
 todas sus fuentes disponibles, pero el cuaderno actual sigue siendo el
 propietario del historial compartido o privado.
+Los cuadernos adjuntos aportan evidencia de solo lectura y nunca fusionan sus
+historiales de conversación.
 
 Cada turno fija en el servidor una revisión positiva y completa de cada
 cuaderno seleccionado. Los identificadores de fuente se validan contra la
 revisión inmutable, la pertenencia actual, el estado, el Vault, el workspace y
-la ACL. Este límite se aplica a la inspección, búsqueda, lectura de evidencia y
-análisis durable. El
-workflow solo permite inspeccionar fuentes, buscar fragmentos con FTS5 y el
-vector local determinista, leer evidencia exacta y ejecutar un análisis
-jerárquico durable sobre la revisión fijada.
+la ACL. Este límite se aplica a la inspección, búsqueda híbrida, lectura exacta
+de evidencia y análisis durable. El flujo del cuaderno solo expone estas operaciones:
+
+- Inspeccionar metadatos acotados de fuentes.
+- Buscar fragmentos del cuaderno con FTS5 y el vector local determinista existente.
+- Leer evidencia exacta mediante un identificador estable de fragmento.
+- Iniciar, inspeccionar y leer un análisis jerárquico durable sobre la revisión fijada.
 
 Las preguntas dependientes de fuentes deben efectuar una búsqueda real antes de
 que el modelo responda. No se exponen herramientas de mutación del Vault, MCP,
 cambios de habilidades ni acciones externas. El análisis jerárquico procesa
-lotes acotados en vez de colocar cientos de fuentes en un único prompt.
+lotes acotados de evidencia y combina sus resúmenes, en vez de colocar cientos
+de fuentes en un único prompt.
 
 Las citas incluyen el Recurso, la revisión, la fuente, el fragmento y el
 localizador. Cada afirmación fundamentada del chat se vincula desde su
@@ -164,11 +188,12 @@ validada.
 
 El modo privado por miembro deriva un principal de checkpoint por usuario. El
 modo compartido deriva un principal común autorizado y serializa turnos
-concurrentes. Los mensajes compartidos incluyen al autor y el historial es
+concurrentes mediante el bloqueo existente del hilo. Los mensajes compartidos incluyen al autor y el historial es
 append-only; solo el creador puede vaciarlo. Cambiar de modo no fusiona
 historiales: volver a un modo anterior restaura su espacio de nombres.
 
-Eliminar un cuaderno borra los threads de checkpoint derivados antes de
+Eliminar un cuaderno enumera todos los principales derivados registrados y borra
+sus hilos de checkpoint antes de
 eliminar en cascada índices, revisiones y análisis. Los datos originales del
 Vault quedan fuera de este límite.
 
@@ -188,14 +213,16 @@ hilos aislados y las respuestas OpenAPI congeladas.
 | `GET/POST /api/notebooks/{id}/sources` | Inspeccionar o añadir Recursos |
 | `GET /api/notebooks/{id}/chat-sources` | Opciones autorizadas de fuentes y cuadernos para el contexto de conversación |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Excluir inmediatamente un Recurso |
-| `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Reintentar solo un Recurso |
+| `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Reintentar solo un Recurso reutilizando la evidencia de los demás |
 | `POST /api/notebooks/{id}/refresh` | Actualización explícita fusionada del cuaderno |
 | `POST /api/notebooks/{id}/refresh/cancel` | Cancelar cooperativamente la ingesta activa |
 | `GET /api/notebooks/{id}/evidence/{chunk_id}?revision={revision}` | Resolver una cita autorizada dentro de su revisión inmutable |
 | `GET /api/notebooks/{id}/conversation` | Conversación canónica del modo activo |
 | `POST /api/chat` | Conversación en streaming con contexto de cuaderno autorizado |
 
-El servidor deriva las revisiones, el principal de checkpoint y el espacio de
+El chat del cuaderno ignora los intentos del cliente de elegir la revisión,
+el principal de checkpoint o el espacio de nombres de sesión. El servidor deriva
+las revisiones, el principal de checkpoint y el espacio de
 nombres tras la autorización. Acepta hasta dieciséis cuadernos autorizados,
 mantiene el cuaderno de la página como propietario de la conversación y rechaza
 contextos que no sean de cuaderno, adjuntos, menciones y sustituciones de
@@ -203,11 +230,21 @@ habilidades.
 
 ## Comportamiento de la interfaz de usuario
 
+El dominio `frontend/src/features/notebooks/`, estrictamente tipado, gestiona
+la biblioteca, los paneles de detalle, los selectores de recursos, el diálogo
+de creación, los estilos y sus pruebas. La composición de la aplicación solo
+consume su entrada pública `index.ts`. La página y el diálogo de creación
+mantienen imports diferidos independientes: abrir uno no carga anticipadamente
+el otro. Los componentes internos del dominio utilizan imports locales directos;
+los adaptadores HTTP compartidos conservan los contratos canónicos por vault.
+Este cambio de responsabilidades no altera las rutas, la selección de fuentes,
+las consultas periódicas ni el estado de conversación.
+
 La acción múltiple solo aparece cuando la identidad de la tabla abierta
 coincide con la de Referencias; nunca por un nombre o ID fijo. El diálogo
 acepta título, visibilidad, modo de conversación y hasta mil identificadores de
 Recursos. Los selectores de creación y adición ordenan alfabéticamente todo el
-catálogo antes de paginar y ofrecen filtros de tipo, autor y etiquetas
+catálogo sin distinguir acentos antes de paginar y ofrecen filtros de tipo, autor y etiquetas
 derivados del esquema. Estos metadatos solo sirven para seleccionar y nunca
 entran en la evidencia. Las páginas marcadas como plantillas de tabla se
 excluyen del selector, de la validación de peticiones y de las instantáneas de
@@ -219,11 +256,12 @@ inutilizable.
 
 En escritorio, fuentes, conversación integrada y configuración se muestran
 juntas. En móvil se convierten en pestañas. Solo se sondea el cuaderno activo y
-visible: un intervalo corto sigue la ingestión y otro acotado actualiza la
-conversación colaborativa.
+visible: un intervalo corto sigue la ingestión mientras hay un trabajo activo
+y otro acotado actualiza la conversación colaborativa. Los cuadernos inactivos
+no se consultan periódicamente.
 
 El progreso muestra el Recurso actual y permite al creador cancelar la
-indexación. Cada Recurso muestra la última comprobación y el motivo acotado del
+indexación. Cada Recurso muestra la última comprobación correcta y el motivo acotado del
 error; las fuentes fallidas también muestran su propio motivo. El reintento
 individual se desactiva mientras hay otra revisión en curso.
 
@@ -232,30 +270,42 @@ de solo lectura, sin compositor ni acciones de reintento, edición o rebobinado.
 Solo los editores pueden enviar turnos y solo el creador ve la actualización
 manual y los demás controles de gestión.
 
-## Errores, operaciones y verificación
+## Comportamiento ante fallos y operaciones
 
 La primera conversación queda bloqueada hasta que una revisión activa completa
 contiene una fuente. Los estados son `pending`, `indexing`, `available`,
 `stale` y `error`; la actualización manual permite reintentar. Un error
 nunca sustituye una revisión completa.
 
-La cancelación es cooperativa y durable: el worker comprueba el estado antes de
+La cancelación es cooperativa: la cola pasa al estado persistente `cancelled`
+y el worker lo comprueba antes de
 cada Recurso y antes de la activación atómica. La transacción en curso se
 revierte y la última revisión completa sigue disponible; si se cancela la
-primera ingesta, la conversación queda bloqueada hasta que una actualización
+primera ingesta, la conversación queda bloqueada con un error visible hasta que una actualización
 termine correctamente.
 
-El repositorio SQLite y la cola durable permanecen bajo `LOCAL_DATA`, nunca
-dentro de un Vault compartido. Las mismas rutas funcionan en despliegues
-nativos y Docker.
+Los operadores pueden inspeccionar el repositorio SQLite y la cola durable bajo
+`LOCAL_DATA`, pero nunca deben moverlos a un vault compartido. El código del backend
+se recarga durante el desarrollo nativo, pero los cambios de dependencias requieren
+actualizar el entorno fijado por el lock y reiniciar el proceso del backend.
+Reinicie su LaunchAgent solo si utiliza esa configuración opcional de macOS.
+Las mismas rutas derivadas de la configuración se utilizan en despliegues nativos y Docker.
+
+## Límites de la verificación
 
 Las pruebas cubren exclusión de campos no fuente, reutilización incremental,
-retirada inmediata, citas, ACL, checkpoints, herramientas de solo lectura,
+retirada inmediata, identidad de citas, aislamiento de ACL, espacios de nombres de
+checkpoints, validación de revisiones positivas, herramientas de solo lectura,
 filtros del selector y análisis durable. También cubren PDF, URL, OCR,
 fragmentos grandes, recuperación de arrendamientos caducados, validación web
 condicional y una ingesta real de 300 Recursos. Vitest y Playwright verifican
-los permisos de solo lectura, la exclusión de Recursos vacíos, la conversación
-fundamentada, una cita navegable y la actualización automática. Los límites
+los permisos de solo lectura, la exclusión de Recursos vacíos, la acción masiva de
+la tabla configurada, los selectores, la conversación fundamentada, una cita
+navegable y la actualización automática de fuentes. La verificación de una
+release exige también un arranque limpio del backend, la compilación del frontend
+y el flujo en navegador tanto de escritorio como móvil.
+
+Los límites
 actuales son mil Recursos por petición,
 doscientas filas de selector por página, cincuenta resultados de recuperación y
 lotes de análisis acotados. La configuración y los índices son locales a una

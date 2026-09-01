@@ -8,10 +8,18 @@ source_paths:
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - backend/domains/configuration/api/settings.py
+  - backend/domains/configuration/plugin_state.py
+  - backend/mcp/http_client.py
   - backend/services/data_dir_migration.py
+  - backend/utils/cache.py
   - backend/api/system_routes.py
-  - frontend/src/App.jsx
+  - frontend/src/app
+  - frontend/src/shared
+  - frontend/src/generated
+  - frontend/feature-public-entries.json
 tests:
+  - frontend/src/app/composition.contract.test.ts
+  - frontend/src/app/shellPages.test.tsx
   - backend/tests/test_app_lifespan.py
   - backend/tests/test_app_config_resolution.py
   - backend/tests/test_app_config_language.py
@@ -22,39 +30,76 @@ tests:
   - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
-# Plataforma base i hora d' execució
+# Base de la plataforma i entorn d'execució
 
-## Reversió
+## Responsabilitat
 
-La fundació es reuneix tots els dominis en un procés, resol la configuració i les rutes portàtils, la seva pròpia arrencada i l' aturada, s' aplica al 'termware', i expos el frontal de l' àrea de nivell superior. Ha de romandre usable quan les integració opcionals no són absentes.
+La base de la plataforma reuneix tots els dominis en un procés, resol la
+configuració i les rutes portables, gestiona l'arrencada i l'aturada, aplica
+middleware compartit i exposa l'estructura principal del frontend. Ha de
+continuar sent utilitzable encara que faltin integracions opcionals.
 
-## Dorsal de muntatge
+El directori `app` del frontend gestiona l'arrencada, els proveïdors, la
+composició de rutes i la pantalla d'inici de càrrega immediata. Les pantalles
+opcionals dels dominis entren per mòduls públics de funcionalitat amb imports
+diferits independents. Els contractes de composició preserven les 32 rutes,
+els controls de permisos, l'ordre dels proveïdors i els vint imports diferits.
 
-`backend/server.py` Es mou la instància ràpidaAPI, gestió de l' excepció, muntatge de lectors estàtics, vida i encaminadors. L' ordre enrutador és explícit perquè el context de l' espai de treball i els prefixos amplis es poden sobreposen. L' ordre generat [Catàleg d' API](../generated/api-catalog.md) registren cada muntatge i ruta estàtica.
+## Composició del backend
 
-L'startup de vida és la que fa aquestes classes de treball:
+`backend/server.py` construeix la instància FastAPI, el middleware, la gestió
+d'excepcions, el muntatge estàtic del lector, el cicle de vida i els encaminadors.
+L'ordre dels encaminadors és explícit perquè el context d'espai de treball i
+els prefixos amplis es poden solapar. El [catàleg d'API](../generated/api-catalog.md)
+generat recull cada muntatge i ruta estàtics. El registre de composició importa
+directament cada encaminador canònic de domini; les façanes API antigues només
+es mantenen per compatibilitat d'imports. Les anotacions de les rutes han de
+preservar la representació OpenAPI congelada; els gestors sense model de resposta
+explícit conserven el contracte de resposta inferit.
 
-El mòdul de cicle de vida manté `lifespan` com un orquestrador lineal. Funcions
+L'arrencada del cicle de vida fa els tipus de feina següents:
+
+El mòdul de cicle de vida manté el gestor de context públic `lifespan` com un orquestrador lineal. Funcions
 acotades gestionen connectors, agent, índexs, reparació de taules, correu i
 aturada, sense alterar l'ordre ni l'aïllament d'errors.
 
-1. Asert que un desplegament exposat no usa un desenvolupament públic JWT
-secret.
-2. Inicia el planificador i el manteniment de la confirmació.
-3. Torna a col· laborar amb els connectors abans de crear capacitats d' agent.
-4. Connecteu clients MCP, descobreix eines i compileu la gràfica per omissió de l' agent.
-5. Precàrrega persisteixda índexs de voltaíncronament, després refresca' ls en el
-En segon lloc, on permet la política més lliure.
-6. Carrega les cau derivades abans que qualsevol estalvi els pugui truncar.
-7. Inicia els treballadors IDLE per compte IMAP.
+La reconciliació inicial de connectors és independent del transport: pot llegir
+l'estat normalitzat de cada vault, desat atòmicament, abans d'importar cap mòdul
+de rutes HTTP. Això desacobla la construcció d'Agent de l'ordre d'inicialització
+de la façana de Vault, mentre que l'arrencada normal convergeix en el mateix
+magatzem d'estat compartit per tot el procés.
 
-Els errors en l' inici opcional de la IA o d'integració s' han registrat i aïllat. Els errors d' inicialització de seguretat i de les dades base no es converteixen en silenci en comportaments sans.
+1. Comprovar que un desplegament exposat no utilitza un secret JWT públic de desenvolupament.
+2. Iniciar el planificador i el manteniment de retenció de confirmacions.
+3. Reconciliar les contribucions dels connectors abans de construir les capacitats d'agent.
+4. Connectar clients MCP, descobrir eines i compilar el graf d'agent predeterminat.
+5. Precarregar síncronament els índexs de vault desats i actualitzar-los després
+   en segon pla quan la política del proveïdor de fitxers ho permeti.
+6. Carregar les memòries cau derivades abans que cap desament les pugui truncar.
+7. Iniciar els processos IMAP IDLE de cada compte.
+
+Els errors d'arrencada opcional d'IA o integracions es registren i s'aïllen.
+Els errors de seguretat o d'inicialització de dades bàsiques no es presenten
+silenciosament com un funcionament correcte.
+
+Les memòries cau compartides del procés utilitzen una única implementació
+TTL/LRU acotada i protegida amb bloqueig, i accepten factories de valors
+explícitament tipades sense arguments. El transport HTTP de MCP en streaming
+restringeix cada payload SSE descodificat a un objecte JSON abans de retornar-lo
+al client JSON-RPC; els esdeveniments malformats o que no són objectes no entren
+a l'entorn d'execució tipat.
 
 ## Fusió de configuració
 
-`load_params()` Combina l' aplicació YAL amb la configuració actual o activa de la sortida. Els valors del diccionari es fusionaran recursivament. La volta activa `.gnosi/params.yaml` Es converteix en l' objectiu persisteix per a les configuracions de la volta. La resolució del camí s' aplica després als valors de l' entorn de desplegament explícits.
+`load_params()` combina el YAML versionat de l'aplicació amb la configuració
+de l'usuari actual o del vault actiu. Els diccionaris es fusionen recursivament.
+El fitxer `.gnosi/params.yaml` del vault actiu és la destinació de persistència
+de la seva configuració. La resolució de rutes aplica després els valors
+explícits de l'entorn de desplegament.
 
-Reforçament de la configuració de l' IA. Un entorn antic credential pot crear un proveïdor una vegada, però una làpida persisteixda evita reaparèixer després de l' eliminació deliberació.
+La configuració d'IA amb credencials desa referències. Una credencial d'entorn
+antiga pot crear un proveïdor una vegada, però una marca de desconnexió desada
+impedeix que reaparegui després d'eliminar-lo deliberadament.
 
 La frontera d'escriptura de Configuració valida agents gestionats i estratègies
 de model, desa contrasenyes i claus fora del YAML, tracta el mapa de proveïdors
@@ -64,7 +109,7 @@ atòmica i invalida els agents compilats només després d'un canvi d'IA.
 La migració de dades locals és una màquina d'estats amb diari. La verificació
 de l'origen, el moviment atòmic al mateix volum, l'staging entre volums, la
 verificació del destí i el rollback automàtic són fases separades. Cada base
-SQLite passa checkpoint i `integrity_check`, i les còpies es comparen amb un
+SQLite passa un checkpoint i una comprovació d'integritat, i les còpies es comparen amb un
 inventari amb hash abans de substituir una estructura buida.
 
 Les rutes del sistema separen l'orquestració HTTP dels ajudants acotats de
@@ -73,21 +118,33 @@ inclosa l'arrel neutral `Library/CloudStorage` que fan servir OneDrive, Google
 Drive, Dropbox, Box i altres proveïdors de fitxers de macOS. Els camins locals i
 Docker es mapen sense incorporar cap proveïdor al model de dades.
 
-## Àrea de treball per a la interfície
+## Estructura principal del frontend
 
-`App.jsx` Espera a l' autenticació "mobitra " abans de seleccionar la compartició pública, iniciar sessió o l' intèrpret d' ordres. Les pàgines fortes s' acarregen. Les pròpies pàgines de l' intèrpret d' ordres globals són navegació i superfícies d' interacció disponibles globalment; rutes de pàgines de ruta del contingut del propi domini. `/s/:token` Es refereix a fora de l' intèrpret d' ordres autenticat pel disseny.
+`app/App.tsx` espera la inicialització de l'autenticació abans de seleccionar
+la compartició pública, l'inici de sessió o l'estructura de l'aplicació. Les
+pàgines pesants es carreguen sota demanda. L'estructura global gestiona la
+navegació i les interaccions disponibles arreu; les pàgines de ruta gestionen
+el contingut de cada domini. Per disseny, `/s/:token` es renderitza fora de
+l'estructura autenticada.
 
 ## Invariants
 
-- Port `5002` és el contracte del dorsal; `5173` El contracte per a la Frontal.
-- El codi d' aplicació usa l' autoriu `Gnosi/` Arbre.
-- Cadenes visibles per Frontals utilitzen tots els catàlegs locals.
-- No s' han d' usar les importacions d' execució per la generació de documentació.
-- Una volta no disponible es representa explícitament; un camí segur temporal pot
-Atura les fallades d' importació però no s' han de presentar com a contingut configurat.
-- L' escalfament de la memòria cau derivada no pot retardar la primera resposta útil quan un disc segur
-La instantània existeix.
+- El port `5002` és el contracte del backend; `5173`, el del frontend.
+- El codi de l'aplicació utilitza l'arbre canònic `Gnosi/`.
+- Les cadenes visibles del frontend utilitzen tots els catàlegs d'idioma.
+- La generació de documentació no ha d'importar l'entorn d'execució.
+- Les ordres operatives puntuals resideixen a `scripts/`; els paquets de
+  producció no contenen sincronitzadors provisionals, sondes que modifiquin
+  dades ni scripts de reparació amb dades de màquina fixades al codi.
+- Un vault no disponible es representa explícitament; una ruta temporal segura
+  pot evitar errors d'importació, però no s'ha de presentar com a contingut configurat.
+- La preparació de memòries cau derivades no pot retardar la primera resposta
+  útil si existeix una instantània segura al disc.
 
-## diagnòstic erroni
+## Diagnòstic de fallades
 
-Comprova el propietari del procés. `/api/health`, `/api/config`, i `/api/vault/pages` En aquesta ordre. Una resposta correcta de salut amb una petició buida o de volta indica la configuració o el problema més lliure del fitxer en comptes d' un servidor mort. Mireu el [operacions a executarbook](../operations/runbook.md).
+Comproveu qui gestiona el procés, `/api/health`, `/api/config` i
+`/api/vault/pages`, en aquest ordre. Una resposta de salut correcta amb una
+petició de vault buida o fallida indica un problema de configuració o de
+proveïdor de fitxers, no un servidor aturat. Consulteu la
+[guia d'operacions](../operations/runbook.md).

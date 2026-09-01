@@ -5,17 +5,22 @@ from __future__ import annotations
 import asyncio
 import importlib
 import logging
-import os
+import operator
 import subprocess
 import tempfile
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlparse
 
 from backend.domains.vault.drupal.core import Metadata
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.utils.open_values import get_value, mapping_items, unpack_pair
+
+if TYPE_CHECKING:
+    from PIL.Image import Image
 
 
 DRUPAL_IMAGE_MAX_BYTES = 1_900_000
@@ -41,18 +46,18 @@ class DrupalImageSettings:
 
 @dataclass(frozen=True)
 class DrupalUploadDependencies:
-    resolve_local_path: Callable[[Any], Path | None]
+    resolve_local_path: Callable[[object], Path | None]
     materialize: Callable[[Path, str], Awaitable[object]]
     shrink_pdf: Callable[[bytes, str], tuple[bytes, str]]
     shrink_image: Callable[[bytes, str], tuple[bytes, str]]
-    find_existing_file: Callable[[str, int], Awaitable[str | None]]
-    upload_image: Callable[[str, str, str, bytes], Awaitable[str]]
+    find_existing_file: Callable[[str, int], Awaitable[object]]
+    upload_image: Callable[[str, str, str, bytes], Awaitable[object]]
 
 
 @dataclass(frozen=True)
 class MediaSignatureDependencies:
-    read_prop_value: Callable[[Metadata, Metadata | None], Any]
-    resolve_local_path: Callable[[Any], Path | None]
+    read_prop_value: Callable[[Metadata, Metadata | None], object]
+    resolve_local_path: Callable[[object], Path | None]
 
 
 def reanchor_home(path: Path, dependencies: DrupalPathDependencies) -> Path:
@@ -74,13 +79,13 @@ def reanchor_home(path: Path, dependencies: DrupalPathDependencies) -> Path:
 
 
 def resolve_local_path(
-    value: Any,
+    value: object,
     dependencies: DrupalPathDependencies,
 ) -> Path | None:
     """Resolve a composite, absolute or Vault-relative file value."""
     if not value:
         return None
-    raw_value = value[0] if isinstance(value, list) else value
+    raw_value = value[0] if is_object_list(value) else value
     raw = str(raw_value).strip()
     if not raw:
         return None
@@ -97,16 +102,16 @@ def resolve_local_path(
         return None
 
 
-def _has_transparency(image: Any, source_format: str) -> bool:
+def _has_transparency(image: Image, source_format: str) -> bool:
     try:
         if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
-            return bool(image.convert("RGBA").getchannel("A").getextrema()[0] < 255)
+            return bool(operator.lt(image.convert("RGBA").getchannel("A").getextrema()[0], 255))
     except Exception:
         return source_format == "PNG"
     return False
 
 
-def _is_flat_graphic(image: Any) -> bool:
+def _is_flat_graphic(image: Image) -> bool:
     try:
         return bool(image.convert("RGB").getcolors(maxcolors=4096) is not None)
     except Exception:
@@ -120,8 +125,12 @@ def shrink_image(
 ) -> tuple[bytes, str]:
     """Downscale and recompress an image only when the result is smaller."""
     try:
-        image_module = importlib.import_module("PIL.Image")
-        image: Any = image_module.open(BytesIO(data))
+        # Keep optional loading inside the original catch; use Pillow's own static types.
+        if TYPE_CHECKING:
+            from PIL import Image as image_module
+        else:
+            image_module = importlib.import_module("PIL.Image")
+        image: Image = image_module.open(BytesIO(data))
         image.load()
     except Exception:
         return data, filename
@@ -135,7 +144,8 @@ def shrink_image(
         scale = settings.max_dimension / float(max(width, height))
         image = image.resize(
             (max(1, int(width * scale)), max(1, int(height * scale))),
-            image_module.LANCZOS,
+            # Pillow publishes the legacy alias dynamically; retain its runtime lookup.
+            image_module.Resampling.LANCZOS if TYPE_CHECKING else image_module.LANCZOS,
         )
 
     def _png() -> bytes:
@@ -208,15 +218,15 @@ def shrink_pdf(
 
 
 async def upload_field_image(
-    value: Any,
+    value: object,
     bundle: str,
     drupal_field: str,
     metadata: Metadata,
-    image_cache: dict[str, str],
+    image_cache: dict[str, object],
     dependencies: DrupalUploadDependencies,
-) -> Metadata | None:
+) -> dict[str, object] | None:
     """Upload one image/file field, reusing files within and across runs."""
-    if isinstance(value, dict):
+    if is_record(value):
         source = value.get("src") or value.get("url") or value.get("path")
         composite_alt = value.get("alt")
         composite_title = value.get("title")
@@ -254,7 +264,7 @@ async def upload_field_image(
             )
         image_cache[cache_key] = file_uuid
     alt = str(composite_alt or metadata.get("title") or path.stem)
-    image_metadata: Metadata = {"alt": alt}
+    image_metadata: dict[str, str] = {"alt": alt}
     if composite_title:
         image_metadata["title"] = str(composite_title)
     return {
@@ -267,19 +277,20 @@ async def upload_field_image(
 
 
 def media_signatures(
-    mapping: Metadata,
+    mapping: object,
     properties_by_ref: dict[str, Metadata],
-    field_metadata: dict[str, Metadata],
+    field_metadata: Mapping[str, object],
     metadata: Metadata,
     dependencies: MediaSignatureDependencies,
 ) -> dict[str, str]:
     """Build stable signatures for file/image and taxonomy fields."""
     signatures: dict[str, str] = {}
-    for raw_ref, raw_drupal_field in mapping.items():
+    for pair in mapping_items(mapping):
+        raw_ref, raw_drupal_field = unpack_pair(pair)
         drupal_field = str(raw_drupal_field or "")
         if not drupal_field:
             continue
-        field_type = (field_metadata.get(drupal_field) or {}).get("type")
+        field_type = get_value(field_metadata.get(drupal_field) or {}, "type")
         prop = properties_by_ref.get(str(raw_ref))
         if not prop:
             continue
@@ -287,7 +298,7 @@ def media_signatures(
         if value in (None, "", [], {}):
             continue
         if field_type in ("image", "file"):
-            source = value.get("src") if isinstance(value, dict) else value
+            source = value.get("src") if is_record(value) else value
             try:
                 path = dependencies.resolve_local_path(source)
                 if path and path.exists():
@@ -296,9 +307,7 @@ def media_signatures(
             except Exception:
                 pass
         elif field_type == "entity_reference":
-            raw_names = (
-                value if isinstance(value, list) else str(value).replace(";", ",").split(",")
-            )
+            raw_names = value if is_object_list(value) else str(value).replace(";", ",").split(",")
             names = sorted(
                 name for name in (str(item).strip().lower() for item in raw_names) if name
             )

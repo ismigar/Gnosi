@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "types": ["electron"]
+  },
+  "files": ["preload.js", "ipc-contract.d.ts", "ipc-security.js", "ipc-handlers.js", "backend-process.js", "startup-errors.js", "backend-launch.js", "release-version.js", "update-policy.js", "profile-startup.js", "profile-preservation.js", "exclusive-rename.js", "cookie-schema-guard.js", "cookie-schema.js", "cookie-profile-migration.js", "cookie-migration.js", "cookie-migration-files.js", "cookie-rollback.js"]
+}

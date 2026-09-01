@@ -22,13 +22,32 @@ dmg:
 files:
   - main.js
   - preload.js
+  - ipc-security.js
+  - ipc-handlers.js
+  - backend-process.js
+  - startup-errors.js
+  - profile-startup.js
+  - cookie-schema-guard.js
+  - cookie-schema.js
+  - cookie-profile-migration.js
+  - cookie-migration.js
+  - cookie-migration-files.js
+  - cookie-rollback.js
+  - profile-preservation.js
+  - exclusive-rename.js
   - application-menu.js
   - backend-launch.js
+  - release-version.js
   - update-policy.js
   # Runtime dependencies used by main.js (electron-log drives the auto-updater
   # logger; electron-updater is the updater itself). electron-builder follows
   # package.json dependencies, so only production deps land in the asar.
   - node_modules/**/*
+
+# The fixed no-replace filesystem adapter uses prebuilt Node-API modules.
+asarUnpack:
+  - node_modules/koffi/**/*
+  - node_modules/@koromix/**/*
 
 extraResources:
   - from: ../frontend/dist/

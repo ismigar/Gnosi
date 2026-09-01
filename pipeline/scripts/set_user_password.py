@@ -44,11 +44,13 @@ import argparse
 import getpass
 import sys
 from pathlib import Path
+from typing import Protocol, cast
 
 # Allow running as a plain script from the app root (no package install).
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from sqlalchemy import func  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
 from backend.data.management_db import get_mgmt_db  # noqa: E402
 from backend.models.management import Membership, User  # noqa: E402
@@ -60,14 +62,24 @@ from backend.services.auth_service import (  # noqa: E402
 )
 
 
-def _describe(user: User, db) -> str:
+class _UserAccount(Protocol):
+    """Instance values of the backend's legacy SQLAlchemy Column descriptors."""
+
+    id: str
+    email: str
+    name: str | None
+    password_hash: str | None
+    auto_provisioned: bool
+
+
+def _describe(user: User, db: Session) -> str:
     roles = db.query(Membership).filter(Membership.user_id == user.id).all()
     ws = ", ".join(f"{m.workspace_id}:{m.role}" for m in roles) or "no workspace"
     state = "with password" if user.password_hash else "WITHOUT password"
     return f"  {user.id:<24} {user.email:<32} {state:<18} [{ws}]"
 
 
-def list_users(db) -> int:
+def list_users(db: Session) -> int:
     users = db.query(User).order_by(User.id).all()
     if not users:
         print("There are no users in the management database.")
@@ -117,9 +129,9 @@ which is exactly the combination that creates 'owner' accounts from a header.
 If enforcement is already enabled, run this command again with --i-understand."""
 
 
-def set_password(db, user_id: str, email: str | None, name: str | None, force: bool,
+def set_password(db: Session, user_id: str, email: str | None, name: str | None, force: bool,
                  acknowledged: bool = False) -> int:
-    user = db.query(User).filter(User.id == user_id).first()
+    user = cast(_UserAccount | None, db.query(User).filter(User.id == user_id).first())
     if not user:
         print(f"No user with id '{user_id}' exists. Use --list to view users.", file=sys.stderr)
         return 1

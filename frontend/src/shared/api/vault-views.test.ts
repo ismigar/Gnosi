@@ -1,3 +1,4 @@
+import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { GnosiApiError } from './errors';
@@ -42,7 +43,7 @@ function stubJson(payload: unknown) {
 
 
 afterEach(() => {
-  localStorage.clear();
+  resetApiTestStorage();
   vi.unstubAllGlobals();
 });
 

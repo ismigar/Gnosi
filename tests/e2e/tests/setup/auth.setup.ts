@@ -1,41 +1,45 @@
-import { test as setup, expect } from '@playwright/test';
-import path from 'path';
+import path from 'node:path';
+
+import { test } from '@playwright/test';
+
+import {
+  authenticateForStorage,
+  saveAuthStorageState,
+  type AuthStorageState,
+} from '../../support/auth-playwright.ts';
+import { authStorageStatePath } from '../../support/auth-state.ts';
 
 /**
- * Auth setup: prepares localStorage state used by authenticated tests.
- *
- * Gnosi has no login screen — auth is header-based via localStorage:
- *   - gnosi_workspace_id  (default: 'personal')
- *   - gnosi_user_email
- *   - gnosi_role
- * The user id is hardcoded to 'ismael-legacy' in src/hooks/use-api.js.
- *
- * This setup runs once before all authenticated tests and caches storageState
- * at tests/.auth/state.json (git-ignored).
+ * Authenticate a pre-provisioned disposable account and cache its real cookie
+ * and verified membership at GNOSI_TEST_STORAGE_STATE or, by default,
+ * tests/.auth/state.json (git-ignored).
+ * No browser or provider calls are needed to prepare this state. The principal
+ * validates actual browser login separately against the isolated test backend.
  */
 
-const STORAGE_STATE = path.resolve(__dirname, '../.auth/state.json');
+const STORAGE_STATE = authStorageStatePath(
+  process.env.GNOSI_TEST_STORAGE_STATE, path.resolve(__dirname, '../..'),
+);
 
-setup('seed workspace localStorage', async ({ page }) => {
-  setup.setTimeout(60_000);
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
-  const testVaultId = process.env.GNOSI_TEST_VAULT_ID;
+const setup = test.extend<{}, { verifiedAuthState: AuthStorageState }>({
+  // An automatic worker fixture runs before Playwright's per-test API step
+  // recorder. This keeps raw transport errors (which may contain cookies) out
+  // of reports as well as traces; the adapter returns only sanitized errors.
+  verifiedAuthState: [async ({ playwright }, use, workerInfo) => {
+    const state = await authenticateForStorage(
+      process.env,
+      workerInfo.project.use.baseURL,
+      workerInfo.project.use.ignoreHTTPSErrors ?? false,
+      (options) => playwright.request.newContext(options),
+    );
+    await use(state);
+  }, { scope: 'worker', auto: true, box: true, timeout: 60_000 }],
+});
 
-  await page.evaluate((vaultId) => {
-    localStorage.setItem('gnosi_workspace_id', 'personal');
-    localStorage.setItem('gnosi_user_email', 'ismigar@gmail.com');
-    localStorage.setItem('gnosi_role', 'admin');
-    localStorage.setItem('i18nextLng', 'ca');
-    if (vaultId) localStorage.setItem('gnosi_active_vault', vaultId);
-  }, testVaultId);
+// File-level options apply before fixture execution, including retries. Do not
+// move this protection into the test body or enable diagnostics for this setup.
+setup.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#root')).not.toBeEmpty({ timeout: 15_000 });
-
-  const releaseNotesClose = page.getByRole('button', { name: /close release notes|tanca|cerrar|fermer/i });
-  await releaseNotesClose.waitFor({ state: 'visible', timeout: 3_000 })
-    .then(() => releaseNotesClose.click())
-    .catch(() => {});
-
-  await page.context().storageState({ path: STORAGE_STATE });
+setup('login and save verified session', async ({ verifiedAuthState }) => {
+  await saveAuthStorageState(STORAGE_STATE, verifiedAuthState);
 });

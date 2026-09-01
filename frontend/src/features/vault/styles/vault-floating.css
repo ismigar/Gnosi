@@ -1,0 +1,126 @@
+.vault-document-tabs--single {
+  display: none;
+}
+
+.vault-shell__checkout-warning {
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem 0.25rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--status-warning) 42%, var(--border-primary));
+  background: color-mix(in srgb, var(--status-warning) 12%, var(--bg-primary));
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.vault-shell__checkout-warning-short {
+  display: none;
+}
+
+.vault-shell__checkout-warning button,
+.vault-shell__drawer-close,
+.vault-sidebar-icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vault-shell__checkout-warning button {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+
+.vault-shell__drawer-close {
+  display: none;
+}
+
+.vault-sidebar-icon-action {
+  min-width: var(--control-height-sm);
+  min-height: var(--control-height-sm);
+}
+
+.vault-sidebar-icon-action:focus-visible,
+.vault-feed-card button:focus-visible,
+.vault-feed-card input:focus-visible,
+.vault-view-toolbar button:focus-visible,
+.vault-page-cover-action:focus-visible,
+.vault-page-icon:focus-within {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.group:focus-within .vault-sidebar-icon-action,
+.vault-sidebar-icon-action:focus-visible {
+  opacity: 1;
+}
+
+.gnosi-floating-action {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  z-index: var(--z-floating);
+  width: var(--floating-action-size);
+  height: var(--floating-action-size);
+  opacity: 0.9;
+}
+
+.gnosi-floating-action--chat {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap));
+}
+
+.gnosi-floating-action--meeting {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap));
+}
+
+.gnosi-floating-action--outline {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap));
+}
+
+.gnosi-floating-dock-toggle {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: var(--z-floating);
+  width: var(--floating-action-size);
+  height: var(--floating-action-size);
+}
+
+body:not([data-gnosi-floating-dock="open"]) .gnosi-floating-action {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body[data-gnosi-floating-panel] .gnosi-floating-action {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gnosi-floating-panel {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: var(--z-floating);
+}
+
+.gnosi-floating-panel--outline {
+  max-height: min(70vh, calc(100vh - 160px));
+}
+
+@media (min-width: 1024px) {
+  .vault-page-summary-grid:not([data-expanded="true"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

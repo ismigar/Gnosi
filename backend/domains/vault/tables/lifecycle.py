@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,11 +17,13 @@ from backend.domains.vault.registry.names import (
     normalize_registry_table_view_names,
     normalize_table_view_name,
 )
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.tables.schema import (
     ensure_main_view,
     reconcile_table_schema_revision,
 )
+from backend.utils.open_values import iterable_values, list_values
 
 
 AssetMoves = list[tuple[Path, Path]]
@@ -29,7 +31,7 @@ DeferredRewrite = tuple[Path, str, str] | None
 
 
 class FallbackSanitizer(Protocol):
-    def __call__(self, value: object, *, fallback: str) -> str: ...
+    def __call__(self, value: object, /, *, fallback: str) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -86,7 +88,7 @@ class RenameTableDependencies:
 
 def _registry_items(registry: RegistryData, key: str) -> list[RegistryData]:
     raw_items = registry.get(key, [])
-    return [item for item in raw_items if isinstance(item, dict)]
+    return [item for item in iterable_values(raw_items) if is_record(item)]
 
 
 def _preserve_property_aliases(
@@ -99,7 +101,7 @@ def _preserve_property_aliases(
     for prop in _registry_items(incoming_table, "properties"):
         old_property = old_by_id.get(prop.get("id"))
         if old_property and old_property.get("aliases") and not prop.get("aliases"):
-            prop["aliases"] = list(old_property["aliases"])
+            prop["aliases"] = list_values(old_property["aliases"])
 
 
 def _asset_property_names(

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import cast
+from backend.domains.vault.registry.records import is_record
+from backend.utils.open_values import get_value, set_value, pop_value
 
 from backend.domains.vault.tables.catalogs.core import (
     auto_color,
@@ -29,19 +30,19 @@ def _tables(registry: Metadata) -> list[Metadata]:
     raw_tables = registry.get("tables") or []
     if not isinstance(raw_tables, list):
         return []
-    return [cast(Metadata, table) for table in raw_tables if isinstance(table, dict)]
+    return [table for table in raw_tables if is_record(table)]
 
 
 def _properties(table: Metadata) -> list[Metadata]:
     raw_properties = table.get("properties") or []
     if not isinstance(raw_properties, list):
         return []
-    return [cast(Metadata, prop) for prop in raw_properties if isinstance(prop, dict)]
+    return [prop for prop in raw_properties if is_record(prop)]
 
 
 def _root_catalogs(registry: Metadata) -> Metadata:
     catalogs = registry.get("option_catalogs")
-    return cast(Metadata, catalogs) if isinstance(catalogs, dict) else {}
+    return catalogs if is_record(catalogs) else {}
 
 
 def _status_members(registry: Metadata) -> list[StatusMember]:
@@ -92,18 +93,18 @@ def _append_missing(merged: list[Option], wanted: list[Seed]) -> None:
 
 
 def _configure_status_property(prop: Metadata) -> bool:
-    config = cast(Metadata, prop.setdefault("config", {}))
+    config = prop.setdefault("config", {})
     changed = False
-    if config.get("catalog_ref") != STATUS_CATALOG_REF:
-        config["catalog_ref"] = STATUS_CATALOG_REF
+    if get_value(config, "catalog_ref") != STATUS_CATALOG_REF:
+        set_value(config, "catalog_ref", STATUS_CATALOG_REF)
         changed = True
-    if config.pop("options", None) is not None:
+    if pop_value(config, "options", None) is not None:
         changed = True
     if prop.pop("options", None) is not None:
         changed = True
-    groups = config.get("option_groups")
+    groups = get_value(config, "option_groups")
     if not isinstance(groups, list) or not groups:
-        config["option_groups"] = list(DEFAULT_STATUS_GROUPS)
+        set_value(config, "option_groups", list(DEFAULT_STATUS_GROUPS))
         changed = True
     return changed
 

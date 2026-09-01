@@ -1,14 +1,24 @@
 """Typed Vault domain extracted from the historical route facade."""
 
+import asyncio
 import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+import re
+from collections.abc import AsyncIterator
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
+from backend.domains.vault.comments.repository import InlineComments
+from backend.utils.open_values import item_value
+
+if TYPE_CHECKING:
+    from backend.api import vault_routes as _legacy
+else:
+    _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
+router: APIRouter = _legacy.router
 
 
 class ImportFile(BaseModel):
@@ -39,7 +49,7 @@ class ImportResponse(BaseModel):
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=ImportResponse,
 )
-async def import_markdown(body: ImportRequest) -> _LegacyAny:
+async def import_markdown(body: ImportRequest) -> dict[str, object]:
     """Imports Markdown/Obsidian files into the vault (importer style with UI).
 
     Each file is created as a page inside `folder`. Existing frontmatter is preserved
@@ -74,7 +84,7 @@ async def import_markdown(body: ImportRequest) -> _LegacyAny:
             safe = _legacy.sanitize_vault_title(stem)
             path = target_dir / f"{safe}.md"
             if path.exists():
-                path = target_dir / f"{safe} {meta['id'][:8]}.md"
+                path = target_dir / f"{safe} {item_value(meta['id'], slice(None, 8))}.md"
             fm = _yaml.safe_dump(meta, allow_unicode=True, sort_keys=False).strip()
             path.write_text(f"---\n{fm}\n---\n\n{str(body_md).lstrip()}\n", encoding="utf-8")
             _legacy.register_page_in_index(path)
@@ -84,15 +94,12 @@ async def import_markdown(body: ImportRequest) -> _LegacyAny:
     return {"imported": imported, "errors": errors, "folder": folder}
 
 
-def _inline_comments_path(page_id: str) -> _legacy.Path:
+def _inline_comments_path(page_id: str) -> Path:
     return _legacy.comments_repository.inline_comments_path(page_id, _legacy.get_active_vault_path)
 
 
-def _load_inline_comments(page_id: str) -> list[_LegacyAny]:
-    return _strict_cast(
-        list[_LegacyAny],
-        _legacy.comments_repository.load_inline_comments(_inline_comments_path, page_id),
-    )
+def _load_inline_comments(page_id: str) -> InlineComments:
+    return _legacy.comments_repository.load_inline_comments(_inline_comments_path, page_id)
 
 
 list_inline_comments, create_inline_comment, update_inline_comment, delete_inline_comment = (
@@ -105,7 +112,7 @@ list_inline_comments, create_inline_comment, update_inline_comment, delete_inlin
         dependencies=_legacy._COMMENTS_DEPENDENCIES,
     )
 )
-_synced_subscribers: dict[_LegacyAny, _LegacyAny] = {}
+_synced_subscribers: dict[asyncio.Queue[str], str] = {}
 
 
 def _broadcast_synced(sync_id: str, v_str: str) -> None:
@@ -119,7 +126,7 @@ def _broadcast_synced(sync_id: str, v_str: str) -> None:
             pass
 
 
-def _synced_block_path(sync_id: str) -> _legacy.Path:
+def _synced_block_path(sync_id: str) -> Path:
     vault = _legacy.get_active_vault_path()
     if not vault:
         raise _legacy.HTTPException(status_code=503, detail="No hi ha cap vault actiu")
@@ -132,16 +139,16 @@ def _synced_block_path(sync_id: str) -> _legacy.Path:
 
 
 @router.get("/synced-events", response_model=None)
-async def synced_events() -> _LegacyAny:
+async def synced_events() -> StreamingResponse:
     """SSE: notifies REAL-TIME changes of synced blocks to all connected
     clients (any device). The frontend subscribes to it with EventSource
     and reloads the source of the affected block."""
     from fastapi.responses import StreamingResponse
 
-    queue: _legacy.asyncio.Queue = _legacy.asyncio.Queue()
+    queue: asyncio.Queue[str] = _legacy.asyncio.Queue()
     _synced_subscribers[queue] = _legacy._current_vault_key()
 
-    async def gen() -> _LegacyAny:
+    async def gen() -> AsyncIterator[str]:
         try:
             yield "event: ready\ndata: {}\n\n"
             while True:
@@ -169,7 +176,7 @@ class SyncedBlockResponse(BaseModel):
 
 
 @router.get("/synced/{sync_id}", response_model=SyncedBlockResponse)
-async def get_synced_block(sync_id: str) -> _LegacyAny:
+async def get_synced_block(sync_id: str) -> dict[str, str]:
     """Content of a synced block (source shared across instances)."""
     p = _synced_block_path(sync_id)
     content = p.read_text(encoding="utf-8") if p.exists() else ""
@@ -193,7 +200,7 @@ class SyncedBlockSaveResponse(BaseModel):
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=SyncedBlockSaveResponse,
 )
-async def save_synced_block(sync_id: str, body: SyncedBlockSave) -> _LegacyAny:
+async def save_synced_block(sync_id: str, body: SyncedBlockSave) -> dict[str, object]:
     """Saves the source of a synced block. All instances (on any
     page) that reference this `sync_id` reflect the change."""
     p = _synced_block_path(sync_id)
@@ -211,32 +218,27 @@ get_link_index_stats, post_link_index_rebuild, get_backlinks, get_outlinks = (
 )
 
 
-def _build_unlinked_mention_regex(target_title: str) -> _legacy.re.Pattern | None:
+def _build_unlinked_mention_regex(target_title: str) -> re.Pattern[str] | None:
     return _legacy.link_parsing.build_unlinked_mention_regex(target_title)
 
 
 def _strip_existing_links_for_mentions_scan(text: str) -> str:
-    return _strict_cast(str, _legacy.link_parsing.strip_existing_links(text))
+    return _legacy.link_parsing.strip_existing_links(text)
 
 
 def _count_unlinked_mentions(text: str, target_title: str) -> int:
-    return _strict_cast(int, _legacy.link_parsing.count_unlinked_mentions(text, target_title))
+    return _legacy.link_parsing.count_unlinked_mentions(text, target_title)
 
 
 def _first_unlinked_mention_snippet(text: str, target_title: str, radius: int = 48) -> str:
-    return _strict_cast(
-        str, _legacy.link_parsing.first_unlinked_mention_snippet(text, target_title, radius)
-    )
+    return _legacy.link_parsing.first_unlinked_mention_snippet(text, target_title, radius)
 
 
 def _link_mentions_in_plain_segments(
     body: str, target_title: str, target_id: str
 ) -> tuple[str, int]:
-    return _strict_cast(
-        tuple[str, int],
-        _legacy.link_parsing.link_mentions_in_plain_segments(
-            body, target_title, target_id, _legacy.canonical_vault_browser_path
-        ),
+    return _legacy.link_parsing.link_mentions_in_plain_segments(
+        body, target_title, target_id, _legacy.canonical_vault_browser_path
     )
 
 

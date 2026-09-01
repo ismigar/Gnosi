@@ -25,12 +25,14 @@ from simpleeval import (  # type: ignore[import-untyped]  # Historical public se
 )
 from simpleeval import SimpleEval as SimpleEval
 
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.tables.rules.definitions import (
     canonical_for_compare as _canonical_for_compare,
 )
 from backend.domains.vault.tables.rules.engine import RuleEngine as _DomainRuleEngine
 from backend.domains.vault.tables.rules.types import (
     Evaluator,
+    EvaluatorNames,
     FunctionMap,
     Metadata,
     PathResolverPort,
@@ -47,12 +49,12 @@ def _new_evaluator() -> Evaluator:
     return cast(Evaluator, SimpleEval())
 
 
-def _scoped_evaluator(names: Metadata, functions: FunctionMap) -> Evaluator:
+def _scoped_evaluator(names: EvaluatorNames, functions: FunctionMap) -> Evaluator:
     return cast(Evaluator, SimpleEval(names=names, functions=functions))
 
 
 def _current_path_resolver() -> PathResolverPort:
-    return cast(PathResolverPort, path_resolver)
+    return path_resolver
 
 
 def _relation_keys(table: Metadata | None) -> set[str]:
@@ -61,7 +63,7 @@ def _relation_keys(table: Metadata | None) -> set[str]:
 
 def _strip_relations(metadata: Metadata, relation_keys: set[str] | None) -> Metadata:
     stripped = strip_relation_wikilinks(metadata, relation_keys)
-    return cast(Metadata, stripped) if isinstance(stripped, dict) else metadata
+    return stripped if is_record(stripped) else metadata
 
 
 def _dependencies() -> RuleEngineDependencies:

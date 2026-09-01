@@ -10,8 +10,15 @@ import hashlib
 import re
 import unicodedata
 from copy import deepcopy
+from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Optional
+from typing import TypeVar
+
+from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.registry.state import RegistryData
+from backend.utils.open_values import get_value, iterable_values
+
+MetadataValue = TypeVar("MetadataValue")
 
 
 SYSTEM_DATE_ROLES = ("created", "modified")
@@ -28,7 +35,7 @@ _LABELS = {
 }
 
 
-def normalize_locale(locale: Any) -> str:
+def normalize_locale(locale: object) -> str:
     """Return a supported base locale, defaulting to Catalan."""
 
     candidate = str(locale or "").strip().replace("_", "-").lower()
@@ -36,13 +43,13 @@ def normalize_locale(locale: Any) -> str:
     return base if base in _LABELS else "ca"
 
 
-def system_date_labels(locale: Any = "ca") -> Dict[str, str]:
+def system_date_labels(locale: object = "ca") -> dict[str, str]:
     """Return localized canonical labels for the two system date roles."""
 
     return dict(_LABELS[normalize_locale(locale)])
 
 
-def _normalized_name(value: Any) -> str:
+def _normalized_name(value: object) -> str:
     plain = unicodedata.normalize("NFKD", str(value or ""))
     plain = "".join(char for char in plain if not unicodedata.combining(char))
     return re.sub(r"[^a-z0-9]+", "", plain.casefold())
@@ -87,10 +94,10 @@ _MODIFIED_NAMES = {
 }
 
 
-def property_role(prop: Optional[Dict[str, Any]]) -> Optional[str]:
+def property_role(prop: object) -> str | None:
     """Identify a system-date role without treating arbitrary dates as special."""
 
-    if not isinstance(prop, dict):
+    if not is_record(prop):
         return None
     explicit = str(prop.get("system_date_role") or "").strip().lower()
     if explicit in SYSTEM_DATE_ROLES:
@@ -111,20 +118,18 @@ def property_role(prop: Optional[Dict[str, Any]]) -> Optional[str]:
     return None
 
 
-def _stable_property_id(table_id: Any, role: str) -> str:
-    digest = hashlib.sha1(
-        f"gnosi:system-date:{table_id}:{role}".encode("utf-8")
-    ).hexdigest()[:8]
+def _stable_property_id(table_id: object, role: str) -> str:
+    digest = hashlib.sha1(f"gnosi:system-date:{table_id}:{role}".encode("utf-8")).hexdigest()[:8]
     return f"fld_{digest}"
 
 
-def _append_alias(prop: Dict[str, Any], name: Any) -> None:
+def _append_alias(prop: RegistryData, name: object) -> None:
     old_name = str(name or "").strip()
     current_name = str(prop.get("name") or "").strip()
     if not old_name or old_name == current_name:
         return
     aliases = prop.setdefault("aliases", [])
-    if not isinstance(aliases, list):
+    if not is_object_list(aliases):
         aliases = []
         prop["aliases"] = aliases
     if old_name not in aliases:
@@ -132,8 +137,8 @@ def _append_alias(prop: Dict[str, Any], name: Any) -> None:
 
 
 def ensure_system_date_properties(
-    table: Dict[str, Any], locale: Any = "ca"
-) -> Dict[str, Dict[str, Any]]:
+    table: RegistryData, locale: object = "ca"
+) -> dict[str, RegistryData]:
     """Normalize or create both system date properties in one table.
 
     The table is mutated in place. The return value describes each canonical
@@ -142,17 +147,19 @@ def ensure_system_date_properties(
     """
 
     normalized = deepcopy(table)
-    properties = [p for p in normalized.get("properties", []) or [] if isinstance(p, dict)]
+    properties = [
+        p for p in iterable_values(normalized.get("properties", []) or []) if is_record(p)
+    ]
     labels = system_date_labels(locale)
-    by_role: Dict[str, list[Dict[str, Any]]] = {role: [] for role in SYSTEM_DATE_ROLES}
+    by_role: dict[str, list[RegistryData]] = {role: [] for role in SYSTEM_DATE_ROLES}
     for prop in properties:
         role = property_role(prop)
         if role:
             by_role[role].append(prop)
 
-    absorbed: Dict[str, Dict[str, Any]] = {}
-    kept: list[Dict[str, Any]] = []
-    targets: Dict[str, Dict[str, Any]] = {}
+    absorbed: dict[str, RegistryData] = {}
+    kept: list[RegistryData] = []
+    targets: dict[str, RegistryData] = {}
     removed_ids: set[str] = set()
     removed_objects: set[int] = set()
     for role in SYSTEM_DATE_ROLES:
@@ -173,7 +180,7 @@ def ensure_system_date_properties(
         if original_name and original_name != labels[role]:
             old_names.append(original_name)
             aliases = target.setdefault("aliases", [])
-            if not isinstance(aliases, list):
+            if not is_object_list(aliases):
                 aliases = []
                 target["aliases"] = aliases
             if original_name not in aliases:
@@ -204,26 +211,26 @@ def ensure_system_date_properties(
         if id(prop) not in removed_objects and str(prop.get("id") or "") not in removed_ids:
             kept.append(prop)
     target_objects = {id(prop) for prop in targets.values()}
-    normalized["properties"] = [
-        prop for prop in kept if id(prop) not in target_objects
-    ] + [targets[role] for role in SYSTEM_DATE_ROLES]
+    normalized["properties"] = [prop for prop in kept if id(prop) not in target_objects] + [
+        targets[role] for role in SYSTEM_DATE_ROLES
+    ]
     table.clear()
     table.update(normalized)
     return absorbed
 
 
-def system_date_properties(table: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def system_date_properties(table: RegistryData | None) -> dict[str, object]:
     """Return canonical system date properties keyed by role."""
 
-    found: Dict[str, Dict[str, Any]] = {}
-    for prop in (table or {}).get("properties", []) or []:
+    found: dict[str, object] = {}
+    for prop in iterable_values((table or {}).get("properties", []) or []):
         role = property_role(prop)
         if role and role not in found:
             found[role] = prop
     return found
 
 
-def _first_value(metadata: Dict[str, Any], keys: Iterable[str]) -> Any:
+def _first_value(metadata: RegistryData, keys: Iterable[str]) -> object:
     for key in keys:
         if key in metadata and metadata[key] not in (None, "", []):
             return metadata[key]
@@ -231,36 +238,41 @@ def _first_value(metadata: Dict[str, Any], keys: Iterable[str]) -> Any:
 
 
 def stamp_system_dates(
-    metadata: Dict[str, Any],
-    table: Optional[Dict[str, Any]],
+    metadata: MetadataValue,
+    table: RegistryData | None,
     *,
     is_create: bool,
-    now: Optional[str] = None,
-    created_fallback: Optional[str] = None,
-) -> Dict[str, Any]:
+    now: str | None = None,
+    created_fallback: str | None = None,
+) -> MetadataValue:
     """Stamp canonical system-date values and remove absorbed legacy keys."""
 
-    if not isinstance(metadata, dict) or not table:
+    record: object = metadata
+    if not is_record(record) or not table:
         return metadata
     props = system_date_properties(table)
     if not props:
         return metadata
     timestamp = now or datetime.now(timezone.utc).isoformat()
     for role, prop in props.items():
-        name = str(prop.get("name") or "").strip()
+        name = str(get_value(prop, "name") or "").strip()
         if not name:
             continue
-        aliases = [str(alias).strip() for alias in (prop.get("aliases") or []) if str(alias).strip()]
-        current = metadata.get(name)
+        aliases = [
+            str(alias).strip()
+            for alias in iterable_values(get_value(prop, "aliases") or [])
+            if str(alias).strip()
+        ]
+        current = record.get(name)
         if role == "created":
             if current in (None, "", []):
-                current = _first_value(metadata, aliases) or created_fallback
+                current = _first_value(record, aliases) or created_fallback
                 if current in (None, "", []):
                     current = timestamp
-                metadata[name] = current
+                record[name] = current
         else:
-            metadata[name] = timestamp
+            record[name] = timestamp
         for alias in aliases:
             if alias != name:
-                metadata.pop(alias, None)
+                record.pop(alias, None)
     return metadata

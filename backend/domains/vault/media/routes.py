@@ -1,12 +1,35 @@
 """Typed Vault domain extracted from the historical route facade."""
 
-import importlib as _legacy_importlib
-from typing import Any as _LegacyAny
-from typing import cast as _strict_cast
+import asyncio
+import logging
+import os
+from pathlib import Path
 
-from fastapi import APIRouter
+import requests
+from fastapi import BackgroundTasks, Body, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
+from backend.api.vault_routes import router as router
+from backend.config.env_config import default_thumb_daemon_url as _default_thumb_daemon_url
+from backend.domains.vault.api import pages_duplicate as _page_duplicate_api
+from backend.domains.vault.assets import api as _assets_api
+from backend.domains.vault.files import api as _files_api
+from backend.domains.vault.files import property_service as _property_file_service
+from backend.domains.vault.files import serving as _file_serving
+from backend.domains.vault.files import thumbnails as _file_thumbnails
+from backend.domains.vault.files.state import file_serving_state as _file_serving_state
+from backend.domains.vault.media.composition import (
+    duplicate_dependencies as _duplicate_dependencies,
+)
+from backend.domains.vault.media.composition import media_service as _media_service
+from backend.domains.vault.media.composition import vault as _vault
+from backend.domains.vault.media.contracts import (
+    MediaMutation,
+    PickedFile,
+    PickedFolder,
+    UnsplashSearch,
+)
 from backend.domains.vault.media.schemas import (
     MediaItemResponse,
     MediaMutationResponse,
@@ -16,9 +39,12 @@ from backend.domains.vault.media.schemas import (
     MediaViewInput,
     MediaViewResponse,
 )
+from backend.domains.vault.media.unsplash_payload import search_payload as _search_payload
+from backend.domains.vault.registry.state import RegistryData
+from backend.services.workspace_service import require_role as _require_role
+from backend.utils.errors import safe_error_detail as _safe_error_detail
 
-_legacy: _LegacyAny = _legacy_importlib.import_module("backend.api.vault_routes")
-router = _strict_cast(APIRouter, _legacy.router)
+_log = logging.getLogger("backend.api.vault_routes")
 _VALID_MEDIA_ROOTS = {"images", "assets", "library", "vault"}
 
 
@@ -37,38 +63,38 @@ class UnsplashSearchResponse(BaseModel):
 
 def _validate_root(root: str) -> str:
     if root not in _VALID_MEDIA_ROOTS:
-        raise _legacy.HTTPException(status_code=400, detail=f"Root invàlid: {root!r}")
+        raise HTTPException(status_code=400, detail=f"Root invàlid: {root!r}")
     return root
 
 
 @router.get("/media/roots", response_model=list[MediaRootResponse])
-async def get_media_roots() -> _LegacyAny:
+async def get_media_roots() -> list[dict[str, object]]:
     """Returns the roots available for media search (Images, Assets,
     Library, Vault). Each element indicates `available` based on whether the folder
     currently exists on disk."""
-    return _legacy.media_service.get_roots()
+    return _media_service().get_roots()
 
 
 @router.get("/media", response_model=MediaPageResponse)
 async def get_all_media(
-    album: str | None = _legacy.Query(None),
-    limit: int = _legacy.Query(50, ge=1, le=500),
-    offset: int = _legacy.Query(0, ge=0),
-    root: str = _legacy.Query("images"),
-    kinds: str | None = _legacy.Query(None, description="csv: image,video,audio,pdf,other"),
-    extensions: str | None = _legacy.Query(None, description="csv sense punt: jpg,png,..."),
-    q: str | None = _legacy.Query(None, description="substring sobre filename"),
-    desc_contains: str | None = _legacy.Query(None, description="substring sobre descripció"),
-    tags_any: str | None = _legacy.Query(None, description="csv de tags (OR)"),
-    tags_all: str | None = _legacy.Query(None, description="csv de tags (AND)"),
-    tags_none: str | None = _legacy.Query(None, description="csv de tags (NOT)"),
-    size_min: int | None = _legacy.Query(None, ge=0, description="KB"),
-    size_max: int | None = _legacy.Query(None, ge=0, description="KB"),
-    mtime_from: str | None = _legacy.Query(None, description="ISO date"),
-    mtime_to: str | None = _legacy.Query(None, description="ISO date"),
-    sort: str = _legacy.Query("mtime", description="mtime|filename|size|kind"),
-    dir: str = _legacy.Query("desc", description="asc|desc"),
-) -> _LegacyAny:
+    album: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    root: str = Query("images"),
+    kinds: str | None = Query(None, description="csv: image,video,audio,pdf,other"),
+    extensions: str | None = Query(None, description="csv sense punt: jpg,png,..."),
+    q: str | None = Query(None, description="substring sobre filename"),
+    desc_contains: str | None = Query(None, description="substring sobre descripció"),
+    tags_any: str | None = Query(None, description="csv de tags (OR)"),
+    tags_all: str | None = Query(None, description="csv de tags (AND)"),
+    tags_none: str | None = Query(None, description="csv de tags (NOT)"),
+    size_min: int | None = Query(None, ge=0, description="KB"),
+    size_max: int | None = Query(None, ge=0, description="KB"),
+    mtime_from: str | None = Query(None, description="ISO date"),
+    mtime_to: str | None = Query(None, description="ISO date"),
+    sort: str = Query("mtime", description="mtime|filename|size|kind"),
+    dir: str = Query("desc", description="asc|desc"),
+) -> dict[str, object]:
     """Lists media, optionally filtered by album and root folder.
     The default root is `images` for back-compat with the historical gallery.
 
@@ -79,10 +105,10 @@ async def get_all_media(
     """
     _validate_root(root)
     if sort not in {"mtime", "filename", "size", "kind"}:
-        raise _legacy.HTTPException(status_code=400, detail=f"sort invàlid: {sort!r}")
+        raise HTTPException(status_code=400, detail=f"sort invàlid: {sort!r}")
     if dir not in {"asc", "desc"}:
-        raise _legacy.HTTPException(status_code=400, detail=f"dir invàlid: {dir!r}")
-    return _legacy.media_service.get_all_media(
+        raise HTTPException(status_code=400, detail=f"dir invàlid: {dir!r}")
+    return _media_service().get_all_media(
         album,
         limit=limit,
         offset=offset,
@@ -104,16 +130,16 @@ async def get_all_media(
 
 
 @router.get("/media/albums", response_model=None)
-async def get_albums() -> _LegacyAny:
+async def get_albums() -> list[str]:
     """Returns the list of top-level albums. Compat: the new frontend
     uses /media/tree for hierarchical navigation."""
-    return _legacy.media_service.get_albums()
+    return _media_service().get_albums()
 
 
 @router.get("/media/tree", response_model=list[MediaTreeNodeResponse])
 async def get_media_tree(
-    path: str | None = _legacy.Query(None), root: str = _legacy.Query("images")
-) -> _LegacyAny:
+    path: str | None = Query(None), root: str = Query("images")
+) -> list[dict[str, object]]:
     """Returns the immediate subfolders of `<root>/path` (lazy). Each node
     includes `has_children` so the UI can draw the chevron without having to
     load the whole tree (the archive has ~33k directories).
@@ -121,40 +147,36 @@ async def get_media_tree(
 
     """
     _validate_root(root)
-    return _legacy.media_service.get_tree_node(path, root=root)
+    return _media_service().get_tree_node(path, root=root)
 
 
 @router.post(
     "/media/upload",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(_require_role("editor"))],
     response_model=MediaItemResponse,
 )
 async def upload_media(
-    file: _legacy.UploadFile = _legacy.File(...),
-    album: str = _legacy.Query("General"),
-    background_tasks: _legacy.BackgroundTasks = _legacy.BackgroundTasks(),
-) -> _LegacyAny:
+    file: UploadFile = File(...),
+    album: str = Query("General"),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+) -> dict[str, object]:
     """Uploads a media file to an album."""
-    result = _legacy.media_service.upload_media(file, album)
+    result = _media_service().upload_media(file, album)
     return result
 
 
 @router.patch(
     "/media/metadata",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(_require_role("editor"))],
     response_model=MediaMutationResponse,
 )
 async def update_media_metadata(
-    metadata: dict[str, _LegacyAny] = _legacy.Body(
-        ..., description="{tags?: string[], description?: string}"
-    ),
-    path_in_root: str | None = _legacy.Body(
-        None, description="Path relative to the root (preferred)"
-    ),
-    root: str = _legacy.Body("images"),
-    filename: str | None = _legacy.Body(None),
-    album: str | None = _legacy.Body(None),
-) -> _LegacyAny:
+    metadata: dict[str, object] = Body(..., description="{tags?: string[], description?: string}"),
+    path_in_root: str | None = Body(None, description="Path relative to the root (preferred)"),
+    root: str = Body("images"),
+    filename: str | None = Body(None),
+    album: str | None = Body(None),
+) -> MediaMutation:
     """Updates tags and/or description of a MediaCenter file.
 
     The preferred payload is `{root, path_in_root, metadata}`. The old
@@ -167,187 +189,165 @@ async def update_media_metadata(
     resolved = path_in_root
     if not resolved:
         if not filename:
-            raise _legacy.HTTPException(
-                status_code=400, detail="`path_in_root` or `filename` is required"
-            )
+            raise HTTPException(status_code=400, detail="`path_in_root` or `filename` is required")
         resolved = f"{album}/{filename}" if album else filename
-    success = _legacy.media_service.update_metadata(resolved, metadata, root=root)
+    success = _media_service().update_metadata(resolved, metadata, root=root)
     if not success:
-        raise _legacy.HTTPException(status_code=500, detail="Persistence error")
+        raise HTTPException(status_code=500, detail="Persistence error")
     return {"status": "ok"}
 
 
 @router.get("/media/views", response_model=list[MediaViewResponse])
-async def list_media_views() -> _LegacyAny:
+async def list_media_views() -> list[dict[str, object]]:
     """Returns the user's saved views (JSON sidecar in the vault)."""
-    return _legacy.media_service.list_views()
+    return _media_service().list_views()
 
 
 @router.post(
     "/media/views",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(_require_role("editor"))],
     response_model=MediaViewResponse,
 )
-async def create_media_view(payload: MediaViewInput) -> _LegacyAny:
+async def create_media_view(payload: MediaViewInput) -> dict[str, object]:
     """Creates a new view. Payload: {label, scope, filters, sort}."""
     try:
-        return _legacy.media_service.create_view(payload.model_dump())
+        return _media_service().create_view(payload.model_dump())
     except ValueError as e:
-        raise _legacy.HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.patch(
     "/media/views/{view_id}",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(_require_role("editor"))],
     response_model=MediaViewResponse,
 )
-async def update_media_view(
-    view_id: str, payload: MediaViewInput
-) -> _LegacyAny:
+async def update_media_view(view_id: str, payload: MediaViewInput) -> dict[str, object]:
     """Updates an existing view."""
-    updated = _legacy.media_service.update_view(view_id, payload.model_dump())
+    updated = _media_service().update_view(view_id, payload.model_dump())
     if updated is None:
-        raise _legacy.HTTPException(status_code=404, detail="Vista no trobada")
+        raise HTTPException(status_code=404, detail="Vista no trobada")
     return updated
 
 
 @router.delete(
     "/media/views/{view_id}",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(_require_role("editor"))],
     response_model=MediaMutationResponse,
 )
-async def delete_media_view(view_id: str) -> _LegacyAny:
+async def delete_media_view(view_id: str) -> MediaMutation:
     """Deletes a view."""
-    if not _legacy.media_service.delete_view(view_id):
-        raise _legacy.HTTPException(status_code=404, detail="Vista no trobada")
+    if not _media_service().delete_view(view_id):
+        raise HTTPException(status_code=404, detail="Vista no trobada")
     return {"status": "ok"}
 
 
-_VAULT_IMAGE_SEMAPHORE = _legacy.file_serving_state.semaphore
+_VAULT_IMAGE_SEMAPHORE = _file_serving_state.semaphore
 _NO_STORE_HEADERS = {"Cache-Control": "no-store, must-revalidate"}
 
 
-def _image_error(status: int, detail: str, retry_after: int | None = None) -> _legacy.HTTPException:
-    return _legacy.file_serving.image_error(status, detail, retry_after)
+def _image_error(status: int, detail: str, retry_after: int | None = None) -> HTTPException:
+    return _file_serving.image_error(status, detail, retry_after)
 
 
 def _onedrive_read_failure_hint(err: OSError) -> str:
-    return _strict_cast(str, _legacy.file_serving.read_failure_hint(err))
+    return _file_serving.read_failure_hint(err)
 
 
-_legacy.assets_api.register_image_route(router)
-serve_vault_image = _legacy.assets_api.serve_vault_image
+_assets_api.register_image_route(router)
+serve_vault_image = _assets_api.serve_vault_image
 
 
-async def _serve_file_with_containment(
-    root_dir: _legacy.Path, rel_path: str
-) -> _legacy.FileResponse:
-    return await _legacy.files_api._serve_file_with_containment(root_dir, rel_path)
+async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileResponse:
+    return await _files_api._serve_file_with_containment(root_dir, rel_path)
 
 
-_legacy.files_api.register_serving_routes(
-    router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
-)
-serve_library_file = _legacy.files_api.serve_library_file
-serve_vault_raw_file = _legacy.files_api.serve_vault_raw_file
-serve_thumb = _legacy.files_api.serve_thumb
-register_local_file = _legacy.files_api.register_local_file
-serve_local_file = _legacy.files_api.serve_local_file
-_THUMB_DAEMON_URL = _legacy.default_thumb_daemon_url()
-_THUMB_DAEMON_TIMEOUT = float(_legacy.os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
-_THUMB_ROOTS_MAP = _legacy.file_thumbnails.THUMB_ROOTS_MAP
+_files_api.register_serving_routes(router, editor_dependencies=[Depends(_require_role("editor"))])
+serve_library_file = _files_api.serve_library_file
+serve_vault_raw_file = _files_api.serve_vault_raw_file
+serve_thumb = _files_api.serve_thumb
+register_local_file = _files_api.register_local_file
+serve_local_file = _files_api.serve_local_file
+_THUMB_DAEMON_URL: str = _default_thumb_daemon_url()
+_THUMB_DAEMON_TIMEOUT: float = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
+_THUMB_ROOTS_MAP = _file_thumbnails.THUMB_ROOTS_MAP
 
 
-def _resolve_thumb_source(rel_url: str) -> _legacy.Path:
-    return _legacy.files_api._resolve_thumb_source(rel_url)
+def _resolve_thumb_source(rel_url: str) -> Path:
+    return _files_api._resolve_thumb_source(rel_url)
 
 
-def _container_to_host_path(container_path: _legacy.Path) -> str | None:
-    return _strict_cast(str | None, _legacy.files_api._container_to_host_path(container_path))
+def _container_to_host_path(container_path: Path) -> str | None:
+    return _files_api._container_to_host_path(container_path)
 
 
-def _thumb_no_store(status_code: int, detail: str) -> _LegacyAny:
-    return _legacy.files_api._thumb_no_store(status_code, detail)
+def _thumb_no_store(status_code: int, detail: str) -> Response:
+    return _files_api._thumb_no_store(status_code, detail)
 
 
-_LOCAL_LINKS_LOCK = _legacy._LOCAL_LINK_STORE.lock
+_LOCAL_LINKS_LOCK = _vault._LOCAL_LINK_STORE.lock
 
 
-def _local_links_file() -> _legacy.Path:
-    return _legacy.files_api._local_links_file()
+def _local_links_file() -> Path:
+    return _files_api._local_links_file()
 
 
 def _load_local_links() -> dict[str, str]:
-    return _strict_cast(dict[str, str], _legacy.files_api._load_local_links())
+    return _files_api._load_local_links()
 
 
 def _save_local_links(mapping: dict[str, str]) -> None:
-    _legacy.files_api._save_local_links(mapping)
+    _files_api._save_local_links(mapping)
 
 
-_legacy.assets_api.register_custom_icon_routes(
-    router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
+_assets_api.register_custom_icon_routes(
+    router, editor_dependencies=[Depends(_require_role("editor"))]
 )
-get_custom_icons = _legacy.assets_api.get_custom_icons
-save_custom_icons = _legacy.assets_api.save_custom_icons
-_STORAGE_FOLDER_ALIASES = _legacy.property_file_service.STORAGE_FOLDER_ALIASES
+get_custom_icons = _assets_api.get_custom_icons
+save_custom_icons = _assets_api.save_custom_icons
+_STORAGE_FOLDER_ALIASES = _property_file_service.STORAGE_FOLDER_ALIASES
 
 
 def _normalize_storage_folder(storage_folder: str) -> str:
-    return _strict_cast(str, _legacy.files_api._normalize_storage_folder(storage_folder))
+    return _files_api._normalize_storage_folder(storage_folder)
 
 
 def _effective_storage_folder(configured_storage: str, requested_storage: str) -> str:
-    return _strict_cast(
-        str, _legacy.files_api._effective_storage_folder(configured_storage, requested_storage)
-    )
+    return _files_api._effective_storage_folder(configured_storage, requested_storage)
 
 
 def _resolve_storage_dir(
     storage_folder: str,
-    table: _LegacyAny,
-    database: _LegacyAny,
+    table: RegistryData | None,
+    database: RegistryData | None,
     property_name: str,
     dest_folder: str = "",
-) -> tuple[_legacy.Path, str]:
-    return _strict_cast(
-        tuple[_legacy.Path, str],
-        _legacy.files_api._resolve_storage_dir(
-            storage_folder, table, database, property_name, dest_folder
-        ),
+) -> tuple[Path, str]:
+    return _files_api._resolve_storage_dir(
+        storage_folder, table, database, property_name, dest_folder
     )
 
 
-def _file_response_payload(
-    dest_path: _legacy.Path, url_prefix_type: str
-) -> dict[_LegacyAny, _LegacyAny]:
-    return _strict_cast(
-        dict[_LegacyAny, _LegacyAny],
-        _legacy.property_file_service.file_response_payload(
-            dest_path, url_prefix_type, _legacy._PROPERTY_FILE_DEPENDENCIES
-        ),
+def _file_response_payload(dest_path: Path, url_prefix_type: str) -> dict[str, object]:
+    return _property_file_service.file_response_payload(
+        dest_path, url_prefix_type, _vault._PROPERTY_FILE_DEPENDENCIES
     )
 
 
-_legacy.files_api.register_property_routes(
-    router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
-)
-upload_property_file = _legacy.files_api.upload_property_file
-link_existing_file = _legacy.files_api.link_existing_file
-delete_physical_file = _legacy.files_api.delete_physical_file
+_files_api.register_property_routes(router, editor_dependencies=[Depends(_require_role("editor"))])
+upload_property_file = _files_api.upload_property_file
+link_existing_file = _files_api.link_existing_file
+delete_physical_file = _files_api.delete_physical_file
 
 
-def _numbered_candidate(directory: _legacy.Path, stem: str, ext: str, index: int) -> _legacy.Path:
-    return _legacy.files_api._numbered_candidate(directory, stem, ext, index)
+def _numbered_candidate(directory: Path, stem: str, ext: str, index: int) -> Path:
+    return _files_api._numbered_candidate(directory, stem, ext, index)
 
 
-_MAX_NUMBERED_ATTEMPTS = _legacy.property_file_service.MAX_NUMBERED_ATTEMPTS
+_MAX_NUMBERED_ATTEMPTS = _property_file_service.MAX_NUMBERED_ATTEMPTS
 
 
-def _save_uploaded_file_to_dir(
-    upload: _legacy.UploadFile, target_dir: _legacy.Path, target_name: str = ""
-) -> _legacy.Path:
-    return _legacy.files_api._save_uploaded_file_to_dir(upload, target_dir, target_name)
+def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path, target_name: str = "") -> Path:
+    return _files_api._save_uploaded_file_to_dir(upload, target_dir, target_name)
 
 
 def _run_osascript_picker(script: str) -> str:
@@ -360,121 +360,90 @@ def _run_osascript_picker(script: str) -> str:
 
 @router.post(
     "/pick-folder",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(_require_role("editor"))],
     response_model=None,
 )
-async def pick_folder() -> _LegacyAny:
+async def pick_folder() -> PickedFolder:
     """Open a native macOS folder-picker dialog and return the chosen path."""
     import asyncio as _asyncio
     import subprocess
 
-    script = 'tell application "System Events"\n  activate\nend tell\nset chosen to choose folder with prompt "Selecciona la carpeta de destinació"\nreturn POSIX path of chosen'
+    script = (
+        'tell application "System Events"\n  activate\nend tell\n'
+        'set chosen to choose folder with prompt "Selecciona la carpeta de destinació"\n'
+        "return POSIX path of chosen"
+    )
     try:
         chosen = await _asyncio.to_thread(_run_osascript_picker, script)
         if not chosen:
-            raise _legacy.HTTPException(status_code=204, detail="No folder selected")
+            raise HTTPException(status_code=204, detail="No folder selected")
         return {"path": chosen}
     except subprocess.TimeoutExpired:
-        raise _legacy.HTTPException(status_code=408, detail="Folder picker timed out")
-    except _legacy.HTTPException:
+        raise HTTPException(status_code=408, detail="Folder picker timed out")
+    except HTTPException:
         raise
     except Exception as e:
-        raise _legacy.HTTPException(
-            status_code=500, detail=_legacy.safe_error_detail(e, "POST /pick-folder")
-        )
+        raise HTTPException(status_code=500, detail=_safe_error_detail(e, "POST /pick-folder"))
 
 
 @router.post(
     "/pick-file",
-    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    dependencies=[Depends(_require_role("editor"))],
     response_model=None,
 )
-async def pick_file() -> _LegacyAny:
+async def pick_file() -> PickedFile:
     """Open a native macOS file-picker dialog and return the chosen file path."""
     import asyncio as _asyncio
     import subprocess
 
-    script = 'tell application "System Events"\n  activate\nend tell\nset chosen to choose file with prompt "Select the file to link"\nreturn POSIX path of chosen'
+    script = (
+        'tell application "System Events"\n  activate\nend tell\n'
+        'set chosen to choose file with prompt "Select the file to link"\n'
+        "return POSIX path of chosen"
+    )
     try:
         chosen = await _asyncio.to_thread(_run_osascript_picker, script)
         if not chosen:
-            raise _legacy.HTTPException(status_code=204, detail="No file selected")
-        p = _legacy.Path(chosen)
+            raise HTTPException(status_code=204, detail="No file selected")
+        p = Path(chosen)
         return {"path": chosen, "name": p.name, "size": p.stat().st_size if p.exists() else 0}
     except subprocess.TimeoutExpired:
-        raise _legacy.HTTPException(status_code=408, detail="File picker timed out")
-    except _legacy.HTTPException:
+        raise HTTPException(status_code=408, detail="File picker timed out")
+    except HTTPException:
         raise
     except Exception as e:
-        raise _legacy.HTTPException(
-            status_code=500, detail=_legacy.safe_error_detail(e, "POST /pick-file")
-        )
+        raise HTTPException(status_code=500, detail=_safe_error_detail(e, "POST /pick-file"))
 
 
 @router.get("/unsplash/search", response_model=UnsplashSearchResponse)
-async def unsplash_search(
-    query: str = _legacy.Query(...), page: int = _legacy.Query(1)
-) -> _LegacyAny:
+async def unsplash_search(query: str = Query(...), page: int = Query(1)) -> UnsplashSearch:
     """Searches images on Unsplash acting as a proxy."""
-    unsplash_key = _legacy.os.getenv("UNSPLASH_ACCESS_KEY")
+    unsplash_key = os.getenv("UNSPLASH_ACCESS_KEY")
     if not unsplash_key:
-        raise _legacy.HTTPException(
+        raise HTTPException(
             status_code=500,
             detail="Unsplash API Key is not configured in .env (UNSPLASH_ACCESS_KEY)",
         )
     url = "https://api.unsplash.com/search/photos"
     headers = {"Authorization": f"Client-ID {unsplash_key}"}
-    params = {"query": query, "page": page, "per_page": 21, "orientation": "landscape"}
+    params: dict[str, str | int] = {
+        "query": query,
+        "page": page,
+        "per_page": 21,
+        "orientation": "landscape",
+    }
     try:
-        resp = await _legacy.asyncio.to_thread(
-            _legacy.requests.get, url, headers=headers, params=params, timeout=10
+        resp = await asyncio.to_thread(
+            requests.get, url, headers=headers, params=params, timeout=10
         )
         resp.raise_for_status()
-        data = resp.json()
-        results = []
-        for img in data.get("results", []):
-            results.append(
-                {
-                    "id": img["id"],
-                    "url": img["urls"]["regular"],
-                    "thumb": img["urls"]["small"],
-                    "author": img["user"]["name"],
-                    "author_url": img["user"]["links"]["html"],
-                }
-            )
-        return {"results": results, "total_pages": data.get("total_pages", 1)}
+        data: object = resp.json()
+        return _search_payload(data)
     except Exception as e:
-        _legacy.log.error(f"Error fetching from Unsplash: {e}")
-        raise _legacy.HTTPException(status_code=502, detail="Error fetching from Unsplash API")
+        _log.error(f"Error fetching from Unsplash: {e}")
+        raise HTTPException(status_code=502, detail="Error fetching from Unsplash API")
 
 
-_legacy.page_duplicate_api.configure(
-    _legacy.page_duplicate_api.DuplicatePageDependencies(
-        find_page=lambda page_id: _legacy.find_page_path(page_id),
-        is_dashboard=lambda path: _legacy._is_dashboard_file_path(path),
-        read_dashboard=lambda path: _legacy._read_dashboard_file(path),
-        parse_frontmatter=lambda content, path: _legacy.parse_frontmatter(content, path),
-        new_id=lambda: str(_legacy.uuid.uuid4()),
-        write_dashboard=lambda path, page_id, title, metadata, content: (
-            _legacy._write_dashboard_file(
-                file_path=path,
-                page_id=page_id,
-                title=title,
-                metadata=metadata,
-                content=content,
-                parent_id=metadata.get("parent_id"),
-                is_database=bool(metadata.get("is_database")),
-            )
-        ),
-        ensure_citation_key=lambda metadata: _legacy._ensure_recursos_citation_key(
-            metadata, regenerate=True
-        ),
-        save_page=lambda path, metadata, content: _legacy.save_page_md(path, metadata, content),
-        add_page_index=lambda path: _legacy._add_page_to_index_cache(path),
-        update_link_index=lambda: _legacy.update_link_index_for_page,
-    )
-)
-_legacy.page_duplicate_api.register_routes(
-    router, editor_dependencies=[_legacy.Depends(_legacy.require_role("editor"))]
-)
-duplicate_page = _legacy.page_duplicate_api.duplicate_page
+_page_duplicate_api.configure(_duplicate_dependencies())
+_page_duplicate_api.register_routes(router, editor_dependencies=[Depends(_require_role("editor"))])
+duplicate_page = _page_duplicate_api.duplicate_page

@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-08-02
 source_paths:
+  - pyproject.toml
+  - uv.lock
   - mkdocs.yml
   - pipeline/skills/technical_documentation/SKILL.md
   - pipeline/skills/technical_documentation/scripts/generate.py
@@ -39,8 +41,9 @@ reads local configuration/secrets.
 - Domain ownership remains curated in `domains.json`.
 - Reviewers still verify prose semantics; automation checks traceability, not
   correctness of human explanations.
-- Documentation tools use an isolated requirements file and do not perturb the
-  runtime ML dependency set.
+- Documentation dependencies use the optional `docs` group in `pyproject.toml`
+  and the shared `uv.lock`, not a separate requirements file or environment.
+  Catalog generation does not import the runtime ML stack.
 
 ## Rejected alternatives
 

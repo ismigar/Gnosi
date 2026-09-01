@@ -7,9 +7,11 @@ source_paths:
   - backend/services/contacts_service.py
   - backend/services/contacts_sync_engine.py
   - backend/services/google_contacts_service.py
-  - frontend/src/pages/ContactsPage.jsx
-  - frontend/src/components/Contacts
+  - frontend/src/features/contacts
 tests:
+  - frontend/src/features/contacts/components/ContactList.test.tsx
+  - frontend/src/features/contacts/components/ContactForm.test.tsx
+  - frontend/src/features/contacts/public-entry.test.ts
   - backend/tests/test_contacts_sync_merge.py
   - backend/tests/test_google_contacts_service.py
   - backend/tests/test_carddav_vcard_unfold.py
@@ -24,6 +26,12 @@ tests:
 Contacts provides a local normalized address book over manual records and
 connected Google, CardDAV, and compatible sources. It supplies search and
 recipient/attendee autocomplete to Mail and Calendar.
+
+The strictly typed `features/contacts/` frontend owns the address-book page,
+integration catalog, list, detail, and form components. Application composition
+consumes its public lazy entry; shared API adapters remain independent of the
+screen. Relocation preserves source identity, contact fields and synchronization
+behavior without retaining duplicate components at their former paths.
 
 The HTTP routes and synchronization provider boundary are strictly typed.
 Integration credentials are validated before a Google or CardDAV provider is

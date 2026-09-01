@@ -5,11 +5,18 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Protocol
+from typing import Protocol, TypedDict
 
 
 Metadata = dict[str, object]
 Backlink = dict[str, str]
+
+
+class IdTitleCacheEntry(TypedDict, total=False):
+    """Internal cache envelope; the index returned to consumers is copied."""
+
+    index: dict[str, str]
+    ts: float
 
 
 class LockLike(Protocol):
