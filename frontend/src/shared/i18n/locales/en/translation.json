@@ -5738,6 +5738,14 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v3_0_0_rc_2": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "universal_desktop_lock": "The frozen Python graph now selects compatible wheels for every supported macOS, Linux and Windows desktop architecture.",
+          "namespace_policy": "Desktop packaging now accepts third-party namespace metadata while continuing to reject unreviewed Gnosi-owned resources."
+        }
+      },
       "v3_0_0_rc_1": {
         "highlights": {
           "canonical_architecture": "Gnosi now has one canonical repository with a modular FastAPI backend and a feature-oriented React interface.",

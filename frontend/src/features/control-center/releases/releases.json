@@ -1,5 +1,18 @@
 [
   {
+    "version": "3.0.0-rc.2",
+    "date": "2026-09-01",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [],
+      "improvements": [],
+      "fixes": [
+        "release_notes.entries.v3_0_0_rc_2.fixes.universal_desktop_lock",
+        "release_notes.entries.v3_0_0_rc_2.fixes.namespace_policy"
+      ]
+    }
+  },
+  {
     "version": "3.0.0-rc.1",
     "date": "2026-09-01",
     "channel": "prerelease",

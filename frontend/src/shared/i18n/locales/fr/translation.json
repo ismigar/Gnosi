@@ -5789,6 +5789,14 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v3_0_0_rc_2": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "universal_desktop_lock": "Le graphe Python verrouillé sélectionne désormais des wheels compatibles avec toutes les architectures desktop prises en charge sur macOS, Linux et Windows.",
+          "namespace_policy": "L'empaquetage desktop accepte désormais les métadonnées des espaces de noms tiers tout en continuant à refuser les ressources Gnosi non révisées."
+        }
+      },
       "v3_0_0_rc_1": {
         "highlights": {
           "canonical_architecture": "Gnosi dispose désormais d'un dépôt canonique unique, avec un backend FastAPI modulaire et une interface React organisée par fonctionnalités.",

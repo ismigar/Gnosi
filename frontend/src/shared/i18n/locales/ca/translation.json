@@ -5789,6 +5789,14 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v3_0_0_rc_2": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "universal_desktop_lock": "El graf Python congelat selecciona ara wheels compatibles amb totes les arquitectures desktop admeses de macOS, Linux i Windows.",
+          "namespace_policy": "L'empaquetat desktop accepta ara les metadades de namespaces de tercers i continua rebutjant recursos de Gnosi no revisats."
+        }
+      },
       "v3_0_0_rc_1": {
         "highlights": {
           "canonical_architecture": "Gnosi disposa ara d'un únic repositori canònic, amb un backend FastAPI modular i una interfície React organitzada per funcionalitats.",

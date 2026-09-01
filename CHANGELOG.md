@@ -1,5 +1,14 @@
 # Gnosi changelog
 
+## Gnosi 3.0.0-rc.2
+
+_2026-09-01 · Release candidate_
+
+### Fixes
+
+- The frozen Python graph now selects compatible wheels for every supported macOS, Linux and Windows desktop architecture.
+- Desktop packaging now accepts third-party namespace metadata while continuing to reject unreviewed Gnosi-owned resources.
+
 ## Gnosi 3.0.0-rc.1
 
 _2026-09-01 · Release candidate_
