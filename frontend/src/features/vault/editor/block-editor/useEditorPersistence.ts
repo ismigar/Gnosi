@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { patchVaultPage } from '../../../../shared/api/vaults';
+import { GnosiApiError } from '../../../../shared/api/errors';
 import { notifyError, logError } from '../../../../shared/notifications/notifyError';
 import { blocksToRichMarkdown } from '../../../../shared/editor/markdown-mapper';
 import { inFlightSaves } from '../editorState';
@@ -11,6 +12,19 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export interface PersistenceEditor {
     readonly document: unknown;
     readonly onChange: (listener: () => void) => (() => void) | { remove: () => void } | undefined;
+}
+
+const TRANSIENT_RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000, 60000] as const;
+
+function transientRetryDelay(error: unknown, attempt: number): number | null {
+    if (!(error instanceof GnosiApiError) || error.status !== 503) return null;
+    const configuredDelay = TRANSIENT_RETRY_DELAYS_MS[attempt];
+    if (configuredDelay === undefined) return null;
+    const retryAfterSeconds = Number(error.response.headers.get('retry-after'));
+    const serverDelay = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? retryAfterSeconds * 1000
+        : 0;
+    return Math.max(configuredDelay, serverDelay);
 }
 export interface EditorPersistenceOptions {
     readonly editor: PersistenceEditor;
@@ -38,21 +52,35 @@ function clearOwnSave(id: string, promise: Promise<unknown>): void {
 export function useEditorPersistence({ editor, noteFilename, isParsing, editorReady, metadataRef, setSaveStatus, onUpdate, onOutgoingLinksChange, idToTitle }: EditorPersistenceOptions) {
     const { t } = useTranslation();
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const transientRetryRef = useRef(0);
     const outgoingSignatureRef = useRef('');
     // This is a data ref, deliberately read at flush time, not a DOM ref.
     const readMetadata = useCallback(() => metadataRef.current, [metadataRef]);
-    const handleSave = useCallback(async () => {
+    const handleSave = useCallback(async function persistCurrentPage() {
         if (!noteFilename || isParsing || !editorReady) return;
         try {
             setSaveStatus('saving');
             const { data, promise } = savePage(noteFilename, blocksToRichMarkdown(editor.document), readMetadata(), t('editor.untitled'));
             await promise;
             clearOwnSave(noteFilename, promise);
+            transientRetryRef.current = 0;
             setSaveStatus('saved');
             onUpdate?.(noteFilename, data.content, { title: data.title, metadata: data.metadata });
             if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
             setTimeout(() => { setSaveStatus(previous => previous === 'saved' ? 'idle' : previous); }, 3000);
         } catch (error) {
+            const retryDelay = transientRetryDelay(error, transientRetryRef.current);
+            if (retryDelay !== null) {
+                transientRetryRef.current += 1;
+                setSaveStatus('saving');
+                if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = setTimeout(() => {
+                    saveTimerRef.current = null;
+                    void persistCurrentPage();
+                }, retryDelay);
+                return;
+            }
+            transientRetryRef.current = 0;
             notifyError('autosave', error, t('editor.autosave_error'));
             setSaveStatus('error');
         }
@@ -61,6 +89,7 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
     useEffect(() => {
         if (isParsing) return;
         const subscription = editor.onChange(() => {
+            transientRetryRef.current = 0;
             if (onOutgoingLinksChange) {
                 const links = extractOutgoingPageLinks(blocksToRichMarkdown(editor.document), idToTitle, noteFilename);
                 const signature = links.map(link => `${link.id || ''}\u0000${link.title}`).join('\u0001');

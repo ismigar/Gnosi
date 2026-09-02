@@ -79,6 +79,10 @@ async def _write_lock(page_id: str) -> asyncio.Lock:
     return asyncio.Lock()
 
 
+async def _prepare_patch_read(page_id: str) -> None:
+    return None
+
+
 def _save_dependencies(
     path: Path,
     previous: PageMetadata,
@@ -136,6 +140,7 @@ def _patch_dependencies(
     return patch_service.PatchPageDependencies(
         find_and_read=lambda page_id, etag, force: (path, metadata, "before", "raw", None),
         get_page_write_lock=_write_lock,
+        prepare_read=_prepare_patch_read,
         prepare_metadata=lambda metadata, path: (metadata, None),
         relocate_file=lambda page_id, path, metadata, title: path,
         process_updates=lambda page_id, old, new: new,

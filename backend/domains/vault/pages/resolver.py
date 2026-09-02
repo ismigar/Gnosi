@@ -54,6 +54,21 @@ def _deps() -> PageResolverDependencies:
     return _dependencies
 
 
+def _path_is_definitely_missing(path: Path) -> bool:
+    """Distinguish deletion from a transient cloud-provider stat failure."""
+    try:
+        path.stat()
+    except FileNotFoundError:
+        return True
+    except OSError as exc:
+        _deps().logger.debug(
+            "Keeping indexed page path after transient stat failure for %s: %s",
+            path,
+            exc,
+        )
+    return False
+
+
 def _recent_stale_check() -> bool:
     dependencies = _deps()
     try:
@@ -84,7 +99,7 @@ def _exact_or_canonical_id_path(
         if not path_value:
             return None, False
         path = dependencies.path_factory(path_value)
-        if _recent_stale_check() or path.exists():
+        if _recent_stale_check() or not _path_is_definitely_missing(path):
             return path, False
         id_map.pop(page_id, None)
         dependencies.index_entries.get(vault_key, {}).pop(path_value, None)
@@ -104,7 +119,7 @@ def _entry_cache_path(
             if dependencies.canonicalize_id(entry.get("id")) != canonical_target:
                 continue
             path = dependencies.path_factory(path_value)
-            if path.exists():
+            if not _path_is_definitely_missing(path):
                 dependencies.id_to_path.setdefault(vault_key, {})[page_id] = path_value
                 return path, False
             entries.pop(path_value, None)
@@ -146,7 +161,7 @@ def _title_cache_path(vault_key: str, page_id: str) -> Path | None:
             if not entry_title or entry_title != title:
                 continue
             path = dependencies.path_factory(path_value)
-            if not path.exists():
+            if _path_is_definitely_missing(path):
                 continue
             entry_id = entry.get("id")
             if entry_id:

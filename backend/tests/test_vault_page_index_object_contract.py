@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import errno
 import logging
+import os
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -457,6 +459,53 @@ def test_resolver_cold_scan_receives_open_metadata_and_keeps_cached_path(
     assert resolver.find_page_path("requested") == path
     assert events == ["canonicalize-input"]
     assert dependencies.id_to_path[str(tmp_path)]["requested"] == str(path)
+
+
+def test_resolver_retains_indexed_path_during_transient_provider_stat(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    page = tmp_path / "cloud-page.md"
+    page.write_text("Body", encoding="utf-8")
+    vault_key = str(tmp_path)
+    entry = _entry({"id": "page"})
+    entry["path"] = str(page)
+    bumps: list[str] = []
+    dependencies = resolver.PageResolverDependencies(
+        active_vault_path=lambda: tmp_path,
+        get_path=lambda _name: tmp_path,
+        path_factory=Path,
+        parse_frontmatter=lambda _content, _path: ({}, ""),
+        canonicalize_id=lambda value: str(value),
+        bump_index_version=bumps.append,
+        set_last_vault_sync=lambda _value: None,
+        monotonic=lambda: 100.0,
+        stale_check_ttl=30.0,
+        last_stale_check={"ts": 0.0},
+        index_lock=Lock(),
+        index_entries={vault_key: {str(page): entry}},
+        index_initialized={vault_key: True},
+        id_to_path={vault_key: {"page": str(page)}},
+        logger=logging.getLogger(__name__),
+    )
+    monkeypatch.setattr(resolver, "_dependencies", dependencies)
+    original_stat = Path.stat
+
+    def transient_stat(
+        candidate: Path,
+        *,
+        follow_symlinks: bool = True,
+    ) -> os.stat_result:
+        if candidate == page:
+            raise OSError(errno.EDEADLK, "synthetic File Provider contention")
+        return original_stat(candidate, follow_symlinks=follow_symlinks)
+
+    monkeypatch.setattr(Path, "stat", transient_stat)
+
+    assert resolver.find_page_path("page") == page
+    assert dependencies.id_to_path[vault_key]["page"] == str(page)
+    assert dependencies.index_entries[vault_key][str(page)] is entry
+    assert bumps == []
 
 
 def test_compatibility_aliases_keep_same_callables() -> None:

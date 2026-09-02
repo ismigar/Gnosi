@@ -710,6 +710,9 @@ def check_real_patch_receiver_merges_only_logical_parent(tmp_path: Path) -> None
     async def lock(_page_id: str) -> asyncio.Lock:
         return asyncio.Lock()
 
+    async def prepare_read(_page_id: str) -> None:
+        return None
+
     def relocate(
         page_id: str, actual_path: Path, current: PageMetadata, title: str | None
     ) -> Path:
@@ -720,6 +723,7 @@ def check_real_patch_receiver_merges_only_logical_parent(tmp_path: Path) -> None
     dependencies = PatchPageDependencies(
         find_and_read=lambda *_args: (path, dict(metadata), "Body", "Original", None),
         get_page_write_lock=lock,
+        prepare_read=prepare_read,
         prepare_metadata=lambda current, _path: (current, None),
         relocate_file=relocate,
         process_updates=lambda _id, _old, current: current,

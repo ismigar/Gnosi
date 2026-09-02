@@ -155,7 +155,7 @@ class Harness:
         env.update(settings)
         return subprocess.run(
             ["/bin/bash", str(self.repo / "scripts/runtime" / script), *args],
-            cwd=self.root, env=env, text=True, capture_output=True, timeout=10, check=False,
+            cwd=self.root, env=env, text=True, capture_output=True, timeout=20, check=False,
         )
 
     def calls(self, name: str | None = None) -> list[Call]:

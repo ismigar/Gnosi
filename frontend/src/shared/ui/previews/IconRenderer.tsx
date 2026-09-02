@@ -1,5 +1,6 @@
 import { DynamicIcon, iconNames, type IconName } from 'lucide-react/dynamic';
 import { withActiveVault } from '../../resources/fileResourcePaths';
+import { VaultAssetImage } from './VaultAssetImage';
 
 const DYNAMIC_ICON_NAMES: ReadonlySet<string> = new Set(iconNames);
 const normalizeLucideIconName = (name: string): string => name
@@ -75,7 +76,7 @@ export const IconRenderer = ({ icon, size = 16, className = '', color }: IconRen
         const src = typeof activeVaultUrl === 'string' ? activeVaultUrl : normalizedUrl;
 
         return (
-            <img
+            <VaultAssetImage
                 src={src}
                 alt="page icon"
                 style={{ width: size, height: size, objectFit: 'cover', display: 'block' }}

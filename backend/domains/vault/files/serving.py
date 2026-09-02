@@ -99,7 +99,15 @@ async def serve_file_with_containment(
             detail="File is an empty placeholder (OneDrive)",
         )
 
+    media_type, _ = mimetypes.guess_type(str(requested))
     if provider.is_online_only(requested, stat_result):
+        if media_type and media_type.startswith("image/"):
+            provider.schedule_warmup(requested)
+            raise image_error(
+                503,
+                "Image warming up; retry shortly",
+                retry_after=3,
+            )
         await provider.materialize(requested)
         try:
             stat_result = requested.stat()
@@ -126,7 +134,6 @@ async def serve_file_with_containment(
                 read_failure_hint(last_error),
             )
             raise HTTPException(status_code=503, detail="File temporarily unavailable")
-        media_type, _ = mimetypes.guess_type(str(requested))
         return FileResponse(
             path=str(requested),
             media_type=media_type,

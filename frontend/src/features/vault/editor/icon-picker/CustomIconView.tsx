@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ChangeEvent, RefObject } from 'react';
 
 import { withActiveVault } from '../../../../shared/resources/fileResource';
+import { VaultAssetImage } from '../../../../shared/ui/previews/VaultAssetImage';
 
 
 interface CustomIconViewProps {
@@ -51,7 +52,7 @@ export function CustomIconView({
                                 title={icon}
                                 type="button"
                             >
-                                <img
+                                <VaultAssetImage
                                     alt={t('icon_picker.custom_icon_alt')}
                                     className="w-full h-full object-cover"
                                     loading="lazy"

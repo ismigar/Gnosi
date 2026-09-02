@@ -35,7 +35,8 @@ def refresh_health_snapshot(app: FastAPI) -> None:
 
 
 async def health_check(request: Request) -> dict[str, object]:
-    """Return an in-memory liveness snapshot without touching storage."""
+    # Keep the public OpenAPI description stable. The implementation deliberately
+    # serves only the snapshot prepared during startup; it must never touch storage.
     snapshot = request.app.state.health_snapshot
     if not isinstance(snapshot, dict):
         raise RuntimeError("Health snapshot is unavailable")

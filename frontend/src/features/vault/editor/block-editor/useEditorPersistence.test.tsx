@@ -2,6 +2,7 @@ import { act, useState, type RefObject } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountTestComponent } from '../../../../../tests/mount-react';
 import { patchVaultPage } from '../../../../shared/api/vaults';
+import { GnosiApiError } from '../../../../shared/api/errors';
 import { logError, notifyError } from '../../../../shared/notifications/notifyError';
 import { inFlightSaves } from '../editorState';
 import { useEditorPersistence, type EditorPersistenceOptions, type SaveStatus } from './useEditorPersistence';
@@ -104,5 +105,30 @@ describe('rich editor persistence', () => {
         expect(view.container.textContent).toBe('error'); expect(notifyError).toHaveBeenCalledOnce();
         view.change(); view.unmount(); await flush();
         expect(logError).toHaveBeenCalledWith('unmount-save', expect.any(Error));
+    });
+    it('retries a transient cloud conflict with the latest metadata and no error toast', async () => {
+        patch
+            .mockRejectedValueOnce(new GnosiApiError(
+                new Response('{}', { status: 503, headers: { 'Retry-After': '2' } }),
+                { detail: 'warming' },
+            ))
+            .mockResolvedValueOnce(response);
+        const view = fixture();
+        view.change();
+        await advance(700);
+        expect(patch).toHaveBeenCalledTimes(1);
+        expect(view.container.textContent).toBe('saving');
+        expect(notifyError).not.toHaveBeenCalled();
+
+        view.metadataRef.current = { title: 'Latest', status: 'complete' };
+        await advance(2000);
+        expect(patch).toHaveBeenCalledTimes(2);
+        expect(patch).toHaveBeenLastCalledWith('page', {
+            title: 'Latest',
+            content: 'Body',
+            metadata: view.metadataRef.current,
+        });
+        expect(view.container.textContent).toBe('saved');
+        expect(notifyError).not.toHaveBeenCalled();
     });
 });

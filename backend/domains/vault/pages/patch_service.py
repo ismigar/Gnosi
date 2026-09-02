@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ log = logging.getLogger(__name__)
 class PatchPageDependencies:
     find_and_read: Callable[[str, str | None, bool], PatchReadResult]
     get_page_write_lock: Callable[[str], Awaitable[asyncio.Lock]]
+    prepare_read: Callable[[str], Awaitable[None]]
     prepare_metadata: Callable[[Metadata, Path], tuple[Metadata, Metadata | None]]
     relocate_file: Callable[[str, Path, Metadata, str | None], Path]
     process_updates: Callable[[str, Metadata, Metadata], Metadata]
@@ -63,12 +65,26 @@ async def patch_page(
     expected_etag = request.expected_etag
     force = request.force
     async with await dependencies.get_page_write_lock(page_id):
-        file_path, metadata, body, original_raw, current_etag = await asyncio.to_thread(
-            dependencies.find_and_read,
-            page_id,
-            expected_etag,
-            force,
-        )
+        try:
+            await dependencies.prepare_read(page_id)
+            file_path, metadata, body, original_raw, current_etag = await asyncio.to_thread(
+                dependencies.find_and_read,
+                page_id,
+                expected_etag,
+                force,
+            )
+        except OSError as exc:
+            transient_errnos = {11, 35, errno.EAGAIN, errno.EDEADLK}
+            if exc.errno not in transient_errnos:
+                raise
+            raise HTTPException(
+                status_code=503,
+                detail="Page temporarily unavailable; cloud download pending",
+                headers={
+                    "Cache-Control": "no-store, must-revalidate",
+                    "Retry-After": "2",
+                },
+            ) from exc
         if not file_path or metadata is None or body is None:
             raise HTTPException(status_code=404, detail="Page not found")
         if expected_etag and not force and current_etag and current_etag != expected_etag:

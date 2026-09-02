@@ -296,7 +296,14 @@ def _browse_directory(body: BrowseRequest) -> Any:
     dependencies=[Depends(require_role("admin"))],
 )
 async def browse_directory(body: BrowseRequest = Body(...)) -> Any:
-    """Browse an admin-selected host directory without blocking the API loop."""
+    """Browse directory contents for the folder/file picker.
+
+    Security: admin-only. The picker is meant to let the operator pick ANY
+    file or folder on the host (see the whole-computer search box and the
+    Root shortcut in the UI), so navigation is anchored on three roots — the
+    ACTIVE vault, the current user's home, and "/" — with the admin gate as
+    the trust boundary. Non-existent / non-directory targets are still rejected.
+    """
     return await asyncio.to_thread(_browse_directory, body)
 
 

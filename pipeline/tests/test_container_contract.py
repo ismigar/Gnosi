@@ -100,7 +100,13 @@ def test_host_vault_override_keeps_data_volume_and_requires_existing_explicit_pa
 def test_images_use_frozen_root_locks_without_copying_arbitrary_checkout_state() -> None:
     backend = (ROOT / "Dockerfile.backend").read_text(encoding="utf-8")
     frontend = (ROOT / "Dockerfile.frontend").read_text(encoding="utf-8")
-    assert "uv export --frozen" in backend
+    assert (
+        "uv sync --frozen --no-cache --no-default-groups --no-install-workspace"
+        in backend
+    )
+    assert "uv export" not in backend
+    assert "requirements.txt" not in backend
+    assert 'PATH="/app/.venv/bin:$PATH"' in backend
     assert "pnpm install --frozen-lockfile" in frontend
     assert "node:22.22.2-alpine" in frontend
     assert "pnpm@11.19.0" in frontend

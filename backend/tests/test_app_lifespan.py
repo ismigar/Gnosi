@@ -10,6 +10,7 @@ import pytest
 from fastapi import FastAPI
 
 import backend.app.lifespan as lifespan_module
+import backend.app.factory as app_factory
 from backend.api import vault_routes
 from backend.app.lifespan import lifespan as application_lifespan
 from backend.config import app_config, data_dir
@@ -85,6 +86,11 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         auth_service,
         "assert_signing_secret_safe",
         lambda: record("auth.secret"),
+    )
+    monkeypatch.setattr(
+        app_factory,
+        "refresh_health_snapshot",
+        lambda _app: record("health.snapshot"),
     )
     monkeypatch.setattr(
         scheduler_manager,
@@ -192,6 +198,7 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "data.resolve",
         "migrations",
         "auth.secret",
+        "health.snapshot",
         "scheduler.start",
         "worker.start",
         "plugins.load",
