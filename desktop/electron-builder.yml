@@ -88,6 +88,8 @@ mac:
 
 linux:
   icon: assets/icon.png
+  executableName: gnosi
+  syncDesktopName: true
   target:
     - target: AppImage
     - target: deb

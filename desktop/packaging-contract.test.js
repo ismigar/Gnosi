@@ -273,6 +273,23 @@ test('Linux and Windows releases use hosted architecture-matched runners', () =>
   );
 });
 
+test('Linux desktop identity is safe and stable for scoped workspace packages', () => {
+  const builderConfig = fs.readFileSync(
+    path.join(electronRoot, 'electron-builder.yml'),
+    'utf8',
+  );
+  const desktopPackage = JSON.parse(
+    fs.readFileSync(path.join(electronRoot, 'package.json'), 'utf8'),
+  );
+  const linuxConfig = builderConfig.match(/^linux:\n([\s\S]*?)^win:/m)?.[1];
+
+  assert.ok(linuxConfig);
+  assert.match(linuxConfig, /^  executableName: gnosi$/m);
+  assert.match(linuxConfig, /^  syncDesktopName: true$/m);
+  assert.equal(desktopPackage.desktopName, 'gnosi.desktop');
+  assert.doesNotMatch(linuxConfig, /@gnosi\/desktop/);
+});
+
 test('manual releases package the workflow commit and provision Windows Git before checkout', () => {
   const workflow = fs.readFileSync(releaseWorkflowPath, 'utf8');
   const checkoutRefs = workflow.match(/ref: \$\{\{ github\.sha \}\}/g) ?? [];
