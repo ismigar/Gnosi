@@ -39,13 +39,16 @@ async function createProfileAsar(root, probe = 'profile') {
   await asar.createPackageWithOptions(source, archive, {
     unpackDir: 'node_modules/{koffi,@koromix}',
   });
-  const entries = asar.listPackage(archive).map(entry => entry.replaceAll('\\', '/').replace(/^\/+/, ''));
-  assertPackagedRuntimeEntries(entries);
-  const nativeEntries = entries.filter(entry => entry.endsWith('.node'));
+  const archiveEntries = asar.listPackage(archive).map(entry => entry.replace(/^[/\\]+/, ''));
+  const portableEntries = archiveEntries.map(entry => entry.replaceAll('\\', '/'));
+  assertPackagedRuntimeEntries(portableEntries);
+  const nativeEntries = archiveEntries.filter(entry => entry.endsWith('.node'));
   assert.ok(nativeEntries.length > 0, 'Host Node-API prebuild must be present');
   for (const entry of nativeEntries) {
     assert.equal(asar.statFile(archive, entry).unpacked, true, 'Native binaries must be outside ASAR');
-    assert.ok(fs.statSync(path.join(`${archive}.unpacked`, entry)).isFile());
+    const segments = entry.replaceAll('\\', '/').split('/');
+    assert.ok(segments.every(segment => segment && segment !== '.' && segment !== '..'));
+    assert.ok(fs.statSync(path.join(`${archive}.unpacked`, ...segments)).isFile());
   }
   return archive;
 }
