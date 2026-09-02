@@ -145,13 +145,17 @@ def test_universal_lock_covers_every_release_environment() -> None:
     modern_numpy = [
         package
         for package in numpy_candidates
-        if package.get("resolution-markers")
-        == ["platform_machine != 'x86_64' or sys_platform != 'darwin'"]
+        if package not in intel_numpy
     ]
     assert len(intel_numpy) == 1
     assert str(intel_numpy[0]["version"]).startswith("1.26.")
     assert len(modern_numpy) == 1
-    assert int(str(modern_numpy[0]["version"]).split(".", 1)[0]) >= 2
+    assert all(int(str(package["version"]).split(".", 1)[0]) >= 2 for package in modern_numpy)
+    assert cast(list[str], modern_numpy[0].get("resolution-markers")) == [
+        "sys_platform == 'linux'",
+        "(platform_machine != 'x86_64' and sys_platform == 'darwin') or "
+        "(sys_platform != 'darwin' and sys_platform != 'linux')",
+    ]
 
 
 def test_unselected_local_state_is_never_read_or_collected(
@@ -675,10 +679,15 @@ else:
     runpy.run_path(args[0], run_name='__main__')
 """
 FAKE_UV = r"""
-import json, os, shutil
+import json, os, shutil, sys
 from pathlib import Path
+args = sys.argv[1:]
 with Path(os.environ['FIXTURE_EVENTS']).open('a') as handle:
-    handle.write(json.dumps(['uv', __import__('sys').argv[1:]]) + '\n')
+    handle.write(json.dumps(['uv', args]) + '\n')
+if os.environ.get('FIXTURE_FAILURE') == 'uv-sync':
+    raise SystemExit(8)
+if args[0] != 'sync':
+    raise SystemExit(9)
 layout = os.environ['FIXTURE_VENV_LAYOUT']
 output = Path(os.environ['UV_PROJECT_ENVIRONMENT']) / layout
 output.parent.mkdir(parents=True)
@@ -689,7 +698,8 @@ output.chmod(0o755)
 
 @pytest.mark.parametrize("layout", ("bin/python", "Scripts/python.exe"))
 @pytest.mark.parametrize(
-    "failure", ("", "pyinstaller", "no-output", "contaminated", "missing", "source")
+    "failure",
+    ("", "uv-sync", "pyinstaller", "no-output", "contaminated", "missing", "source"),
 )
 def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
     repository: Path,
@@ -734,6 +744,7 @@ def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
         timeout=30,
     )
     events = [json.loads(line) for line in events_path.read_text().splitlines()]
+    uv_calls = [entry[1] for entry in events if entry[0] == "uv"]
     python_calls = [entry[1] for entry in events if entry[0] == "python"]
     smoke = [args for args in python_calls if args[0].endswith("smoke-packaged-backend.py")]
     assert not list(temp.iterdir()), "unique temporary build environment was not cleaned"
@@ -741,7 +752,7 @@ def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
         assert result.returncode != 0, result.stdout + result.stderr
         assert not smoke
         if failure == "source":
-            assert not [entry for entry in events if entry[0] == "uv"]
+            assert not uv_calls
         if failure in {"contaminated", "missing"}:
             assert "Backend resource policy failed" in result.stderr
         assert previous.read_text() == "preserve on failure"
@@ -760,6 +771,13 @@ def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
         assert verification
         assert python_calls.index(verification[-1]) < python_calls.index(smoke[0])
         policy.verify_bundle(desktop / "dist-python", policy.build_plan(repository))
+
+    if failure != "source":
+        assert len(uv_calls) == 1
+        assert uv_calls[0][0] == "sync"
+        assert "--frozen" in uv_calls[0]
+        assert "--group" in uv_calls[0]
+        assert uv_calls[0][uv_calls[0].index("--group") + 1] == "desktop"
 
 
 def test_cli_failure_is_redacted(repository: Path, caplog: pytest.LogCaptureFixture) -> None:

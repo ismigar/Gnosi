@@ -64,6 +64,8 @@ dependencies = [
   "transformers>=4.41,<5; sys_platform == 'darwin' and platform_machine == 'x86_64'",
   "simpleeval>=1.0.7",
   "sqlalchemy>=2.0.51",
+  "torch==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+  "torch==2.13.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
   "trafilatura>=2.2.0",
   "uvicorn[standard]>=0.51.0",
   "yt-dlp>=2025.1.15",
@@ -100,6 +102,16 @@ required-environments = [
   "sys_platform == 'linux' and platform_machine == 'aarch64'",
   "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.uv.workspace]
 members = ["extensions/mcp/drupal-proxy"]

@@ -144,8 +144,8 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.match(buildScript, /requested Python command not found/);
   assert.match(buildScript, /mktemp -d .*gnosi-python-venv\.XXXXXX/);
   assert.match(buildScript, /scripts\/probe-python-abi\.py/);
-  assert.doesNotMatch(buildScript, /pip install/);
-  assert.doesNotMatch(buildScript, /requirements[^\s]*\.txt/);
+  assert.doesNotMatch(buildScript, /(?:uv )?pip install/);
+  assert.doesNotMatch(buildScript, /uv export/);
   assert.doesNotMatch(buildScript, /VENV_DIR="\$ELECTRON_DIR\/\.venv-python"/);
   assert.match(buildScript, /"\$PYTHON_VENV" "\$RESOURCE_POLICY" spec/);
   assert.match(buildScript, /--repository "\$GNOSI_DIR" --output/);
@@ -161,49 +161,56 @@ test('the frozen backend keeps required standard-library and media modules', () 
     pyproject,
     /transformers>=4\.41,<5; sys_platform == 'darwin' and platform_machine == 'x86_64'/,
   );
+  assert.match(
+    pyproject,
+    /torch==2\.2\.2; sys_platform == 'darwin' and platform_machine == 'x86_64'/,
+  );
+  assert.match(
+    pyproject,
+    /torch==2\.13\.0; sys_platform != 'darwin' or platform_machine != 'x86_64'/,
+  );
+  assert.match(
+    pyproject,
+    /torch = \[\s*\{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" \},\s*\]/,
+  );
+  assert.match(pyproject, /url = "https:\/\/download\.pytorch\.org\/whl\/cpu"/);
+  assert.match(pyproject, /explicit = true/);
   const abiProbe = fs.readFileSync(
     path.join(__dirname, 'scripts/probe-python-abi.py'),
     'utf8',
   );
   assert.match(abiProbe, /transformers\.is_torch_available\(\)/);
   assert.match(abiProbe, /from sentence_transformers import SentenceTransformer/);
+  assert.match(abiProbe, /torch\.__version__ != "2\.13\.0\+cpu"/);
+  assert.match(abiProbe, /name\.startswith\(\("cuda-", "nvidia-"\)\)/);
+  assert.doesNotMatch(abiProbe, /probe skipped/);
 });
 
-test('the Docker backend installs CPU-only Torch before runtime requirements', () => {
+test('the Docker backend synchronizes the universal lock in one pass', () => {
   const dockerfile = fs.readFileSync(path.join(gnosiRoot, 'Dockerfile.backend'), 'utf8');
-  const cpuTorchInstall = dockerfile.indexOf('https://download.pytorch.org/whl/cpu');
-  const runtimeInstall = dockerfile.indexOf('uv pip install --system --no-cache --requirements');
-
-  assert.notEqual(cpuTorchInstall, -1);
-  assert.notEqual(runtimeInstall, -1);
-  assert.ok(cpuTorchInstall < runtimeInstall);
-  assert.match(dockerfile, /torch==\$\{TORCH_VERSION\}\+cpu/);
-  assert.match(dockerfile, /uv export[^\n]*--frozen[\s\S]*?--prune torch/);
+  assert.match(dockerfile, /PATH="\/app\/\.venv\/bin:\$PATH"/);
+  assert.match(
+    dockerfile,
+    /uv sync --frozen --no-cache --no-default-groups --no-install-workspace/,
+  );
+  assert.doesNotMatch(dockerfile, /uv export|uv pip install/);
+  assert.doesNotMatch(dockerfile, /TORCH_VERSION/);
 });
 
-test('the Docker runtime export prunes Torch and every lock-owned GPU dependency', () => {
-  const result = spawnSync(
-    'uv',
-    [
-      'export',
-      '--frozen',
-      '--no-default-groups',
-      '--no-hashes',
-      '--no-emit-workspace',
-      '--prune',
-      'torch',
-    ],
-    {
-      cwd: gnosiRoot,
-      encoding: 'utf8',
-      env: { ...process.env, UV_NO_PROGRESS: '1' },
-      timeout: 30_000,
-    },
-  );
+test('the frozen Linux ARM64 runtime is CPU-only and fully lock-owned', () => {
+  const lock = fs.readFileSync(path.join(gnosiRoot, 'uv.lock'), 'utf8');
+  const cpuTorch = lock.match(
+    /\[\[package\]\]\nname = "torch"\nversion = "2\.13\.0\+cpu"[\s\S]*?(?=\n\[\[package\]\]|$)/,
+  )?.[0];
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /^sentence-transformers==/m);
-  assert.doesNotMatch(result.stdout, /^(?:torch|triton|nvidia-|cuda-)==/m);
+  assert.ok(cpuTorch, 'Linux CPU Torch must be present in uv.lock');
+  assert.match(
+    cpuTorch,
+    /source = \{ registry = "https:\/\/download\.pytorch\.org\/whl\/cpu" \}/,
+  );
+  assert.match(cpuTorch, /"sys_platform == 'linux'"/);
+  assert.match(cpuTorch, /manylinux[^"\n]*aarch64\.whl/);
+  assert.doesNotMatch(lock, /^name = "(?:triton|nvidia-|cuda-)/m);
 });
 
 test('macOS Intel uses the final cryptography universal2 wheel release', () => {
