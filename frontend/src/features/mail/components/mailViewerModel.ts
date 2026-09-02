@@ -51,6 +51,68 @@ export function sanitizeMailHtml(html: string): string {
 }
 
 
+interface MailHtmlDocumentOptions {
+  readonly email?: string | null;
+  readonly folder?: string | null;
+  readonly messageId?: string | null;
+  readonly themeCss: string;
+}
+
+
+function deferredImageSource(image: HTMLImageElement): string {
+  for (const name of [
+    'data-src',
+    'data-original',
+    'data-lazy-src',
+    'data-original-src',
+    'data-image-src',
+  ]) {
+    const value = image.getAttribute(name)?.trim() || '';
+    if (/^(?:https?:|\/\/|\/api\/|data:image\/(?:avif|gif|jpeg|png|webp);)/i.test(value)) {
+      return value.startsWith('//') ? `https:${value}` : value;
+    }
+  }
+  return '';
+}
+
+
+export function buildMailHtmlDocument(
+  html: string,
+  options: MailHtmlDocumentOptions,
+): string {
+  const document = new DOMParser().parseFromString(sanitizeMailHtml(html), 'text/html');
+  for (const image of document.querySelectorAll('img')) {
+    const currentSource = image.getAttribute('src')?.trim() || '';
+    if (currentSource.toLocaleLowerCase().startsWith('cid:')
+      && options.messageId && options.email) {
+      image.src = mailCidUrl(
+        options.messageId,
+        currentSource.slice(4),
+        options.email,
+        options.folder || 'INBOX',
+      );
+    } else {
+      // Lazy-loading scripts cannot run inside the sandboxed mail canvas.
+      // A deferred source is therefore authoritative even when the sender
+      // supplied a transparent placeholder in src.
+      const deferredSource = deferredImageSource(image);
+      if (deferredSource) image.src = deferredSource;
+    }
+    // Set attributes explicitly so the policy is preserved in the serialized
+    // srcDoc in every DOM implementation, not only in browsers that reflect
+    // these properties back to attributes.
+    image.setAttribute('decoding', 'async');
+    image.setAttribute('loading', 'eager');
+    image.setAttribute('referrerpolicy', 'no-referrer');
+  }
+  const theme = document.createElement('style');
+  theme.dataset.gnosiMailTheme = 'true';
+  theme.textContent = options.themeCss;
+  document.head.append(theme);
+  return `<!doctype html>${document.documentElement.outerHTML}`;
+}
+
+
 export function escapeMailHtml(value: unknown): string {
   const text = typeof value === 'string'
     || typeof value === 'number'

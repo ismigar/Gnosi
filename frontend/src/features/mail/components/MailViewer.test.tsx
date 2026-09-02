@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   deleteDraft: vi.fn<typeof import('../../../shared/api/mail').deleteMailDraft>(),
   extractEntities: vi.fn<typeof import('../../../shared/api/mail').extractMailEntities>(),
   fetchMessage: vi.fn<typeof import('../../../shared/api/mail').fetchMailMessage>(),
+  fetchThread: vi.fn<typeof import('../../../shared/api/mail').fetchMailThread>(),
   getTags: vi.fn<() => Promise<string[]>>(),
   markRead: vi.fn<typeof import('../../../shared/api/mail').markMailRead>(),
   trash: vi.fn<typeof import('../../../shared/api/mail').trashMailMessage>(),
@@ -33,6 +34,7 @@ vi.mock('../../../shared/api/mail', async (importOriginal) => ({
   deleteMailDraft: mocks.deleteDraft,
   extractMailEntities: mocks.extractEntities,
   fetchMailMessage: mocks.fetchMessage,
+  fetchMailThread: mocks.fetchThread,
   markMailRead: mocks.markRead,
   trashMailMessage: mocks.trash,
 }));
@@ -83,6 +85,7 @@ beforeAll(() => {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.extractEntities.mockResolvedValue({ contacts: [], events: [] });
+  mocks.fetchThread.mockResolvedValue({ messages: [] });
   mocks.getTags.mockResolvedValue([]);
   mocks.markRead.mockResolvedValue({ status: 'success' });
   mocks.archive.mockResolvedValue({ status: 'success' });
@@ -109,6 +112,40 @@ describe('MailViewer', () => {
     expect(mocks.fetchMessage).toHaveBeenCalledTimes(1);
     expect(mocks.markRead).toHaveBeenCalledWith('one', account.email, 'Inbox/Personal');
     expect(onMailRead).toHaveBeenCalledWith('one');
+    expect(mocks.extractEntities).not.toHaveBeenCalled();
+  });
+
+  it('runs smart analysis only after the explicit toolbar action', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('analysis'));
+    await render({ mail: message('analysis') });
+    expect(mocks.extractEntities).not.toHaveBeenCalled();
+
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+    expect(mocks.extractEntities).toHaveBeenCalledWith('Message body');
+  });
+
+  it('waits for the selected detail before fetching its complete thread', async () => {
+    let resolveDetail: ((value: MailMessage) => void) | undefined;
+    mocks.fetchMessage.mockImplementation(() => new Promise<MailMessage>((resolve) => {
+      resolveDetail = resolve;
+    }));
+    const selected = message('thread-message', { thread_id: 'thread' });
+    await render({ mail: selected });
+    expect(mocks.fetchThread).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveDetail?.(selected);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mocks.fetchThread).toHaveBeenCalledWith(
+      'thread',
+      account.email,
+      expect.any(AbortSignal),
+    );
   });
 
   it('ignores a late message after selection has changed', async () => {
@@ -117,7 +154,9 @@ describe('MailViewer', () => {
       ? new Promise<MailMessage>((resolve) => { resolveFirst = resolve; })
       : Promise.resolve(message('second')));
     await render({ mail: message('first') });
+    const firstSignal = mocks.fetchMessage.mock.calls[0]?.[2];
     await render({ mail: message('second') });
+    expect(firstSignal?.aborted).toBe(true);
     await act(async () => {
       resolveFirst?.(message('first', { is_read: false }));
       await Promise.resolve();

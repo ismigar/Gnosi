@@ -40,8 +40,10 @@ export function useMailViewerData({
   const [threadMessageData, setThreadMessageData] = useState<Record<string, MailViewerMessage>>({});
   const [fullThreadMessages, setFullThreadMessages] = useState<MailViewerMessage[]>([]);
   const [extractedEntities, setExtractedEntities] = useState<MailExtractedEntities | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
-  const scannedIdsRef = useRef(new Set<string>());
+  const analysisRequestRef = useRef(0);
+  const analysisRunningRef = useRef(false);
   const { getMessageTags } = mailTags;
   const firstThreadMessageId = selectedMail?.thread_messages?.[0]?.id || selectedMail?.id;
   const localThreadMessages = selectedMail?.thread_messages ?? [];
@@ -59,17 +61,29 @@ export function useMailViewerData({
   }, [onMailRead]);
 
   const scanEntities = useCallback(async (context: string): Promise<void> => {
-    if (!context) return;
+    if (!context || analysisRunningRef.current) return;
+    const requestId = ++analysisRequestRef.current;
+    analysisRunningRef.current = true;
+    setAnalyzing(true);
     setExtractedEntities(null);
     try {
-      const entities = normalizeMailEntities(await extractMailEntities(context));
+      const response = await extractMailEntities(context);
+      if (requestId !== analysisRequestRef.current) return;
+      if (response.error) throw new Error(response.error);
+      const entities = normalizeMailEntities(response);
       if (entities.events.length > 0 || entities.contacts.length > 0) {
         setExtractedEntities(entities);
         toast.success(t('mail.smart_suggestions_found', 'Smart suggestions found'));
       }
     } catch (error) {
+      if (requestId !== analysisRequestRef.current) return;
       logError('mail-viewer.entity-scan', error);
       toast.error(t('mail.smart_analysis_error', 'Error during smart analysis'));
+    } finally {
+      if (requestId === analysisRequestRef.current) {
+        analysisRunningRef.current = false;
+        setAnalyzing(false);
+      }
     }
   }, [t]);
 
@@ -83,18 +97,25 @@ export function useMailViewerData({
     const id = selectedMail?.id;
     const threadId = selectedMail?.thread_id;
     const email = selectedMail?.account || account?.email || '';
-    if (!id || !threadId || threadId === id || !email || selectedMail.source === 'vault') {
+    if (!id || mailData?.id !== id || !threadId || threadId === id
+      || !email || selectedMail.source === 'vault') {
       return () => { cancelled = true; };
     }
-    void fetchMailThread(threadId, email)
+    const abortController = new AbortController();
+    void fetchMailThread(threadId, email, abortController.signal)
       .then((data) => {
         if (cancelled) return;
         const messages = [...data.messages].reverse();
         if (messages.length > 1) setFullThreadMessages(messages);
       })
-      .catch((error: unknown) => { logError('mail-viewer.thread', error); });
-    return () => { cancelled = true; };
-  }, [account?.email, selectedMail]);
+      .catch((error: unknown) => {
+        if (!abortController.signal.aborted) logError('mail-viewer.thread', error);
+      });
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
+  }, [account?.email, mailData?.id, selectedMail]);
 
   useEffect(() => {
     if (!firstThreadMessageId) return undefined;
@@ -126,27 +147,43 @@ export function useMailViewerData({
       return undefined;
     }
     let cancelled = false;
-    queueMicrotask(() => { if (!cancelled) setLoading(true); });
+    const abortController = new AbortController();
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setExtractedEntities(null);
+        setLoading(true);
+      }
+    });
     const email = selectedMail.account || account?.email || '';
     void fetchMailMessage(id, {
       email: email || undefined,
       folder: selectedMail.imap_folder || undefined,
-    }).then((data) => {
+    }, abortController.signal).then((data) => {
       if (cancelled) return;
       setMailData(data);
       setLoading(false);
       if (!data.is_read) markAsRead(data.id, email, data.imap_folder || selectedMail.imap_folder || undefined);
-      const context = data.body_text || data.snippet || '';
-      if (!scannedIdsRef.current.has(data.id) && context) {
-        scannedIdsRef.current.add(data.id);
-        void scanEntities(context);
-      }
     }).catch((error: unknown) => {
-      logError('mail-viewer.message', error);
+      if (!abortController.signal.aborted) logError('mail-viewer.message', error);
       if (!cancelled) setLoading(false);
     });
-    return () => { cancelled = true; };
-  }, [account?.email, markAsRead, scanEntities, selectedMail]);
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
+  }, [account?.email, markAsRead, selectedMail]);
+
+  useEffect(() => {
+    analysisRequestRef.current += 1;
+    analysisRunningRef.current = false;
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setAnalyzing(false);
+      setExtractedEntities(null);
+    });
+    return () => { active = false; };
+  }, [selectedMail?.id]);
 
   const toggleThreadMessage = (message: MailViewerMessage): void => {
     const willExpand = !expandedThreadIds.has(message.id);
@@ -168,11 +205,13 @@ export function useMailViewerData({
 
   return {
     activeTagIds,
+    analyzing,
     allThreadMessages,
     expandedThreadIds,
     extractedEntities,
     loading,
     mailData,
+    scanEntities,
     setActiveTagIds,
     setExtractedEntities,
     setMailData,

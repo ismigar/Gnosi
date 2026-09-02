@@ -39,9 +39,13 @@ export function accountEmails(
   accounts: readonly MailAccount[],
 ): string[] {
   if (account?.email) return [account.email];
+  const seen = new Set<string>();
   return accounts.flatMap((candidate) => {
     const address = candidate.email || candidate.username;
-    return address ? [address] : [];
+    const identity = address?.trim().toLocaleLowerCase();
+    if (!address || !identity || seen.has(identity)) return [];
+    seen.add(identity);
+    return [address];
   });
 }
 
@@ -106,6 +110,44 @@ function legacyString(value: unknown): string {
 }
 
 
+function providerMessageKey(message: MailListMessage): string {
+  const account = message.account || message.account_email || '';
+  return `${account.toLocaleLowerCase()}|${message.id}`;
+}
+
+
+function exactCopyKey(message: MailListMessage): string | null {
+  const account = message.account || message.account_email || '';
+  const timestamp = message.timestamp || message.date;
+  if (!account || !timestamp || !message.sender || !message.subject) return null;
+  return [
+    account.toLocaleLowerCase(),
+    message.sender.trim().toLocaleLowerCase(),
+    legacyString(message.recipient).trim().toLocaleLowerCase(),
+    message.subject.trim().toLocaleLowerCase(),
+    String(timestamp),
+  ].join('|');
+}
+
+
+export function deduplicateMailListMessages(
+  messages: readonly MailListMessage[],
+): MailListMessage[] {
+  const providerMessages = new Set<string>();
+  const exactCopies = new Set<string>();
+  return messages.filter((message) => {
+    if (!message.id) return false;
+    const providerKey = providerMessageKey(message);
+    if (providerMessages.has(providerKey)) return false;
+    const copyKey = exactCopyKey(message);
+    if (copyKey && exactCopies.has(copyKey)) return false;
+    providerMessages.add(providerKey);
+    if (copyKey) exactCopies.add(copyKey);
+    return true;
+  });
+}
+
+
 function filterDate(value: MailView['filters'][number]['value']): number {
   const input = typeof value === 'number' || typeof value === 'string'
     ? value
@@ -159,7 +201,7 @@ export function processMailListMessages(
   messages: readonly MailListMessage[],
   options: ProcessMessagesOptions,
 ): MailListMessage[] {
-  let result = [...messages];
+  let result = deduplicateMailListMessages(messages);
   if (options.folder === 'NOT_ARCHIVED') {
     result = result.filter((message) => !message.archived);
   }
@@ -217,7 +259,7 @@ export function threadMailListMessages(
   messages: readonly MailListMessage[],
 ): MailListMessage[] {
   const threads = new Map<string, MailListMessage[]>();
-  messages.forEach((message) => {
+  deduplicateMailListMessages(messages).forEach((message) => {
     const threadId = message.thread_id || message.id;
     const current = threads.get(threadId) ?? [];
     current.push(message);

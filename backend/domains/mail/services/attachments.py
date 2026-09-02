@@ -101,6 +101,15 @@ async def _collect_original_inline_parts(
     wanted = {c.strip("<>") for c in wanted_cids if c}
     if not wanted:
         return {}
+    from backend.domains.mail.cache import _get_cached_inline_parts
+
+    cached = _get_cached_inline_parts(email, message_id, folder)
+    if cached is not None:
+        return {
+            cid: cast(MimeAsset, cached[cid])
+            for cid in wanted
+            if cid in cached
+        }
     acc = integration_manager.get_mail_account(email)
 
     if not (acc and integration_manager.is_imap_account(acc)):

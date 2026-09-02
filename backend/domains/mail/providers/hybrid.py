@@ -501,6 +501,21 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> dict[str, A
 
         body_text, body_html, attachments, inline_images = _message_content(msg)
 
+        from backend.domains.mail.cache import _set_cached_inline_parts
+        from backend.services.mail_inline_images import extract_inline_parts_from_mime
+
+        wanted_cids = {
+            str(image["cid"])
+            for image in inline_images
+            if image.get("cid")
+        }
+        _set_cached_inline_parts(
+            email,
+            f"imap_{uid}",
+            folder_name,
+            extract_inline_parts_from_mime(raw_bytes, wanted_cids),
+        )
+
         message_id_hdr = sanitize_filename_component(msg.get("Message-ID", ""))
         return {
             "id": f"imap_{uid}",

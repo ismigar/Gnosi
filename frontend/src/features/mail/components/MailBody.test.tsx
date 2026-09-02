@@ -58,6 +58,20 @@ describe('MailBody', () => {
     expect(iframe?.srcdoc).not.toContain('onerror');
     expect(iframe?.srcdoc).toContain('/api/mail/messages/message-1/cid/logo');
     expect(iframe?.srcdoc).toContain('folder=Sent');
+    expect(iframe?.srcdoc).toContain('referrerpolicy="no-referrer"');
+    expect(iframe?.srcdoc).toContain('loading="eager"');
+  });
+
+  it('promotes script-dependent deferred images and appends the theme override', async () => {
+    act(() => {
+      root.render(<MailBody bodyHtml={'<style>body{background:#000}</style><img data-src="https://images.example.test/logo.png">'} />);
+    });
+    await settleIframe();
+    const source = container.querySelector('iframe')?.srcdoc || '';
+    expect(source).toContain('src="https://images.example.test/logo.png"');
+    expect(source).toContain('background: #fff !important');
+    expect(source.lastIndexOf('background: #fff !important'))
+      .toBeGreaterThan(source.indexOf('body{background:#000}'));
   });
 
   it('updates the isolated canvas when the mail theme changes', async () => {

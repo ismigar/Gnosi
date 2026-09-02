@@ -32,6 +32,7 @@ from backend.domains.mail.services.accounts import (
     _is_microsoft_account,
     _resolve_gmail_id,
 )
+from backend.domains.mail.services.analysis import request_entity_analysis
 from backend.domains.mail.services.attachments import _embed_quoted_cid_images
 from backend.services.contacts_service import ContactsService
 from backend.services.google_mail_service import (
@@ -719,8 +720,6 @@ async def generate_draft(payload: mail_schemas.MailGenerateDraftRequest) -> Any:
 async def extract_entities(payload: mail_schemas.MailExtractEntitiesRequest) -> Any:
     import json
 
-    from pipeline.ai_client import call_ai_with_fallback
-
     context = payload.context
     if not context:
         return {"events": [], "contacts": []}
@@ -759,7 +758,18 @@ Each contact must contain:
 EMAIL CONTENT:
 """
     ai_prompt = system_prompt + context
-    content, provider = call_ai_with_fallback(ai_prompt)
+    try:
+        content, provider = await request_entity_analysis(ai_prompt)
+    except Exception as error:
+        log.warning(
+            "Mail entity analysis provider unavailable: %s",
+            type(error).__name__,
+        )
+        return {
+            "events": [],
+            "contacts": [],
+            "error": "Smart analysis is temporarily unavailable.",
+        }
 
     try:
         clean_content = content.strip()

@@ -277,13 +277,23 @@ describe('MailList', () => {
       limit: 50,
       offset: 1,
       pageToken: 'next',
-    });
+    }, expect.any(AbortSignal));
     expect(container.textContent).toContain('Subject two');
     await click(checkbox());
     await click(button('Mark as read'));
 
     expect(mocks.batch).toHaveBeenCalledWith(account.email, 'read', ['one']);
     expect(onBatchDone).toHaveBeenCalledOnce();
+  });
+
+  it('does not prefetch remote folders while opening the inbox', async () => {
+    await render({ folder: 'INBOX' });
+    expect(mocks.fetchMessages).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchMessages).toHaveBeenCalledWith({
+      email: account.email,
+      folder: 'INBOX',
+      limit: 50,
+    }, expect.any(AbortSignal));
   });
 
   it('restores an optimistically archived message if its batch request fails', async () => {
@@ -311,7 +321,7 @@ describe('MailList', () => {
       folder: 'SENT',
       force: true,
       limit: 50,
-    });
+    }, expect.any(AbortSignal));
 
     await render({ removedMailId: 'one' });
     expect(container.textContent).not.toContain('Subject one');
@@ -389,7 +399,7 @@ describe('MailList', () => {
       folder: 'TRASH',
       force: true,
       limit: 50,
-    });
+    }, expect.any(AbortSignal));
     expect(mocks.success).toHaveBeenCalledWith('Trash emptied');
   });
 });

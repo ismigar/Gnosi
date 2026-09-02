@@ -21,6 +21,7 @@ import {
 import {
   accountEmails,
   buildMailListQuery,
+  deduplicateMailListMessages,
   enabledMailAccounts,
   filterOutMailThread,
   mailListCacheKey,
@@ -57,16 +58,6 @@ const EMPTY_MAIL_MESSAGES: MailMessages = {
 };
 
 
-function uniqueMessages(messages: readonly MailListMessage[]): MailListMessage[] {
-  const seen = new Set<string>();
-  return messages.filter((message) => {
-    if (!message.id || seen.has(message.id)) return false;
-    seen.add(message.id);
-    return true;
-  });
-}
-
-
 export function useMailListData({
   account,
   accounts,
@@ -94,8 +85,15 @@ export function useMailListData({
   const [offsets, setOffsets] = useState<NumberByAccount>({});
   const [totals, setTotals] = useState<NumberByAccount>({});
   const messageCacheRef = useRef<MessageMemoryCache>({});
+  const fetchAbortRef = useRef<AbortController | null>(null);
+  const loadMoreAbortRef = useRef<AbortController | null>(null);
 
   const fetchMessages = useCallback((options: FetchMessagesOptions = {}): void => {
+    fetchAbortRef.current?.abort();
+    loadMoreAbortRef.current?.abort();
+    setLoadingMore(false);
+    const abortController = new AbortController();
+    fetchAbortRef.current = abortController;
     setPageTokens({});
     setOffsets({});
     setTotals({});
@@ -124,11 +122,13 @@ export function useMailListData({
           folder,
           category,
           { force: options.force },
-        ));
-      } catch {
+        ), abortController.signal);
+      } catch (error) {
+        if (abortController.signal.aborted) throw error;
         return EMPTY_MAIL_MESSAGES;
       }
     })).then((results) => {
+      if (abortController.signal.aborted) return;
       const newTokens: TokenByAccount = {};
       const newOffsets: NumberByAccount = {};
       const newTotals: NumberByAccount = {};
@@ -144,7 +144,9 @@ export function useMailListData({
       setOffsets(newOffsets);
       setTotals(newTotals);
 
-      const merged = uniqueMessages(results.flatMap((result) => result.messages));
+      const merged = deduplicateMailListMessages(
+        results.flatMap((result) => result.messages),
+      );
       messageCacheRef.current[cacheKey] = merged;
       writeMailListCache(cacheKey, merged);
       setMessages(merged);
@@ -152,30 +154,8 @@ export function useMailListData({
       setSyncing(false);
       onMessagesLoaded?.(merged);
 
-      if ((folder === 'INBOX' || !folder) && !options.force) {
-        ['SENT', 'DRAFTS', 'TRASH'].forEach((prefetchFolder) => {
-          const prefetchKey = mailListCacheKey(emails, prefetchFolder, null);
-          if (messageCacheRef.current[prefetchKey]) return;
-          void Promise.all(emails.map(async (email) => {
-            try {
-              return await fetchMailMessages({
-                email,
-                folder: prefetchFolder,
-                limit: 50,
-              });
-            } catch {
-              return EMPTY_MAIL_MESSAGES;
-            }
-          })).then((prefetchResults) => {
-            const prefetched = uniqueMessages(
-              prefetchResults.flatMap((result) => result.messages),
-            );
-            messageCacheRef.current[prefetchKey] = prefetched;
-            writeMailListCache(prefetchKey, prefetched);
-          }).catch(() => undefined);
-        });
-      }
     }).catch(() => {
+      if (abortController.signal.aborted) return;
       setLoading(false);
       setSyncing(false);
     });
@@ -188,6 +168,9 @@ export function useMailListData({
 
   const loadMore = useCallback((): void => {
     if (loadingMore) return;
+    loadMoreAbortRef.current?.abort();
+    const abortController = new AbortController();
+    loadMoreAbortRef.current = abortController;
     setLoadingMore(true);
     void Promise.all(emails.map(async (email) => {
       const token = pageTokens[email];
@@ -202,11 +185,13 @@ export function useMailListData({
           folder,
           category,
           { offset, pageToken: token },
-        ));
-      } catch {
+        ), abortController.signal);
+      } catch (error) {
+        if (abortController.signal.aborted) throw error;
         return EMPTY_MAIL_MESSAGES;
       }
     })).then((results) => {
+      if (abortController.signal.aborted) return;
       const newTokens = { ...pageTokens };
       const newOffsets = { ...offsets };
       results.forEach((result, index) => {
@@ -218,14 +203,14 @@ export function useMailListData({
       setPageTokens(newTokens);
       setOffsets(newOffsets);
       setMessages((current) => {
-        const seen = new Set(current.map((message) => message.id));
-        const added = results
-          .flatMap((result) => result.messages)
-          .filter((message) => message.id && !seen.has(message.id));
-        return [...current, ...added];
+        return deduplicateMailListMessages([
+          ...current,
+          ...results.flatMap((result) => result.messages),
+        ]);
       });
       setLoadingMore(false);
     }).catch(() => {
+      if (abortController.signal.aborted) return;
       setLoadingMore(false);
     });
   }, [category, emails, folder, loadingMore, offsets, pageTokens, totals]);
@@ -246,6 +231,8 @@ export function useMailListData({
     });
     return () => {
       active = false;
+      fetchAbortRef.current?.abort();
+      loadMoreAbortRef.current?.abort();
     };
   }, [account, accounts, cacheKey]);
 

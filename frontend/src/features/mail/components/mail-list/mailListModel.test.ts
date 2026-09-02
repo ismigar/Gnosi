@@ -4,6 +4,7 @@ import type { MailView } from '../../../../shared/api/mail';
 import {
   accountEmails,
   buildMailListQuery,
+  deduplicateMailListMessages,
   filterOutMailThread,
   groupMailListMessages,
   processMailListMessages,
@@ -51,6 +52,7 @@ describe('mail list model', () => {
   it('builds account and pagination queries without changing folder semantics', () => {
     expect(accountEmails(null, [
       { email: 'one@example.com' },
+      { email: 'ONE@example.com' },
       { username: 'two@example.com' },
     ])).toEqual(['one@example.com', 'two@example.com']);
     expect(buildMailListQuery(
@@ -67,6 +69,31 @@ describe('mail list model', () => {
       offset: 50,
       pageToken: 'next',
     });
+  });
+
+  it('removes exact provider copies without colliding IMAP UIDs across accounts', () => {
+    const original = message('imap_42', {
+      account: 'one@example.com',
+      recipient: 'reader@example.com',
+      sender: 'Sender <sender@example.com>',
+      subject: 'Same delivery',
+      timestamp: 123,
+    });
+    const duplicateUid = message('imap_43', {
+      ...original,
+      id: 'imap_43',
+    });
+    const otherAccount = message('imap_42', {
+      ...original,
+      account: 'two@example.com',
+    });
+
+    expect(deduplicateMailListMessages([
+      original,
+      duplicateUid,
+      original,
+      otherAccount,
+    ])).toEqual([original, otherAccount]);
   });
 
   it('applies search, tag, unread and advanced filters before sorting', () => {

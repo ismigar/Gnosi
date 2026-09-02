@@ -75,10 +75,12 @@ export function useMailViewerController({
   const {
     activeTagIds,
     allThreadMessages,
+    analyzing,
     expandedThreadIds,
     extractedEntities,
     loading,
     mailData,
+    scanEntities,
     setActiveTagIds,
     setExtractedEntities,
     setMailData,
@@ -101,6 +103,15 @@ export function useMailViewerController({
     () => detectMailFormLinks(mailData?.body_html, mailData?.body_text),
     [mailData?.body_html, mailData?.body_text],
   );
+
+  const analysisContext = mailData?.body_text
+    || mailData?.body_html
+    || mailData?.snippet
+    || '';
+  const analyzeMessage = (): void => {
+    const context = analysisContext;
+    if (context) void scanEntities(context);
+  };
 
   const addExtractedContact = async (contact: MailExtractedContact): Promise<void> => {
     try {
@@ -364,6 +375,9 @@ export function useMailViewerController({
     addExtractedEvent,
     addToVault,
     allThreadMessages,
+    analyzeMessage,
+    analyzing,
+    canAnalyze: Boolean(analysisContext),
     archive,
     availableCalendars,
     calendarPickerEvent,

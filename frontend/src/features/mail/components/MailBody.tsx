@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { mailCidUrl } from '../../../shared/api/mail-specialized';
 import {
   subscribeElementEvent,
   subscribeWindowEvent,
 } from '../../../shared/platform/browser-events';
 import { subscribeAppSignal } from '../../../shared/platform/app-events';
 import {
+  buildMailHtmlDocument,
   linkPlainMailText,
   MAIL_DARK_BODY_EVENT,
   readMailDarkBody,
-  sanitizeMailHtml,
 } from './mailViewerModel';
 
 
 const EMAIL_CSS_LIGHT = `
-html, body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #111; background: #fff; }
+html, body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #111 !important; background: #fff !important; color-scheme: light; }
+body > :where(table, div, section, main) { background-color: transparent !important; }
 img { max-width: 100% !important; height: auto !important; display: inline-block; }
 table { max-width: 100% !important; border-collapse: collapse; }
 td, th { word-break: break-word; }
@@ -24,7 +24,8 @@ a { color: #3b82f6; }
 * { box-sizing: border-box; }
 `;
 const EMAIL_CSS_DARK = `
-html, body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #e6e6e6; background: #1a1a1a; }
+html, body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #e6e6e6 !important; background: #1a1a1a !important; color-scheme: dark; }
+body > :where(table, div, section, main) { background-color: transparent !important; }
 img { max-width: 100% !important; height: auto !important; display: inline-block; }
 table { max-width: 100% !important; border-collapse: collapse; }
 td, th { word-break: break-word; color: inherit; }
@@ -85,16 +86,15 @@ export function MailBody({
   }, [bodyHtml, darkBody]);
 
   if (bodyHtml) {
-    const sanitized = sanitizeMailHtml(bodyHtml);
-    const withCid = messageId && email
-      ? sanitized.replace(/cid:([^"'\s>)]+)/gi, (_match, cid: string) => (
-        mailCidUrl(messageId, cid, email, folder || 'INBOX')
-      ))
-      : sanitized;
     return (
       <iframe
         ref={iframeRef}
-        srcDoc={`<style>${darkBody ? EMAIL_CSS_DARK : EMAIL_CSS_LIGHT}</style>${withCid}`}
+        srcDoc={buildMailHtmlDocument(bodyHtml, {
+          email,
+          folder,
+          messageId,
+          themeCss: darkBody ? EMAIL_CSS_DARK : EMAIL_CSS_LIGHT,
+        })}
         sandbox="allow-same-origin allow-popups"
         title="mail-body"
         style={{
