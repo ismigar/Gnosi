@@ -322,7 +322,10 @@ async def _fetch_validated_target(
                         location = response.headers.get("location", "").strip()
                         if not location:
                             raise RemoteMailImageError("invalid_redirect", 502)
-                        return urljoin(selected_target.url, location)
+                        redirect_url = urljoin(selected_target.url, location)
+                        if not isinstance(redirect_url, str):
+                            raise RemoteMailImageError("invalid_redirect", 502)
+                        return redirect_url
                     if response.status_code != 200:
                         raise RemoteMailImageError("origin_unavailable", 502)
                     return await _read_response(response)
