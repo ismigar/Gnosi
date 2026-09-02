@@ -1,10 +1,20 @@
-import json
 import logging
 from typing import Any
 
-from backend.config.app_config import load_params
+from backend.services.integration_manager import integration_manager
 
 log = logging.getLogger(__name__)
+
+
+def _resolved_google_accounts() -> list[dict[str, Any]]:
+    """Return calendar-capable accounts with secure-store refs resolved."""
+    accounts: list[dict[str, Any]] = []
+    for section in ("calendars", "emails"):
+        values = integration_manager.get_raw(section)
+        if not isinstance(values, list):
+            continue
+        accounts.extend(value for value in values if isinstance(value, dict))
+    return accounts
 
 
 def get_google_calendar_service(email: str) -> Any:
@@ -16,29 +26,9 @@ def get_google_calendar_service(email: str) -> Any:
         log.error("Falten dependències: google-api-python-client, google-auth-oauthlib")
         return None
 
-    cfg = load_params(strict_env=False)
-    secrets_path = cfg.paths.get("SECRETS")
-    if secrets_path is None:
-        log.error("No es troba el directori de secrets.")
-        return None
-    integrations_file = secrets_path / "integrations.json"
-
-    if not integrations_file.exists():
-        log.error("No es troba integrations.json.")
-        return None
-
-    try:
-        data = json.loads(integrations_file.read_text(encoding="utf-8"))
-    except Exception as e:
-        log.error(f"Failed to read integrations.json: {e}")
-        return None
-
     from backend.config.env_config import get_env
 
-    # Search in both 'calendars' and 'emails' lists
-    all_accounts = data.get("calendars", []) + data.get("emails", [])
-
-    for cal in all_accounts:
+    for cal in _resolved_google_accounts():
         if cal.get("provider") == "google" and cal.get("auth_type") == "oauth2":
             cal_email = cal.get("email") or cal.get("username") or ""
             if cal_email == email:

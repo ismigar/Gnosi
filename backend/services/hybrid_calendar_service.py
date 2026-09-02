@@ -33,8 +33,11 @@ JsonObject = dict[str, Any]
 
 
 def _get_account(email: str) -> JsonObject | None:
-    integrations = integration_manager.get_all_safe()
-    raw_accounts = integrations.get("calendars", []) + integrations.get("emails", [])
+    raw_accounts: list[object] = []
+    for section in ("calendars", "emails"):
+        values = integration_manager.get_raw(section)
+        if isinstance(values, list):
+            raw_accounts.extend(values)
     return next(
         (
             account
