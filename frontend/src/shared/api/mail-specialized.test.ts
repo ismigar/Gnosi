@@ -2,6 +2,7 @@ import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  fetchRemoteMailImage,
   mailAttachmentUrl,
   mailCidUrl,
   mailEventsUrl,
@@ -63,5 +64,27 @@ describe('specialized mail transports', () => {
     expect(new URL(requests[1]?.url || '').searchParams.get('folder')).toBe(
       'Sent Items',
     );
+  });
+
+  it('loads validated remote mail images through the reviewed binary adapter', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        headers: { 'Content-Type': 'image/png' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const image = await fetchRemoteMailImage('https://images.example.test/a.png');
+
+    expect(image?.type).toBe('image/png');
+    expect(image?.size).toBe(3);
+    const [input, init] = fetchMock.mock.calls[0] || [];
+    const request = input instanceof Request
+      ? input
+      : new Request(new URL(String(input), window.location.origin), init);
+    expect(request.method).toBe('POST');
+    expect(await request.json()).toEqual({
+      url: 'https://images.example.test/a.png',
+    });
   });
 });

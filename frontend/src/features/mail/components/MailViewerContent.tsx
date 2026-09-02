@@ -34,8 +34,8 @@ export function MailViewerContent({ controller }: { readonly controller: MailVie
             </button>
           ))}
         </div>
-        <MailThread controller={controller} />
         <MailSmartSuggestions controller={controller} />
+        <MailThread controller={controller} />
       </div>
     </div>
   );

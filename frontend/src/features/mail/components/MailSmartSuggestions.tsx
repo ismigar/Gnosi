@@ -1,9 +1,11 @@
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import {
+  AlertTriangle,
   Building,
   CalendarCheck,
   Clock,
+  Info,
   Mail,
   MapPin,
   Phone,
@@ -16,8 +18,46 @@ import type { MailViewerController } from './useMailViewerController';
 
 export function MailSmartSuggestions({ controller }: { readonly controller: MailViewerController }) {
   const entities = controller.extractedEntities;
-  if (!entities || (entities.events.length === 0 && entities.contacts.length === 0)) return null;
   const { t } = controller;
+  const statusCopy = {
+    invalid_response: t(
+      'mail.smart_analysis_invalid_response',
+      'The analysis service returned an invalid response. You can try again.',
+    ),
+    no_entities: t(
+      'mail.smart_analysis_no_entities',
+      'No calendar events or contacts were found in this message.',
+    ),
+    not_configured: t(
+      'mail.smart_analysis_not_configured',
+      'Smart analysis is not configured. Add an AI provider in Settings.',
+    ),
+    temporarily_unavailable: t(
+      'mail.smart_analysis_temporarily_unavailable',
+      'Smart analysis is temporarily unavailable. You can try again.',
+    ),
+  } as const;
+  if (controller.analysisStatus in statusCopy) {
+    const retryable = controller.analysisStatus === 'invalid_response'
+      || controller.analysisStatus === 'temporarily_unavailable';
+    const StatusIcon = retryable
+      ? AlertTriangle
+      : controller.analysisStatus === 'no_entities' ? Sparkles : Info;
+    return (
+      <div className="flex items-center justify-between gap-4 bg-[var(--bg-secondary)]/70 border border-[var(--border-primary)] rounded-2xl px-5 py-4 mb-6" data-mail-analysis-status={controller.analysisStatus}>
+        <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+          <StatusIcon aria-hidden="true" className="shrink-0" size={17} />
+          <span>{statusCopy[controller.analysisStatus as keyof typeof statusCopy]}</span>
+        </div>
+        {retryable && (
+          <button className="shrink-0 px-3 py-1.5 rounded-lg bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] text-xs font-bold hover:opacity-80" onClick={controller.analyzeMessage} type="button">
+            {t('common.retry', 'Try again')}
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (!entities || (entities.events.length === 0 && entities.contacts.length === 0)) return null;
   return (
     <div className="bg-[var(--bg-secondary)]/50 border border-[var(--border-primary)] rounded-3xl p-8 mb-12 animate-in fade-in slide-in-from-top-4 duration-500 backdrop-blur-sm">
       <div className="flex items-center gap-3 mb-6">

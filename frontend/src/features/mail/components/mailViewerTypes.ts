@@ -67,6 +67,16 @@ export interface MailExtractedEntities {
 }
 
 
+export type MailAnalysisStatus =
+  | 'idle'
+  | 'analyzing'
+  | 'results'
+  | 'no_entities'
+  | 'not_configured'
+  | 'temporarily_unavailable'
+  | 'invalid_response';
+
+
 export interface MailComposeRequest {
   readonly initialCc?: string | readonly string[];
   readonly initialSubject?: string;

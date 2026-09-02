@@ -12,6 +12,7 @@ import {
 } from '../../../shared/api/mail';
 import { normalizeMailEntities } from './mailViewerModel';
 import type {
+  MailAnalysisStatus,
   MailExtractedEntities,
   MailViewerAccount,
   MailViewerMessage,
@@ -41,6 +42,7 @@ export function useMailViewerData({
   const [fullThreadMessages, setFullThreadMessages] = useState<MailViewerMessage[]>([]);
   const [extractedEntities, setExtractedEntities] = useState<MailExtractedEntities | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisStatus, setAnalysisStatus] = useState<MailAnalysisStatus>('idle');
   const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
   const analysisRequestRef = useRef(0);
   const analysisRunningRef = useRef(false);
@@ -65,20 +67,32 @@ export function useMailViewerData({
     const requestId = ++analysisRequestRef.current;
     analysisRunningRef.current = true;
     setAnalyzing(true);
+    setAnalysisStatus('analyzing');
     setExtractedEntities(null);
     try {
       const response = await extractMailEntities(context);
       if (requestId !== analysisRequestRef.current) return;
-      if (response.error) throw new Error(response.error);
+      if (response.error) {
+        const status: MailAnalysisStatus = response.error === 'not_configured'
+          ? 'not_configured'
+          : response.error === 'invalid_response'
+            ? 'invalid_response'
+            : 'temporarily_unavailable';
+        setAnalysisStatus(status);
+        return;
+      }
       const entities = normalizeMailEntities(response);
       if (entities.events.length > 0 || entities.contacts.length > 0) {
         setExtractedEntities(entities);
+        setAnalysisStatus('results');
         toast.success(t('mail.smart_suggestions_found', 'Smart suggestions found'));
+      } else {
+        setAnalysisStatus('no_entities');
       }
     } catch (error) {
       if (requestId !== analysisRequestRef.current) return;
       logError('mail-viewer.entity-scan', error);
-      toast.error(t('mail.smart_analysis_error', 'Error during smart analysis'));
+      setAnalysisStatus('temporarily_unavailable');
     } finally {
       if (requestId === analysisRequestRef.current) {
         analysisRunningRef.current = false;
@@ -180,6 +194,7 @@ export function useMailViewerData({
     queueMicrotask(() => {
       if (!active) return;
       setAnalyzing(false);
+      setAnalysisStatus('idle');
       setExtractedEntities(null);
     });
     return () => { active = false; };
@@ -205,6 +220,7 @@ export function useMailViewerData({
 
   return {
     activeTagIds,
+    analysisStatus,
     analyzing,
     allThreadMessages,
     expandedThreadIds,

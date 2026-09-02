@@ -9,6 +9,15 @@ export interface MailAssetQuery {
   readonly inline?: boolean;
 }
 
+const REMOTE_MAIL_IMAGE_TYPES = new Set([
+  'image/avif',
+  'image/gif',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+const MAX_REMOTE_MAIL_IMAGE_BYTES = 8 * 1024 * 1024;
+
 function apiPath(path: string, query: Record<string, boolean | string | undefined>) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
@@ -50,6 +59,24 @@ export function mailCidUrl(
     `/api/mail/messages/${encodeURIComponent(messageId)}/cid/${encodeURIComponent(cid)}`,
     { email, folder },
   );
+}
+
+export async function fetchRemoteMailImage(
+  url: string,
+  signal?: AbortSignal,
+): Promise<Blob | null> {
+  const response = await transportFetch('/api/mail/remote-images/fetch', {
+    body: JSON.stringify({ url }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    signal,
+  });
+  const contentType = response.headers.get('content-type')
+    ?.split(';', 1)[0]?.trim().toLocaleLowerCase() || '';
+  if (!response.ok || !REMOTE_MAIL_IMAGE_TYPES.has(contentType)) return null;
+  const body = await response.blob();
+  if (body.size === 0 || body.size > MAX_REMOTE_MAIL_IMAGE_BYTES) return null;
+  return body.slice(0, body.size, contentType);
 }
 
 async function multipartMailStatus(path: string, body: FormData): Promise<MailStatus> {

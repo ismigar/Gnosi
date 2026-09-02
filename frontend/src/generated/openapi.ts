@@ -2792,6 +2792,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mail/remote-images/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch Remote Image
+         * @description Return one validated raster image without retaining source or bytes.
+         */
+        post: operations["fetch_remote_image_api_mail_remote_images_fetch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mail/send": {
         parameters: {
             query?: never;
@@ -14375,6 +14395,8 @@ export interface components {
             imap_uid?: string | null;
             /** Inline Images */
             inline_images?: components["schemas"]["MailAttachmentResponse"][] | null;
+            /** Internet Message Id */
+            internet_message_id?: string | null;
             /**
              * Is Read
              * @default false
@@ -17652,6 +17674,11 @@ export interface components {
              * @default
              */
             reason: string | null;
+        };
+        /** RemoteMailImageRequest */
+        RemoteMailImageRequest: {
+            /** Url */
+            url: string;
         };
         /** RenameVaultPayload */
         RenameVaultPayload: {
@@ -25718,6 +25745,44 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MailRecipientSuggestionsResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_remote_image_api_mail_remote_images_fetch_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoteMailImageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

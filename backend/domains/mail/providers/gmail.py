@@ -111,7 +111,7 @@ def _gmail_batch_metadata(service: Any, account_email: str, msg_ids: list[Any]) 
                         userId="me",
                         id=mid,
                         format="metadata",
-                        metadataHeaders=["From", "To", "Subject", "Date", "Cc"],
+                        metadataHeaders=["From", "To", "Subject", "Date", "Cc", "Message-ID"],
                     ),
                     request_id=mid,
                 )
@@ -151,6 +151,7 @@ def _parse_gmail_meta(msg: dict[str, Any], account_email: str) -> dict[str, Any]
     return {
         "id": msg["id"],
         "thread_id": msg.get("threadId"),
+        "internet_message_id": headers.get("message-id") or None,
         "subject": _decode_mime(headers.get("subject", "(sense assumpte)")),
         "sender": _decode_mime(headers.get("from", "")),
         "recipient": _decode_mime(headers.get("to", "")),

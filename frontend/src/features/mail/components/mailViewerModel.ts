@@ -3,6 +3,7 @@ import {
   readStorage,
   stringStorageCodec,
 } from '../../../shared/platform/browser-storage';
+import { subscribeElementEvent } from '../../../shared/platform/browser-events';
 import { mailCidUrl } from '../../../shared/api/mail-specialized';
 import type {
   MailExtractedContact,
@@ -59,6 +60,17 @@ interface MailHtmlDocumentOptions {
 }
 
 
+interface RemoteMailImageRecoveryOptions {
+  readonly fallbackLabel: string;
+  readonly onStateChange?: () => void;
+  readonly recoveryActionLabel: string;
+  readonly recoveringLabel: string;
+  readonly recoverSource?: (source: string) => Promise<string | null>;
+  readonly releaseRecoveredSource?: (source: string) => void;
+  readonly timeoutMs?: number;
+}
+
+
 function deferredImageSource(image: HTMLImageElement): string {
   for (const name of [
     'data-src',
@@ -81,6 +93,7 @@ export function buildMailHtmlDocument(
   options: MailHtmlDocumentOptions,
 ): string {
   const document = new DOMParser().parseFromString(sanitizeMailHtml(html), 'text/html');
+  document.querySelectorAll('base').forEach((element) => { element.remove(); });
   for (const image of document.querySelectorAll('img')) {
     const currentSource = image.getAttribute('src')?.trim() || '';
     if (currentSource.toLocaleLowerCase().startsWith('cid:')
@@ -104,12 +117,170 @@ export function buildMailHtmlDocument(
     image.setAttribute('decoding', 'async');
     image.setAttribute('loading', 'eager');
     image.setAttribute('referrerpolicy', 'no-referrer');
+    const finalSource = image.getAttribute('src')?.trim() || '';
+    if (/^(?:https?:)?\/\//i.test(finalSource)) {
+      try {
+        const parsed = new URL(finalSource, window.location.origin);
+        if (parsed.username || parsed.password) {
+          image.removeAttribute('src');
+          image.dataset.gnosiRemoteImage = 'blocked';
+        } else {
+          image.dataset.gnosiRemoteImage = 'pending';
+        }
+      } catch {
+        image.removeAttribute('src');
+        image.dataset.gnosiRemoteImage = 'blocked';
+      }
+    }
   }
   const theme = document.createElement('style');
   theme.dataset.gnosiMailTheme = 'true';
   theme.textContent = options.themeCss;
   document.head.append(theme);
   return `<!doctype html>${document.documentElement.outerHTML}`;
+}
+
+
+export function installRemoteMailImageRecovery(
+  document: Document,
+  options: RemoteMailImageRecoveryOptions,
+): () => void {
+  const timeoutMs = options.timeoutMs ?? 8000;
+  const cleanups: Array<() => void> = [];
+
+  const monitor = (image: HTMLImageElement): void => {
+    if (image.dataset.gnosiRecoveryInstalled === 'true') return;
+    image.dataset.gnosiRecoveryInstalled = 'true';
+    let settled = false;
+    let active = true;
+    let phase: 'direct' | 'offered' | 'recovering' | 'recovered' = 'direct';
+    let recoveredSource: string | null = null;
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const clearTimers = (): void => {
+      if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
+    };
+    const releaseRecoveredSource = (): void => {
+      if (!recoveredSource) return;
+      options.releaseRecoveredSource?.(recoveredSource);
+      recoveredSource = null;
+    };
+    const showFinalFallback = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimers();
+      releaseRecoveredSource();
+      const fallback = document.createElement('span');
+      fallback.className = 'gnosi-remote-image-fallback';
+      fallback.dataset.gnosiRemoteImage = 'unavailable';
+      fallback.setAttribute('role', 'img');
+      fallback.setAttribute('aria-label', options.fallbackLabel);
+      fallback.textContent = `▧ ${options.fallbackLabel}`;
+      image.replaceWith(fallback);
+      options.onStateChange?.();
+    };
+    const offerRecovery = (): void => {
+      if (settled || phase !== 'direct') return;
+      clearTimers();
+      const source = image.getAttribute('src')?.trim() || '';
+      if (!source || !options.recoverSource) {
+        showFinalFallback();
+        return;
+      }
+      phase = 'offered';
+      const fallback = document.createElement('span');
+      fallback.className = 'gnosi-remote-image-fallback';
+      fallback.dataset.gnosiRemoteImage = 'recovery-offered';
+      fallback.setAttribute('aria-label', options.fallbackLabel);
+      fallback.setAttribute('role', 'group');
+      const label = document.createElement('span');
+      label.textContent = `▧ ${options.fallbackLabel}`;
+      const button = document.createElement('button');
+      button.className = 'gnosi-remote-image-recover';
+      button.type = 'button';
+      button.textContent = options.recoveryActionLabel;
+      fallback.append(label, button);
+      image.replaceWith(fallback);
+      const unsubscribeClick = subscribeElementEvent(button, 'click', () => {
+        if (!active || settled || phase !== 'offered') return;
+        phase = 'recovering';
+        fallback.dataset.gnosiRemoteImage = 'recovering';
+        fallback.setAttribute('aria-live', 'polite');
+        button.disabled = true;
+        button.textContent = options.recoveringLabel;
+        void options.recoverSource?.(source).then((nextSource) => {
+          if (!active || settled || !fallback.isConnected) {
+            if (nextSource) options.releaseRecoveredSource?.(nextSource);
+            return;
+          }
+          if (!nextSource) {
+            settled = true;
+            fallback.dataset.gnosiRemoteImage = 'unavailable';
+            fallback.setAttribute('role', 'img');
+            button.remove();
+            options.onStateChange?.();
+            return;
+          }
+          recoveredSource = nextSource;
+          phase = 'recovered';
+          image.dataset.gnosiRemoteImage = 'recovered';
+          fallback.replaceWith(image);
+          timeoutTimer = setTimeout(showFinalFallback, timeoutMs);
+          image.src = nextSource;
+          options.onStateChange?.();
+        }).catch(() => {
+          if (!active || settled) return;
+          settled = true;
+          fallback.dataset.gnosiRemoteImage = 'unavailable';
+          fallback.setAttribute('role', 'img');
+          button.remove();
+          options.onStateChange?.();
+        });
+      });
+      cleanups.push(unsubscribeClick);
+      options.onStateChange?.();
+    };
+    const markLoaded = (): void => {
+      if (settled || !image.isConnected) return;
+      settled = true;
+      clearTimers();
+      image.dataset.gnosiRemoteImage = 'loaded';
+      releaseRecoveredSource();
+      options.onStateChange?.();
+    };
+    const unsubscribeLoad = subscribeElementEvent(image, 'load', markLoaded);
+    const unsubscribeError = subscribeElementEvent(image, 'error', () => {
+      if (phase === 'direct') offerRecovery();
+      else if (phase === 'recovered') showFinalFallback();
+    });
+    cleanups.push(() => {
+      active = false;
+      settled = true;
+      clearTimers();
+      releaseRecoveredSource();
+      unsubscribeLoad();
+      unsubscribeError();
+    });
+
+    if (image.dataset.gnosiRemoteImage === 'blocked') {
+      showFinalFallback();
+      return;
+    }
+    timeoutTimer = setTimeout(offerRecovery, timeoutMs);
+    if (image.complete) {
+      queueMicrotask(() => {
+        if (image.naturalWidth > 0) markLoaded();
+        else offerRecovery();
+      });
+    }
+  };
+
+  document
+    .querySelectorAll<HTMLImageElement>('img[data-gnosi-remote-image]')
+    .forEach((image) => {
+      monitor(image);
+    });
+  return () => { cleanups.forEach((cleanup) => { cleanup(); }); };
 }
 
 

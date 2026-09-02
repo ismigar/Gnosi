@@ -16,12 +16,16 @@ const mocks = vi.hoisted(() => ({
   getTags: vi.fn<() => Promise<string[]>>(),
   markRead: vi.fn<typeof import('../../../shared/api/mail').markMailRead>(),
   trash: vi.fn<typeof import('../../../shared/api/mail').trashMailMessage>(),
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
   t: (key: string, fallback?: unknown): string => typeof fallback === 'string' ? fallback : key,
 }));
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: mocks.t }) }));
 vi.mock('./MailPdfViewer', () => ({ MailPdfViewer: () => null }));
-vi.mock('../../../shared/notifications/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../../../shared/notifications/toast', () => ({
+  toast: { error: mocks.toastError, success: mocks.toastSuccess },
+}));
 vi.mock('../hooks/useMailTags', () => ({
   useMailTags: () => ({
     getMessageTags: mocks.getTags,
@@ -125,6 +129,41 @@ describe('MailViewer', () => {
       await Promise.resolve();
     });
     expect(mocks.extractEntities).toHaveBeenCalledWith('Message body');
+    expect(container.querySelector('[data-mail-analysis-status="no_entities"]'))
+      .not.toBeNull();
+  });
+
+  it('distinguishes missing configuration and temporary provider failure', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('analysis-status'));
+    mocks.extractEntities.mockResolvedValueOnce({
+      contacts: [],
+      events: [],
+      error: 'not_configured',
+    });
+    await render({ mail: message('analysis-status') });
+    expect(mocks.extractEntities).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-mail-analysis-status]')).toBeNull();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+    expect(container.querySelector('[data-mail-analysis-status="not_configured"]'))
+      .not.toBeNull();
+
+    mocks.extractEntities.mockResolvedValueOnce({
+      contacts: [],
+      events: [],
+      error: 'temporarily_unavailable',
+    });
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+    expect(container.querySelector(
+      '[data-mail-analysis-status="temporarily_unavailable"]',
+    )).not.toBeNull();
+    expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
   it('waits for the selected detail before fetching its complete thread', async () => {

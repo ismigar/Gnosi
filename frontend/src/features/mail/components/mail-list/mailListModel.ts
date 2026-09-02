@@ -116,6 +116,12 @@ function providerMessageKey(message: MailListMessage): string {
 }
 
 
+function internetMessageKey(message: MailListMessage): string | null {
+  const identity = message.internet_message_id?.trim().toLocaleLowerCase();
+  return identity ? `internet|${identity}` : null;
+}
+
+
 function exactCopyKey(message: MailListMessage): string | null {
   const account = message.account || message.account_email || '';
   const timestamp = message.timestamp || message.date;
@@ -134,14 +140,18 @@ export function deduplicateMailListMessages(
   messages: readonly MailListMessage[],
 ): MailListMessage[] {
   const providerMessages = new Set<string>();
+  const internetMessages = new Set<string>();
   const exactCopies = new Set<string>();
   return messages.filter((message) => {
     if (!message.id) return false;
     const providerKey = providerMessageKey(message);
     if (providerMessages.has(providerKey)) return false;
+    const internetKey = internetMessageKey(message);
+    if (internetKey && internetMessages.has(internetKey)) return false;
     const copyKey = exactCopyKey(message);
     if (copyKey && exactCopies.has(copyKey)) return false;
     providerMessages.add(providerKey);
+    if (internetKey) internetMessages.add(internetKey);
     if (copyKey) exactCopies.add(copyKey);
     return true;
   });

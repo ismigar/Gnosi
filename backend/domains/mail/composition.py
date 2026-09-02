@@ -10,6 +10,7 @@ _ROUTE_MODULES = (
     "backend.domains.mail.routes.compose",
     "backend.domains.mail.routes.views",
     "backend.domains.mail.routes.attachments",
+    "backend.domains.mail.routes.remote_images",
     "backend.domains.mail.routes.tags",
 )
 

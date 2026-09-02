@@ -74,6 +74,7 @@ class MailMessageResponse(MailProviderPayload):
     imap_uid: str | None = None
     imap_folder: str | None = None
     gm_thrid: str | None = None
+    internet_message_id: str | None = None
 
 
 class MailMessagesResponse(BaseModel):

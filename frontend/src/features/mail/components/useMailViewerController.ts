@@ -74,6 +74,7 @@ export function useMailViewerController({
   });
   const {
     activeTagIds,
+    analysisStatus,
     allThreadMessages,
     analyzing,
     expandedThreadIds,
@@ -376,6 +377,7 @@ export function useMailViewerController({
     addToVault,
     allThreadMessages,
     analyzeMessage,
+    analysisStatus,
     analyzing,
     canAnalyze: Boolean(analysisContext),
     archive,

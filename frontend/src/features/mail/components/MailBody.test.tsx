@@ -69,6 +69,7 @@ describe('MailBody', () => {
     await settleIframe();
     const source = container.querySelector('iframe')?.srcdoc || '';
     expect(source).toContain('src="https://images.example.test/logo.png"');
+    expect(source).toContain('data-gnosi-remote-image="pending"');
     expect(source).toContain('background: #fff !important');
     expect(source.lastIndexOf('background: #fff !important'))
       .toBeGreaterThan(source.indexOf('body{background:#000}'));

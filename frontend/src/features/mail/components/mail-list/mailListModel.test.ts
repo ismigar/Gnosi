@@ -96,6 +96,34 @@ describe('mail list model', () => {
     ])).toEqual([original, otherAccount]);
   });
 
+  it('uses the Internet message identity across accounts without hiding distinct mail', () => {
+    const first = message('imap_7', {
+      account: 'one@example.com',
+      internet_message_id: '<delivery@example.test>',
+      recipient: 'one@example.com',
+      sender: 'Sender <sender@example.com>',
+      subject: 'Shared subject',
+      timestamp: 100,
+    });
+    const mirrored = message('imap_91', {
+      ...first,
+      account: 'two@example.com',
+      id: 'imap_91',
+      recipient: 'two@example.com',
+      timestamp: 120,
+    });
+    const distinct = message('imap_92', {
+      ...mirrored,
+      id: 'imap_92',
+      internet_message_id: '<another@example.test>',
+    });
+
+    expect(deduplicateMailListMessages([first, mirrored, distinct])).toEqual([
+      first,
+      distinct,
+    ]);
+  });
+
   it('applies search, tag, unread and advanced filters before sorting', () => {
     const messages = [
       message('b', { sender: 'team@example.com', subject: 'Zulu' }),

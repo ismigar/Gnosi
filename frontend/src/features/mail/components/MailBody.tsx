@@ -5,8 +5,10 @@ import {
   subscribeWindowEvent,
 } from '../../../shared/platform/browser-events';
 import { subscribeAppSignal } from '../../../shared/platform/app-events';
+import { fetchRemoteMailImage } from '../../../shared/api/mail-specialized';
 import {
   buildMailHtmlDocument,
+  installRemoteMailImageRecovery,
   linkPlainMailText,
   MAIL_DARK_BODY_EVENT,
   readMailDarkBody,
@@ -22,6 +24,10 @@ td, th { word-break: break-word; }
 pre, code { white-space: pre-wrap; word-break: break-word; }
 a { color: #3b82f6; }
 * { box-sizing: border-box; }
+.gnosi-remote-image-fallback { display: inline-flex; min-height: 52px; min-width: 160px; max-width: 100%; flex-direction: column; gap: 8px; align-items: center; justify-content: center; padding: 12px; border: 1px dashed #aeb4bd; border-radius: 8px; color: #5f6670; background: #f5f6f8; font-size: 12px; text-align: center; }
+.gnosi-remote-image-recover { appearance: none; border: 1px solid #94a3b8; border-radius: 7px; padding: 5px 9px; color: #334155; background: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.gnosi-remote-image-recover:hover { border-color: #3b82f6; color: #2563eb; }
+.gnosi-remote-image-recover:disabled { cursor: wait; opacity: .65; }
 `;
 const EMAIL_CSS_DARK = `
 html, body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #e6e6e6 !important; background: #1a1a1a !important; color-scheme: dark; }
@@ -34,6 +40,10 @@ a { color: #6ea8fe; }
 blockquote { border-left: 3px solid #444; color: #c0c0c0; }
 hr { border-color: #444; }
 * { box-sizing: border-box; }
+.gnosi-remote-image-fallback { display: inline-flex; min-height: 52px; min-width: 160px; max-width: 100%; flex-direction: column; gap: 8px; align-items: center; justify-content: center; padding: 12px; border: 1px dashed #555d68; border-radius: 8px; color: #c0c6ce; background: #25282d; font-size: 12px; text-align: center; }
+.gnosi-remote-image-recover { appearance: none; border: 1px solid #64748b; border-radius: 7px; padding: 5px 9px; color: #dbeafe; background: #1e293b; font: inherit; font-weight: 600; cursor: pointer; }
+.gnosi-remote-image-recover:hover { border-color: #60a5fa; color: #bfdbfe; }
+.gnosi-remote-image-recover:disabled { cursor: wait; opacity: .65; }
 `;
 
 
@@ -43,6 +53,9 @@ interface MailBodyProps {
   readonly email?: string | null;
   readonly folder?: string | null;
   readonly messageId?: string | null;
+  readonly remoteImageRecoveryLabel?: string;
+  readonly remoteImageRecoveringLabel?: string;
+  readonly remoteImageUnavailableLabel?: string;
 }
 
 
@@ -52,6 +65,9 @@ export function MailBody({
   email,
   folder,
   messageId,
+  remoteImageRecoveryLabel = 'Load safely',
+  remoteImageRecoveringLabel = 'Loading safely…',
+  remoteImageUnavailableLabel = 'Remote image unavailable',
 }: MailBodyProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [height, setHeight] = useState(200);
@@ -70,7 +86,25 @@ export function MailBody({
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!bodyHtml || !iframe) return undefined;
-    return subscribeElementEvent(iframe, 'load', () => {
+    const abortController = new AbortController();
+    const recoveryCleanups: Array<() => void> = [];
+    const objectUrls = new Set<string>();
+    const releaseRecoveredSource = (source: string): void => {
+      if (!objectUrls.delete(source)) return;
+      URL.revokeObjectURL(source);
+    };
+    const recoverSource = async (source: string): Promise<string | null> => {
+      try {
+        const body = await fetchRemoteMailImage(source, abortController.signal);
+        if (!body) return null;
+        const objectUrl = URL.createObjectURL(body);
+        objectUrls.add(objectUrl);
+        return objectUrl;
+      } catch {
+        return null;
+      }
+    };
+    const setupDocument = (): void => {
       try {
         const document = iframe.contentDocument;
         if (!document) return;
@@ -78,12 +112,44 @@ export function MailBody({
           anchor.target = '_blank';
           anchor.rel = 'noopener noreferrer';
         }
+        recoveryCleanups.push(installRemoteMailImageRecovery(document, {
+          fallbackLabel: remoteImageUnavailableLabel,
+          onStateChange: () => {
+            setHeight(Math.max(200, document.documentElement.scrollHeight + 20));
+          },
+          recoveryActionLabel: remoteImageRecoveryLabel,
+          recoveringLabel: remoteImageRecoveringLabel,
+          recoverSource,
+          releaseRecoveredSource,
+        }));
         setHeight(Math.max(200, document.documentElement.scrollHeight + 20));
       } catch {
         // A cross-origin iframe body cannot be inspected.
       }
-    });
-  }, [bodyHtml, darkBody]);
+    };
+    setupDocument();
+    const unsubscribeLoad = subscribeElementEvent(iframe, 'load', setupDocument);
+    const pollTimer = setInterval(setupDocument, 100);
+    const stopPollTimer = setTimeout(() => { clearInterval(pollTimer); }, 2000);
+    return () => {
+      abortController.abort();
+      clearInterval(pollTimer);
+      clearTimeout(stopPollTimer);
+      unsubscribeLoad();
+      recoveryCleanups.forEach((cleanup) => { cleanup(); });
+      objectUrls.forEach((source) => { URL.revokeObjectURL(source); });
+      objectUrls.clear();
+    };
+  }, [
+    bodyHtml,
+    darkBody,
+    email,
+    folder,
+    messageId,
+    remoteImageRecoveryLabel,
+    remoteImageRecoveringLabel,
+    remoteImageUnavailableLabel,
+  ]);
 
   if (bodyHtml) {
     return (

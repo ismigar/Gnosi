@@ -32,7 +32,12 @@ from backend.domains.mail.services.accounts import (
     _is_microsoft_account,
     _resolve_gmail_id,
 )
-from backend.domains.mail.services.analysis import request_entity_analysis
+from backend.domains.mail.services.analysis import (
+    MailAnalysisInvalidResponseError,
+    MailAnalysisNotConfiguredError,
+    parse_entity_analysis,
+    request_entity_analysis,
+)
 from backend.domains.mail.services.attachments import _embed_quoted_cid_images
 from backend.services.contacts_service import ContactsService
 from backend.services.google_mail_service import (
@@ -718,8 +723,6 @@ async def generate_draft(payload: mail_schemas.MailGenerateDraftRequest) -> Any:
     response_model_exclude_unset=True,
 )
 async def extract_entities(payload: mail_schemas.MailExtractEntitiesRequest) -> Any:
-    import json
-
     context = payload.context
     if not context:
         return {"events": [], "contacts": []}
@@ -760,6 +763,12 @@ EMAIL CONTENT:
     ai_prompt = system_prompt + context
     try:
         content, provider = await request_entity_analysis(ai_prompt)
+    except MailAnalysisNotConfiguredError:
+        return {
+            "events": [],
+            "contacts": [],
+            "error": "not_configured",
+        }
     except Exception as error:
         log.warning(
             "Mail entity analysis provider unavailable: %s",
@@ -768,27 +777,18 @@ EMAIL CONTENT:
         return {
             "events": [],
             "contacts": [],
-            "error": "Smart analysis is temporarily unavailable.",
+            "error": "temporarily_unavailable",
         }
 
     try:
-        clean_content = content.strip()
-        if clean_content.startswith("```json"):
-            clean_content = clean_content[7:-3].strip()
-        elif clean_content.startswith("```"):
-            clean_content = clean_content[3:-3].strip()
-
-        data = json.loads(clean_content)
-        return {
-            "events": data.get("events", []),
-            "contacts": data.get("contacts", []),
-            "provider": provider,
-        }
-    except Exception as e:
-        log.error(f"Error parsing AI response for entities: {e}")
+        return parse_entity_analysis(content, provider)
+    except MailAnalysisInvalidResponseError as error:
+        log.warning(
+            "Mail entity analysis returned an invalid response: %s",
+            type(error).__name__,
+        )
         return {
             "events": [],
             "contacts": [],
-            "error": safe_error_detail(e, "AI parse mail entities"),
-            "raw": content,
+            "error": "invalid_response",
         }
