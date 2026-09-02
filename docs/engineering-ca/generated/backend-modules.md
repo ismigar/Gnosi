@@ -11,24 +11,24 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Mòduls | Línies |
 | --- | ---: | ---: |
 | `agent` | 47 | 8657 |
-| `api` | 38 | 12952 |
-| `app` | 8 | 712 |
-| `application root` | 2 | 41 |
-| `config` | 9 | 1049 |
+| `api` | 38 | 12917 |
+| `app` | 8 | 733 |
+| `application root` | 2 | 48 |
+| `config` | 10 | 1138 |
 | `data` | 2 | 214 |
-| `domains` | 421 | 89659 |
+| `domains` | 425 | 90352 |
 | `mcp` | 3 | 429 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1208 |
-| `platform` | 12 | 1224 |
+| `platform` | 12 | 1246 |
 | `scheduler` | 6 | 1187 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 844 |
-| `services` | 150 | 35484 |
+| `services` | 150 | 35534 |
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **757 modules** and **156228 source lines**.
+Total: **762 modules** and **157075 source lines**.
 
 ## agent
 
@@ -89,7 +89,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/api/agent_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_routes.py) | 209 | 1 | 0 | 0 | 1 | Compatibility facade for the modular agent HTTP routes. |
 | [`backend/api/agent_skills_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_skills_routes.py) | 188 | 1 | 0 | 0 | 1 | Compatibility facade for governed agent configuration APIs. |
-| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 720 | 3 | 16 | 11 | 13 | No module docstring |
+| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 728 | 3 | 16 | 11 | 13 | No module docstring |
 | [`backend/api/analytics_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py) | 378 | 0 | 12 | 7 | 12 | No module docstring |
 | [`backend/api/auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/auth_routes.py) | 383 | 5 | 11 | 0 | 11 | Auth endpoints — register / login / logout / me. |
 | [`backend/api/calendar_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/calendar_routes.py) | 785 | 0 | 29 | 20 | 20 | No module docstring |
@@ -100,7 +100,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/api/env_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/env_routes.py) | 22 | 0 | 0 | 0 | 0 | Compatibility facade for the local environment router. |
 | [`backend/api/google_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/google_auth_routes.py) | 295 | 3 | 6 | 4 | 1 | No module docstring |
 | [`backend/api/handwriting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py) | 98 | 3 | 3 | 3 | 3 | LOCAL handwriting recognition endpoint (ink → text) using TrOCR. |
-| [`backend/api/identity_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/identity_routes.py) | 71 | 0 | 3 | 2 | 0 | No module docstring |
+| [`backend/api/identity_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/identity_routes.py) | 77 | 0 | 4 | 2 | 1 | No module docstring |
 | [`backend/api/integrations_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/integrations_routes.py) | 566 | 0 | 17 | 12 | 16 | No module docstring |
 | [`backend/api/literature_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/literature_routes.py) | 730 | 15 | 33 | 15 | 0 | HTTP contracts for academic search and systematic literature review. |
 | [`backend/api/mail_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/mail_routes.py) | 309 | 0 | 7 | 7 | 6 | Compatibility facade and composition boundary for the mail domain. |
@@ -114,8 +114,8 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/api/reader.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/reader.py) | 75 | 0 | 0 | 0 | 0 | Compatibility facade for the Reader HTTP API. |
 | [`backend/api/scheduler_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/scheduler_routes.py) | 139 | 1 | 6 | 6 | 6 | No module docstring |
 | [`backend/api/share_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/share_routes.py) | 249 | 6 | 7 | 4 | 5 | External share links for single vault pages (Notion-style). |
-| [`backend/api/social_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/social_routes.py) | 794 | 0 | 24 | 18 | 23 | No module docstring |
-| [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 695 | 1 | 23 | 9 | 23 | HTTP routes for system notifications, status and filesystem access. |
+| [`backend/api/social_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/social_routes.py) | 740 | 0 | 21 | 18 | 20 | No module docstring |
+| [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 700 | 1 | 24 | 9 | 24 | HTTP routes for system notifications, status and filesystem access. |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py) | 185 | 4 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_graph_routes.py) | 32 | 0 | 1 | 1 | 1 | No module docstring |
 | [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 737 | 0 | 2 | 0 | 0 | No module docstring |
@@ -132,9 +132,9 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/app/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/__init__.py) | 5 | 0 | 0 | 0 | 0 | FastAPI composition for the Gnosi backend. |
 | [`backend/app/desktop_instance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/desktop_instance.py) | 45 | 1 | 0 | 0 | 1 | Correlate desktop readiness with its spawned process without changing JSON. |
 | [`backend/app/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/errors.py) | 44 | 0 | 2 | 1 | 2 | Global HTTP error translation and private diagnostic notification. |
-| [`backend/app/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/factory.py) | 54 | 0 | 2 | 1 | 1 | Typed construction of the Gnosi FastAPI application. |
+| [`backend/app/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/factory.py) | 72 | 0 | 3 | 1 | 2 | Typed construction of the Gnosi FastAPI application. |
 | [`backend/app/health_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/health_contracts.py) | 54 | 3 | 0 | 0 | 3 | Typed response contracts for liveness and Google OAuth diagnostics. |
-| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 316 | 0 | 13 | 4 | 13 | Application startup, maintenance and shutdown lifecycle. |
+| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 319 | 0 | 13 | 4 | 13 | Application startup, maintenance and shutdown lifecycle. |
 | [`backend/app/middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/middleware.py) | 32 | 0 | 1 | 0 | 1 | Ordered middleware composition for Gnosi's FastAPI application. |
 | [`backend/app/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py) | 162 | 0 | 1 | 0 | 1 | Single ordered registry for every public Gnosi router. |
 
@@ -143,7 +143,7 @@ Total: **757 modules** and **156228 source lines**.
 | Mòdul | Línies | Classes | Funcions | Asíncrones | Declaracions documentades | Indici de propòsit |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 41 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
+| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 48 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
 
 ## config
 
@@ -157,6 +157,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/config/mcp_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/mcp_config.py) | 8 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/config/paths_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/paths_config.py) | 209 | 0 | 1 | 0 | 1 | No module docstring |
 | [`backend/config/schema_keys.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/schema_keys.py) | 139 | 0 | 2 | 0 | 2 | Candidate keys and aliases for data extraction from JSON and local Markdown. |
+| [`backend/config/startup_vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/startup_vault.py) | 89 | 0 | 4 | 2 | 2 | Materialize startup-critical Vault files before app imports. |
 | [`backend/config/validation_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/validation_runtime.py) | 35 | 0 | 1 | 0 | 1 | Explicit, fail-closed isolation for disposable runtime acceptance probes. |
 
 ## data
@@ -234,7 +235,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/domains/analytics/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/analytics/schemas.py) | 93 | 10 | 0 | 0 | 10 | Public request and response contracts for workspace analytics. |
 | [`backend/domains/calendar/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/__init__.py) | 1 | 0 | 0 | 0 | 0 | Calendar domain. |
 | [`backend/domains/calendar/geocoding.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/geocoding.py) | 99 | 0 | 2 | 1 | 2 | Provider-neutral Photon address lookup for Calendar. |
-| [`backend/domains/calendar/google.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/google.py) | 350 | 0 | 11 | 0 | 7 | No module docstring |
+| [`backend/domains/calendar/google.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/google.py) | 340 | 0 | 12 | 0 | 8 | No module docstring |
 | [`backend/domains/calendar/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/schemas.py) | 259 | 27 | 0 | 0 | 13 | Pydantic contracts for the public Calendar API. |
 | [`backend/domains/configuration/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration domain. |
 | [`backend/domains/configuration/agent/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration APIs for governed agent skills and capabilities. |
@@ -252,7 +253,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/domains/configuration/api/plugin_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_models.py) | 191 | 23 | 0 | 0 | 17 | Pydantic contracts for the plugin configuration API. |
 | [`backend/domains/configuration/api/plugin_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_routes.py) | 177 | 1 | 1 | 0 | 2 | Route composition for the plugin API. |
 | [`backend/domains/configuration/api/plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugins.py) | 731 | 1 | 48 | 23 | 30 | HTTP adapters for built-in and third-party plugin configuration. |
-| [`backend/domains/configuration/api/settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 284 | 0 | 12 | 2 | 10 | No module docstring |
+| [`backend/domains/configuration/api/settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 279 | 0 | 13 | 2 | 11 | No module docstring |
 | [`backend/domains/configuration/credential_schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/credential_schemas.py) | 41 | 4 | 0 | 0 | 0 | Public schemas for secret-safe credential management. |
 | [`backend/domains/configuration/environment_schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/environment_schemas.py) | 21 | 3 | 0 | 0 | 3 | Public request and response contracts for local environment settings. |
 | [`backend/domains/configuration/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki.py) | 288 | 1 | 10 | 1 | 2 | Validation and persistence workflow for LLM Wiki configuration. |
@@ -305,8 +306,8 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/domains/llm_wiki/search_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/search_index.py) | 372 | 3 | 14 | 0 | 11 | Typed rebuildable lexical and vector indexes for LLM Wiki. |
 | [`backend/domains/llm_wiki/writing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/writing.py) | 421 | 5 | 13 | 0 | 2 | Typed, deterministic persistence for generated LLM Wiki reading notes. |
 | [`backend/domains/mail/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail domain. |
-| [`backend/domains/mail/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/cache.py) | 33 | 0 | 4 | 0 | 0 | Bounded process-local mail caches. |
-| [`backend/domains/mail/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/composition.py) | 17 | 0 | 0 | 0 | 0 | Deterministic composition of the mail router. |
+| [`backend/domains/mail/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/cache.py) | 68 | 0 | 7 | 0 | 0 | Bounded process-local mail caches. |
+| [`backend/domains/mail/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/composition.py) | 18 | 0 | 0 | 0 | 0 | Deterministic composition of the mail router. |
 | [`backend/domains/mail/connectors/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/__init__.py) | 1 | 0 | 0 | 0 | 0 | External connectors used by the mail and content workflows. |
 | [`backend/domains/mail/connectors/_drupal_values.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/_drupal_values.py) | 50 | 0 | 6 | 0 | 6 | Native operations on opaque Drupal values; no application schema assertions. |
 | [`backend/domains/mail/connectors/drupal.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/connectors/drupal.py) | 612 | 2 | 23 | 9 | 18 | Drupal sync client (JSON:API + custom `n8n_helper` endpoints). |
@@ -315,22 +316,25 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/domains/mail/ingestion/newsletters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/ingestion/newsletters.py) | 476 | 0 | 16 | 0 | 10 | Newsletter ingestion via POP3 (STARTTLS). |
 | [`backend/domains/mail/providers/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail-provider adapters. |
 | [`backend/domains/mail/providers/common.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/common.py) | 43 | 0 | 2 | 0 | 0 | Shared mail-provider normalization helpers. |
-| [`backend/domains/mail/providers/gmail.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/gmail.py) | 319 | 0 | 7 | 0 | 1 | Gmail API adapter for the mail domain. |
-| [`backend/domains/mail/providers/hybrid.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/hybrid.py) | 583 | 0 | 15 | 0 | 5 | Hybrid Mail Service — queries the Gmail API and IMAP directly without a vault. |
+| [`backend/domains/mail/providers/gmail.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/gmail.py) | 320 | 0 | 7 | 0 | 1 | Gmail API adapter for the mail domain. |
+| [`backend/domains/mail/providers/hybrid.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/hybrid.py) | 600 | 0 | 15 | 0 | 5 | Hybrid Mail Service — queries the Gmail API and IMAP directly without a vault. |
 | [`backend/domains/mail/repositories/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/repositories/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail persistence repositories. |
 | [`backend/domains/mail/repositories/vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/repositories/vault.py) | 198 | 0 | 10 | 0 | 8 | Vault-backed mail persistence helpers. |
 | [`backend/domains/mail/routes/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail HTTP route handlers. |
 | [`backend/domains/mail/routes/actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/actions.py) | 259 | 0 | 9 | 5 | 2 | Canonical mail actions. |
 | [`backend/domains/mail/routes/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/attachments.py) | 144 | 0 | 3 | 3 | 2 | Canonical mail attachment routes. |
-| [`backend/domains/mail/routes/compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 784 | 0 | 19 | 12 | 6 | Canonical mail compose. |
+| [`backend/domains/mail/routes/compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 794 | 0 | 19 | 12 | 6 | Canonical mail compose. |
 | [`backend/domains/mail/routes/messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/messages.py) | 477 | 0 | 7 | 7 | 7 | Canonical mail messages. |
+| [`backend/domains/mail/routes/remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/remote_images.py) | 39 | 1 | 1 | 1 | 1 | Mail-only route for bounded recovery of blocked remote raster images. |
 | [`backend/domains/mail/routes/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/tags.py) | 154 | 0 | 9 | 8 | 0 | Canonical mail tags. |
 | [`backend/domains/mail/routes/views.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/views.py) | 110 | 0 | 5 | 4 | 0 | Canonical mail views. |
 | [`backend/domains/mail/routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routing.py) | 12 | 0 | 0 | 0 | 0 | Canonical mail router registration object. |
-| [`backend/domains/mail/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/schemas.py) | 372 | 47 | 0 | 0 | 9 | Pydantic contracts for the public Mail API. |
+| [`backend/domains/mail/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/schemas.py) | 373 | 47 | 0 | 0 | 9 | Pydantic contracts for the public Mail API. |
 | [`backend/domains/mail/services/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail-domain application services. |
 | [`backend/domains/mail/services/accounts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/accounts.py) | 37 | 0 | 3 | 0 | 1 | Mail account and provider selection helpers. |
-| [`backend/domains/mail/services/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/attachments.py) | 250 | 0 | 4 | 4 | 4 | Canonical mail attachment service. |
+| [`backend/domains/mail/services/analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/analysis.py) | 107 | 2 | 4 | 1 | 5 | Bounded execution helpers for user-triggered mail analysis. |
+| [`backend/domains/mail/services/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/attachments.py) | 259 | 0 | 4 | 4 | 4 | Canonical mail attachment service. |
+| [`backend/domains/mail/services/remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/remote_images.py) | 326 | 6 | 5 | 3 | 5 | Ephemeral, SSRF-hardened recovery for remote mail raster images. |
 | [`backend/domains/mail/sync/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail synchronization services. |
 | [`backend/domains/mail/sync/idle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/idle.py) | 269 | 2 | 0 | 0 | 2 | IMAP IDLE service: push notifications when new messages arrive. |
 | [`backend/domains/mail/sync/imap_core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_core.py) | 544 | 1 | 3 | 0 | 0 | IMAP pull synchronization and vault persistence. |
@@ -387,6 +391,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/domains/reader/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/state.py) | 49 | 1 | 0 | 0 | 1 | Shared state and limits for durable Reader analyses. |
 | [`backend/domains/reader/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/storage.py) | 200 | 0 | 18 | 0 | 0 | Durable Reader job, snapshot and checkpoint storage. |
 | [`backend/domains/social/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/social/__init__.py) | 1 | 0 | 0 | 0 | 0 | Social publishing domain boundaries. |
+| [`backend/domains/social/configuration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/social/configuration.py) | 83 | 0 | 5 | 0 | 4 | Blocking configuration helpers for the social domain. |
 | [`backend/domains/social/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/social/schemas.py) | 171 | 21 | 0 | 0 | 2 | Pydantic contracts for the public social API. |
 | [`backend/domains/social/vault_ports.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/social/vault_ports.py) | 84 | 0 | 7 | 3 | 0 | Typed late-bound Vault ports for social publication persistence. |
 | [`backend/domains/system/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/system/__init__.py) | 1 | 0 | 0 | 0 | 0 | System-domain contracts and services. |
@@ -469,7 +474,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/domains/vault/files/local_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/local_service.py) | 386 | 4 | 10 | 4 | 13 | Services for local-file tokens, portable links, and physical deletion. |
 | [`backend/domains/vault/files/property_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/property_service.py) | 225 | 1 | 7 | 1 | 8 | Property-file destination, upload, naming, and response services. |
 | [`backend/domains/vault/files/route_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/route_composition.py) | 434 | 0 | 13 | 2 | 11 | Typed Vault domain extracted from the historical route facade. |
-| [`backend/domains/vault/files/serving.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/serving.py) | 214 | 0 | 5 | 3 | 5 | Contained and cloud-aware vault file streaming. |
+| [`backend/domains/vault/files/serving.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/serving.py) | 221 | 0 | 5 | 3 | 5 | Contained and cloud-aware vault file streaming. |
 | [`backend/domains/vault/files/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/state.py) | 111 | 2 | 0 | 0 | 2 | Single owners for mutable vault-file state. |
 | [`backend/domains/vault/files/thumbnails.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/thumbnails.py) | 194 | 1 | 5 | 1 | 6 | QuickLook thumbnail resolution and streaming. |
 | [`backend/domains/vault/history/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/history/__init__.py) | 5 | 0 | 0 | 0 | 0 | Version history for vault pages. |
@@ -512,10 +517,10 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/domains/vault/pages/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_service.py) | 634 | 1 | 28 | 0 | 8 | Vault page-index discovery, refresh and snapshot services. |
 | [`backend/domains/vault/pages/markdown_writer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/markdown_writer.py) | 201 | 1 | 7 | 0 | 2 | Canonical Markdown writer with identity and sidecar loss guards. |
 | [`backend/domains/vault/pages/metadata_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/metadata_mutations.py) | 488 | 2 | 18 | 3 | 5 | Bulk metadata mutations for Vault pages and table templates. |
-| [`backend/domains/vault/pages/patch_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_helpers.py) | 286 | 1 | 9 | 0 | 5 | Filesystem, metadata and cache helpers for partial page updates. |
-| [`backend/domains/vault/pages/patch_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_service.py) | 216 | 1 | 1 | 1 | 1 | Application service for partial vault page updates. |
-| [`backend/domains/vault/pages/preview_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/preview_routes.py) | 485 | 0 | 13 | 4 | 5 | Typed Vault domain extracted from the historical route facade. |
-| [`backend/domains/vault/pages/resolver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/resolver.py) | 244 | 1 | 11 | 0 | 3 | Resolve stable page identifiers to current Vault file paths. |
+| [`backend/domains/vault/pages/patch_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_helpers.py) | 304 | 1 | 10 | 0 | 6 | Filesystem, metadata and cache helpers for partial page updates. |
+| [`backend/domains/vault/pages/patch_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_service.py) | 223 | 1 | 1 | 1 | 1 | Application service for partial vault page updates. |
+| [`backend/domains/vault/pages/preview_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/preview_routes.py) | 503 | 0 | 14 | 5 | 6 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/pages/resolver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/resolver.py) | 259 | 1 | 12 | 0 | 4 | Resolve stable page identifiers to current Vault file paths. |
 | [`backend/domains/vault/pages/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/runtime.py) | 545 | 3 | 30 | 0 | 13 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/save_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/save_helpers.py) | 217 | 1 | 9 | 0 | 5 | Filesystem and metadata helpers for complete page saves. |
 | [`backend/domains/vault/pages/save_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/save_service.py) | 204 | 2 | 2 | 1 | 2 | Application service for complete vault page saves. |
@@ -537,7 +542,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/domains/vault/schemas/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/tags.py) | 23 | 3 | 0 | 0 | 0 | Public response contracts for the aggregated vault tag index. |
 | [`backend/domains/vault/schemas/trash.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/trash.py) | 64 | 6 | 0 | 0 | 0 | Public contracts for vault title resolution and recoverable trash. |
 | [`backend/domains/vault/tables/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault databases, tables, properties and option catalogs. |
-| [`backend/domains/vault/tables/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/api.py) | 117 | 1 | 5 | 4 | 0 | Database and table collection operations. |
+| [`backend/domains/vault/tables/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/api.py) | 131 | 1 | 7 | 4 | 0 | Database and table collection operations. |
 | [`backend/domains/vault/tables/catalogs/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/__init__.py) | 73 | 0 | 0 | 0 | 0 | Typed option catalogs, semantic roles and status seeds. |
 | [`backend/domains/vault/tables/catalogs/core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/core.py) | 129 | 0 | 10 | 0 | 5 | Option normalization and property-level catalog access. |
 | [`backend/domains/vault/tables/catalogs/global_status.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/global_status.py) | 132 | 0 | 9 | 0 | 1 | Registry-wide status catalog migration. |
@@ -660,14 +665,14 @@ Total: **757 modules** and **156228 source lines**.
 | Mòdul | Línies | Classes | Funcions | Asíncrones | Declaracions documentades | Indici de propòsit |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/platform/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/__init__.py) | 1 | 0 | 0 | 0 | 0 | Provider-neutral adapters shared by Gnosi domains. |
-| [`backend/platform/files/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/__init__.py) | 136 | 0 | 3 | 0 | 2 | Abstraction layer for cloud-on-demand storage providers. |
+| [`backend/platform/files/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/__init__.py) | 140 | 0 | 3 | 0 | 2 | Abstraction layer for cloud-on-demand storage providers. |
 | [`backend/platform/files/base.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/base.py) | 106 | 1 | 0 | 0 | 1 | Base interface for cloud-on-demand storage providers. |
 | [`backend/platform/files/dropbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/dropbox.py) | 12 | 1 | 0 | 0 | 1 | Dropbox adapter for macOS File Provider based folders. |
 | [`backend/platform/files/gdrive.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/gdrive.py) | 54 | 1 | 0 | 0 | 1 | GoogleDriveProvider: vault over Google Drive (Drive for Desktop, macOS). |
 | [`backend/platform/files/icloud.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/icloud.py) | 49 | 1 | 0 | 0 | 1 | iCloudDriveProvider: vault over iCloud Drive with the macOS File Provider. |
 | [`backend/platform/files/local.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/local.py) | 28 | 1 | 0 | 0 | 1 | LocalProvider: vault on pure local disk, without files-on-demand. |
 | [`backend/platform/files/nextcloud.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/nextcloud.py) | 107 | 1 | 0 | 0 | 1 | NextCloudProvider: vault over NextCloud Virtual Files (EXPERIMENTAL). |
-| [`backend/platform/files/on_demand.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/on_demand.py) | 429 | 1 | 3 | 0 | 4 | Provider-neutral support for vaults with files on demand. |
+| [`backend/platform/files/on_demand.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/on_demand.py) | 447 | 1 | 3 | 0 | 4 | Provider-neutral support for vaults with files on demand. |
 | [`backend/platform/files/onedrive.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/onedrive.py) | 90 | 1 | 0 | 0 | 1 | OneDrive adapter for the provider-neutral files-on-demand runtime. |
 | [`backend/platform/notifications.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/notifications.py) | 179 | 5 | 1 | 0 | 6 | Provider-neutral notification channels for local Gnosi operations. |
 | [`backend/platform/translation_server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/translation_server.py) | 33 | 0 | 1 | 0 | 1 | HTTP transport adapter for the optional Zotero translation server. |
@@ -729,7 +734,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
 | [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 714 | 1 | 30 | 0 | 27 | Artificial Analysis model-comparison feed. |
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 471 | 2 | 13 | 0 | 15 | Generate the daily Reader podcast script and publish its audio atomically. |
-| [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 164 | 1 | 4 | 1 | 4 | The set of endpoints that must stay reachable without a session. |
+| [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 165 | 1 | 4 | 1 | 4 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 642 | 0 | 25 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
 | [`backend/services/builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/builtin_plugins.py) | 262 | 0 | 7 | 0 | 6 | Registry and state rules for Gnosi's optional built-in capabilities. |
 | [`backend/services/capability_audit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_audit.py) | 239 | 0 | 8 | 0 | 3 | Bounded metadata-only audit log for governed capability execution. |
@@ -765,7 +770,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/services/google_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_mail_service.py) | 374 | 0 | 13 | 0 | 11 | No module docstring |
 | [`backend/services/graph_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/graph_service.py) | 44 | 0 | 0 | 0 | 0 | Compatibility facade for the graph domain. |
 | [`backend/services/handwriting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py) | 271 | 0 | 10 | 0 | 6 | Handwriting recognition (ink → text) LOCAL with TrOCR. |
-| [`backend/services/hybrid_calendar_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_calendar_service.py) | 480 | 1 | 19 | 0 | 5 | Hybrid Calendar Service — queries Google Calendar and CalDAV directly without a vault. |
+| [`backend/services/hybrid_calendar_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_calendar_service.py) | 483 | 1 | 19 | 0 | 5 | Hybrid Calendar Service — queries Google Calendar and CalDAV directly without a vault. |
 | [`backend/services/hybrid_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_mail_service.py) | 89 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical hybrid mail provider adapters. |
 | [`backend/services/imap_idle_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_idle_service.py) | 17 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical IMAP IDLE service. |
 | [`backend/services/imap_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_mail_sync_service.py) | 35 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical IMAP synchronization service. |
@@ -799,7 +804,7 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/services/media_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/media_service.py) | 573 | 1 | 1 | 0 | 1 | No module docstring |
 | [`backend/services/meeting_notes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_notes.py) | 165 | 0 | 6 | 0 | 3 | AI-powered meeting minutes taker orchestrator. |
 | [`backend/services/meeting_reminders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_reminders.py) | 330 | 0 | 15 | 0 | 4 | AI-powered meeting reminder engine (agenda). |
-| [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 487 | 0 | 20 | 0 | 8 | Microsoft Graph API mail service. |
+| [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 488 | 0 | 20 | 0 | 8 | Microsoft Graph API mail service. |
 | [`backend/services/notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notebook_service.py) | 210 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical notebooks domain. |
 | [`backend/services/notion_attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_attachments.py) | 182 | 0 | 8 | 0 | 6 | Downloading Notion attachments (clone) → local Vault, with path rewriting. |
 | [`backend/services/notion_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_clone.py) | 129 | 0 | 2 | 0 | 1 | Compatibility facade for the typed exact-clone domain. |
@@ -845,11 +850,11 @@ Total: **757 modules** and **156228 source lines**.
 | [`backend/services/turn_idempotency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/turn_idempotency.py) | 60 | 0 | 3 | 0 | 0 | Durable turn claims preventing duplicate concurrent execution. |
 | [`backend/services/user_skill_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/user_skill_store.py) | 302 | 4 | 3 | 0 | 4 | Portable per-vault storage for user-authored declarative skills. |
 | [`backend/services/vault_calendar_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_calendar_sync_service.py) | 262 | 1 | 1 | 0 | 0 | No module docstring |
-| [`backend/services/vault_file_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_file_index.py) | 360 | 0 | 12 | 0 | 12 | vault_file_index.py — Vault file/folder name index. |
+| [`backend/services/vault_file_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_file_index.py) | 373 | 0 | 13 | 0 | 13 | vault_file_index.py — Vault file/folder name index. |
 | [`backend/services/vault_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_mail_sync_service.py) | 223 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/vault_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_routing.py) | 95 | 0 | 6 | 0 | 6 | Canonical vault slug helpers shared by routing and management APIs. |
 | [`backend/services/vault_templates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_templates.py) | 574 | 1 | 22 | 0 | 11 | Verified Vault template catalogs, packages, exports, and installation. |
-| [`backend/services/vault_warmup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_warmup.py) | 127 | 0 | 3 | 1 | 3 | Proactive warmup of the vault's CRITICAL files (OneDrive online-only). |
+| [`backend/services/vault_warmup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_warmup.py) | 159 | 0 | 4 | 1 | 4 | Proactive warmup of the vault's CRITICAL files (OneDrive online-only). |
 | [`backend/services/view_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/view_snapshot.py) | 187 | 0 | 6 | 0 | 2 | Compatibility facade for persisted saved-view snapshots and row evaluation. |
 | [`backend/services/web_clipper.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/web_clipper.py) | 266 | 0 | 9 | 0 | 6 | Web Clipper as a configurable plugin: destination table and field mapping. |
 | [`backend/services/workspace_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/workspace_service.py) | 436 | 2 | 12 | 0 | 11 | No module docstring |
