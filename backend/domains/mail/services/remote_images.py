@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import ipaddress
 import socket
 import ssl
+import time
 import warnings
+from collections import OrderedDict
 from dataclasses import dataclass, replace
 from io import BytesIO
-from typing import AsyncIterable, AsyncIterator, Iterable, cast
+from threading import Lock
+from typing import AsyncIterable, AsyncIterator, Iterable, Mapping, cast
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import httpcore
@@ -19,6 +23,10 @@ from PIL import Image, UnidentifiedImageError
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_PIXELS = 40_000_000
 MAX_ADDRESS_ATTEMPTS = 2
+MAX_CACHE_BYTES = 32 * 1024 * 1024
+MAX_CACHE_ENTRIES = 128
+CACHE_TTL_SECONDS = 300.0
+CACHE_STALE_IF_ERROR_SECONDS = 3600.0
 MAX_REDIRECTS = 2
 MAX_URL_CHARS = 4_000
 TOTAL_TIMEOUT_SECONDS = 12.0
@@ -62,6 +70,8 @@ class RemoteMailImageError(RuntimeError):
 class RemoteMailImage:
     body: bytes
     content_type: str
+    etag: str = ""
+    last_modified: str = ""
 
 
 @dataclass(frozen=True)
@@ -69,6 +79,93 @@ class ValidatedRemoteImageUrl:
     url: str
     hostname: str
     addresses: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class _CachedRemoteMailImage:
+    image: RemoteMailImage
+    validator_url: str
+    expires_at: float
+    stale_until: float
+
+
+@dataclass(frozen=True)
+class _NotModified:
+    validator_url: str
+
+
+_REMOTE_IMAGE_CACHE: OrderedDict[str, _CachedRemoteMailImage] = OrderedDict()
+_REMOTE_IMAGE_CACHE_BYTES = 0
+_REMOTE_IMAGE_CACHE_LOCK = Lock()
+
+
+def _now() -> float:
+    return time.monotonic()
+
+
+def _cache_key(raw_url: str) -> str:
+    return hashlib.sha256(raw_url.encode("utf-8")).hexdigest()
+
+
+def _clear_remote_image_cache() -> None:
+    global _REMOTE_IMAGE_CACHE_BYTES
+    with _REMOTE_IMAGE_CACHE_LOCK:
+        _REMOTE_IMAGE_CACHE.clear()
+        _REMOTE_IMAGE_CACHE_BYTES = 0
+
+
+def _cached_image(raw_url: str) -> tuple[_CachedRemoteMailImage, bool] | None:
+    global _REMOTE_IMAGE_CACHE_BYTES
+    key = _cache_key(raw_url)
+    now = _now()
+    with _REMOTE_IMAGE_CACHE_LOCK:
+        entry = _REMOTE_IMAGE_CACHE.pop(key, None)
+        if entry is None:
+            return None
+        if now > entry.stale_until:
+            _REMOTE_IMAGE_CACHE_BYTES -= len(entry.image.body)
+            return None
+        _REMOTE_IMAGE_CACHE[key] = entry
+        return entry, now <= entry.expires_at
+
+
+def _store_cached_image(
+    raw_url: str,
+    image: RemoteMailImage,
+    validator_url: str,
+) -> None:
+    global _REMOTE_IMAGE_CACHE_BYTES
+    key = _cache_key(raw_url)
+    now = _now()
+    entry = _CachedRemoteMailImage(
+        image=image,
+        validator_url=validator_url,
+        expires_at=now + CACHE_TTL_SECONDS,
+        stale_until=now + CACHE_STALE_IF_ERROR_SECONDS,
+    )
+    with _REMOTE_IMAGE_CACHE_LOCK:
+        previous = _REMOTE_IMAGE_CACHE.pop(key, None)
+        if previous is not None:
+            _REMOTE_IMAGE_CACHE_BYTES -= len(previous.image.body)
+        _REMOTE_IMAGE_CACHE[key] = entry
+        _REMOTE_IMAGE_CACHE_BYTES += len(image.body)
+        while (
+            len(_REMOTE_IMAGE_CACHE) > MAX_CACHE_ENTRIES
+            or _REMOTE_IMAGE_CACHE_BYTES > MAX_CACHE_BYTES
+        ):
+            _, evicted = _REMOTE_IMAGE_CACHE.popitem(last=False)
+            _REMOTE_IMAGE_CACHE_BYTES -= len(evicted.image.body)
+
+
+def _refresh_cached_image(raw_url: str, entry: _CachedRemoteMailImage) -> None:
+    _store_cached_image(raw_url, entry.image, entry.validator_url)
+
+
+def _safe_validator(value: str | None) -> str:
+    candidate = (value or "").strip()
+    if not candidate or len(candidate) > 1024 or "\r" in candidate or "\n" in candidate:
+        return ""
+    return candidate
 
 
 class _PinnedNetworkBackend(httpcore.AsyncNetworkBackend):
@@ -291,13 +388,19 @@ async def _read_response(response: httpx.Response) -> RemoteMailImage:
     expected_type = _DECLARED_MIME_TYPES[declared_type]
     if expected_type is not None and expected_type != canonical_type:
         raise RemoteMailImageError("invalid_image", 415)
-    return RemoteMailImage(body=body, content_type=canonical_type)
+    return RemoteMailImage(
+        body=body,
+        content_type=canonical_type,
+        etag=_safe_validator(response.headers.get("etag")),
+        last_modified=_safe_validator(response.headers.get("last-modified")),
+    )
 
 
 async def _fetch_validated_target(
     target: ValidatedRemoteImageUrl,
     transport: httpx.AsyncBaseTransport | None,
-) -> RemoteMailImage | str:
+    conditional_headers: Mapping[str, str],
+) -> RemoteMailImage | _NotModified | str:
     addresses = target.addresses[:MAX_ADDRESS_ATTEMPTS]
     for address_index, address in enumerate(addresses):
         selected_target = replace(target, addresses=(address,))
@@ -310,13 +413,15 @@ async def _fetch_validated_target(
                 transport=request_transport,
                 trust_env=False,
             ) as client:
+                headers = {
+                    "Accept": ", ".join(sorted(_ACCEPTED_MIME_TYPES)),
+                    "User-Agent": _USER_AGENT,
+                    **conditional_headers,
+                }
                 async with client.stream(
                     "GET",
                     selected_target.url,
-                    headers={
-                        "Accept": ", ".join(sorted(_ACCEPTED_MIME_TYPES)),
-                        "User-Agent": _USER_AGENT,
-                    },
+                    headers=headers,
                 ) as response:
                     if response.status_code in _REDIRECT_STATUSES:
                         location = response.headers.get("location", "").strip()
@@ -326,6 +431,8 @@ async def _fetch_validated_target(
                         if not isinstance(redirect_url, str):
                             raise RemoteMailImageError("invalid_redirect", 502)
                         return redirect_url
+                    if response.status_code == 304 and conditional_headers:
+                        return _NotModified(selected_target.url)
                     if response.status_code != 200:
                         raise RemoteMailImageError("origin_unavailable", 502)
                     return await _read_response(response)
@@ -347,21 +454,47 @@ async def fetch_remote_mail_image(
     *,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> RemoteMailImage:
-    """Fetch one public raster image without forwarding state or persisting it."""
+    """Fetch or revalidate one public raster image without persistent storage."""
+    cached = _cached_image(raw_url)
+    if cached is not None and cached[1]:
+        return cached[0].image
+    stale_entry = cached[0] if cached is not None else None
     current = raw_url
     try:
         async with asyncio.timeout(TOTAL_TIMEOUT_SECONDS):
             for redirect_count in range(MAX_REDIRECTS + 1):
                 target = await _validate_remote_image_url(current)
-                result = await _fetch_validated_target(target, transport)
+                conditional_headers: dict[str, str] = {}
+                if stale_entry is not None and target.url == stale_entry.validator_url:
+                    if stale_entry.image.etag:
+                        conditional_headers["If-None-Match"] = stale_entry.image.etag
+                    if stale_entry.image.last_modified:
+                        conditional_headers["If-Modified-Since"] = (
+                            stale_entry.image.last_modified
+                        )
+                result = await _fetch_validated_target(
+                    target,
+                    transport,
+                    conditional_headers,
+                )
                 if isinstance(result, RemoteMailImage):
+                    _store_cached_image(raw_url, result, target.url)
                     return result
+                if isinstance(result, _NotModified):
+                    if stale_entry is None or result.validator_url != stale_entry.validator_url:
+                        raise RemoteMailImageError("invalid_revalidation", 502)
+                    _refresh_cached_image(raw_url, stale_entry)
+                    return stale_entry.image
                 if redirect_count >= MAX_REDIRECTS:
                     raise RemoteMailImageError("too_many_redirects", 502)
                 current = result
-    except RemoteMailImageError:
+    except RemoteMailImageError as error:
+        if stale_entry is not None and error.code in {"timeout", "unreachable"}:
+            return stale_entry.image
         raise
     except (asyncio.TimeoutError, httpcore.TimeoutException, httpx.TimeoutException) as error:
+        if stale_entry is not None:
+            return stale_entry.image
         raise RemoteMailImageError("timeout", 504) from error
     except (
         httpcore.NetworkError,
@@ -369,5 +502,7 @@ async def fetch_remote_mail_image(
         httpx.NetworkError,
         httpx.RemoteProtocolError,
     ) as error:
+        if stale_entry is not None:
+            return stale_entry.image
         raise RemoteMailImageError("unreachable", 502) from error
     raise RemoteMailImageError("origin_unavailable", 502)

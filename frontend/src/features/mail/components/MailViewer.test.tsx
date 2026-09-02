@@ -196,6 +196,34 @@ describe('MailViewer', () => {
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
+  it('shows literal local results when no AI provider is configured', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('local-without-provider'));
+    mocks.extractEntities.mockResolvedValue({
+      contacts: [{
+        company: '',
+        email: 'ada@example.test',
+        name: 'Ada Lovelace',
+        notes: '',
+        phone: '',
+      }],
+      events: [],
+      provider: 'local_deterministic',
+    });
+    await render({ mail: message('local-without-provider') });
+
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-mail-analysis-status="local_results"]'))
+      .not.toBeNull();
+    expect(container.textContent).toContain('Ada Lovelace');
+    expect(container.querySelector('[data-mail-analysis-status="not_configured"]'))
+      .toBeNull();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
   it('waits for the selected detail before fetching its complete thread', async () => {
     let resolveDetail: ((value: MailMessage) => void) | undefined;
     mocks.fetchMessage.mockImplementation(() => new Promise<MailMessage>((resolve) => {

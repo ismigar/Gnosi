@@ -95,6 +95,7 @@ describe('mailViewerModel', () => {
       recoveringLabel: 'Loading safely…',
       recoverSource,
       releaseRecoveredSource,
+      retryLabel: 'Try again',
       timeoutMs: 100,
     });
 
@@ -113,7 +114,7 @@ describe('mailViewerModel', () => {
     image.dispatchEvent(new Event('error'));
 
     const fallback = document.querySelector('[data-gnosi-remote-image="unavailable"]');
-    expect(fallback?.getAttribute('role')).toBe('img');
+    expect(fallback?.getAttribute('role')).toBe('group');
     expect(fallback?.getAttribute('aria-label')).toBe('Remote image unavailable');
     expect(document.querySelector('img')).toBeNull();
     expect(releaseRecoveredSource).toHaveBeenCalledWith('blob:recovered-image');
@@ -125,7 +126,9 @@ describe('mailViewerModel', () => {
       '<img data-gnosi-remote-image="pending" data-gnosi-remote-source="https://images.example.test/private-token.png">',
       'text/html',
     );
-    const recoverSource = vi.fn().mockResolvedValue(null);
+    const recoverSource = vi.fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce('blob:retry-image');
     installRemoteMailImageRecovery(document, {
       fallbackLabel: 'Remote image unavailable',
       fallbackDetail: 'The origin blocked access or requires private data.',
@@ -133,6 +136,7 @@ describe('mailViewerModel', () => {
       recoveryPromptLabel: 'Remote image blocked for privacy',
       recoveringLabel: 'Loading safely…',
       recoverSource,
+      retryLabel: 'Try again',
     });
 
     document.querySelector<HTMLButtonElement>('.gnosi-remote-image-recover')?.click();
@@ -142,6 +146,13 @@ describe('mailViewerModel', () => {
     });
     expect(document.body.textContent).toContain('The origin blocked access');
     expect(document.body.textContent).not.toContain('images.example.test');
-    expect(document.querySelector('button')).toBeNull();
+    const retryButton = document.querySelector<HTMLButtonElement>('button');
+    expect(retryButton?.textContent).toBe('Try again');
+    retryButton?.click();
+    await vi.waitFor(() => {
+      expect(document.querySelector('img')?.getAttribute('src'))
+        .toBe('blob:retry-image');
+    });
+    expect(recoverSource).toHaveBeenCalledTimes(2);
   });
 });

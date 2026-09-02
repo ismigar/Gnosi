@@ -126,8 +126,16 @@ def test_entity_analysis_reports_missing_configuration_without_provider_call(
 
     assert result == {
         "events": [],
-        "contacts": [],
-        "error": "not_configured",
+        "contacts": [
+            {
+                "name": "Ada Lovelace",
+                "email": "ada@example.test",
+                "phone": "",
+                "company": "",
+                "notes": "",
+            }
+        ],
+        "provider": "local_deterministic",
     }
 
 

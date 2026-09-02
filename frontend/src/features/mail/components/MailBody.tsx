@@ -58,6 +58,7 @@ interface MailBodyProps {
   readonly remoteImageBlockedLabel?: string;
   readonly remoteImageRecoveryLabel?: string;
   readonly remoteImageRecoveringLabel?: string;
+  readonly remoteImageRetryLabel?: string;
   readonly remoteImageUnavailableDetail?: string;
   readonly remoteImageUnavailableLabel?: string;
 }
@@ -72,6 +73,7 @@ export function MailBody({
   remoteImageBlockedLabel = 'Remote image blocked for privacy',
   remoteImageRecoveryLabel = 'Load safely',
   remoteImageRecoveringLabel = 'Loading safely…',
+  remoteImageRetryLabel = 'Try again',
   remoteImageUnavailableDetail = 'The origin blocked access or requires data that Gnosi does not send.',
   remoteImageUnavailableLabel = 'Remote image unavailable',
 }: MailBodyProps) {
@@ -129,6 +131,7 @@ export function MailBody({
           recoveringLabel: remoteImageRecoveringLabel,
           recoverSource,
           releaseRecoveredSource,
+          retryLabel: remoteImageRetryLabel,
         }));
         setHeight(Math.max(200, document.documentElement.scrollHeight + 20));
       } catch {
@@ -157,6 +160,7 @@ export function MailBody({
     remoteImageBlockedLabel,
     remoteImageRecoveryLabel,
     remoteImageRecoveringLabel,
+    remoteImageRetryLabel,
     remoteImageUnavailableDetail,
     remoteImageUnavailableLabel,
   ]);

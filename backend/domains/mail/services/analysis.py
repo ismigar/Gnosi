@@ -167,11 +167,7 @@ async def analyze_mail_entities(context: str) -> dict[str, object]:
     try:
         content, provider = await request_entity_analysis(_analysis_prompt(context))
     except MailAnalysisNotConfiguredError:
-        return {
-            "events": [],
-            "contacts": [],
-            "error": "not_configured",
-        }
+        return _local_fallback(context, "not_configured")
     except Exception as error:
         log.warning(
             "Mail entity analysis provider unavailable: %s",
