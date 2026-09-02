@@ -308,6 +308,77 @@ def test_fetch_maps_network_timeout_without_retrying(
     assert calls == 1
 
 
+def test_fetch_retries_one_prevalidated_public_address_on_network_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def accept_fixture(url: str) -> remote_images.ValidatedRemoteImageUrl:
+        return remote_images.ValidatedRemoteImageUrl(
+            url=url,
+            hostname="images.example.test",
+            addresses=("8.8.8.8", "1.1.1.1", "9.9.9.9"),
+        )
+
+    attempted: list[str] = []
+
+    def transport_for(target: remote_images.ValidatedRemoteImageUrl) -> httpx.MockTransport:
+        address = target.addresses[0]
+        attempted.append(address)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if address == "8.8.8.8":
+                raise httpx.ConnectError("synthetic failure", request=request)
+            return httpx.Response(
+                200,
+                headers={"Content-Type": "application/octet-stream"},
+                content=_png_bytes(),
+                request=request,
+            )
+
+        return httpx.MockTransport(handler)
+
+    monkeypatch.setattr(remote_images, "_validate_remote_image_url", accept_fixture)
+    monkeypatch.setattr(remote_images, "_PinnedTransport", transport_for)
+    result = asyncio.run(
+        remote_images.fetch_remote_mail_image(
+            "https://images.example.test/fallback.png"
+        )
+    )
+
+    assert result.content_type == "image/png"
+    assert attempted == ["8.8.8.8", "1.1.1.1"]
+
+
+def test_fetch_does_not_retry_other_addresses_after_origin_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def accept_fixture(url: str) -> remote_images.ValidatedRemoteImageUrl:
+        return remote_images.ValidatedRemoteImageUrl(
+            url=url,
+            hostname="images.example.test",
+            addresses=("8.8.8.8", "1.1.1.1"),
+        )
+
+    attempted: list[str] = []
+
+    def transport_for(target: remote_images.ValidatedRemoteImageUrl) -> httpx.MockTransport:
+        attempted.append(target.addresses[0])
+        return httpx.MockTransport(
+            lambda request: httpx.Response(403, request=request)
+        )
+
+    monkeypatch.setattr(remote_images, "_validate_remote_image_url", accept_fixture)
+    monkeypatch.setattr(remote_images, "_PinnedTransport", transport_for)
+    with pytest.raises(remote_images.RemoteMailImageError) as error:
+        asyncio.run(
+            remote_images.fetch_remote_mail_image(
+                "https://images.example.test/forbidden.png"
+            )
+        )
+
+    assert error.value.code == "origin_unavailable"
+    assert attempted == ["8.8.8.8"]
+
+
 def test_fetch_accepts_valid_image_without_content_length(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -330,6 +401,29 @@ def test_fetch_accepts_valid_image_without_content_length(
         )
     )
     assert result.body == _png_bytes()
+    assert result.content_type == "image/png"
+
+
+@pytest.mark.parametrize("declared_type", ["", "application/octet-stream", "image/x-png"])
+def test_fetch_accepts_verified_raster_with_compatible_declarations(
+    monkeypatch: pytest.MonkeyPatch,
+    declared_type: str,
+) -> None:
+    async def accept_fixture(url: str) -> remote_images.ValidatedRemoteImageUrl:
+        return _target(url)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        headers = {"Content-Type": declared_type} if declared_type else {}
+        return httpx.Response(200, headers=headers, content=_png_bytes(), request=request)
+
+    monkeypatch.setattr(remote_images, "_validate_remote_image_url", accept_fixture)
+    result = asyncio.run(
+        remote_images.fetch_remote_mail_image(
+            "https://images.example.test/compatible",
+            transport=httpx.MockTransport(handler),
+        )
+    )
+    assert result.content_type == "image/png"
 
 
 def test_pixel_bomb_dimensions_are_rejected_before_decode() -> None:
@@ -338,7 +432,7 @@ def test_pixel_bomb_dimensions_are_rejected_before_decode() -> None:
     body[20:24] = (10_000).to_bytes(4, "big")
     body[29:33] = zlib.crc32(body[12:29]).to_bytes(4, "big")
     with pytest.raises(remote_images.RemoteMailImageError) as error:
-        remote_images._validate_raster_image(bytes(body), "image/png")
+        remote_images._validate_raster_image(bytes(body))
     assert error.value.code == "invalid_image"
 
 

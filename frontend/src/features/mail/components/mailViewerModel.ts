@@ -62,7 +62,9 @@ interface MailHtmlDocumentOptions {
 
 interface RemoteMailImageRecoveryOptions {
   readonly fallbackLabel: string;
+  readonly fallbackDetail: string;
   readonly onStateChange?: () => void;
+  readonly recoveryPromptLabel: string;
   readonly recoveryActionLabel: string;
   readonly recoveringLabel: string;
   readonly recoverSource?: (source: string) => Promise<string | null>;
@@ -94,7 +96,12 @@ export function buildMailHtmlDocument(
 ): string {
   const document = new DOMParser().parseFromString(sanitizeMailHtml(html), 'text/html');
   document.querySelectorAll('base').forEach((element) => { element.remove(); });
+  document.querySelectorAll('source').forEach((element) => {
+    element.removeAttribute('src');
+    element.removeAttribute('srcset');
+  });
   for (const image of document.querySelectorAll('img')) {
+    image.removeAttribute('srcset');
     const currentSource = image.getAttribute('src')?.trim() || '';
     if (currentSource.toLocaleLowerCase().startsWith('cid:')
       && options.messageId && options.email) {
@@ -120,11 +127,16 @@ export function buildMailHtmlDocument(
     const finalSource = image.getAttribute('src')?.trim() || '';
     if (/^(?:https?:)?\/\//i.test(finalSource)) {
       try {
-        const parsed = new URL(finalSource, window.location.origin);
-        if (parsed.username || parsed.password) {
+        const normalizedSource = finalSource.startsWith('//')
+          ? `https:${finalSource}`
+          : finalSource;
+        const parsed = new URL(normalizedSource);
+        if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
           image.removeAttribute('src');
           image.dataset.gnosiRemoteImage = 'blocked';
         } else {
+          image.dataset.gnosiRemoteSource = normalizedSource;
+          image.removeAttribute('src');
           image.dataset.gnosiRemoteImage = 'pending';
         }
       } catch {
@@ -133,6 +145,21 @@ export function buildMailHtmlDocument(
       }
     }
   }
+  const policy = document.createElement('meta');
+  policy.httpEquiv = 'Content-Security-Policy';
+  policy.content = [
+    "default-src 'none'",
+    "img-src 'self' data: blob:",
+    "style-src 'unsafe-inline'",
+    "font-src 'none'",
+    "media-src 'none'",
+    "object-src 'none'",
+    "frame-src 'none'",
+    "connect-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join('; ');
+  document.head.prepend(policy);
   const theme = document.createElement('style');
   theme.dataset.gnosiMailTheme = 'true';
   theme.textContent = options.themeCss;
@@ -153,7 +180,7 @@ export function installRemoteMailImageRecovery(
     image.dataset.gnosiRecoveryInstalled = 'true';
     let settled = false;
     let active = true;
-    let phase: 'direct' | 'offered' | 'recovering' | 'recovered' = 'direct';
+    let phase: 'pending' | 'offered' | 'recovering' | 'recovered' = 'pending';
     let recoveredSource: string | null = null;
     let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -165,6 +192,18 @@ export function installRemoteMailImageRecovery(
       options.releaseRecoveredSource?.(recoveredSource);
       recoveredSource = null;
     };
+    const renderFinalFallback = (fallback: HTMLElement): void => {
+      fallback.dataset.gnosiRemoteImage = 'unavailable';
+      fallback.setAttribute('role', 'img');
+      fallback.setAttribute('aria-label', options.fallbackLabel);
+      fallback.replaceChildren();
+      const label = document.createElement('span');
+      label.textContent = `▧ ${options.fallbackLabel}`;
+      const detail = document.createElement('span');
+      detail.className = 'gnosi-remote-image-detail';
+      detail.textContent = options.fallbackDetail;
+      fallback.append(label, detail);
+    };
     const showFinalFallback = (): void => {
       if (settled) return;
       settled = true;
@@ -172,17 +211,14 @@ export function installRemoteMailImageRecovery(
       releaseRecoveredSource();
       const fallback = document.createElement('span');
       fallback.className = 'gnosi-remote-image-fallback';
-      fallback.dataset.gnosiRemoteImage = 'unavailable';
-      fallback.setAttribute('role', 'img');
-      fallback.setAttribute('aria-label', options.fallbackLabel);
-      fallback.textContent = `▧ ${options.fallbackLabel}`;
+      renderFinalFallback(fallback);
       image.replaceWith(fallback);
       options.onStateChange?.();
     };
     const offerRecovery = (): void => {
-      if (settled || phase !== 'direct') return;
+      if (settled || phase !== 'pending') return;
       clearTimers();
-      const source = image.getAttribute('src')?.trim() || '';
+      const source = image.dataset.gnosiRemoteSource?.trim() || '';
       if (!source || !options.recoverSource) {
         showFinalFallback();
         return;
@@ -194,7 +230,7 @@ export function installRemoteMailImageRecovery(
       fallback.setAttribute('aria-label', options.fallbackLabel);
       fallback.setAttribute('role', 'group');
       const label = document.createElement('span');
-      label.textContent = `▧ ${options.fallbackLabel}`;
+      label.textContent = `▧ ${options.recoveryPromptLabel}`;
       const button = document.createElement('button');
       button.className = 'gnosi-remote-image-recover';
       button.type = 'button';
@@ -215,9 +251,7 @@ export function installRemoteMailImageRecovery(
           }
           if (!nextSource) {
             settled = true;
-            fallback.dataset.gnosiRemoteImage = 'unavailable';
-            fallback.setAttribute('role', 'img');
-            button.remove();
+            renderFinalFallback(fallback);
             options.onStateChange?.();
             return;
           }
@@ -231,9 +265,7 @@ export function installRemoteMailImageRecovery(
         }).catch(() => {
           if (!active || settled) return;
           settled = true;
-          fallback.dataset.gnosiRemoteImage = 'unavailable';
-          fallback.setAttribute('role', 'img');
-          button.remove();
+          renderFinalFallback(fallback);
           options.onStateChange?.();
         });
       });
@@ -250,8 +282,7 @@ export function installRemoteMailImageRecovery(
     };
     const unsubscribeLoad = subscribeElementEvent(image, 'load', markLoaded);
     const unsubscribeError = subscribeElementEvent(image, 'error', () => {
-      if (phase === 'direct') offerRecovery();
-      else if (phase === 'recovered') showFinalFallback();
+      if (phase === 'recovered') showFinalFallback();
     });
     cleanups.push(() => {
       active = false;
@@ -266,13 +297,7 @@ export function installRemoteMailImageRecovery(
       showFinalFallback();
       return;
     }
-    timeoutTimer = setTimeout(offerRecovery, timeoutMs);
-    if (image.complete) {
-      queueMicrotask(() => {
-        if (image.naturalWidth > 0) markLoaded();
-        else offerRecovery();
-      });
-    }
+    offerRecovery();
   };
 
   document

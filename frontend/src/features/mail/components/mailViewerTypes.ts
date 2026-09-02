@@ -71,6 +71,7 @@ export type MailAnalysisStatus =
   | 'idle'
   | 'analyzing'
   | 'results'
+  | 'local_results'
   | 'no_entities'
   | 'not_configured'
   | 'temporarily_unavailable'

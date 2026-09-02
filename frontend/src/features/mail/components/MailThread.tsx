@@ -54,7 +54,7 @@ export function MailThread({ controller }: { readonly controller: MailViewerCont
               <div className="border-t border-[var(--border-primary)]/60 px-5 py-5">
                 {content ? (
                   <>
-                    <MailBody bodyHtml={content.body_html} bodyText={content.body_text || message.snippet} email={message.account || controller.account?.email} folder={message.imap_folder} messageId={message.id} remoteImageRecoveryLabel={t('mail.remote_image_recovery', 'Load safely')} remoteImageRecoveringLabel={t('mail.remote_image_recovering', 'Loading safely…')} remoteImageUnavailableLabel={t('mail.remote_image_unavailable', 'Remote image unavailable')} />
+                    <MailBody bodyHtml={content.body_html} bodyText={content.body_text || message.snippet} email={message.account || controller.account?.email} folder={message.imap_folder} messageId={message.id} remoteImageBlockedLabel={t('mail.remote_image_blocked', 'Remote image blocked for privacy')} remoteImageRecoveryLabel={t('mail.remote_image_recovery', 'Load safely')} remoteImageRecoveringLabel={t('mail.remote_image_recovering', 'Loading safely…')} remoteImageUnavailableDetail={t('mail.remote_image_unavailable_detail', 'The origin blocked access or requires data that Gnosi does not send.')} remoteImageUnavailableLabel={t('mail.remote_image_unavailable', 'Remote image unavailable')} />
                     {(content.attachments?.length ?? 0) > 0 && (
                       <MailAttachments attachments={content.attachments ?? []} email={message.account || controller.account?.email || ''} folder={message.imap_folder} messageId={message.id} />
                     )}

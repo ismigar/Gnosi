@@ -84,8 +84,12 @@ export function useMailViewerData({
       const entities = normalizeMailEntities(response);
       if (entities.events.length > 0 || entities.contacts.length > 0) {
         setExtractedEntities(entities);
-        setAnalysisStatus('results');
-        toast.success(t('mail.smart_suggestions_found', 'Smart suggestions found'));
+        if (response.provider === 'local_deterministic') {
+          setAnalysisStatus('local_results');
+        } else {
+          setAnalysisStatus('results');
+          toast.success(t('mail.smart_suggestions_found', 'Smart suggestions found'));
+        }
       } else {
         setAnalysisStatus('no_entities');
       }

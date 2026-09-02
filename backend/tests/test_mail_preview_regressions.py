@@ -70,6 +70,39 @@ def test_entity_analysis_returns_typed_error_when_providers_fail(
     }
 
 
+def test_entity_analysis_uses_literal_local_results_when_providers_fail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def failing_provider(_prompt: str, **_options: int) -> tuple[str, str]:
+        raise RuntimeError("synthetic provider failure")
+
+    monkeypatch.setattr("pipeline.ai_client.call_ai_with_fallback", failing_provider)
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
+    monkeypatch.setattr("pipeline.ai_client.PRIMARY_PROVIDER", "fixture")
+
+    result = asyncio.run(
+        compose.extract_entities(
+            schemas.MailExtractEntitiesRequest(
+                context="Contacte: Ada Lovelace <ada@example.test>"
+            )
+        )
+    )
+
+    assert result == {
+        "events": [],
+        "contacts": [
+            {
+                "name": "Ada Lovelace",
+                "email": "ada@example.test",
+                "phone": "",
+                "company": "",
+                "notes": "",
+            }
+        ],
+        "provider": "local_deterministic",
+    }
+
+
 def test_entity_analysis_reports_missing_configuration_without_provider_call(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -84,7 +117,11 @@ def test_entity_analysis_reports_missing_configuration_without_provider_call(
     )
 
     result = asyncio.run(
-        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
+        compose.extract_entities(
+            schemas.MailExtractEntitiesRequest(
+                context="Contacte: Ada Lovelace <ada@example.test>"
+            )
+        )
     )
 
     assert result == {

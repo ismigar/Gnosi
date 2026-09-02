@@ -166,6 +166,36 @@ describe('MailViewer', () => {
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
+  it('shows deterministic local results only after manual provider failure', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('local-analysis'));
+    mocks.extractEntities.mockResolvedValue({
+      contacts: [{
+        company: '',
+        email: 'ada@example.test',
+        name: 'Ada Lovelace',
+        notes: '',
+        phone: '',
+      }],
+      events: [],
+      provider: 'local_deterministic',
+    });
+    await render({ mail: message('local-analysis') });
+    expect(mocks.extractEntities).not.toHaveBeenCalled();
+
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-mail-analysis-status="local_results"]'))
+      .not.toBeNull();
+    expect(container.textContent).toContain('Gnosi only shows explicit data detected locally');
+    expect(container.textContent).toContain('Ada Lovelace');
+    expect(container.textContent).toContain('Try again');
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
   it('waits for the selected detail before fetching its complete thread', async () => {
     let resolveDetail: ((value: MailMessage) => void) | undefined;
     mocks.fetchMessage.mockImplementation(() => new Promise<MailMessage>((resolve) => {

@@ -7,7 +7,7 @@ import ipaddress
 import socket
 import ssl
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from io import BytesIO
 from typing import AsyncIterable, AsyncIterator, Iterable, cast
 from urllib.parse import urljoin, urlparse, urlunparse
@@ -18,6 +18,7 @@ from PIL import Image, UnidentifiedImageError
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_PIXELS = 40_000_000
+MAX_ADDRESS_ATTEMPTS = 2
 MAX_REDIRECTS = 2
 MAX_URL_CHARS = 4_000
 TOTAL_TIMEOUT_SECONDS = 12.0
@@ -31,7 +32,21 @@ _MIME_BY_FORMAT = {
     "WEBP": "image/webp",
 }
 _ACCEPTED_MIME_TYPES = frozenset(_MIME_BY_FORMAT.values())
-_USER_AGENT = "Gnosi-Mail-Image-Recovery/1.0"
+_DECLARED_MIME_TYPES = {
+    "": None,
+    "application/octet-stream": None,
+    "image/avif": "image/avif",
+    "image/gif": "image/gif",
+    "image/jpeg": "image/jpeg",
+    "image/jpg": "image/jpeg",
+    "image/png": "image/png",
+    "image/webp": "image/webp",
+    "image/x-png": "image/png",
+}
+_USER_AGENT = (
+    "Mozilla/5.0 (compatible; Gnosi-Mail-Image-Recovery/1.1; "
+    "+https://github.com/ismigar/Gnosi)"
+)
 
 
 class RemoteMailImageError(RuntimeError):
@@ -225,7 +240,7 @@ async def _validate_remote_image_url(raw_url: str) -> ValidatedRemoteImageUrl:
     )
 
 
-def _validate_raster_image(body: bytes, declared_type: str) -> None:
+def _validate_raster_image(body: bytes) -> str:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
@@ -234,9 +249,11 @@ def _validate_raster_image(body: bytes, declared_type: str) -> None:
                 width, height = image.size
                 if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
                     raise RemoteMailImageError("invalid_image", 415)
-                if _MIME_BY_FORMAT.get(image_format) != declared_type:
+                canonical_type = _MIME_BY_FORMAT.get(image_format)
+                if canonical_type is None:
                     raise RemoteMailImageError("invalid_image", 415)
                 image.verify()
+                return canonical_type
     except RemoteMailImageError:
         raise
     except (
@@ -250,8 +267,8 @@ def _validate_raster_image(body: bytes, declared_type: str) -> None:
 
 
 async def _read_response(response: httpx.Response) -> RemoteMailImage:
-    content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-    if content_type not in _ACCEPTED_MIME_TYPES:
+    declared_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if declared_type not in _DECLARED_MIME_TYPES:
         raise RemoteMailImageError("unsupported_media_type", 415)
     declared_size = response.headers.get("content-length", "").strip()
     if declared_size:
@@ -270,8 +287,56 @@ async def _read_response(response: httpx.Response) -> RemoteMailImage:
     body = b"".join(chunks)
     if not body:
         raise RemoteMailImageError("invalid_image", 415)
-    await asyncio.to_thread(_validate_raster_image, body, content_type)
-    return RemoteMailImage(body=body, content_type=content_type)
+    canonical_type = await asyncio.to_thread(_validate_raster_image, body)
+    expected_type = _DECLARED_MIME_TYPES[declared_type]
+    if expected_type is not None and expected_type != canonical_type:
+        raise RemoteMailImageError("invalid_image", 415)
+    return RemoteMailImage(body=body, content_type=canonical_type)
+
+
+async def _fetch_validated_target(
+    target: ValidatedRemoteImageUrl,
+    transport: httpx.AsyncBaseTransport | None,
+) -> RemoteMailImage | str:
+    addresses = target.addresses[:MAX_ADDRESS_ATTEMPTS]
+    for address_index, address in enumerate(addresses):
+        selected_target = replace(target, addresses=(address,))
+        request_transport = transport or _PinnedTransport(selected_target)
+        timeout = httpx.Timeout(6.0, connect=3.0, read=6.0, write=3.0, pool=3.0)
+        try:
+            async with httpx.AsyncClient(
+                follow_redirects=False,
+                timeout=timeout,
+                transport=request_transport,
+                trust_env=False,
+            ) as client:
+                async with client.stream(
+                    "GET",
+                    selected_target.url,
+                    headers={
+                        "Accept": ", ".join(sorted(_ACCEPTED_MIME_TYPES)),
+                        "User-Agent": _USER_AGENT,
+                    },
+                ) as response:
+                    if response.status_code in _REDIRECT_STATUSES:
+                        location = response.headers.get("location", "").strip()
+                        if not location:
+                            raise RemoteMailImageError("invalid_redirect", 502)
+                        return urljoin(selected_target.url, location)
+                    if response.status_code != 200:
+                        raise RemoteMailImageError("origin_unavailable", 502)
+                    return await _read_response(response)
+        except (
+            httpcore.NetworkError,
+            httpcore.ProtocolError,
+            httpcore.TimeoutException,
+            httpx.NetworkError,
+            httpx.RemoteProtocolError,
+            httpx.TimeoutException,
+        ):
+            if transport is not None or address_index + 1 >= len(addresses):
+                raise
+    raise RemoteMailImageError("unreachable", 502)
 
 
 async def fetch_remote_mail_image(
@@ -285,33 +350,12 @@ async def fetch_remote_mail_image(
         async with asyncio.timeout(TOTAL_TIMEOUT_SECONDS):
             for redirect_count in range(MAX_REDIRECTS + 1):
                 target = await _validate_remote_image_url(current)
-                timeout = httpx.Timeout(6.0, connect=3.0, read=6.0, write=3.0, pool=3.0)
-                request_transport = transport or _PinnedTransport(target)
-                async with httpx.AsyncClient(
-                    follow_redirects=False,
-                    timeout=timeout,
-                    transport=request_transport,
-                    trust_env=False,
-                ) as client:
-                    async with client.stream(
-                        "GET",
-                        target.url,
-                        headers={
-                            "Accept": ", ".join(sorted(_ACCEPTED_MIME_TYPES)),
-                            "User-Agent": _USER_AGENT,
-                        },
-                    ) as response:
-                        if response.status_code in _REDIRECT_STATUSES:
-                            if redirect_count >= MAX_REDIRECTS:
-                                raise RemoteMailImageError("too_many_redirects", 502)
-                            location = response.headers.get("location", "").strip()
-                            if not location:
-                                raise RemoteMailImageError("invalid_redirect", 502)
-                            current = urljoin(target.url, location)
-                            continue
-                        if response.status_code != 200:
-                            raise RemoteMailImageError("origin_unavailable", 502)
-                        return await _read_response(response)
+                result = await _fetch_validated_target(target, transport)
+                if isinstance(result, RemoteMailImage):
+                    return result
+                if redirect_count >= MAX_REDIRECTS:
+                    raise RemoteMailImageError("too_many_redirects", 502)
+                current = result
     except RemoteMailImageError:
         raise
     except (asyncio.TimeoutError, httpcore.TimeoutException, httpx.TimeoutException) as error:

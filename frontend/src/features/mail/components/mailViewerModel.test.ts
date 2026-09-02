@@ -54,9 +54,9 @@ describe('mailViewerModel', () => {
     expect(quoted).not.toContain('<b>Subject</b>');
   });
 
-  it('marks safe remote images and blocks embedded URL credentials', () => {
+  it('defers safe remote images, blocks unsafe sources and installs a restrictive CSP', () => {
     const source = buildMailHtmlDocument(
-      '<base href="https://redirect.invalid/"><img src="https://images.example.test/a.png"><img src="https://user:secret@images.example.test/private.png">',
+      '<base href="https://redirect.invalid/"><picture><source srcset="https://images.example.test/large.png"><img src="https://images.example.test/a.png" srcset="https://images.example.test/a-2x.png 2x"></picture><img src="https://user:secret@images.example.test/private.png">',
       { themeCss: '' },
     );
     const document = new DOMParser().parseFromString(source, 'text/html');
@@ -64,14 +64,22 @@ describe('mailViewerModel', () => {
 
     expect(document.querySelector('base')).toBeNull();
     expect(images[0]?.dataset.gnosiRemoteImage).toBe('pending');
+    expect(images[0]?.hasAttribute('src')).toBe(false);
+    expect(images[0]?.dataset.gnosiRemoteSource)
+      .toBe('https://images.example.test/a.png');
+    expect(images[0]?.hasAttribute('srcset')).toBe(false);
+    expect(document.querySelector('source')?.hasAttribute('srcset')).toBe(false);
     expect(images[1]?.dataset.gnosiRemoteImage).toBe('blocked');
     expect(images[1]?.hasAttribute('src')).toBe(false);
     expect(source).not.toContain('user:secret');
+    const policy = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    expect(policy?.getAttribute('content')).toContain("img-src 'self' data: blob:");
+    expect(policy?.getAttribute('content')).toContain("connect-src 'none'");
   });
 
-  it('uses one backend recovery after direct failure, then installs a safe fallback', async () => {
+  it('only uses backend recovery after explicit consent, then installs a safe fallback', async () => {
     const document = new DOMParser().parseFromString(
-      '<img data-gnosi-remote-image="pending" src="https://images.example.test/a.png">',
+      '<img data-gnosi-remote-image="pending" data-gnosi-remote-source="https://images.example.test/a.png">',
       'text/html',
     );
     const image = document.querySelector('img');
@@ -81,14 +89,15 @@ describe('mailViewerModel', () => {
     const releaseRecoveredSource = vi.fn();
     const cleanup = installRemoteMailImageRecovery(document, {
       fallbackLabel: 'Remote image unavailable',
+      fallbackDetail: 'The origin blocked access.',
       recoveryActionLabel: 'Load safely',
+      recoveryPromptLabel: 'Remote image blocked for privacy',
       recoveringLabel: 'Loading safely…',
       recoverSource,
       releaseRecoveredSource,
       timeoutMs: 100,
     });
 
-    image.dispatchEvent(new Event('error'));
     expect(recoverSource).not.toHaveBeenCalled();
     const recoveryButton = document.querySelector<HTMLButtonElement>(
       '.gnosi-remote-image-recover',
@@ -109,5 +118,30 @@ describe('mailViewerModel', () => {
     expect(document.querySelector('img')).toBeNull();
     expect(releaseRecoveredSource).toHaveBeenCalledWith('blob:recovered-image');
     cleanup();
+  });
+
+  it('shows an actionable final state without exposing a failed source URL', async () => {
+    const document = new DOMParser().parseFromString(
+      '<img data-gnosi-remote-image="pending" data-gnosi-remote-source="https://images.example.test/private-token.png">',
+      'text/html',
+    );
+    const recoverSource = vi.fn().mockResolvedValue(null);
+    installRemoteMailImageRecovery(document, {
+      fallbackLabel: 'Remote image unavailable',
+      fallbackDetail: 'The origin blocked access or requires private data.',
+      recoveryActionLabel: 'Load safely',
+      recoveryPromptLabel: 'Remote image blocked for privacy',
+      recoveringLabel: 'Loading safely…',
+      recoverSource,
+    });
+
+    document.querySelector<HTMLButtonElement>('.gnosi-remote-image-recover')?.click();
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-gnosi-remote-image="unavailable"]'))
+        .not.toBeNull();
+    });
+    expect(document.body.textContent).toContain('The origin blocked access');
+    expect(document.body.textContent).not.toContain('images.example.test');
+    expect(document.querySelector('button')).toBeNull();
   });
 });

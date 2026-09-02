@@ -28,6 +28,7 @@ a { color: #3b82f6; }
 .gnosi-remote-image-recover { appearance: none; border: 1px solid #94a3b8; border-radius: 7px; padding: 5px 9px; color: #334155; background: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .gnosi-remote-image-recover:hover { border-color: #3b82f6; color: #2563eb; }
 .gnosi-remote-image-recover:disabled { cursor: wait; opacity: .65; }
+.gnosi-remote-image-detail { max-width: 320px; opacity: .8; }
 `;
 const EMAIL_CSS_DARK = `
 html, body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #e6e6e6 !important; background: #1a1a1a !important; color-scheme: dark; }
@@ -44,6 +45,7 @@ hr { border-color: #444; }
 .gnosi-remote-image-recover { appearance: none; border: 1px solid #64748b; border-radius: 7px; padding: 5px 9px; color: #dbeafe; background: #1e293b; font: inherit; font-weight: 600; cursor: pointer; }
 .gnosi-remote-image-recover:hover { border-color: #60a5fa; color: #bfdbfe; }
 .gnosi-remote-image-recover:disabled { cursor: wait; opacity: .65; }
+.gnosi-remote-image-detail { max-width: 320px; opacity: .8; }
 `;
 
 
@@ -53,8 +55,10 @@ interface MailBodyProps {
   readonly email?: string | null;
   readonly folder?: string | null;
   readonly messageId?: string | null;
+  readonly remoteImageBlockedLabel?: string;
   readonly remoteImageRecoveryLabel?: string;
   readonly remoteImageRecoveringLabel?: string;
+  readonly remoteImageUnavailableDetail?: string;
   readonly remoteImageUnavailableLabel?: string;
 }
 
@@ -65,8 +69,10 @@ export function MailBody({
   email,
   folder,
   messageId,
+  remoteImageBlockedLabel = 'Remote image blocked for privacy',
   remoteImageRecoveryLabel = 'Load safely',
   remoteImageRecoveringLabel = 'Loading safely…',
+  remoteImageUnavailableDetail = 'The origin blocked access or requires data that Gnosi does not send.',
   remoteImageUnavailableLabel = 'Remote image unavailable',
 }: MailBodyProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -114,10 +120,12 @@ export function MailBody({
         }
         recoveryCleanups.push(installRemoteMailImageRecovery(document, {
           fallbackLabel: remoteImageUnavailableLabel,
+          fallbackDetail: remoteImageUnavailableDetail,
           onStateChange: () => {
             setHeight(Math.max(200, document.documentElement.scrollHeight + 20));
           },
           recoveryActionLabel: remoteImageRecoveryLabel,
+          recoveryPromptLabel: remoteImageBlockedLabel,
           recoveringLabel: remoteImageRecoveringLabel,
           recoverSource,
           releaseRecoveredSource,
@@ -146,8 +154,10 @@ export function MailBody({
     email,
     folder,
     messageId,
+    remoteImageBlockedLabel,
     remoteImageRecoveryLabel,
     remoteImageRecoveringLabel,
+    remoteImageUnavailableDetail,
     remoteImageUnavailableLabel,
   ]);
 
