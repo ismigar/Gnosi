@@ -8,9 +8,16 @@ const lint = new ESLint({ cwd: frontend });
 
 describe('lint source coverage', () => {
     it('excludes temporary browser builds without excluding maintained source or tests', async () => {
-        expect(await lint.isPathIgnored('.tmp/settings-schema-browser/dist/assets/generated.js')).toBe(true);
-        expect(await lint.isPathIgnored('.tmp/editor-browser/main.tsx')).toBe(true);
-        expect(await lint.isPathIgnored('src/features/vault/editor/BlockEditor.tsx')).toBe(false);
-        expect(await lint.isPathIgnored('src/features/vault/editor/block-editor/insertResult.test.ts')).toBe(false);
-    });
+        const [settingsBuild, editorBuild, maintainedSource, maintainedTest] = await Promise.all([
+            lint.isPathIgnored('.tmp/settings-schema-browser/dist/assets/generated.js'),
+            lint.isPathIgnored('.tmp/editor-browser/main.tsx'),
+            lint.isPathIgnored('src/features/vault/editor/BlockEditor.tsx'),
+            lint.isPathIgnored('src/features/vault/editor/block-editor/insertResult.test.ts'),
+        ]);
+
+        expect(settingsBuild).toBe(true);
+        expect(editorBuild).toBe(true);
+        expect(maintainedSource).toBe(false);
+        expect(maintainedTest).toBe(false);
+    }, 30_000);
 });

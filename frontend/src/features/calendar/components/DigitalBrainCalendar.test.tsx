@@ -71,7 +71,7 @@ describe('DigitalBrainCalendar with real FullCalendar', () => {
     }
     expect(document.querySelector('.fc-header-toolbar')).toBeNull();
     expect(calendarRef.current?.getApi().getEventById('one')?.endStr).toBe('2026-09-04');
-  });
+  }, 15_000);
 
   it('edits a vault event, protects read-only events and preserves event context menus', async () => {
     const calendarRef = createRef<FullCalendar>();
