@@ -156,6 +156,16 @@ test('the frozen backend keeps required standard-library and media modules', () 
     pyproject,
     /numpy>=1\.26\.4,<2; sys_platform == 'darwin' and platform_machine == 'x86_64'/,
   );
+  assert.match(
+    pyproject,
+    /transformers>=4\.41,<5; sys_platform == 'darwin' and platform_machine == 'x86_64'/,
+  );
+  const abiProbe = fs.readFileSync(
+    path.join(__dirname, 'scripts/probe-python-abi.py'),
+    'utf8',
+  );
+  assert.match(abiProbe, /transformers\.is_torch_available\(\)/);
+  assert.match(abiProbe, /from sentence_transformers import SentenceTransformer/);
 });
 
 test('the Docker backend installs CPU-only Torch before runtime requirements', () => {
