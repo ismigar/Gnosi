@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 18 | 2471 | 0 |
-| `features` | 1043 | 121134 | 33 |
+| `features` | 1043 | 121188 | 33 |
 | `generated` | 2 | 41056 | 445 |
 | `shared` | 226 | 29220 | 385 |
 
@@ -303,7 +303,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/mail/components/MailAddressInput.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailAddressInput.tsx) | 213 | `AddressInput` | — |
 | [`frontend/src/features/mail/components/MailAttachments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailAttachments.tsx) | 124 | `MailAttachments` | — |
 | [`frontend/src/features/mail/components/MailAvailabilityOverlay.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailAvailabilityOverlay.tsx) | 92 | `MailAvailabilityOverlay` | — |
-| [`frontend/src/features/mail/components/MailBody.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailBody.tsx) | 184 | `MailBody` | — |
+| [`frontend/src/features/mail/components/MailBody.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailBody.tsx) | 194 | `MailBody` | — |
 | [`frontend/src/features/mail/components/MailCalendarPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailCalendarPicker.tsx) | 40 | `MailCalendarPicker` | — |
 | [`frontend/src/features/mail/components/MailComposer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailComposer.tsx) | 8 | `MailComposer`, `function` | — |
 | [`frontend/src/features/mail/components/MailComposerDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailComposerDialogs.tsx) | 57 | `MailComposerDialogs` | — |
@@ -314,7 +314,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/mail/components/MailPdfViewer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailPdfViewer.tsx) | 218 | `MailPdfViewer` | — |
 | [`frontend/src/features/mail/components/MailSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.tsx) | 298 | `MailSidebar`, `function` | — |
 | [`frontend/src/features/mail/components/MailSidebarItems.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebarItems.tsx) | 146 | `SidebarNavItem`, `SidebarViewItem` | — |
-| [`frontend/src/features/mail/components/MailSmartSuggestions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSmartSuggestions.tsx) | 102 | `MailSmartSuggestions` | — |
+| [`frontend/src/features/mail/components/MailSmartSuggestions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSmartSuggestions.tsx) | 116 | `MailSmartSuggestions` | — |
 | [`frontend/src/features/mail/components/MailTagPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailTagPicker.tsx) | 322 | `MailTagPicker`, `TagPill`, `function` | — |
 | [`frontend/src/features/mail/components/MailThread.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailThread.tsx) | 72 | `MailThread` | — |
 | [`frontend/src/features/mail/components/MailViewEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewEditor.tsx) | 396 | `MailViewEditor`, `function` | — |
@@ -337,11 +337,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/mail/components/mailComposerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerTypes.ts) | 75 | — | — |
 | [`frontend/src/features/mail/components/mailFolderUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailFolderUtils.ts) | 49 | `translateFolderName` | — |
 | [`frontend/src/features/mail/components/mailViewEditorModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewEditorModel.ts) | 336 | `ALL_ACTIONS`, `ALL_FIELDS`, `FILTER_FIELDS`, `addDefaultFilter`, `createMailViewEditorForm`, `defaultOperatorForField`, `defaultValueForField`, `errorMessage`, `getOperatorsForField`, `legacyFilterValue`, `legacyTruthyFilterValue`, `removeFilterAt`, `reorderFields`, `toggleAction`, `toggleFieldVisibility`, `updateFilterAt` | — |
-| [`frontend/src/features/mail/components/mailViewerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewerModel.ts) | 420 | `MAIL_DARK_BODY_EVENT`, `MAIL_DARK_BODY_KEY`, `buildMailHtmlDocument`, `buildQuotedMailHtml`, `cleanMailAddress`, `detectMailFormLinks`, `escapeMailHtml`, `installRemoteMailImageRecovery`, `isSentMail`, `isSpamMail`, `linkPlainMailText`, `mailErrorDetail`, `normalizeMailEntities`, `readMailDarkBody`, `sanitizeMailHtml` | — |
-| [`frontend/src/features/mail/components/mailViewerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewerTypes.ts) | 124 | — | — |
+| [`frontend/src/features/mail/components/mailViewerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewerModel.ts) | 445 | `MAIL_DARK_BODY_EVENT`, `MAIL_DARK_BODY_KEY`, `buildMailHtmlDocument`, `buildQuotedMailHtml`, `cleanMailAddress`, `detectMailFormLinks`, `escapeMailHtml`, `installRemoteMailImageRecovery`, `isSentMail`, `isSpamMail`, `linkPlainMailText`, `mailErrorDetail`, `normalizeMailEntities`, `readMailDarkBody`, `sanitizeMailHtml` | — |
+| [`frontend/src/features/mail/components/mailViewerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewerTypes.ts) | 125 | — | — |
 | [`frontend/src/features/mail/components/useMailComposerController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/useMailComposerController.ts) | 399 | `useMailComposerController` | — |
 | [`frontend/src/features/mail/components/useMailViewerController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/useMailViewerController.ts) | 431 | `useMailViewerController` | — |
-| [`frontend/src/features/mail/components/useMailViewerData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/useMailViewerData.ts) | 237 | `useMailViewerData` | — |
+| [`frontend/src/features/mail/components/useMailViewerData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/useMailViewerData.ts) | 241 | `useMailViewerData` | — |
 | [`frontend/src/features/mail/editor/Mail/MailBlockEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/editor/Mail/MailBlockEditor.tsx) | 231 | `MailBlockEditor`, `function` | — |
 | [`frontend/src/features/mail/editor/Mail/mailBlockNoteAdapter.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/editor/Mail/mailBlockNoteAdapter.ts) | 22 | `blockHasContent`, `parseMailHtml` | — |
 | [`frontend/src/features/mail/hooks/useMailTags.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/hooks/useMailTags.ts) | 241 | `MailTagsProvider`, `useMailTags` | — |
