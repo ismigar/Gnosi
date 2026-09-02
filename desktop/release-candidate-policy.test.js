@@ -181,6 +181,13 @@ test('candidate and reused CI have read-only authority and no release publisher'
   assertReadOnly(ci);
 });
 
+test('shared CI uses only the owner self-hosted Linux ARM64 runner', () => {
+  for (const [name, job] of Object.entries(ci.jobs)) {
+    assert.deepEqual(job['runs-on'], ['self-hosted', 'Linux', 'ARM64'],
+      `${name} must not consume a hosted runner`);
+  }
+});
+
 test('candidate upload retains exactly the validated review payload with a unique rerun identity', () => {
   assertCandidateUpload(candidate);
 });
