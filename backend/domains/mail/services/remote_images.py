@@ -449,6 +449,20 @@ async def _fetch_validated_target(
     raise RemoteMailImageError("unreachable", 502)
 
 
+def _conditional_revalidation_headers(
+    target: ValidatedRemoteImageUrl,
+    stale_entry: _CachedRemoteMailImage | None,
+) -> dict[str, str]:
+    if stale_entry is None or target.url != stale_entry.validator_url:
+        return {}
+    headers: dict[str, str] = {}
+    if stale_entry.image.etag:
+        headers["If-None-Match"] = stale_entry.image.etag
+    if stale_entry.image.last_modified:
+        headers["If-Modified-Since"] = stale_entry.image.last_modified
+    return headers
+
+
 async def fetch_remote_mail_image(
     raw_url: str,
     *,
@@ -464,18 +478,10 @@ async def fetch_remote_mail_image(
         async with asyncio.timeout(TOTAL_TIMEOUT_SECONDS):
             for redirect_count in range(MAX_REDIRECTS + 1):
                 target = await _validate_remote_image_url(current)
-                conditional_headers: dict[str, str] = {}
-                if stale_entry is not None and target.url == stale_entry.validator_url:
-                    if stale_entry.image.etag:
-                        conditional_headers["If-None-Match"] = stale_entry.image.etag
-                    if stale_entry.image.last_modified:
-                        conditional_headers["If-Modified-Since"] = (
-                            stale_entry.image.last_modified
-                        )
                 result = await _fetch_validated_target(
                     target,
                     transport,
-                    conditional_headers,
+                    _conditional_revalidation_headers(target, stale_entry),
                 )
                 if isinstance(result, RemoteMailImage):
                     _store_cached_image(raw_url, result, target.url)
