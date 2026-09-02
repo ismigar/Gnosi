@@ -26,9 +26,11 @@ COPY pyproject.toml uv.lock .python-version ./
 COPY extensions/mcp/drupal-proxy/pyproject.toml extensions/mcp/drupal-proxy/pyproject.toml
 
 # Export from the single frozen lock. Docker deployments preinstall the matching
-# CPU-only Torch wheel so the runtime does not pull CUDA libraries.
+# CPU-only Torch wheel. Pruning Torch from the export also prunes its lock-owned
+# CUDA dependencies; the later install must never resolve GPU packages itself.
 ARG TORCH_VERSION=2.13.0
 RUN uv export --frozen --no-default-groups --no-hashes --no-emit-workspace \
+        --prune torch \
         --output-file /tmp/gnosi-runtime.txt \
     && uv pip install --system --no-cache \
         --default-index https://download.pytorch.org/whl/cpu \

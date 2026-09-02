@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
@@ -177,6 +178,32 @@ test('the Docker backend installs CPU-only Torch before runtime requirements', (
   assert.notEqual(runtimeInstall, -1);
   assert.ok(cpuTorchInstall < runtimeInstall);
   assert.match(dockerfile, /torch==\$\{TORCH_VERSION\}\+cpu/);
+  assert.match(dockerfile, /uv export[^\n]*--frozen[\s\S]*?--prune torch/);
+});
+
+test('the Docker runtime export prunes Torch and every lock-owned GPU dependency', () => {
+  const result = spawnSync(
+    'uv',
+    [
+      'export',
+      '--frozen',
+      '--no-default-groups',
+      '--no-hashes',
+      '--no-emit-workspace',
+      '--prune',
+      'torch',
+    ],
+    {
+      cwd: gnosiRoot,
+      encoding: 'utf8',
+      env: { ...process.env, UV_NO_PROGRESS: '1' },
+      timeout: 30_000,
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^sentence-transformers==/m);
+  assert.doesNotMatch(result.stdout, /^(?:torch|triton|nvidia-|cuda-)==/m);
 });
 
 test('macOS Intel uses the final cryptography universal2 wheel release', () => {
