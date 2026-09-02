@@ -1,15 +1,18 @@
 import asyncio
-import copy
-import html
 import json
 import logging
-import re
 from datetime import datetime
 from typing import Any, Callable, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from backend.domains.vault.registry.state import RegistryData
+from backend.domains.social.configuration import (
+    configured_networks as _configured_networks,
+    configured_streams as _configured_streams,
+    network_settings as _network_settings,
+    strip_html,
+)
 from backend.domains.social.schemas import (
     CancelScheduledPostResponse,
     ComposeRequest,
@@ -44,53 +47,10 @@ from backend.utils.errors import safe_error_detail
 
 log = logging.getLogger(__name__)
 
-DEFAULT_STREAMS = [
-    {"id": "mastodon-home", "title": "Mastodon Home", "icon": "🐘", "network": "mastodon"},
-    {"id": "bluesky-home", "title": "Bluesky Home", "icon": "🦋", "network": "bluesky"},
-    {"id": "scheduled", "title": "Programats", "icon": "📅", "network": "scheduled"},
-]
-
-DEFAULT_NETWORKS = [
-    {"id": "mastodon", "name": "Mastodon", "icon": "🐘", "enabled": True},
-    {"id": "bluesky", "name": "Bluesky", "icon": "🦋", "enabled": True},
-    {"id": "linkedin", "name": "LinkedIn", "icon": "💼", "enabled": True},
-    {"id": "facebook", "name": "Facebook", "icon": "📘", "enabled": False},
-    {"id": "telegram", "name": "Telegram", "icon": "✈️", "enabled": False},
-]
-
 router = APIRouter()
 
 
-# --- Helper Functions ---
-def strip_html(text: str) -> str:
-    """Remove HTML tags and decode entities."""
-    text = re.sub(r"<br\s*/?>", "\n", text)
-    text = re.sub(r"<p>", "", text)
-    text = re.sub(r"</p>", "\n\n", text)
-    text = re.sub(r"<[^>]+>", "", text)
-    text = html.unescape(text)
-    return text.strip()
-
-
-def _network_settings(network: str) -> dict[str, Any]:
-    """Config per-xarxa (to, hashtags, etc.) desada a integrations.json."""
-    config = integration_manager._load()
-    for n in config.get("social_networks", DEFAULT_NETWORKS):
-        if n.get("id") == network:
-            return cast(dict[str, Any], n)
-    return {}
-
-
 # --- Endpoints ---
-
-
-def _configured_streams() -> list[Stream]:
-    """Load and validate stream settings as one blocking operation."""
-    config = integration_manager._load()
-    return [
-        Stream.model_validate(stream)
-        for stream in config.get("social_streams", DEFAULT_STREAMS)
-    ]
 
 
 @router.get("/streams", response_model=list[Stream])
@@ -106,42 +66,14 @@ async def get_streams() -> list[Stream]:
 )
 async def update_streams(payload: list[Stream]) -> SocialSettingsUpdateResponse:
     """Saves the user's stream configuration."""
-    integration_manager.replace_key(
-        "social_streams", [stream.model_dump() for stream in payload]
-    )
+    integration_manager.replace_key("social_streams", [stream.model_dump() for stream in payload])
     return SocialSettingsUpdateResponse(status="ok")
-
-
-def _configured_networks() -> list[SocialNetwork]:
-    """Load and enrich network settings as one blocking operation."""
-    config = integration_manager._load()
-    # deepcopy: `_load()` caches and returns the shared object (and DEFAULT_NETWORKS is
-    # a module-level constant). Enriching in place would mutate state shared across requests.
-    networks = copy.deepcopy(config.get("social_networks", DEFAULT_NETWORKS))
-    # Enrich with the client's actual state (configured or not) and the char limit.
-    for n in networks:
-        client = SOCIAL_PUBLISHERS.get(n.get("id"))
-        if client is not None:
-            try:
-                n["configured"] = bool(client.is_configured())
-            except Exception:
-                n["configured"] = False
-            n["char_limit"] = getattr(client, "char_limit", 280)
-            n["implemented"] = not isinstance(client, social_store_unconfigured_types())
-    return [SocialNetwork.model_validate(network) for network in networks]
 
 
 @router.get("/networks", response_model=list[SocialNetwork])
 async def get_networks() -> list[SocialNetwork]:
     """Returns the user-configured social networks, with live config status."""
     return await asyncio.to_thread(_configured_networks)
-
-
-def social_store_unconfigured_types() -> tuple[type[Any], ...]:
-    """Stub client type (networks not yet implemented)."""
-    from backend.services.social_clients import UnconfiguredPublisher
-
-    return (UnconfiguredPublisher,)
 
 
 @router.put(
@@ -171,47 +103,51 @@ async def get_feed(stream_id: str, limit: int = 20) -> list[SocialPost]:
         for post in posts:
             post["content"] = strip_html(post.get("content", ""))
         if not posts and not mastodon_client.bearer:
-            return _social_posts([
-                {
-                    "id": "mastodon-setup",
-                    "network": "mastodon",
-                    "author": "🚀 Mastodon Setup",
-                    "handle": "@guide",
-                    "content": "You haven't configured the Mastodon token yet.\n\n1. Go to Development\n2. Create an App with 'read' and 'write' permissions\n3. Save the token in Gnosi's secure settings",
-                    "timestamp": datetime.now().isoformat(),
-                    "avatar": None,
-                    "favourited": False,
-                    "reblogged": False,
-                    "favourites_count": 0,
-                    "reblogs_count": 0,
-                    "replies_count": 0,
-                    "is_reblog": False,
-                    "url": "https://mastodon.social/settings/applications",
-                }
-            ])
+            return _social_posts(
+                [
+                    {
+                        "id": "mastodon-setup",
+                        "network": "mastodon",
+                        "author": "🚀 Mastodon Setup",
+                        "handle": "@guide",
+                        "content": "You haven't configured the Mastodon token yet.\n\n1. Go to Development\n2. Create an App with 'read' and 'write' permissions\n3. Save the token in Gnosi's secure settings",
+                        "timestamp": datetime.now().isoformat(),
+                        "avatar": None,
+                        "favourited": False,
+                        "reblogged": False,
+                        "favourites_count": 0,
+                        "reblogs_count": 0,
+                        "replies_count": 0,
+                        "is_reblog": False,
+                        "url": "https://mastodon.social/settings/applications",
+                    }
+                ]
+            )
         return _social_posts(posts)
 
     elif stream_id == "bluesky-home":
         posts = await bluesky_client.get_timeline(limit=limit)
         if not posts and not bluesky_client.app_password:
-            return _social_posts([
-                {
-                    "id": "bluesky-setup",
-                    "network": "bluesky",
-                    "author": "🚀 Bluesky Setup",
-                    "handle": "@guide",
-                    "content": "You haven't configured the Bluesky App Password yet.\n\n1. Go to Settings -> App Passwords\n2. Create a new one\n3. Save it in Gnosi's secure settings",
-                    "timestamp": datetime.now().isoformat(),
-                    "avatar": None,
-                    "favourited": False,
-                    "reblogged": False,
-                    "favourites_count": 0,
-                    "reblogs_count": 0,
-                    "replies_count": 0,
-                    "is_reblog": False,
-                    "url": "https://bsky.app/settings/app-passwords",
-                }
-            ])
+            return _social_posts(
+                [
+                    {
+                        "id": "bluesky-setup",
+                        "network": "bluesky",
+                        "author": "🚀 Bluesky Setup",
+                        "handle": "@guide",
+                        "content": "You haven't configured the Bluesky App Password yet.\n\n1. Go to Settings -> App Passwords\n2. Create a new one\n3. Save it in Gnosi's secure settings",
+                        "timestamp": datetime.now().isoformat(),
+                        "avatar": None,
+                        "favourited": False,
+                        "reblogged": False,
+                        "favourites_count": 0,
+                        "reblogs_count": 0,
+                        "replies_count": 0,
+                        "is_reblog": False,
+                        "url": "https://bsky.app/settings/app-passwords",
+                    }
+                ]
+            )
         return _social_posts(posts)
 
     elif stream_id == "scheduled":
@@ -253,24 +189,26 @@ async def get_feed(stream_id: str, limit: int = 20) -> list[SocialPost]:
         ]
         if not my_posts:
             network_name = network.capitalize()
-            return _social_posts([
-                {
-                    "id": f"system-{stream_id}-empty",
-                    "network": network,
-                    "author": "System",
-                    "handle": "@system",
-                    "content": f"There are no recent posts on {network_name} from this application.\n\nUse the 'New Post' button to send your first message!",
-                    "timestamp": datetime.now().isoformat(),
-                    "avatar": None,
-                    "favourited": False,
-                    "reblogged": False,
-                    "favourites_count": 0,
-                    "reblogs_count": 0,
-                    "replies_count": 0,
-                    "is_reblog": False,
-                    "url": None,
-                }
-            ])
+            return _social_posts(
+                [
+                    {
+                        "id": f"system-{stream_id}-empty",
+                        "network": network,
+                        "author": "System",
+                        "handle": "@system",
+                        "content": f"There are no recent posts on {network_name} from this application.\n\nUse the 'New Post' button to send your first message!",
+                        "timestamp": datetime.now().isoformat(),
+                        "avatar": None,
+                        "favourited": False,
+                        "reblogged": False,
+                        "favourites_count": 0,
+                        "reblogs_count": 0,
+                        "replies_count": 0,
+                        "is_reblog": False,
+                        "url": None,
+                    }
+                ]
+            )
         feed_items = []
         for r in my_posts:
             feed_items.append(
@@ -381,9 +319,7 @@ async def interact_with_post(request: InteractionRequest) -> InteractionResponse
             status_code=502, detail=f"Failed to {request.action} post on {request.network}"
         )
 
-    return InteractionResponse(
-        status="success", action=request.action, post_id=request.post_id
-    )
+    return InteractionResponse(status="success", action=request.action, post_id=request.post_id)
 
 
 @router.post(

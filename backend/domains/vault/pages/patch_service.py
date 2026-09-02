@@ -12,6 +12,7 @@ from pathlib import Path
 from fastapi import BackgroundTasks, HTTPException
 
 from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.pages.patch_helpers import apply_patch_request
 from backend.domains.vault.pages.patch_helpers import PatchReadResult as PatchReadResult
 from backend.domains.vault.schemas.pages import PagePatchRequest
 
@@ -110,18 +111,8 @@ async def patch_page(
         try:
             original_metadata = dict(metadata)
             previous_title = str(metadata.get("title") or "").strip()
-            if request.title is not None:
-                metadata["title"] = request.title
-            if request.parent_id is not None:
-                metadata["parent_id"] = request.parent_id
-            if request.is_database is not None:
-                metadata["is_database"] = request.is_database
-            if request.metadata is not None:
-                metadata.update(request.metadata)
-            if request.remove_metadata_keys:
-                for key in request.remove_metadata_keys:
-                    metadata.pop(key, None)
-            content = request.content if request.content is not None else body
+            requested_content = apply_patch_request(metadata, request)
+            content = requested_content if requested_content is not None else body
 
             metadata, _table = dependencies.prepare_metadata(metadata, file_path)
             metadata["id"] = page_id
