@@ -6,7 +6,7 @@ Validate the contract of the multi-provider abstraction layer (see
 - `LocalProvider`, `OneDriveProvider`, `iCloudDriveProvider` honor
   the `FilesProvider` interface.
 - The `get_files_provider()` factory resolves the correct implementation
-  based on env vars (explicit `GNOSI_FILES_PROVIDER` + `VAULT_HOST_PATH`
+  based on env vars (explicit `GNOSI_FILES_PROVIDER` + Docker/native Vault path
   heuristic).
 - The singleton is built only once (lazy + thread-safe).
 - Provider-specific environment values and recovery behavior do not leak
@@ -58,9 +58,11 @@ def test_legacy_provider_imports_are_compatibility_aliases():
 ENV_KEYS = (
     "GNOSI_FILES_PROVIDER",
     "VAULT_HOST_PATH",
+    "DIGITAL_BRAIN_VAULT_PATH",
     "ONEDRIVE_WARMUP_URL",
     "ONEDRIVE_WARMUP_TIMEOUT",
     "ONEDRIVE_WARMUP_MODE",
+    "ONEDRIVE_WARMUP_OPEN_APP",
     "ONEDRIVE_AUTO_RESTART",
     "ICLOUD_WARMUP_URL",
     "ICLOUD_WARMUP_TIMEOUT",
@@ -113,6 +115,23 @@ def test_onedrive_path_detected(monkeypatch):
     assert isinstance(p, OneDriveProvider)
     # And not the subclass — important for logs and metrics.
     assert not isinstance(p, iCloudDriveProvider)
+
+
+def test_native_onedrive_path_detected_without_docker_alias(monkeypatch):
+    monkeypatch.setenv(
+        "DIGITAL_BRAIN_VAULT_PATH",
+        "/Users/foo/Library/CloudStorage/OneDrive-UNED/Gnosi",
+    )
+    assert get_files_provider().name == "onedrive"
+
+
+def test_docker_vault_path_precedes_native_path(monkeypatch):
+    monkeypatch.setenv("VAULT_HOST_PATH", "/srv/Nextcloud/Gnosi")
+    monkeypatch.setenv(
+        "DIGITAL_BRAIN_VAULT_PATH",
+        "/Users/foo/Library/CloudStorage/OneDrive-UNED/Gnosi",
+    )
+    assert get_files_provider().name == "nextcloud"
 
 
 def test_icloud_mobile_documents_path_detected(monkeypatch):
@@ -293,6 +312,19 @@ def test_onedrive_default_warmup_native_macos(monkeypatch):
     p = OneDriveProvider()
     assert p.warmup_mode == "open"
     assert p.warmup_url == "http://127.0.0.1:5009/warmup"
+
+
+def test_native_open_uses_text_reader_for_configuration():
+    provider = OneDriveProvider()
+    assert provider._open_app_for(Path("params.yaml")) == "TextEdit"  # noqa: SLF001
+    assert provider._open_app_for(Path("registry.json")) == "TextEdit"  # noqa: SLF001
+    assert provider._open_app_for(Path("document.pdf")) == "Preview"  # noqa: SLF001
+
+
+def test_native_open_app_override_wins(monkeypatch):
+    monkeypatch.setenv("ONEDRIVE_WARMUP_OPEN_APP", "Custom Reader")
+    provider = OneDriveProvider()
+    assert provider._open_app_for(Path("params.yaml")) == "Custom Reader"  # noqa: SLF001
 
 
 def test_onedrive_env_vars_override(monkeypatch):

@@ -60,7 +60,8 @@ def _detect_provider_name() -> str:
 
     Priority:
     1. `GNOSI_FILES_PROVIDER` (explicit: one of `_KNOWN_PROVIDERS`).
-    2. Heuristic based on `VAULT_HOST_PATH`:
+    2. Heuristic based on Docker's `VAULT_HOST_PATH`, falling back to the
+       native runtime's `DIGITAL_BRAIN_VAULT_PATH`:
        - contains "OneDrive"                    → "onedrive"
        - contains "GoogleDrive" or "Google Drive" → "gdrive"
        - contains "Mobile Documents"
@@ -84,7 +85,10 @@ def _detect_provider_name() -> str:
             explicit,
         )
 
-    vault_host = os.environ.get("VAULT_HOST_PATH", "")
+    vault_host = (
+        os.environ.get("VAULT_HOST_PATH", "").strip()
+        or os.environ.get("DIGITAL_BRAIN_VAULT_PATH", "").strip()
+    )
     vault_host_lower = vault_host.lower()
     if "OneDrive" in vault_host:
         return "onedrive"

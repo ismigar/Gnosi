@@ -9,8 +9,11 @@ them open, plus every endpoint added later.
 These tests exercise a sample of exactly those routes, so a regression that
 removes the app-wide dependency fails here rather than silently reopening them.
 """
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
+from starlette.requests import HTTPConnection
 
 from backend.services.auth_service import REQUIRE_AUTH_ENV
 
@@ -25,7 +28,8 @@ PREVIOUSLY_OPEN = [
 
 
 @pytest.fixture
-def client():
+def client(isolated_validation_runtime):
+    """Exercise the gate without opening the developer's real data directory."""
     from backend.server import app
 
     return TestClient(app, raise_server_exceptions=False)
@@ -42,6 +46,28 @@ def test_the_app_wide_dependency_is_installed():
         getattr(d.dependency, "__name__", "") for d in (app.router.dependencies or [])
     }
     assert enforce_authentication.__name__ in installed, installed
+
+
+def test_public_health_bypasses_policy_storage(monkeypatch):
+    from backend.services import auth_public_surface
+
+    monkeypatch.setattr(
+        auth_public_surface,
+        "require_auth_enabled",
+        lambda: (_ for _ in ()).throw(AssertionError("policy storage read")),
+    )
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/api/health",
+        "headers": [],
+        "query_string": b"",
+        "scheme": "http",
+        "server": ("localhost", 5002),
+        "client": ("127.0.0.1", 1),
+    }
+
+    asyncio.run(auth_public_surface.enforce_authentication(HTTPConnection(scope)))
 
 
 @pytest.mark.parametrize("method,path", PREVIOUSLY_OPEN)

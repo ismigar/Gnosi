@@ -21,6 +21,17 @@ from .base import FilesProvider
 
 log = logging.getLogger(__name__)
 
+_TEXT_OPEN_SUFFIXES = frozenset(
+    {
+        ".csv",
+        ".json",
+        ".md",
+        ".txt",
+        ".yaml",
+        ".yml",
+    }
+)
+
 
 def _is_docker() -> bool:
     """True when running inside a container. Same heuristic as
@@ -97,7 +108,7 @@ class OnDemandFilesProvider(FilesProvider):
         # Preview reads images/PDF; any app that reads the file works.
         self._warmup_open_app = os.environ.get(
             f"{self.env_prefix}_WARMUP_OPEN_APP",
-            "Preview",
+            "",
         ).strip()
         self.warmup_timeout_s = (
             warmup_timeout_s
@@ -205,6 +216,14 @@ class OnDemandFilesProvider(FilesProvider):
             return False
         return not self.is_online_only(container_path, stat_result)
 
+    def _open_app_for(self, container_path: Path) -> str:
+        """Choose a GUI reader that can actually consume the file type."""
+        if self._warmup_open_app:
+            return self._warmup_open_app
+        if container_path.suffix.lower() in _TEXT_OPEN_SUFFIXES:
+            return "TextEdit"
+        return "Preview"
+
     async def _open_and_wait(self, container_path: Path, timeout_s: Optional[float] = None) -> bool:
         """Triggers `open -g -j -a <app>` and polls `st_blocks` until the file
         is materialized or `timeout_s` (default `warmup_timeout_s`) runs out.
@@ -213,7 +232,7 @@ class OnDemandFilesProvider(FilesProvider):
         limit = timeout_s if timeout_s is not None else self.warmup_timeout_s
         if self._is_materialized(container_path):
             return True
-        app = self._warmup_open_app
+        app = self._open_app_for(container_path)
         try:
             proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/open",
@@ -250,7 +269,7 @@ class OnDemandFilesProvider(FilesProvider):
                     container_path.name,
                     waited,
                 )
-                await self._close_helper_doc(container_path)
+                await self._close_helper_doc(container_path, app)
                 return True
         log.warning(
             "☁️ Materialització via open/%s no completada en %.0fs: %s",
@@ -258,14 +277,13 @@ class OnDemandFilesProvider(FilesProvider):
             limit,
             container_path,
         )
-        await self._close_helper_doc(container_path)
+        await self._close_helper_doc(container_path, app)
         return False
 
-    async def _close_helper_doc(self, container_path: Path) -> None:
+    async def _close_helper_doc(self, container_path: Path, app: str) -> None:
         """Closes ONLY the document we opened ourselves in the helper app
         (by path), releasing the handle without touching the user's windows.
         Best-effort: any error is ignored."""
-        app = self._warmup_open_app
         posix = json.dumps(str(container_path))  # literal AppleScript segur
         script = (
             f'tell application "{app}" to if it is running then '

@@ -102,10 +102,7 @@ def _load() -> tuple[Any, Any]:
             cache = _cache_dir()
             log.info("handwriting: loading TrOCR '%s' on CPU (downloads on first use)", mid)
             _PROCESSOR = TrOCRProcessor.from_pretrained(mid, cache_dir=cache)
-            # Transformers exposes this vendor classmethod without typing.
-            _MODEL = VisionEncoderDecoderModel.from_pretrained(  # type: ignore[no-untyped-call]
-                mid, cache_dir=cache
-            )
+            _MODEL = VisionEncoderDecoderModel.from_pretrained(mid, cache_dir=cache)
             _MODEL.eval()
             log.info("handwriting: model loaded")
     return _PROCESSOR, _MODEL

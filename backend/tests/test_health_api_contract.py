@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
+from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
 from backend.app.health_contracts import HealthResponse
@@ -53,3 +54,28 @@ def test_health_model_preserves_the_liveness_payload() -> None:
     }
 
     assert HealthResponse.model_validate(payload).model_dump() == payload
+
+
+def test_health_request_uses_only_the_in_memory_snapshot(monkeypatch) -> None:
+    app = create_app(_lifespan)
+    expected = {
+        "status": "ok",
+        "mode": "FastAPI",
+        "gnosi_mode": "personal",
+        "require_auth": False,
+        "vault_configured": True,
+    }
+    app.state.health_snapshot = expected
+
+    import backend.app.factory as factory
+
+    monkeypatch.setattr(
+        factory,
+        "load_params",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("storage read")),
+    )
+    with TestClient(app) as client:
+        response = client.get("/api/health")
+
+    assert response.status_code == 200
+    assert response.json() == expected

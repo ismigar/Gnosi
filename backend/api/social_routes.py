@@ -84,14 +84,19 @@ def _network_settings(network: str) -> dict[str, Any]:
 # --- Endpoints ---
 
 
-@router.get("/streams", response_model=list[Stream])
-async def get_streams() -> list[Stream]:
-    """Returns the user-configured streams/columns."""
+def _configured_streams() -> list[Stream]:
+    """Load and validate stream settings as one blocking operation."""
     config = integration_manager._load()
     return [
         Stream.model_validate(stream)
         for stream in config.get("social_streams", DEFAULT_STREAMS)
     ]
+
+
+@router.get("/streams", response_model=list[Stream])
+async def get_streams() -> list[Stream]:
+    """Returns the user-configured streams/columns."""
+    return await asyncio.to_thread(_configured_streams)
 
 
 @router.put(
@@ -107,9 +112,8 @@ async def update_streams(payload: list[Stream]) -> SocialSettingsUpdateResponse:
     return SocialSettingsUpdateResponse(status="ok")
 
 
-@router.get("/networks", response_model=list[SocialNetwork])
-async def get_networks() -> list[SocialNetwork]:
-    """Returns the user-configured social networks, with live config status."""
+def _configured_networks() -> list[SocialNetwork]:
+    """Load and enrich network settings as one blocking operation."""
     config = integration_manager._load()
     # deepcopy: `_load()` caches and returns the shared object (and DEFAULT_NETWORKS is
     # a module-level constant). Enriching in place would mutate state shared across requests.
@@ -125,6 +129,12 @@ async def get_networks() -> list[SocialNetwork]:
             n["char_limit"] = getattr(client, "char_limit", 280)
             n["implemented"] = not isinstance(client, social_store_unconfigured_types())
     return [SocialNetwork.model_validate(network) for network in networks]
+
+
+@router.get("/networks", response_model=list[SocialNetwork])
+async def get_networks() -> list[SocialNetwork]:
+    """Returns the user-configured social networks, with live config status."""
+    return await asyncio.to_thread(_configured_networks)
 
 
 def social_store_unconfigured_types() -> tuple[type[Any], ...]:

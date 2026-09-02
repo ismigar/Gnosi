@@ -435,22 +435,24 @@ async def get_model_registry() -> JsonObject:
     )
     from backend.services.fx_rates import parse_currency_code, rate_info
 
-    cfg = load_params(strict_env=False)
-    ai_cfg = dict(cfg.get("ai", {}) or {})
-    configured_models = ai_cfg.get("models")
-    currency = rate_info(parse_currency_code((cfg.get("settings", {}) or {}).get("currency")))
-    effective_models = await asyncio.to_thread(load_registry)
-    configured_models = await asyncio.to_thread(
-        hydrate_registry_metadata,
-        strip_legacy_registry_rows(configured_models),
-    )
-    return {
-        "models": effective_models,
-        "configured_models": configured_models,
-        "budget": dict(ai_cfg.get("budget") or {}),
-        "default": DEFAULT_REGISTRY,
-        "currency": currency,
-    }
+    def _load() -> JsonObject:
+        cfg = load_params(strict_env=False)
+        ai_cfg = dict(cfg.get("ai", {}) or {})
+        configured_models = ai_cfg.get("models")
+        currency = rate_info(
+            parse_currency_code((cfg.get("settings", {}) or {}).get("currency"))
+        )
+        return {
+            "models": load_registry(),
+            "configured_models": hydrate_registry_metadata(
+                strip_legacy_registry_rows(configured_models)
+            ),
+            "budget": dict(ai_cfg.get("budget") or {}),
+            "default": DEFAULT_REGISTRY,
+            "currency": currency,
+        }
+
+    return await asyncio.to_thread(_load)
 
 
 @router.get(
@@ -523,11 +525,17 @@ async def get_model_comparison() -> JsonObject:
     from backend.services.fx_rates import parse_currency_code, rate_info
 
     try:
-        res = await asyncio.to_thread(fetch_all_models)
-        cfg = load_params(strict_env=False)
-        currency = rate_info(parse_currency_code((cfg.get("settings", {}) or {}).get("currency")))
-        if isinstance(res, dict):
-            res["currency"] = currency
+        def _load() -> JsonObject:
+            res = fetch_all_models()
+            cfg = load_params(strict_env=False)
+            currency = rate_info(
+                parse_currency_code((cfg.get("settings", {}) or {}).get("currency"))
+            )
+            if isinstance(res, dict):
+                res["currency"] = currency
+            return res
+
+        res = await asyncio.to_thread(_load)
         return res
     except ArtificialAnalysisError as exc:
         raise HTTPException(

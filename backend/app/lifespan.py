@@ -286,6 +286,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     migrated_databases = migrate_existing_databases(resolve_data_dir())
     log.info("Database schema verification complete (%s stores).", len(migrated_databases))
     assert_signing_secret_safe()
+    from backend.app.factory import refresh_health_snapshot
+
+    await asyncio.to_thread(refresh_health_snapshot, app)
 
     if _scheduler_start_enabled():
         scheduler_manager.start()

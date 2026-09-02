@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 import logging
 import os
@@ -27,48 +28,42 @@ log = logging.getLogger(__name__)
 # Note: We now fetch the dynamic path from app_config at runtime
 
 
+def _read_config_document() -> dict[str, Any]:
+    """Read and sanitize Settings data in one blocking worker unit."""
+    cfg = load_params(strict_env=False)
+    source_file = inspect.getfile(load_params)
+    log.info("DEBUG: load_params loaded from: %s", source_file)
+
+    safe_params = dict(cfg.params or {})
+    if "paths" not in safe_params:
+        safe_params["paths"] = {}
+
+    vault_ui_path = os.environ.get("VAULT_HOST_PATH") or (
+        str(cfg.paths.get("VAULT")) if cfg.paths.get("VAULT") else ""
+    )
+    if vault_ui_path:
+        safe_params["paths"]["vault"] = vault_ui_path
+
+    settings = safe_params.get("settings", {})
+    if "password" in settings or "gnosi_mode" in settings:
+        from backend.security.keychain_manager import get_keychain
+
+        has_pwd = bool(settings.get("password")) or get_keychain().has_credential(
+            "system_password"
+        )
+        settings["has_password"] = has_pwd
+        settings.pop("password", None)
+        safe_params["settings"] = settings
+
+    safe_params["ai"] = sanitize_ai_config(dict(safe_params.get("ai") or {}))
+    log.info("DEBUG: Config loaded and AI secrets sanitized for API response")
+    return safe_params
+
+
 @router.get("/config", response_model=ConfigurationDocument)
 async def get_config() -> Any:
     try:
-        # Reload params to get the latest version from disk
-        cfg = load_params(strict_env=False)
-        # Absolute origin trace of the function for debugging
-        source_file = inspect.getfile(load_params)
-        log.info(f"DEBUG: load_params loaded from: {source_file}")
-
-        safe_params = dict(cfg.params or {})
-
-        # 1. Resolve and inject paths for UI display
-        # We ensure that the frontend sees the actual path being used by the backend.
-        if "paths" not in safe_params:
-            safe_params["paths"] = {}
-
-        # If vault is not in params but we have it resolved, inject it.
-        # This fixes the issue where the vault path appears empty in settings.
-        # We prioritize VAULT_HOST_PATH (if set via Docker) so the user sees the real path on their machine.
-        vault_ui_path = os.environ.get("VAULT_HOST_PATH") or (
-            str(cfg.paths.get("VAULT")) if cfg.paths.get("VAULT") else ""
-        )
-        if vault_ui_path:
-            safe_params["paths"]["vault"] = vault_ui_path
-
-        # 2. Sanitize system password
-        settings = safe_params.get("settings", {})
-        if "password" in settings or "gnosi_mode" in settings:
-            from backend.security.keychain_manager import get_keychain
-
-            # We don't want to send the actual password to the frontend
-            # but we want to let it know if one is set.
-            has_pwd = bool(settings.get("password")) or get_keychain().has_credential(
-                "system_password"
-            )
-            settings["has_password"] = has_pwd
-            settings.pop("password", None)
-            safe_params["settings"] = settings
-
-        safe_params["ai"] = sanitize_ai_config(dict(safe_params.get("ai") or {}))
-        log.info("DEBUG: Config loaded and AI secrets sanitized for API response")
-        return safe_params
+        return await asyncio.to_thread(_read_config_document)
     except Exception as e:
         log.error(f"Error reading config: {e}")
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="GET /config"))

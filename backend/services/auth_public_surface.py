@@ -34,6 +34,7 @@ become reachable — check what the route itself requires.
 """
 from __future__ import annotations
 
+import asyncio
 import re
 
 from typing import NamedTuple
@@ -82,9 +83,6 @@ async def enforce_authentication(conn: HTTPConnection) -> None:
     that require no authentication at all. `require_auth_enabled()` is called
     without a session here for the same reason; it reads a short-lived cache.
     """
-    if not require_auth_enabled():
-        return
-
     # WebSockets are handled by the route itself: refusing one means closing the
     # socket with a code, which an HTTPException cannot express — see
     # `collab_routes.collab_ws`. This is also why the parameter is an
@@ -102,7 +100,10 @@ async def enforce_authentication(conn: HTTPConnection) -> None:
     if is_public_endpoint(conn.scope.get("method", ""), conn.url.path):
         return
 
-    if resolve_identity(conn):
+    if not await asyncio.to_thread(require_auth_enabled):
+        return
+
+    if await asyncio.to_thread(resolve_identity, conn):
         return
     raise HTTPException(status_code=401, detail="Authentication required")
 

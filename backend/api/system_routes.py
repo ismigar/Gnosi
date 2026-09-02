@@ -268,21 +268,8 @@ async def get_graph_viz() -> Any:
     return {"nodes": [], "edges": []}
 
 
-@router.post(
-    "/browse",
-    response_model=FilesystemBrowseResponse,
-    response_model_exclude_unset=True,
-    dependencies=[Depends(require_role("admin"))],
-)
-async def browse_directory(body: BrowseRequest = Body(...)) -> Any:
-    """Browse directory contents for the folder/file picker.
-
-    Security: admin-only. The picker is meant to let the operator pick ANY
-    file or folder on the host (see the whole-computer search box and the
-    Root shortcut in the UI), so navigation is anchored on three roots — the
-    ACTIVE vault, the current user's home, and "/" — with the admin gate as
-    the trust boundary. Non-existent / non-directory targets are still rejected.
-    """
+def _browse_directory(body: BrowseRequest) -> Any:
+    """Resolve and scan one picker location outside the event-loop thread."""
     vault_internal, home_internal, roots, allowed_roots = _browser_roots()
     target, error = _browse_target(
         body.path,
@@ -300,6 +287,17 @@ async def browse_directory(body: BrowseRequest = Body(...)) -> Any:
         _browse_display_path(target, vault_internal),
         roots,
     )
+
+
+@router.post(
+    "/browse",
+    response_model=FilesystemBrowseResponse,
+    response_model_exclude_unset=True,
+    dependencies=[Depends(require_role("admin"))],
+)
+async def browse_directory(body: BrowseRequest = Body(...)) -> Any:
+    """Browse an admin-selected host directory without blocking the API loop."""
+    return await asyncio.to_thread(_browse_directory, body)
 
 
 # ── Native OS open dialog (progressive enhancement over the in-app picker) ──

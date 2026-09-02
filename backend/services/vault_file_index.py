@@ -30,8 +30,9 @@ ONLY after a substantial walk (never after a partial one).
 Design (mirroring the `vault_routes` page/link index)
 ----------------------------------------------------
 * Build in a **thread** (not asyncio): I/O-bound over a cloud mount.
-* **Load from disk first** (milliseconds) + background rebuild → search
-  is available instantly after a restart and coverage accumulates.
+* **Load from disk first** (milliseconds) + deferred background rebuild →
+  search is available instantly after a restart and coverage accumulates
+  without competing with the first UI hydration burst.
 * Atomic swap under a lock → queries never see a half-built index.
 * Cache in the local volume `/app/data/cache/` (NEVER in OneDrive).
 """
@@ -333,6 +334,11 @@ def status() -> Dict[str, Any]:
         }
 
 
+def _initial_rebuild_delay(cache_loaded: bool) -> int:
+    """Delay the first cloud walk when a queryable cache already exists."""
+    return max(0, _REFRESH_SECONDS) if cache_loaded else 0
+
+
 def kickoff_file_index_rebuild() -> None:
     """Starts the index: disk load (fast) + background thread that
     builds it and refreshes it every `_REFRESH_SECONDS`. Idempotent."""
@@ -342,9 +348,16 @@ def kickoff_file_index_rebuild() -> None:
             return
         _thread_started = True
 
-    _load_from_disk()
+    cache_loaded = _load_from_disk()
 
     def _loop() -> None:
+        initial_delay = _initial_rebuild_delay(cache_loaded)
+        if initial_delay:
+            log.info(
+                "⏳ vault file-index: cache ready; refresh deferred for %ss",
+                initial_delay,
+            )
+            time.sleep(initial_delay)
         try:
             build_index()
         except Exception:
@@ -357,4 +370,4 @@ def kickoff_file_index_rebuild() -> None:
                 log.exception("vault file-index: refresc periòdic ha fallat")
 
     threading.Thread(target=_loop, name="vault-file-index", daemon=True).start()
-    log.info("🔥 vault file-index: rebuild arrencat en segon pla")
+    log.info("🔥 vault file-index: background refresh loop started")

@@ -33,6 +33,39 @@ import {
 } from '../../../shared/platform/browser-storage';
 import { AuthContext, type AuthContextValue } from '../../../shared/auth/auth-context';
 
+export const AUTH_BOOTSTRAP_TIMEOUT_MS = 10_000;
+
+interface TimedRequest<T> {
+    readonly cancel: () => void;
+    readonly promise: Promise<T>;
+}
+
+function startTimedRequest<T>(
+    request: (signal: AbortSignal) => Promise<T>,
+): TimedRequest<T> {
+    const controller = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(() => {
+            controller.abort();
+            reject(new DOMException('Bootstrap request timed out', 'TimeoutError'));
+        }, AUTH_BOOTSTRAP_TIMEOUT_MS);
+    });
+    const promise = Promise.race([
+        request(controller.signal),
+        timeout,
+    ]).finally(() => {
+        if (timeoutId !== null) clearTimeout(timeoutId);
+    });
+    return {
+        cancel: () => {
+            controller.abort();
+            if (timeoutId !== null) clearTimeout(timeoutId);
+        },
+        promise,
+    };
+}
+
 function persistUser(user: AuthUser): void {
     writeStorage(USER_ID_STORAGE_KEY, user.id);
     writeStorage(USER_EMAIL_STORAGE_KEY, user.email);
@@ -83,24 +116,45 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     useEffect(() => {
         let alive = true;
+        const healthRequest = startTimedRequest(fetchSystemHealth);
+        const authRequest = startTimedRequest(fetchCurrentAuthUser);
         const initialize = async (): Promise<void> => {
-            const healthRequest = fetchSystemHealth()
+            const healthResult = healthRequest.promise
                 .then((health) => {
                     if (!alive) return;
                     setGnosiMode(health.gnosi_mode || 'personal');
                     setRequireAuth(health.require_auth);
                 })
                 .catch(() => {
-                    if (alive) setGnosiMode('personal');
+                    if (!alive) return;
+                    setGnosiMode('personal');
+                    setRequireAuth(false);
                 });
-            await Promise.all([healthRequest, refresh()]);
+            const authResult = authRequest.promise
+                .then((currentUser) => {
+                    if (!alive) return;
+                    setUser(currentUser);
+                    persistUser(currentUser);
+                })
+                .catch((error: unknown) => {
+                    if (!alive) return;
+                    if (!(error instanceof GnosiApiError) || error.status !== 401) {
+                        if (!(error instanceof DOMException)) {
+                            logError('auth-current-user', error);
+                        }
+                    }
+                    setUser(null);
+                });
+            await Promise.all([healthResult, authResult]);
             if (alive) setLoading(false);
         };
         void initialize();
         return () => {
             alive = false;
+            healthRequest.cancel();
+            authRequest.cancel();
         };
-    }, [refresh]);
+    }, []);
 
     const login = useCallback(async (
         email: string,
