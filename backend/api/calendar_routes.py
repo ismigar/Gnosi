@@ -30,7 +30,10 @@ from backend.data.management_db import get_mgmt_session
 from backend.domains.calendar.geocoding import photon_label as _photon_label
 from backend.domains.calendar.geocoding import search_photon
 from backend.domains.calendar import schemas as calendar_schemas
-from backend.services.calendar_event_aggregation import fetch_calendar_accounts
+from backend.services.calendar_event_aggregation import (
+    fetch_calendar_accounts,
+    fetch_calendar_lists,
+)
 
 router = APIRouter(
     prefix="/api/calendar", tags=["Calendar"], dependencies=[Depends(get_workspace_context)]
@@ -125,7 +128,6 @@ async def get_calendars(
     request reconnection instead of silently showing an empty list.
 
     """
-    from backend.services.hybrid_calendar_service import list_calendars, GoogleAuthExpired
     from backend.services.integration_manager import integration_manager
 
     integrations = integration_manager.get_all_safe()
@@ -142,26 +144,37 @@ async def get_calendars(
             }
         )
 
-    results = []
-    auth_errors = []
+    calendars_by_account: dict[str, list[dict[str, Any]]] = {}
+    pending_accounts: list[str] = []
+    auth_errors: list[str] = []
     for em in email_list:
         cached = _CALS_CACHE.get(em)
         if cached and time.time() < cached["expiry"]:
-            results.extend(cached["data"])
+            calendars_by_account[em] = cached["data"]
             continue
-        try:
-            cals = list_calendars(em)
-        except GoogleAuthExpired:
-            # Expired token: we don't cache it (so a retry after reconnection works)
-            # and we mark the account as affected.
-            auth_errors.append(em)
+        pending_accounts.append(em)
+
+    account_results = await asyncio.to_thread(fetch_calendar_lists, pending_accounts)
+    for account_result in account_results:
+        if account_result.auth_expired:
+            auth_errors.append(account_result.email)
             continue
-        _CALS_CACHE[em] = {"data": cals, "expiry": time.time() + _CALS_CACHE_TTL}
-        results.extend(cals)
+        if not account_result.succeeded:
+            continue
+        calendars = account_result.calendars
+        _CALS_CACHE[account_result.email] = {
+            "data": calendars,
+            "expiry": time.time() + _CALS_CACHE_TTL,
+        }
+        calendars_by_account[account_result.email] = calendars
 
     if auth_errors:
         response.headers["X-Calendar-Auth-Error"] = ",".join(auth_errors)
-    return results
+    return [
+        calendar
+        for account_email in email_list
+        for calendar in calendars_by_account.get(account_email, [])
+    ]
 
 
 # ── GET /events ────────────────────────────────────────────────────────────────

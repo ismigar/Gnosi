@@ -11,6 +11,7 @@ from pathlib import Path
 from threading import Lock
 
 import pytest
+from fastapi import BackgroundTasks
 
 from backend.domains.vault.pages import index_entries, index_service, resolver, tags
 from backend.domains.vault.pages.index_entries import Metadata, PageCacheEntry
@@ -37,7 +38,6 @@ def _index_dependencies(root: Path) -> index_service.PageIndexDependencies:
         resolve_table_id=lambda metadata, folder, index, ordered: None,
         enabled_calendar_tables=lambda: [],
         hidden_event_ids=set,
-        sync_calendars=lambda: None,
         update_path_resolver=lambda root, ids, paths: None,
         get_last_vault_sync=lambda: 0.0,
         set_last_vault_sync=lambda value: None,
@@ -50,7 +50,6 @@ def _index_dependencies(root: Path) -> index_service.PageIndexDependencies:
         body_cache={},
         last_stale_check={"ts": 0.0},
         vault_sync_cooldown_seconds=600.0,
-        calendar_sync_cooldown_seconds=600.0,
         stale_check_ttl=30.0,
         logger=logging.getLogger(__name__),
     )
@@ -69,6 +68,27 @@ def _entry(metadata: object) -> PageCacheEntry:
         "folder": "BD/Synthetic",
         "path": None,
     }
+
+
+def test_calendar_snapshot_does_not_schedule_obsolete_remote_mirror(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    dependencies = replace(
+        _index_dependencies(tmp_path),
+        get_last_vault_sync=lambda: 0.0,
+    )
+    monkeypatch.setattr(index_service, "_dependencies", dependencies)
+    monkeypatch.setattr(index_service.time, "monotonic", lambda: 1_000.0)
+    background_tasks = BackgroundTasks()
+
+    index_service._schedule_background_syncs(
+        background_tasks,
+        [tmp_path / "Calendar"],
+    )
+
+    assert len(background_tasks.tasks) == 1
+    assert background_tasks.tasks[0].func is index_service.get_cached_page_entries
 
 
 def _page(metadata: Metadata, page_id: str = "synthetic-id") -> PageInfo:

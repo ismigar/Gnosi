@@ -10,10 +10,10 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Área | Recuento |
 | --- | ---: |
-| Backend Python files | 1182 |
-| Backend Python test files | 409 |
-| Frontend JS/TS source files | 1766 |
-| Frontend unit test files | 474 |
+| Backend Python files | 1183 |
+| Backend Python test files | 411 |
+| Frontend JS/TS source files | 1770 |
+| Frontend unit test files | 476 |
 | Registered FastAPI routers | 36 |
 | Runtime skill contracts | 15 |
 | Development-memory directives | 0 |
@@ -22,8 +22,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Área | Archivos | Alcance funcional |
 | --- | ---: | --- |
-| `backend/` | 1196 | FastAPI, services, models, agents, scheduling, and storage adapters |
-| `frontend/src/` | 1840 | React application, UI behavior, state, and browser integrations |
+| `backend/` | 1197 | FastAPI, services, models, agents, scheduling, and storage adapters |
+| `frontend/src/` | 1844 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 102 | Reusable application skills and deterministic processing tools |
 | `desktop/` | 80 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 49 | Office, browser, plugin, marketplace, and external-system adapters |

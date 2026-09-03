@@ -7,7 +7,11 @@ from dataclasses import dataclass
 import logging
 from typing import Optional, Sequence
 
-from backend.services.hybrid_calendar_service import GoogleAuthExpired, list_events
+from backend.services.hybrid_calendar_service import (
+    GoogleAuthExpired,
+    list_calendars,
+    list_events,
+)
 
 log = logging.getLogger(__name__)
 _MAX_ACCOUNT_FETCH_WORKERS = 4
@@ -19,6 +23,38 @@ class CalendarAccountEvents:
     cache_key: str
     events: list[dict[str, object]]
     succeeded: bool
+
+
+@dataclass(frozen=True)
+class CalendarAccountCalendars:
+    email: str
+    calendars: list[dict[str, object]]
+    succeeded: bool
+    auth_expired: bool
+
+
+def fetch_calendar_lists(accounts: Sequence[str]) -> list[CalendarAccountCalendars]:
+    """Load independent provider calendar lists concurrently."""
+
+    def fetch_account(email: str) -> CalendarAccountCalendars:
+        try:
+            calendars = list_calendars(email)
+        except GoogleAuthExpired:
+            log.info(
+                "fetch_calendar_lists: Google authentication expired for %s; skipping",
+                email,
+            )
+            return CalendarAccountCalendars(email, [], False, True)
+        except Exception as error:
+            log.warning("fetch_calendar_lists: el compte %s ha fallat: %s", email, error)
+            return CalendarAccountCalendars(email, [], False, False)
+        return CalendarAccountCalendars(email, calendars, True, False)
+
+    if not accounts:
+        return []
+    worker_count = min(_MAX_ACCOUNT_FETCH_WORKERS, len(accounts))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        return list(executor.map(fetch_account, accounts))
 
 
 def fetch_calendar_accounts(

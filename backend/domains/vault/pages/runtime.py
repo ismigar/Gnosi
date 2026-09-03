@@ -266,9 +266,6 @@ def _vault_cache_key() -> str:
         return ""
 
 
-_GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS = 300
-
-
 def get_page_index_cache_path(v_str: str | None = None) -> Path:
     p = _legacy.get_p("PAGE_INDEX_CACHE")
     if not p:

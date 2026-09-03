@@ -259,7 +259,6 @@ if TYPE_CHECKING:
     )
     from backend.domains.vault.pages.runtime import (
         OpenResourceRequest as OpenResourceRequest,
-        _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS as _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS,
         _VAULT_SYNC_COOLDOWN_SECONDS as _VAULT_SYNC_COOLDOWN_SECONDS,
         _load_page_index_from_disk as _load_page_index_from_disk,
         _save_page_index_to_disk as _save_page_index_to_disk,

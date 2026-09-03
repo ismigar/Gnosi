@@ -8,10 +8,12 @@ Supported providers:
 
 import logging
 import re
+import threading
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.header import decode_header as _raw_decode
-from typing import Any
+from typing import Any, Callable
 
 import requests
 
@@ -27,6 +29,10 @@ _NS = {
     "oc": "http://owncloud.org/ns",
 }
 JsonObject = dict[str, Any]
+_CALENDAR_LIST_CACHE_TTL_SECONDS = 300
+_calendar_list_cache: dict[str, tuple[float, list[JsonObject]]] = {}
+_calendar_list_locks: dict[str, threading.Lock] = {}
+_calendar_list_cache_lock = threading.Lock()
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -101,13 +107,47 @@ class GoogleAuthExpired(Exception):
         super().__init__(email)
 
 
-def google_list_calendars(email: str) -> list[JsonObject]:
-    """Returns the list of calendars available for a Google account."""
-    service = _google_service(email)
-    if not service:
-        return []
+def clear_calendar_list_cache() -> None:
+    """Drop provider-list metadata after an integration configuration change."""
+    with _calendar_list_cache_lock:
+        _calendar_list_cache.clear()
+
+
+def _cached_calendar_list(
+    cache_key: str, loader: Callable[[], list[JsonObject]]
+) -> list[JsonObject]:
+    """Return one fresh provider list and coalesce concurrent discovery."""
+
+    def fresh_value() -> list[JsonObject] | None:
+        cached = _calendar_list_cache.get(cache_key)
+        if cached and time.monotonic() < cached[0]:
+            return cached[1]
+        return None
+
+    with _calendar_list_cache_lock:
+        cached = fresh_value()
+        if cached is not None:
+            return cached
+        account_lock = _calendar_list_locks.setdefault(cache_key, threading.Lock())
+
+    with account_lock:
+        with _calendar_list_cache_lock:
+            cached = fresh_value()
+            if cached is not None:
+                return cached
+        loaded = loader()
+        with _calendar_list_cache_lock:
+            _calendar_list_cache[cache_key] = (
+                time.monotonic() + _CALENDAR_LIST_CACHE_TTL_SECONDS,
+                loaded,
+            )
+        return loaded
+
+
+def _load_google_calendars(email: str, provider_service: Any) -> list[JsonObject]:
+    """Load Google calendar metadata with an already constructed client."""
     try:
-        result = service.calendarList().list().execute()
+        result = provider_service.calendarList().list().execute()
         return [
             {
                 "id": c["id"],
@@ -127,6 +167,18 @@ def google_list_calendars(email: str) -> list[JsonObject]:
         return []
 
 
+def google_list_calendars(email: str) -> list[JsonObject]:
+    """Returns the list of calendars available for a Google account."""
+
+    def load() -> list[JsonObject]:
+        provider_service = _google_service(email)
+        if not provider_service:
+            return []
+        return _load_google_calendars(email, provider_service)
+
+    return _cached_calendar_list(f"google:{email}", load)
+
+
 def google_list_events(
     email: str,
     time_min: str,
@@ -139,7 +191,9 @@ def google_list_events(
     if not service:
         return []
 
-    calendars = google_list_calendars(email)
+    calendars = _cached_calendar_list(
+        f"google:{email}", lambda: _load_google_calendars(email, service)
+    )
     if calendar_id:
         calendars = [c for c in calendars if c["id"] == calendar_id]
 

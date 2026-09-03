@@ -2,10 +2,48 @@
 
 from __future__ import annotations
 
+import asyncio
 import threading
 
+import pytest
+from fastapi import Response
+
 from backend.api import calendar_routes
-from backend.services import calendar_event_aggregation, hybrid_calendar_service
+from backend.services import (
+    calendar_event_aggregation,
+    hybrid_calendar_service,
+    integration_manager,
+)
+
+
+def test_calendar_list_fetches_independent_accounts_concurrently(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accounts = [
+        {"email": "one@example.test", "provider": "google"},
+        {"email": "two@example.test", "provider": "caldav"},
+    ]
+    rendezvous = threading.Barrier(2, timeout=2)
+
+    monkeypatch.setattr(
+        integration_manager.integration_manager,
+        "get_all_safe",
+        lambda: {"calendars": accounts, "emails": []},
+    )
+
+    def list_calendars(email: str) -> list[dict[str, object]]:
+        rendezvous.wait()
+        return [{"id": email, "name": email, "account": email, "provider": "test"}]
+
+    monkeypatch.setattr(calendar_event_aggregation, "list_calendars", list_calendars)
+    calendar_routes._CALS_CACHE.clear()
+
+    result = asyncio.run(calendar_routes.get_calendars(Response(), email=None))
+
+    assert {calendar["id"] for calendar in result} == {
+        "one@example.test",
+        "two@example.test",
+    }
 
 
 def test_collect_all_events_fetches_independent_accounts_concurrently(monkeypatch) -> None:

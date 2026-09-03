@@ -49,7 +49,6 @@ class PageIndexDependencies:
     resolve_table_id: Callable[[Metadata, str, dict[str, str], list[str] | None], str | None]
     enabled_calendar_tables: Callable[[], list[str]]
     hidden_event_ids: Callable[[], set[str]]
-    sync_calendars: Callable[[], object]
     update_path_resolver: Callable[[Path, dict[object, str], list[Path]], None]
     get_last_vault_sync: Callable[[], float]
     set_last_vault_sync: Callable[[float], None]
@@ -62,13 +61,11 @@ class PageIndexDependencies:
     body_cache: dict[str, tuple[int, str]]
     last_stale_check: dict[str, float]
     vault_sync_cooldown_seconds: float
-    calendar_sync_cooldown_seconds: float
     stale_check_ttl: float
     logger: logging.Logger
 
 
 _dependencies: PageIndexDependencies | None = None
-_last_calendar_sync_time = 0.0
 
 
 def configure(dependencies: PageIndexDependencies) -> None:
@@ -402,10 +399,8 @@ def _calendar_scope(
 
 def _schedule_background_syncs(
     background_tasks: BackgroundTasks | None,
-    only_calendar: bool,
     search_paths: list[Path] | None,
 ) -> None:
-    global _last_calendar_sync_time
     if background_tasks is None:
         return
     dependencies = _deps()
@@ -414,13 +409,6 @@ def _schedule_background_syncs(
         dependencies.set_last_vault_sync(now)
         background_tasks.add_task(get_cached_page_entries, search_paths, True)
         dependencies.logger.info("Background sync triggered for page index.")
-    if (
-        only_calendar
-        and now - _last_calendar_sync_time > dependencies.calendar_sync_cooldown_seconds
-    ):
-        _last_calendar_sync_time = now
-        background_tasks.add_task(dependencies.sync_calendars)
-        dependencies.logger.info("Background calendar sync triggered.")
 
 
 def _remove_stale_entries(stale_paths: list[str]) -> None:
@@ -591,7 +579,7 @@ def get_pages_snapshot(
             "Could not prepare selective search paths for calendar: %s", error
         )
         search_paths, enabled_tables = (None, set())
-    _schedule_background_syncs(background_tasks, only_calendar, search_paths)
+    _schedule_background_syncs(background_tasks, search_paths)
     raw_entries = get_cached_page_entries(search_paths=search_paths)
     if not raw_entries:
         return []

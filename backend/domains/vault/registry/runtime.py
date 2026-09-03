@@ -124,12 +124,6 @@ def _hidden_calendar_event_ids() -> set[str]:
     return {str(value) for value in _get_hidden_event_ids()}
 
 
-def _sync_vault_calendars() -> object:
-    from backend.services.vault_calendar_sync_service import calendar_sync_service
-
-    return calendar_sync_service.sync_all_calendars()
-
-
 def _get_last_vault_sync_time() -> float:
     return _legacy.page_state.last_vault_sync_time
 
@@ -172,7 +166,6 @@ _legacy.page_index_service.configure(
         ),
         enabled_calendar_tables=_enabled_vault_calendar_tables,
         hidden_event_ids=_hidden_calendar_event_ids,
-        sync_calendars=_sync_vault_calendars,
         update_path_resolver=path_resolver.update_index,
         get_last_vault_sync=_get_last_vault_sync_time,
         set_last_vault_sync=_set_last_vault_sync_time,
@@ -185,7 +178,6 @@ _legacy.page_index_service.configure(
         body_cache=_legacy._body_cache,
         last_stale_check=_legacy._last_stale_check,
         vault_sync_cooldown_seconds=_legacy._VAULT_SYNC_COOLDOWN_SECONDS,
-        calendar_sync_cooldown_seconds=_legacy._GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS,
         stale_check_ttl=_legacy._STALE_CHECK_TTL,
         logger=_legacy.log,
     )
