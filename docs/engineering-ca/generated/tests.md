@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 20 | 74 |
 | Vitest | 487 | 2018 |
-| pytest | 447 | 3180 |
+| pytest | 447 | 3181 |
 
 ## Fitxers
 
@@ -695,7 +695,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_mail_inline_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_inline_images.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_mail_local_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_local_analysis.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_mail_metadata_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_metadata_manager.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_mail_preview_regressions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_preview_regressions.py) | 19 | Python AST |
+| pytest | [`backend/tests/test_mail_preview_regressions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_preview_regressions.py) | 20 | Python AST |
 | pytest | [`backend/tests/test_mail_remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_remote_images.py) | 29 | Python AST |
 | pytest | [`backend/tests/test_mail_reply_cid.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_reply_cid.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_mail_tag_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_tag_identity.py) | 6 | Python AST |
