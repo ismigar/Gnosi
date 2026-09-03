@@ -2,8 +2,10 @@
 
 const fs = require('node:fs');
 
-const [, , releaseVersion, rootManifest, desktopManifest, frontendManifest, pyprojectPath] =
-  process.argv;
+const cliArgs = process.argv.slice(2);
+const checkOnly = cliArgs[0] === '--check';
+const [releaseVersion, rootManifest, desktopManifest, frontendManifest, pyprojectPath] =
+  checkOnly ? cliArgs.slice(1) : cliArgs;
 
 if (
   !releaseVersion ||
@@ -13,7 +15,7 @@ if (
   !pyprojectPath
 ) {
   process.stderr.write(
-    'Usage: sync-release-version.cjs <version> <root-package> <desktop-package> ' +
+    'Usage: sync-release-version.cjs [--check] <version> <root-package> <desktop-package> ' +
       '<frontend-package> <pyproject>\n',
   );
   process.exit(1);
@@ -131,8 +133,16 @@ try {
       throw new Error(`Cannot prepare ${file}: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
-  // Validate every input before the first write. Separate file writes are not
-  // a crash-safe transaction; release preparation still requires diff review.
+  if (checkOnly) {
+    const mismatches = plans.filter(({ source, next }) => source !== next).map(({ file }) => file);
+    if (mismatches.length > 0) {
+      throw new Error(`Release version mismatch: ${mismatches.join(', ')}`);
+    }
+    process.stdout.write(`Release version ${releaseVersion} is synchronized.\n`);
+    process.exit(0);
+  }
+  // Validate every input before the first write. release.sh snapshots all
+  // preparation-owned files and restores them if a later preparation step fails.
   for (const { file, source, next } of plans) {
     if (source !== next) fs.writeFileSync(file, next);
   }

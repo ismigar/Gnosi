@@ -351,12 +351,16 @@ deixar canvis parcials. Revisa les diferències respecte de la base registrada
 de la branca de preparació abans de reintentar-ho. Encara cal validar el catàleg
 i el registre de canvis i revisar els fitxers de bloqueig actualitzats.
 
-`desktop/release.sh` prepara les versions i els artefactes locals. No crea cap
-etiqueta ni publica cap versió. Utilitza una branca de preparació explícita i
-mantén-ne fora els canvis que no hi estiguin relacionats. Les noves correccions
-d’empaquetatge exigeixen una etiqueta nova revisada, no codi font diferent
-publicat sota una etiqueta antiga. Afegeix enllaços de descàrrega per plataforma
-només quan els artefactes públics immutables corresponents existeixin realment.
+`desktop/release.sh` té els modes explícits `prepare`, `package` i `promote`.
+La preparació exigeix un arbre net, només actualitza la versió revisada i les
+metadades pendents, genera el registre de canvis transaccionalment i no altera
+cap lock. L’empaquetatge exigeix l’arbre net i commitat, consumeix els locks de
+pnpm i uv en mode congelat i fora de línia, i no pot mutar versions, locks,
+catàleg ni registre de canvis. Les caches s’han de preparar fora d’aquest pas
+immutable. La promoció és un commit de metadades posterior a la publicació:
+exigeix el tag local coincident, els quatre grups d’artefactes verificats i l’URL
+exacte de la release publicada abans de marcar-la com a estable i afegir-hi
+l’enllaç. Així, el paquet etiquetat mai anuncia una release estable inexistent.
 
 `desktop/release-version.js` és la frontera compartida de versió de release per
 a l’actualitzador i el col·lector d’artefactes. Utilitza la implementació SemVer

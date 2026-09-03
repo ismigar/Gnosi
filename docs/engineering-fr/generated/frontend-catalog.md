@@ -48,9 +48,9 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 18 | 2471 | 0 |
-| `features` | 1043 | 121213 | 33 |
+| `features` | 1043 | 121205 | 33 |
 | `generated` | 2 | 41056 | 445 |
-| `shared` | 226 | 29220 | 385 |
+| `shared` | 226 | 29228 | 385 |
 
 ## app
 
@@ -197,13 +197,13 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/calendar/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/index.ts) | 3 | `CalendarPage` | — |
 | [`frontend/src/features/calendar/page/CalendarPageDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/CalendarPageDialogs.tsx) | 57 | `CalendarPageDialogs` | — |
 | [`frontend/src/features/calendar/page/CalendarPageHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/CalendarPageHeader.tsx) | 107 | `CalendarPageHeader` | — |
-| [`frontend/src/features/calendar/page/CalendarPageWorkspace.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/CalendarPageWorkspace.tsx) | 93 | `CalendarPageWorkspace` | — |
+| [`frontend/src/features/calendar/page/CalendarPageWorkspace.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/CalendarPageWorkspace.tsx) | 107 | `CalendarPageWorkspace` | — |
 | [`frontend/src/features/calendar/page/calendarPageModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/calendarPageModel.ts) | 87 | `availableCalendarSources`, `calendarConfigsFor`, `calendarSettings`, `formatLocalDate`, `formatLocalDateTime`, `hybridCalendarEntry` | — |
 | [`frontend/src/features/calendar/page/calendarSearchModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/calendarSearchModel.ts) | 18 | `calendarSearchNote` | — |
 | [`frontend/src/features/calendar/page/useCalendarEventActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/useCalendarEventActions.ts) | 276 | `useCalendarEventActions` | — |
 | [`frontend/src/features/calendar/page/useCalendarPage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/useCalendarPage.ts) | 73 | `useCalendarPage` | — |
 | [`frontend/src/features/calendar/page/useCalendarRecurrence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/useCalendarRecurrence.ts) | 159 | `useCalendarRecurrence` | — |
-| [`frontend/src/features/calendar/page/useCalendarSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/useCalendarSources.ts) | 223 | `useCalendarSources` | — |
+| [`frontend/src/features/calendar/page/useCalendarSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/useCalendarSources.ts) | 201 | `useCalendarSources` | — |
 | [`frontend/src/features/contacts/ContactsPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/ContactsPage.tsx) | 218 | `ContactsPage`, `function` | — |
 | [`frontend/src/features/contacts/components/ContactDetail.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactDetail.tsx) | 54 | `ContactDetail`, `function` | — |
 | [`frontend/src/features/contacts/components/ContactDetailAdditional.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactDetailAdditional.tsx) | 78 | `ContactDetailAdditional`, `ContactDetailMetadata` | — |
@@ -1194,7 +1194,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/api/translation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/translation.ts) | 152 | `DRUPAL_SYNC_TIMEOUT_MS`, `syncDrupalRow`, `translateVaultPage`, `translateVaultRow`, `translateVaultRows` | `/api/vault/skills/sync-drupal-row`, `/api/vault/skills/translate-page`, `/api/vault/skills/translate-row`, `/api/vault/skills/translate-rows` |
 | [`frontend/src/shared/api/transports.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/transports.ts) | 56 | `transportFetch` | — |
 | [`frontend/src/shared/api/use-api.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/use-api.ts) | 86 | `useApi` | — |
-| [`frontend/src/shared/api/useCalendarData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/useCalendarData.ts) | 77 | `calendarQueryKeys`, `useCalendarEvents`, `useCalendarList`, `useDismissMeetingReminder`, `useMeetingReminderSettings`, `useMeetingReminders`, `useUpdateMeetingReminderSettings` | — |
+| [`frontend/src/shared/api/useCalendarData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/useCalendarData.ts) | 85 | `calendarQueryKeys`, `useCalendarEvents`, `useCalendarList`, `useDismissMeetingReminder`, `useMeetingReminderSettings`, `useMeetingReminders`, `useUpdateMeetingReminderSettings` | — |
 | [`frontend/src/shared/api/useContactsData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/useContactsData.ts) | 69 | `contactQueryKeys`, `useContacts`, `useCreateContact`, `useDeleteContact`, `useUpdateContact` | — |
 | [`frontend/src/shared/api/useGraphData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/useGraphData.ts) | 14 | `graphQueryKey`, `useVaultGraphData` | — |
 | [`frontend/src/shared/api/useIntegrationsData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/useIntegrationsData.ts) | 16 | `integrationsQueryKey`, `useIntegrations` | — |

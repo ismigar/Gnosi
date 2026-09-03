@@ -313,11 +313,17 @@ transaction: an I/O failure or interruption can leave partial changes. Review
 the diff against the preparation branch's recorded baseline before retrying.
 Catalog/changelog validation and review of refreshed locks remain required.
 
-`desktop/release.sh` prepares versions and local artifacts. It neither creates
-a tag nor publishes a release. Use an explicit preparation branch and keep
-unrelated changes out of it. New packaging fixes require a new reviewed tag,
-not different source published under an old tag. Add platform download links
-only once the corresponding immutable public artifacts actually exist.
+`desktop/release.sh` has explicit `prepare`, `package` and `promote` modes.
+Preparation requires a clean tree, updates only reviewed version and pending
+release metadata, renders the changelog transactionally and leaves both locks
+unchanged. Packaging requires a committed clean tree, consumes the pnpm and uv
+locks in frozen offline mode and must not mutate versions, locks, catalog or
+changelog. Prewarm dependency caches outside this immutable step. Promotion is
+a separate post-publication metadata commit: it requires the matching local tag,
+all four verified artifact groups and the exact published release URL before it
+marks the entry stable and adds its link. The tagged package therefore never
+claims an unpublished stable release. New packaging fixes require a new reviewed
+tag, not different source published under an old tag.
 
 `desktop/release-version.js` is the shared release-version boundary for the
 updater and artifact collector. It uses the SemVer implementation locked with

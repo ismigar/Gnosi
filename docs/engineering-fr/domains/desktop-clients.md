@@ -368,13 +368,17 @@ Examinez les différences avec la base enregistrée de la branche de préparatio
 avant de réessayer. La validation du catalogue et du journal des modifications
 ainsi que la révision des fichiers de verrouillage actualisés restent requises.
 
-`desktop/release.sh` prépare les versions et les artefacts locaux. Il ne crée
-pas de tag et ne publie pas de version. Utilisez une branche de préparation
-explicite et excluez-en les modifications sans rapport. De nouvelles corrections
-d’empaquetage exigent un nouveau tag revu, et non la publication d’un code
-différent sous un ancien tag. N’ajoutez les liens de téléchargement par
-plateforme qu’une fois les artefacts publics immuables correspondants
-effectivement disponibles.
+`desktop/release.sh` propose les modes explicites `prepare`, `package` et
+`promote`. La préparation exige un arbre propre, ne modifie que la version
+revue et les métadonnées en attente, génère le journal de façon transactionnelle
+et laisse les verrous inchangés. L’empaquetage exige un arbre propre et validé,
+consomme les verrous pnpm et uv figés hors ligne et ne peut modifier ni versions,
+ni verrous, ni catalogue, ni journal. Préchargez les caches en dehors de cette
+étape immuable. La promotion est un commit de métadonnées postérieur à la
+publication : elle exige le tag local correspondant, les quatre groupes
+d’artefacts vérifiés et l’URL exacte de la release publiée avant de la marquer
+stable et d’ajouter son lien. Le paquet tagué n’annonce donc jamais une release
+stable inexistante.
 
 `desktop/release-version.js` constitue la frontière partagée de version de
 publication pour le programme de mise à jour et le collecteur d’artefacts. Il

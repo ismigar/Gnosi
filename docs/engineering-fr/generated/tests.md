@@ -11,8 +11,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 20 | 74 |
-| Vitest | 485 | 1989 |
-| pytest | 439 | 3109 |
+| Vitest | 485 | 1992 |
+| pytest | 440 | 3112 |
 
 ## Fichiers
 
@@ -89,7 +89,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/automations/SchedulerPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/automations/SchedulerPage.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/automations/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/automations/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/CalendarSidebarLeft.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/CalendarSidebarLeft.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/calendar/components/DigitalBrainCalendar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/DigitalBrainCalendar.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/calendar/components/DigitalBrainCalendar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/DigitalBrainCalendar.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/RecurrenceChoiceModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/RecurrenceChoiceModal.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/RecurrenceEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/RecurrenceEditor.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/calendar-sidebar-right/CalendarSidebarRight.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/CalendarSidebarRight.test.tsx) | 9 | call-pattern estimate |
@@ -98,7 +98,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/calendar/components/digital-brain-calendar/calendarEventModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/digital-brain-calendar/calendarEventModel.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/digital-brain-calendar/calendarMutations.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/digital-brain-calendar/calendarMutations.test.ts) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/recurrence-editor/recurrenceModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/recurrence-editor/recurrenceModel.test.ts) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/features/calendar/page/CalendarPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/CalendarPage.test.tsx) | 7 | call-pattern estimate |
+| Vitest | [`frontend/src/features/calendar/page/CalendarPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/CalendarPage.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/page/calendarPageModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/calendarPageModel.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/contacts/components/ContactDetail.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactDetail.test.tsx) | 2 | call-pattern estimate |
@@ -582,6 +582,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_bulk_update_metadata.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_bulk_update_metadata.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_cache.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_calendar_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_calendar_api_contract.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_calendar_event_loading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_calendar_event_loading.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_calendar_geocoding_domain.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_calendar_geocoding_domain.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_calendar_google_credentials.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_calendar_google_credentials.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_calendar_path_containment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_calendar_path_containment.py) | 5 | Python AST |
@@ -650,7 +651,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_host_helper_url.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_host_helper_url.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_html_meta_attr_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_html_meta_attr_order.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_http_retry_util.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_http_retry_util.py) | 7 | Python AST |
-| pytest | [`backend/tests/test_hybrid_calendar_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_hybrid_calendar_service.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_hybrid_calendar_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_hybrid_calendar_service.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_id_canonicalization.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_id_canonicalization.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_identity_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_identity_api_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_import_dedup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_import_dedup.py) | 13 | Python AST |

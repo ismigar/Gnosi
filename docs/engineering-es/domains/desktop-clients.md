@@ -359,12 +359,17 @@ la base registrada de la rama de preparación antes de reintentar. Siguen siendo
 necesarias la validación del catálogo y del registro de cambios y la revisión
 de los archivos de bloqueo actualizados.
 
-`desktop/release.sh` prepara versiones y artefactos locales. No crea etiquetas
-ni publica versiones. Usa una rama explícita de preparación y excluye los
-cambios ajenos a ella. Las nuevas correcciones de empaquetado requieren una
-nueva etiqueta revisada, no publicar código distinto bajo una etiqueta antigua.
-Añade enlaces de descarga por plataforma solo cuando existan realmente los
-artefactos públicos inmutables correspondientes.
+`desktop/release.sh` ofrece los modos explícitos `prepare`, `package` y
+`promote`. La preparación exige un árbol limpio, cambia únicamente la versión
+revisada y los metadatos pendientes, genera el changelog de forma transaccional
+y no altera los locks. El empaquetado exige el árbol limpio y confirmado,
+consume los locks de pnpm y uv congelados y sin conexión, y no puede modificar
+versiones, locks, catálogo ni changelog. Las cachés se preparan fuera de este
+paso inmutable. La promoción es un commit de metadatos posterior a la
+publicación: exige el tag local coincidente, los cuatro grupos de artefactos
+verificados y la URL exacta de la release publicada antes de marcarla como
+estable y añadir el enlace. El paquete etiquetado nunca anuncia así una release
+estable inexistente.
 
 `desktop/release-version.js` es el límite compartido de versión de lanzamiento
 para el actualizador y el recopilador de artefactos. Usa la implementación
