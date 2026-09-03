@@ -419,12 +419,19 @@ def _schema_refs(value: object) -> set[str]:
 
 
 def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
+    import copy
+
     from fastapi import FastAPI
     from fastapi.routing import APIRoute
 
     from backend.api import vault_routes as vr
     from backend.domains.vault.citations import keys_api
     from backend.domains.vault.citations import lookup_routes as routes
+    from backend.domains.vault.citations.request_contracts import (
+        CitationKeyRequest,
+        MetadataLookupRequest,
+        ZoteroExtraPromotionRequest,
+    )
 
     app = FastAPI()
     app.include_router(vr.router, prefix="/api/vault", tags=["Vault"])
@@ -451,6 +458,11 @@ def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
         *LOOKUP_PATHS[9:],
     )
     pending: set[str] = set()
+    request_models = {
+        "/lookup-metadata": MetadataLookupRequest,
+        "/promote-zotero-extra": ZoteroExtraPromotionRequest,
+        "/generate-citation-key": CitationKeyRequest,
+    }
     for route in owned:
         assert getattr(vr, route.endpoint.__name__) is route.endpoint
         if route.path in models:
@@ -461,9 +473,23 @@ def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
                 "backend.domains.vault.schemas.pages",
             }
         path = "/api/vault" + route.path
-        if route.path not in {"/bulk-update-metadata", "/generate-citation-key"}:
-            assert actual["paths"][path] == baseline["paths"][path]
-            pending.update(_schema_refs(actual["paths"][path]))
+        if request_model := request_models.get(route.path):
+            assert route.dependant.body_params[0].field_info.annotation is request_model
+            request_schema = actual["paths"][path]["post"]["requestBody"]["content"][
+                "application/json"
+            ]["schema"]
+            assert request_schema == {
+                "$ref": f"#/components/schemas/{request_model.__name__}"
+            }
+            assert set(actual["components"]["schemas"][request_model.__name__]["properties"])
+        if route.path != "/bulk-update-metadata":
+            actual_path = copy.deepcopy(actual["paths"][path])
+            baseline_path = copy.deepcopy(baseline["paths"][path])
+            if route.path in request_models:
+                actual_path["post"].pop("requestBody")
+                baseline_path["post"].pop("requestBody")
+            assert actual_path == baseline_path
+            pending.update(_schema_refs(actual_path))
     visited: set[str] = set()
     while pending:
         name = pending.pop()

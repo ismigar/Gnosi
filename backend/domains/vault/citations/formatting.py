@@ -15,12 +15,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NotRequired, Protocol, TypedDict
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from backend.domains.vault.citations.authors import (
     normalize_authors_field,
     recursos_metadata_to_csl,
+)
+from backend.domains.vault.citations.request_contracts import (
+    CitationFormattingRequest,
+    request_payload,
 )
 
 
@@ -306,7 +310,7 @@ def _build_format_citations(
     dependencies: FormattingDependencies,
 ) -> Callable[..., object]:
     async def format_citations(
-        payload: dict[str, object] = Body(...),
+        payload: CitationFormattingRequest,
     ) -> FormattedCitationsPayload:
         """Renders a set of inline citations TOGETHER — necessary to
         comply with APA and other context-sensitive styles.
@@ -328,12 +332,13 @@ def _build_format_citations(
         `ordinal` is the order of appearance (1, 2, 3…) — useful for knowing which
         Content Control in the document each formatted text corresponds to.
         """
-        raw_keys = payload.get("keys") or []
+        values = request_payload(payload)
+        raw_keys = values.get("keys") or []
         if not isinstance(raw_keys, list):
             raise HTTPException(status_code=400, detail="keys must be a list")
         keys = [str(key).strip().lstrip("@") for key in raw_keys if str(key).strip()]
-        style = str(payload.get("style") or "apa").strip()
-        locale = str(payload.get("locale") or "en-US").strip()
+        style = str(values.get("style") or "apa").strip()
+        locale = str(values.get("locale") or "en-US").strip()
         if not keys:
             return {"items": [], "style": style, "locale": locale}
         unique_keys = list(dict.fromkeys(keys))
@@ -396,7 +401,7 @@ def _build_format_bibliography(
     dependencies: FormattingDependencies,
 ) -> Callable[..., object]:
     async def format_bibliography(
-        payload: dict[str, object] = Body(...),
+        payload: CitationFormattingRequest,
     ) -> FormattedBibliographyPayload:
         """Renders the bibliography (list of entries) for the given citation
         keys. Designed for the Office Add-in.
@@ -408,12 +413,13 @@ def _build_format_bibliography(
         needing to cite in the body. Each entry in the list is separated by
         a blank line (`plain` output), which we parse.
         """
-        raw_keys = payload.get("keys") or []
+        values = request_payload(payload)
+        raw_keys = values.get("keys") or []
         if not isinstance(raw_keys, list):
             raise HTTPException(status_code=400, detail="keys must be a list")
         keys = [str(key).strip().lstrip("@") for key in raw_keys if str(key).strip()]
-        style = str(payload.get("style") or "apa").strip()
-        locale = str(payload.get("locale") or "en-US").strip()
+        style = str(values.get("style") or "apa").strip()
+        locale = str(values.get("locale") or "en-US").strip()
         csl_items = await asyncio.to_thread(
             build_csl_items_for_keys,
             keys,
