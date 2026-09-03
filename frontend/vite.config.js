@@ -147,6 +147,9 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@": path.join(rootDir, "src"),
       },
+      // Collaboration reaches Yjs through the app, BlockNote and y-protocols.
+      // Keep one constructor identity even if pnpm exposes another peer path.
+      dedupe: ["yjs"],
     },
     // App version injected into the UI (shown in the Control Center). Source
     // single source: frontend/package.json → see src/features/control-center/releases/version.ts and
