@@ -112,6 +112,7 @@ export function MailPageView({ controller }: MailPageViewProps) {
             <MailList
               account={controller.selectedAccount}
               accounts={controller.accounts}
+              accountsLoading={controller.accountsLoading}
               folder={controller.activeFolder}
               category={controller.activeCategory}
               activeView={controller.activeView}

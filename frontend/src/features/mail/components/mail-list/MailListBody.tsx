@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
 import { MailMessageRow } from './MailMessageRow';
+import { mailListMessageIdentity } from './mailListModel';
 import type { MailListController } from './useMailListController';
 
 
@@ -55,11 +56,13 @@ export function MailListBody({
             <div className="border-t border-[var(--border-primary)]">
               {messages.map((message) => (
                 <MailMessageRow
-                  key={message.id}
+                  key={mailListMessageIdentity(message)}
                   accountEmail={accountEmail}
                   controller={controller}
                   index={controller.threadedMessages.findIndex(
-                    (candidate) => candidate.id === message.id,
+                    (candidate) => (
+                      mailListMessageIdentity(candidate) === mailListMessageIdentity(message)
+                    ),
                   )}
                   isComposing={controller.isComposing}
                   message={message}

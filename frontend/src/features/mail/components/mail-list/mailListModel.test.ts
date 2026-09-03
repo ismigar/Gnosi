@@ -71,21 +71,29 @@ describe('mail list model', () => {
     });
   });
 
-  it('removes exact provider copies without colliding IMAP UIDs across accounts', () => {
+  it('removes only exact provider copies without colliding IMAP UIDs by scope', () => {
     const original = message('imap_42', {
       account: 'one@example.com',
+      imap_folder: 'INBOX',
+      imap_uid: '42',
       recipient: 'reader@example.com',
       sender: 'Sender <sender@example.com>',
+      source: 'imap',
       subject: 'Same delivery',
       timestamp: 123,
     });
     const duplicateUid = message('imap_43', {
       ...original,
       id: 'imap_43',
+      imap_uid: '43',
     });
     const otherAccount = message('imap_42', {
       ...original,
       account: 'two@example.com',
+    });
+    const otherFolder = message('imap_42', {
+      ...original,
+      imap_folder: 'Archive',
     });
 
     expect(deduplicateMailListMessages([
@@ -93,15 +101,19 @@ describe('mail list model', () => {
       duplicateUid,
       original,
       otherAccount,
-    ])).toEqual([original, otherAccount]);
+      otherFolder,
+    ])).toEqual([original, duplicateUid, otherAccount, otherFolder]);
   });
 
-  it('uses the Internet message identity across accounts without hiding distinct mail', () => {
+  it('never merges distinct account deliveries by Internet identity or display metadata', () => {
     const first = message('imap_7', {
       account: 'one@example.com',
+      imap_folder: 'INBOX',
+      imap_uid: '7',
       internet_message_id: '<delivery@example.test>',
       recipient: 'one@example.com',
       sender: 'Sender <sender@example.com>',
+      source: 'imap',
       subject: 'Shared subject',
       timestamp: 100,
     });
@@ -109,19 +121,28 @@ describe('mail list model', () => {
       ...first,
       account: 'two@example.com',
       id: 'imap_91',
+      imap_uid: '91',
       recipient: 'two@example.com',
       timestamp: 120,
     });
     const distinct = message('imap_92', {
       ...mirrored,
       id: 'imap_92',
-      internet_message_id: '<another@example.test>',
+      imap_uid: '92',
     });
 
     expect(deduplicateMailListMessages([first, mirrored, distinct])).toEqual([
       first,
+      mirrored,
       distinct,
     ]);
+  });
+
+  it('fails open when provider identity is incomplete', () => {
+    const first = message('same', { account: 'one@example.com' });
+    const second = message('same', { account: 'one@example.com' });
+
+    expect(deduplicateMailListMessages([first, second])).toEqual([first, second]);
   });
 
   it('applies search, tag, unread and advanced filters before sorting', () => {
@@ -150,9 +171,9 @@ describe('mail list model', () => {
 
   it('removes full threads and derives newest thread summaries', () => {
     const messages = [
-      message('one', { sender: 'First <first@example.com>', thread_id: 'thread', timestamp: 1 }),
-      message('two', { is_read: true, sender: 'Second <second@example.com>', thread_id: 'thread', timestamp: 2 }),
-      message('three'),
+      message('one', { account: 'one@example.com', sender: 'First <first@example.com>', source: 'gmail', thread_id: 'thread', timestamp: 1 }),
+      message('two', { account: 'one@example.com', is_read: true, sender: 'Second <second@example.com>', source: 'gmail', thread_id: 'thread', timestamp: 2 }),
+      message('three', { account: 'one@example.com', source: 'gmail' }),
     ];
 
     expect(filterOutMailThread(messages, 'two', 'thread').map((candidate) => candidate.id))
@@ -164,6 +185,32 @@ describe('mail list model', () => {
       thread_senders: ['First', 'Second'],
       thread_unread: 1,
     });
+  });
+
+  it('scopes provider threads by account and IMAP folder', () => {
+    const first = message('imap_1', {
+      account: 'one@example.com',
+      imap_folder: 'INBOX',
+      imap_uid: '1',
+      source: 'imap',
+      thread_id: 'shared-thread',
+    });
+    const otherAccount = message('imap_1', {
+      ...first,
+      account: 'two@example.com',
+    });
+    const otherFolder = message('imap_1', {
+      ...first,
+      imap_folder: 'Archive',
+    });
+
+    expect(threadMailListMessages([first, otherAccount, otherFolder])).toHaveLength(3);
+    expect(filterOutMailThread(
+      [first, otherAccount, otherFolder],
+      first.id,
+      first.thread_id,
+      first,
+    )).toEqual([otherAccount, otherFolder]);
   });
 
   it('keeps date grouping labels localized', () => {

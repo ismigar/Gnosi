@@ -85,7 +85,16 @@ export function filterOutMailThread(
   messages: readonly MailListMessage[],
   messageId: string,
   threadId?: string | null,
+  scope?: MailListMessage,
 ): MailListMessage[] {
+  if (scope) {
+    const messageIdentity = mailListMessageIdentity(scope);
+    const threadIdentity = mailListThreadIdentity(scope);
+    return messages.filter((message) => (
+      mailListMessageIdentity(message) !== messageIdentity
+      && mailListThreadIdentity(message) !== threadIdentity
+    ));
+  }
   return messages.filter((message) => (
     message.id !== messageId
     && !(threadId && threadId !== messageId && message.thread_id === threadId)
@@ -110,29 +119,61 @@ function legacyString(value: unknown): string {
 }
 
 
-function providerMessageKey(message: MailListMessage): string {
-  const account = message.account || message.account_email || '';
-  return `${account.toLocaleLowerCase()}|${message.id}`;
+function normalizedIdentityPart(value?: string | null): string {
+  return value?.trim().toLocaleLowerCase() ?? '';
 }
 
 
-function internetMessageKey(message: MailListMessage): string | null {
-  const identity = message.internet_message_id?.trim().toLocaleLowerCase();
-  return identity ? `internet|${identity}` : null;
+function messageAccountIdentity(message: MailListMessage): string {
+  return normalizedIdentityPart(message.account || message.account_email);
 }
 
 
-function exactCopyKey(message: MailListMessage): string | null {
-  const account = message.account || message.account_email || '';
-  const timestamp = message.timestamp || message.date;
-  if (!account || !timestamp || !message.sender || !message.subject) return null;
-  return [
-    account.toLocaleLowerCase(),
-    message.sender.trim().toLocaleLowerCase(),
-    legacyString(message.recipient).trim().toLocaleLowerCase(),
-    message.subject.trim().toLocaleLowerCase(),
-    String(timestamp),
-  ].join('|');
+function messageProviderIdentity(message: MailListMessage): string {
+  const source = normalizedIdentityPart(message.source);
+  if (source) return source;
+  return message.imap_uid || message.id.startsWith('imap_') ? 'imap' : '';
+}
+
+
+function structuralIdentity(kind: 'message' | 'thread', parts: readonly string[]): string {
+  return JSON.stringify([kind, ...parts]);
+}
+
+
+function providerMessageKey(message: MailListMessage): string | null {
+  const account = messageAccountIdentity(message);
+  const provider = messageProviderIdentity(message);
+  if (!account || !provider || !message.id) return null;
+  if (provider === 'imap') {
+    const folder = message.imap_folder?.trim() ?? '';
+    const uid = message.imap_uid?.trim() ?? '';
+    if (!folder || !uid) return null;
+    return structuralIdentity('message', [account, provider, folder, uid]);
+  }
+  return structuralIdentity('message', [account, provider, '', message.id]);
+}
+
+
+export function mailListMessageIdentity(message: MailListMessage): string {
+  return providerMessageKey(message) ?? structuralIdentity('message', [
+    messageAccountIdentity(message),
+    messageProviderIdentity(message),
+    message.imap_folder?.trim() ?? '',
+    message.imap_uid?.trim() || message.id,
+  ]);
+}
+
+
+export function mailListThreadIdentity(message: MailListMessage): string {
+  const account = messageAccountIdentity(message);
+  const provider = messageProviderIdentity(message);
+  const thread = message.thread_id.trim();
+  const folder = provider === 'imap' ? message.imap_folder?.trim() ?? '' : '';
+  if (!account || !provider || !thread || (provider === 'imap' && !folder)) {
+    return mailListMessageIdentity(message);
+  }
+  return structuralIdentity('thread', [account, provider, folder, thread]);
 }
 
 
@@ -140,19 +181,12 @@ export function deduplicateMailListMessages(
   messages: readonly MailListMessage[],
 ): MailListMessage[] {
   const providerMessages = new Set<string>();
-  const internetMessages = new Set<string>();
-  const exactCopies = new Set<string>();
   return messages.filter((message) => {
     if (!message.id) return false;
     const providerKey = providerMessageKey(message);
+    if (!providerKey) return true;
     if (providerMessages.has(providerKey)) return false;
-    const internetKey = internetMessageKey(message);
-    if (internetKey && internetMessages.has(internetKey)) return false;
-    const copyKey = exactCopyKey(message);
-    if (copyKey && exactCopies.has(copyKey)) return false;
     providerMessages.add(providerKey);
-    if (internetKey) internetMessages.add(internetKey);
-    if (copyKey) exactCopies.add(copyKey);
     return true;
   });
 }
@@ -270,7 +304,7 @@ export function threadMailListMessages(
 ): MailListMessage[] {
   const threads = new Map<string, MailListMessage[]>();
   deduplicateMailListMessages(messages).forEach((message) => {
-    const threadId = message.thread_id || message.id;
+    const threadId = mailListThreadIdentity(message);
     const current = threads.get(threadId) ?? [];
     current.push(message);
     threads.set(threadId, current);

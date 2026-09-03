@@ -15,12 +15,14 @@ import {
   effectiveMailListConfig,
   groupMailListMessages,
   mailFolderTitleKey,
+  mailListMessageIdentity,
   processMailListMessages,
   threadMailListMessages,
 } from './mailListModel';
 import type {
   ContextMenuState,
   InlineTagPickerState,
+  MailListMessage,
   MailListProps,
 } from './mailListTypes';
 import { useMailListActions } from './useMailListActions';
@@ -46,6 +48,7 @@ export function useMailListController(props: MailListProps) {
 
   const data = useMailListData({
     account: props.account,
+    accountsLoading: props.accountsLoading ?? false,
     accounts,
     category: props.category,
     folder: props.folder,
@@ -170,13 +173,14 @@ export function useMailListController(props: MailListProps) {
 
   const toggleSelect = useCallback((
     event: Pick<ReactMouseEvent<HTMLElement>, 'stopPropagation'>,
-    id: string,
+    message: MailListMessage,
   ): void => {
     event.stopPropagation();
+    const identity = mailListMessageIdentity(message);
     setSelectedIds((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(identity)) next.delete(identity);
+      else next.add(identity);
       return next;
     });
   }, []);
@@ -185,7 +189,7 @@ export function useMailListController(props: MailListProps) {
     setSelectedIds((current) => (
       current.size === data.messages.length
         ? new Set()
-        : new Set(data.messages.map((message) => message.id))
+        : new Set(data.messages.map(mailListMessageIdentity))
     ));
   }, [data.messages]);
 
@@ -227,8 +231,9 @@ export function useMailListController(props: MailListProps) {
       if (focusedIndex >= 0 && focusedIndex < flat.length && message) {
         setSelectedIds((current) => {
           const next = new Set(current);
-          if (next.has(message.id)) next.delete(message.id);
-          else next.add(message.id);
+          const identity = mailListMessageIdentity(message);
+          if (next.has(identity)) next.delete(identity);
+          else next.add(identity);
           return next;
         });
       }

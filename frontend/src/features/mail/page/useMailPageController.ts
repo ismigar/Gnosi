@@ -56,6 +56,7 @@ type BooleanAction = boolean | ((current: boolean) => boolean);
 
 export interface MailPageController {
   readonly accounts: readonly MailAccount[];
+  readonly accountsLoading: boolean;
   readonly activeCategory: string | null;
   readonly activeFolder: string | null;
   readonly activeTagId: string | null;
@@ -118,6 +119,7 @@ export function useMailPageController(): MailPageController {
   const [selectedMail, setSelectedMail] = useState<MailPageMessage | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<MailAccount | null>(null);
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
   const [activeFolder, setActiveFolder] = useState<string | null>('INBOX');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<MailView | null>(null);
@@ -158,8 +160,10 @@ export function useMailPageController(): MailPageController {
   }, [isCompact]);
 
   useEffect(() => {
+    let active = true;
     void fetchCachedIntegrations()
       .then((document: IntegrationsDocument) => {
+        if (!active) return;
         const catalog = buildMailAccountCatalog(document);
         setAccounts(catalog.accounts);
         setIdentities(catalog.identities);
@@ -167,9 +171,16 @@ export function useMailPageController(): MailPageController {
         setDefaultAccount(catalog.defaultAccount);
       })
       .catch((error: unknown) => {
+        if (!active) return;
         logError('mail.load-accounts', error);
         toast.error(loadAccountsError);
+      })
+      .finally(() => {
+        if (active) setAccountsLoading(false);
       });
+    return () => {
+      active = false;
+    };
   }, [loadAccountsError]);
 
   const fetchCounts = useCallback(async (currentAccounts: readonly MailAccount[]) => {
@@ -363,6 +374,7 @@ export function useMailPageController(): MailPageController {
 
   return {
     accounts,
+    accountsLoading,
     activeCategory,
     activeFolder,
     activeTagId,

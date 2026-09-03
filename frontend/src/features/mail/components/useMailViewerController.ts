@@ -118,6 +118,9 @@ export function useMailViewerController({
     || mailData?.body_html
     || mailData?.snippet
     || '';
+  const displayMailData = mailData?.id === selectedMail?.id
+    ? mailData
+    : selectedMail;
   const analyzeMessage = (): void => {
     const context = analysisContext;
     const recipientValues = [mailData?.recipient, mailData?.cc]
@@ -413,7 +416,7 @@ export function useMailViewerController({
     formLinks,
     isSentMessage: (message: MailViewerMessage) => isSentMail(message, account?.email || ''),
     loading,
-    mailData,
+    mailData: displayMailData,
     mailTags,
     moveButtonRef,
     moveFolders,

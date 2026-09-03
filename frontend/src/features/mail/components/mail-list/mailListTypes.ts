@@ -25,6 +25,7 @@ export interface MailUndoExtra {
 
 export interface MailListProps {
   readonly account: MailAccount | null;
+  readonly accountsLoading?: boolean;
   readonly accounts?: readonly MailAccount[];
   readonly activeTagId: string | null;
   readonly activeView: MailView | null;

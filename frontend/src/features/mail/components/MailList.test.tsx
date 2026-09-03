@@ -296,6 +296,76 @@ describe('MailList', () => {
     }, expect.any(AbortSignal));
   });
 
+  it('waits for account discovery and loads every account without opening the selector', async () => {
+    const secondAccount = { email: 'two@example.com' };
+    mocks.fetchMessages.mockImplementation((query) => Promise.resolve(response([{
+      ...message('shared'),
+      account: query.email,
+      subject: query.email === account.email ? 'First account item' : 'Second account item',
+    }])));
+
+    await render({ account: null, accounts: [], accountsLoading: true });
+    expect(container.textContent).toContain('mail.syncing');
+    expect(container.textContent).not.toContain('mail.no_messages');
+    expect(mocks.fetchMessages).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.render(<MailList {...props({
+        account: null,
+        accounts: [account, secondAccount],
+        accountsLoading: false,
+      })} />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.fetchMessages).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('First account item');
+    expect(container.textContent).toContain('Second account item');
+  });
+
+  it('selects colliding provider ids independently across accounts', async () => {
+    mocks.fetchMessages.mockImplementation((query) => Promise.resolve(response([{
+      ...message('shared'),
+      account: query.email,
+      subject: query.email === account.email ? 'First scoped item' : 'Second scoped item',
+    }])));
+    await render({
+      account: null,
+      accounts: [account, { email: 'two@example.com' }],
+    });
+    const checkboxes = [
+      ...container.querySelectorAll<HTMLInputElement>('input[aria-label]'),
+    ];
+    expect(checkboxes).toHaveLength(2);
+    const first = checkboxes[0];
+    if (!(first instanceof HTMLInputElement)) throw new Error('Missing first checkbox');
+    await click(first);
+
+    expect(container.textContent).toContain('1 mail.selected');
+    expect(checkboxes[0]?.checked).toBe(true);
+    expect(checkboxes[1]?.checked).toBe(false);
+    await click(button('Mark as read'));
+    expect(mocks.batch).toHaveBeenCalledWith(account.email, 'read', ['shared']);
+    expect(mocks.batch).not.toHaveBeenCalledWith('two@example.com', 'read', ['shared']);
+  });
+
+  it('keeps successful aggregate rows when another synthetic account fails', async () => {
+    mocks.fetchMessages.mockImplementation((query) => (
+      query.email === account.email
+        ? Promise.resolve(response([message('available')]))
+        : Promise.reject(new Error('synthetic account unavailable'))
+    ));
+
+    await render({
+      account: null,
+      accounts: [account, { email: 'two@example.com' }],
+    });
+
+    expect(container.textContent).toContain('Subject available');
+    expect(container.textContent).not.toContain('mail.no_messages');
+  });
+
   it('restores an optimistically archived message if its batch request fails', async () => {
     mocks.batch.mockRejectedValueOnce(new Error('offline'));
     await render();

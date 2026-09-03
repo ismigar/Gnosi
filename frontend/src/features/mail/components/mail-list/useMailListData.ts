@@ -31,6 +31,7 @@ import type { MailAccount, MailListMessage } from './mailListTypes';
 
 interface UseMailListDataOptions {
   readonly account: MailAccount | null;
+  readonly accountsLoading: boolean;
   readonly accounts: readonly MailAccount[];
   readonly category: string | null;
   readonly folder: string | null;
@@ -60,6 +61,7 @@ const EMPTY_MAIL_MESSAGES: MailMessages = {
 
 export function useMailListData({
   account,
+  accountsLoading,
   accounts,
   category,
   folder,
@@ -99,8 +101,8 @@ export function useMailListData({
     setTotals({});
     if (emails.length === 0) {
       setMessages([]);
-      setLoading(false);
-      onMessagesLoaded?.([]);
+      setLoading(accountsLoading);
+      if (!accountsLoading) onMessagesLoaded?.([]);
       return;
     }
 
@@ -159,7 +161,7 @@ export function useMailListData({
       setLoading(false);
       setSyncing(false);
     });
-  }, [cacheKey, category, emails, folder, onMessagesLoaded]);
+  }, [accountsLoading, cacheKey, category, emails, folder, onMessagesLoaded]);
 
   const hasMore = emails.some((email) => (
     Boolean(pageTokens[email])
@@ -234,7 +236,7 @@ export function useMailListData({
       fetchAbortRef.current?.abort();
       loadMoreAbortRef.current?.abort();
     };
-  }, [account, accounts, cacheKey]);
+  }, [account, accounts, accountsLoading, cacheKey]);
 
   useEffect(() => {
     let stream: EventSource;

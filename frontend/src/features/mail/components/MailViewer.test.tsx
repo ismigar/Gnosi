@@ -107,6 +107,28 @@ afterEach(() => {
 
 
 describe('MailViewer', () => {
+  it('renders the selected summary while the local detail request is pending', async () => {
+    let resolveDetail: (value: MailMessage) => void = () => undefined;
+    mocks.fetchMessage.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveDetail = resolve;
+    }));
+    const selected = message('pending', {
+      body_text: null,
+      snippet: 'Synthetic preview',
+    });
+
+    await render({ mail: selected });
+
+    expect(container.textContent).toContain('Subject pending');
+    expect(container.textContent).toContain('Synthetic preview');
+    expect(container.textContent).not.toContain('mail.loading');
+
+    await act(async () => {
+      resolveDetail(message('pending'));
+      await Promise.resolve();
+    });
+  });
+
   it('marks the loaded folder read without reloading the same message', async () => {
     const selected = message('one', { imap_folder: undefined, is_read: false });
     mocks.fetchMessage.mockResolvedValue(message('one', { imap_folder: 'Inbox/Personal', is_read: false }));
