@@ -1337,10 +1337,7 @@ export interface paths {
         delete: operations["delete_event_api_calendar_events__event_id__delete"];
         options?: never;
         head?: never;
-        /**
-         * Patch Event
-         * @description Updates an existing event (Google Calendar or local vault).
-         */
+        /** Patch Event */
         patch: operations["patch_event_api_calendar_events__event_id__patch"];
         trace?: never;
     };
@@ -10843,15 +10840,6 @@ export interface components {
             /** Audio */
             audio: string;
         };
-        /** Body_post_freebusy_api_calendar_freebusy_post */
-        Body_post_freebusy_api_calendar_freebusy_post: {
-            /** Calendar Ids */
-            calendar_ids?: unknown[];
-            /** Time Max */
-            time_max: string;
-            /** Time Min */
-            time_min: string;
-        };
         /** Body_recognize_handwriting_api_vault_handwriting_recognize_post */
         Body_recognize_handwriting_api_vault_handwriting_recognize_post: {
             /** Correct */
@@ -11254,6 +11242,45 @@ export interface components {
             email: string;
             /** Name */
             name: string;
+        };
+        /**
+         * CalendarEventCreateRequest
+         * @description Google Calendar event resource accepted by the create endpoint.
+         */
+        CalendarEventCreateRequest: {
+            attendees?: components["schemas"]["JsonValue"] | null;
+            colorId?: components["schemas"]["JsonValue"] | null;
+            conferenceData?: components["schemas"]["JsonValue"] | null;
+            description?: components["schemas"]["JsonValue"] | null;
+            end?: components["schemas"]["JsonValue"] | null;
+            location?: components["schemas"]["JsonValue"] | null;
+            recurrence?: components["schemas"]["JsonValue"] | null;
+            reminders?: components["schemas"]["JsonValue"] | null;
+            start?: components["schemas"]["JsonValue"] | null;
+            summary?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * CalendarEventPatchRequest
+         * @description Provider-neutral partial event update, including local Vault fields.
+         */
+        CalendarEventPatchRequest: {
+            all_day?: components["schemas"]["JsonValue"] | null;
+            attendees?: components["schemas"]["JsonValue"] | null;
+            calendar_id?: components["schemas"]["JsonValue"] | null;
+            date?: components["schemas"]["JsonValue"] | null;
+            description?: components["schemas"]["JsonValue"] | null;
+            end?: components["schemas"]["JsonValue"] | null;
+            end_date?: components["schemas"]["JsonValue"] | null;
+            location?: components["schemas"]["JsonValue"] | null;
+            provider?: components["schemas"]["JsonValue"] | null;
+            start?: components["schemas"]["JsonValue"] | null;
+            summary?: components["schemas"]["JsonValue"] | null;
+            title?: components["schemas"]["JsonValue"] | null;
+            vault_path?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * CalendarEventResponse
@@ -13295,6 +13322,18 @@ export interface components {
             start: string;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * FreeBusyRequest
+         * @description Time interval and calendars queried through Google Free/Busy.
+         */
+        FreeBusyRequest: {
+            /** Calendar Ids */
+            calendar_ids?: string[] | null;
+            /** Time Max */
+            time_max: string;
+            /** Time Min */
+            time_min: string;
         };
         /**
          * FreeBusyResponse
@@ -16507,6 +16546,16 @@ export interface components {
             title?: string | null;
             /** Vault Path */
             vault_path?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * MeetingReminderSettingsRequest
+         * @description Partial meeting-reminder settings update.
+         */
+        MeetingReminderSettingsRequest: {
+            enabled?: components["schemas"]["JsonValue"] | null;
+            lead_minutes?: components["schemas"]["JsonValue"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -24291,9 +24340,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["CalendarEventCreateRequest"];
             };
         };
         responses: {
@@ -24421,9 +24468,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["CalendarEventPatchRequest"];
             };
         };
         responses: {
@@ -24662,7 +24707,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Body_post_freebusy_api_calendar_freebusy_post"];
+                "application/json": components["schemas"]["FreeBusyRequest"];
             };
         };
         responses: {
@@ -24850,9 +24895,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MeetingReminderSettingsRequest"];
             };
         };
         responses: {

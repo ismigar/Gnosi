@@ -2939,29 +2939,6 @@
         "title": "Body_llm_wiki_dictate_api_vault_llm_wiki_suggestions__suggestion_id__dictate_post",
         "type": "object"
       },
-      "Body_post_freebusy_api_calendar_freebusy_post": {
-        "properties": {
-          "calendar_ids": {
-            "items": {},
-            "title": "Calendar Ids",
-            "type": "array"
-          },
-          "time_max": {
-            "title": "Time Max",
-            "type": "string"
-          },
-          "time_min": {
-            "title": "Time Min",
-            "type": "string"
-          }
-        },
-        "required": [
-          "time_min",
-          "time_max"
-        ],
-        "title": "Body_post_freebusy_api_calendar_freebusy_post",
-        "type": "object"
-      },
       "Body_recognize_handwriting_api_vault_handwriting_recognize_post": {
         "properties": {
           "correct": {
@@ -4004,6 +3981,252 @@
           "name"
         ],
         "title": "CalendarAttendeeSearchResponse",
+        "type": "object"
+      },
+      "CalendarEventCreateRequest": {
+        "additionalProperties": true,
+        "description": "Google Calendar event resource accepted by the create endpoint.",
+        "properties": {
+          "attendees": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "colorId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conferenceData": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reminders": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CalendarEventCreateRequest",
+        "type": "object"
+      },
+      "CalendarEventPatchRequest": {
+        "additionalProperties": true,
+        "description": "Provider-neutral partial event update, including local Vault fields.",
+        "properties": {
+          "all_day": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attendees": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calendar_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vault_path": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CalendarEventPatchRequest",
         "type": "object"
       },
       "CalendarEventResponse": {
@@ -9306,6 +9529,39 @@
           "end"
         ],
         "title": "FreeBusyPeriodResponse",
+        "type": "object"
+      },
+      "FreeBusyRequest": {
+        "description": "Time interval and calendars queried through Google Free/Busy.",
+        "properties": {
+          "calendar_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Ids"
+          },
+          "time_max": {
+            "title": "Time Max",
+            "type": "string"
+          },
+          "time_min": {
+            "title": "Time Min",
+            "type": "string"
+          }
+        },
+        "required": [
+          "time_min",
+          "time_max"
+        ],
+        "title": "FreeBusyRequest",
         "type": "object"
       },
       "FreeBusyResponse": {
@@ -19042,6 +19298,34 @@
           }
         },
         "title": "MeetingReminderResponse",
+        "type": "object"
+      },
+      "MeetingReminderSettingsRequest": {
+        "additionalProperties": true,
+        "description": "Partial meeting-reminder settings update.",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lead_minutes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "MeetingReminderSettingsRequest",
         "type": "object"
       },
       "MeetingReminderSettingsResponse": {
@@ -39524,9 +39808,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Event Data",
-                "type": "object"
+                "$ref": "#/components/schemas/CalendarEventCreateRequest"
               }
             }
           },
@@ -39867,7 +40149,6 @@
         ]
       },
       "patch": {
-        "description": "Updates an existing event (Google Calendar or local vault).",
         "operationId": "patch_event_api_calendar_events__event_id__patch",
         "parameters": [
           {
@@ -39983,9 +40264,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Patch Data",
-                "type": "object"
+                "$ref": "#/components/schemas/CalendarEventPatchRequest"
               }
             }
           },
@@ -40772,7 +41051,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_post_freebusy_api_calendar_freebusy_post"
+                "$ref": "#/components/schemas/FreeBusyRequest"
               }
             }
           },
@@ -41253,9 +41532,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MeetingReminderSettingsRequest"
               }
             }
           },
