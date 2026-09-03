@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -22,7 +21,7 @@ from backend.services.workspace_service import require_role
 log = logging.getLogger(__name__)
 
 
-def _view_to_dict(view: MailView) -> dict[str, Any]:
+def _view_to_dict(view: MailView) -> dict[str, object]:
     return {
         "id": view.id,
         "name": view.name,
@@ -43,7 +42,7 @@ def _view_to_dict(view: MailView) -> dict[str, Any]:
     response_model=list[MailViewResponse],
     response_model_exclude_unset=True,
 )
-async def list_views(db: Session = Depends(get_db)) -> Any:
+async def list_views(db: Session = Depends(get_db)) -> list[dict[str, object]]:
     views = db.query(MailView).order_by(MailView.created_at).all()
     return [_view_to_dict(v) for v in views]
 
@@ -54,7 +53,10 @@ async def list_views(db: Session = Depends(get_db)) -> Any:
     response_model=MailViewResponse,
     response_model_exclude_unset=True,
 )
-async def create_view(payload: MailViewCreateSchema, db: Session = Depends(get_db)) -> Any:
+async def create_view(
+    payload: MailViewCreateSchema,
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
     view = MailView(
         name=payload.name,
         fields=json.dumps([f.model_dump() for f in payload.fields]),
@@ -78,7 +80,7 @@ async def create_view(payload: MailViewCreateSchema, db: Session = Depends(get_d
 )
 async def update_view(
     view_id: str, payload: MailViewUpdateSchema, db: Session = Depends(get_db)
-) -> Any:
+) -> dict[str, object]:
     view = db.query(MailView).filter(MailView.id == view_id).first()
     if not view:
         raise HTTPException(status_code=404, detail="Vista no trobada")
@@ -102,7 +104,7 @@ async def update_view(
     response_model=None,
     dependencies=[Depends(require_role("editor"))],
 )
-async def delete_view(view_id: str, db: Session = Depends(get_db)) -> Any:
+async def delete_view(view_id: str, db: Session = Depends(get_db)) -> None:
     view = db.query(MailView).filter(MailView.id == view_id).first()
     if not view:
         raise HTTPException(status_code=404, detail="Vista no trobada")

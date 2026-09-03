@@ -60,9 +60,7 @@ def test_schema_support_routes_expose_exact_response_models() -> None:
 
     expected = {
         "drupal_content_types": translation_routes.DrupalContentTypesResponse,
-        "drupal_content_type_fields": (
-            translation_routes.DrupalContentTypeFieldsResponse
-        ),
+        "drupal_content_type_fields": (translation_routes.DrupalContentTypeFieldsResponse),
         "match_drupal_rows": translation_routes.MatchDrupalRowsResponse,
         "generate_button_action": translation_routes.GenerateButtonActionResponse,
         "list_virtual_fields": core_routes.VirtualFieldsResponse,
@@ -90,6 +88,7 @@ def test_schema_support_routes_expose_exact_response_models() -> None:
 def test_table_option_schema_and_view_routes_use_json_safe_contracts() -> None:
     from backend.domains.vault.tables import routes
     from backend.domains.vault.tables.contracts import RegistryRecord
+    from backend.domains.vault.tables.contracts import OptionCatalogDeleteResponse
     from backend.domains.vault.views.contracts import (
         VaultViewResponse,
         ViewMutationResponse,
@@ -102,12 +101,14 @@ def test_table_option_schema_and_view_routes_use_json_safe_contracts() -> None:
         "remove_table_option": RegistryRecord,
         "list_option_catalogs": RegistryRecord,
         "put_option_catalog": RegistryRecord,
+        "delete_option_catalog": OptionCatalogDeleteResponse,
         "create_view": VaultViewResponse,
         "get_view": VaultViewResponse,
         "get_view_usage": ViewUsageResponse,
         "delete_view": ViewMutationResponse,
         "update_view": ViewMutationResponse,
         "save_schema": RegistryRecord,
+        "get_schema": RegistryRecord,
     }
     for handler_name, response_model in expected.items():
         route = _route(routes.router, handler_name)
@@ -170,7 +171,4 @@ def test_page_view_and_bulk_template_routes_expose_typed_results() -> None:
         "conflicts": [],
         "errors": [],
     }
-    assert (
-        lookup_routes.BulkPageMutationResponse.model_validate(payload).model_dump()
-        == payload
-    )
+    assert lookup_routes.BulkPageMutationResponse.model_validate(payload).model_dump() == payload

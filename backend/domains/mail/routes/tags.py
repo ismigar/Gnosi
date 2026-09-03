@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -26,7 +25,7 @@ from backend.services.workspace_service import require_role
 log = logging.getLogger(__name__)
 
 
-def _tag_to_dict(tag: MailTag) -> dict[str, Any]:
+def _tag_to_dict(tag: MailTag) -> dict[str, object]:
     return {
         "id": tag.id,
         "name": tag.name,
@@ -36,13 +35,16 @@ def _tag_to_dict(tag: MailTag) -> dict[str, Any]:
 
 
 @router.get("/tags", response_model=list[MailTagResponse])
-async def list_tags(db: Session = Depends(get_db)) -> Any:
+async def list_tags(db: Session = Depends(get_db)) -> list[dict[str, object]]:
     tags = db.query(MailTag).order_by(MailTag.created_at).all()
     return [_tag_to_dict(t) for t in tags]
 
 
 @router.post("/tags", status_code=201, response_model=MailTagResponse)
-async def create_tag(payload: MailTagCreateSchema, db: Session = Depends(get_db)) -> Any:
+async def create_tag(
+    payload: MailTagCreateSchema,
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
     tag = MailTag(name=payload.name, color=payload.color)
     db.add(tag)
     db.commit()
@@ -53,7 +55,7 @@ async def create_tag(payload: MailTagCreateSchema, db: Session = Depends(get_db)
 @router.put("/tags/{tag_id}", response_model=MailTagResponse)
 async def update_tag(
     tag_id: str, payload: MailTagUpdateSchema, db: Session = Depends(get_db)
-) -> Any:
+) -> dict[str, object]:
     tag = db.query(MailTag).filter(MailTag.id == tag_id).first()
     if not tag:
         raise HTTPException(status_code=404, detail="Etiqueta no trobada")
@@ -72,7 +74,7 @@ async def update_tag(
     response_model=None,
     dependencies=[Depends(require_role("editor"))],
 )
-async def delete_tag(tag_id: str, db: Session = Depends(get_db)) -> Any:
+async def delete_tag(tag_id: str, db: Session = Depends(get_db)) -> None:
     tag = db.query(MailTag).filter(MailTag.id == tag_id).first()
     if not tag:
         raise HTTPException(status_code=404, detail="Etiqueta no trobada")
@@ -82,9 +84,12 @@ async def delete_tag(tag_id: str, db: Session = Depends(get_db)) -> Any:
 
 
 @router.get("/messages/{message_id}/tags", response_model=list[str])
-async def get_message_tags(message_id: str, db: Session = Depends(get_db)) -> Any:
+async def get_message_tags(
+    message_id: str,
+    db: Session = Depends(get_db),
+) -> list[str]:
     rows = db.query(MailMessageTag).filter(MailMessageTag.message_id == message_id).all()
-    return [row.tag_id for row in rows]
+    return [str(row.tag_id) for row in rows]
 
 
 @router.post(
@@ -93,7 +98,7 @@ async def get_message_tags(message_id: str, db: Session = Depends(get_db)) -> An
 )
 async def set_message_tags(
     message_id: str, payload: MailMessageTagsSetSchema, db: Session = Depends(get_db)
-) -> Any:
+) -> dict[str, object]:
     db.query(MailMessageTag).filter(MailMessageTag.message_id == message_id).delete()
     for tag_id in payload.tag_ids:
         tag_exists = db.query(MailTag).filter(MailTag.id == tag_id).first()
@@ -116,7 +121,10 @@ async def set_message_tags(
     "/tags/{tag_id}/messages",
     response_model=MailTaggedMessagesResponse,
 )
-async def get_tagged_messages(tag_id: str, db: Session = Depends(get_db)) -> Any:
+async def get_tagged_messages(
+    tag_id: str,
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
     tag = db.query(MailTag).filter(MailTag.id == tag_id).first()
     if not tag:
         raise HTTPException(status_code=404, detail="Etiqueta no trobada")
@@ -143,12 +151,12 @@ async def get_tagged_messages(tag_id: str, db: Session = Depends(get_db)) -> Any
 async def get_tags_for_messages(
     payload: MailTagsBatchRequest,
     db: Session = Depends(get_db),
-) -> Any:
+) -> dict[str, list[str]]:
     message_ids = payload.message_ids
     if not message_ids:
         return {}
     rows = db.query(MailMessageTag).filter(MailMessageTag.message_id.in_(message_ids)).all()
-    result: dict[str, Any] = {mid: [] for mid in message_ids}
+    result: dict[str, list[str]] = {mid: [] for mid in message_ids}
     for row in rows:
-        result[str(row.message_id)].append(row.tag_id)
+        result[str(row.message_id)].append(str(row.tag_id))
     return result

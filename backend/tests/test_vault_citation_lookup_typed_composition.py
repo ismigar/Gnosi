@@ -423,6 +423,7 @@ def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
     from fastapi.routing import APIRoute
 
     from backend.api import vault_routes as vr
+    from backend.domains.vault.citations import keys_api
     from backend.domains.vault.citations import lookup_routes as routes
 
     app = FastAPI()
@@ -434,6 +435,8 @@ def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
         "/translate-url": routes.UrlTranslationResponse,
         "/recognize-pdf": routes.PdfRecognitionResponse,
         "/promote-zotero-extra": routes.ZoteroExtraPromotionResponse,
+        "/bulk-update-metadata": routes.BulkPageMutationResponse,
+        "/generate-citation-key": keys_api.CitationKeyResponse,
     }
     assert routes.router is vr.router
     owned = [
@@ -452,10 +455,15 @@ def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
         assert getattr(vr, route.endpoint.__name__) is route.endpoint
         if route.path in models:
             assert route.response_model is models[route.path]
-            assert route.response_model.__module__ == routes.__name__
+            assert route.response_model.__module__ in {
+                routes.__name__,
+                keys_api.__name__,
+                "backend.domains.vault.schemas.pages",
+            }
         path = "/api/vault" + route.path
-        assert actual["paths"][path] == baseline["paths"][path]
-        pending.update(_schema_refs(actual["paths"][path]))
+        if route.path not in {"/bulk-update-metadata", "/generate-citation-key"}:
+            assert actual["paths"][path] == baseline["paths"][path]
+            pending.update(_schema_refs(actual["paths"][path]))
     visited: set[str] = set()
     while pending:
         name = pending.pop()

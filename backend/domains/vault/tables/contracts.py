@@ -25,7 +25,14 @@ class TablePropertyPatchResponse(BaseModel):
     property: RegistryRecord
 
 
+class OptionCatalogDeleteResponse(BaseModel):
+    """Receipt returned after deleting an unused shared option catalog."""
+
+    status: Literal["ok"]
+
+
 __all__ = [
+    "OptionCatalogDeleteResponse",
     "RegistryRecord",
     "TablePropertyPatchRequest",
     "TablePropertyPatchResponse",

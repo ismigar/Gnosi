@@ -41,6 +41,35 @@ class VaultOutlinksResponse(BaseModel):
     unresolved: list[VaultUnresolvedLinkResponse]
 
 
+class LinkIndexDiskCacheResponse(BaseModel):
+    """Persistent reverse-link index cache metadata."""
+
+    path: str | None
+    exists: bool
+    size_bytes: int
+
+
+class LinkIndexStatsResponse(BaseModel):
+    """Observable state of the reverse-link index."""
+
+    built: bool
+    built_ts: float
+    built_age_seconds: float | None
+    schema_version: int
+    sources_indexed: int
+    targets_with_backlinks: int
+    unresolved_title_buckets: int
+    total_outlinks: int
+    total_tokens: int
+    disk_cache: LinkIndexDiskCacheResponse
+
+
+class LinkIndexRebuildResponse(BaseModel):
+    """Acknowledgement that a reverse-link rebuild was scheduled."""
+
+    status: Literal["rebuild_scheduled"]
+
+
 class VaultUnlinkedMentionResponse(BaseModel):
     id: str
     title: str
@@ -66,6 +95,9 @@ class VaultLinkMentionsResponse(BaseModel):
 __all__ = [
     "AliasIndexResponse",
     "GlobalIndexResponse",
+    "LinkIndexDiskCacheResponse",
+    "LinkIndexRebuildResponse",
+    "LinkIndexStatsResponse",
     "LinkMentionsRequest",
     "VaultBacklinkResponse",
     "VaultLinkedMentionChangeResponse",

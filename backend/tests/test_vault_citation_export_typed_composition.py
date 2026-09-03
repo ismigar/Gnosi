@@ -298,6 +298,7 @@ def check_facade_routes_and_openapi(citation: CitationFixture) -> None:
 
     from backend.api import vault_routes as vr
     from backend.domains.vault.citations import export_routes as routes
+    from backend.domains.vault.citations import formatting
     from backend.domains.vault.citations import references_api
 
     assert routes.router is vr.router
@@ -311,6 +312,9 @@ def check_facade_routes_and_openapi(citation: CitationFixture) -> None:
         assert getattr(vr, route.endpoint.__name__) is route.endpoint
         if "reference_table" in route.endpoint.__name__:
             assert route.response_model is references_api.ReferenceTableResponse
+    assert owned[0].response_model is formatting.FormattedCitationResponse
+    assert owned[1].response_model is formatting.FormattedCitationsResponse
+    assert owned[2].response_model is formatting.FormattedBibliographyResponse
     baseline = json.loads((ROOT / "openapi/openapi.json").read_text())
     actual = citation.client.get("/openapi.json").json()
     pending: set[str] = set()
@@ -320,7 +324,8 @@ def check_facade_routes_and_openapi(citation: CitationFixture) -> None:
         if isinstance(route, APIRoute)
         and route.path in {"/import-references", "/csl/styles", "/export-references"}
     ]
-    for route in [*owned, *io_routes]:
+    unchanged_routes = [*owned[3:], *io_routes]
+    for route in unchanged_routes:
         path = "/api/vault" + route.path
         assert actual["paths"][path] == baseline["paths"][path]
         pending.update(_schema_refs(actual["paths"][path]))

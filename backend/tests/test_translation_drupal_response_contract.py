@@ -45,6 +45,10 @@ def test_routes_expose_exact_models_without_changing_methods_or_status() -> None
             "/skills/sync-drupal-row",
             translation_routes.SyncDrupalRowResponse,
         ),
+        "sync_drupal_rows": (
+            "/skills/sync-drupal-rows",
+            translation_routes.SyncDrupalRowsResponse,
+        ),
         "translate_row": (
             "/skills/translate-row",
             translation_routes.TranslateRowResponse,
@@ -56,6 +60,10 @@ def test_routes_expose_exact_models_without_changing_methods_or_status() -> None
         "translate_page": (
             "/skills/translate-page",
             translation_routes.TranslatePageResponse,
+        ),
+        "execute_button_action": (
+            "/skills/execute-button-action",
+            translation_routes.ExecuteButtonActionResponse,
         ),
     }
 

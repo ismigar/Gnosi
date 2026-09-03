@@ -13,9 +13,10 @@ import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, NotRequired, Protocol, TypedDict
 
 from fastapi import APIRouter, Body, HTTPException, Query
+from pydantic import BaseModel
 
 from backend.domains.vault.citations.authors import (
     normalize_authors_field,
@@ -27,6 +28,64 @@ PANDOC_MISSING_MSG = (
     "pandoc no disponible al host — instal·la'l (brew install pandoc) "
     "o defineix PANDOC_PATH amb la ruta del binari"
 )
+
+
+class FormattedCitationResponse(BaseModel):
+    """One rendered inline citation."""
+
+    key: str
+    formatted: str
+    resolved: bool
+
+
+class FormattedCitationItemResponse(FormattedCitationResponse):
+    """One rendered citation at its document occurrence."""
+
+    ordinal: int
+
+
+class FormattedCitationsResponse(BaseModel):
+    """Context-aware rendering of an ordered citation batch."""
+
+    items: list[FormattedCitationItemResponse]
+    style: str
+    locale: str
+
+
+class FormattedBibliographyResponse(BaseModel):
+    """Rendered bibliography with optional HTML fragments."""
+
+    entries: list[str]
+    entries_html: list[str] | None = None
+    style: str
+    locale: str
+    resolved: int
+    missing: list[str]
+
+
+class FormattedCitationPayload(TypedDict):
+    key: str
+    formatted: str
+    resolved: bool
+
+
+class FormattedCitationItemPayload(FormattedCitationPayload):
+    ordinal: int
+
+
+class FormattedCitationsPayload(TypedDict):
+    items: list[FormattedCitationItemPayload]
+    style: str
+    locale: str
+
+
+class FormattedBibliographyPayload(TypedDict):
+    entries: list[str]
+    entries_html: NotRequired[list[str]]
+    style: str
+    locale: str
+    resolved: int
+    missing: list[str]
 
 
 @dataclass(frozen=True)
@@ -193,7 +252,7 @@ def _build_format_citation(
         key: str,
         style: str = Query("apa"),
         locale: str = Query("en-US"),
-    ) -> dict[str, object]:
+    ) -> FormattedCitationPayload:
         """Renders an inline citation (a single citation key) as plain text.
 
         Designed for the Office Add-in (Gnosi Cite): the add-in wants to insert
@@ -246,7 +305,9 @@ def _build_format_citation(
 def _build_format_citations(
     dependencies: FormattingDependencies,
 ) -> Callable[..., object]:
-    async def format_citations(payload: dict[str, Any] = Body(...)) -> dict[str, object]:
+    async def format_citations(
+        payload: dict[str, object] = Body(...),
+    ) -> FormattedCitationsPayload:
         """Renders a set of inline citations TOGETHER — necessary to
         comply with APA and other context-sensitive styles.
 
@@ -311,7 +372,7 @@ def _build_format_citations(
             if csl_path:
                 command += ["--csl", str(csl_path)]
             output = _run_pandoc(command, temporary, 30)
-        items: list[dict[str, object]] = []
+        items: list[FormattedCitationItemPayload] = []
         for ordinal, key in enumerate(keys, start=1):
             pattern = re.compile(
                 re.escape(f"GCREF{ordinal}BEG") + r"\s*(.*?)\s*" + re.escape(f"GCREF{ordinal}FIN"),
@@ -335,8 +396,8 @@ def _build_format_bibliography(
     dependencies: FormattingDependencies,
 ) -> Callable[..., object]:
     async def format_bibliography(
-        payload: dict[str, Any] = Body(...),
-    ) -> dict[str, object]:
+        payload: dict[str, object] = Body(...),
+    ) -> FormattedBibliographyPayload:
         """Renders the bibliography (list of entries) for the given citation
         keys. Designed for the Office Add-in.
 
@@ -427,25 +488,32 @@ def register_routes(
         "/format-citation",
         format_citation,
         methods=["GET"],
-        response_model=None,
+        response_model=FormattedCitationResponse,
+        response_model_exclude_unset=True,
     )
     router.add_api_route(
         "/format-citations",
         format_citations,
         methods=["POST"],
-        response_model=None,
+        response_model=FormattedCitationsResponse,
+        response_model_exclude_unset=True,
     )
     router.add_api_route(
         "/format-bibliography",
         format_bibliography,
         methods=["POST"],
-        response_model=None,
+        response_model=FormattedBibliographyResponse,
+        response_model_exclude_unset=True,
     )
     return format_citation, format_citations, format_bibliography
 
 
 __all__ = [
     "FormattingDependencies",
+    "FormattedBibliographyResponse",
+    "FormattedCitationItemResponse",
+    "FormattedCitationResponse",
+    "FormattedCitationsResponse",
     "PANDOC_MISSING_MSG",
     "build_csl_items_for_keys",
     "extract_csl_entries",

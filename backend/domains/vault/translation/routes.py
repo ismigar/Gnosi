@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from backend.domains.vault.registry.records import is_object_list, is_record
+from backend.domains.vault.schemas.pages import IndexedPageMetadata
 from backend.domains.vault.translation.http_values import stripped_request_text
 from backend.domains.vault.translation.types import Result
 from backend.utils.open_values import get_value, iterable_values
@@ -34,6 +35,16 @@ class SyncDrupalRowResponse(BaseModel):
     languages: list[str]
     translations: list[dict[str, JsonValue]]
     skipped_fields: list[dict[str, JsonValue]]
+
+
+class SyncDrupalRowsResponse(BaseModel):
+    """Independent results and failures from bulk Drupal synchronization."""
+
+    model_config = ConfigDict(extra="allow")
+
+    status: Literal["ok"]
+    results: list[dict[str, JsonValue]]
+    errors: list[dict[str, JsonValue]]
 
 
 class TranslateRowResponse(BaseModel):
@@ -124,6 +135,18 @@ class GenerateButtonActionResponse(BaseModel):
     result: dict[str, JsonValue]
 
 
+class ExecuteButtonActionResponse(BaseModel):
+    """Updated note state after one server-side button action."""
+
+    model_config = ConfigDict(extra="allow")
+
+    status: Literal["ok"]
+    note_id: str
+    updated_field: str
+    value: str
+    metadata: IndexedPageMetadata
+
+
 @router.get(
     "/drupal/content-types",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
@@ -158,6 +181,7 @@ async def drupal_content_type_fields(bundle: str) -> Result:
     "/skills/sync-drupal-row",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=SyncDrupalRowResponse,
+    response_model_exclude_unset=True,
 )
 async def sync_drupal_row(
     background_tasks: _legacy.BackgroundTasks,
@@ -196,7 +220,8 @@ async def sync_drupal_row(
 @router.post(
     "/skills/sync-drupal-rows",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=SyncDrupalRowsResponse,
+    response_model_exclude_unset=True,
 )
 async def sync_drupal_rows(
     background_tasks: _legacy.BackgroundTasks,
@@ -236,6 +261,7 @@ async def sync_drupal_rows(
     "/skills/match-drupal-rows",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=MatchDrupalRowsResponse,
+    response_model_exclude_unset=True,
 )
 async def match_drupal_rows(
     background_tasks: _legacy.BackgroundTasks,
@@ -262,6 +288,7 @@ async def match_drupal_rows(
         _legacy.Depends(_legacy.require_plugins("translation")),
     ],
     response_model=TranslateRowResponse,
+    response_model_exclude_unset=True,
 )
 async def translate_row(
     background_tasks: _legacy.BackgroundTasks,
@@ -316,6 +343,7 @@ async def translate_row(
         _legacy.Depends(_legacy.require_plugins("translation")),
     ],
     response_model=TranslateRowsResponse,
+    response_model_exclude_unset=True,
 )
 async def translate_rows(
     background_tasks: _legacy.BackgroundTasks,
@@ -379,6 +407,7 @@ async def translate_rows(
     "/skills/generate-button-action",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
     response_model=GenerateButtonActionResponse,
+    response_model_exclude_unset=True,
 )
 async def generate_button_action(
     payload: dict[str, object] = _legacy.Body(...),
@@ -395,7 +424,8 @@ async def generate_button_action(
 
     field_names = [
         str(field["name"])
-        for field in iterable_values(fields) if is_record(field) and field.get("name")
+        for field in iterable_values(fields)
+        if is_record(field) and field.get("name")
     ]
     system_instruction = f"""You are an AI assistant helping configure table button actions in a database application.\nAvailable table fields: {(", ".join(field_names) if field_names else "Title")}\n\nGiven the user's natural language request, output ONLY a valid JSON object (no markdown wrapping) with these keys:\n{{\n  "button_label": "<Short button label max 20 characters>",\n  "button_action": "set_fields" | "ai_prompt" | "run_skill",\n  "button_config": {{\n    "assignments": [\n       {{ "field": "<field_name>", "value": "<literal or formula like today()>" }}\n    ],\n    "prompt": "<prompt text for ai_prompt>",\n    "target_field": "<target field_name for ai_prompt>",\n    "skill_id": "<skill id for run_skill>"\n  }}\n}}\n"""
     try:
@@ -426,7 +456,8 @@ async def generate_button_action(
 @router.post(
     "/skills/execute-button-action",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=ExecuteButtonActionResponse,
+    response_model_exclude_unset=True,
 )
 async def execute_button_action(
     payload: dict[str, object] = _legacy.Body(...),
@@ -488,6 +519,7 @@ async def execute_button_action(
         _legacy.Depends(_legacy.require_plugins("translation")),
     ],
     response_model=TranslatePageResponse,
+    response_model_exclude_unset=True,
 )
 async def translate_page(
     background_tasks: _legacy.BackgroundTasks,

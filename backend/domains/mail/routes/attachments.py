@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import HTTPException, Query
 from fastapi.responses import Response
@@ -33,7 +33,7 @@ async def get_attachment(
     inline: bool = Query(False),
     content_type_hint: Optional[str] = Query(None, alias="content_type"),
     filename_hint: Optional[str] = Query(None, alias="filename"),
-) -> Any:
+) -> Response:
     "Downloads an attachment — works for Gmail (att_id=attachmentId) and IMAP (att_id=part_index)."
     from backend.services.integration_manager import integration_manager
 
@@ -110,7 +110,7 @@ async def get_cid_image(
     cid: str,
     email: str = Query(...),
     folder: str = Query("INBOX"),
-) -> Any:
+) -> Response:
     """Serves an inline CID image — works for Gmail, IMAP and Microsoft."""
     try:
         parts = await _collect_original_inline_parts(email, message_id, {cid}, folder)
@@ -134,7 +134,7 @@ async def get_cid_image(
 async def set_account_enabled(
     email: str,
     body: mail_schemas.MailAccountEnabledRequest,
-) -> Any:
+) -> dict[str, object]:
     enabled = body.enabled
     from backend.services.integration_manager import integration_manager
 

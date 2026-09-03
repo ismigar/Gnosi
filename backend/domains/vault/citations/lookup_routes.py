@@ -634,7 +634,8 @@ async def promote_zotero_extra(
 @router.post(
     "/bulk-update-metadata",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=BulkPageMutationResponse,
+    response_model_exclude_unset=True,
 )
 async def bulk_update_metadata(
     payload: dict[str, object] = Body(...),

@@ -14,6 +14,7 @@ from backend.domains.vault.tables import options as table_options
 from backend.domains.vault.tables import schema as table_schema
 from backend.domains.vault.tables.composition import TableDomainDependencies
 from backend.domains.vault.tables.contracts import (
+    OptionCatalogDeleteResponse,
     RegistryRecord,
     TablePropertyPatchRequest,
     TablePropertyPatchResponse,
@@ -381,7 +382,7 @@ async def put_option_catalog(
 @router.delete(
     "/option-catalogs/{name}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=OptionCatalogDeleteResponse,
 )
 async def delete_option_catalog(name: str) -> RegistryData:
     """Deletes a shared catalog. 409 if any field still references it."""
@@ -511,7 +512,7 @@ async def save_schema(
     )
 
 
-@router.get("/schema", response_model=None)
+@router.get("/schema", response_model=RegistryRecord)
 async def get_schema(folder: str) -> RegistryData:
     return await vault_view_schema.get_schema(folder, _configured().folder_schema)
 
