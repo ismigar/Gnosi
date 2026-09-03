@@ -33,6 +33,11 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - Nota: no executar una instal·lació offline completa assumint que el magatzem pnpm conté tots els tarballs, perquè pot fallar amb `ERR_PNPM_NO_OFFLINE_TARBALL`. En un worktree aïllat sense xarxa, cal reutilitzar una còpia local de les dependències canòniques ja verificades i mantenir-la fora del commit.
 - Nota: no activar `onlyExplicitManualChunks` en aquesta base, perquè Vite 8/Rolldown el rebutja com una opció de sortida invàlida. Cal retirar els agrupaments manuals que converteixen un vendor diferit en dependència estàtica de l'entrada.
 - Nota: Chromium headless pot fallar dins del sandbox de macOS amb `MachPortRendezvousServer: Permission denied`. Cal executar només el procés de navegador amb permís local ampliat i bloquejar explícitament qualsevol host que no sigui loopback.
+- Nota: `vite preview` pot rebre `listen EPERM` dins el sandbox de macOS. Cal iniciar-lo amb autorització local abans d'interpretar un `ERR_CONNECTION_REFUSED` del perfilador.
+- No considerar `networkidle` una condició obligatòria: Gnosi pot mantenir polling o WebSockets.
+- No confondre la primera compilació sota demanda de Vite amb latència estable. Cal mesurar càrrega freda, càrrega calenta i build de producció.
+- No ampliar timeouts per ocultar consultes lentes; cal mesurar la petició concreta i corregir-ne el propietari.
+- No registrar payloads, textos de pàgines, credencials ni contingut del vault durant el perfilat.
 
 ## Criteris d'acceptació
 
