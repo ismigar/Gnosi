@@ -5,17 +5,16 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from datetime import date
 from urllib.parse import urlparse
+
+import requests
 
 from backend.domains.mail.services.local_analysis import extract_local_entities
 from backend.security.ai_credentials import resolve_provider_api_key
 
 log = logging.getLogger(__name__)
-
-
-class MailAnalysisNotConfiguredError(RuntimeError):
-    """Raised when neither configured analysis provider can be used."""
 
 
 class MailAnalysisInvalidResponseError(RuntimeError):
@@ -30,6 +29,10 @@ _HOSTED_PROVIDERS_REQUIRING_CREDENTIALS = {
     "openai",
     "openrouter",
 }
+_HTTP_STATUS_RE = re.compile(r"^AI error (?P<status>\d{3})(?::|$)")
+_PUBLIC_PROVIDER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+_PRIMARY_TIMEOUT_SECONDS = 8
+_FALLBACK_TIMEOUT_SECONDS = 12
 
 
 def _is_local_endpoint(url: str) -> bool:
@@ -63,29 +66,21 @@ def _configured_provider_names() -> list[str]:
     return configured
 
 
-async def request_entity_analysis(prompt: str) -> tuple[str, str]:
-    """Run provider fallback off the event loop with viewer-safe time bounds."""
+async def request_entity_analysis(
+    prompt: str,
+    provider: str,
+    timeout: int,
+) -> str:
+    """Run one provider off the event loop with a viewer-safe time bound."""
     from pipeline import ai_client
 
-    configured = _configured_provider_names()
-    if not configured:
-        raise MailAnalysisNotConfiguredError("No mail analysis provider is configured")
-    if ai_client.PRIMARY_PROVIDER in configured:
-        return await asyncio.to_thread(
-            ai_client.call_ai_with_fallback,
-            prompt,
-            timeout_primary=20,
-            timeout_fallback=30,
-            max_chars_primary=6000,
-        )
-    provider = configured[0]
-    content = await asyncio.to_thread(
+    return await asyncio.to_thread(
         ai_client.call_ai_client,
         prompt[:6000],
-        timeout=30,
+        timeout=timeout,
         provider=provider,
+        use_cache=False,
     )
-    return content, provider
 
 
 def parse_entity_analysis(content: str, provider: str) -> dict[str, object]:
@@ -145,40 +140,100 @@ EMAIL CONTENT:
 {context}"""
 
 
-def _local_fallback(context: str, error_code: str) -> dict[str, object]:
-    local = extract_local_entities(context)
-    if local.has_entities:
-        return {
-            "events": local.events,
-            "contacts": local.contacts,
-            "provider": "local_deterministic",
-        }
+def _public_provider_name(provider: str, index: int) -> str:
+    if _PUBLIC_PROVIDER_RE.fullmatch(provider):
+        return provider
+    return f"provider-{index + 1}"
+
+
+def _provider_failure_status(error: Exception) -> str:
+    if isinstance(error, (asyncio.TimeoutError, requests.exceptions.Timeout)):
+        return "timeout"
+    if isinstance(error, requests.exceptions.ConnectionError):
+        return "network_error"
+    response = getattr(error, "response", None)
+    status_code = getattr(response, "status_code", None)
+    if not isinstance(status_code, int):
+        match = _HTTP_STATUS_RE.match(str(error))
+        status_code = int(match.group("status")) if match else None
+    if status_code == 401:
+        return "unauthorized"
+    if status_code == 429:
+        return "rate_limited"
+    if isinstance(status_code, int) and 500 <= status_code <= 599:
+        return "server_error"
+    return "unavailable"
+
+
+def _local_fallback(
+    context: str,
+    reason: str,
+    attempts: list[dict[str, str]],
+    *,
+    sender: str,
+    recipients: tuple[str, ...],
+    attachments: tuple[str, ...],
+) -> dict[str, object]:
+    local = extract_local_entities(
+        context,
+        sender=sender,
+        recipients=recipients,
+        attachments=attachments,
+    )
     return {
-        "events": [],
-        "contacts": [],
-        "error": error_code,
+        "events": local.events,
+        "contacts": local.contacts,
+        "provider": "local_deterministic",
+        "status": "degraded",
+        "degraded_reason": reason,
+        "provider_attempts": attempts,
+        "local_analysis": local.report.as_dict(),
     }
 
 
-async def analyze_mail_entities(context: str) -> dict[str, object]:
-    """Use configured AI, then literal-only local extraction on provider failure."""
-    if not context:
-        return {"events": [], "contacts": []}
-    try:
-        content, provider = await request_entity_analysis(_analysis_prompt(context))
-    except MailAnalysisNotConfiguredError:
-        return _local_fallback(context, "not_configured")
-    except Exception as error:
-        log.warning(
-            "Mail entity analysis provider unavailable: %s",
-            type(error).__name__,
-        )
-        return _local_fallback(context, "temporarily_unavailable")
-    try:
-        return parse_entity_analysis(content, provider)
-    except MailAnalysisInvalidResponseError as error:
-        log.warning(
-            "Mail entity analysis returned an invalid response: %s",
-            type(error).__name__,
-        )
-        return _local_fallback(context, "invalid_response")
+async def analyze_mail_entities(
+    context: str,
+    *,
+    sender: str = "",
+    recipients: tuple[str, ...] = (),
+    attachments: tuple[str, ...] = (),
+) -> dict[str, object]:
+    """Cascade configured providers, then return deterministic local evidence."""
+    if not context and not sender and not recipients and not attachments:
+        return {"events": [], "contacts": [], "status": "complete"}
+    configured = _configured_provider_names()
+    attempts: list[dict[str, str]] = []
+    prompt = _analysis_prompt(context)
+    for index, provider in enumerate(configured):
+        public_name = _public_provider_name(provider, index)
+        try:
+            content = await request_entity_analysis(
+                prompt,
+                provider,
+                _PRIMARY_TIMEOUT_SECONDS if index == 0 else _FALLBACK_TIMEOUT_SECONDS,
+            )
+        except Exception as error:
+            failure = _provider_failure_status(error)
+            attempts.append({"provider": public_name, "status": failure})
+            log.warning("Mail analysis provider %s failed (%s)", public_name, failure)
+            continue
+        try:
+            parsed = parse_entity_analysis(content, public_name)
+        except MailAnalysisInvalidResponseError:
+            attempts.append({"provider": public_name, "status": "invalid_response"})
+            log.warning("Mail analysis provider %s returned invalid output", public_name)
+            continue
+        attempts.append({"provider": public_name, "status": "success"})
+        return {
+            **parsed,
+            "status": "complete",
+            "provider_attempts": attempts,
+        }
+    return _local_fallback(
+        context,
+        "not_configured" if not configured else "providers_failed",
+        attempts,
+        sender=sender,
+        recipients=recipients,
+        attachments=attachments,
+    )

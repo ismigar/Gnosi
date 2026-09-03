@@ -23,7 +23,7 @@ class RemoteMailImageRequest(BaseModel):
     response_model=None,
 )
 async def fetch_remote_image(payload: RemoteMailImageRequest) -> Response:
-    """Return one validated raster image without retaining source or bytes."""
+    """Return verified bytes from the restricted durable mail-image cache."""
     try:
         image = await fetch_remote_mail_image(payload.url)
     except RemoteMailImageError as error:

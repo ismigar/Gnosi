@@ -3,12 +3,14 @@ import {
   readStorage,
   stringStorageCodec,
 } from '../../../shared/platform/browser-storage';
-import { subscribeElementEvent } from '../../../shared/platform/browser-events';
 import { mailCidUrl } from '../../../shared/api/mail-specialized';
 import type {
   MailExtractedContact,
   MailExtractedEntities,
   MailExtractedEvent,
+  MailAnalysisEvidence,
+  MailLocalAnalysis,
+  MailProviderAttempt,
   MailViewerMessage,
 } from './mailViewerTypes';
 
@@ -38,6 +40,12 @@ function recordString(record: Readonly<Record<string, unknown>>, key: string): s
 }
 
 
+function recordNumber(record: Readonly<Record<string, unknown>>, key: string): number {
+  const value = record[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+
 export function cleanMailAddress(value: string | readonly string[] | null | undefined): string {
   const address = isReadonlyStringArray(value) ? value.join(', ') : value || '';
   return address.split('<')[0]?.trim().replace(/^["']+|["']+$/g, '').trim()
@@ -56,21 +64,8 @@ interface MailHtmlDocumentOptions {
   readonly email?: string | null;
   readonly folder?: string | null;
   readonly messageId?: string | null;
+  readonly registerRemoteSource?: (source: string) => string;
   readonly themeCss: string;
-}
-
-
-interface RemoteMailImageRecoveryOptions {
-  readonly fallbackLabel: string;
-  readonly fallbackDetail: string;
-  readonly onStateChange?: () => void;
-  readonly recoveryPromptLabel: string;
-  readonly recoveryActionLabel: string;
-  readonly recoveringLabel: string;
-  readonly retryLabel: string;
-  readonly recoverSource?: (source: string) => Promise<string | null>;
-  readonly releaseRecoveredSource?: (source: string) => void;
-  readonly timeoutMs?: number;
 }
 
 
@@ -101,6 +96,7 @@ export function buildMailHtmlDocument(
     element.removeAttribute('src');
     element.removeAttribute('srcset');
   });
+  let remoteImageIndex = 0;
   for (const image of document.querySelectorAll('img')) {
     image.removeAttribute('srcset');
     const currentSource = image.getAttribute('src')?.trim() || '';
@@ -136,7 +132,10 @@ export function buildMailHtmlDocument(
           image.removeAttribute('src');
           image.dataset.gnosiRemoteImage = 'blocked';
         } else {
-          image.dataset.gnosiRemoteSource = normalizedSource;
+          remoteImageIndex += 1;
+          image.dataset.gnosiRemoteToken = options.registerRemoteSource?.(
+            normalizedSource,
+          ) ?? `remote-image-${String(remoteImageIndex)}`;
           image.removeAttribute('src');
           image.dataset.gnosiRemoteImage = 'pending';
         }
@@ -166,167 +165,6 @@ export function buildMailHtmlDocument(
   theme.textContent = options.themeCss;
   document.head.append(theme);
   return `<!doctype html>${document.documentElement.outerHTML}`;
-}
-
-
-export function installRemoteMailImageRecovery(
-  document: Document,
-  options: RemoteMailImageRecoveryOptions,
-): () => void {
-  const timeoutMs = options.timeoutMs ?? 8000;
-  const cleanups: Array<() => void> = [];
-
-  const monitor = (image: HTMLImageElement): void => {
-    if (image.dataset.gnosiRecoveryInstalled === 'true') return;
-    image.dataset.gnosiRecoveryInstalled = 'true';
-    let active = true;
-    let phase: 'pending' | 'offered' | 'recovering' | 'recovered' | 'failed' | 'loaded'
-      = 'pending';
-    let recoveredSource: string | null = null;
-    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const clearTimers = (): void => {
-      if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
-    };
-    const releaseRecoveredSource = (): void => {
-      if (!recoveredSource) return;
-      options.releaseRecoveredSource?.(recoveredSource);
-      recoveredSource = null;
-    };
-    const renderFinalCopy = (fallback: HTMLElement): void => {
-      fallback.dataset.gnosiRemoteImage = 'unavailable';
-      fallback.setAttribute('aria-label', options.fallbackLabel);
-      fallback.replaceChildren();
-      const label = document.createElement('span');
-      label.textContent = `▧ ${options.fallbackLabel}`;
-      const detail = document.createElement('span');
-      detail.className = 'gnosi-remote-image-detail';
-      detail.textContent = options.fallbackDetail;
-      fallback.append(label, detail);
-    };
-    const startRecovery = (fallback: HTMLElement, source: string): void => {
-      if (!active || !options.recoverSource
-        || (phase !== 'offered' && phase !== 'failed')) return;
-      phase = 'recovering';
-      fallback.dataset.gnosiRemoteImage = 'recovering';
-      fallback.setAttribute('aria-live', 'polite');
-      const button = fallback.querySelector<HTMLButtonElement>('button');
-      if (button) {
-        button.disabled = true;
-        button.textContent = options.recoveringLabel;
-      }
-      void options.recoverSource(source).then((nextSource) => {
-        if (!active || phase !== 'recovering' || !fallback.isConnected) {
-          if (nextSource) options.releaseRecoveredSource?.(nextSource);
-          return;
-        }
-        if (!nextSource) {
-          renderFailure(fallback, source);
-          return;
-        }
-        recoveredSource = nextSource;
-        phase = 'recovered';
-        image.dataset.gnosiRemoteImage = 'recovered';
-        fallback.replaceWith(image);
-        timeoutTimer = setTimeout(showFailedImage, timeoutMs);
-        image.src = nextSource;
-        options.onStateChange?.();
-      }).catch(() => {
-        if (!active || phase !== 'recovering') return;
-        renderFailure(fallback, source);
-      });
-    };
-    const appendAction = (
-      fallback: HTMLElement,
-      source: string,
-      label: string,
-    ): void => {
-      const button = document.createElement('button');
-      button.className = 'gnosi-remote-image-recover';
-      button.type = 'button';
-      button.textContent = label;
-      const unsubscribeClick = subscribeElementEvent(button, 'click', () => {
-        startRecovery(fallback, source);
-      });
-      cleanups.push(unsubscribeClick);
-      fallback.append(button);
-    };
-    const renderFailure = (fallback: HTMLElement, source: string): void => {
-      clearTimers();
-      releaseRecoveredSource();
-      phase = 'failed';
-      fallback.setAttribute('role', 'group');
-      renderFinalCopy(fallback);
-      if (options.recoverSource) appendAction(fallback, source, options.retryLabel);
-      options.onStateChange?.();
-    };
-    const showFailedImage = (): void => {
-      if (!active || phase === 'loaded') return;
-      const source = image.dataset.gnosiRemoteSource?.trim() || '';
-      const fallback = document.createElement('span');
-      fallback.className = 'gnosi-remote-image-fallback';
-      if (source) renderFailure(fallback, source);
-      else {
-        phase = 'failed';
-        fallback.setAttribute('role', 'img');
-        renderFinalCopy(fallback);
-      }
-      image.replaceWith(fallback);
-      options.onStateChange?.();
-    };
-    const offerRecovery = (): void => {
-      if (!active || phase !== 'pending') return;
-      const source = image.dataset.gnosiRemoteSource?.trim() || '';
-      if (!source || !options.recoverSource) {
-        showFailedImage();
-        return;
-      }
-      phase = 'offered';
-      const fallback = document.createElement('span');
-      fallback.className = 'gnosi-remote-image-fallback';
-      fallback.dataset.gnosiRemoteImage = 'recovery-offered';
-      fallback.setAttribute('aria-label', options.fallbackLabel);
-      fallback.setAttribute('role', 'group');
-      const label = document.createElement('span');
-      label.textContent = `▧ ${options.recoveryPromptLabel}`;
-      fallback.append(label);
-      appendAction(fallback, source, options.recoveryActionLabel);
-      image.replaceWith(fallback);
-      options.onStateChange?.();
-    };
-    const markLoaded = (): void => {
-      if (phase !== 'recovered' || !image.isConnected) return;
-      phase = 'loaded';
-      clearTimers();
-      image.dataset.gnosiRemoteImage = 'loaded';
-      releaseRecoveredSource();
-      options.onStateChange?.();
-    };
-    const unsubscribeLoad = subscribeElementEvent(image, 'load', markLoaded);
-    const unsubscribeError = subscribeElementEvent(image, 'error', () => {
-      if (phase === 'recovered') showFailedImage();
-    });
-    cleanups.push(() => {
-      active = false;
-      clearTimers();
-      releaseRecoveredSource();
-      unsubscribeLoad();
-      unsubscribeError();
-    });
-
-    if (image.dataset.gnosiRemoteImage === 'blocked') {
-      showFailedImage();
-      return;
-    }
-    offerRecovery();
-  };
-
-  document
-    .querySelectorAll<HTMLImageElement>('img[data-gnosi-remote-image]')
-    .forEach((image) => {
-      monitor(image);
-    });
-  return () => { cleanups.forEach((cleanup) => { cleanup(); }); };
 }
 
 
@@ -398,17 +236,85 @@ function normalizeEvent(value: unknown): MailExtractedEvent | null {
 }
 
 
+function normalizeEvidence(value: unknown): MailAnalysisEvidence | null {
+  if (!isRecord(value)) return null;
+  const kind = recordString(value, 'kind');
+  const origin = recordString(value, 'origin');
+  const allowedKinds = new Set(['summary', 'participant', 'attachment', 'indicator', 'task', 'date']);
+  const allowedOrigins = new Set(['message_body', 'message_header', 'attachment_metadata', 'message_metadata', 'vevent']);
+  const evidenceValue = recordString(value, 'value');
+  if (!allowedKinds.has(kind) || !allowedOrigins.has(origin) || !evidenceValue) return null;
+  return {
+    confidence: Math.max(0, Math.min(1, recordNumber(value, 'confidence'))),
+    kind: kind as MailAnalysisEvidence['kind'],
+    label: recordString(value, 'label'),
+    origin: origin as MailAnalysisEvidence['origin'],
+    value: evidenceValue,
+  };
+}
+
+
+function normalizeEvidenceList(value: unknown): MailAnalysisEvidence[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeEvidence)
+    .filter((item): item is MailAnalysisEvidence => item !== null);
+}
+
+
+function normalizeLocalAnalysis(value: unknown): MailLocalAnalysis | null {
+  if (!isRecord(value)) return null;
+  const summary = normalizeEvidence(value.summary);
+  const result = {
+    attachments: normalizeEvidenceList(value.attachments),
+    dates: normalizeEvidenceList(value.dates),
+    indicators: normalizeEvidenceList(value.indicators),
+    participants: normalizeEvidenceList(value.participants),
+    summary,
+    tasks: normalizeEvidenceList(value.tasks),
+  };
+  return summary || Object.values(result).some((item) => Array.isArray(item) && item.length > 0)
+    ? result
+    : null;
+}
+
+
+function normalizeProviderAttempts(value: unknown): MailProviderAttempt[] {
+  if (!Array.isArray(value)) return [];
+  const allowed = new Set([
+    'success', 'timeout', 'unauthorized', 'rate_limited', 'server_error',
+    'network_error', 'invalid_response', 'unavailable',
+  ]);
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const provider = recordString(item, 'provider');
+    const status = recordString(item, 'status');
+    return provider && allowed.has(status)
+      ? [{ provider, status: status as MailProviderAttempt['status'] }]
+      : [];
+  });
+}
+
+
 export function normalizeMailEntities(value: {
   readonly contacts?: readonly unknown[];
+  readonly degraded_reason?: unknown;
   readonly events?: readonly unknown[];
+  readonly local_analysis?: unknown;
+  readonly provider_attempts?: unknown;
 }): MailExtractedEntities {
+  const degradedReason = value.degraded_reason;
   return {
     contacts: (value.contacts ?? [])
       .map(normalizeContact)
       .filter((item): item is MailExtractedContact => item !== null),
+    degradedReason: degradedReason === 'not_configured' || degradedReason === 'providers_failed'
+      ? degradedReason
+      : null,
     events: (value.events ?? [])
       .map(normalizeEvent)
       .filter((item): item is MailExtractedEvent => item !== null),
+    localAnalysis: normalizeLocalAnalysis(value.local_analysis),
+    providerAttempts: normalizeProviderAttempts(value.provider_attempts),
   };
 }
 

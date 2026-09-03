@@ -11823,6 +11823,56 @@
         "title": "MailAccountEnabledResponse",
         "type": "object"
       },
+      "MailAnalysisEvidence": {
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "kind": {
+            "enum": [
+              "summary",
+              "participant",
+              "attachment",
+              "indicator",
+              "task",
+              "date"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "message_body",
+              "message_header",
+              "attachment_metadata",
+              "message_metadata",
+              "vevent"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "value",
+          "confidence",
+          "origin"
+        ],
+        "title": "MailAnalysisEvidence",
+        "type": "object"
+      },
       "MailAttachmentResponse": {
         "additionalProperties": true,
         "properties": {
@@ -12030,9 +12080,30 @@
       "MailExtractEntitiesRequest": {
         "additionalProperties": true,
         "properties": {
+          "attachments": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Attachments",
+            "type": "array"
+          },
           "context": {
             "default": "",
             "title": "Context",
+            "type": "string"
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Recipients",
+            "type": "array"
+          },
+          "sender": {
+            "default": "",
+            "title": "Sender",
             "type": "string"
           }
         },
@@ -12047,6 +12118,21 @@
             },
             "title": "Contacts",
             "type": "array"
+          },
+          "degraded_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "not_configured",
+                  "providers_failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Degraded Reason"
           },
           "error": {
             "anyOf": [
@@ -12066,6 +12152,16 @@
             "title": "Events",
             "type": "array"
           },
+          "local_analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailLocalAnalysisResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "provider": {
             "anyOf": [
               {
@@ -12077,6 +12173,13 @@
             ],
             "title": "Provider"
           },
+          "provider_attempts": {
+            "items": {
+              "$ref": "#/components/schemas/MailProviderAttemptResponse"
+            },
+            "title": "Provider Attempts",
+            "type": "array"
+          },
           "raw": {
             "anyOf": [
               {
@@ -12087,6 +12190,21 @@
               }
             ],
             "title": "Raw"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "complete",
+                  "degraded"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
           }
         },
         "required": [
@@ -12181,6 +12299,57 @@
           "provider"
         ],
         "title": "MailGenerateDraftResponse",
+        "type": "object"
+      },
+      "MailLocalAnalysisResponse": {
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/MailAnalysisEvidence"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "dates": {
+            "items": {
+              "$ref": "#/components/schemas/MailAnalysisEvidence"
+            },
+            "title": "Dates",
+            "type": "array"
+          },
+          "indicators": {
+            "items": {
+              "$ref": "#/components/schemas/MailAnalysisEvidence"
+            },
+            "title": "Indicators",
+            "type": "array"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/MailAnalysisEvidence"
+            },
+            "title": "Participants",
+            "type": "array"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailAnalysisEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/MailAnalysisEvidence"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "title": "MailLocalAnalysisResponse",
         "type": "object"
       },
       "MailMessageResponse": {
@@ -12647,6 +12816,34 @@
           }
         },
         "title": "MailMoveRequest",
+        "type": "object"
+      },
+      "MailProviderAttemptResponse": {
+        "properties": {
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "success",
+              "timeout",
+              "unauthorized",
+              "rate_limited",
+              "server_error",
+              "network_error",
+              "invalid_response",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "status"
+        ],
+        "title": "MailProviderAttemptResponse",
         "type": "object"
       },
       "MailRecipientSuggestionResponse": {
@@ -44370,7 +44567,7 @@
     },
     "/api/mail/remote-images/fetch": {
       "post": {
-        "description": "Return one validated raster image without retaining source or bytes.",
+        "description": "Return verified bytes from the restricted durable mail-image cache.",
         "operationId": "fetch_remote_image_api_mail_remote_images_fetch_post",
         "parameters": [
           {

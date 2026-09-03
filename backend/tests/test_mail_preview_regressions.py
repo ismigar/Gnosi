@@ -28,36 +28,17 @@ def test_entity_analysis_runs_provider_off_the_event_loop(
     caller_thread = threading.get_ident()
     provider_threads: list[int] = []
 
-    def fake_provider(_prompt: str, **options: int) -> tuple[str, str]:
+    def fake_provider(_prompt: str, **options: object) -> str:
         provider_threads.append(threading.get_ident())
         assert options == {
-            "timeout_primary": 20,
-            "timeout_fallback": 30,
-            "max_chars_primary": 6000,
+            "timeout": 8,
+            "provider": "fixture",
+            "use_cache": False,
         }
-        return '{"events": [], "contacts": []}', "fixture"
+        return '{"events": [], "contacts": []}'
 
-    monkeypatch.setattr("pipeline.ai_client.call_ai_with_fallback", fake_provider)
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", fake_provider)
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
-    monkeypatch.setattr("pipeline.ai_client.PRIMARY_PROVIDER", "fixture")
-
-    result = asyncio.run(
-        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
-    )
-
-    assert result == {"events": [], "contacts": [], "provider": "fixture"}
-    assert provider_threads and provider_threads[0] != caller_thread
-
-
-def test_entity_analysis_returns_typed_error_when_providers_fail(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def failing_provider(_prompt: str, **_options: int) -> tuple[str, str]:
-        raise RuntimeError("provider diagnostics must stay private")
-
-    monkeypatch.setattr("pipeline.ai_client.call_ai_with_fallback", failing_provider)
-    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
-    monkeypatch.setattr("pipeline.ai_client.PRIMARY_PROVIDER", "fixture")
 
     result = asyncio.run(
         compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
@@ -66,17 +47,42 @@ def test_entity_analysis_returns_typed_error_when_providers_fail(
     assert result == {
         "events": [],
         "contacts": [],
-        "error": "temporarily_unavailable",
+        "provider": "fixture",
+        "status": "complete",
+        "provider_attempts": [{"provider": "fixture", "status": "success"}],
     }
+    assert provider_threads and provider_threads[0] != caller_thread
+
+
+def test_entity_analysis_returns_typed_error_when_providers_fail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def failing_provider(_prompt: str, **_options: object) -> str:
+        raise RuntimeError("provider diagnostics must stay private")
+
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", failing_provider)
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
+    monkeypatch.setattr("pipeline.ai_client.PRIMARY_PROVIDER", "fixture")
+
+    result = asyncio.run(
+        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
+    )
+
+    assert result["status"] == "degraded"
+    assert result["degraded_reason"] == "providers_failed"
+    assert result["provider_attempts"] == [
+        {"provider": "fixture", "status": "unavailable"}
+    ]
+    assert result["local_analysis"]["summary"]["value"] == "fixture"
 
 
 def test_entity_analysis_uses_literal_local_results_when_providers_fail(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def failing_provider(_prompt: str, **_options: int) -> tuple[str, str]:
+    def failing_provider(_prompt: str, **_options: object) -> str:
         raise RuntimeError("synthetic provider failure")
 
-    monkeypatch.setattr("pipeline.ai_client.call_ai_with_fallback", failing_provider)
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", failing_provider)
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
     monkeypatch.setattr("pipeline.ai_client.PRIMARY_PROVIDER", "fixture")
 
@@ -88,9 +94,8 @@ def test_entity_analysis_uses_literal_local_results_when_providers_fail(
         )
     )
 
-    assert result == {
-        "events": [],
-        "contacts": [
+    assert result["events"] == []
+    assert result["contacts"] == [
             {
                 "name": "Ada Lovelace",
                 "email": "ada@example.test",
@@ -98,9 +103,9 @@ def test_entity_analysis_uses_literal_local_results_when_providers_fail(
                 "company": "",
                 "notes": "",
             }
-        ],
-        "provider": "local_deterministic",
-    }
+        ]
+    assert result["provider"] == "local_deterministic"
+    assert result["status"] == "degraded"
 
 
 def test_entity_analysis_reports_missing_configuration_without_provider_call(
@@ -124,9 +129,8 @@ def test_entity_analysis_reports_missing_configuration_without_provider_call(
         )
     )
 
-    assert result == {
-        "events": [],
-        "contacts": [
+    assert result["events"] == []
+    assert result["contacts"] == [
             {
                 "name": "Ada Lovelace",
                 "email": "ada@example.test",
@@ -134,22 +138,33 @@ def test_entity_analysis_reports_missing_configuration_without_provider_call(
                 "company": "",
                 "notes": "",
             }
-        ],
-        "provider": "local_deterministic",
-    }
+        ]
+    assert result["provider"] == "local_deterministic"
+    assert result["status"] == "degraded"
+    assert result["degraded_reason"] == "not_configured"
+    assert result["provider_attempts"] == []
+
+    restarted_result = asyncio.run(
+        compose.extract_entities(
+            schemas.MailExtractEntitiesRequest(
+                context="Contacte: Ada Lovelace <ada@example.test>"
+            )
+        )
+    )
+    assert restarted_result == result
 
 
 def test_entity_analysis_distinguishes_empty_and_invalid_responses(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     responses = iter([
-        ('{"events": [], "contacts": []}', "fixture"),
-        ('{"events": "invalid", "contacts": []}', "fixture"),
+        '{"events": [], "contacts": []}',
+        '{"events": "invalid", "contacts": []}',
     ])
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
     monkeypatch.setattr("pipeline.ai_client.PRIMARY_PROVIDER", "fixture")
     monkeypatch.setattr(
-        "pipeline.ai_client.call_ai_with_fallback",
+        "pipeline.ai_client.call_ai_client",
         lambda *_args, **_kwargs: next(responses),
     )
 
@@ -160,12 +175,95 @@ def test_entity_analysis_distinguishes_empty_and_invalid_responses(
         compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
     )
 
-    assert empty == {"events": [], "contacts": [], "provider": "fixture"}
-    assert invalid == {
-        "events": [],
-        "contacts": [],
-        "error": "invalid_response",
-    }
+    assert empty["status"] == "complete"
+    assert empty["provider"] == "fixture"
+    assert invalid["status"] == "degraded"
+    assert invalid["provider_attempts"] == [
+        {"provider": "fixture", "status": "invalid_response"}
+    ]
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected"),
+    [
+        (TimeoutError("synthetic"), "timeout"),
+        (RuntimeError("AI error 401: private response"), "unauthorized"),
+        (RuntimeError("AI error 429: private response"), "rate_limited"),
+        (RuntimeError("AI error 503: private response"), "server_error"),
+    ],
+)
+def test_entity_analysis_classifies_provider_failures_without_details(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
+    expected: str,
+) -> None:
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
+    monkeypatch.setattr(
+        "pipeline.ai_client.call_ai_client",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(failure),
+    )
+
+    result = asyncio.run(
+        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
+    )
+
+    assert result["provider_attempts"] == [
+        {"provider": "fixture", "status": expected}
+    ]
+    assert "private response" not in str(result)
+
+
+def test_entity_analysis_cascades_after_malformed_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def provider(_prompt: str, **options: object) -> str:
+        name = str(options["provider"])
+        calls.append(name)
+        return "not-json" if name == "primary" else '{"events": [], "contacts": []}'
+
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["primary", "backup"])
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
+
+    result = asyncio.run(
+        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
+    )
+
+    assert calls == ["primary", "backup"]
+    assert result["provider"] == "backup"
+    assert result["provider_attempts"] == [
+        {"provider": "primary", "status": "invalid_response"},
+        {"provider": "backup", "status": "success"},
+    ]
+
+
+def test_entity_analysis_uses_secondary_after_primary_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, int]] = []
+
+    def provider(_prompt: str, **options: object) -> str:
+        name = str(options["provider"])
+        timeout = int(str(options["timeout"]))
+        calls.append((name, timeout))
+        if name == "primary":
+            raise TimeoutError("synthetic timeout")
+        return '{"events": [], "contacts": []}'
+
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["primary", "backup"])
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
+
+    result = asyncio.run(
+        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
+    )
+
+    assert calls == [("primary", 8), ("backup", 12)]
+    assert result["provider"] == "backup"
+    assert result["provider_attempts"] == [
+        {"provider": "primary", "status": "timeout"},
+        {"provider": "backup", "status": "success"},
+    ]
 
 
 def test_inline_image_uses_detail_cache_without_a_second_provider_fetch(

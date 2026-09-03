@@ -718,4 +718,9 @@ async def generate_draft(payload: mail_schemas.MailGenerateDraftRequest) -> Any:
     response_model_exclude_unset=True,
 )
 async def extract_entities(payload: mail_schemas.MailExtractEntitiesRequest) -> Any:
-    return await analyze_mail_entities(payload.context)
+    return await analyze_mail_entities(
+        payload.context,
+        sender=payload.sender,
+        recipients=tuple(payload.recipients),
+        attachments=tuple(payload.attachments),
+    )

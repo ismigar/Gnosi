@@ -4,11 +4,11 @@ import {
   buildMailHtmlDocument,
   buildQuotedMailHtml,
   detectMailFormLinks,
-  installRemoteMailImageRecovery,
   linkPlainMailText,
   normalizeMailEntities,
   sanitizeMailHtml,
 } from './mailViewerModel';
+import { installRemoteMailImageRecovery } from './mailRemoteImageRecovery';
 
 
 describe('mailViewerModel', () => {
@@ -35,7 +35,37 @@ describe('mailViewerModel', () => {
       events: [{ start: '2026-09-01', title: 'Review' }, null],
     })).toEqual({
       contacts: [{ company: '', email: 'ada@example.test', name: 'Ada', notes: '', phone: '' }],
+      degradedReason: null,
       events: [{ description: '', end: '', location: '', start: '2026-09-01', title: 'Review' }],
+      localAnalysis: null,
+      providerAttempts: [],
+    });
+  });
+
+  it('normalizes typed local evidence and safe provider diagnostics', () => {
+    expect(normalizeMailEntities({
+      contacts: [],
+      degraded_reason: 'providers_failed',
+      events: [],
+      local_analysis: {
+        attachments: [],
+        dates: [],
+        indicators: [],
+        participants: [],
+        summary: {
+          confidence: 1,
+          kind: 'summary',
+          label: 'extractive_summary',
+          origin: 'message_body',
+          value: 'Literal sentence.',
+        },
+        tasks: [],
+      },
+      provider_attempts: [{ provider: 'primary', status: 'timeout' }],
+    })).toMatchObject({
+      degradedReason: 'providers_failed',
+      localAnalysis: { summary: { value: 'Literal sentence.' } },
+      providerAttempts: [{ provider: 'primary', status: 'timeout' }],
     });
   });
 
@@ -65,8 +95,8 @@ describe('mailViewerModel', () => {
     expect(document.querySelector('base')).toBeNull();
     expect(images[0]?.dataset.gnosiRemoteImage).toBe('pending');
     expect(images[0]?.hasAttribute('src')).toBe(false);
-    expect(images[0]?.dataset.gnosiRemoteSource)
-      .toBe('https://images.example.test/a.png');
+    expect(images[0]?.dataset.gnosiRemoteToken).toBe('remote-image-1');
+    expect(source).not.toContain('https://images.example.test/a.png');
     expect(images[0]?.hasAttribute('srcset')).toBe(false);
     expect(document.querySelector('source')?.hasAttribute('srcset')).toBe(false);
     expect(images[1]?.dataset.gnosiRemoteImage).toBe('blocked');
@@ -79,7 +109,7 @@ describe('mailViewerModel', () => {
 
   it('only uses backend recovery after explicit consent, then installs a safe fallback', async () => {
     const document = new DOMParser().parseFromString(
-      '<img data-gnosi-remote-image="pending" data-gnosi-remote-source="https://images.example.test/a.png">',
+      '<img data-gnosi-remote-image="pending" data-gnosi-remote-token="remote-image-1">',
       'text/html',
     );
     const image = document.querySelector('img');
@@ -109,7 +139,7 @@ describe('mailViewerModel', () => {
       expect(image.dataset.gnosiRemoteImage).toBe('recovered');
     });
     expect(recoverSource).toHaveBeenCalledOnce();
-    expect(recoverSource).toHaveBeenCalledWith('https://images.example.test/a.png');
+    expect(recoverSource).toHaveBeenCalledWith('remote-image-1');
     expect(image.src).toBe('blob:recovered-image');
     image.dispatchEvent(new Event('error'));
 
@@ -123,7 +153,7 @@ describe('mailViewerModel', () => {
 
   it('shows an actionable final state without exposing a failed source URL', async () => {
     const document = new DOMParser().parseFromString(
-      '<img data-gnosi-remote-image="pending" data-gnosi-remote-source="https://images.example.test/private-token.png">',
+      '<img data-gnosi-remote-image="pending" data-gnosi-remote-token="remote-image-1">',
       'text/html',
     );
     const recoverSource = vi.fn()

@@ -61,9 +61,37 @@ export interface MailExtractedEvent {
 }
 
 
+export interface MailAnalysisEvidence {
+  readonly confidence: number;
+  readonly kind: 'summary' | 'participant' | 'attachment' | 'indicator' | 'task' | 'date';
+  readonly label: string;
+  readonly origin: 'message_body' | 'message_header' | 'attachment_metadata' | 'message_metadata' | 'vevent';
+  readonly value: string;
+}
+
+
+export interface MailLocalAnalysis {
+  readonly attachments: readonly MailAnalysisEvidence[];
+  readonly dates: readonly MailAnalysisEvidence[];
+  readonly indicators: readonly MailAnalysisEvidence[];
+  readonly participants: readonly MailAnalysisEvidence[];
+  readonly summary: MailAnalysisEvidence | null;
+  readonly tasks: readonly MailAnalysisEvidence[];
+}
+
+
+export interface MailProviderAttempt {
+  readonly provider: string;
+  readonly status: 'success' | 'timeout' | 'unauthorized' | 'rate_limited' | 'server_error' | 'network_error' | 'invalid_response' | 'unavailable';
+}
+
+
 export interface MailExtractedEntities {
   readonly contacts: readonly MailExtractedContact[];
+  readonly degradedReason: 'not_configured' | 'providers_failed' | null;
   readonly events: readonly MailExtractedEvent[];
+  readonly localAnalysis: MailLocalAnalysis | null;
+  readonly providerAttempts: readonly MailProviderAttempt[];
 }
 
 

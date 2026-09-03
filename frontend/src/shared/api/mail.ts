@@ -308,9 +308,26 @@ export async function generateMailDraft(
   );
 }
 
-export async function extractMailEntities(context: string): Promise<MailEntities> {
+export interface MailAnalysisMetadata {
+  readonly attachments?: readonly string[];
+  readonly recipients?: readonly string[];
+  readonly sender?: string;
+}
+
+
+export async function extractMailEntities(
+  context: string,
+  metadata: MailAnalysisMetadata = {},
+): Promise<MailEntities> {
   return unwrapApiResult<MailEntities, unknown>(
-    await apiClient.POST('/api/mail/ai/extract_entities', { body: { context } }),
+    await apiClient.POST('/api/mail/ai/extract_entities', {
+      body: {
+        attachments: [...(metadata.attachments ?? [])],
+        context,
+        recipients: [...(metadata.recipients ?? [])],
+        sender: metadata.sender ?? '',
+      },
+    }),
   );
 }
 

@@ -193,6 +193,46 @@ class MailGenerateDraftResponse(BaseModel):
 
 class MailExtractEntitiesRequest(MailRequestPayload):
     context: str = ""
+    sender: str = ""
+    recipients: list[str] = Field(default_factory=list, max_length=50)
+    attachments: list[str] = Field(default_factory=list, max_length=50)
+
+
+class MailAnalysisEvidence(BaseModel):
+    kind: Literal["summary", "participant", "attachment", "indicator", "task", "date"]
+    label: str
+    value: str
+    confidence: float = Field(ge=0, le=1)
+    origin: Literal[
+        "message_body",
+        "message_header",
+        "attachment_metadata",
+        "message_metadata",
+        "vevent",
+    ]
+
+
+class MailLocalAnalysisResponse(BaseModel):
+    summary: MailAnalysisEvidence | None = None
+    participants: list[MailAnalysisEvidence] = Field(default_factory=list)
+    attachments: list[MailAnalysisEvidence] = Field(default_factory=list)
+    indicators: list[MailAnalysisEvidence] = Field(default_factory=list)
+    tasks: list[MailAnalysisEvidence] = Field(default_factory=list)
+    dates: list[MailAnalysisEvidence] = Field(default_factory=list)
+
+
+class MailProviderAttemptResponse(BaseModel):
+    provider: str
+    status: Literal[
+        "success",
+        "timeout",
+        "unauthorized",
+        "rate_limited",
+        "server_error",
+        "network_error",
+        "invalid_response",
+        "unavailable",
+    ]
 
 
 class MailExtractEntitiesResponse(BaseModel):
@@ -201,6 +241,10 @@ class MailExtractEntitiesResponse(BaseModel):
     provider: str | None = None
     error: str | None = None
     raw: str | None = None
+    status: Literal["complete", "degraded"] | None = None
+    degraded_reason: Literal["not_configured", "providers_failed"] | None = None
+    provider_attempts: list[MailProviderAttemptResponse] = Field(default_factory=list)
+    local_analysis: MailLocalAnalysisResponse | None = None
 
 
 class MailViewFieldSchema(BaseModel):

@@ -8,12 +8,46 @@ import {
   Info,
   Mail,
   MapPin,
+  Paperclip,
   Phone,
   Sparkles,
+  SquareCheckBig,
+  Users,
   UserPlus,
 } from 'lucide-react';
 
 import type { MailViewerController } from './useMailViewerController';
+import type { MailAnalysisEvidence } from './mailViewerTypes';
+
+
+function EvidenceList({
+  icon: Icon,
+  items,
+  title,
+}: {
+  readonly icon: typeof Paperclip;
+  readonly items: readonly MailAnalysisEvidence[];
+  readonly title: string;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-4">
+      <h4 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[var(--text-secondary)]">
+        <Icon size={14} /> {title}
+      </h4>
+      <ul className="space-y-2 text-sm text-[var(--text-primary)]">
+        {items.map((item, index) => (
+          <li key={`${item.kind}-${item.value}-${String(index)}`}>
+            <div>{item.value}</div>
+            <div className="text-[11px] text-[var(--text-tertiary)]">
+              {Math.round(item.confidence * 100)}% · {item.origin}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 
 export function MailSmartSuggestions({ controller }: { readonly controller: MailViewerController }) {
@@ -57,7 +91,9 @@ export function MailSmartSuggestions({ controller }: { readonly controller: Mail
       </div>
     );
   }
-  if (!entities || (entities.events.length === 0 && entities.contacts.length === 0)) return null;
+  if (!entities || (entities.events.length === 0 && entities.contacts.length === 0
+    && !entities.localAnalysis)) return null;
+  const local = entities.localAnalysis;
   return (
     <div className="bg-[var(--bg-secondary)]/50 border border-[var(--border-primary)] rounded-3xl p-8 mb-12 animate-in fade-in slide-in-from-top-4 duration-500 backdrop-blur-sm" data-mail-analysis-status={controller.analysisStatus}>
       {controller.analysisStatus === 'local_results' && (
@@ -78,6 +114,36 @@ export function MailSmartSuggestions({ controller }: { readonly controller: Mail
         <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg"><Sparkles size={20} /></div>
         <h3 className="text-xl font-bold text-[var(--text-primary)]">{t('mail.smart_suggestions', 'Smart suggestions')}</h3>
       </div>
+      {controller.analysisStatus === 'local_results' && entities.providerAttempts.length > 0 && (
+        <div className="mb-5 text-xs text-[var(--text-secondary)]" data-mail-provider-attempts="true">
+          {entities.providerAttempts.map((attempt) => (
+            <span className="mr-3" key={attempt.provider}>
+              {attempt.provider}: {attempt.status}
+            </span>
+          ))}
+        </div>
+      )}
+      {local && (
+        <div className="mb-6 space-y-4" data-mail-local-analysis="true">
+          {local.summary && (
+            <div className="rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-4">
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-[var(--text-secondary)]">
+                {t('mail.local_analysis_summary', 'Extractive summary')}
+              </h4>
+              <p className="text-sm text-[var(--text-primary)]">{local.summary.value}</p>
+              <div className="mt-2 text-[11px] text-[var(--text-tertiary)]">
+                {Math.round(local.summary.confidence * 100)}% · {local.summary.origin}
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <EvidenceList icon={Users} items={local.participants} title={t('mail.local_analysis_participants', 'Participants')} />
+            <EvidenceList icon={Paperclip} items={local.attachments} title={t('mail.local_analysis_attachments', 'Attachments')} />
+            <EvidenceList icon={SquareCheckBig} items={local.tasks} title={t('mail.local_analysis_tasks', 'Explicit tasks')} />
+            <EvidenceList icon={CalendarCheck} items={local.dates} title={t('mail.local_analysis_dates', 'Explicit dates')} />
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {entities.events.length > 0 && (
           <div className="space-y-4">

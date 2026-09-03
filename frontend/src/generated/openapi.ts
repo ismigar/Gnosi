@@ -2803,7 +2803,7 @@ export interface paths {
         put?: never;
         /**
          * Fetch Remote Image
-         * @description Return one validated raster image without retaining source or bytes.
+         * @description Return verified bytes from the restricted durable mail-image cache.
          */
         post: operations["fetch_remote_image_api_mail_remote_images_fetch_post"];
         delete?: never;
@@ -14188,6 +14188,25 @@ export interface components {
             /** Enabled */
             enabled: boolean;
         };
+        /** MailAnalysisEvidence */
+        MailAnalysisEvidence: {
+            /** Confidence */
+            confidence: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "summary" | "participant" | "attachment" | "indicator" | "task" | "date";
+            /** Label */
+            label: string;
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "message_body" | "message_header" | "attachment_metadata" | "message_metadata" | "vevent";
+            /** Value */
+            value: string;
+        };
         /** MailAttachmentResponse */
         MailAttachmentResponse: {
             /** Cid */
@@ -14282,11 +14301,20 @@ export interface components {
         };
         /** MailExtractEntitiesRequest */
         MailExtractEntitiesRequest: {
+            /** Attachments */
+            attachments?: string[];
             /**
              * Context
              * @default
              */
             context: string;
+            /** Recipients */
+            recipients?: string[];
+            /**
+             * Sender
+             * @default
+             */
+            sender: string;
         } & {
             [key: string]: unknown;
         };
@@ -14294,14 +14322,21 @@ export interface components {
         MailExtractEntitiesResponse: {
             /** Contacts */
             contacts: components["schemas"]["JsonValue"][];
+            /** Degraded Reason */
+            degraded_reason?: ("not_configured" | "providers_failed") | null;
             /** Error */
             error?: string | null;
             /** Events */
             events: components["schemas"]["JsonValue"][];
+            local_analysis?: components["schemas"]["MailLocalAnalysisResponse"] | null;
             /** Provider */
             provider?: string | null;
+            /** Provider Attempts */
+            provider_attempts?: components["schemas"]["MailProviderAttemptResponse"][];
             /** Raw */
             raw?: string | null;
+            /** Status */
+            status?: ("complete" | "degraded") | null;
         };
         /** MailFolderCountResponse */
         MailFolderCountResponse: {
@@ -14353,6 +14388,20 @@ export interface components {
             draft: string;
             /** Provider */
             provider: string;
+        };
+        /** MailLocalAnalysisResponse */
+        MailLocalAnalysisResponse: {
+            /** Attachments */
+            attachments?: components["schemas"]["MailAnalysisEvidence"][];
+            /** Dates */
+            dates?: components["schemas"]["MailAnalysisEvidence"][];
+            /** Indicators */
+            indicators?: components["schemas"]["MailAnalysisEvidence"][];
+            /** Participants */
+            participants?: components["schemas"]["MailAnalysisEvidence"][];
+            summary?: components["schemas"]["MailAnalysisEvidence"] | null;
+            /** Tasks */
+            tasks?: components["schemas"]["MailAnalysisEvidence"][];
         };
         /**
          * MailMessageResponse
@@ -14498,6 +14547,16 @@ export interface components {
             target_folder?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** MailProviderAttemptResponse */
+        MailProviderAttemptResponse: {
+            /** Provider */
+            provider: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "success" | "timeout" | "unauthorized" | "rate_limited" | "server_error" | "network_error" | "invalid_response" | "unavailable";
         };
         /** MailRecipientSuggestionResponse */
         MailRecipientSuggestionResponse: {

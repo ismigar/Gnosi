@@ -7,6 +7,7 @@ import socket
 import ssl
 import zlib
 from io import BytesIO
+from pathlib import Path
 from typing import AsyncIterator, Iterable
 
 import httpcore
@@ -16,11 +17,20 @@ from fastapi import HTTPException
 from PIL import Image
 
 from backend.domains.mail.routes import remote_images as remote_image_routes
+from backend.domains.mail.services import remote_image_cache
 from backend.domains.mail.services import remote_images
 
 
 @pytest.fixture(autouse=True)
-def _isolated_remote_image_cache() -> Iterable[None]:
+def _isolated_remote_image_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> Iterable[None]:
+    monkeypatch.setattr(
+        remote_image_cache,
+        "_cache_root",
+        lambda: tmp_path / "remote-images",
+    )
     remote_images._clear_remote_image_cache()
     yield
     remote_images._clear_remote_image_cache()
@@ -174,7 +184,7 @@ def test_fetch_accepts_only_verified_raster_and_forwards_no_credentials(
     assert result.body == _png_bytes()
 
 
-def test_fresh_verified_image_uses_memory_cache_without_origin_or_dns(
+def test_fresh_verified_image_uses_durable_cache_without_origin_or_dns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     validations = 0
@@ -211,6 +221,123 @@ def test_fresh_verified_image_uses_memory_cache_without_origin_or_dns(
     assert second == first
     assert validations == 1
     assert requests == 1
+
+
+def test_durable_cache_survives_backend_process_state_reset(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    requests = 0
+
+    async def accept_fixture(url: str) -> remote_images.ValidatedRemoteImageUrl:
+        return _target(url)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(
+            200,
+            headers={"Content-Type": "image/png"},
+            content=_png_bytes(),
+            request=request,
+        )
+
+    monkeypatch.setattr(remote_images, "_validate_remote_image_url", accept_fixture)
+    transport = httpx.MockTransport(handler)
+    first = asyncio.run(
+        remote_images.fetch_remote_mail_image(
+            "https://images.example.test/restart.png",
+            transport=transport,
+        )
+    )
+    remote_images._clear_remote_image_cache()
+    second = asyncio.run(
+        remote_images.fetch_remote_mail_image(
+            "https://images.example.test/restart.png",
+            transport=transport,
+        )
+    )
+
+    assert second == first
+    assert requests == 1
+    metadata = next((tmp_path / "remote-images").glob("*.json")).read_text()
+    assert "images.example.test" not in metadata
+    assert "restart.png" not in metadata
+
+
+def test_concurrent_recovery_fetches_origin_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests = 0
+
+    async def accept_fixture(url: str) -> remote_images.ValidatedRemoteImageUrl:
+        return _target(url)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        await asyncio.sleep(0.02)
+        return httpx.Response(
+            200,
+            headers={"Content-Type": "image/png"},
+            content=_png_bytes(),
+            request=request,
+        )
+
+    async def recover_twice() -> tuple[remote_images.RemoteMailImage, ...]:
+        transport = httpx.MockTransport(handler)
+        return tuple(
+            await asyncio.gather(
+                remote_images.fetch_remote_mail_image(
+                    "https://images.example.test/concurrent.png",
+                    transport=transport,
+                ),
+                remote_images.fetch_remote_mail_image(
+                    "https://images.example.test/concurrent.png",
+                    transport=transport,
+                ),
+            )
+        )
+
+    monkeypatch.setattr(remote_images, "_validate_remote_image_url", accept_fixture)
+    results = asyncio.run(recover_twice())
+
+    assert results[0] == results[1]
+    assert requests == 1
+
+
+def test_corrupt_durable_cache_is_a_miss_and_is_replaced(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    requests = 0
+
+    async def accept_fixture(url: str) -> remote_images.ValidatedRemoteImageUrl:
+        return _target(url)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(
+            200,
+            headers={"Content-Type": "image/png"},
+            content=_png_bytes(),
+            request=request,
+        )
+
+    monkeypatch.setattr(remote_images, "_validate_remote_image_url", accept_fixture)
+    transport = httpx.MockTransport(handler)
+    url = "https://images.example.test/corrupt.png"
+    asyncio.run(remote_images.fetch_remote_mail_image(url, transport=transport))
+    body_path = next((tmp_path / "remote-images").glob("*.bin"))
+    body_path.write_bytes(b"corrupt")
+    remote_images._clear_remote_image_cache()
+    recovered = asyncio.run(
+        remote_images.fetch_remote_mail_image(url, transport=transport)
+    )
+
+    assert recovered.body == _png_bytes()
+    assert requests == 2
 
 
 def test_stale_cache_revalidates_with_etag_and_accepts_304(
@@ -253,7 +380,7 @@ def test_stale_cache_revalidates_with_etag_and_accepts_304(
     assert len(requests) == 2
 
 
-def test_recent_stale_cache_survives_revalidation_timeout_only(
+def test_durable_stale_cache_survives_revalidation_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     now = 100.0
@@ -282,7 +409,7 @@ def test_recent_stale_cache_survives_revalidation_timeout_only(
             "https://images.example.test/stale.png", transport=transport
         )
     )
-    now += remote_images.CACHE_TTL_SECONDS + 1
+    now += 365 * 24 * 60 * 60
     second = asyncio.run(
         remote_images.fetch_remote_mail_image(
             "https://images.example.test/stale.png", transport=transport
@@ -293,7 +420,7 @@ def test_recent_stale_cache_survives_revalidation_timeout_only(
     assert requests == 2
 
 
-def test_stale_cache_does_not_hide_origin_denial(
+def test_stale_cache_survives_an_expired_signed_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     now = 100.0
@@ -323,14 +450,13 @@ def test_stale_cache_does_not_hide_origin_denial(
         )
     )
     now += remote_images.CACHE_TTL_SECONDS + 1
-    with pytest.raises(remote_images.RemoteMailImageError) as error:
-        asyncio.run(
-            remote_images.fetch_remote_mail_image(
-                "https://images.example.test/denied.png", transport=transport
-            )
+    stale = asyncio.run(
+        remote_images.fetch_remote_mail_image(
+            "https://images.example.test/denied.png", transport=transport
         )
+    )
 
-    assert error.value.code == "origin_unavailable"
+    assert stale.body == _png_bytes()
     assert requests == 2
 
 

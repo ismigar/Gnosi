@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   subscribeElementEvent,
@@ -8,11 +8,11 @@ import { subscribeAppSignal } from '../../../shared/platform/app-events';
 import { fetchRemoteMailImage } from '../../../shared/api/mail-specialized';
 import {
   buildMailHtmlDocument,
-  installRemoteMailImageRecovery,
   linkPlainMailText,
   MAIL_DARK_BODY_EVENT,
   readMailDarkBody,
 } from './mailViewerModel';
+import { installRemoteMailImageRecovery } from './mailRemoteImageRecovery';
 
 
 const EMAIL_CSS_LIGHT = `
@@ -80,6 +80,23 @@ export function MailBody({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [height, setHeight] = useState(200);
   const [darkBody, setDarkBody] = useState(readMailDarkBody);
+  const renderedBody = useMemo(() => {
+    const remoteSources = new Map<string, string>();
+    let remoteImageIndex = 0;
+    const srcDoc = bodyHtml ? buildMailHtmlDocument(bodyHtml, {
+      email,
+      folder,
+      messageId,
+      registerRemoteSource: (source) => {
+        remoteImageIndex += 1;
+        const token = `remote-image-${String(remoteImageIndex)}`;
+        remoteSources.set(token, source);
+        return token;
+      },
+      themeCss: darkBody ? EMAIL_CSS_DARK : EMAIL_CSS_LIGHT,
+    }) : '';
+    return { remoteSources, srcDoc };
+  }, [bodyHtml, darkBody, email, folder, messageId]);
 
   useEffect(() => {
     const update = (): void => { setDarkBody(readMailDarkBody()); };
@@ -101,7 +118,9 @@ export function MailBody({
       if (!objectUrls.delete(source)) return;
       URL.revokeObjectURL(source);
     };
-    const recoverSource = async (source: string): Promise<string | null> => {
+    const recoverSource = async (token: string): Promise<string | null> => {
+      const source = renderedBody.remoteSources.get(token);
+      if (!source) return null;
       try {
         const body = await fetchRemoteMailImage(source, abortController.signal);
         if (!body) return null;
@@ -157,6 +176,7 @@ export function MailBody({
     email,
     folder,
     messageId,
+    renderedBody,
     remoteImageBlockedLabel,
     remoteImageRecoveryLabel,
     remoteImageRecoveringLabel,
@@ -169,12 +189,7 @@ export function MailBody({
     return (
       <iframe
         ref={iframeRef}
-        srcDoc={buildMailHtmlDocument(bodyHtml, {
-          email,
-          folder,
-          messageId,
-          themeCss: darkBody ? EMAIL_CSS_DARK : EMAIL_CSS_LIGHT,
-        })}
+        srcDoc={renderedBody.srcDoc}
         sandbox="allow-same-origin allow-popups"
         title="mail-body"
         style={{

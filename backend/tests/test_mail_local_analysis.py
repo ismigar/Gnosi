@@ -60,3 +60,35 @@ def test_rejects_prose_dates_incomplete_events_and_unnamed_addresses() -> None:
 
     assert result.events == []
     assert result.contacts == []
+
+
+def test_builds_literal_local_report_with_origins_and_confidence() -> None:
+    result = extract_local_entities(
+        "Please review the attached file.\nTODO: Confirm the explicit total.\n"
+        "Demà potser ens reunim, però això no és una data estructurada.",
+        sender="Ada <ada@example.test>",
+        recipients=("Grace <grace@example.test>",),
+        attachments=("../fixtures/report.pdf",),
+    )
+
+    report = result.report.as_dict()
+    assert report["summary"]["value"].startswith("Please review")
+    assert report["participants"] == [
+        {
+            "kind": "participant",
+            "label": "sender",
+            "value": "Ada <ada@example.test>",
+            "origin": "message_header",
+            "confidence": 1.0,
+        },
+        {
+            "kind": "participant",
+            "label": "recipient",
+            "value": "Grace <grace@example.test>",
+            "origin": "message_header",
+            "confidence": 1.0,
+        },
+    ]
+    assert report["attachments"][0]["value"] == "report.pdf"
+    assert report["tasks"][0]["value"] == "Confirm the explicit total."
+    assert report["dates"] == []

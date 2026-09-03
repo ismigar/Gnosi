@@ -42,6 +42,15 @@ import type {
 type SnoozeOption = '1h' | 'next_week' | 'tomorrow';
 
 
+function mailAddressValues(
+  value: string | readonly string[] | null | undefined,
+): string[] {
+  if (typeof value === 'string') return [value];
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
+
 export function useMailViewerController({
   account = null,
   mail: selectedMail = null,
@@ -111,7 +120,18 @@ export function useMailViewerController({
     || '';
   const analyzeMessage = (): void => {
     const context = analysisContext;
-    if (context) void scanEntities(context);
+    const recipientValues = [mailData?.recipient, mailData?.cc]
+      .flatMap(mailAddressValues);
+    const attachmentNames = (mailData?.attachments ?? []).flatMap((attachment) => (
+      typeof attachment.filename === 'string' && attachment.filename
+        ? [attachment.filename]
+        : []
+    ));
+    if (context) void scanEntities(context, {
+      attachments: attachmentNames,
+      recipients: recipientValues,
+      sender: mailData?.sender || '',
+    });
   };
 
   const addExtractedContact = async (contact: MailExtractedContact): Promise<void> => {

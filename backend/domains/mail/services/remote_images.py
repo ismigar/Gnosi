@@ -1,15 +1,14 @@
-"""Ephemeral, SSRF-hardened recovery for remote mail raster images."""
+"""Durable, SSRF-hardened recovery for remote mail raster images."""
 
 from __future__ import annotations
 
 import asyncio
-import hashlib
+from concurrent.futures import Future
 import ipaddress
 import socket
 import ssl
 import time
 import warnings
-from collections import OrderedDict
 from dataclasses import dataclass, replace
 from io import BytesIO
 from threading import Lock
@@ -20,13 +19,21 @@ import httpcore
 import httpx
 from PIL import Image, UnidentifiedImageError
 
+from backend.domains.mail.services.remote_image_cache import (
+    CACHE_TTL_SECONDS,
+    MAX_CACHE_BYTES,
+    MAX_CACHE_ENTRIES,
+    CachedRemoteMailImage,
+    cache_key,
+    load_cached_image,
+    refresh_cached_image,
+    store_cached_image,
+    validator_digest,
+)
+
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_PIXELS = 40_000_000
 MAX_ADDRESS_ATTEMPTS = 2
-MAX_CACHE_BYTES = 32 * 1024 * 1024
-MAX_CACHE_ENTRIES = 128
-CACHE_TTL_SECONDS = 300.0
-CACHE_STALE_IF_ERROR_SECONDS = 3600.0
 MAX_REDIRECTS = 2
 MAX_URL_CHARS = 4_000
 TOTAL_TIMEOUT_SECONDS = 12.0
@@ -82,83 +89,31 @@ class ValidatedRemoteImageUrl:
 
 
 @dataclass(frozen=True)
-class _CachedRemoteMailImage:
-    image: RemoteMailImage
-    validator_url: str
-    expires_at: float
-    stale_until: float
-
-
-@dataclass(frozen=True)
 class _NotModified:
-    validator_url: str
+    validator_digest: str
 
 
-_REMOTE_IMAGE_CACHE: OrderedDict[str, _CachedRemoteMailImage] = OrderedDict()
-_REMOTE_IMAGE_CACHE_BYTES = 0
-_REMOTE_IMAGE_CACHE_LOCK = Lock()
+_REMOTE_IMAGE_FLIGHTS: dict[str, Future[RemoteMailImage]] = {}
+_REMOTE_IMAGE_FLIGHTS_LOCK = Lock()
 
 
 def _now() -> float:
-    return time.monotonic()
-
-
-def _cache_key(raw_url: str) -> str:
-    return hashlib.sha256(raw_url.encode("utf-8")).hexdigest()
+    return time.time()
 
 
 def _clear_remote_image_cache() -> None:
-    global _REMOTE_IMAGE_CACHE_BYTES
-    with _REMOTE_IMAGE_CACHE_LOCK:
-        _REMOTE_IMAGE_CACHE.clear()
-        _REMOTE_IMAGE_CACHE_BYTES = 0
+    """Clear only in-process flight state; durable entries remain on disk."""
+    with _REMOTE_IMAGE_FLIGHTS_LOCK:
+        _REMOTE_IMAGE_FLIGHTS.clear()
 
 
-def _cached_image(raw_url: str) -> tuple[_CachedRemoteMailImage, bool] | None:
-    global _REMOTE_IMAGE_CACHE_BYTES
-    key = _cache_key(raw_url)
-    now = _now()
-    with _REMOTE_IMAGE_CACHE_LOCK:
-        entry = _REMOTE_IMAGE_CACHE.pop(key, None)
-        if entry is None:
-            return None
-        if now > entry.stale_until:
-            _REMOTE_IMAGE_CACHE_BYTES -= len(entry.image.body)
-            return None
-        _REMOTE_IMAGE_CACHE[key] = entry
-        return entry, now <= entry.expires_at
-
-
-def _store_cached_image(
-    raw_url: str,
-    image: RemoteMailImage,
-    validator_url: str,
-) -> None:
-    global _REMOTE_IMAGE_CACHE_BYTES
-    key = _cache_key(raw_url)
-    now = _now()
-    entry = _CachedRemoteMailImage(
-        image=image,
-        validator_url=validator_url,
-        expires_at=now + CACHE_TTL_SECONDS,
-        stale_until=now + CACHE_STALE_IF_ERROR_SECONDS,
+def _remote_image(entry: CachedRemoteMailImage) -> RemoteMailImage:
+    return RemoteMailImage(
+        body=entry.body,
+        content_type=entry.content_type,
+        etag=entry.etag,
+        last_modified=entry.last_modified,
     )
-    with _REMOTE_IMAGE_CACHE_LOCK:
-        previous = _REMOTE_IMAGE_CACHE.pop(key, None)
-        if previous is not None:
-            _REMOTE_IMAGE_CACHE_BYTES -= len(previous.image.body)
-        _REMOTE_IMAGE_CACHE[key] = entry
-        _REMOTE_IMAGE_CACHE_BYTES += len(image.body)
-        while (
-            len(_REMOTE_IMAGE_CACHE) > MAX_CACHE_ENTRIES
-            or _REMOTE_IMAGE_CACHE_BYTES > MAX_CACHE_BYTES
-        ):
-            _, evicted = _REMOTE_IMAGE_CACHE.popitem(last=False)
-            _REMOTE_IMAGE_CACHE_BYTES -= len(evicted.image.body)
-
-
-def _refresh_cached_image(raw_url: str, entry: _CachedRemoteMailImage) -> None:
-    _store_cached_image(raw_url, entry.image, entry.validator_url)
 
 
 def _safe_validator(value: str | None) -> str:
@@ -432,7 +387,7 @@ async def _fetch_validated_target(
                             raise RemoteMailImageError("invalid_redirect", 502)
                         return redirect_url
                     if response.status_code == 304 and conditional_headers:
-                        return _NotModified(selected_target.url)
+                        return _NotModified(validator_digest(selected_target.url))
                     if response.status_code != 200:
                         raise RemoteMailImageError("origin_unavailable", 502)
                     return await _read_response(response)
@@ -451,27 +406,37 @@ async def _fetch_validated_target(
 
 def _conditional_revalidation_headers(
     target: ValidatedRemoteImageUrl,
-    stale_entry: _CachedRemoteMailImage | None,
+    stale_entry: CachedRemoteMailImage | None,
 ) -> dict[str, str]:
-    if stale_entry is None or target.url != stale_entry.validator_url:
+    if (
+        stale_entry is None
+        or validator_digest(target.url) != stale_entry.validator_digest
+    ):
         return {}
     headers: dict[str, str] = {}
-    if stale_entry.image.etag:
-        headers["If-None-Match"] = stale_entry.image.etag
-    if stale_entry.image.last_modified:
-        headers["If-Modified-Since"] = stale_entry.image.last_modified
+    if stale_entry.etag:
+        headers["If-None-Match"] = stale_entry.etag
+    if stale_entry.last_modified:
+        headers["If-Modified-Since"] = stale_entry.last_modified
     return headers
 
 
-async def fetch_remote_mail_image(
+async def _fetch_remote_mail_image_uncollapsed(
     raw_url: str,
     *,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> RemoteMailImage:
-    """Fetch or revalidate one public raster image without persistent storage."""
-    cached = _cached_image(raw_url)
+    """Fetch or revalidate one public raster image through the durable cache."""
+    now = _now()
+    cached = await asyncio.to_thread(
+        load_cached_image,
+        raw_url,
+        now=now,
+        accepted_types=_ACCEPTED_MIME_TYPES,
+        validate_raster=_validate_raster_image,
+    )
     if cached is not None and cached[1]:
-        return cached[0].image
+        return _remote_image(cached[0])
     stale_entry = cached[0] if cached is not None else None
     current = raw_url
     try:
@@ -484,23 +449,44 @@ async def fetch_remote_mail_image(
                     _conditional_revalidation_headers(target, stale_entry),
                 )
                 if isinstance(result, RemoteMailImage):
-                    _store_cached_image(raw_url, result, target.url)
+                    await asyncio.to_thread(
+                        store_cached_image,
+                        raw_url,
+                        body=result.body,
+                        content_type=result.content_type,
+                        etag=result.etag,
+                        last_modified=result.last_modified,
+                        final_url=target.url,
+                        now=_now(),
+                    )
                     return result
                 if isinstance(result, _NotModified):
-                    if stale_entry is None or result.validator_url != stale_entry.validator_url:
+                    if (
+                        stale_entry is None
+                        or result.validator_digest != stale_entry.validator_digest
+                    ):
                         raise RemoteMailImageError("invalid_revalidation", 502)
-                    _refresh_cached_image(raw_url, stale_entry)
-                    return stale_entry.image
+                    refreshed = await asyncio.to_thread(
+                        refresh_cached_image,
+                        raw_url,
+                        stale_entry,
+                        now=_now(),
+                    )
+                    return _remote_image(refreshed)
                 if redirect_count >= MAX_REDIRECTS:
                     raise RemoteMailImageError("too_many_redirects", 502)
                 current = result
     except RemoteMailImageError as error:
-        if stale_entry is not None and error.code in {"timeout", "unreachable"}:
-            return stale_entry.image
+        if stale_entry is not None and error.code in {
+            "origin_unavailable",
+            "timeout",
+            "unreachable",
+        }:
+            return _remote_image(stale_entry)
         raise
     except (asyncio.TimeoutError, httpcore.TimeoutException, httpx.TimeoutException) as error:
         if stale_entry is not None:
-            return stale_entry.image
+            return _remote_image(stale_entry)
         raise RemoteMailImageError("timeout", 504) from error
     except (
         httpcore.NetworkError,
@@ -509,6 +495,41 @@ async def fetch_remote_mail_image(
         httpx.RemoteProtocolError,
     ) as error:
         if stale_entry is not None:
-            return stale_entry.image
+            return _remote_image(stale_entry)
         raise RemoteMailImageError("unreachable", 502) from error
     raise RemoteMailImageError("origin_unavailable", 502)
+
+
+async def fetch_remote_mail_image(
+    raw_url: str,
+    *,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> RemoteMailImage:
+    """Deduplicate concurrent recovery of one exact source URL."""
+    key = cache_key(raw_url)
+    with _REMOTE_IMAGE_FLIGHTS_LOCK:
+        flight = _REMOTE_IMAGE_FLIGHTS.get(key)
+        leader = flight is None
+        if flight is None:
+            flight = Future()
+            _REMOTE_IMAGE_FLIGHTS[key] = flight
+    if not leader:
+        return await asyncio.wrap_future(flight)
+    try:
+        result = await _fetch_remote_mail_image_uncollapsed(
+            raw_url,
+            transport=transport,
+        )
+    except asyncio.CancelledError:
+        flight.cancel()
+        raise
+    except Exception as error:
+        flight.set_exception(error)
+        raise
+    else:
+        flight.set_result(result)
+        return result
+    finally:
+        with _REMOTE_IMAGE_FLIGHTS_LOCK:
+            if _REMOTE_IMAGE_FLIGHTS.get(key) is flight:
+                del _REMOTE_IMAGE_FLIGHTS[key]
