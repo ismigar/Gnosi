@@ -190,7 +190,15 @@ class KeychainManager:
 
     # ── Portable system keyring (Windows / Linux) ─────────────────────
 
+    def _portable_store_available(self) -> bool:
+        """Return whether a portable keyring can interact without a GUI prompt."""
+        if self.system != "Linux":
+            return True
+        return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
     def _portable_save(self, key: str, value: str) -> bool:
+        if not self._portable_store_available():
+            return False
         try:
             import keyring
 
@@ -201,6 +209,8 @@ class KeychainManager:
             return False
 
     def _portable_get(self, key: str) -> Optional[str]:
+        if not self._portable_store_available():
+            return None
         try:
             import keyring
 
@@ -209,6 +219,8 @@ class KeychainManager:
             return None
 
     def _portable_delete(self, key: str) -> bool:
+        if not self._portable_store_available():
+            return False
         try:
             import keyring
 

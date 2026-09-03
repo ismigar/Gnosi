@@ -67,7 +67,7 @@ CI_COMMANDS = {
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
         "pnpm test:e2e:install",
-        *r'''uv run uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
+        *r'''uv run python -c 'import faulthandler; faulthandler.dump_traceback_later(60, repeat=True); import uvicorn; uvicorn.run("backend.server:app", host="127.0.0.1", port=5002)' > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
 backend_pid=$!
 pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
 frontend_pid=$!
