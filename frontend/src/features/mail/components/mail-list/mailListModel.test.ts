@@ -8,6 +8,7 @@ import {
   filterOutMailThread,
   groupMailListMessages,
   mailListMessageIdentity,
+  mapMailTagsByIdentity,
   processMailListMessages,
   setMailTagsByIdentity,
   threadMailListMessages,
@@ -51,6 +52,31 @@ const view: MailView = {
 
 
 describe('mail list model', () => {
+  it('maps tag visuals by composite identity for colliding raw ids', () => {
+    const first = message('shared', {
+      account: 'first@example.test',
+      imap_folder: 'INBOX',
+      imap_uid: '42',
+      source: 'imap',
+    });
+    const second = message('shared', {
+      account: 'second@example.test',
+      imap_folder: 'Archive',
+      imap_uid: '42',
+      source: 'imap',
+    });
+    const firstIdentity = mailListMessageIdentity(first);
+    const secondIdentity = mailListMessageIdentity(second);
+
+    expect(mapMailTagsByIdentity([first, second], {
+      [firstIdentity]: ['tag-a'],
+      [secondIdentity]: ['tag-b'],
+    })).toEqual({
+      [firstIdentity]: ['tag-a'],
+      [secondIdentity]: ['tag-b'],
+    });
+  });
+
   it('builds account and pagination queries without changing folder semantics', () => {
     expect(accountEmails(null, [
       { email: 'one@example.com' },

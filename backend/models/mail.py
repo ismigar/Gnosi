@@ -52,9 +52,14 @@ class MailTag(Base):
 class MailMessageTag(Base):
     __tablename__ = "mail_message_tags"
 
-    message_id = Column(String, primary_key=True)
+    message_identity = Column(String, primary_key=True)
     tag_id = Column(String, ForeignKey("mail_tags.id", ondelete="CASCADE"), primary_key=True)
+    message_id = Column(String, nullable=False, index=True)
+    identity_kind = Column(String, nullable=False, default="legacy")
     account_email = Column(String, default="")
+    provider = Column(String, default="")
+    folder = Column(String, default="")
+    provider_uid = Column(String, default="")
     subject = Column(String, default="")
     sender = Column(String, default="")
     date_str = Column(String, default="")

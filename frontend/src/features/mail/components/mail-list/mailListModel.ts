@@ -102,11 +102,11 @@ export function filterOutMailThread(
 
 export function mapMailTagsByIdentity(
   messages: readonly MailListMessage[],
-  tagsByProviderId: Readonly<Record<string, readonly string[]>>,
+  tagsByIdentity: Readonly<Record<string, readonly string[]>>,
 ): Record<string, string[]> {
   return Object.fromEntries(messages.map((message) => [
     mailListMessageIdentity(message),
-    [...(tagsByProviderId[message.id] ?? [])],
+    [...(tagsByIdentity[mailListMessageIdentity(message)] ?? [])],
   ]));
 }
 

@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
     folders: { name: string; type: string }[];
   }>>(),
   fetchMessages: vi.fn<(query: MailMessagesQuery) => Promise<MailMessages>>(),
-  getTags: vi.fn<(ids: string[]) => Promise<Record<string, string[]>>>(),
+  getTags: vi.fn<(messages: readonly MailListMessage[]) => Promise<Record<string, string[]>>>(),
   move: vi.fn<(...args: readonly unknown[]) => Promise<void>>(),
   purgeCache: vi.fn<(messages: readonly MailListMessage[]) => void>(),
   readCache: vi.fn<(key: string) => MailListMessage[] | null>(),

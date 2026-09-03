@@ -15808,6 +15808,20 @@ export interface components {
             tasks?: components["schemas"]["MailAnalysisEvidence"][];
         };
         /**
+         * MailMessageIdentityScope
+         * @description Provider-scoped identity for one persisted mail association.
+         */
+        MailMessageIdentityScope: {
+            /** Account Email */
+            account_email: string;
+            /** Imap Folder */
+            imap_folder?: string | null;
+            /** Imap Uid */
+            imap_uid?: string | null;
+            /** Source */
+            source: string;
+        };
+        /**
          * MailMessageResponse
          * @description Provider-neutral message with preserved provider additions.
          */
@@ -15893,6 +15907,22 @@ export interface components {
             /** Total */
             total: number;
         };
+        /**
+         * MailMessageTagDescriptor
+         * @description Batch descriptor carrying both raw and provider-scoped identity.
+         */
+        MailMessageTagDescriptor: {
+            /** Account Email */
+            account_email: string;
+            /** Imap Folder */
+            imap_folder?: string | null;
+            /** Imap Uid */
+            imap_uid?: string | null;
+            /** Message Id */
+            message_id: string;
+            /** Source */
+            source: string;
+        };
         /** MailMessageTagsResponse */
         MailMessageTagsResponse: {
             /**
@@ -15915,6 +15945,7 @@ export interface components {
              * @default
              */
             date_str: string;
+            identity_scope?: components["schemas"]["MailMessageIdentityScope"] | null;
             /**
              * Sender
              * @default
@@ -16038,10 +16069,20 @@ export interface components {
             account_email: string;
             /** Date Str */
             date_str: string;
+            /** Identity Kind */
+            identity_kind?: ("legacy" | "scoped") | null;
+            /** Imap Folder */
+            imap_folder?: string | null;
             /** Message Id */
             message_id: string;
+            /** Message Identity */
+            message_identity?: string | null;
+            /** Provider Uid */
+            provider_uid?: string | null;
             /** Sender */
             sender: string;
+            /** Source */
+            source?: string | null;
             /** Subject */
             subject: string;
         };
@@ -16066,12 +16107,14 @@ export interface components {
         MailTagsBatchRequest: {
             /** Message Ids */
             message_ids?: string[];
+            /** Messages */
+            messages?: components["schemas"]["MailMessageTagDescriptor"][];
         } & {
             [key: string]: unknown;
         };
         /**
          * MailTagsByMessageResponse
-         * @description Tag identifiers keyed by message identifier.
+         * @description Tag identifiers keyed by raw legacy ID or composite scoped identity.
          */
         MailTagsByMessageResponse: {
             [key: string]: string[];
@@ -27534,7 +27577,12 @@ export interface operations {
     };
     get_message_tags_api_mail_messages__message_id__tags_get: {
         parameters: {
-            query?: never;
+            query?: {
+                account_email?: string | null;
+                imap_folder?: string | null;
+                imap_uid?: string | null;
+                source?: string | null;
+            };
             header?: {
                 authorization?: string | null;
                 "x-user-id"?: string | null;

@@ -375,12 +375,13 @@ export function useMailViewerController({
     if (!selectedMail) return;
     setActiveTagIds(next);
     try {
-      await mailTags.setMessageTags(selectedMail.id, next, {
+      const saved = await mailTags.setMessageTags(selectedMail, next, {
         account_email: account?.email || selectedMail.account || '',
         date: selectedMail.date || '',
         sender: selectedMail.sender || '',
         subject: selectedMail.subject || '',
       });
+      setActiveTagIds(saved.tag_ids);
     } catch (error) {
       logError('mail-viewer.set-tags', error);
     }

@@ -139,14 +139,18 @@ export function MailListHeader({
                         const next = current.includes(tagId)
                           ? current.filter((id) => id !== tagId)
                           : [...current, tagId];
-                        await controller.saveMessageTags(message.id, next, {
+                        const saved = await controller.saveMessageTags(message, next, {
                           account_email: account?.email || message.account || '',
                           date: message.date || '',
                           sender: message.sender || '',
                           subject: message.subject || '',
-                        }).catch(() => undefined);
+                        }).catch(() => null);
                         controller.setMessageTags((previous) => (
-                          setMailTagsByIdentity(previous, message, next)
+                          setMailTagsByIdentity(
+                            previous,
+                            message,
+                            saved?.tag_ids ?? next,
+                          )
                         ));
                       }));
                     }}

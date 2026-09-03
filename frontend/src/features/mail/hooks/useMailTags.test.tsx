@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GnosiApiError } from '../../../shared/api/errors';
 import * as mailApi from '../../../shared/api/mail';
 import type { MailTag } from '../../../shared/api/mail';
+import { mailMessageIdentity, type MailIdentityMessage } from '../mailIdentity';
 import {
   MailTagsProvider,
   useMailTags,
@@ -19,6 +20,7 @@ vi.mock('../../../shared/api/mail', () => ({
   fetchMailTags: vi.fn(),
   fetchTaggedMailMessages: vi.fn(),
   fetchTagsForMailMessages: vi.fn(),
+  fetchTagsForScopedMailMessages: vi.fn(),
   setMailMessageTags: vi.fn(),
   updateMailTag: vi.fn(),
 }));
@@ -100,6 +102,20 @@ function tag(id: string, name: string, color: string): MailTag {
 }
 
 
+function message(
+  account: string,
+  folder = 'INBOX',
+): MailIdentityMessage {
+  return {
+    account,
+    id: 'message-1',
+    imap_folder: folder,
+    imap_uid: '42',
+    source: 'imap',
+  };
+}
+
+
 function httpError(): GnosiApiError {
   return new GnosiApiError(
     new Response(null, {
@@ -146,7 +162,8 @@ describe('useMailTags', () => {
     });
     expect(currentHook().tags).toEqual([initial, updated]);
 
-    await currentHook().setMessageTags('message-1', ['tag-2'], {
+    const scopedMessage = message('ada@example.test');
+    await currentHook().setMessageTags(scopedMessage, ['tag-2'], {
       account_email: 'ada@example.test',
       date: '2026-08-29',
       sender: 'Grace',
@@ -155,6 +172,12 @@ describe('useMailTags', () => {
     expect(mailApi.setMailMessageTags).toHaveBeenCalledWith('message-1', {
       account_email: 'ada@example.test',
       date_str: '2026-08-29',
+      identity_scope: {
+        account_email: 'ada@example.test',
+        imap_folder: 'INBOX',
+        imap_uid: '42',
+        source: 'imap',
+      },
       sender: 'Grace',
       subject: 'Research',
       tag_ids: ['tag-2'],
@@ -170,20 +193,56 @@ describe('useMailTags', () => {
     await renderHook();
     vi.mocked(mailApi.fetchMailMessageTags).mockRejectedValueOnce(httpError());
     vi.mocked(mailApi.fetchTaggedMailMessages).mockRejectedValueOnce(httpError());
-    vi.mocked(mailApi.fetchTagsForMailMessages).mockRejectedValueOnce(httpError());
+    vi.mocked(mailApi.fetchTagsForScopedMailMessages).mockRejectedValueOnce(httpError());
 
-    await expect(currentHook().getMessageTags('message-1')).resolves.toEqual([]);
+    const scopedMessage = message('ada@example.test');
+    await expect(currentHook().getMessageTags(scopedMessage)).resolves.toEqual([]);
     await expect(currentHook().getTaggedMessages('tag-1')).resolves.toEqual({
       messages: [],
       tag: null,
     });
-    await expect(currentHook().getBatchMessageTags(['message-1']))
-      .resolves.toEqual({});
+    await expect(currentHook().getBatchMessageTags([scopedMessage]))
+      .resolves.toEqual({ [mailMessageIdentity(scopedMessage)]: [] });
 
     const networkError = new Error('network unavailable');
     vi.mocked(mailApi.fetchMailMessageTags).mockRejectedValueOnce(networkError);
-    await expect(currentHook().getMessageTags('message-2'))
+    await expect(currentHook().getMessageTags({
+      ...scopedMessage,
+      id: 'message-2',
+      imap_uid: '43',
+    }))
       .rejects.toBe(networkError);
+  });
+
+  it('keeps colliding raw ids isolated by the returned composite key', async () => {
+    const first = message('first@example.test', 'INBOX');
+    const second = message('second@example.test', 'Archive');
+    vi.mocked(mailApi.fetchTagsForScopedMailMessages).mockResolvedValue({
+      [mailMessageIdentity(first)]: ['tag-a'],
+      [mailMessageIdentity(second)]: ['tag-b'],
+    });
+    await renderHook();
+
+    await expect(currentHook().getBatchMessageTags([first, second])).resolves.toEqual({
+      [mailMessageIdentity(first)]: ['tag-a'],
+      [mailMessageIdentity(second)]: ['tag-b'],
+    });
+    expect(mailApi.fetchTagsForScopedMailMessages).toHaveBeenCalledWith([
+      {
+        account_email: 'first@example.test',
+        imap_folder: 'INBOX',
+        imap_uid: '42',
+        message_id: 'message-1',
+        source: 'imap',
+      },
+      {
+        account_email: 'second@example.test',
+        imap_folder: 'Archive',
+        imap_uid: '42',
+        message_id: 'message-1',
+        source: 'imap',
+      },
+    ]);
   });
 
   it('keeps legacy mutation messages for HTTP failures', async () => {

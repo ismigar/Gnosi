@@ -129,7 +129,7 @@ export function useMailListController(props: MailListProps) {
   useEffect(() => {
     let active = true;
     if (data.messages.length > 0) {
-      void getBatchMessageTags(data.messages.map((message) => message.id))
+      void getBatchMessageTags(data.messages)
         .then((value) => {
           if (active) setMessageTags(mapMailTagsByIdentity(data.messages, value));
         })

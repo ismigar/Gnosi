@@ -9,6 +9,14 @@ export interface MailIdentityMessage {
 }
 
 
+export interface MailIdentityScopeDescriptor {
+  readonly account_email: string;
+  readonly imap_folder: string | null;
+  readonly imap_uid: string | null;
+  readonly source: string;
+}
+
+
 function normalizeIdentityPart(value?: string | null): string {
   return value?.trim().toLocaleLowerCase() ?? '';
 }
@@ -50,6 +58,25 @@ export function tryMailMessageIdentity(
     return structuralIdentity('message', [account, provider, folder, uid]);
   }
   return structuralIdentity('message', [account, provider, '', message.id]);
+}
+
+
+export function tryMailIdentityScope(
+  message: MailIdentityMessage,
+  fallbackAccount?: string | null,
+): MailIdentityScopeDescriptor | null {
+  const account = accountIdentity(message, fallbackAccount);
+  const provider = providerIdentity(message);
+  if (!account || !provider || !message.id) return null;
+  const imapFolder = message.imap_folder?.trim() || null;
+  const imapUid = message.imap_uid?.trim() || null;
+  if (provider === 'imap' && (!imapFolder || !imapUid)) return null;
+  return {
+    account_email: account,
+    imap_folder: provider === 'imap' ? imapFolder : null,
+    imap_uid: provider === 'imap' ? imapUid : null,
+    source: provider,
+  };
 }
 
 

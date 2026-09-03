@@ -12,6 +12,7 @@ from pydantic import (
     JsonValue,
     RootModel,
     field_serializer,
+    model_validator,
 )
 
 from backend.models._datetime_utils import normalize_utc
@@ -314,12 +315,39 @@ class MailTagResponse(BaseModel):
     created_at: str | None
 
 
+class MailMessageIdentityScope(BaseModel):
+    """Provider-scoped identity for one persisted mail association."""
+
+    account_email: str
+    source: str
+    imap_folder: str | None = None
+    imap_uid: str | None = None
+
+    @model_validator(mode="after")
+    def validate_complete_scope(self) -> MailMessageIdentityScope:
+        if not self.account_email.strip() or not self.source.strip():
+            raise ValueError("account_email and source are required")
+        if self.source.strip().lower() == "imap" and (
+            not (self.imap_folder or "").strip()
+            or not (self.imap_uid or "").strip()
+        ):
+            raise ValueError("IMAP identity requires imap_folder and imap_uid")
+        return self
+
+
+class MailMessageTagDescriptor(MailMessageIdentityScope):
+    """Batch descriptor carrying both raw and provider-scoped identity."""
+
+    message_id: str
+
+
 class MailMessageTagsSetSchema(BaseModel):
     tag_ids: list[str]
     account_email: str = ""
     subject: str = ""
     sender: str = ""
     date_str: str = ""
+    identity_scope: MailMessageIdentityScope | None = None
 
 
 class MailMessageTagsResponse(BaseModel):
@@ -333,6 +361,11 @@ class MailTaggedMessageResponse(BaseModel):
     subject: str
     sender: str
     date_str: str
+    message_identity: str | None = None
+    identity_kind: Literal["legacy", "scoped"] | None = None
+    source: str | None = None
+    imap_folder: str | None = None
+    provider_uid: str | None = None
 
 
 class MailTaggedMessagesResponse(BaseModel):
@@ -342,10 +375,11 @@ class MailTaggedMessagesResponse(BaseModel):
 
 class MailTagsBatchRequest(MailRequestPayload):
     message_ids: list[str] = Field(default_factory=list)
+    messages: list[MailMessageTagDescriptor] = Field(default_factory=list)
 
 
 class MailTagsByMessageResponse(RootModel[dict[str, list[str]]]):
-    """Tag identifiers keyed by message identifier."""
+    """Tag identifiers keyed by raw legacy ID or composite scoped identity."""
 
 
 class MailMessageSchema(BaseModel):

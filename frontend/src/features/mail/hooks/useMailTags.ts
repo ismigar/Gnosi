@@ -15,16 +15,23 @@ import {
   fetchMailMessageTags,
   fetchMailTags,
   fetchTaggedMailMessages,
-  fetchTagsForMailMessages,
+  fetchTagsForScopedMailMessages,
   setMailMessageTags,
   updateMailTag,
   type MailMessageTagsInput,
+  type MailMessageTagDescriptor,
+  type MailMessageIdentityScope,
   type MailTag,
   type MailTagCreate,
   type MailTaggedMessages,
   type MailTagsByMessage,
   type MailTagUpdate,
 } from '../../../shared/api/mail';
+import {
+  mailMessageIdentity,
+  tryMailIdentityScope,
+  type MailIdentityMessage,
+} from '../mailIdentity';
 
 
 export interface MailMessageTagMetadata {
@@ -51,15 +58,15 @@ export interface MailTagsContextValue {
   readonly deleteTag: (id: string) => Promise<void>;
   readonly fetchTags: () => Promise<void>;
   readonly getBatchMessageTags: (
-    messageIds: string[],
+    messages: readonly MailIdentityMessage[],
   ) => Promise<MailTagsByMessage>;
-  readonly getMessageTags: (messageId: string) => Promise<string[]>;
+  readonly getMessageTags: (message: MailIdentityMessage) => Promise<string[]>;
   readonly getTaggedMessages: (
     tagId: string,
   ) => Promise<TaggedMailMessagesResult>;
   readonly loading: boolean;
   readonly setMessageTags: (
-    messageId: string,
+    message: MailIdentityMessage,
     tagIds: string[],
     metadata?: MailMessageTagMetadata,
   ) => Promise<MailMessageTagsResult>;
@@ -82,6 +89,18 @@ function legacyHttpError(error: unknown, message: string): Error {
 
 function rethrowLegacyHttpError(error: unknown, message: string): never {
   throw legacyHttpError(error, message);
+}
+
+
+function tagScope(message: MailIdentityMessage): MailMessageIdentityScope {
+  const scope = tryMailIdentityScope(message);
+  if (!scope) throw new Error('Mail message has no complete provider identity');
+  return scope;
+}
+
+
+function tagDescriptor(message: MailIdentityMessage): MailMessageTagDescriptor {
+  return { message_id: message.id, ...tagScope(message) };
 }
 
 
@@ -162,26 +181,28 @@ function useMailTagsImpl(): MailTagsContextValue {
   }, []);
 
   const getMessageTags = useCallback(async (
-    messageId: string,
+    message: MailIdentityMessage,
   ): Promise<string[]> => fallbackOnHttpError(
-    () => fetchMailMessageTags(messageId),
+    () => fetchMailMessageTags(message.id, tagScope(message)),
     [],
   ), []);
 
   const setMessageTags = useCallback(async (
-    messageId: string,
+    message: MailIdentityMessage,
     tagIds: string[],
     metadata: MailMessageTagMetadata = {},
   ): Promise<MailMessageTagsResult> => {
     const input: MailMessageTagsInput = {
-      account_email: metadata.account_email || '',
+      account_email: metadata.account_email || message.account
+        || message.account_email || '',
       date_str: metadata.date || '',
+      identity_scope: tagScope(message),
       sender: metadata.sender || '',
       subject: metadata.subject || '',
       tag_ids: tagIds,
     };
     try {
-      return await setMailMessageTags(messageId, input);
+      return await setMailMessageTags(message.id, input);
     } catch (error: unknown) {
       rethrowLegacyHttpError(error, 'Error assignant etiquetes');
     }
@@ -197,13 +218,17 @@ function useMailTagsImpl(): MailTagsContextValue {
   ), []);
 
   const getBatchMessageTags = useCallback(async (
-    messageIds: string[],
+    messages: readonly MailIdentityMessage[],
   ): Promise<MailTagsByMessage> => {
-    if (messageIds.length === 0) return {};
+    if (messages.length === 0) return {};
+    const descriptors = messages.map(tagDescriptor);
     return fallbackOnHttpError(
-      () => fetchTagsForMailMessages(messageIds),
+      () => fetchTagsForScopedMailMessages(descriptors),
       {},
-    );
+    ).then((tags) => Object.fromEntries(messages.map((message) => [
+      mailMessageIdentity(message),
+      tags[mailMessageIdentity(message)] ?? [],
+    ])));
   }, []);
 
   return {

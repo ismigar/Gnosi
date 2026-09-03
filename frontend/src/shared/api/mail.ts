@@ -2,6 +2,28 @@ import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { assertApiSuccess, unwrapApiResult } from './errors';
 
+export {
+  createMailTag,
+  deleteMailTag,
+  fetchMailMessageTags,
+  fetchMailTags,
+  fetchTaggedMailMessages,
+  fetchTagsForMailMessages,
+  fetchTagsForScopedMailMessages,
+  setMailMessageTags,
+  updateMailTag,
+} from './mail-tags';
+export type {
+  MailMessageIdentityScope,
+  MailMessageTagDescriptor,
+  MailMessageTagsInput,
+  MailTag,
+  MailTagCreate,
+  MailTaggedMessages,
+  MailTagsByMessage,
+  MailTagUpdate,
+} from './mail-tags';
+
 export type MailCounts = components['schemas']['MailCountsResponse'];
 export type MailMessage = components['schemas']['MailMessageResponse'];
 export type MailMessages = components['schemas']['MailMessagesResponse'];
@@ -17,30 +39,17 @@ export type MailGeneratedDraft =
   components['schemas']['MailGenerateDraftResponse'];
 export type MailEntities = components['schemas']['MailExtractEntitiesResponse'];
 export type MailView = components['schemas']['MailViewResponse'];
-export type MailTag = components['schemas']['MailTagResponse'];
-export type MailTaggedMessages =
-  components['schemas']['MailTaggedMessagesResponse'];
-export type MailTagsByMessage =
-  components['schemas']['MailTagsByMessageResponse'];
 export type MailAccountEnabled =
   components['schemas']['MailAccountEnabledResponse'];
 
 type GeneratedDraftInput = components['schemas']['MailDraftSaveRequest'];
 type GeneratedViewCreate = components['schemas']['MailViewCreateSchema'];
 type GeneratedViewUpdate = components['schemas']['MailViewUpdateSchema'];
-type GeneratedTagCreate = components['schemas']['MailTagCreateSchema'];
-type GeneratedTagUpdate = components['schemas']['MailTagUpdateSchema'];
-type GeneratedMessageTags = components['schemas']['MailMessageTagsSetSchema'];
 
 export type MailDraftInput = Partial<GeneratedDraftInput>;
 export type MailViewCreate = Pick<GeneratedViewCreate, 'name'> &
   Partial<Omit<GeneratedViewCreate, 'name'>>;
 export type MailViewUpdate = Partial<GeneratedViewUpdate>;
-export type MailTagCreate = Pick<GeneratedTagCreate, 'name'> &
-  Partial<Omit<GeneratedTagCreate, 'name'>>;
-export type MailTagUpdate = Partial<GeneratedTagUpdate>;
-export type MailMessageTagsInput = Pick<GeneratedMessageTags, 'tag_ids'> &
-  Partial<Omit<GeneratedMessageTags, 'tag_ids'>>;
 
 export interface MailMessagesQuery {
   readonly category?: string;
@@ -383,86 +392,6 @@ export async function deleteMailView(viewId: string): Promise<void> {
   assertApiSuccess(
     await apiClient.DELETE('/api/mail/views/{view_id}', {
       params: { path: { view_id: viewId } },
-    }),
-  );
-}
-
-export async function fetchMailTags(signal?: AbortSignal): Promise<MailTag[]> {
-  return unwrapApiResult<MailTag[], unknown>(
-    await apiClient.GET('/api/mail/tags', { signal }),
-  );
-}
-
-export async function createMailTag(input: MailTagCreate): Promise<MailTag> {
-  return unwrapApiResult<MailTag, unknown>(
-    await apiClient.POST('/api/mail/tags', {
-      body: { color: '#3b82f6', ...input },
-    }),
-  );
-}
-
-export async function updateMailTag(
-  tagId: string,
-  input: MailTagUpdate,
-): Promise<MailTag> {
-  return unwrapApiResult<MailTag, unknown>(
-    await apiClient.PUT('/api/mail/tags/{tag_id}', {
-      body: input,
-      params: { path: { tag_id: tagId } },
-    }),
-  );
-}
-
-export async function deleteMailTag(tagId: string): Promise<void> {
-  assertApiSuccess(
-    await apiClient.DELETE('/api/mail/tags/{tag_id}', {
-      params: { path: { tag_id: tagId } },
-    }),
-  );
-}
-
-export async function fetchMailMessageTags(messageId: string): Promise<string[]> {
-  return unwrapApiResult<string[], unknown>(
-    await apiClient.GET('/api/mail/messages/{message_id}/tags', {
-      params: { path: { message_id: messageId } },
-    }),
-  );
-}
-
-export async function setMailMessageTags(
-  messageId: string,
-  input: MailMessageTagsInput,
-): Promise<components['schemas']['MailMessageTagsResponse']> {
-  return unwrapApiResult<components['schemas']['MailMessageTagsResponse'], unknown>(
-    await apiClient.POST('/api/mail/messages/{message_id}/tags', {
-      body: {
-        account_email: '',
-        date_str: '',
-        sender: '',
-        subject: '',
-        ...input,
-      },
-      params: { path: { message_id: messageId } },
-    }),
-  );
-}
-
-export async function fetchTaggedMailMessages(
-  tagId: string,
-): Promise<MailTaggedMessages> {
-  return unwrapApiResult<MailTaggedMessages, unknown>(
-    await apiClient.GET('/api/mail/tags/{tag_id}/messages', {
-      params: { path: { tag_id: tagId } },
-    }),
-  );
-}
-
-export async function fetchTagsForMailMessages(
-  messageIds: string[],
-): Promise<MailTagsByMessage> {
-  return unwrapApiResult<MailTagsByMessage, unknown>(
-    await apiClient.POST('/api/mail/tags/messages/batch', {
-      body: { message_ids: messageIds },
     }),
   );
 }

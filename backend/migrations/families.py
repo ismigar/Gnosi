@@ -36,7 +36,7 @@ FAMILIES = {
         MigrationFamily(
             "vault",
             "vault",
-            ("vault_0001", "vault_0002", "vault_0003"),
+            ("vault_0001", "vault_0002", "vault_0003", "vault_0004"),
         ),
         MigrationFamily(
             "notebooks",

@@ -184,14 +184,14 @@ export function useMailViewerData({
       return undefined;
     }
     let cancelled = false;
-    void getMessageTags(id)
+    void getMessageTags(selectedMail)
       .then((tags) => { if (!cancelled) setActiveTagIds(tags); })
       .catch((error: unknown) => {
         logError('mail-viewer.message-tags', error);
         if (!cancelled) setActiveTagIds([]);
       });
     return () => { cancelled = true; };
-  }, [getMessageTags, selectedMail?.id, selectedMailIdentity]);
+  }, [getMessageTags, selectedMail, selectedMail?.id, selectedMailIdentity]);
 
   useEffect(() => {
     const id = selectedMail?.id;

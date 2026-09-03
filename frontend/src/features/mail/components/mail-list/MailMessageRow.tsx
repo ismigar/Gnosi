@@ -224,12 +224,17 @@ export function MailMessageRow({
                 controller.setMessageTags((previous) => (
                   setMailTagsByIdentity(previous, message, next)
                 ));
-                await controller.saveMessageTags(message.id, next, {
+                const saved = await controller.saveMessageTags(message, next, {
                   account_email: accountEmail || message.account || '',
                   date: message.date,
                   sender: message.sender,
                   subject: message.subject,
-                }).catch(() => undefined);
+                }).catch(() => null);
+                if (saved) {
+                  controller.setMessageTags((previous) => (
+                    setMailTagsByIdentity(previous, message, saved.tag_ids)
+                  ));
+                }
               }}
               onCreateTag={async (input) => {
                 await controller.createTag(input);

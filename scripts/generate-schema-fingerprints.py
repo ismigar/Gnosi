@@ -18,6 +18,13 @@ from backend.migrations.runner import _run_alembic
 from backend.migrations.schema_audit import database_fingerprint
 
 
+REVIEWED_VARIANT_FINGERPRINTS = {
+    ("vault", "vault_0001"): (
+        "40c728fccb59d6f02a0590d7c86ba4ce6b78f20ea720fc17545c78b979d919cb",
+    ),
+}
+
+
 def generate() -> dict[str, object]:
     families: dict[str, object] = {}
     with tempfile.TemporaryDirectory(prefix="gnosi-schema-fingerprints-") as raw_dir:
@@ -27,7 +34,13 @@ def generate() -> dict[str, object]:
             for revision in family.revisions:
                 path = root / f"{family.name}-{revision}.sqlite"
                 _run_alembic(path, "upgrade", revision)
-                revisions[revision] = [database_fingerprint(path)]
+                revisions[revision] = [
+                    database_fingerprint(path),
+                    *REVIEWED_VARIANT_FINGERPRINTS.get(
+                        (family.name, revision),
+                        (),
+                    ),
+                ]
             families[family.name] = {
                 "branch": family.branch,
                 "head": family.head,

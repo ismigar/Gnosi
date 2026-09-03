@@ -246,8 +246,8 @@ describe('MailViewer', () => {
     expect(container.textContent).toContain('Try online analysis');
     expect(container.querySelector('[data-mail-analysis-provenance="local"]'))
       .not.toBeNull();
+    expect([action('Smart analysis').disabled, mocks.toastError.mock.calls]).toEqual([false, []]);
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
-    expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
   it('shows literal local results when no AI provider is configured', async () => {
@@ -343,6 +343,7 @@ describe('MailViewer', () => {
       .not.toBeNull();
     expect(container.querySelector('[data-mail-analysis-provenance="previous"]'))
       .not.toBeNull();
+    expect([action('Smart analysis').disabled, mocks.toastError.mock.calls]).toEqual([false, []]);
     expect(mocks.markRead).not.toHaveBeenCalled();
   });
 
