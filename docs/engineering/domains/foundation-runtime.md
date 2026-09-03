@@ -72,8 +72,9 @@ while normal application startup converges on the same process-wide state store.
 2. Start the scheduler and confirmation-retention maintenance.
 3. Reconcile plugin contributions before building agent capabilities.
 4. Connect MCP clients, discover tools, and compile the default agent graph.
-5. Preload persisted vault indexes synchronously, then refresh them in the
-   background where file-provider policy permits.
+5. Preload request-critical persisted vault indexes synchronously. Start the
+   global CloudStorage filename cache load and traversal in one managed
+   background worker with `preparing`, `ready`, or `error` status.
 6. Load derived caches before any save can truncate them.
 7. Start per-account IMAP IDLE workers.
 

@@ -252,6 +252,16 @@ async def _shutdown_runtime(
     from backend.services.durable_job_worker import durable_job_worker
 
     log.info("🛑 Shutting down...")
+    try:
+        from backend.services.vault_file_index import shutdown_file_index
+
+        stopped = await asyncio.to_thread(shutdown_file_index)
+        if stopped:
+            log.info("🗂️ Vault file-index worker stopped.")
+        else:
+            log.warning("⚠️ Vault file-index worker exceeded its shutdown bound.")
+    except Exception as error:
+        log.warning("⚠️ Vault file-index shutdown failed: %s", error)
     durable_job_worker.stop()
     confirmation_maintenance_task.cancel()
     with suppress(asyncio.CancelledError):

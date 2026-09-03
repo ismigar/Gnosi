@@ -173,6 +173,12 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         lambda: record("file-index.start"),
     )
 
+    def stop_file_index() -> bool:
+        record("file-index.stop")
+        return True
+
+    monkeypatch.setattr(vault_file_index, "shutdown_file_index", stop_file_index)
+
     @contextmanager
     def registry_mutation() -> Iterator[None]:
         record("registry.lock")
@@ -216,6 +222,7 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "registry.lock",
         "registry.load",
         "yield",
+        "file-index.stop",
         "worker.stop",
         "imap.stop",
     ]
