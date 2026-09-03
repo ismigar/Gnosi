@@ -3,12 +3,23 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { AuthUser } from '../../../shared/api/auth';
+import {
+    USER_ROLE_STORAGE_KEY,
+    WORKSPACE_ID_STORAGE_KEY,
+} from '../../../shared/api/request-context';
 import { AuthContext, type AuthContextValue } from '../../../shared/auth/auth-context';
+import {
+    readStorage,
+    removeStorage,
+    writeStorage,
+} from '../../../shared/platform/browser-storage';
 import { AUTH_BOOTSTRAP_TIMEOUT_MS, AuthProvider } from './AuthProvider';
 
 const mocks = vi.hoisted(() => ({
     fetchCurrentAuthUser: vi.fn(),
     fetchSystemHealth: vi.fn(),
+    initializeVaultRouting: vi.fn(),
+    registerWithPassword: vi.fn(),
 }));
 
 vi.mock('../../../shared/api/auth', async (importOriginal) => {
@@ -16,6 +27,15 @@ vi.mock('../../../shared/api/auth', async (importOriginal) => {
     return {
         ...original,
         fetchCurrentAuthUser: mocks.fetchCurrentAuthUser,
+        registerWithPassword: mocks.registerWithPassword,
+    };
+});
+
+vi.mock('../../../shared/routing/vaultRouting', async (importOriginal) => {
+    const original = await importOriginal<typeof import('../../../shared/routing/vaultRouting')>();
+    return {
+        ...original,
+        initializeVaultRouting: mocks.initializeVaultRouting,
     };
 });
 
@@ -49,6 +69,8 @@ afterEach(() => {
     }
     currentAuth = null;
     observedSignals.length = 0;
+    removeStorage(USER_ROLE_STORAGE_KEY);
+    removeStorage(WORKSPACE_ID_STORAGE_KEY);
     vi.useRealTimers();
     vi.resetAllMocks();
 });
@@ -143,5 +165,55 @@ describe('AuthProvider bootstrap resilience', () => {
         });
         expect(mocks.fetchSystemHealth).toHaveBeenCalledTimes(2);
         expect(mocks.fetchCurrentAuthUser).toHaveBeenCalledTimes(2);
+    });
+
+    it('hydrates the personal owner role before publishing a newly registered user', async () => {
+        const registeredUser: AuthUser = {
+            ...recoveredUser,
+            email: 'new@example.com',
+        };
+        const hydratedUser: AuthUser = {
+            ...registeredUser,
+            workspaces: [{ id: 'personal', name: 'Personal', role: 'owner' }],
+        };
+        mocks.fetchSystemHealth.mockResolvedValue({
+            status: 'ok',
+            vault_configured: true,
+            gnosi_mode: 'personal',
+            require_auth: true,
+        });
+        mocks.fetchCurrentAuthUser
+            .mockRejectedValueOnce(new DOMException('No session', 'AbortError'))
+            .mockResolvedValueOnce(hydratedUser);
+        mocks.registerWithPassword.mockResolvedValue(registeredUser);
+        mocks.initializeVaultRouting.mockImplementation(async () => {
+            expect(readStorage(WORKSPACE_ID_STORAGE_KEY)).toBeUndefined();
+            expect(readStorage(USER_ROLE_STORAGE_KEY)).toBeUndefined();
+            return {
+                active: { id: 'vault-1', name: 'Main Vault', slug: 'main-vault' },
+                routeFound: true,
+                vaults: [],
+            };
+        });
+        writeStorage(USER_ROLE_STORAGE_KEY, 'viewer');
+        writeStorage(WORKSPACE_ID_STORAGE_KEY, 'stale-workspace');
+
+        await mountProvider();
+        let result: AuthUser | undefined;
+        await act(async () => {
+            result = await authValue().register(
+                registeredUser.email,
+                'password-1',
+                registeredUser.name ?? undefined,
+            );
+        });
+
+        expect(mocks.registerWithPassword).toHaveBeenCalledOnce();
+        expect(mocks.initializeVaultRouting).toHaveBeenCalledWith({ force: true });
+        expect(mocks.fetchCurrentAuthUser).toHaveBeenCalledTimes(2);
+        expect(result).toEqual(hydratedUser);
+        expect(authValue().user).toEqual(hydratedUser);
+        expect(readStorage(WORKSPACE_ID_STORAGE_KEY)).toBe('personal');
+        expect(readStorage(USER_ROLE_STORAGE_KEY)).toBe('owner');
     });
 });

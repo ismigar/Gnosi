@@ -74,7 +74,11 @@ function persistUser(user: AuthUser): void {
     const chosen = user.workspaces.find(
         (workspace) => workspace.id === currentWorkspaceId,
     ) ?? user.workspaces[0];
-    if (!chosen) return;
+    if (!chosen) {
+        removeStorage(WORKSPACE_ID_STORAGE_KEY);
+        removeStorage(USER_ROLE_STORAGE_KEY);
+        return;
+    }
     writeStorage(WORKSPACE_ID_STORAGE_KEY, chosen.id);
     if (chosen.role) writeStorage(USER_ROLE_STORAGE_KEY, chosen.role);
 }
@@ -82,6 +86,8 @@ function persistUser(user: AuthUser): void {
 function clearPersistedUser(): void {
     removeStorage(USER_ID_STORAGE_KEY);
     removeStorage(USER_EMAIL_STORAGE_KEY);
+    removeStorage(USER_ROLE_STORAGE_KEY);
+    removeStorage(WORKSPACE_ID_STORAGE_KEY);
 }
 
 async function refreshVaultRouting(): Promise<void> {
@@ -172,14 +178,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
         password: string,
         name?: string,
     ): Promise<AuthUser> => {
-        const currentUser = await registerWithPassword({
+        const registeredUser = await registerWithPassword({
             email,
             password,
             name: name || undefined,
         });
+        // A new personal account has no workspace in the registration response:
+        // the first Vault request materializes it. Clear any preceding account's
+        // context, create that routing state, and then read the authoritative role
+        // before exposing the authenticated shell. Otherwise `useApi` falls back to
+        // viewer and the editor remains read-only until a full reload.
+        clearPersistedUser();
+        persistUser(registeredUser);
+        await refreshVaultRouting();
+        let currentUser = registeredUser;
+        try {
+            currentUser = await fetchCurrentAuthUser();
+        } catch (error: unknown) {
+            if (!(error instanceof DOMException)) {
+                logError('auth-register-refresh', error);
+            }
+        }
         setUser(currentUser);
         persistUser(currentUser);
-        await refreshVaultRouting();
         return currentUser;
     }, []);
 
