@@ -261,6 +261,7 @@ def _template_response(row: Vault, payload: TemplateExportPayload) -> Response:
 @router.post(
     "/{vault_id}/template-export",
     dependencies=[Depends(require_role("editor"))],
+    # The deterministic ZIP download is an application/zip response, not JSON.
     response_model=None,
     response_class=Response,
 )

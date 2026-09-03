@@ -356,12 +356,13 @@ async def upsert_page_view(
 @router.delete(
     "/pages/{page_id}/views/{heading}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=PageViewMutationResponse,
+    response_model_exclude_none=True,
 )
 async def delete_page_view(
     page_id: str,
     heading: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Deletes a view from a page and re-syncs the .md."""
     try:
         cfg = load_params(strict_env=False)

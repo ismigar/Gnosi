@@ -32,6 +32,10 @@ class NotionOAuthStatusResponse(BaseModel):
     connected: bool
 
 
+class NotionOAuthDisconnectResponse(BaseModel):
+    status: str
+
+
 def _base_url() -> str:
     return str(get_env("NOTION_MCP_BASE", "https://mcp.notion.com")).rstrip("/")
 
@@ -135,6 +139,7 @@ async def status() -> dict[str, bool]:
     return {"connected": bool(_stored_object("notion_mcp").get("token"))}
 
 
+# OAuth navigation is an HTTP redirect, not a JSON response contract.
 @router.get("/login", response_model=None)
 async def login(request: Request) -> RedirectResponse:
     front = _frontend_base(request)
@@ -161,6 +166,7 @@ async def login(request: Request) -> RedirectResponse:
         return RedirectResponse(url=f"{front}/?notion_mcp=error")
 
 
+# The callback always completes by redirecting back to the initiating frontend.
 @router.get("/callback", response_model=None)
 async def callback(request: Request) -> RedirectResponse:
     code = request.query_params.get("code")
@@ -208,7 +214,7 @@ async def callback(request: Request) -> RedirectResponse:
 @router.delete(
     "/token",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=NotionOAuthDisconnectResponse,
 )
 async def disconnect() -> dict[str, str]:
     for k in ("notion_mcp", "notion_mcp_client", "notion_mcp_pending"):

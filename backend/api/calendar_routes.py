@@ -528,6 +528,7 @@ async def post_freebusy(
 # ── GET /feed.ics ──────────────────────────────────────────────────────────────
 
 
+# iCalendar bytes use text/calendar and cannot be represented by a JSON model.
 @router.get("/feed.ics", response_class=Response, response_model=None)
 def get_ics_feed(
     time_min: Optional[str] = Query(None),

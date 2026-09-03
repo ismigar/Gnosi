@@ -46,6 +46,41 @@ class AiCatalogResponse(BaseModel):
     config: AiConfigurationDocument
 
 
+class ProviderValidationResponse(BaseModel):
+    """Result of the live credential/provider probe."""
+
+    success: bool
+    response: JsonValue | None = None
+    error: str | None = None
+
+
+class ProviderCredentialsResponse(BaseModel):
+    """Acknowledgement after securely storing provider credentials."""
+
+    status: Literal["success"]
+    provider: str
+    credential_ref: str
+    has_api_key: Literal[True]
+
+
+class ProviderDeletionResponse(BaseModel):
+    """Complete result of disconnecting one provider and its model rows."""
+
+    status: Literal["success", "skipped"]
+    message: str
+    removed_models: int
+    credential_deleted: bool
+    env_keys_deleted: list[str]
+
+
+class ProviderStatusResponse(BaseModel):
+    """Persisted enabled state for one provider."""
+
+    status: Literal["success"]
+    provider: str
+    enabled: bool
+
+
 class CurrencyInfoResponse(BaseModel):
     """Currency conversion metadata shared by registry and usage views."""
 

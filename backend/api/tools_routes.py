@@ -100,7 +100,8 @@ async def get_approved_tools() -> List[ToolResponse]:
 @router.post(
     "/approve",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=ToolMutationResponse,
+    response_model_exclude_unset=True,
 )
 async def approve_tool(
     request: ApproveRequest,
@@ -131,7 +132,8 @@ async def approve_tool(
 @router.post(
     "/reject",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
+    response_model=ToolMutationResponse,
+    response_model_exclude_unset=True,
 )
 async def reject_tool(
     request: RejectRequest,

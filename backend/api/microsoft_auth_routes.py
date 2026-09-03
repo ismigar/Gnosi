@@ -74,8 +74,8 @@ def _get_config() -> MicrosoftOAuthConfig | None:
     return {"client_id": client_id, "client_secret": client_secret, "redirect_uri": redirect_uri}
 
 
-@router.get("/status", response_model=None)
-async def status() -> dict[str, Any]:
+@router.get("/status", response_model=MicrosoftOAuthStatusResponse)
+async def status() -> dict[str, object]:
     cfg = _get_config()
     return MicrosoftOAuthStatusResponse(
         configured=cfg is not None,
@@ -83,6 +83,7 @@ async def status() -> dict[str, Any]:
     ).model_dump()
 
 
+# OAuth navigation returns a concrete redirect rather than JSON.
 @router.get("/login")
 async def login() -> RedirectResponse:
     cfg = _get_config()
@@ -114,6 +115,7 @@ async def login() -> RedirectResponse:
     return RedirectResponse(url=url)
 
 
+# OAuth completion and provider errors return concrete redirects to the UI.
 @router.get("/callback")
 async def callback(request: Request) -> RedirectResponse:
     code = request.query_params.get("code")

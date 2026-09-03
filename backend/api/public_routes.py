@@ -276,8 +276,8 @@ def _write_vault_page(
     return {"id": page_id, "path": str(path.relative_to(vault))}
 
 
-@router.get("/public/ping", response_model=None)
-def public_ping(token: ApiToken = Depends(require_pat)) -> dict[str, Any]:
+@router.get("/public/ping", response_model=PublicPingResponse)
+def public_ping(token: ApiToken = Depends(require_pat)) -> dict[str, object]:
     """Authentication check for public API clients."""
     return PublicPingResponse(
         ok=True,
@@ -293,11 +293,11 @@ class PublicPageRequest(BaseModel):
     tags: Optional[list[str]] = None
 
 
-@router.post("/public/pages", response_model=None)
+@router.post("/public/pages", response_model=CreatedPublicPageResponse)
 def public_create_page(
     body: PublicPageRequest,
     token: ApiToken = Depends(require_pat_write),
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Creates a page in the vault via the public API (PAT)."""
     extra: dict[str, Any] = {"created": datetime.now(timezone.utc).isoformat()}
     if body.tags:
@@ -354,11 +354,15 @@ def _clipper_target(
     return table, (registry if table else None)
 
 
-@router.get("/public/clip/config", response_model=None)
+@router.get(
+    "/public/clip/config",
+    response_model=ClipConfigResponse,
+    response_model_exclude_unset=True,
+)
 def public_clip_config(
     token: ApiToken = Depends(require_pat),
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Destination and form schema for the browser extension.
 
     The extension calls this on open so its form mirrors whatever the user
@@ -386,13 +390,17 @@ def public_clip_config(
     ).model_dump(exclude_unset=True)
 
 
-@router.post("/public/clip", response_model=None)
+@router.post(
+    "/public/clip",
+    response_model=PublicClipResponse,
+    response_model_exclude_unset=True,
+)
 async def public_clip(
     body: ClipRequest,
     background_tasks: BackgroundTasks,
     token: ApiToken = Depends(require_pat_write),
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Web clipper endpoint: saves a web page (URL + selection) to the vault.
 
     Destination depends on the `web-clipper` plugin settings: a record in the
