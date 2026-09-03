@@ -48,9 +48,9 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 18 | 2471 | 0 |
-| `features` | 1045 | 122029 | 33 |
+| `features` | 1045 | 122050 | 33 |
 | `generated` | 2 | 43051 | 445 |
-| `shared` | 227 | 29338 | 385 |
+| `shared` | 227 | 29376 | 385 |
 
 ## app
 
@@ -148,7 +148,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/agent-context/agent-context/useAgentContextCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/agent-context/useAgentContextCatalog.ts) | 101 | `useAgentContextCatalog` | — |
 | [`frontend/src/features/agent-context/model/vaultAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/model/vaultAgentContext.ts) | 110 | `vaultAgentContextRefs`, `vaultPageViewIds` | — |
 | [`frontend/src/features/auth/LoginPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/LoginPage.tsx) | 230 | `LoginPage` | — |
-| [`frontend/src/features/auth/context/AuthProvider.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/context/AuthProvider.tsx) | 228 | `AUTH_BOOTSTRAP_TIMEOUT_MS`, `AuthProvider` | — |
+| [`frontend/src/features/auth/context/AuthProvider.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/context/AuthProvider.tsx) | 249 | `AUTH_BOOTSTRAP_TIMEOUT_MS`, `AuthProvider` | — |
 | [`frontend/src/features/auth/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/index.ts) | 1 | — | — |
 | [`frontend/src/features/auth/settings/ApiTokensSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/settings/ApiTokensSettings.tsx) | 157 | `ApiTokensSettings`, `function` | — |
 | [`frontend/src/features/auth/settings/Auth/AccountSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/settings/Auth/AccountSettings.tsx) | 286 | `AccountSettings`, `function` | — |
@@ -1159,7 +1159,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/api/daily-notes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/daily-notes.ts) | 27 | `fetchDailyNotes`, `openDailyNote` | `/api/vault/daily` |
 | [`frontend/src/shared/api/drawings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/drawings.ts) | 237 | `deleteDrawing`, `fetchDrawing`, `listDrawings`, `recognizeHandwriting`, `saveDrawing`, `warmupHandwriting` | `/api/vault/drawings`, `/api/vault/drawings/{drawing_id}`, `/api/vault/handwriting/recognize`, `/api/vault/handwriting/warmup` |
 | [`frontend/src/shared/api/environment.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/environment.ts) | 27 | `fetchEnvironment`, `updateEnvironment` | `/api/env` |
-| [`frontend/src/shared/api/errors.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/errors.ts) | 59 | `GnosiApiError`, `apiErrorDetail`, `assertApiSuccess`, `unwrapApiResult` | — |
+| [`frontend/src/shared/api/errors.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/errors.ts) | 97 | `GnosiApiError`, `apiErrorDetail`, `assertApiSuccess`, `unwrapApiResult` | — |
 | [`frontend/src/shared/api/google-auth.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/google-auth.ts) | 27 | `fetchGoogleOAuthHealth`, `fetchGoogleOAuthStatus` | `/api/auth/google/health`, `/api/auth/google/status` |
 | [`frontend/src/shared/api/graph.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/graph.ts) | 15 | `fetchVaultGraph` | `/api/graph` |
 | [`frontend/src/shared/api/identity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/identity.ts) | 37 | `fetchIdentity`, `saveIdentity` | `/api/identity` |

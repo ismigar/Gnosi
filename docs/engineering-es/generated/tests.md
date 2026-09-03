@@ -11,7 +11,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 20 | 74 |
-| Vitest | 488 | 2020 |
+| Vitest | 489 | 2025 |
 | pytest | 447 | 3188 |
 
 ## Archivos
@@ -82,7 +82,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/agent/model/agentRuntimeStatus.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentRuntimeStatus.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/public-entry.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/auth/LoginPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/LoginPage.test.tsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/features/auth/context/AuthProvider.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/context/AuthProvider.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/auth/context/AuthProvider.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/context/AuthProvider.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/auth/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/auth/settings/ApiTokensSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/settings/ApiTokensSettings.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/auth/settings/Auth/AccountSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/settings/Auth/AccountSettings.test.tsx) | 2 | call-pattern estimate |
@@ -390,6 +390,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/api/daily-notes.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/daily-notes.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/drawings.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/drawings.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/environment.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/environment.test.ts) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/api/errors.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/errors.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/google-auth.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/google-auth.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/graph.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/graph.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/identity.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/identity.test.ts) | 2 | call-pattern estimate |
