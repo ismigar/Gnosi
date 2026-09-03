@@ -8203,6 +8203,46 @@
         "title": "DailyNoteSummaryResponse",
         "type": "object"
       },
+      "DatabaseUpsertRequest": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Create or replace a database registry record.",
+        "properties": {
+          "folder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "DatabaseUpsertRequest",
+        "type": "object"
+      },
       "DavConnectionTestRequest": {
         "properties": {
           "password": {
@@ -22744,6 +22784,48 @@
         "title": "NotionDatabasesResponse",
         "type": "object"
       },
+      "NotionImportConfigRequest": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Forward-compatible snapshot of the Notion import panel settings.\n\nThe 2.x endpoint persisted every JSON value without field validation.  The\nnamed properties document the current panel while ``extra=\"allow\"`` and the\nJSON-value boundary preserve malformed legacy and future settings exactly.",
+        "properties": {
+          "cloneVaultId": {
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Destination vault selected by the import panel."
+          },
+          "databases": {
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Databases discovered by the Notion integration."
+          },
+          "loosePageTypes": {
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Standalone page identifiers mapped to their clone kind."
+          },
+          "loosePages": {
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Whether standalone Notion pages are included."
+          },
+          "looseSelected": {
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Identifiers of standalone pages selected for cloning."
+          },
+          "newVaultName": {
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Name proposed when creating a destination vault."
+          },
+          "schemaOverrides": {
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Per-database schema overrides from the import panel."
+          },
+          "selected": {
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Identifiers of databases selected for cloning."
+          }
+        },
+        "title": "NotionImportConfigRequest",
+        "type": "object"
+      },
       "NotionImportConfigResponse": {
         "properties": {
           "config": {
@@ -29144,6 +29226,98 @@
         "title": "SystemStatsResponse",
         "type": "object"
       },
+      "TableOptionRemoveRequest": {
+        "properties": {
+          "field": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "field_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reassign_to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "TableOptionRemoveRequest",
+        "type": "object"
+      },
+      "TableOptionRenameRequest": {
+        "properties": {
+          "field": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "field_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "new": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "old": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "TableOptionRenameRequest",
+        "type": "object"
+      },
       "TablePagesSnapshot": {
         "properties": {
           "pages": {
@@ -29239,6 +29413,212 @@
           "property"
         ],
         "title": "TablePropertyPatchResponse",
+        "type": "object"
+      },
+      "TableRenameRequest": {
+        "properties": {
+          "folder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "TableRenameRequest",
+        "type": "object"
+      },
+      "TableUpsertRequest": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Create or replace a complete, extension-capable table record.",
+        "properties": {
+          "action_rules": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "automations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "database_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drupal_bundle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drupal_field_mapping": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drupal_sync_enabled": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "headers": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "properties": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "translation_enabled": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "TableUpsertRequest",
         "type": "object"
       },
       "TaskFactPayload": {
@@ -56256,9 +56636,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/NotionImportConfigRequest"
               }
             }
           },
@@ -68974,9 +69352,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Db",
-                "type": "object"
+                "$ref": "#/components/schemas/DatabaseUpsertRequest"
               }
             }
           },
@@ -91685,9 +92061,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Table",
-                "type": "object"
+                "$ref": "#/components/schemas/TableUpsertRequest"
               }
             }
           },
@@ -91988,9 +92362,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Data",
-                "type": "object"
+                "$ref": "#/components/schemas/TableRenameRequest"
               }
             }
           },
@@ -92123,9 +92495,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/TableOptionRemoveRequest"
               }
             }
           },
@@ -92258,9 +92628,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/TableOptionRenameRequest"
               }
             }
           },

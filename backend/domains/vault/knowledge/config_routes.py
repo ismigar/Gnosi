@@ -135,7 +135,7 @@ async def create_brain_table(
             for role, field_name, property_type in _legacy._brain_schema(locale)
         ],
     }
-    created = await _legacy.create_table(table)
+    created = await _legacy.create_table_from_registry(table)
     _legacy._ensure_default_db_group()
     cfg: dict[str, object] = bw.migrate_config()
     cfg["ui_locale"] = locale

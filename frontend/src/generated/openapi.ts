@@ -12772,6 +12772,17 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * DatabaseUpsertRequest
+         * @description Create or replace a database registry record.
+         */
+        DatabaseUpsertRequest: {
+            folder?: components["schemas"]["JsonValue"] | null;
+            id?: components["schemas"]["JsonValue"] | null;
+            name?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
         /** DavConnectionTestRequest */
         DavConnectionTestRequest: {
             /** Password */
@@ -17806,6 +17817,34 @@ export interface components {
             /** Databases */
             databases: components["schemas"]["NotionDatabaseResponse"][];
         };
+        /**
+         * NotionImportConfigRequest
+         * @description Forward-compatible snapshot of the Notion import panel settings.
+         *
+         *     The 2.x endpoint persisted every JSON value without field validation.  The
+         *     named properties document the current panel while ``extra="allow"`` and the
+         *     JSON-value boundary preserve malformed legacy and future settings exactly.
+         */
+        NotionImportConfigRequest: {
+            /** @description Destination vault selected by the import panel. */
+            cloneVaultId?: components["schemas"]["JsonValue"];
+            /** @description Databases discovered by the Notion integration. */
+            databases?: components["schemas"]["JsonValue"];
+            /** @description Whether standalone Notion pages are included. */
+            loosePages?: components["schemas"]["JsonValue"];
+            /** @description Standalone page identifiers mapped to their clone kind. */
+            loosePageTypes?: components["schemas"]["JsonValue"];
+            /** @description Identifiers of standalone pages selected for cloning. */
+            looseSelected?: components["schemas"]["JsonValue"];
+            /** @description Name proposed when creating a destination vault. */
+            newVaultName?: components["schemas"]["JsonValue"];
+            /** @description Per-database schema overrides from the import panel. */
+            schemaOverrides?: components["schemas"]["JsonValue"];
+            /** @description Identifiers of databases selected for cloning. */
+            selected?: components["schemas"]["JsonValue"];
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
         /** NotionImportConfigResponse */
         NotionImportConfigResponse: {
             /** Config */
@@ -20543,6 +20582,20 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** TableOptionRemoveRequest */
+        TableOptionRemoveRequest: {
+            field?: components["schemas"]["JsonValue"] | null;
+            field_id?: components["schemas"]["JsonValue"] | null;
+            reassign_to?: components["schemas"]["JsonValue"] | null;
+            value?: components["schemas"]["JsonValue"] | null;
+        };
+        /** TableOptionRenameRequest */
+        TableOptionRenameRequest: {
+            field?: components["schemas"]["JsonValue"] | null;
+            field_id?: components["schemas"]["JsonValue"] | null;
+            new?: components["schemas"]["JsonValue"] | null;
+            old?: components["schemas"]["JsonValue"] | null;
+        };
         /** TablePagesSnapshot */
         TablePagesSnapshot: {
             /** Pages */
@@ -20577,6 +20630,36 @@ export interface components {
             status: "success";
             /** Table Id */
             table_id: string;
+        };
+        /** TableRenameRequest */
+        TableRenameRequest: {
+            folder?: components["schemas"]["JsonValue"] | null;
+            name?: components["schemas"]["JsonValue"] | null;
+        };
+        /**
+         * TableUpsertRequest
+         * @description Create or replace a complete, extension-capable table record.
+         */
+        TableUpsertRequest: {
+            action_rules?: components["schemas"]["JsonValue"] | null;
+            automations?: components["schemas"]["JsonValue"] | null;
+            database_id?: components["schemas"]["JsonValue"] | null;
+            drupal_bundle?: components["schemas"]["JsonValue"] | null;
+            drupal_field_mapping?: components["schemas"]["JsonValue"] | null;
+            drupal_sync_enabled?: components["schemas"]["JsonValue"] | null;
+            folder?: components["schemas"]["JsonValue"] | null;
+            headers?: components["schemas"]["JsonValue"] | null;
+            id?: components["schemas"]["JsonValue"] | null;
+            language?: components["schemas"]["JsonValue"] | null;
+            locale?: components["schemas"]["JsonValue"] | null;
+            name?: components["schemas"]["JsonValue"] | null;
+            properties?: components["schemas"]["JsonValue"] | null;
+            rows?: components["schemas"]["JsonValue"] | null;
+            schema_revision?: components["schemas"]["JsonValue"] | null;
+            schema_source?: components["schemas"]["JsonValue"] | null;
+            translation_enabled?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
         };
         /**
          * TaskFactPayload
@@ -29415,9 +29498,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["NotionImportConfigRequest"];
             };
         };
         responses: {
@@ -33687,9 +33768,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["DatabaseUpsertRequest"];
             };
         };
         responses: {
@@ -40815,9 +40894,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TableUpsertRequest"];
             };
         };
         responses: {
@@ -40859,9 +40936,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TableRenameRequest"];
             };
         };
         responses: {
@@ -40945,9 +41020,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TableOptionRemoveRequest"];
             };
         };
         responses: {
@@ -40989,9 +41062,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TableOptionRenameRequest"];
             };
         };
         responses: {

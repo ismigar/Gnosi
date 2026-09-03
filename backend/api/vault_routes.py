@@ -42,6 +42,9 @@ if TYPE_CHECKING:
     from backend.platform.files import get_files_provider as get_files_provider
     from backend.services.relation_links import RELATION_WIKILINK_RE as RELATION_WIKILINK_RE
     from backend.domains.vault.tables.routes import create_table as create_table
+    from backend.domains.vault.tables.routes import (
+        create_table_from_registry as create_table_from_registry,
+    )
     from backend.domains.vault.pages.identifiers import validate_safe_page_id as _typed_validate_safe_page_id
     from backend.domains.vault.registry.runtime import (
         _degenerate_overwrite_is_risky as _degenerate_overwrite_is_risky, _sort_key_name as _sort_key_name,

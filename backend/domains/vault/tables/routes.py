@@ -114,8 +114,13 @@ def _ensure_main_view(
     response_model=RegistryRecord,
 )
 async def create_table(table: TableUpsertRequest = Body(...)) -> RegistryData:
+    return await create_table_from_registry(table.registry_data())
+
+
+async def create_table_from_registry(table: RegistryData) -> RegistryData:
+    """Create a table from trusted internal registry data."""
     return await table_lifecycle.create_table(
-        table.registry_data(),
+        table,
         _configured().create_table,
     )
 
