@@ -3,12 +3,15 @@ from __future__ import annotations
 import hashlib
 import sqlite3
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from backend.migrations import runner as migration_runner
 from backend.migrations.coordinator import existing_owned_databases
 from backend.migrations.families import FAMILIES
 from backend.migrations.runner import (
+    SchemaMigrationError,
     UnknownSchemaError,
     _current_revision,
     _run_alembic,
@@ -347,3 +350,59 @@ def test_schema_drift_at_a_known_revision_aborts(tmp_path: Path) -> None:
 
     with pytest.raises(UnknownSchemaError, match="Schema drift"):
         ensure_database_schema(database, "vault", tmp_path)
+
+
+def test_large_backup_aborts_before_mutation_when_clone_and_space_are_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "literature" / "scope" / "academic_index.sqlite3"
+    database.parent.mkdir(parents=True)
+    with sqlite3.connect(database) as connection:
+        connection.executescript(LEGACY_LITERATURE_SCHEMA)
+    checksum_before = _sha256(database)
+    monkeypatch.setattr(
+        migration_runner, "_try_copy_on_write_clone", lambda _source, _backup: False
+    )
+    monkeypatch.setattr(
+        migration_runner.shutil,
+        "disk_usage",
+        lambda _path: SimpleNamespace(free=0),
+    )
+
+    with pytest.raises(SchemaMigrationError, match="Not enough free space"):
+        ensure_database_schema(database, "literature_index", tmp_path)
+
+    assert _sha256(database) == checksum_before
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE name='alembic_version'"
+        ).fetchone() == (0,)
+
+
+def test_verified_backup_prefers_copy_on_write_without_full_copy_capacity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "literature" / "scope" / "academic_index.sqlite3"
+    database.parent.mkdir(parents=True)
+    with sqlite3.connect(database) as connection:
+        connection.executescript(LEGACY_LITERATURE_SCHEMA)
+
+    def clone(source: Path, destination: Path) -> bool:
+        destination.write_bytes(source.read_bytes())
+        return True
+
+    def capacity_forbidden(_source: Path, _directory: Path) -> None:
+        raise AssertionError("capacity fallback must not run after a successful clone")
+
+    monkeypatch.setattr(migration_runner, "_try_copy_on_write_clone", clone)
+    monkeypatch.setattr(
+        migration_runner,
+        "_require_full_backup_capacity",
+        capacity_forbidden,
+    )
+
+    result = ensure_database_schema(database, "literature_index", tmp_path)
+
+    assert result["changed"] is True
+    assert result["backup"]["sha256"]
+    assert _current_revision(database) == "literature_0001"
