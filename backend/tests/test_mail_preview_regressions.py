@@ -31,6 +31,7 @@ def _isolated_analysis_cache(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    monkeypatch.setattr(analysis, "_PROVIDER_CIRCUITS", {})
     monkeypatch.setattr(
         analysis_cache,
         "_cache_root",
@@ -422,6 +423,52 @@ def test_entity_analysis_uses_secondary_after_primary_timeout(
         {"provider": "primary", "status": "timeout"},
         {"provider": "backup", "status": "success"},
     ]
+
+
+def test_entity_analysis_opens_and_recovers_provider_circuit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 100.0
+    primary_calls = 0
+    backup_calls = 0
+
+    def provider(_prompt: str, **options: object) -> str:
+        nonlocal primary_calls, backup_calls
+        name = str(options["provider"])
+        if name == "primary":
+            primary_calls += 1
+            if primary_calls <= 2:
+                raise TimeoutError("synthetic timeout")
+        else:
+            backup_calls += 1
+        return '{"events": [], "contacts": []}'
+
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["primary", "backup"])
+    monkeypatch.setattr(analysis, "_circuit_now", lambda: now)
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
+    request = schemas.MailExtractEntitiesRequest(context="synthetic circuit fixture")
+
+    first = asyncio.run(compose.extract_entities(request))
+    second = asyncio.run(compose.extract_entities(request))
+    protected = asyncio.run(compose.extract_entities(request))
+
+    assert first["provider"] == "backup"
+    assert second["provider"] == "backup"
+    assert protected["provider"] == "backup"
+    assert protected["provider_attempts"] == [
+        {"provider": "primary", "status": "unavailable"},
+        {"provider": "backup", "status": "success"},
+    ]
+    assert (primary_calls, backup_calls) == (2, 3)
+
+    now += analysis._PROVIDER_CIRCUIT_COOLDOWN_SECONDS + 1
+    recovered = asyncio.run(compose.extract_entities(request))
+
+    assert recovered["provider"] == "primary"
+    assert recovered["provider_attempts"] == [
+        {"provider": "primary", "status": "success"}
+    ]
+    assert (primary_calls, backup_calls) == (3, 3)
 
 
 def test_entity_analysis_recovers_exact_previous_result_after_provider_failure(

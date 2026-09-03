@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import threading
+import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
 from typing import Literal, TypeAlias
@@ -57,15 +58,53 @@ _PUBLIC_PROVIDER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 _PRIMARY_TIMEOUT_SECONDS = 8
 _FALLBACK_TIMEOUT_SECONDS = 12
 _PROVIDER_MAX_OCCUPANCY = 2
+_PROVIDER_CIRCUIT_FAILURE_THRESHOLD = 2
+_PROVIDER_CIRCUIT_COOLDOWN_SECONDS = 30.0
 _PROVIDER_CAPACITY = threading.BoundedSemaphore(_PROVIDER_MAX_OCCUPANCY)
 _PROVIDER_EXECUTOR = ThreadPoolExecutor(
     max_workers=_PROVIDER_MAX_OCCUPANCY,
     thread_name_prefix="mail-analysis-provider",
 )
+_PROVIDER_CIRCUIT_LOCK = threading.Lock()
+_PROVIDER_CIRCUITS: dict[str, tuple[int, float]] = {}
 
 
 class MailAnalysisProviderBusyError(RuntimeError):
     """Raised when every bounded provider worker is still occupied."""
+
+
+def _circuit_now() -> float:
+    return time.monotonic()
+
+
+def _provider_circuit_is_open(provider: str) -> bool:
+    now = _circuit_now()
+    with _PROVIDER_CIRCUIT_LOCK:
+        state = _PROVIDER_CIRCUITS.get(provider)
+        if state is None:
+            return False
+        _, open_until = state
+        return open_until > now
+
+
+def _record_provider_failure(provider: str) -> None:
+    now = _circuit_now()
+    with _PROVIDER_CIRCUIT_LOCK:
+        previous_failures, open_until = _PROVIDER_CIRCUITS.get(provider, (0, 0.0))
+        if open_until > now:
+            return
+        failures = previous_failures + 1
+        next_open_until = (
+            now + _PROVIDER_CIRCUIT_COOLDOWN_SECONDS
+            if failures >= _PROVIDER_CIRCUIT_FAILURE_THRESHOLD
+            else 0.0
+        )
+        _PROVIDER_CIRCUITS[provider] = (failures, next_open_until)
+
+
+def _record_provider_success(provider: str) -> None:
+    with _PROVIDER_CIRCUIT_LOCK:
+        _PROVIDER_CIRCUITS.pop(provider, None)
 
 
 def _call_provider_blocking(
@@ -377,6 +416,10 @@ async def analyze_mail_entities(
     prompt = _analysis_prompt(context)
     for index, provider in enumerate(configured):
         public_name = _public_provider_name(provider, index)
+        if _provider_circuit_is_open(provider):
+            attempts.append({"provider": public_name, "status": "unavailable"})
+            log.warning("Mail analysis provider %s circuit is temporarily open", public_name)
+            continue
         try:
             content = await request_entity_analysis(
                 prompt,
@@ -385,15 +428,19 @@ async def analyze_mail_entities(
             )
         except Exception as error:
             failure = _provider_failure_status(error)
+            if not isinstance(error, MailAnalysisProviderBusyError):
+                _record_provider_failure(provider)
             attempts.append({"provider": public_name, "status": failure})
             log.warning("Mail analysis provider %s failed (%s)", public_name, failure)
             continue
         try:
             parsed = parse_entity_analysis(content, public_name)
         except MailAnalysisInvalidResponseError:
+            _record_provider_failure(provider)
             attempts.append({"provider": public_name, "status": "invalid_response"})
             log.warning("Mail analysis provider %s returned invalid output", public_name)
             continue
+        _record_provider_success(provider)
         attempts.append({"provider": public_name, "status": "success"})
         await asyncio.to_thread(
             store_previous_mail_analysis,
