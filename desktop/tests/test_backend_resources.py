@@ -101,7 +101,9 @@ def test_plan_keeps_required_runtime_without_importing_application(repository: P
     assert "backend.agent.generated_tools.verification_sandbox" in first.modules
     assert "backend.agent.generated_tools.test_sandbox" not in first.modules
     assert "extensions.marketplace.signing_policy" not in first.modules
+    assert "backend/migrations/alembic/versions/literature_0001.py" in first.resources
     assert "backend/migrations/alembic/versions/management_0005.py" in first.resources
+    assert "backend/migrations/alembic/versions/vault_0004.py" in first.resources
     assert "backend/migrations/alembic/script.py.mako" in first.resources
     assert "backend/agent/instructions/gnosy.md" in first.resources
     assert "backend/data/model_catalog.json" in first.resources

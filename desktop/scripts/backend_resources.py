@@ -107,6 +107,7 @@ MIGRATIONS = (
     "evaluations_0001",
     "health_0001",
     "jobs_0001",
+    "literature_0001",
     "management_0001",
     "management_0002",
     "management_0003",
@@ -127,6 +128,7 @@ MIGRATIONS = (
     "vault_0001",
     "vault_0002",
     "vault_0003",
+    "vault_0004",
 )
 # Keep paths relative to __file__ in model_catalog, runner, directive_tools,
 # plugin_sandbox, plugin_catalog and csl_styles. Vault Templates are user data;
