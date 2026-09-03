@@ -81,6 +81,13 @@ function action(title: string): HTMLButtonElement {
   return button;
 }
 
+async function runSmartAnalysis(): Promise<void> {
+  await act(async () => {
+    action('Smart analysis').click();
+    await Promise.resolve();
+  });
+}
+
 beforeAll(() => {
   const testGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
   testGlobal.IS_REACT_ACT_ENVIRONMENT = true;
@@ -112,17 +119,10 @@ describe('MailViewer', () => {
     mocks.fetchMessage.mockImplementationOnce(() => new Promise((resolve) => {
       resolveDetail = resolve;
     }));
-    const selected = message('pending', {
-      body_text: null,
-      snippet: 'Synthetic preview',
-    });
-
-    await render({ mail: selected });
-
+    await render({ mail: message('pending', { body_text: null, snippet: 'Synthetic preview' }) });
     expect(container.textContent).toContain('Subject pending');
     expect(container.textContent).toContain('Synthetic preview');
     expect(container.textContent).not.toContain('mail.loading');
-
     await act(async () => {
       resolveDetail(message('pending'));
       await Promise.resolve();
@@ -146,17 +146,29 @@ describe('MailViewer', () => {
     await render({ mail: message('analysis') });
     expect(mocks.extractEntities).not.toHaveBeenCalled();
 
-    await act(async () => {
-      action('Smart analysis').click();
-      await Promise.resolve();
-    });
+    await runSmartAnalysis();
     expect(mocks.extractEntities).toHaveBeenCalledWith('Message body', {
       attachments: [],
       recipients: [account.email],
       sender: 'Ada <ada@example.test>',
-    });
+    }, expect.any(AbortSignal));
     expect(container.querySelector('[data-mail-analysis-status="no_entities"]'))
       .not.toBeNull();
+  });
+
+  it('cancels an in-flight analysis when the selected message changes', async () => {
+    let analysisSignal: AbortSignal | undefined;
+    mocks.fetchMessage.mockImplementation((id) => Promise.resolve(message(id)));
+    mocks.extractEntities.mockImplementation((_context, _metadata, signal) => {
+      analysisSignal = signal;
+      return new Promise(() => undefined);
+    });
+    await render({ mail: message('first-analysis') });
+    await runSmartAnalysis();
+    expect(analysisSignal?.aborted).toBe(false);
+    await render({ mail: message('second-analysis') });
+    expect(analysisSignal?.aborted).toBe(true);
+    expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
   it('distinguishes missing configuration and temporary provider failure', async () => {
@@ -170,10 +182,7 @@ describe('MailViewer', () => {
     expect(mocks.extractEntities).not.toHaveBeenCalled();
     expect(container.querySelector('[data-mail-analysis-status]')).toBeNull();
     expect(mocks.toastError).not.toHaveBeenCalled();
-    await act(async () => {
-      action('Smart analysis').click();
-      await Promise.resolve();
-    });
+    await runSmartAnalysis();
     expect(container.querySelector('[data-mail-analysis-status="not_configured"]'))
       .not.toBeNull();
 
@@ -182,10 +191,7 @@ describe('MailViewer', () => {
       events: [],
       error: 'temporarily_unavailable',
     });
-    await act(async () => {
-      action('Smart analysis').click();
-      await Promise.resolve();
-    });
+    await runSmartAnalysis();
     expect(container.querySelector(
       '[data-mail-analysis-status="temporarily_unavailable"]',
     )).not.toBeNull();
@@ -226,10 +232,7 @@ describe('MailViewer', () => {
     await render({ mail: message('local-analysis') });
     expect(mocks.extractEntities).not.toHaveBeenCalled();
 
-    await act(async () => {
-      action('Smart analysis').click();
-      await Promise.resolve();
-    });
+    await runSmartAnalysis();
 
     expect(container.querySelector('[data-mail-analysis-status="results"]'))
       .not.toBeNull();
@@ -261,10 +264,7 @@ describe('MailViewer', () => {
     });
     await render({ mail: message('local-without-provider') });
 
-    await act(async () => {
-      action('Smart analysis').click();
-      await Promise.resolve();
-    });
+    await runSmartAnalysis();
 
     expect(container.querySelector('[data-mail-analysis-status="results"]'))
       .not.toBeNull();

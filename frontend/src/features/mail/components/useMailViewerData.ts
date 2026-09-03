@@ -47,6 +47,7 @@ export function useMailViewerData({
   const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
   const analysisRequestRef = useRef(0);
   const analysisRunningRef = useRef(false);
+  const analysisAbortRef = useRef<AbortController | null>(null);
   const { getMessageTags } = mailTags;
   const firstThreadMessageId = selectedMail?.thread_messages?.[0]?.id || selectedMail?.id;
   const localThreadMessages = selectedMail?.thread_messages ?? [];
@@ -70,11 +71,17 @@ export function useMailViewerData({
   ): Promise<void> => {
     if (!context || analysisRunningRef.current) return;
     const requestId = ++analysisRequestRef.current;
+    const abortController = new AbortController();
+    analysisAbortRef.current = abortController;
     analysisRunningRef.current = true;
     setAnalyzing(true);
     setAnalysisStatus('analyzing');
     try {
-      const response = await extractMailEntities(context, metadata);
+      const response = await extractMailEntities(
+        context,
+        metadata,
+        abortController.signal,
+      );
       if (requestId !== analysisRequestRef.current) return;
       const entities = normalizeMailEntities(response);
       const hasResults = entities.events.length > 0 || entities.contacts.length > 0
@@ -100,11 +107,13 @@ export function useMailViewerData({
       }
     } catch (error) {
       if (requestId !== analysisRequestRef.current) return;
+      if (abortController.signal.aborted) return;
       logError('mail-viewer.entity-scan', error);
       const previous = extractedEntitiesRef.current;
       setAnalysisStatus(previous ? 'results' : 'temporarily_unavailable');
     } finally {
       if (requestId === analysisRequestRef.current) {
+        analysisAbortRef.current = null;
         analysisRunningRef.current = false;
         setAnalyzing(false);
       }
@@ -199,6 +208,8 @@ export function useMailViewerData({
   }, [account?.email, markAsRead, selectedMail]);
 
   useEffect(() => {
+    analysisAbortRef.current?.abort();
+    analysisAbortRef.current = null;
     analysisRequestRef.current += 1;
     analysisRunningRef.current = false;
     let active = true;
@@ -209,7 +220,10 @@ export function useMailViewerData({
       setExtractedEntities(null);
       extractedEntitiesRef.current = null;
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      analysisAbortRef.current?.abort();
+    };
   }, [selectedMail?.id]);
 
   const toggleThreadMessage = (message: MailViewerMessage): void => {

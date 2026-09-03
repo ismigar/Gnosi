@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -67,6 +68,28 @@ def test_entity_analysis_runs_provider_off_the_event_loop(
         "provider_attempts": [{"provider": "fixture", "status": "success"}],
     }
     assert provider_threads and provider_threads[0] != caller_thread
+
+
+def test_entity_analysis_enforces_timeout_outside_provider_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def blocking_provider(_prompt: str, **_options: object) -> str:
+        time.sleep(0.05)
+        return '{"events": [], "contacts": []}'
+
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", blocking_provider)
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
+    monkeypatch.setattr(analysis, "_PRIMARY_TIMEOUT_SECONDS", 0.01)
+
+    result = asyncio.run(
+        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
+    )
+
+    assert result["status"] == "complete"
+    assert result["result_source"] == "local"
+    assert result["provider_attempts"] == [
+        {"provider": "fixture", "status": "timeout"}
+    ]
 
 
 def test_entity_analysis_treats_local_fallback_as_a_normal_result(

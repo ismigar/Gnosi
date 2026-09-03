@@ -82,13 +82,14 @@ async def request_entity_analysis(
     """Run one provider off the event loop with a viewer-safe time bound."""
     from pipeline import ai_client
 
-    return await asyncio.to_thread(
-        ai_client.call_ai_client,
-        prompt[:6000],
-        timeout=timeout,
-        provider=provider,
-        use_cache=False,
-    )
+    async with asyncio.timeout(timeout):
+        return await asyncio.to_thread(
+            ai_client.call_ai_client,
+            prompt[:6000],
+            timeout=timeout,
+            provider=provider,
+            use_cache=False,
+        )
 
 
 def parse_entity_analysis(content: str, provider: str) -> dict[str, object]:

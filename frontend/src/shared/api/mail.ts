@@ -318,6 +318,7 @@ export interface MailAnalysisMetadata {
 export async function extractMailEntities(
   context: string,
   metadata: MailAnalysisMetadata = {},
+  signal?: AbortSignal,
 ): Promise<MailEntities> {
   return unwrapApiResult<MailEntities, unknown>(
     await apiClient.POST('/api/mail/ai/extract_entities', {
@@ -327,6 +328,7 @@ export async function extractMailEntities(
         recipients: [...(metadata.recipients ?? [])],
         sender: metadata.sender ?? '',
       },
+      signal,
     }),
   );
 }
