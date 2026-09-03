@@ -40,7 +40,10 @@ export function VaultAssetImage({
     const renderedSource = attempt > 0 ? retrySource(src, attempt) : src;
 
     useEffect(() => () => {
-        if (timerRef.current !== null) clearTimeout(timerRef.current);
+        if (timerRef.current !== null) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
     }, [src]);
 
     const handleError = (event: SyntheticEvent<HTMLImageElement>): void => {

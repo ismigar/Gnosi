@@ -62,4 +62,37 @@ describe('VaultAssetImage', () => {
         expect(vi.getTimerCount()).toBe(0);
         view.unmount();
     });
+
+    it('retries the current vault asset after the source changes', async () => {
+        const view = mountTestComponent(
+            <VaultAssetImage
+                alt="custom"
+                retryDelaysMs={[1000]}
+                src="/api/vault/assets/Icons/first.png"
+            />,
+        );
+        const image = view.container.querySelector('img');
+        if (!image) throw new Error('Missing image');
+
+        act(() => {
+            image.dispatchEvent(new Event('error'));
+        });
+        view.render(
+            <VaultAssetImage
+                alt="custom"
+                retryDelaysMs={[1000]}
+                src="/api/vault/assets/Icons/second.png"
+            />,
+        );
+        act(() => {
+            image.dispatchEvent(new Event('error'));
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(1000);
+        });
+
+        expect(image.getAttribute('src')).toContain('second.png');
+        expect(image.getAttribute('src')).toContain('gnosi_asset_retry=1');
+        view.unmount();
+    });
 });
