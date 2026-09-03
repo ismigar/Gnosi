@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Mapping
 
 from fastapi import Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -12,6 +12,10 @@ from backend.domains.agent.routes.contracts import (
     InternalContextSourceResponse,
 )
 from backend.domains.agent.routes.router import router
+from backend.domains.agent.routes.response_models import (
+    AgentChatFeedbackResponse,
+    AgentStreamCancellationResponse,
+)
 from backend.domains.agent.routes.shared import _validated_identifier, _vault_scope
 from backend.services.agent_cancellation import cancel_stream as cancel_agent_stream
 from backend.services.agent_quality_telemetry import record_quality_signal
@@ -96,11 +100,11 @@ async def list_internal_context_sources(
     return internal_source_catalog(workspace_context.workspace_id)
 
 
-@router.post("/chat/feedback", response_model=None)
+@router.post("/chat/feedback", response_model=AgentChatFeedbackResponse)
 async def record_chat_feedback(
     payload: ChatFeedbackRequest,
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Persist assistant feedback without retaining prompts or responses."""
     agent_id = _validated_identifier(payload.agent_id, "agent_id")
     session_id = _validated_identifier(payload.session_id, "session_id")
@@ -133,6 +137,7 @@ async def record_chat_feedback(
     return {"status": "recorded", "event_id": event_id}
 
 
+# NDJSON is streamed incrementally and is not a single JSON response document.
 @router.get("/chat/streams/{stream_id}", response_model=None)
 async def resume_agent_stream(
     stream_id: str,
@@ -167,13 +172,16 @@ async def resume_agent_stream(
     return StreamingResponse(replay_generator(), media_type="application/x-ndjson")
 
 
-@router.post("/chat/streams/{stream_id}/cancel", response_model=None)
+@router.post(
+    "/chat/streams/{stream_id}/cancel",
+    response_model=AgentStreamCancellationResponse,
+)
 async def cancel_running_agent_stream(
     stream_id: str,
     agent_id: str = Query(min_length=1, max_length=128),
     session_id: str = Query(min_length=1, max_length=128),
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Explicitly cancel one running stream in the exact authenticated scope."""
     scope = {
         "workspace_id": workspace_context.workspace_id,

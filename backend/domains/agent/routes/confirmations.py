@@ -4,7 +4,7 @@ import re
 import time
 from contextlib import suppress
 from pathlib import Path
-from typing import Any, Dict, NoReturn, Optional
+from typing import Any, Dict, Mapping, NoReturn, Optional
 
 from fastapi import BackgroundTasks, Depends, HTTPException, Query
 
@@ -27,6 +27,14 @@ from backend.domains.agent.routes.contracts import (
     ActionConfirmationRequest,
 )
 from backend.domains.agent.routes.router import router
+from backend.domains.agent.routes.response_models import (
+    AgentCapabilityAuditListResponse,
+    AgentConfirmationCancelResponse,
+    AgentConfirmationExecutionResponse,
+    AgentConfirmationListResponse,
+    AgentConfirmationRecordResponse,
+    AgentReplayResponse,
+)
 from backend.domains.agent.routes.shared import _validated_identifier, _vault_scope
 from backend.services.agent_replay import read_replay
 from backend.services.capability_audit import (
@@ -246,12 +254,12 @@ def _execute_first_party_confirmation_in_worker(
     )
 
 
-@router.get("/chat/confirmations", response_model=None)
+@router.get("/chat/confirmations", response_model=AgentConfirmationListResponse)
 async def list_agent_confirmations(
     agent_id: str = Query(..., max_length=128),
     session_id: str = Query(..., max_length=128),
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Return resumable public confirmation cards for one exact chat scope."""
     scope = _action_scope(
         ActionConfirmationRequest(agent_id=agent_id, session_id=session_id),
@@ -261,7 +269,10 @@ async def list_agent_confirmations(
     return {"confirmations": records}
 
 
-@router.get("/chat/capability-audit", response_model=None)
+@router.get(
+    "/chat/capability-audit",
+    response_model=AgentCapabilityAuditListResponse,
+)
 async def list_agent_capability_audit(
     agent_id: str = Query(..., max_length=128),
     session_id: str = Query(..., max_length=128),
@@ -269,7 +280,7 @@ async def list_agent_capability_audit(
     tool_id: Optional[str] = Query(default=None, max_length=256),
     status: Optional[str] = Query(default=None, max_length=64),
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Return metadata-only governed tool events for one exact chat scope."""
     scope = _action_scope(
         ActionConfirmationRequest(agent_id=agent_id, session_id=session_id),
@@ -285,12 +296,12 @@ async def list_agent_capability_audit(
     return {"events": records}
 
 
-@router.get("/chat/replays/{trace_id}", response_model=None)
+@router.get("/chat/replays/{trace_id}", response_model=AgentReplayResponse)
 async def get_agent_replay(
     trace_id: str,
     limit: int = Query(100, ge=1, le=200),
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Return metadata-only replay events for one trace id."""
     safe_trace_id = str(trace_id or "").strip()
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", safe_trace_id):
@@ -301,13 +312,16 @@ async def get_agent_replay(
     }
 
 
-@router.get("/chat/confirmations/{action_id}", response_model=None)
+@router.get(
+    "/chat/confirmations/{action_id}",
+    response_model=AgentConfirmationRecordResponse,
+)
 async def get_agent_confirmation(
     action_id: str,
     agent_id: str = Query(..., max_length=128),
     session_id: str = Query(..., max_length=128),
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Return one public confirmation status for transport reconciliation."""
     safe_action_id = _validated_action_id(action_id)
     scope = _action_scope(
@@ -324,13 +338,17 @@ async def get_agent_confirmation(
         _raise_confirmation_error(error)
 
 
-@router.post("/chat/confirmations/{action_id}/confirm", response_model=None)
+@router.post(
+    "/chat/confirmations/{action_id}/confirm",
+    response_model=AgentConfirmationExecutionResponse,
+    response_model_exclude_none=True,
+)
 async def confirm_agent_action(  # noqa: C901 - explicit confirmation outcomes
     action_id: str,
     payload: ActionConfirmationRequest,
     background_tasks: BackgroundTasks,
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Claims and executes one scope-bound pending agent action exactly once."""
     safe_action_id = _validated_action_id(action_id)
     scope = _action_scope(payload, workspace_context)
@@ -488,12 +506,15 @@ async def confirm_agent_action(  # noqa: C901 - explicit confirmation outcomes
     }
 
 
-@router.post("/chat/confirmations/{action_id}/cancel", response_model=None)
+@router.post(
+    "/chat/confirmations/{action_id}/cancel",
+    response_model=AgentConfirmationCancelResponse,
+)
 async def cancel_agent_action(
     action_id: str,
     payload: ActionConfirmationRequest,
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Cancels one still-pending action in the exact same chat scope."""
     safe_action_id = _validated_action_id(action_id)
     scope = _action_scope(payload, workspace_context)

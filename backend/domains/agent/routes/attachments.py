@@ -3,7 +3,7 @@ import logging
 import time
 import uuid
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import List, Mapping, Optional
 
 from fastapi import Depends, File, Form, HTTPException, UploadFile
 
@@ -19,6 +19,10 @@ from backend.domains.agent.routes.contracts import (
     AttachmentRef,
 )
 from backend.domains.agent.routes.router import router
+from backend.domains.agent.routes.response_models import (
+    AgentAttachmentUploadResponse,
+    AgentDeleteResponse,
+)
 from backend.domains.agent.routes.shared import _validated_identifier, _vault_scope
 from backend.services.workspace_service import WorkspaceContext, require_role
 
@@ -148,13 +152,13 @@ def _consume_attachment_context(
                 )
 
 
-@router.post("/chat/attachments", response_model=None)
+@router.post("/chat/attachments", response_model=AgentAttachmentUploadResponse)
 async def upload_chat_attachment(
     file: UploadFile = File(...),
     agent_id: str = Form(...),
     session_id: str = Form(...),
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Store one bounded chat attachment inside the active Vault."""
     vault, vault_scope = _vault_scope()
     scope_key = _attachment_scope_key(
@@ -187,11 +191,11 @@ async def upload_chat_attachment(
     }
 
 
-@router.delete("/chat/attachments", response_model=None)
+@router.delete("/chat/attachments", response_model=AgentDeleteResponse)
 async def delete_chat_attachment(
     delete_req: AttachmentDeleteRequest,
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Delete an abandoned chat upload from the active Vault."""
     vault, vault_scope = _vault_scope()
     scope_key = _attachment_scope_key(
