@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
+from pydantic import BaseModel
 
 from backend.api import vault_routes
 from backend.domains.configuration.api import plugin_models
@@ -273,3 +275,46 @@ def test_plugin_openapi_uses_named_json_request_and_response_schemas() -> None:
             )
             if request_schema is not None:
                 assert request_schema.get("$ref", "").startswith("#/components/schemas/")
+
+
+@pytest.mark.parametrize(
+    ("model", "payload"),
+    (
+        (
+            plugin_models.PluginInstallationResponse,
+            {
+                "installed": {
+                    "id": "fixture-plugin",
+                    "version": "1.0.0",
+                    "apiVersion": 2,
+                    "customManifestField": {"nested": [True, None, 4.5]},
+                }
+            },
+        ),
+        (
+            plugin_models.PluginPermissionsMutationResponse,
+            {"id": "fixture-plugin", "granted": ["vault:read"]},
+        ),
+        (
+            plugin_models.PluginSubmissionResponse,
+            {"status": 202, "brokerExtension": {"queued": True}},
+        ),
+        (
+            plugin_models.PluginTrustedKeyAdditionResponse,
+            {"added": "fixture-publisher"},
+        ),
+        (
+            plugin_models.PluginTrustedKeyRemovalResponse,
+            {"removed": "fixture-publisher"},
+        ),
+        (
+            plugin_models.PluginUninstallResponse,
+            {"uninstalled": "fixture-plugin"},
+        ),
+    ),
+)
+def test_plugin_response_models_preserve_historical_json_payloads(
+    model: type[BaseModel],
+    payload: dict[str, object],
+) -> None:
+    assert model.model_validate(payload).model_dump(exclude_unset=True) == payload

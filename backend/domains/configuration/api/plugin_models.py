@@ -193,7 +193,7 @@ class PluginSubmissionResponse(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    status: str | None = None
+    status: JsonValue = None
 
 
 class PluginTrustedKeyAdditionResponse(BaseModel):
