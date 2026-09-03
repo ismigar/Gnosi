@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -18,8 +19,21 @@ from backend.domains.mail.cache import (
 from backend.domains.mail.providers.hybrid import _imap_list_item
 from backend.domains.mail.routes import compose
 from backend.domains.mail.services import analysis
+from backend.domains.mail.services import analysis_cache
 from backend.domains.mail.services.attachments import _collect_original_inline_parts
 from backend.services import integration_manager as integration_module
+
+
+@pytest.fixture(autouse=True)
+def _isolated_analysis_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        analysis_cache,
+        "_cache_root",
+        lambda: tmp_path / "analysis-results",
+    )
 
 
 def test_entity_analysis_runs_provider_off_the_event_loop(
@@ -49,6 +63,7 @@ def test_entity_analysis_runs_provider_off_the_event_loop(
         "contacts": [],
         "provider": "fixture",
         "status": "complete",
+        "result_source": "provider",
         "provider_attempts": [{"provider": "fixture", "status": "success"}],
     }
     assert provider_threads and provider_threads[0] != caller_thread
@@ -264,6 +279,78 @@ def test_entity_analysis_uses_secondary_after_primary_timeout(
         {"provider": "primary", "status": "timeout"},
         {"provider": "backup", "status": "success"},
     ]
+
+
+def test_entity_analysis_recovers_exact_previous_result_after_provider_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def provider(_prompt: str, **_options: object) -> str:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            raise TimeoutError("synthetic timeout")
+        return '{"events": [{"title": "Literal fixture"}], "contacts": []}'
+
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
+    request = schemas.MailExtractEntitiesRequest(
+        context="Synthetic body that must never be cached verbatim",
+        sender="Fixture Sender <sender@example.test>",
+        recipients=["reader@example.test"],
+        attachments=["fixture.pdf"],
+    )
+
+    first = asyncio.run(compose.extract_entities(request))
+    recovered = asyncio.run(compose.extract_entities(request))
+
+    assert first["result_source"] == "provider"
+    assert recovered["provider"] == "previous_valid"
+    assert recovered["result_source"] == "previous_valid"
+    assert recovered["events"] == [{"title": "Literal fixture"}]
+    assert recovered["status"] == "degraded"
+    assert recovered["provider_attempts"] == [
+        {"provider": "fixture", "status": "timeout"}
+    ]
+    stored = next((tmp_path / "analysis-results").glob("*.json")).read_text()
+    assert "Synthetic body" not in stored
+    assert "sender@example.test" not in stored
+    assert "reader@example.test" not in stored
+
+
+def test_entity_analysis_does_not_reuse_previous_result_for_different_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses: list[str | Exception] = [
+        '{"events": [{"title": "First fixture"}], "contacts": []}',
+        TimeoutError("synthetic timeout"),
+    ]
+
+    def provider(_prompt: str, **_options: object) -> str:
+        response = responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
+
+    asyncio.run(
+        compose.extract_entities(
+            schemas.MailExtractEntitiesRequest(context="First synthetic fixture")
+        )
+    )
+    result = asyncio.run(
+        compose.extract_entities(
+            schemas.MailExtractEntitiesRequest(context="Different synthetic fixture")
+        )
+    )
+
+    assert result["provider"] == "local_deterministic"
+    assert result["result_source"] == "local"
+    assert result["events"] == []
 
 
 def test_inline_image_uses_detail_cache_without_a_second_provider_fetch(

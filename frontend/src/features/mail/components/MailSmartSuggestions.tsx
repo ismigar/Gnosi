@@ -94,13 +94,17 @@ export function MailSmartSuggestions({ controller }: { readonly controller: Mail
   if (!entities || (entities.events.length === 0 && entities.contacts.length === 0
     && !entities.localAnalysis)) return null;
   const local = entities.localAnalysis;
+  const preservedResult = entities.resultSource === 'previous_valid';
   return (
-    <div className="bg-[var(--bg-secondary)]/50 border border-[var(--border-primary)] rounded-3xl p-8 mb-12 animate-in fade-in slide-in-from-top-4 duration-500 backdrop-blur-sm" data-mail-analysis-status={controller.analysisStatus}>
+    <div className="bg-[var(--bg-secondary)]/50 border border-[var(--border-primary)] rounded-3xl p-8 mb-12 animate-in fade-in slide-in-from-top-4 duration-500 backdrop-blur-sm" data-mail-analysis-source={entities.resultSource ?? undefined} data-mail-analysis-status={controller.analysisStatus}>
       {controller.analysisStatus === 'local_results' && (
         <div className="flex items-center justify-between gap-4 border border-amber-500/30 bg-amber-500/10 rounded-2xl px-4 py-3 mb-6">
           <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
             <Info aria-hidden="true" className="shrink-0 text-amber-500" size={17} />
-            <span>{t(
+            <span>{preservedResult ? t(
+              'mail.smart_analysis_previous_result',
+              'AI providers did not respond. Gnosi is showing the last valid analysis for this exact message together with current local evidence.',
+            ) : t(
               'mail.smart_analysis_local_results',
               'AI providers did not respond. Gnosi only shows explicit data detected locally; review it before adding it.',
             )}</span>

@@ -3306,6 +3306,7 @@
     "smart_analysis_not_configured": "El análisis inteligente no está configurado. Añade un proveedor de IA en Configuración.",
     "smart_analysis_temporarily_unavailable": "El análisis inteligente no está disponible temporalmente. Puedes volver a intentarlo.",
     "smart_analysis_local_results": "Los proveedores de IA no han respondido. Gnosi solo muestra datos explícitos detectados localmente; revísalos antes de añadirlos.",
+    "smart_analysis_previous_result": "Los proveedores de IA no han respondido. Gnosi muestra el último análisis válido de este mensaje exacto junto con las evidencias locales actuales.",
     "local_analysis_summary": "Resumen extractivo",
     "local_analysis_participants": "Participantes",
     "local_analysis_attachments": "Adjuntos",

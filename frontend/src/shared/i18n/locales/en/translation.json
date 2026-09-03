@@ -3336,6 +3336,7 @@
     "smart_analysis_not_configured": "Smart analysis is not configured. Add an AI provider in Settings.",
     "smart_analysis_temporarily_unavailable": "Smart analysis is temporarily unavailable. You can try again.",
     "smart_analysis_local_results": "AI providers did not respond. Gnosi only shows explicit data detected locally; review it before adding it.",
+    "smart_analysis_previous_result": "AI providers did not respond. Gnosi is showing the last valid analysis for this exact message together with current local evidence.",
     "local_analysis_summary": "Extractive summary",
     "local_analysis_participants": "Participants",
     "local_analysis_attachments": "Attachments",

@@ -20,14 +20,17 @@ import httpx
 from PIL import Image, UnidentifiedImageError
 
 from backend.domains.mail.services.remote_image_cache import (
+    CACHE_LEASE_STALE_SECONDS,
     CACHE_TTL_SECONDS,
     MAX_CACHE_BYTES,
     MAX_CACHE_ENTRIES,
+    CacheEntryLease,
     CachedRemoteMailImage,
     cache_key,
     load_cached_image,
     refresh_cached_image,
     store_cached_image,
+    try_acquire_cache_lease,
     validator_digest,
 )
 
@@ -37,6 +40,7 @@ MAX_ADDRESS_ATTEMPTS = 2
 MAX_REDIRECTS = 2
 MAX_URL_CHARS = 4_000
 TOTAL_TIMEOUT_SECONDS = 12.0
+CACHE_LEASE_WAIT_SECONDS = CACHE_LEASE_STALE_SECONDS + 1.0
 
 _REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 _MIME_BY_FORMAT = {
@@ -428,16 +432,73 @@ async def _fetch_remote_mail_image_uncollapsed(
 ) -> RemoteMailImage:
     """Fetch or revalidate one public raster image through the durable cache."""
     now = _now()
-    cached = await asyncio.to_thread(
+    cached = await _load_cached_remote_image(raw_url, now=now)
+    if cached is not None and cached[1]:
+        return _remote_image(cached[0])
+    initial_stale = cached[0] if cached is not None else None
+    lease = await _acquire_cache_lease(
+        raw_url,
+        wait_seconds=0 if initial_stale is not None else CACHE_LEASE_WAIT_SECONDS,
+    )
+    if lease is None:
+        if initial_stale is not None:
+            return _remote_image(initial_stale)
+        raise RemoteMailImageError("timeout", 504)
+    try:
+        cached = await _load_cached_remote_image(raw_url, now=_now())
+        if cached is not None and cached[1]:
+            return _remote_image(cached[0])
+        stale_entry = cached[0] if cached is not None else initial_stale
+        return await _fetch_remote_mail_image_with_lease(
+            raw_url,
+            stale_entry=stale_entry,
+            transport=transport,
+        )
+    finally:
+        await asyncio.to_thread(lease.release)
+
+
+async def _load_cached_remote_image(
+    raw_url: str,
+    *,
+    now: float,
+) -> tuple[CachedRemoteMailImage, bool] | None:
+    return await asyncio.to_thread(
         load_cached_image,
         raw_url,
         now=now,
         accepted_types=_ACCEPTED_MIME_TYPES,
         validate_raster=_validate_raster_image,
     )
-    if cached is not None and cached[1]:
-        return _remote_image(cached[0])
-    stale_entry = cached[0] if cached is not None else None
+
+
+async def _acquire_cache_lease(
+    raw_url: str,
+    *,
+    wait_seconds: float,
+) -> CacheEntryLease | None:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + wait_seconds
+    while True:
+        lease = await asyncio.to_thread(
+            try_acquire_cache_lease,
+            raw_url,
+            now=_now(),
+        )
+        if lease is not None:
+            return lease
+        if loop.time() >= deadline:
+            return None
+        await asyncio.sleep(0.05)
+
+
+async def _fetch_remote_mail_image_with_lease(
+    raw_url: str,
+    *,
+    stale_entry: CachedRemoteMailImage | None,
+    transport: httpx.AsyncBaseTransport | None,
+) -> RemoteMailImage:
+    """Fetch while the caller owns the digest lease, falling back to stale bytes."""
     current = raw_url
     try:
         async with asyncio.timeout(TOTAL_TIMEOUT_SECONDS):

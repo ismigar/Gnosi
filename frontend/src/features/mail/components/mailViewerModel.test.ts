@@ -39,6 +39,7 @@ describe('mailViewerModel', () => {
       events: [{ description: '', end: '', location: '', start: '2026-09-01', title: 'Review' }],
       localAnalysis: null,
       providerAttempts: [],
+      resultSource: null,
     });
   });
 
@@ -62,10 +63,12 @@ describe('mailViewerModel', () => {
         tasks: [],
       },
       provider_attempts: [{ provider: 'primary', status: 'timeout' }],
+      result_source: 'local',
     })).toMatchObject({
       degradedReason: 'providers_failed',
       localAnalysis: { summary: { value: 'Literal sentence.' } },
       providerAttempts: [{ provider: 'primary', status: 'timeout' }],
+      resultSource: 'local',
     });
   });
 

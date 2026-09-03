@@ -11,6 +11,10 @@ from urllib.parse import urlparse
 
 import requests
 
+from backend.domains.mail.services.analysis_cache import (
+    load_previous_mail_analysis,
+    store_previous_mail_analysis,
+)
 from backend.domains.mail.services.local_analysis import extract_local_entities
 from backend.security.ai_credentials import resolve_provider_api_key
 
@@ -165,7 +169,7 @@ def _provider_failure_status(error: Exception) -> str:
     return "unavailable"
 
 
-def _local_fallback(
+async def _local_fallback(
     context: str,
     reason: str,
     attempts: list[dict[str, str]],
@@ -174,17 +178,28 @@ def _local_fallback(
     recipients: tuple[str, ...],
     attachments: tuple[str, ...],
 ) -> dict[str, object]:
-    local = extract_local_entities(
-        context,
-        sender=sender,
-        recipients=recipients,
-        attachments=attachments,
+    local, previous = await asyncio.gather(
+        asyncio.to_thread(
+            extract_local_entities,
+            context,
+            sender=sender,
+            recipients=recipients,
+            attachments=attachments,
+        ),
+        asyncio.to_thread(
+            load_previous_mail_analysis,
+            context,
+            sender=sender,
+            recipients=recipients,
+            attachments=attachments,
+        ),
     )
     return {
-        "events": local.events,
-        "contacts": local.contacts,
-        "provider": "local_deterministic",
+        "events": previous.events if previous is not None else local.events,
+        "contacts": previous.contacts if previous is not None else local.contacts,
+        "provider": "previous_valid" if previous is not None else "local_deterministic",
         "status": "degraded",
+        "result_source": "previous_valid" if previous is not None else "local",
         "degraded_reason": reason,
         "provider_attempts": attempts,
         "local_analysis": local.report.as_dict(),
@@ -224,12 +239,22 @@ async def analyze_mail_entities(
             log.warning("Mail analysis provider %s returned invalid output", public_name)
             continue
         attempts.append({"provider": public_name, "status": "success"})
+        await asyncio.to_thread(
+            store_previous_mail_analysis,
+            context,
+            sender=sender,
+            recipients=recipients,
+            attachments=attachments,
+            events=parsed["events"],
+            contacts=parsed["contacts"],
+        )
         return {
             **parsed,
             "status": "complete",
+            "result_source": "provider",
             "provider_attempts": attempts,
         }
-    return _local_fallback(
+    return await _local_fallback(
         context,
         "not_configured" if not configured else "providers_failed",
         attempts,

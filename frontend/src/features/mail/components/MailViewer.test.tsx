@@ -260,6 +260,7 @@ describe('MailViewer', () => {
         }],
         events: [],
         provider: 'fixture',
+        result_source: 'provider',
         status: 'complete',
       })
       .mockResolvedValueOnce({
@@ -280,8 +281,9 @@ describe('MailViewer', () => {
           },
           tasks: [],
         },
-        provider: 'local_deterministic',
+        provider: 'previous_valid',
         provider_attempts: [{ provider: 'fixture', status: 'timeout' }],
+        result_source: 'previous_valid',
         status: 'degraded',
       });
     await render({ mail: message('preserve-analysis') });
@@ -299,8 +301,12 @@ describe('MailViewer', () => {
 
     expect(container.textContent).toContain('Ada Lovelace');
     expect(container.textContent).toContain('fixture: timeout');
+    expect(container.textContent).toContain('last valid analysis for this exact message');
+    expect(container.querySelector('[data-mail-analysis-source="previous_valid"]'))
+      .not.toBeNull();
     expect(container.querySelector('[data-mail-analysis-status="local_results"]'))
       .not.toBeNull();
+    expect(mocks.markRead).not.toHaveBeenCalled();
   });
 
   it('recovers from a degraded timeout on a later manual retry', async () => {

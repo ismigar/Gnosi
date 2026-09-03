@@ -10374,6 +10374,23 @@ export interface components {
              */
             type: string;
         };
+        /** AuthOperationResponse */
+        AuthOperationResponse: {
+            /**
+             * Ok
+             * @constant
+             */
+            ok: true;
+        };
+        /** AuthWorkspaceInfo */
+        AuthWorkspaceInfo: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Role */
+            role: string;
+        };
         /** AutomationApprovalResponse */
         AutomationApprovalResponse: {
             /** Action */
@@ -15164,6 +15181,8 @@ export interface components {
             provider_attempts?: components["schemas"]["MailProviderAttemptResponse"][];
             /** Raw */
             raw?: string | null;
+            /** Result Source */
+            result_source?: ("provider" | "local" | "previous_valid") | null;
             /** Status */
             status?: ("complete" | "degraded") | null;
         };
@@ -20164,6 +20183,19 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** UserInfo */
+        UserInfo: {
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Email */
+            email: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
+            /** Workspaces */
+            workspaces?: components["schemas"]["AuthWorkspaceInfo"][];
+        };
         /**
          * UserRole
          * @enum {string}
@@ -22948,7 +22980,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthOperationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -23072,7 +23104,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserInfo"];
                 };
             };
             /** @description Validation Error */
@@ -23101,7 +23133,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthOperationResponse"];
                 };
             };
         };
@@ -23125,7 +23157,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserInfo"];
                 };
             };
             /** @description Validation Error */
@@ -23162,7 +23194,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserInfo"];
                 };
             };
             /** @description Validation Error */
@@ -23255,7 +23287,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserInfo"];
                 };
             };
             /** @description Validation Error */

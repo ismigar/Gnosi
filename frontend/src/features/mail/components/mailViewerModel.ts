@@ -301,8 +301,10 @@ export function normalizeMailEntities(value: {
   readonly events?: readonly unknown[];
   readonly local_analysis?: unknown;
   readonly provider_attempts?: unknown;
+  readonly result_source?: unknown;
 }): MailExtractedEntities {
   const degradedReason = value.degraded_reason;
+  const resultSource = value.result_source;
   return {
     contacts: (value.contacts ?? [])
       .map(normalizeContact)
@@ -315,6 +317,8 @@ export function normalizeMailEntities(value: {
       .filter((item): item is MailExtractedEvent => item !== null),
     localAnalysis: normalizeLocalAnalysis(value.local_analysis),
     providerAttempts: normalizeProviderAttempts(value.provider_attempts),
+    resultSource: resultSource === 'provider' || resultSource === 'local'
+      || resultSource === 'previous_valid' ? resultSource : null,
   };
 }
 

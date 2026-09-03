@@ -92,6 +92,7 @@ export interface MailExtractedEntities {
   readonly events: readonly MailExtractedEvent[];
   readonly localAnalysis: MailLocalAnalysis | null;
   readonly providerAttempts: readonly MailProviderAttempt[];
+  readonly resultSource: 'provider' | 'local' | 'previous_valid' | null;
 }
 
 

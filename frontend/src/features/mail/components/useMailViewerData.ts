@@ -93,6 +93,7 @@ export function useMailViewerData({
             degradedReason: normalized.degradedReason,
             localAnalysis: normalized.localAnalysis ?? previous.localAnalysis,
             providerAttempts: normalized.providerAttempts,
+            resultSource: normalized.resultSource ?? previous.resultSource,
           }
         : normalized;
       if (entities.events.length > 0 || entities.contacts.length > 0

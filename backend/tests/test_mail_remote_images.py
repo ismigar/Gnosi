@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import socket
 import ssl
 import zlib
@@ -306,6 +307,83 @@ def test_concurrent_recovery_fetches_origin_once(
     assert requests == 1
 
 
+def test_cross_process_lease_double_check_fetches_origin_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests = 0
+
+    async def accept_fixture(url: str) -> remote_images.ValidatedRemoteImageUrl:
+        return _target(url)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        await asyncio.sleep(0.03)
+        return httpx.Response(
+            200,
+            headers={"Content-Type": "image/png"},
+            content=_png_bytes(),
+            request=request,
+        )
+
+    async def recover_as_independent_workers() -> tuple[remote_images.RemoteMailImage, ...]:
+        transport = httpx.MockTransport(handler)
+        return tuple(
+            await asyncio.gather(
+                remote_images._fetch_remote_mail_image_uncollapsed(
+                    "https://images.example.test/process.png",
+                    transport=transport,
+                ),
+                remote_images._fetch_remote_mail_image_uncollapsed(
+                    "https://images.example.test/process.png",
+                    transport=transport,
+                ),
+            )
+        )
+
+    monkeypatch.setattr(remote_images, "_validate_remote_image_url", accept_fixture)
+    results = asyncio.run(recover_as_independent_workers())
+
+    assert results[0] == results[1]
+    assert requests == 1
+
+
+def test_stale_cross_process_lease_is_recoverable() -> None:
+    url = "https://images.example.test/stale-lease.png"
+    first = remote_image_cache.try_acquire_cache_lease(url, now=100)
+
+    assert first is not None
+    assert remote_image_cache.try_acquire_cache_lease(url, now=105) is None
+    recovered = remote_image_cache.try_acquire_cache_lease(url, now=131)
+    assert recovered is not None
+    recovered.release()
+
+
+def test_stale_cache_does_not_wait_for_another_process_revalidation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 100.0
+    url = "https://images.example.test/busy-stale.png"
+    stored = remote_image_cache.store_cached_image(
+        url,
+        body=_png_bytes(),
+        content_type="image/png",
+        etag="",
+        last_modified="",
+        final_url=url,
+        now=now,
+    )
+    now += remote_images.CACHE_TTL_SECONDS + 1
+    lease = remote_image_cache.try_acquire_cache_lease(url, now=now)
+    assert lease is not None
+    monkeypatch.setattr(remote_images, "_now", lambda: now)
+
+    result = asyncio.run(remote_images._fetch_remote_mail_image_uncollapsed(url))
+
+    assert result.body == stored.body
+    lease.release()
+
+
 def test_corrupt_durable_cache_is_a_miss_and_is_replaced(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -338,6 +416,129 @@ def test_corrupt_durable_cache_is_a_miss_and_is_replaced(
 
     assert recovered.body == _png_bytes()
     assert requests == 2
+
+
+def test_valid_body_repairs_corrupt_metadata_when_origin_is_down(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    requests = 0
+
+    async def accept_fixture(url: str) -> remote_images.ValidatedRemoteImageUrl:
+        return _target(url)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        if requests == 1:
+            return httpx.Response(
+                200,
+                headers={"Content-Type": "image/png"},
+                content=_png_bytes(),
+                request=request,
+            )
+        raise httpx.ReadTimeout("synthetic outage", request=request)
+
+    monkeypatch.setattr(remote_images, "_validate_remote_image_url", accept_fixture)
+    transport = httpx.MockTransport(handler)
+    url = "https://images.example.test/repair.png"
+    first = asyncio.run(remote_images.fetch_remote_mail_image(url, transport=transport))
+    metadata_path = next((tmp_path / "remote-images").glob("*.json"))
+    metadata_path.write_text("{broken", encoding="utf-8")
+    remote_images._clear_remote_image_cache()
+
+    recovered = asyncio.run(
+        remote_images.fetch_remote_mail_image(url, transport=transport)
+    )
+
+    assert recovered == first
+    assert requests == 2
+    repaired_metadata = metadata_path.read_text(encoding="utf-8")
+    assert "images.example.test" not in repaired_metadata
+    assert "repair.png" not in repaired_metadata
+
+
+def test_cache_prune_preserves_recoverable_body_with_corrupt_metadata(
+    tmp_path: Path,
+) -> None:
+    body = _png_bytes()
+    original_url = "https://images.example.test/orphan.png"
+    remote_image_cache.store_cached_image(
+        original_url,
+        body=body,
+        content_type="image/png",
+        etag="",
+        last_modified="",
+        final_url=original_url,
+        now=1,
+    )
+    root = tmp_path / "remote-images"
+    metadata_path = root / f"{remote_image_cache.cache_key(original_url)}.json"
+    metadata_path.write_text("{broken", encoding="utf-8")
+
+    other_url = "https://images.example.test/other.png"
+    remote_image_cache.store_cached_image(
+        other_url,
+        body=body,
+        content_type="image/png",
+        etag="",
+        last_modified="",
+        final_url=other_url,
+        now=2,
+    )
+    recovered = remote_image_cache.load_cached_image(
+        original_url,
+        now=3,
+        accepted_types=frozenset({"image/png"}),
+        validate_raster=remote_images._validate_raster_image,
+    )
+
+    assert recovered is not None
+    assert recovered[0].body == body
+    assert recovered[1] is False
+
+
+def test_cache_eviction_uses_real_read_access_order(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(remote_image_cache, "MAX_CACHE_ENTRIES", 2)
+    body = _png_bytes()
+    urls = [f"https://images.example.test/lru-{index}.png" for index in range(3)]
+    for index, url in enumerate(urls[:2], start=1):
+        remote_image_cache.store_cached_image(
+            url,
+            body=body,
+            content_type="image/png",
+            etag="",
+            last_modified="",
+            final_url=url,
+            now=float(index),
+        )
+    root = tmp_path / "remote-images"
+    first_path = root / f"{remote_image_cache.cache_key(urls[0])}.json"
+    second_path = root / f"{remote_image_cache.cache_key(urls[1])}.json"
+    os.utime(first_path, (10, 10))
+    os.utime(second_path, (20, 20))
+    assert remote_image_cache.load_cached_image(
+        urls[0],
+        now=30,
+        accepted_types=frozenset({"image/png"}),
+        validate_raster=remote_images._validate_raster_image,
+    ) is not None
+
+    remote_image_cache.store_cached_image(
+        urls[2],
+        body=body,
+        content_type="image/png",
+        etag="",
+        last_modified="",
+        final_url=urls[2],
+        now=40,
+    )
+
+    assert first_path.exists()
+    assert not second_path.exists()
 
 
 def test_stale_cache_revalidates_with_etag_and_accepts_304(

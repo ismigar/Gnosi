@@ -1800,6 +1800,43 @@
         "title": "AttachmentRef",
         "type": "object"
       },
+      "AuthOperationResponse": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "AuthOperationResponse",
+        "type": "object"
+      },
+      "AuthWorkspaceInfo": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role"
+        ],
+        "title": "AuthWorkspaceInfo",
+        "type": "object"
+      },
       "AutomationApprovalResponse": {
         "additionalProperties": {
           "$ref": "#/components/schemas/JsonValue"
@@ -15385,6 +15422,22 @@
             ],
             "title": "Raw"
           },
+          "result_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "provider",
+                  "local",
+                  "previous_valid"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Source"
+          },
           "status": {
             "anyOf": [
               {
@@ -27891,6 +27944,53 @@
         "title": "UrlTranslationResponse",
         "type": "object"
       },
+      "UserInfo": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "workspaces": {
+            "items": {
+              "$ref": "#/components/schemas/AuthWorkspaceInfo"
+            },
+            "title": "Workspaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "UserInfo",
+        "type": "object"
+      },
       "UserRole": {
         "enum": [
           "owner",
@@ -36111,7 +36211,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AuthOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -36258,7 +36360,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UserInfo"
+                }
               }
             },
             "description": "Successful Response"
@@ -36289,7 +36393,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AuthOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -36344,7 +36450,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UserInfo"
+                }
               }
             },
             "description": "Successful Response"
@@ -36417,7 +36525,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UserInfo"
+                }
               }
             },
             "description": "Successful Response"
@@ -36518,7 +36628,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UserInfo"
+                }
               }
             },
             "description": "Successful Response"
