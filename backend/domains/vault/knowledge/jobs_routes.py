@@ -204,6 +204,12 @@ class BrainSuggestionReadOnlyErrorResponse(BaseModel):
     detail: str
 
 
+class BrainSuggestionAcceptRequest(BaseModel):
+    """Ignored legacy payload retained for the permanently read-only route."""
+
+    model_config = ConfigDict(extra="allow")
+
+
 class BrainSuggestionVariantResponse(BaseModel):
     label: str
     text: str
@@ -221,6 +227,13 @@ class BrainDictationResponse(BaseModel):
 
 class BrainGlossaryResponse(BaseModel):
     pairs: int
+
+
+class BrainGlossaryRequest(BaseModel):
+    """User-confirmed correction pair with legacy endpoint coercion."""
+
+    heard: object | None = None
+    meant: object | None = None
 
 
 def ensure_llm_wiki_column(reference_table_id: str) -> bool:
@@ -466,7 +479,8 @@ async def llm_wiki_list_suggestions() -> dict[str, list[dict[str, object]]]:
     responses={410: {"model": BrainSuggestionReadOnlyErrorResponse}},
 )
 async def llm_wiki_accept_suggestion(
-    suggestion_id: str, payload: dict[object, object] = _legacy.Body(default=None)
+    suggestion_id: str,
+    payload: BrainSuggestionAcceptRequest | None = _legacy.Body(default=None),
 ) -> Never:
     """Permanent-note creation was removed; proposals are read-only."""
     raise _legacy.HTTPException(
@@ -581,13 +595,13 @@ async def llm_wiki_dictate(
     response_model_exclude_unset=True,
 )
 async def llm_wiki_glossary_learn(
-    payload: dict[object, object] = _legacy.Body(...),
+    payload: BrainGlossaryRequest = _legacy.Body(...),
 ) -> dict[str, int]:
     """Stores a user-confirmed correction pair (heard → meant): the personal
     glossary the dictation corrector learns from."""
     from backend.services import llm_wiki_assist
 
-    heard = str((payload or {}).get("heard") or "")
-    meant = str((payload or {}).get("meant") or "")
+    heard = str(payload.heard or "")
+    meant = str(payload.meant or "")
     count = await _legacy.asyncio.to_thread(llm_wiki_assist.learn_pair, heard, meant)
     return {"pairs": count}

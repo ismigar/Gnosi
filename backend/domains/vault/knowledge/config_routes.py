@@ -17,6 +17,8 @@ from backend.domains.vault.knowledge.contracts import (
     BrainTableSelectionRequest,
     BrainTableSelectionResponse,
     BrainTableStatusResponse,
+    LlmWikiBrainCreateRequest,
+    LlmWikiConfigUpdateRequest,
     LlmWikiCreatedSettingsResponse,
     LlmWikiSettingsResponse,
 )
@@ -30,9 +32,9 @@ router: APIRouter = _legacy.router
 
 def _contract_payload(
     payload: BaseModel | PageMetadata | None,
-) -> RecordReader:
+) -> PageMetadata:
     if isinstance(payload, BaseModel):
-        return payload.model_dump(exclude_unset=True)
+        return {key: value for key, value in payload.model_dump(exclude_unset=True).items()}
     return payload or {}
 
 
@@ -114,9 +116,13 @@ async def create_brain_table(
     payload: BrainTableCreateRequest | None = _legacy.Body(default=None),
 ) -> dict[str, object]:
     """Create and designate a new Brain table with the knowledge schema."""
+    return await _create_brain_table(_contract_payload(payload))
+
+
+async def _create_brain_table(payload_data: RecordReader) -> dict[str, object]:
+    """Create one Brain table from an already accepted compatibility mapping."""
     from backend.services import llm_wiki_config as bw
 
-    payload_data = _contract_payload(payload)
     locale = str(payload_data.get("ui_locale") or payload_data.get("language") or "en")
     language = locale.split("-", 1)[0].lower()
     name = str(payload_data.get("name") or "").strip() or {
@@ -300,10 +306,12 @@ _LLM_WIKI_CONFIG_DEPENDENCIES = _llm_wiki_configuration.LlmWikiConfigDependencie
     response_model_exclude_unset=True,
 )
 async def put_llm_wiki_config(
-    payload: dict[object, object] = _legacy.Body(...),
+    payload: LlmWikiConfigUpdateRequest = _legacy.Body(...),
 ) -> dict[str, object]:
     """Validate and atomically save Brain, sources, roles, and index fields."""
-    return await _llm_wiki_configuration.put_config(payload, _LLM_WIKI_CONFIG_DEPENDENCIES)
+    return await _llm_wiki_configuration.put_config(
+        _contract_payload(payload), _LLM_WIKI_CONFIG_DEPENDENCIES
+    )
 
 
 @router.post(
@@ -313,11 +321,10 @@ async def put_llm_wiki_config(
     response_model_exclude_unset=True,
 )
 async def create_standard_llm_wiki_brain(
-    payload: dict[object, object] = _legacy.Body(default=None),
+    payload: LlmWikiBrainCreateRequest | None = _legacy.Body(default=None),
 ) -> dict[str, object]:
     """Compatibility-namespaced alias used by the v2 Settings panel."""
-    request = BrainTableCreateRequest.model_validate(payload or {})
-    result = await create_brain_table(request)
+    result = await _create_brain_table(_contract_payload(payload))
     from backend.services import llm_wiki_config
 
     cfg = await _legacy.asyncio.to_thread(llm_wiki_config.load_config)

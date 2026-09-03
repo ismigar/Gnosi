@@ -34,6 +34,28 @@ class BrainTableCreateRequest(BaseModel):
     language: str | None = None
 
 
+class LlmWikiBrainCreateRequest(BaseModel):
+    """Loose 2.x-compatible body for the namespaced Brain creator."""
+
+    name: object | None = None
+    ui_locale: object | None = None
+    language: object | None = None
+
+
+class LlmWikiConfigUpdateRequest(BaseModel):
+    """Known persisted settings without pre-empting legacy normalization."""
+
+    version: object | None = None
+    ui_locale: object | None = None
+    brain_table_id: object | None = None
+    target_table: object | None = None
+    source_tables: object | None = None
+    index_field_ids: object | None = None
+    brain_roles: object | None = None
+    source_contract_revision: object | None = None
+    configured: object | None = None
+
+
 class BrainTableCreateResponse(BaseModel):
     table_id: str
     configured: Literal[True]
@@ -127,8 +149,10 @@ __all__ = [
     "BrainTableSelectionResponse",
     "BrainTableStatusResponse",
     "LlmWikiBrainResponse",
+    "LlmWikiBrainCreateRequest",
     "LlmWikiCapabilitiesResponse",
     "LlmWikiConfigResponse",
+    "LlmWikiConfigUpdateRequest",
     "LlmWikiCreatedSettingsResponse",
     "LlmWikiSettingsDocument",
     "LlmWikiSettingsOptionResponse",
