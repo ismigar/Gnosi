@@ -13,9 +13,13 @@ from __future__ import annotations
 import os
 import time
 import uuid as _uuid
+from collections.abc import Iterator
 
 import pytest
 import requests
+
+from backend.domains.vault.registry.records import is_record
+from backend.tests.live_e2e_cleanup import cleanup_live_test_page
 
 BACKEND = os.environ.get("GNOSI_BACKEND_URL", "http://127.0.0.1:5002")
 RUN_LIVE_E2E = os.environ.get("GNOSI_RUN_LIVE_E2E", "").strip().lower() in {
@@ -37,8 +41,8 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.fixture
-def page_id():
-    """Create a throwaway page and yield its id; delete after the test."""
+def page_id() -> Iterator[str]:
+    """Create a throwaway page and permanently remove it after the test."""
     pid = str(_uuid.uuid4())
     payload = {
         "title": f"pytest-etag-{pid[:8]}",
@@ -48,26 +52,33 @@ def page_id():
     r = requests.put(f"{BACKEND}/api/vault/pages/{pid}", json=payload, timeout=30)
     r.raise_for_status()
     yield pid
+
+    def _delete(url: str) -> requests.Response:
+        return requests.delete(url, timeout=5)
+
     try:
-        requests.delete(f"{BACKEND}/api/vault/pages/{pid}", timeout=5)
+        cleanup_live_test_page(BACKEND, pid, _delete)
     except Exception:
         pass
 
 
-def _get(pid):
+def _get(pid: str) -> dict[object, object]:
     r = requests.get(f"{BACKEND}/api/vault/pages/{pid}", timeout=5)
     r.raise_for_status()
-    return r.json()
+    payload: object = r.json()
+    assert is_record(payload)
+    return payload
 
 
-def test_etag_present_in_get_response(page_id):
+def test_etag_present_in_get_response(page_id: str) -> None:
     page = _get(page_id)
     assert page.get("etag"), "GET /pages/{id} should return an etag"
 
 
-def test_save_with_correct_etag_succeeds(page_id):
+def test_save_with_correct_etag_succeeds(page_id: str) -> None:
     page = _get(page_id)
     etag = page["etag"]
+    assert isinstance(etag, str)
     payload = {
         "title": page["title"],
         "content": "edited body v2",
@@ -76,14 +87,17 @@ def test_save_with_correct_etag_succeeds(page_id):
     }
     r = requests.put(f"{BACKEND}/api/vault/pages/{page_id}", json=payload, timeout=10)
     assert r.status_code == 200, r.text
-    new_etag = r.json().get("etag")
+    response_payload: object = r.json()
+    assert is_record(response_payload)
+    new_etag = response_payload.get("etag")
     assert new_etag and new_etag != etag, "save response must include refreshed etag"
 
 
-def test_save_with_stale_etag_returns_409(page_id):
+def test_save_with_stale_etag_returns_409(page_id: str) -> None:
     """Simulate concurrent edit by saving once, then re-saving with the OLD etag."""
     page = _get(page_id)
     old_etag = page["etag"]
+    assert isinstance(old_etag, str)
     # First save bumps the etag
     requests.put(
         f"{BACKEND}/api/vault/pages/{page_id}",
@@ -103,12 +117,15 @@ def test_save_with_stale_etag_returns_409(page_id):
         timeout=30,
     )
     assert r.status_code == 409, f"expected 409 etag_mismatch; got {r.status_code} {r.text}"
-    detail = r.json().get("detail", {})
+    response_payload: object = r.json()
+    assert is_record(response_payload)
+    detail = response_payload.get("detail")
+    assert is_record(detail)
     assert detail.get("error") == "etag_mismatch"
     assert "current_etag" in detail
 
 
-def test_force_overrides_etag_check(page_id):
+def test_force_overrides_etag_check(page_id: str) -> None:
     page = _get(page_id)
     # Save once (so we know the next etag would mismatch)
     requests.put(
@@ -133,7 +150,7 @@ def test_force_overrides_etag_check(page_id):
     assert r.status_code == 200, r.text
 
 
-def test_save_without_expected_etag_skips_check(page_id):
+def test_save_without_expected_etag_skips_check(page_id: str) -> None:
     """Backwards compat: clients that don't send expected_etag still work."""
     page = _get(page_id)
     r = requests.put(

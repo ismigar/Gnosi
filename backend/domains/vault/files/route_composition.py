@@ -266,7 +266,6 @@ _legacy.trash_api.configure(
         remove_page_index=lambda page_id, path: _remove_page_from_index_cache(page_id, path),
         emit_page_deleted=_emit_page_deleted_event,
         materialize_sidecar=lambda page_id: _materialize_trash_sidecar(page_id),
-        materialize_all_sidecars=lambda: _materialize_all_trash_sidecars(),
         restore_page=lambda page_id: _restore_page_from_trash(page_id),
         add_page_index=lambda path: _add_page_to_index_cache(path),
         vault_root=lambda: _legacy.get_p("VAULT"),

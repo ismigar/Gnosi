@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import logging
 import shutil
@@ -24,6 +25,25 @@ class JsonWriter(Protocol):
 
 
 log = logging.getLogger(__name__)
+
+_TRANSIENT_CLOUD_ERRNOS = frozenset({errno.EAGAIN, errno.EDEADLK})
+
+
+def _metadata_unavailable(entry_dir: Path) -> TrashMetadata:
+    """Represent a recoverable entry whose small sidecar is not local yet."""
+    return {
+        "id": entry_dir.name,
+        "title": "(sense metadades)",
+        "deleted_at": None,
+    }
+
+
+def _corrupt_metadata(entry_dir: Path) -> TrashMetadata:
+    return {
+        "id": entry_dir.name,
+        "title": "(corrupt)",
+        "deleted_at": None,
+    }
 
 
 class TrashRepository:
@@ -160,23 +180,40 @@ class TrashRepository:
             if not entry_dir.is_dir():
                 continue
             sidecar_path = entry_dir / "_trash.json"
-            if sidecar_path.exists():
-                try:
-                    loaded: object = json.loads(sidecar_path.read_text(encoding="utf-8"))
-                    data = dict(loaded) if is_record(loaded) else {}
-                except (OSError, json.JSONDecodeError) as exc:
-                    log.warning("Corrupt sidecar at %s: %s", entry_dir, exc)
-                    data = {
-                        "id": entry_dir.name,
-                        "title": "(corrupt)",
-                        "deleted_at": None,
-                    }
+            try:
+                sidecar_stat = sidecar_path.stat()
+            except FileNotFoundError:
+                data = _metadata_unavailable(entry_dir)
+            except OSError as exc:
+                if exc.errno in _TRANSIENT_CLOUD_ERRNOS:
+                    data = _metadata_unavailable(entry_dir)
+                else:
+                    log.warning("Could not inspect sidecar at %s: %s", entry_dir, exc)
+                    data = _corrupt_metadata(entry_dir)
             else:
-                data = {
-                    "id": entry_dir.name,
-                    "title": "(sense metadades)",
-                    "deleted_at": None,
-                }
+                # macOS File Provider placeholders expose their logical byte
+                # length but occupy zero blocks. Opening hundreds of them here
+                # can block for minutes or raise EDEADLK; exact operations warm
+                # only their selected entry before reading it.
+                online_only = (
+                    sidecar_stat.st_size > 0
+                    and getattr(sidecar_stat, "st_blocks", 1) == 0
+                )
+                if online_only:
+                    data = _metadata_unavailable(entry_dir)
+                else:
+                    try:
+                        loaded: object = json.loads(sidecar_path.read_text(encoding="utf-8"))
+                        data = dict(loaded) if is_record(loaded) else {}
+                    except OSError as exc:
+                        if exc.errno in _TRANSIENT_CLOUD_ERRNOS:
+                            data = _metadata_unavailable(entry_dir)
+                        else:
+                            log.warning("Corrupt sidecar at %s: %s", entry_dir, exc)
+                            data = _corrupt_metadata(entry_dir)
+                    except json.JSONDecodeError as exc:
+                        log.warning("Corrupt sidecar at %s: %s", entry_dir, exc)
+                        data = _corrupt_metadata(entry_dir)
 
             days_remaining: int | None = None
             if data.get("deleted_at"):

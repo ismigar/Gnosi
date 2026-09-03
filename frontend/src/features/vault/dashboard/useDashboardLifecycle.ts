@@ -7,6 +7,7 @@ import type { DashboardActions } from './useDashboardActions';
 export function useDashboardLifecycle(context: DashboardActions) {
     const { nestedPath, registry, activeTableId, visibleTableRecordsById, pages, loading, isRegistryLoading, activeTabId, viewMode, editLockedByPageId, activeLoadAbortRef, pageRequestAbortersRef, fetchPagesRetryTimerRef } = context;
     const initializedRef = useRef(false);
+    const synchronizedPathRef = useRef<string | undefined>(undefined);
     const initialize = useEffectEvent(() => {
         void context.fetchPages();
         void context.fetchRegistry();
@@ -79,7 +80,15 @@ export function useDashboardLifecycle(context: DashboardActions) {
             }
         }
     });
-    useEffect(() => { synchronizeRoute(); }, [nestedPath, registry.tables]);
+    useEffect(() => {
+        const pathChanged = synchronizedPathRef.current !== nestedPath;
+        synchronizedPathRef.current = nestedPath;
+        // Registry hydration must retry direct table/view routes, but it must
+        // not reset a special root view the user selected while bootstrapping.
+        if (!nestedPath && !pathChanged)
+            return;
+        synchronizeRoute();
+    }, [nestedPath, registry.tables]);
     const refreshActiveTable = useEffectEvent(() => {
         if (activeTableId)
             void context.fetchPagesByTable(activeTableId);

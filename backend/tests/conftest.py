@@ -7,11 +7,23 @@ piling up in the vault sidebar over time.
 """
 from __future__ import annotations
 
+import logging
 import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 import requests
+
+from backend.tests.live_e2e_cleanup import (
+    cleanup_live_test_page,
+    select_owned_active_page_ids,
+    select_owned_trash_entry_ids,
+    unique_page_ids,
+)
+
+
+log = logging.getLogger(__name__)
 
 BACKEND = os.environ.get("GNOSI_BACKEND_URL", "http://127.0.0.1:5002")
 RUN_LIVE_E2E = os.environ.get("GNOSI_RUN_LIVE_E2E", "").strip().lower() in {
@@ -64,41 +76,53 @@ def _backend_alive() -> bool:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _cleanup_pytest_pages():
-    """Remove `pytest-*` titled pages after the whole session finishes.
+def _cleanup_pytest_pages() -> Iterator[None]:
+    """Permanently remove artifacts owned by known opt-in live tests.
 
     This is a safety net: each test's own fixture should still try to clean
     up its own page, but if a previous run crashed those orphans accumulate
-    in the vault. We only delete pages whose title starts with `pytest-`
-    so user content is never affected.
+    in the Vault or its Trash. Selection requires an exact known title shape,
+    a valid UUID, and—for Trash entries—the matching original filename.
     """
     yield
 
     if not RUN_LIVE_E2E or not _backend_alive():
         return
 
+    active_ids: list[str] = []
+    trash_ids: list[str] = []
     try:
-        r = requests.get(f"{BACKEND}/api/vault/pages", headers=AUTH_HEADERS, timeout=15)
-        r.raise_for_status()
-        pages = r.json()
-    except Exception:
-        return
+        response = requests.get(
+            f"{BACKEND}/api/vault/pages", headers=AUTH_HEADERS, timeout=15
+        )
+        response.raise_for_status()
+        active_ids = select_owned_active_page_ids(response.json())
+    except Exception as exc:
+        log.warning("Could not inspect live-test pages for cleanup: %s", exc)
+
+    try:
+        response = requests.get(
+            f"{BACKEND}/api/vault/trash", headers=AUTH_HEADERS, timeout=15
+        )
+        response.raise_for_status()
+        trash_ids = select_owned_trash_entry_ids(response.json())
+    except Exception as exc:
+        log.warning("Could not inspect live-test Trash entries for cleanup: %s", exc)
+
+    def _delete(url: str) -> requests.Response:
+        return requests.delete(
+            url,
+            headers=AUTH_HEADERS,
+            timeout=5,
+        )
 
     removed = 0
-    for page in pages:
-        title = (page.get("title") or "")
-        if not title.startswith("pytest-"):
-            continue
-        page_id = page.get("id")
-        if not page_id:
-            continue
+    for page_id in unique_page_ids([active_ids, trash_ids]):
         try:
-            requests.delete(
-                f"{BACKEND}/api/vault/pages/{page_id}", headers=AUTH_HEADERS, timeout=5
-            )
+            cleanup_live_test_page(BACKEND, page_id, _delete)
             removed += 1
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("Could not remove live-test page %s: %s", page_id, exc)
 
     if removed:
-        print(f"\n[conftest] Cleaned up {removed} leftover pytest-* pages.")
+        log.info("Cleaned up %d proven live-test page artifacts", removed)
