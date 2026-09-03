@@ -1,4 +1,4 @@
-import { act, type ReactNode } from 'react';
+import { act, StrictMode, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import AgentChat from '../AgentChat';
@@ -8,6 +8,12 @@ const mocks = vi.hoisted(() => ({
   stream: vi.fn<typeof fetch>(),
   transport: vi.fn<typeof fetch>(),
   conversation: vi.fn<() => Promise<{ messages: { role: string; content: string; turn_id: string }[] }>>(),
+  configuration: vi.fn(() => Promise.resolve({ ai: {
+    active_agent_id: 'gnosy', agents: [{ id: 'gnosy', name: 'Test Copilot', provider: 'fixture', model: 'fixture', icon: 'G' }],
+  } })),
+  databases: vi.fn(() => Promise.resolve([])),
+  pages: vi.fn(() => Promise.resolve([])),
+  tables: vi.fn(() => Promise.resolve([])),
   t: (key: string, fallback?: unknown): string => typeof fallback === 'string' ? fallback : key,
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: mocks.t, i18n: { language: 'en', resolvedLanguage: 'en' } }) }));
@@ -15,10 +21,8 @@ vi.mock('lucide-react/dynamic', () => ({ iconNames: [], DynamicIcon: () => null 
 vi.mock('../../../shared/api/specialized-transports', () => ({ streamFetch: mocks.stream }));
 vi.mock('../../../shared/api/transports', () => ({ transportFetch: mocks.transport }));
 vi.mock('../../../shared/api/notebooks', () => ({ fetchNotebookConversation: mocks.conversation }));
-vi.mock('../../../shared/api/configuration', () => ({ fetchConfiguration: () => Promise.resolve({ ai: {
-  active_agent_id: 'gnosy', agents: [{ id: 'gnosy', name: 'Test Copilot', provider: 'fixture', model: 'fixture', icon: 'G' }],
-} }) }));
-vi.mock('../../../shared/api/vaults', () => ({ fetchVaultPages: () => Promise.resolve([]), fetchVaultTables: () => Promise.resolve([]), fetchVaultDatabases: () => Promise.resolve([]) }));
+vi.mock('../../../shared/api/configuration', () => ({ fetchConfiguration: mocks.configuration }));
+vi.mock('../../../shared/api/vaults', () => ({ fetchVaultPages: mocks.pages, fetchVaultTables: mocks.tables, fetchVaultDatabases: mocks.databases }));
 vi.mock('../../../shared/platform/configEvents', () => ({ useConfigChanged: () => undefined }));
 vi.mock('../../../shared/notifications/toast', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 vi.mock('../../../shared/notifications/notifyError', () => ({ logError: vi.fn(), notifyError: vi.fn() }));
@@ -80,6 +84,21 @@ async function submit(text: string): Promise<void> {
 }
 
 describe('AgentChat shared transport integration', () => {
+  it('defers closed floating-chat catalogs and loads them once when opened under StrictMode', async () => {
+    await render(<StrictMode><AgentChat /></StrictMode>);
+    expect(mocks.configuration).not.toHaveBeenCalled();
+    expect(mocks.pages).not.toHaveBeenCalled();
+    expect(mocks.tables).not.toHaveBeenCalled();
+    expect(mocks.databases).not.toHaveBeenCalled();
+    const openChat = container.querySelector('.premium-chat-trigger');
+    if (!(openChat instanceof HTMLButtonElement)) throw new Error('Missing chat launcher');
+    await act(async () => { openChat.click(); await Promise.resolve(); });
+    expect(mocks.configuration).toHaveBeenCalledTimes(1);
+    expect(mocks.pages).toHaveBeenCalledTimes(1);
+    expect(mocks.tables).toHaveBeenCalledTimes(1);
+    expect(mocks.databases).toHaveBeenCalledTimes(1);
+  });
+
   it('renders split UTF-8 NDJSON and persists the same scoped conversation', async () => {
     mocks.stream.mockImplementation(() => {
       const bytes = new TextEncoder().encode('{"type":"message","sequence":1,"content":"Reunió 🧠"}\n{"type":"done","sequence":2}');

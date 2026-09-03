@@ -30,6 +30,13 @@ describe('dashboard lifecycle and integrations', () => {
     expect(vault.fetchVaultRegistry).toHaveBeenCalledTimes(1);
     expect(harness.current.loading).toBe(false);
   });
+  it('does not duplicate initial catalogs when StrictMode replays mount effects', async () => {
+    harness = await renderController('', undefined, true);
+    expect(vault.fetchVaultPages).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultRegistry).toHaveBeenCalledTimes(1);
+    expect(harness.current.loading).toBe(false);
+    expect(harness.current.isRegistryLoading).toBe(false);
+  });
   it('restores a direct table route with its schema without creating duplicate views', async () => {
     harness = await renderController('table/table/view/main');
     expect(harness.current.activeTableId).toBe('table');

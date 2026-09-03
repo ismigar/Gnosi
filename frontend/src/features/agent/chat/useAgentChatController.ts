@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent, type SyntheticEvent } from 'react';
+import { useState, useRef, useEffect, useEffectEvent, useCallback, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useExclusiveFloatingPanel } from '../../../shared/hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../../../shared/hooks/useFloatingActionDock';
@@ -64,6 +64,7 @@ export function useAgentChatController({
     const processingStartedAtRef = useRef<number | null>(null);
     const historyHydrationRef = useRef(0);
     const activeScopeRef = useRef('');
+    const loadedChatResourcesScopeRef = useRef('');
     const activeVaultStorageScope = readChatStorage('gnosi_active_vault') || 'default';
     const workspaceStorageScope = readChatStorage('gnosi_workspace_id') || 'personal';
     const userStorageScope = (
@@ -138,10 +139,20 @@ export function useAgentChatController({
     const { agentConfig, agentList, loadConfig } =
         useChatConfiguration({ forcedAgentId, selectedAgentId, setSelectedAgentId });
 
-    useEffect(() => {
+    const loadChatResources = useEffectEvent(() => {
         void loadConfig();
         void loadMentionCatalog();
-    }, [loadConfig, loadMentionCatalog]);
+    });
+    useEffect(() => {
+        if (!embedded && !isOpen) {
+            loadedChatResourcesScopeRef.current = '';
+            return;
+        }
+        const scope = `${browserStorageScope}:${forcedAgentId || 'default'}`;
+        if (loadedChatResourcesScopeRef.current === scope) return;
+        loadedChatResourcesScopeRef.current = scope;
+        loadChatResources();
+    }, [browserStorageScope, embedded, forcedAgentId, isOpen]);
 
 
     const { handlePickAttachment, handleAttachmentInputChange, removeAttachment } =

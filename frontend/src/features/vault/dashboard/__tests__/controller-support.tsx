@@ -1,11 +1,15 @@
-import { act, useLayoutEffect, type ReactNode } from 'react';
+import { act, StrictMode, useLayoutEffect, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { createInstance } from 'i18next';
 import { I18nextProvider } from 'react-i18next';
 import { useDashboardController, type DashboardController } from '../useDashboardController';
 import { ACTIVE_VAULT_SLUG_KEY, storageSet } from '../../../../shared/api/vault-context';
-export async function renderController(path = '', render?: (controller: DashboardController) => ReactNode) {
+export async function renderController(
+  path = '',
+  render?: (controller: DashboardController) => ReactNode,
+  strict = false,
+) {
   const i18n = createInstance();
   await i18n.init({ lng: 'en', resources: {}, initImmediate: false, showSupportNotice: false });
   storageSet(ACTIVE_VAULT_SLUG_KEY, 'dashboard-test');
@@ -18,13 +22,14 @@ export async function renderController(path = '', render?: (controller: Dashboar
     useLayoutEffect(() => { current = result; });
     return render ? render(result) : <div data-testid="mode">{result.viewMode}</div>;
   }
-  await act(async () => {
-    root.render(<I18nextProvider i18n={i18n}><MemoryRouter initialEntries={[`/@dashboard-test/knowledge/${path}`]}>
+  const tree = <I18nextProvider i18n={i18n}><MemoryRouter initialEntries={[`/@dashboard-test/knowledge/${path}`]}>
       <Routes><Route
         path="/@dashboard-test/knowledge/*"
         element={<ControllerHarness />}
       /></Routes>
-    </MemoryRouter></I18nextProvider>);
+    </MemoryRouter></I18nextProvider>;
+  await act(async () => {
+    root.render(strict ? <StrictMode>{tree}</StrictMode> : tree);
     await Promise.resolve();
   });
   return {
