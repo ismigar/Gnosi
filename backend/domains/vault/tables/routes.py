@@ -14,10 +14,15 @@ from backend.domains.vault.tables import options as table_options
 from backend.domains.vault.tables import schema as table_schema
 from backend.domains.vault.tables.composition import TableDomainDependencies
 from backend.domains.vault.tables.contracts import (
+    DatabaseUpsertRequest,
     OptionCatalogDeleteResponse,
     RegistryRecord,
+    TableOptionRemoveRequest,
+    TableOptionRenameRequest,
     TablePropertyPatchRequest,
     TablePropertyPatchResponse,
+    TableRenameRequest,
+    TableUpsertRequest,
 )
 from backend.domains.vault.tables.security import get_workspace_context, require_role
 from backend.domains.vault.views import api as vault_views
@@ -68,8 +73,11 @@ async def list_databases() -> list[RegistryData]:
     dependencies=[Depends(require_role("editor"))],
     response_model=RegistryRecord,
 )
-async def create_database(db: RegistryData = Body(...)) -> RegistryData:
-    return await table_collection_api.create_database(db, _configured().collections)
+async def create_database(db: DatabaseUpsertRequest = Body(...)) -> RegistryData:
+    return await table_collection_api.create_database(
+        db.registry_data(),
+        _configured().collections,
+    )
 
 
 @router.delete(
@@ -105,8 +113,11 @@ def _ensure_main_view(
     dependencies=[Depends(require_role("editor"))],
     response_model=RegistryRecord,
 )
-async def create_table(table: RegistryData = Body(...)) -> RegistryData:
-    return await table_lifecycle.create_table(table, _configured().create_table)
+async def create_table(table: TableUpsertRequest = Body(...)) -> RegistryData:
+    return await table_lifecycle.create_table(
+        table.registry_data(),
+        _configured().create_table,
+    )
 
 
 def _table_schema_signature(properties: object) -> str:
@@ -170,11 +181,11 @@ async def delete_table(
 )
 async def rename_table(
     table_id: str,
-    data: RegistryData = Body(...),
+    data: TableRenameRequest = Body(...),
 ) -> RegistryData:
     return await table_lifecycle.rename_table(
         table_id,
-        data,
+        data.registry_data(),
         _configured().rename_table,
     )
 
@@ -320,7 +331,7 @@ async def table_option_usage(table_id: str, field_id: str) -> RegistryData:
 )
 async def rename_table_option(
     table_id: str,
-    payload: RegistryData = Body(...),
+    payload: TableOptionRenameRequest = Body(...),
 ) -> RegistryData:
     """Renames an option in the catalog AND in all rows that use it (the
     values are persisted by name → eager rewrite of the affected .md files).
@@ -330,7 +341,7 @@ async def rename_table_option(
     """
     return await table_options.rename_table_option(
         table_id,
-        payload,
+        payload.registry_data(),
         _configured().options,
     )
 
@@ -342,7 +353,7 @@ async def rename_table_option(
 )
 async def remove_table_option(
     table_id: str,
-    payload: RegistryData = Body(...),
+    payload: TableOptionRemoveRequest = Body(...),
 ) -> RegistryData:
     """Deletes an option from the catalog and from ALL rows that use it, clearing
     the value or REASSIGNING it to another option (Notion-style).
@@ -352,7 +363,7 @@ async def remove_table_option(
     """
     return await table_options.remove_table_option(
         table_id,
-        payload,
+        payload.registry_data(),
         _configured().options,
     )
 

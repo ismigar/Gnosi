@@ -56,6 +56,14 @@ def _registry_items(registry: RegistryData, key: str) -> list[RegistryData]:
     return [item for item in iterable_values(raw_items) if is_record(item)]
 
 
+def _legacy_field_reference(payload: RegistryData) -> str:
+    """Retain the 2.x direct ``.strip()`` contract for JSON field selectors."""
+    value = payload.get("field_id") or payload.get("field") or ""
+    if not isinstance(value, str):
+        raise AttributeError(f"'{type(value).__name__}' object has no attribute 'strip'")
+    return value.strip()
+
+
 def find_table_and_property(
     registry: RegistryData,
     table_id: str,
@@ -323,7 +331,7 @@ async def rename_table_option(
     payload: RegistryData,
     dependencies: OptionDependencies,
 ) -> RegistryData:
-    field_reference = str(payload.get("field_id") or payload.get("field") or "").strip()
+    field_reference = _legacy_field_reference(payload)
     old = str(payload.get("old") or "").strip()
     new = str(payload.get("new") or "").strip()
     if not field_reference or not old or not new:
@@ -418,7 +426,7 @@ async def remove_table_option(
     payload: RegistryData,
     dependencies: OptionDependencies,
 ) -> RegistryData:
-    field_reference = str(payload.get("field_id") or payload.get("field") or "").strip()
+    field_reference = _legacy_field_reference(payload)
     value = str(payload.get("value") or "").strip()
     reassign_to = str(payload.get("reassign_to") or "").strip() or None
     if not field_reference or not value:
